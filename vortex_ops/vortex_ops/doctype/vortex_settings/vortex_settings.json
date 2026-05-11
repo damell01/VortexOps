@@ -1,0 +1,130 @@
+{
+ "actions": [],
+ "creation": "2025-05-10 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "brand_name",
+  "logo_url",
+  "cb1",
+  "primary_color",
+  "login_tagline",
+  "sb_email",
+  "email_footer_text",
+  "sb_ai",
+  "ai_enabled",
+  "cb_ai",
+  "ollama_url",
+  "ollama_model"
+ ],
+ "fields": [
+  {
+   "fieldname": "brand_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Brand Name",
+   "reqd": 1,
+   "description": "Shown in the app header, emails, login page, and browser tab."
+  },
+  {
+   "fieldname": "logo_url",
+   "fieldtype": "Attach Image",
+   "label": "Brand Logo",
+   "description": "Upload your logo. Displayed in the navbar and login page."
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "primary_color",
+   "fieldtype": "Color",
+   "label": "Primary Color",
+   "description": "Accent color for buttons, active links, and highlights. Default: #E8630A"
+  },
+  {
+   "fieldname": "login_tagline",
+   "fieldtype": "Small Text",
+   "label": "Login Page Tagline",
+   "description": "Short text shown below the brand name on the login page."
+  },
+  {
+   "fieldname": "sb_email",
+   "fieldtype": "Section Break",
+   "label": "Email Settings"
+  },
+  {
+   "fieldname": "email_footer_text",
+   "fieldtype": "Small Text",
+   "label": "Email Footer Text",
+   "description": "Appears at the bottom of all system emails (password reset, notifications, etc.). Leave blank to use the brand name."
+  },
+  {
+   "fieldname": "sb_ai",
+   "fieldtype": "Section Break",
+   "label": "AI Settings (Ollama)"
+  },
+  {
+   "fieldname": "ai_enabled",
+   "fieldtype": "Check",
+   "label": "Enable AI Features",
+   "default": "1",
+   "description": "Enables anomaly detection, product matching, low-stock predictions, and stream summaries. Requires Ollama to be running."
+  },
+  {
+   "fieldname": "cb_ai",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ollama_url",
+   "fieldtype": "Data",
+   "label": "Ollama URL",
+   "default": "http://localhost:11434",
+   "description": "Ollama API base URL. Change only if Ollama runs on a remote host or non-default port."
+  },
+  {
+   "fieldname": "ollama_model",
+   "fieldtype": "Data",
+   "label": "Ollama Model",
+   "default": "llama3.1:8b",
+   "description": "Model name for all AI tasks. Run 'ollama pull &lt;model&gt;' on the server to download. Recommended: llama3.1:8b (8 GB RAM) or llama3.1:70b (32 GB RAM)."
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-05-10 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Vortex Ops",
+ "name": "Vortex Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 0,
+   "role": "Vortex Admin",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 0,
+   "print": 1,
+   "read": 1,
+   "report": 0,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

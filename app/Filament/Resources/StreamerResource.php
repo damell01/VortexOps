@@ -1,0 +1,175 @@
+<?php
+
+namespace App\Filament\Resources;
+
+use App\Filament\Resources\StreamerResource\Pages;
+use App\Models\Streamer;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Tables\Actions\BulkActionGroup;
+use Filament\Tables\Actions\DeleteBulkAction;
+use Filament\Tables\Actions\EditAction;
+use Filament\Tables\Actions\ViewAction;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
+
+class StreamerResource extends Resource
+{
+    protected static ?string $model = Streamer::class;
+
+    public static function getNavigationIcon(): string|\BackedEnum|null
+    {
+        return 'heroicon-o-user-group';
+    }
+
+    public static function getNavigationGroup(): string|\UnitEnum|null
+    {
+        return 'Operations';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 1;
+    }
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema->components([
+            Section::make('Basic Information')->schema([
+                Grid::make(2)->schema([
+                    TextInput::make('name')
+                        ->required()
+                        ->maxLength(255),
+                    TextInput::make('legal_name')
+                        ->maxLength(255),
+                    TextInput::make('email')
+                        ->email()
+                        ->maxLength(255),
+                    TextInput::make('phone')
+                        ->tel()
+                        ->maxLength(50),
+                ]),
+            ]),
+
+            Section::make('Payout Configuration')->schema([
+                Grid::make(2)->schema([
+                    Select::make('payout_type')
+                        ->options(Streamer::payoutTypeLabels())
+                        ->required()
+                        ->live(),
+                    TextInput::make('payout_percentage')
+                        ->numeric()
+                        ->suffix('%')
+                        ->visible(fn ($get) => $get('payout_type') === 'profit_share'),
+                    TextInput::make('package_rate')
+                        ->numeric()
+                        ->prefix('$')
+                        ->visible(fn ($get) => $get('payout_type') === 'package'),
+                    TextInput::make('hourly_rate')
+                        ->numeric()
+                        ->prefix('$')
+                        ->suffix('/hr')
+                        ->visible(fn ($get) => $get('payout_type') === 'hourly'),
+                    Toggle::make('include_tips')
+                        ->default(true),
+                    TextInput::make('adp_employee_id')
+                        ->label('ADP Employee ID')
+                        ->maxLength(100),
+                ]),
+            ]),
+
+            Section::make('Status & Notes')->schema([
+                Grid::make(2)->schema([
+                    Select::make('status')
+                        ->options(Streamer::statusLabels())
+                        ->required()
+                        ->default('active'),
+                ]),
+                Textarea::make('notes')
+                    ->rows(3)
+                    ->columnSpanFull(),
+            ]),
+        ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                TextColumn::make('name')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('email')
+                    ->searchable()
+                    ->toggleable(),
+                TextColumn::make('payout_type')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => Streamer::payoutTypeLabels()[$state] ?? $state)
+                    ->color(fn ($state) => match ($state) {
+                        'profit_share' => 'success',
+                        'package' => 'info',
+                        'hourly' => 'warning',
+                        'flat_rate' => 'gray',
+                        default => 'gray',
+                    }),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => Streamer::statusLabels()[$state] ?? $state)
+                    ->color(fn ($state) => match ($state) {
+                        'active' => 'success',
+                        'inactive' => 'danger',
+                        'on_leave' => 'warning',
+                        default => 'gray',
+                    }),
+                IconColumn::make('include_tips')
+                    ->boolean()
+                    ->label('Tips'),
+                TextColumn::make('inventoryLocations_count')
+                    ->counts('inventoryLocations')
+                    ->label('Locations'),
+                TextColumn::make('updated_at')
+                    ->dateTime()
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                SelectFilter::make('status')
+                    ->options(Streamer::statusLabels()),
+                SelectFilter::make('payout_type')
+                    ->options(Streamer::payoutTypeLabels()),
+            ])
+            ->actions([
+                ViewAction::make(),
+                EditAction::make(),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
+                ]),
+            ])
+            ->defaultSort('name');
+    }
+
+    public static function getRelations(): array
+    {
+        return [];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListStreamers::route('/'),
+            'create' => Pages\CreateStreamer::route('/create'),
+            'view' => Pages\ViewStreamer::route('/{record}'),
+            'edit' => Pages\EditStreamer::route('/{record}/edit'),
+        ];
+    }
+}

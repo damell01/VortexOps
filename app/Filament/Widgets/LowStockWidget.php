@@ -7,7 +7,6 @@ use App\Models\InventoryItem;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
-use Illuminate\Database\Eloquent\Builder;
 
 class LowStockWidget extends BaseWidget
 {
@@ -20,6 +19,7 @@ class LowStockWidget extends BaseWidget
         return $table
             ->query(
                 InventoryItem::query()
+                    ->with('stock')
                     ->where('is_active', true)
                     ->whereNotNull('reorder_level')
                     ->whereExists(function ($query) {
@@ -42,7 +42,10 @@ class LowStockWidget extends BaseWidget
                     ->placeholder('—'),
                 TextColumn::make('total_qty')
                     ->label('Current Qty')
-                    ->getStateUsing(fn ($record) => number_format($record->totalQuantity(), 0))
+                    ->getStateUsing(fn ($record) => number_format(
+                        $record->stock->sum('quantity'),
+                        0
+                    ))
                     ->color('danger'),
                 TextColumn::make('reorder_level')
                     ->label('Reorder At'),

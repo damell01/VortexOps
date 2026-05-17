@@ -35,7 +35,32 @@ class InventoryMovementResource extends Resource
         return 'Movement Log';
     }
 
+    public static function getModelLabel(): string
+    {
+        return 'Movement';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Movement Log';
+    }
+
     public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
     {
         return false;
     }

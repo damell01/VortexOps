@@ -56,6 +56,24 @@ class InventoryLocationResource extends Resource
         return 2;
     }
 
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name'];
+    }
+
+    public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        return $record->name;
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return array_filter([
+            'Type'     => InventoryLocation::typeLabels()[$record->type] ?? $record->type,
+            'Streamer' => $record->streamer?->name,
+        ]);
+    }
+
     public static function getNavigationLabel(): string
     {
         return 'Locations';

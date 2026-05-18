@@ -86,13 +86,24 @@ class InventoryService
                 ['quantity' => 0]
             );
 
-            $diff = $newQuantity - $stock->quantity;
+            $diff = $newQuantity - (float) $stock->quantity;
+
+            if ($diff == 0) {
+                return new InventoryMovement([
+                    'inventory_item_id' => $item->id,
+                    'quantity' => 0,
+                    'movement_type' => 'adjustment',
+                    'reason' => 'No change — quantity already at ' . $newQuantity,
+                    'created_by' => Auth::id(),
+                ]);
+            }
+
             $stock->update(['quantity' => $newQuantity]);
 
             return InventoryMovement::create([
                 'inventory_item_id' => $item->id,
                 'from_location_id' => $diff < 0 ? $location->id : null,
-                'to_location_id' => $diff >= 0 ? $location->id : null,
+                'to_location_id' => $diff > 0 ? $location->id : null,
                 'quantity' => abs($diff),
                 'movement_type' => 'adjustment',
                 'reason' => $reason ?? 'Manual adjustment',

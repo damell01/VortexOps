@@ -6,7 +6,7 @@ use App\Filament\Resources\InventoryMovementResource\Pages;
 use App\Models\InventoryMovement;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Tables\Actions\ViewAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -35,7 +35,32 @@ class InventoryMovementResource extends Resource
         return 'Movement Log';
     }
 
+    public static function getModelLabel(): string
+    {
+        return 'Movement';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Movement Log';
+    }
+
     public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
     {
         return false;
     }

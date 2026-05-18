@@ -4,10 +4,10 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Resources\InventoryLocationResource;
 use App\Models\InventoryLocation;
-use App\Models\InventoryStock;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
+use Illuminate\Database\Query\JoinClause;
 
 class InventoryByLocationWidget extends BaseWidget
 {
@@ -20,8 +20,14 @@ class InventoryByLocationWidget extends BaseWidget
         return $table
             ->query(
                 InventoryLocation::query()
-                    ->where('status', 'active')
-                    ->withCount('stock')
+                    ->select('inventory_locations.*')
+                    ->selectRaw('COUNT(DISTINCT s.inventory_item_id) as sku_count')
+                    ->selectRaw('COALESCE(SUM(s.quantity), 0) as total_units')
+                    ->selectRaw('COALESCE(SUM(s.quantity * i.unit_cost), 0) as stock_value')
+                    ->leftJoin('inventory_stock as s', 's.inventory_location_id', '=', 'inventory_locations.id')
+                    ->leftJoin('inventory_items as i', 'i.id', '=', 's.inventory_item_id')
+                    ->groupBy('inventory_locations.id')
+                    ->where('inventory_locations.status', 'active')
                     ->with('streamer')
             )
             ->columns([
@@ -41,23 +47,15 @@ class InventoryByLocationWidget extends BaseWidget
                 TextColumn::make('streamer.name')
                     ->label('Streamer')
                     ->placeholder('—'),
-                TextColumn::make('stock_count')
-                    ->label('SKUs'),
+                TextColumn::make('sku_count')
+                    ->label('SKUs')
+                    ->getStateUsing(fn ($record) => $record->sku_count ?? 0),
                 TextColumn::make('total_units')
                     ->label('Total Units')
-                    ->getStateUsing(fn ($record) => number_format(
-                        InventoryStock::where('inventory_location_id', $record->id)->sum('quantity'),
-                        0
-                    )),
+                    ->getStateUsing(fn ($record) => number_format($record->total_units ?? 0, 0)),
                 TextColumn::make('stock_value')
                     ->label('Est. Value')
-                    ->getStateUsing(fn ($record) => '$' . number_format(
-                        InventoryStock::where('inventory_location_id', $record->id)
-                            ->join('inventory_items', 'inventory_stock.inventory_item_id', '=', 'inventory_items.id')
-                            ->selectRaw('SUM(inventory_stock.quantity * inventory_items.unit_cost) as total')
-                            ->value('total') ?? 0,
-                        2
-                    )),
+                    ->getStateUsing(fn ($record) => '$' . number_format($record->stock_value ?? 0, 2)),
             ])
             ->recordUrl(fn ($record) => InventoryLocationResource::getUrl('view', ['record' => $record]))
             ->paginated(false);

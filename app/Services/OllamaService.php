@@ -83,6 +83,43 @@ class OllamaService
         return $this->send($prompt, $systemText, 'movement_analysis', $context);
     }
 
+    /**
+     * Given a list of sale item names/SKUs, suggest which inventory items they match.
+     * Returns a map of sale item name → ['item_id', 'item_name', 'confidence', 'reasoning']
+     */
+    public function matchSalesToInventory(array $saleItems): array
+    {
+        $inventory = InventoryItem::where('is_active', true)
+            ->select('id', 'sku', 'name', 'category')
+            ->get()
+            ->map(fn ($i) => ['id' => $i->id, 'sku' => $i->sku, 'name' => $i->name, 'category' => $i->category])
+            ->values()
+            ->all();
+
+        $salesList = collect($saleItems)
+            ->map(fn ($s, $i) => ($i + 1) . ". Name: \"{$s['item_name']}\"" . ($s['sku'] ? " | SKU: {$s['sku']}" : ''))
+            ->implode("\n");
+
+        $prompt = "You are a sports card inventory matcher. Match each sale item below to the best inventory item.\n\n"
+            . "Sale items to match:\n{$salesList}\n\n"
+            . "Inventory catalogue:\n" . json_encode($inventory, JSON_PRETTY_PRINT) . "\n\n"
+            . "Respond ONLY with valid JSON: an array where each element is "
+            . "{\"sale_item_name\": \"...\", \"matched_item_id\": 123, \"matched_item_name\": \"...\", \"confidence\": 0.95, \"reasoning\": \"brief reason\"}. "
+            . "Use null for matched_item_id if no reasonable match exists. No markdown, no explanation outside the JSON array.";
+
+        $log = $this->send($prompt, 'You are a precise JSON-only responder.', 'item_matching', []);
+
+        if (!$log->success) {
+            return [];
+        }
+
+        // Strip markdown code fences if the model wrapped it
+        $raw  = trim(preg_replace('/^```(?:json)?\s*|\s*```$/s', '', $log->response ?? ''));
+        $data = json_decode($raw, true);
+
+        return is_array($data) ? $data : [];
+    }
+
     private function send(string $prompt, string $systemText, string $actionType, array $context): AiLog
     {
         $start   = microtime(true);

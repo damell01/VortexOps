@@ -213,6 +213,42 @@ class InventoryService
         });
     }
 
+    public function deductStock(
+        InventoryItem $item,
+        InventoryLocation $location,
+        float $quantity,
+        ?string $reason = null,
+        ?int $referenceId = null
+    ): InventoryMovement {
+        return DB::transaction(function () use ($item, $location, $quantity, $reason, $referenceId) {
+            $stock = InventoryStock::where('inventory_item_id', $item->id)
+                ->where('inventory_location_id', $location->id)
+                ->first();
+
+            if (! $stock || $stock->quantity < $quantity) {
+                throw new \RuntimeException("Insufficient stock at {$location->name}. Available: " . ($stock?->quantity ?? 0));
+            }
+
+            $stock->decrement('quantity', $quantity);
+
+            $movement = InventoryMovement::create([
+                'inventory_item_id' => $item->id,
+                'from_location_id'  => $location->id,
+                'to_location_id'    => null,
+                'quantity'          => $quantity,
+                'movement_type'     => 'sale_deduction',
+                'reason'            => $reason ?? 'Show sale deduction',
+                'reference_type'    => $referenceId ? 'deduction_request' : null,
+                'reference_id'      => $referenceId,
+                'created_by'        => Auth::id(),
+            ]);
+
+            $this->notifyIfLowStock($item);
+
+            return $movement;
+        });
+    }
+
     private function notifyIfLowStock(InventoryItem $item): void
     {
         $item->refresh();

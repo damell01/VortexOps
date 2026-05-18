@@ -23,6 +23,11 @@ class WhatnotChannel extends Model
         return LogOptions::defaults()->logAll()->logOnlyDirty();
     }
 
+    public function shows(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(WhatnotShow::class);
+    }
+
     public static function statusLabels(): array
     {
         return [

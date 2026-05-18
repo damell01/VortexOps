@@ -123,4 +123,6 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    'scraper_api_token' => env('SCRAPER_API_TOKEN'),
+
 ];

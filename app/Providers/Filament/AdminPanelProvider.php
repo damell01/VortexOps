@@ -32,12 +32,9 @@ class AdminPanelProvider extends PanelProvider
                 'primary' => Color::Violet,
             ])
             ->navigationGroups([
-                NavigationGroup::make('Inventory')
-                    ->icon('heroicon-o-archive-box'),
-                NavigationGroup::make('Operations')
-                    ->icon('heroicon-o-bolt'),
+                NavigationGroup::make('Inventory'),
+                NavigationGroup::make('Operations'),
                 NavigationGroup::make('Settings')
-                    ->icon('heroicon-o-cog-6-tooth')
                     ->collapsed(),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')

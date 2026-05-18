@@ -1,58 +1,285 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# VortexOps
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Internal operations platform for **Vortex Breaks** — a Whatnot-based sports card break business.
 
-## About Laravel
+Built with **Laravel 13** + **Filament v5**. Phase 1: Inventory Foundation.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Stack
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Layer | Technology |
+|---|---|
+| Framework | Laravel 13 |
+| Admin panel | Filament v5 |
+| Database | SQLite (dev) / MySQL (prod) |
+| Auth & Roles | Spatie Laravel Permission v7 |
+| Audit log | Spatie Activitylog v5 |
+| Queue | Laravel Queues (database driver) |
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Key design constraints
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+- **Single-tenant only** — not a SaaS platform
+- **Inventory deductions never happen automatically** — every deduction requires explicit approval
+- **Full audit trail** — every inventory change creates an immutable movement record
+- **Whatnot channels are shared** — multiple streamers can work on the same channel
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+---
 
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Getting started
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate --seed
+php artisan db:seed --class=DemoDataSeeder   # optional rich demo data
+php artisan serve
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Admin login: `admin@vortexbreaks.com` / `password`
 
-## Contributing
+---
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Screenshots
 
-## Code of Conduct
+### Login
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+![Login page](docs/screenshots/00-login.png)
 
-## Security Vulnerabilities
+---
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### Dashboard
 
-## License
+The dashboard shows real-time stats across the entire inventory, low-stock alerts, recent movement activity, a per-location breakdown, and active streamers.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+![Dashboard](docs/screenshots/01-dashboard.png)
+
+---
+
+### Inventory Items
+
+#### Items list
+
+All inventory items with category badges, total quantity across all locations, reorder-level warnings, and per-row action menus.
+
+![Items list](docs/screenshots/02-inventory-items-list.png)
+
+#### Filters panel
+
+Filter by category, low-stock threshold, and active/inactive status.
+
+![Items filters](docs/screenshots/03-inventory-items-filters.png)
+
+#### Create item
+
+Form for creating a new inventory item with SKU, name, category, unit cost, and reorder level.
+
+![Create item](docs/screenshots/04-inventory-items-create.png)
+
+#### Item detail
+
+View a single item. The view page provides quick access to all stock operations via the header action button.
+
+![Item detail](docs/screenshots/05-inventory-item-view.png)
+
+---
+
+### Inventory Actions
+
+Each item row has a grouped action menu with five stock operations. All operations are wrapped in database transactions and create mandatory movement log entries.
+
+#### Action menu
+
+![Action dropdown](docs/screenshots/06-inventory-actions-dropdown.png)
+
+#### Add Stock
+
+Add units to any location. Logs a movement record with the selected movement type (opening balance, adjustment, return, etc.).
+
+![Add Stock modal](docs/screenshots/07-add-stock-modal.png)
+
+#### Transfer Stock
+
+Move units between two locations. Creates paired debit/credit movement records.
+
+![Transfer Stock modal](docs/screenshots/08-transfer-stock-modal.png)
+
+#### Adjust Inventory
+
+Set the exact quantity for a location. Computes the delta and logs a positive or negative adjustment movement.
+
+![Adjust Inventory modal](docs/screenshots/09-adjust-inventory-modal.png)
+
+---
+
+### Inventory Locations
+
+#### Locations list
+
+All storage locations with type badges, streamer assignments, and aggregate SKU count.
+
+![Locations list](docs/screenshots/10-inventory-locations-list.png)
+
+#### Create location
+
+Location type drives conditional field visibility — selecting **Streamer Inventory** reveals the streamer assignment field.
+
+![Create location form](docs/screenshots/11-inventory-locations-create.png)
+
+#### Streamer inventory type — conditional field
+
+When the location type is `streamer_inventory`, the streamer selector appears automatically.
+
+![Conditional streamer field](docs/screenshots/12-location-streamer-field.png)
+
+#### Location detail
+
+![Location detail](docs/screenshots/13-inventory-location-view.png)
+
+---
+
+### Stock Levels
+
+Read-only view of every item × location combination showing current quantity, unit cost, and computed stock value. Records cannot be created or deleted here — all changes go through the inventory actions.
+
+![Stock levels](docs/screenshots/14-stock-levels.png)
+
+#### Stock levels filters
+
+Filter by location, item, or quantity range.
+
+![Stock levels filters](docs/screenshots/15-stock-levels-filters.png)
+
+---
+
+### Movement Log
+
+Immutable audit trail. Every stock operation — add, transfer, adjustment, sale deduction, return, damaged — creates a permanent record. Records cannot be created, edited, or deleted through the UI.
+
+![Movement log](docs/screenshots/16-movement-log.png)
+
+#### Movement log filters
+
+Filter movements by type, item, or location.
+
+![Movement log filters](docs/screenshots/17-movement-log-filters.png)
+
+---
+
+### Streamers
+
+#### Streamers list
+
+All streamers with payout type badges, status (active / inactive / on leave), and tips configuration at a glance.
+
+![Streamers list](docs/screenshots/18-streamers-list.png)
+
+#### Create streamer
+
+The payout section uses conditional fields — only the relevant rate fields appear based on the selected payout type.
+
+![Create streamer form](docs/screenshots/19-streamers-create.png)
+
+#### Payout type — Profit Share
+
+Profit share shows the payout percentage field.
+
+![Profit share payout](docs/screenshots/20-streamer-profit-share.png)
+
+#### Payout type — Package Rate
+
+Package rate shows the per-slot package rate field.
+
+![Package rate payout](docs/screenshots/21-streamer-package-rate.png)
+
+#### Payout type — Hourly
+
+Hourly shows the hourly rate field.
+
+![Hourly rate payout](docs/screenshots/22-streamer-hourly-rate.png)
+
+#### Streamer detail
+
+![Streamer detail](docs/screenshots/23-streamer-view.png)
+
+---
+
+### Whatnot Channels
+
+#### Channels list
+
+All company Whatnot channels. Channels are shared — multiple streamers can operate on the same channel.
+
+![Channels list](docs/screenshots/24-whatnot-channels-list.png)
+
+#### Create channel
+
+![Create channel form](docs/screenshots/25-whatnot-channels-create.png)
+
+---
+
+## Data model
+
+```
+Streamer ──< InventoryLocation >──< InventoryStock >── InventoryItem
+                    │                                       │
+                    └──────────────────────────────────────┘
+                                InventoryMovement
+                         (from_location, to_location, qty, type)
+
+WhatnotChannel  (standalone — shared by multiple streamers)
+```
+
+### Movement types
+
+| Type | When created |
+|---|---|
+| `opening` | Initial stock entry |
+| `transfer` | Stock moved between locations |
+| `adjustment` | Quantity corrected |
+| `sale_deduction` | Manual sale deduction (requires approval) |
+| `return` | Item returned to inventory |
+| `damaged` | Item marked as damaged |
+
+---
+
+## Project structure
+
+```
+app/
+├── Filament/
+│   ├── Resources/
+│   │   ├── InventoryItemResource.php       # 5 stock action modals
+│   │   ├── InventoryLocationResource.php
+│   │   ├── InventoryMovementResource.php   # read-only audit log
+│   │   ├── InventoryStockResource.php      # read-only stock view
+│   │   ├── StreamerResource.php
+│   │   └── WhatnotChannelResource.php
+│   └── Widgets/
+│       ├── StatsOverviewWidget.php
+│       ├── LowStockWidget.php
+│       ├── RecentMovementsWidget.php
+│       ├── InventoryByLocationWidget.php
+│       └── ActiveStreamersWidget.php
+├── Models/
+│   ├── InventoryItem.php
+│   ├── InventoryLocation.php
+│   ├── InventoryMovement.php
+│   ├── InventoryStock.php
+│   ├── Streamer.php
+│   └── WhatnotChannel.php
+└── Services/
+    └── InventoryService.php    # all stock operations, DB transactions
+```
+
+---
+
+## Roadmap
+
+- **Phase 2** — Break management (break types, slots, buyers)
+- **Phase 3** — Payout calculation engine
+- **Phase 4** — Whatnot integration (order sync)
+- **Phase 5** — Reporting & analytics

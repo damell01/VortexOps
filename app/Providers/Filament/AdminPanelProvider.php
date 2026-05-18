@@ -25,15 +25,34 @@ class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        return $panel
+        // Read branding from settings (cached 1hr), fall back to defaults on fresh install
+        try {
+            $brandName    = Setting::get('brand_name',    'VortexOps');
+            $primaryColor = Setting::get('primary_color', '#7c3aed');
+            $logoPath     = Setting::get('logo_path');
+        } catch (\Exception) {
+            $brandName    = 'VortexOps';
+            $primaryColor = '#7c3aed';
+            $logoPath     = null;
+        }
+
+        $panel = $panel
             ->default()
             ->id('admin')
             ->path('admin')
             ->login()
-            ->brandName('VortexOps')
+            ->brandName($brandName)
             ->colors([
-                'primary' => Color::Violet,
-            ])
+                'primary' => Color::hex($primaryColor),
+            ]);
+
+        if ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {
+            $panel = $panel
+                ->brandLogo(asset('storage/' . $logoPath))
+                ->brandLogoHeight('2rem');
+        }
+
+        return $panel
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->navigationGroups([

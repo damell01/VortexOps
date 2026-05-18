@@ -12,6 +12,7 @@ class Streamer extends Model
     use LogsActivity;
 
     protected $fillable = [
+        'user_id',
         'name',
         'legal_name',
         'email',
@@ -36,6 +37,11 @@ class Streamer extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()->logAll()->logOnlyDirty();
+    }
+
+    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function inventoryLocations(): HasMany

@@ -31,4 +31,19 @@ class User extends Authenticatable implements FilamentUser
     {
         return true;
     }
+
+    public function streamer(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Streamer::class);
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('admin');
+    }
+
+    public function isStreamer(): bool
+    {
+        return $this->hasRole('streamer');
+    }
 }

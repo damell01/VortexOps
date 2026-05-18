@@ -40,6 +40,12 @@ class StreamerResource extends Resource
         return 1;
     }
 
+    // Streamers cannot manage other streamers
+    public static function canCreate(): bool    { return auth()->user()?->isAdmin() ?? false; }
+    public static function canEdit($r): bool    { return auth()->user()?->isAdmin() ?? false; }
+    public static function canDelete($r): bool  { return auth()->user()?->isAdmin() ?? false; }
+    public static function canDeleteAny(): bool { return auth()->user()?->isAdmin() ?? false; }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([

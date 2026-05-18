@@ -7,6 +7,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\Streamer;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 
@@ -131,6 +132,132 @@ class OllamaService
             . "Use plain text or bullet points. Do not use markdown headers.\n\n"
             . "Current inventory snapshot:\n"
             . json_encode($context, JSON_PRETTY_PRINT);
+    }
+
+    public function detectPageContext(string $path): array
+    {
+        try {
+            // Inventory item detail
+            if (preg_match('#admin/inventory-items/(\d+)#', $path, $m)) {
+                $item = InventoryItem::with(['stock.location', 'movements' => fn ($q) => $q->latest()->limit(5)])->find($m[1]);
+                if ($item) {
+                    return [
+                        'page_type'  => 'inventory_item',
+                        'page_title' => $item->name,
+                        'item' => [
+                            'id'            => $item->id,
+                            'name'          => $item->name,
+                            'sku'           => $item->sku,
+                            'category'      => $item->category,
+                            'unit_cost'     => (float) $item->unit_cost,
+                            'reorder_level' => (float) $item->reorder_level,
+                            'total_qty'     => $item->totalQuantity(),
+                            'is_low_stock'  => $item->isLowStock(),
+                            'stock_by_location' => $item->stock->map(fn ($s) => [
+                                'location' => $s->location?->name ?? 'Unknown',
+                                'qty'      => (float) $s->quantity,
+                            ])->all(),
+                            'recent_movements' => $item->movements->map(fn ($mv) => [
+                                'type'     => $mv->movement_type,
+                                'qty'      => (float) $mv->quantity,
+                                'date'     => $mv->created_at->toDateString(),
+                                'reason'   => $mv->reason,
+                            ])->all(),
+                        ],
+                    ];
+                }
+            }
+
+            // Inventory items list
+            if (str_contains($path, 'admin/inventory-items')) {
+                return [
+                    'page_type'  => 'inventory_items_list',
+                    'page_title' => 'Inventory Items List',
+                    'summary'    => $this->buildInventoryContext(),
+                ];
+            }
+
+            // Location detail
+            if (preg_match('#admin/inventory-locations/(\d+)#', $path, $m)) {
+                $loc = InventoryLocation::with(['stock.item', 'streamer'])->find($m[1]);
+                if ($loc) {
+                    return [
+                        'page_type'  => 'inventory_location',
+                        'page_title' => $loc->name,
+                        'location'   => [
+                            'name'      => $loc->name,
+                            'type'      => $loc->type,
+                            'streamer'  => $loc->streamer?->name,
+                            'sku_count' => $loc->stock->count(),
+                            'stock'     => $loc->stock->map(fn ($s) => [
+                                'item' => $s->item?->name,
+                                'qty'  => (float) $s->quantity,
+                            ])->all(),
+                        ],
+                    ];
+                }
+            }
+
+            // Locations list
+            if (str_contains($path, 'admin/inventory-locations')) {
+                return [
+                    'page_type'  => 'inventory_locations_list',
+                    'page_title' => 'Inventory Locations',
+                    'summary'    => $this->buildInventoryContext(),
+                ];
+            }
+
+            // Streamer detail
+            if (preg_match('#admin/streamers/(\d+)#', $path, $m)) {
+                $streamer = Streamer::with(['locations.stock'])->find($m[1]);
+                if ($streamer) {
+                    return [
+                        'page_type' => 'streamer',
+                        'page_title' => $streamer->name,
+                        'streamer'  => [
+                            'name'               => $streamer->name,
+                            'status'             => $streamer->status,
+                            'payout_type'        => $streamer->payout_type,
+                            'locations'          => $streamer->locations->map(fn ($l) => [
+                                'name'      => $l->name,
+                                'sku_count' => $l->stock->count(),
+                                'total_qty' => $l->stock->sum('quantity'),
+                            ])->all(),
+                        ],
+                    ];
+                }
+            }
+
+            // Movement log
+            if (str_contains($path, 'admin/inventory-movements')) {
+                return [
+                    'page_type'  => 'movement_log',
+                    'page_title' => 'Movement Log',
+                    'summary'    => $this->buildInventoryContext(),
+                ];
+            }
+
+            // Stock levels
+            if (str_contains($path, 'admin/inventory-stocks')) {
+                return [
+                    'page_type'  => 'stock_levels',
+                    'page_title' => 'Stock Levels',
+                    'summary'    => $this->buildInventoryContext(),
+                ];
+            }
+
+            // Dashboard
+            if ($path === 'admin' || $path === 'admin/') {
+                return [
+                    'page_type'  => 'dashboard',
+                    'page_title' => 'Dashboard',
+                    'summary'    => $this->buildInventoryContext(),
+                ];
+            }
+        } catch (\Exception) {
+        }
+
+        return ['page_type' => 'general', 'page_title' => 'VortexOps'];
     }
 
     public function buildInventoryContext(): array

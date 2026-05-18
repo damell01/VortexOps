@@ -31,9 +31,12 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Violet,
             ])
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             ->navigationGroups([
                 NavigationGroup::make('Inventory'),
                 NavigationGroup::make('Operations'),
+                NavigationGroup::make('AI'),
                 NavigationGroup::make('Settings')
                     ->collapsed(),
             ])

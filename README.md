@@ -16,6 +16,7 @@ Built with **Laravel 13** + **Filament v5**. Phase 1: Inventory Foundation.
 | Auth & Roles | Spatie Laravel Permission v7 |
 | Audit log | Spatie Activitylog v5 |
 | Queue | Laravel Queues (database driver) |
+| AI | Ollama (local LLM, no external API) |
 
 ---
 
@@ -218,6 +219,63 @@ All company Whatnot channels. Channels are shared — multiple streamers can ope
 #### Create channel
 
 ![Create channel form](docs/screenshots/25-whatnot-channels-create.png)
+
+---
+
+### Notifications
+
+Database notifications appear in the bell icon in the Filament header (polled every 30 seconds). Two types are dispatched automatically:
+
+- **Low Stock** (warning) — fired after any stock operation (add, transfer, adjust, return) when the item's total quantity falls at or below its reorder level.
+- **Damaged Items** (danger) — fired immediately when units are moved to the damaged location via Mark Damaged.
+
+All notifications are sent to every user in the system and stored in the `notifications` table.
+
+![Dashboard with notification bell](docs/screenshots/01-dashboard.png)
+
+---
+
+### AI Assistant (Ollama)
+
+The AI Assistant connects to a local [Ollama](https://ollama.com) instance and provides inventory intelligence without sending data to any external service.
+
+#### Assistant page
+
+Chat interface with three pre-built quick actions and a free-form question input.
+
+![AI Assistant](docs/screenshots/26-ai-assistant-empty.png)
+
+![AI Assistant with question](docs/screenshots/27-ai-assistant-typed.png)
+
+**Quick actions:**
+| Action | Description |
+|---|---|
+| Inventory Health | Summarises key concerns, urgent items, and one recommendation |
+| Reorder Suggestions | Prioritises low-stock items with estimated reorder quantities |
+| Movement Analysis | Identifies anomalies and high-velocity items from recent movements |
+
+Every AI interaction is logged with the full prompt, response, context snapshot, latency, and the user who triggered it.
+
+#### AI Logs
+
+Read-only audit trail of every AI interaction. View the full prompt and response for any log entry.
+
+![AI Logs](docs/screenshots/28-ai-logs-list.png)
+
+**Setup:**
+
+```bash
+# Install and start Ollama
+ollama serve
+ollama pull llama3.2
+
+# Configure in .env (defaults shown)
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+OLLAMA_TIMEOUT=60
+```
+
+The assistant degrades gracefully if Ollama is offline — the status bar shows a red indicator and the send button remains functional (requests will error and log the failure).
 
 ---
 

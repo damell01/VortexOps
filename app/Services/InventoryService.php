@@ -6,6 +6,8 @@ use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\User;
+use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -26,7 +28,7 @@ class InventoryService
 
             $stock->increment('quantity', $quantity);
 
-            return InventoryMovement::create([
+            $movement = InventoryMovement::create([
                 'inventory_item_id' => $item->id,
                 'from_location_id' => null,
                 'to_location_id' => $location->id,
@@ -35,6 +37,10 @@ class InventoryService
                 'reason' => $reason,
                 'created_by' => Auth::id(),
             ]);
+
+            $this->notifyIfLowStock($item);
+
+            return $movement;
         });
     }
 
@@ -62,7 +68,7 @@ class InventoryService
             );
             $toStock->increment('quantity', $quantity);
 
-            return InventoryMovement::create([
+            $movement = InventoryMovement::create([
                 'inventory_item_id' => $item->id,
                 'from_location_id' => $from->id,
                 'to_location_id' => $to->id,
@@ -71,6 +77,10 @@ class InventoryService
                 'reason' => $reason,
                 'created_by' => Auth::id(),
             ]);
+
+            $this->notifyIfLowStock($item);
+
+            return $movement;
         });
     }
 
@@ -100,7 +110,7 @@ class InventoryService
 
             $stock->update(['quantity' => $newQuantity]);
 
-            return InventoryMovement::create([
+            $movement = InventoryMovement::create([
                 'inventory_item_id' => $item->id,
                 'from_location_id' => $diff < 0 ? $location->id : null,
                 'to_location_id' => $diff > 0 ? $location->id : null,
@@ -109,6 +119,10 @@ class InventoryService
                 'reason' => $reason ?? 'Manual adjustment',
                 'created_by' => Auth::id(),
             ]);
+
+            $this->notifyIfLowStock($item);
+
+            return $movement;
         });
     }
 
@@ -136,7 +150,7 @@ class InventoryService
             );
             $damagedStock->increment('quantity', $quantity);
 
-            return InventoryMovement::create([
+            $movement = InventoryMovement::create([
                 'inventory_item_id' => $item->id,
                 'from_location_id' => $from->id,
                 'to_location_id' => $damagedLocation->id,
@@ -145,6 +159,17 @@ class InventoryService
                 'reason' => $reason,
                 'created_by' => Auth::id(),
             ]);
+
+            Notification::make()
+                ->title('Items Marked Damaged')
+                ->body(number_format($quantity) . 'x ' . $item->name . ' moved to damaged from ' . $from->name)
+                ->danger()
+                ->icon('heroicon-o-fire')
+                ->sendToDatabase(User::all());
+
+            $this->notifyIfLowStock($item);
+
+            return $movement;
         });
     }
 
@@ -172,7 +197,7 @@ class InventoryService
             );
             $returnStock->increment('quantity', $quantity);
 
-            return InventoryMovement::create([
+            $movement = InventoryMovement::create([
                 'inventory_item_id' => $item->id,
                 'from_location_id' => $from->id,
                 'to_location_id' => $returnsLocation->id,
@@ -181,6 +206,27 @@ class InventoryService
                 'reason' => $reason,
                 'created_by' => Auth::id(),
             ]);
+
+            $this->notifyIfLowStock($item);
+
+            return $movement;
         });
+    }
+
+    private function notifyIfLowStock(InventoryItem $item): void
+    {
+        $item->refresh();
+        if (! $item->isLowStock()) {
+            return;
+        }
+
+        $qty = $item->totalQuantity();
+
+        Notification::make()
+            ->title('Low Stock: ' . $item->name)
+            ->body(number_format($qty) . ' units remaining (reorder at ' . number_format((float) $item->reorder_level) . ')')
+            ->warning()
+            ->icon('heroicon-o-exclamation-triangle')
+            ->sendToDatabase(User::all());
     }
 }

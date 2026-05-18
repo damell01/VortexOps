@@ -117,9 +117,10 @@ class UserResource extends Resource
                     ->label('Roles')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        'admin'    => 'danger',
-                        'streamer' => 'info',
-                        default    => 'gray',
+                        'super_admin' => 'warning',
+                        'admin'       => 'danger',
+                        'streamer'    => 'info',
+                        default       => 'gray',
                     })
                     ->separator(', '),
 

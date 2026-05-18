@@ -14,10 +14,13 @@ class EditUser extends EditRecord
     {
         return [
             DeleteAction::make()
+                ->hidden(fn () => $this->record->isSuperAdmin())
                 ->before(function (DeleteAction $action) {
-                    // Prevent self-deletion
                     if ($this->record->id === auth()->id()) {
-                        $this->notify('warning', 'You cannot delete your own account.');
+                        \Filament\Notifications\Notification::make()
+                            ->title('You cannot delete your own account.')
+                            ->warning()
+                            ->send();
                         $action->cancel();
                     }
                 }),

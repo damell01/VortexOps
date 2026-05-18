@@ -40,6 +40,24 @@ class StreamerResource extends Resource
         return 1;
     }
 
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'legal_name', 'email'];
+    }
+
+    public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        return $record->name;
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return array_filter([
+            'Email'       => $record->email,
+            'Payout Type' => Streamer::payoutTypeLabels()[$record->payout_type] ?? $record->payout_type,
+        ]);
+    }
+
     // Streamers cannot manage other streamers
     public static function canCreate(): bool    { return auth()->user()?->isAdmin() ?? false; }
     public static function canEdit($r): bool    { return auth()->user()?->isAdmin() ?? false; }

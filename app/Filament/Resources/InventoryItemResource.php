@@ -21,6 +21,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Tables\Actions\Action as TableAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -50,6 +51,24 @@ class InventoryItemResource extends Resource
     public static function getNavigationLabel(): string
     {
         return 'Items';
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['sku', 'name', 'category'];
+    }
+
+    public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        return $record->name;
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return array_filter([
+            'SKU'      => $record->sku,
+            'Category' => $record->category,
+        ]);
     }
 
     public static function form(Schema $schema): Schema
@@ -295,6 +314,14 @@ class InventoryItemResource extends Resource
                             Notification::make()->title('Items moved to returns')->success()->send();
                         }),
                 ]),
+            ])
+            ->headerActions([
+                TableAction::make('export_csv')
+                    ->label('Export CSV')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->url(fn () => route('export.inventory-items'))
+                    ->openUrlInNewTab(),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

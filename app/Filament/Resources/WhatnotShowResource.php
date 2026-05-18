@@ -60,6 +60,24 @@ class WhatnotShowResource extends Resource
         return 'Shows';
     }
 
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['title'];
+    }
+
+    public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        return $record->title ?? 'Show #' . $record->id;
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return array_filter([
+            'Date'   => $record->show_date?->format('M j, Y'),
+            'Status' => \App\Models\WhatnotShow::statusLabels()[$record->status] ?? $record->status,
+        ]);
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([

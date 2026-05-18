@@ -7,6 +7,7 @@ use App\Models\InventoryMovement;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Actions\ViewAction;
+use Filament\Tables\Actions\Action as TableAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -48,6 +49,24 @@ class InventoryMovementResource extends Resource
     public static function canCreate(): bool
     {
         return false;
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['item.name', 'item.sku', 'reason'];
+    }
+
+    public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        return ($record->item->name ?? 'Movement') . ' — ' . ($record->movement_type ?? '');
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return array_filter([
+            'Date' => $record->created_at?->format('M j, Y'),
+            'Qty'  => $record->quantity,
+        ]);
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
@@ -127,6 +146,14 @@ class InventoryMovementResource extends Resource
                 SelectFilter::make('to_location_id')
                     ->label('To Location')
                     ->relationship('toLocation', 'name'),
+            ])
+            ->headerActions([
+                TableAction::make('export_csv')
+                    ->label('Export CSV')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->url(fn () => route('export.movement-log'))
+                    ->openUrlInNewTab(),
             ])
             ->actions([
                 ViewAction::make(),

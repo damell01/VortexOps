@@ -235,47 +235,81 @@ All notifications are sent to every user in the system and stored in the `notifi
 
 ---
 
+### Settings
+
+The Settings page controls the global AI toggle and Ollama connection. All changes persist to the database immediately.
+
+![Settings page](docs/screenshots/31-settings-page.png)
+
+**AI toggle off:**
+
+![AI disabled](docs/screenshots/34-settings-ai-disabled.png)
+
+When AI is disabled, the floating button is removed from every page and no AI requests can be made.
+
+---
+
 ### AI Assistant (Ollama)
 
-The AI Assistant connects to a local [Ollama](https://ollama.com) instance and provides inventory intelligence without sending data to any external service.
+The AI connects to a local [Ollama](https://ollama.com) instance. No data leaves your server.
 
-#### Assistant page
+#### Floating panel (available on every page)
 
-Chat interface with three pre-built quick actions and a free-form question input.
+A persistent sparkles button sits in the bottom-right corner of every admin page. Click it to open a chat panel that automatically loads context for whatever you're currently viewing.
 
-![AI Assistant](docs/screenshots/26-ai-assistant-empty.png)
+**Dashboard — full inventory overview loaded as context:**
 
-![AI Assistant with question](docs/screenshots/27-ai-assistant-typed.png)
+![AI panel on dashboard](docs/screenshots/29-ai-panel-dashboard.png)
+
+**Inventory item detail — item stock levels and recent movements loaded:**
+
+![AI panel on item](docs/screenshots/30-ai-panel-item-detail.png)
+
+**Location page — all stock at that location loaded:**
+
+![AI panel on location](docs/screenshots/32-ai-panel-location-context.png)
+
+**Streamer page — streamer's locations and payout config loaded:**
+
+![AI panel on streamer](docs/screenshots/33-ai-panel-streamer-context.png)
+
+The context badge in the panel header always shows what the AI currently knows about. Hit the refresh button (↺) to reload context after navigating.
+
+#### Dedicated AI Assistant page
+
+Full-screen chat with three quick-action buttons for common analysis tasks.
+
+![AI Assistant page](docs/screenshots/26-ai-assistant-empty.png)
 
 **Quick actions:**
 | Action | Description |
 |---|---|
-| Inventory Health | Summarises key concerns, urgent items, and one recommendation |
-| Reorder Suggestions | Prioritises low-stock items with estimated reorder quantities |
-| Movement Analysis | Identifies anomalies and high-velocity items from recent movements |
-
-Every AI interaction is logged with the full prompt, response, context snapshot, latency, and the user who triggered it.
+| Inventory Health | Key concerns, urgent items, one recommendation |
+| Reorder Suggestions | Low-stock priorities with estimated order quantities |
+| Movement Analysis | Anomalies and high-velocity items from recent movements |
 
 #### AI Logs
 
-Read-only audit trail of every AI interaction. View the full prompt and response for any log entry.
+Read-only table of every AI interaction — model used, action type, latency, success/fail status. Click any row to see the full prompt, response, and inventory snapshot that was sent.
 
-![AI Logs](docs/screenshots/28-ai-logs-list.png)
+![AI Logs](docs/screenshots/28-ai-logs.png)
 
 **Setup:**
 
 ```bash
-# Install and start Ollama
 ollama serve
-ollama pull llama3.2
+ollama pull llama3.2   # or any model you prefer
+```
 
-# Configure in .env (defaults shown)
+Configure in `.env` or via the Settings page:
+
+```
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.2
 OLLAMA_TIMEOUT=60
 ```
 
-The assistant degrades gracefully if Ollama is offline — the status bar shows a red indicator and the send button remains functional (requests will error and log the failure).
+The panel degrades gracefully if Ollama is offline — a red dot shows in the button and the input is disabled until Ollama comes back online.
 
 ---
 

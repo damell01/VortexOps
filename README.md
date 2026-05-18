@@ -222,6 +222,55 @@ All company Whatnot channels. Channels are shared — multiple streamers can ope
 
 ---
 
+### User Management
+
+Full user CRUD with role assignment. Accessible to admins only.
+
+![Users list](docs/screenshots/36-users-list.png)
+
+![Create user](docs/screenshots/37-users-create.png)
+
+**Roles:**
+| Role | Access |
+|---|---|
+| `admin` | Full access to all resources, settings, and user management |
+| `streamer` | Inventory items, their own locations + shared locations, movement log. No settings, no user management. |
+
+When a user is assigned the `streamer` role, link them to a Streamer profile via the **Linked Streamer Profile** field. Inventory locations are then automatically scoped to their profile + all shared (non-streamer) locations.
+
+---
+
+### Activity Log
+
+Every model change — creates, updates, deletes — is automatically captured by Spatie Activitylog. The log is immutable and admin-only.
+
+![Activity log](docs/screenshots/38-activity-log.png)
+
+#### Diff view
+
+Click any log entry to see a before/after comparison table showing exactly which fields changed.
+
+![Activity log detail](docs/screenshots/39-activity-log-detail.png)
+
+---
+
+### Settings
+
+Settings page controls branding and AI configuration. Admin-only.
+
+![Settings page](docs/screenshots/31-settings-page.png)
+
+**Branding options:**
+- **Logo** — upload PNG/JPG/SVG (max 2 MB). Displays in the sidebar header.
+- **Brand name** — shown as text when no logo is set.
+- **Primary color** — 8 preset swatches or a custom hex/color-picker. Changes the color of buttons, badges, active nav items, and all accent elements across the panel.
+
+![Color changed to blue](docs/screenshots/35-settings-color-changed.png)
+
+All changes apply on the next page load (color and logo are read from settings on every request, cached for 1 hour).
+
+---
+
 ### Notifications
 
 Database notifications appear in the bell icon in the Filament header (polled every 30 seconds). Two types are dispatched automatically:

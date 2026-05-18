@@ -7,12 +7,16 @@ use App\Models\User;
 use App\Models\WhatnotChannel;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
 
 class DefaultDataSeeder extends Seeder
 {
     public function run(): void
     {
-        User::firstOrCreate(
+        $adminRole    = Role::firstOrCreate(['name' => 'admin',    'guard_name' => 'web']);
+        $streamerRole = Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
+
+        $admin = User::firstOrCreate(
             ['email' => 'admin@vortexbreaks.com'],
             [
                 'name' => 'VortexOps Admin',
@@ -20,6 +24,7 @@ class DefaultDataSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
+        $admin->syncRoles([$adminRole]);
 
         $locations = [
             ['name' => 'Main Storage', 'type' => 'main_storage'],

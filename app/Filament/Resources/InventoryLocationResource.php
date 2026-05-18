@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\InventoryLocationResource\Pages;
 use App\Models\InventoryLocation;
+use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -22,6 +23,23 @@ use Filament\Tables\Table;
 class InventoryLocationResource extends Resource
 {
     protected static ?string $model = InventoryLocation::class;
+
+    // Streamers see only their own locations + shared locations (no streamer assigned)
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+        $user  = auth()->user();
+
+        if ($user && $user->isStreamer() && ! $user->isAdmin()) {
+            $streamerId = $user->streamer?->id;
+            $query->where(function (Builder $q) use ($streamerId): void {
+                $q->whereNull('streamer_id')
+                  ->orWhere('streamer_id', $streamerId);
+            });
+        }
+
+        return $query;
+    }
 
     public static function getNavigationIcon(): string|\BackedEnum|null
     {

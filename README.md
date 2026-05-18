@@ -36,11 +36,11 @@ composer install
 cp .env.example .env
 php artisan key:generate
 php artisan migrate --seed
-php artisan db:seed --class=DemoDataSeeder   # optional rich demo data
 php artisan serve
 ```
 
-Admin login: `admin@vortexbreaks.com` / `password`
+Admin login: `admin@vortexbreaks.com` / `password`  
+Dev (super admin): `dev@vortexbreaks.com` / `devpassword`
 
 ---
 

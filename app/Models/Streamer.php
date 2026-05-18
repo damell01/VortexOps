@@ -49,6 +49,18 @@ class Streamer extends Model
         return $this->hasMany(InventoryLocation::class);
     }
 
+    public function shows(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(WhatnotShow::class, 'show_streamer')
+            ->withPivot('is_primary')
+            ->withTimestamps();
+    }
+
+    public function payouts(): HasMany
+    {
+        return $this->hasMany(Payout::class);
+    }
+
     public static function payoutTypeLabels(): array
     {
         return [

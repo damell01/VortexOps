@@ -36,11 +36,13 @@ composer install
 cp .env.example .env
 php artisan key:generate
 php artisan migrate --seed
-php artisan db:seed --class=DemoDataSeeder   # optional rich demo data
 php artisan serve
 ```
 
-Admin login: `admin@vortexbreaks.com` / `password`
+Admin login: `admin@vortexbreaks.com` / `password`  
+Dev (super admin): `dev@vortexbreaks.com` / `devpassword`
+
+Demo data includes 3 streamers, 8 inventory items, stock across all locations, 3 shows (reconciled / pending / draft), deduction requests, payouts, and 2 weekly pay run batches.
 
 ---
 
@@ -418,9 +420,42 @@ app/
 
 ---
 
-## Roadmap
+## Development Phases
 
-- **Phase 2** — Break management (break types, slots, buyers)
-- **Phase 3** — Payout calculation engine
-- **Phase 4** — Whatnot integration (order sync)
-- **Phase 5** — Reporting & analytics
+> **Note:** Phases 1–3 form the core operational loop and are most valuable when developed together. Phase 1 (inventory foundation) is only useful in production once Phase 3 (reconciliation & deduction) is live — otherwise inventory counts drift from reality immediately after the first break. Phase 2 (stream tracking) provides the data that Phase 3 reconciles against. The three phases are tightly coupled: know what you have → track what you sold → update what you have.
+
+| Phase | Scope | Status |
+|---|---|---|
+| **Phase 1** | Inventory & Product Cost Foundation — items, locations, stock levels, movement log, streamer profiles, Whatnot channels | ✅ Complete |
+| **Phase 2** | Stream Tracking & Reporting — break scheduling, slot management, buyer tracking, per-break reporting | 🔜 Next |
+| **Phase 3** | Reconciliation & Inventory Deduction — post-break reconciliation workflow, approval-gated deductions, variance reporting | 🔜 Next |
+| **Phase 4** | Payout Reporting & Operational Reporting — streamer payout calculation engine, P&L summaries, operational dashboards | Planned |
+| **Phase 5** | Automation, Workflow Enhancements & Future Expansion — Whatnot API integration, automated alerts, advanced analytics | Planned |
+
+**Timeline notes:** Timelines vary depending on workflow discoveries, operational changes, review cycles, testing, platform limitations, client feedback, and evolving business requirements. Additional feature requests, integrations, or major operational changes outside the roadmap are reviewed and scoped separately.
+
+---
+
+## Partnership & Pricing
+
+**Prepared by DBell Creations for Vortex Breaks**
+
+| | |
+|---|---|
+| **Project Initiation & Environment Setup** | **$1,000** one-time setup fee |
+| **Monthly Partnership Retainer** | **$4,000 / mo** ongoing development & management |
+
+### What the monthly retainer includes
+
+| | |
+|---|---|
+| Ongoing platform development and feature enhancements | Hosting and infrastructure management |
+| Workflow improvements and operational updates | Backups and platform monitoring |
+| Inventory workflow development and reporting enhancements | Future operational enhancements and additions |
+| Support and maintenance | Workflow optimization and operational consulting |
+| Bug fixes and platform improvements | |
+
+---
+
+**DBell Creations**  
+📞 (251) 406-2292 · ✉ dbellcreations@gmail.com · 🌐 www.dbellcreation.com

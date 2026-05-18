@@ -42,6 +42,8 @@ php artisan serve
 Admin login: `admin@vortexbreaks.com` / `password`  
 Dev (super admin): `dev@vortexbreaks.com` / `devpassword`
 
+Demo data includes 3 streamers, 8 inventory items, stock across all locations, 3 shows (reconciled / pending / draft), deduction requests, payouts, and 2 weekly pay run batches.
+
 ---
 
 ## Screenshots

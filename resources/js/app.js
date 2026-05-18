@@ -1,1 +1,1 @@
-//
+import './tour.js';

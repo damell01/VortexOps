@@ -64,13 +64,16 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => Blade::render("@vite('resources/css/app.css')"),
+                fn (): string => Blade::render(
+                    "@vite(['resources/css/app.css', 'resources/js/app.js'])"
+                ),
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn (): string => Setting::getBool('ai_enabled', true)
-                    ? Blade::render("@livewire('ai-chat-panel')")
-                    : '',
+                fn (): string => Blade::render(
+                    (Setting::getBool('ai_enabled', true) ? "@livewire('ai-chat-panel')" : '')
+                    . "<x-tour-button />"
+                ),
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

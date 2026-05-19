@@ -54,7 +54,7 @@ class AppSettings extends Page
     public bool   $ai_enabled      = true;
     public string $ollama_base_url = '';
     public string $ollama_model    = '';
-    public int    $ollama_timeout  = 60;
+    public int    $ollama_timeout  = 120;
 
     // ── Show Import ──────────────────────────────────────────────────────────
 
@@ -82,7 +82,7 @@ class AppSettings extends Page
         $this->ai_enabled      = Setting::getBool('ai_enabled', true);
         $this->ollama_base_url = Setting::get('ollama_base_url', config('ollama.base_url', 'http://localhost:11434'));
         $this->ollama_model    = Setting::get('ollama_model',    config('ollama.model',    'llama3.2:3b'));
-        $this->ollama_timeout  = (int) Setting::get('ollama_timeout', config('ollama.timeout', 60));
+        $this->ollama_timeout  = (int) Setting::get('ollama_timeout', config('ollama.timeout', 120));
 
         $this->show_import_mode                = Setting::get('show_import_mode', 'manual');
         $this->auto_assign_confident_streamers = Setting::getBool('auto_assign_confident_streamers', true);
@@ -127,7 +127,7 @@ class AppSettings extends Page
             'logo_upload'                      => 'nullable|image|max:2048',
             'ollama_base_url'                  => 'required|url',
             'ollama_model'                     => 'required|string|max:100',
-            'ollama_timeout'                   => 'required|integer|min:5|max:300',
+            'ollama_timeout'                   => 'required|integer|min:5|max:600',
             'show_import_mode'                 => 'required|in:manual,auto_whatnot',
             'show_ready_notification_email'    => 'nullable|email|max:255',
             'notify_low_stock_mode'            => 'required|in:all,admins,custom',

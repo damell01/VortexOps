@@ -13,6 +13,8 @@ let fabricCanvas  = null;
 let overlayEl     = null;
 let toolbarEl     = null;
 let browsingPanel = null;       // floating panel shown in browsing mode
+let pickerActive  = false;
+let pickerBoxEl   = null;
 
 let currentTool    = 'select';
 let currentColor   = '#e11d48';
@@ -21,6 +23,7 @@ let mouseDownPt    = null;
 let tempShape      = null;
 let isDrawingRect  = false;
 let isDrawingArrow = false;
+let seedAnnotationPoint = null;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -130,6 +133,18 @@ function showBrowsingUI() {
         </div>
 
         <div style="padding:10px 12px;border-bottom:1px solid #f3f4f6;">
+            <div style="font-size:11px;color:#6b7280;line-height:1.45;margin-bottom:8px;">
+                Browse the live page normally, then pick the exact spot you want to mark up.
+            </div>
+            <button id="review-pick-spot-btn"
+                style="width:100%;padding:8px;background:#111827;color:white;border:none;border-radius:8px;
+                       font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px;">
+                <svg style="width:12px;height:12px" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 15l5 5m-2-9a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                Pick Spot On Page
+            </button>
             <button id="review-open-canvas-btn"
                 style="width:100%;padding:8px;background:#7c3aed;color:white;border:none;border-radius:8px;
                        font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
@@ -164,6 +179,7 @@ function showBrowsingUI() {
 
     document.getElementById('review-open-canvas-btn').addEventListener('click', () => openCanvas(false));
     document.getElementById('review-upload-annotate-btn').addEventListener('click', () => openCanvas(true));
+    document.getElementById('review-pick-spot-btn').addEventListener('click', activatePickerMode);
 
     loadSessionInfo();
     loadPageAnnotations();
@@ -172,6 +188,7 @@ function showBrowsingUI() {
 function removeBrowsingUI() {
     browsingPanel?.remove();
     browsingPanel = null;
+    deactivatePickerMode();
 }
 
 async function loadSessionInfo() {
@@ -231,12 +248,18 @@ async function loadPageAnnotations() {
 }
 
 // ─── Open / Close Canvas ──────────────────────────────────────────────────────
-function openCanvas(uploadMode = false) {
+function openCanvas(uploadMode = false, options = {}) {
     canvasActive     = true;
     hasUploadedImage = false;
+    seedAnnotationPoint = options.seedPoint ?? null;
+    deactivatePickerMode();
     removeBrowsingUI();
     buildOverlay();
     buildToolbar();
+
+    if (seedAnnotationPoint) {
+        addSeedMarker(seedAnnotationPoint);
+    }
 
     if (uploadMode) {
         setTimeout(() => triggerImageUpload(), 200);
@@ -287,6 +310,141 @@ function buildOverlay() {
 
     setTool('select');
     bindCanvasEvents();
+}
+
+function addSeedMarker(seedPoint) {
+    if (!fabricCanvas || !seedPoint) return;
+
+    const { x, y, elementRect } = seedPoint;
+
+    if (elementRect?.width && elementRect?.height) {
+        const padding = 8;
+        const rect = new fabric.Rect({
+            left: Math.max(0, elementRect.left - padding),
+            top: Math.max(0, elementRect.top - padding),
+            width: elementRect.width + padding * 2,
+            height: elementRect.height + padding * 2,
+            fill: 'rgba(124, 58, 237, 0.06)',
+            stroke: '#7c3aed',
+            strokeWidth: 2,
+            strokeDashArray: [8, 6],
+            rx: 12,
+            ry: 12,
+            selectable: true,
+        });
+        fabricCanvas.add(rect);
+    }
+
+    const pin = new fabric.Circle({
+        left: x - 9,
+        top: y - 9,
+        radius: 9,
+        fill: currentColor,
+        stroke: '#ffffff',
+        strokeWidth: 3,
+        selectable: true,
+    });
+
+    fabricCanvas.add(pin);
+    fabricCanvas.setActiveObject(pin);
+    fabricCanvas.requestRenderAll();
+    pushHistory();
+}
+
+function activatePickerMode() {
+    if (pickerActive || canvasActive) return;
+    pickerActive = true;
+
+    if (browsingPanel) {
+        browsingPanel.style.boxShadow = '0 12px 32px rgba(124,58,237,0.28)';
+    }
+
+    if (!pickerBoxEl) {
+        pickerBoxEl = document.createElement('div');
+        pickerBoxEl.id = 'review-picker-highlight';
+        Object.assign(pickerBoxEl.style, {
+            position: 'fixed',
+            zIndex: '99996',
+            border: '2px solid #7c3aed',
+            borderRadius: '10px',
+            background: 'rgba(124,58,237,0.08)',
+            pointerEvents: 'none',
+            boxShadow: '0 0 0 1px rgba(255,255,255,0.9) inset',
+        });
+        document.body.appendChild(pickerBoxEl);
+    }
+
+    document.addEventListener('mousemove', handlePickerMove, true);
+    document.addEventListener('click', handlePickerClick, true);
+    document.body.style.cursor = 'crosshair';
+    showToast('Click the spot you want to annotate');
+}
+
+function deactivatePickerMode() {
+    if (!pickerActive && !pickerBoxEl) return;
+    pickerActive = false;
+    document.removeEventListener('mousemove', handlePickerMove, true);
+    document.removeEventListener('click', handlePickerClick, true);
+    pickerBoxEl?.remove();
+    pickerBoxEl = null;
+    document.body.style.cursor = '';
+
+    if (browsingPanel) {
+        browsingPanel.style.boxShadow = '0 12px 32px rgba(0,0,0,0.18)';
+    }
+}
+
+function handlePickerMove(event) {
+    if (!pickerActive || !pickerBoxEl) return;
+
+    const target = event.target;
+    if (!(target instanceof Element) || isReviewUi(target)) {
+        pickerBoxEl.style.display = 'none';
+        return;
+    }
+
+    const rect = target.getBoundingClientRect();
+    if (rect.width < 4 || rect.height < 4) {
+        pickerBoxEl.style.display = 'none';
+        return;
+    }
+
+    pickerBoxEl.style.display = 'block';
+    pickerBoxEl.style.left = `${rect.left}px`;
+    pickerBoxEl.style.top = `${rect.top}px`;
+    pickerBoxEl.style.width = `${rect.width}px`;
+    pickerBoxEl.style.height = `${rect.height}px`;
+}
+
+function handlePickerClick(event) {
+    if (!pickerActive) return;
+
+    const target = event.target;
+    if (!(target instanceof Element) || isReviewUi(target)) {
+        return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+
+    const rect = target.getBoundingClientRect();
+    const seedPoint = {
+        x: event.clientX,
+        y: event.clientY,
+        elementRect: {
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+            height: rect.height,
+        },
+    };
+
+    openCanvas(false, { seedPoint });
+}
+
+function isReviewUi(target) {
+    return !!target.closest('#review-browse-panel, #review-toolbar, #review-overlay, #review-save-modal, #review-toggle-btn');
 }
 
 // ─── Toolbar ──────────────────────────────────────────────────────────────────

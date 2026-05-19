@@ -5,7 +5,7 @@
             <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
             </svg>
-            All Projects
+            Project Hub
         </a>
         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -65,6 +65,7 @@
                     <h2 class="text-lg font-semibold text-gray-900">Milestones</h2>
                     <span class="text-xs text-gray-400">{{ $project->milestones->count() }} total</span>
                 </div>
+                <p class="mt-2 text-sm text-gray-500">Use milestones to mirror the roadmap phases you are walking the client through, so progress stays tied to the rollout plan.</p>
                 <div class="mt-4 space-y-3">
                     @forelse ($project->milestones as $milestone)
                         <div class="rounded-2xl border border-gray-100 p-4">
@@ -114,6 +115,37 @@
                     @endforelse
                 </div>
             </section>
+
+            <section class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-semibold text-gray-900">Latest Annotations</h2>
+                    <span class="text-xs text-gray-400">{{ $project->reviewItems->count() }} shown</span>
+                </div>
+                <div class="mt-4 space-y-3">
+                    @forelse ($project->reviewItems as $item)
+                        <a href="{{ route('review.item', $item) }}" class="block rounded-2xl border border-gray-100 p-4 transition hover:border-violet-300 hover:bg-violet-50/40">
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate font-medium text-gray-900">{{ $item->page_title ?: $item->page_url }}</p>
+                                    @if ($item->comment)
+                                        <p class="mt-1 line-clamp-2 text-sm text-gray-600">{{ $item->comment }}</p>
+                                    @endif
+                                    <p class="mt-2 text-xs text-gray-400">
+                                        {{ $item->session?->title ?: 'Session' }}
+                                        · {{ $item->createdBy?->name ?: 'Unknown' }}
+                                        · {{ $item->created_at->format('M j, Y g:i A') }}
+                                    </p>
+                                </div>
+                                <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium {{ in_array($item->status, ['open', 'in_progress']) ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700' }}">
+                                    {{ \App\Models\ReviewItem::statusLabels()[$item->status] ?? ucfirst($item->status) }}
+                                </span>
+                            </div>
+                        </a>
+                    @empty
+                        <p class="text-sm text-gray-400">No annotations have been captured for this workspace yet.</p>
+                    @endforelse
+                </div>
+            </section>
         </div>
 
         <div class="space-y-6">
@@ -141,7 +173,55 @@
             </section>
 
             <section class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">Project Conversation</h2>
+                        <p class="mt-1 text-sm text-gray-500">Use this thread for rollout notes, client questions, blockers, and context that does not need a screenshot annotation.</p>
+                    </div>
+                    <span class="text-xs text-gray-400">{{ $project->comments->count() }} recent</span>
+                </div>
+
+                <form method="POST" action="{{ route('review.project.comment', $project) }}" class="mt-5">
+                    @csrf
+                    <label for="project-comment-body" class="sr-only">Add project comment</label>
+                    <textarea
+                        id="project-comment-body"
+                        name="body"
+                        rows="4"
+                        required
+                        maxlength="5000"
+                        placeholder="Post a project note, client question, blocker, or update for the team..."
+                        class="w-full rounded-2xl border border-gray-200 px-4 py-3 text-sm text-gray-800 shadow-sm focus:border-violet-400 focus:outline-none focus:ring-2 focus:ring-violet-200"
+                    >{{ old('body') }}</textarea>
+                    @error('body')
+                        <p class="mt-2 text-sm text-rose-600">{{ $message }}</p>
+                    @enderror
+                    <div class="mt-3 flex items-center justify-between gap-3">
+                        <p class="text-xs text-gray-400">Comments are visible to everyone who can access this workspace.</p>
+                        <button type="submit" class="inline-flex items-center rounded-full bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-700">
+                            Post Comment
+                        </button>
+                    </div>
+                </form>
+
+                <div class="mt-6 space-y-4">
+                    @forelse ($project->comments as $comment)
+                        <div class="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                            <div class="flex items-center justify-between gap-3">
+                                <p class="text-sm font-semibold text-gray-900">{{ $comment->user?->name ?: 'Unknown user' }}</p>
+                                <p class="text-xs text-gray-400">{{ $comment->created_at->format('M j, Y g:i A') }}</p>
+                            </div>
+                            <p class="mt-2 whitespace-pre-line text-sm text-gray-700">{{ $comment->body }}</p>
+                        </div>
+                    @empty
+                        <p class="text-sm text-gray-400">No project comments yet. Use this thread for client-facing rollout discussion and implementation notes.</p>
+                    @endforelse
+                </div>
+            </section>
+
+            <section class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
                 <h2 class="text-lg font-semibold text-gray-900">Activity Feed</h2>
+                <p class="mt-1 text-sm text-gray-500">Status updates are the official progress log for this implementation. Use them for milestone movement, completed work, and items awaiting client input.</p>
                 <div class="mt-4 space-y-4">
                     @forelse ($project->statusUpdates as $update)
                         <div class="border-l-2 border-violet-200 pl-4">

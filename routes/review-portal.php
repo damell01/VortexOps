@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/',                          [ReviewPortalController::class, 'index'])->name('review.index');
 Route::get('/projects/{project}',        [ReviewPortalController::class, 'project'])->name('review.project');
+Route::post('/projects/{project}/comments', [ReviewPortalController::class, 'storeProjectComment'])->name('review.project.comment');
 Route::get('/sessions/{session}',        [ReviewPortalController::class, 'session'])->name('review.session');
 Route::get('/items/{item}',              [ReviewPortalController::class, 'item'])->name('review.item');
 Route::post('/items/{item}/comments',    [ReviewPortalController::class, 'storeComment'])->name('review.item.comment');

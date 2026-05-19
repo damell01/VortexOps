@@ -156,8 +156,9 @@
                 </div>
                 <div>
                     <label for="ollama_timeout" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Timeout (seconds)</label>
-                    <input wire:model.live="ollama_timeout" id="ollama_timeout" type="number" min="5" max="300"
+                    <input wire:model.live="ollama_timeout" id="ollama_timeout" type="number" min="5" max="600"
                         class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none" />
+                    <p class="mt-1 text-xs text-gray-400">For larger local models, 120 to 180 seconds is a safer default.</p>
                 </div>
             </div>
 

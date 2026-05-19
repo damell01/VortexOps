@@ -77,6 +77,11 @@ class Project extends Model
         return $this->hasManyThrough(ReviewItem::class, ReviewSession::class, 'project_id', 'review_session_id');
     }
 
+    public function comments(): HasMany
+    {
+        return $this->hasMany(ProjectComment::class)->latest();
+    }
+
     public static function statusLabels(): array
     {
         return [

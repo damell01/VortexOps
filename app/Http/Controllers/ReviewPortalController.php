@@ -3,17 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Models\ProjectComment;
 use App\Models\ReviewItem;
 use App\Models\ReviewItemComment;
 use App\Models\ReviewSession;
 use App\Modules\ProjectHub\Support\ProjectHub;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse as HttpRedirectResponse;
 use Illuminate\View\View;
 
 class ReviewPortalController extends Controller
 {
-    public function index(): View
+    public function index(): View|HttpRedirectResponse
     {
         $user = auth()->user();
 
@@ -32,6 +34,10 @@ class ReviewPortalController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
+        if ($projects->count() === 1) {
+            return redirect()->route('review.project', $projects->first());
+        }
+
         return view('review.index', compact('projects'));
     }
 
@@ -44,7 +50,13 @@ class ReviewPortalController extends Controller
             'approvals' => fn ($query) => $query->where('visible_to_client', true)->latest('requested_at'),
             'statusUpdates' => fn ($query) => $query->where('visible_to_client', true)->latest(),
             'statusUpdates.author:id,name',
+            'comments' => fn ($query) => $query->with('user:id,name')->latest()->limit(20),
             'reviewSessions' => fn ($query) => $query->withCount('items')->latest(),
+            'reviewItems' => fn ($query) => $query
+                ->with(['session:id,title,project_id', 'createdBy:id,name'])
+                ->whereIn('status', ['open', 'in_progress', 'fixed'])
+                ->latest()
+                ->limit(10),
         ]);
 
         $project->loadCount([
@@ -54,6 +66,23 @@ class ReviewPortalController extends Controller
         ]);
 
         return view('review.project', compact('project'));
+    }
+
+    public function storeProjectComment(Request $request, Project $project): RedirectResponse
+    {
+        abort_unless(ProjectHub::visibleProjectsFor(auth()->user())->whereKey($project->id)->exists(), 403);
+
+        $request->validate([
+            'body' => 'required|string|max:5000',
+        ]);
+
+        ProjectComment::create([
+            'project_id' => $project->id,
+            'user_id' => auth()->id(),
+            'body' => $request->string('body')->trim()->toString(),
+        ]);
+
+        return redirect()->route('review.project', $project)->with('success', 'Comment posted to the project conversation.');
     }
 
     public function session(ReviewSession $session): View

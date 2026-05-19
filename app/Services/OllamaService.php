@@ -15,6 +15,9 @@ use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\StreamerLoan;
 use App\Models\WeeklyPayoutBatch;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 
@@ -29,11 +32,11 @@ class OllamaService
         try {
             $this->baseUrl = rtrim(Setting::get('ollama_base_url', config('ollama.base_url', 'http://localhost:11434')), '/');
             $this->model   = Setting::get('ollama_model', config('ollama.model', 'llama3.2'));
-            $this->timeout = (int) Setting::get('ollama_timeout', (string) config('ollama.timeout', 60));
+            $this->timeout = (int) Setting::get('ollama_timeout', (string) config('ollama.timeout', 120));
         } catch (\Throwable) {
             $this->baseUrl = rtrim(config('ollama.base_url', 'http://localhost:11434'), '/');
             $this->model   = config('ollama.model', 'llama3.2');
-            $this->timeout = config('ollama.timeout', 60);
+            $this->timeout = config('ollama.timeout', 120);
         }
 
         $this->model = $this->resolvePreferredModel($this->model);
@@ -83,6 +86,11 @@ class OllamaService
     public function currentBaseUrl(): string
     {
         return $this->baseUrl;
+    }
+
+    public function currentTimeout(): int
+    {
+        return $this->timeout;
     }
 
     public function askQuestion(string $question): AiLog
@@ -277,15 +285,7 @@ class OllamaService
         $error    = null;
 
         try {
-            $result = Http::timeout($this->timeout)
-                ->post("{$this->baseUrl}/api/chat", [
-                    'model'  => $this->model,
-                    'stream' => false,
-                    'messages' => [
-                        ['role' => 'system', 'content' => $systemText],
-                        ['role' => 'user',   'content' => $prompt],
-                    ],
-                ]);
+            $result = $this->sendChatRequest($this->model, $systemText, $prompt);
 
             if ($result->successful()) {
                 $response = $result->json('message.content', '');
@@ -295,15 +295,7 @@ class OllamaService
                 if ($fallbackModel !== $this->model) {
                     $this->model = $fallbackModel;
 
-                    $retry = Http::timeout($this->timeout)
-                        ->post("{$this->baseUrl}/api/chat", [
-                            'model'  => $this->model,
-                            'stream' => false,
-                            'messages' => [
-                                ['role' => 'system', 'content' => $systemText],
-                                ['role' => 'user', 'content' => $prompt],
-                            ],
-                        ]);
+                    $retry = $this->sendChatRequest($this->model, $systemText, $prompt);
 
                     if ($retry->successful()) {
                         $response = $retry->json('message.content', '');
@@ -319,9 +311,8 @@ class OllamaService
                 $success = false;
                 $error   = "HTTP {$result->status()}: " . substr($result->body(), 0, 300);
             }
-        } catch (\Exception $e) {
-            $success = false;
-            $error   = $e->getMessage();
+        } catch (\Throwable $e) {
+            [$success, $response, $error] = $this->handleChatException($e, $systemText, $prompt);
         }
 
         return AiLog::create([
@@ -335,6 +326,84 @@ class OllamaService
             'error_message'  => $error,
             'user_id'        => Auth::id(),
         ]);
+    }
+
+    private function ollamaRequest(?int $timeout = null): PendingRequest
+    {
+        return Http::acceptJson()
+            ->connectTimeout(5)
+            ->timeout($timeout ?? $this->timeout);
+    }
+
+    private function sendChatRequest(string $model, string $systemText, string $prompt): Response
+    {
+        return $this->ollamaRequest()->post("{$this->baseUrl}/api/chat", [
+            'model' => $model,
+            'stream' => false,
+            'messages' => [
+                ['role' => 'system', 'content' => $systemText],
+                ['role' => 'user', 'content' => $prompt],
+            ],
+        ]);
+    }
+
+    private function handleChatException(\Throwable $e, string $systemText, string $prompt): array
+    {
+        if (! $this->isTimeoutException($e)) {
+            return [false, '', $e->getMessage()];
+        }
+
+        $fallbackModel = $this->fastFallbackModel($this->model);
+
+        if (! $fallbackModel || $fallbackModel === $this->model) {
+            return [false, '', $e->getMessage()];
+        }
+
+        try {
+            $retry = $this->sendChatRequest($fallbackModel, $systemText, $prompt);
+
+            if ($retry->successful()) {
+                $this->model = $fallbackModel;
+
+                return [true, $retry->json('message.content', ''), null];
+            }
+
+            return [false, '', "HTTP {$retry->status()}: " . substr($retry->body(), 0, 300)];
+        } catch (\Throwable $retryException) {
+            return [false, '', $retryException->getMessage()];
+        }
+    }
+
+    private function isTimeoutException(\Throwable $e): bool
+    {
+        if (! $e instanceof ConnectionException) {
+            return false;
+        }
+
+        $message = strtolower($e->getMessage());
+
+        return str_contains($message, 'curl error 28')
+            || str_contains($message, 'timed out')
+            || str_contains($message, 'operation timed out');
+    }
+
+    private function fastFallbackModel(string $current): ?string
+    {
+        $models = $this->availableModels();
+
+        if (empty($models)) {
+            return null;
+        }
+
+        foreach (['qwen2.5:0.5b', 'qwen2.5:3b', 'llama3.2:3b', 'qwen2.5-coder:3b'] as $candidate) {
+            $resolved = $this->resolvePreferredModel($candidate);
+
+            if ($resolved !== $current && in_array($resolved, $models, true)) {
+                return $resolved;
+            }
+        }
+
+        return null;
     }
 
     private function systemPrompt(array $context): string

@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ProjectResource\Pages;
 use App\Filament\Resources\ProjectResource\RelationManagers\ApprovalsRelationManager;
+use App\Filament\Resources\ProjectResource\RelationManagers\CommentsRelationManager;
 use App\Filament\Resources\ProjectResource\RelationManagers\MilestonesRelationManager;
 use App\Filament\Resources\ProjectResource\RelationManagers\ReviewSessionsRelationManager;
 use App\Filament\Resources\ProjectResource\RelationManagers\StatusUpdatesRelationManager;
@@ -47,7 +48,22 @@ class ProjectResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return 'Projects';
+        return 'Project Hub';
+    }
+
+    public static function canCreate(): bool
+    {
+        return static::$model::query()->count() === 0;
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return false;
     }
 
     public static function getEloquentQuery(): Builder
@@ -161,7 +177,8 @@ class ProjectResource extends Resource
                     ->placeholder('—'),
             ])
             ->headerActions([
-                CreateAction::make(),
+                CreateAction::make()
+                    ->visible(fn () => static::canCreate()),
             ])
             ->actions([
                 ViewAction::make(),
@@ -176,6 +193,7 @@ class ProjectResource extends Resource
             MilestonesRelationManager::class,
             ApprovalsRelationManager::class,
             StatusUpdatesRelationManager::class,
+            CommentsRelationManager::class,
             ReviewSessionsRelationManager::class,
         ];
     }

@@ -61,6 +61,14 @@ class ReviewItemResource extends Resource
         return false;
     }
 
+    public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        if (auth()->user()?->isSuperAdmin()) {
+            return true;
+        }
+        return $record->created_by === auth()->id();
+    }
+
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
         return auth()->user()?->isSuperAdmin() ?? false;

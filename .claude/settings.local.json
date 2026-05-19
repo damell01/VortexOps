@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(del \"c:\\\\Users\\\\Shild\\\\Downloads\\\\VortexOps\\\\resources\\\\views\\\\review\\\\layout.blade.php\")"
+      "Bash(del \"c:\\\\Users\\\\Shild\\\\Downloads\\\\VortexOps\\\\resources\\\\views\\\\review\\\\layout.blade.php\")",
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
     ]
   }
 }

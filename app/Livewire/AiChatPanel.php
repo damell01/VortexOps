@@ -2,7 +2,10 @@
 
 namespace App\Livewire;
 
+use App\Jobs\RunAiQuery;
 use App\Services\OllamaService;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Component;
 
@@ -14,6 +17,8 @@ class AiChatPanel extends Component
     public array  $pageContext  = [];
     public string $contextLabel = 'VortexOps';
     public bool   $ollamaOnline = false;
+    public string $pendingKey   = '';
+    public bool   $isThinking   = false;
 
     public function mount(): void
     {
@@ -40,48 +45,58 @@ class AiChatPanel extends Component
     public function sendMessage(): void
     {
         $q = trim($this->question);
-        if ($q === '') {
+        if ($q === '' || $this->isThinking) {
             return;
         }
 
         $this->question   = '';
         $this->messages[] = ['role' => 'user', 'content' => $q, 'time' => now()->format('g:i A')];
 
-        $service     = app(OllamaService::class);
-        $contextNote = $this->buildContextNote();
+        $contextNote  = $this->buildContextNote();
         $fullQuestion = $contextNote ? "{$contextNote}\n\nUser question: {$q}" : $q;
-        $systemText  = $this->buildSystemText();
+        $systemText   = $this->buildSystemText();
 
-        try {
-            $log = $service->streamQuestion($fullQuestion, $systemText, function (string $token): void {
-                $this->stream(to: 'aiStream', value: $token, replace: false);
-            });
+        $this->pendingKey = (string) Str::uuid();
+        $this->isThinking = true;
 
-            $this->messages[] = [
-                'role'    => 'assistant',
-                'content' => $log->success
-                    ? ($log->response ?: '(empty response)')
-                    : 'Error: ' . $log->error_message,
-                'time'    => now()->format('g:i A'),
-                'latency' => $log->latency_ms,
-                'success' => $log->success,
-            ];
-        } catch (\Exception $e) {
-            $this->messages[] = [
-                'role'    => 'assistant',
-                'content' => 'Could not reach Ollama: ' . $e->getMessage(),
-                'time'    => now()->format('g:i A'),
-                'success' => false,
-            ];
+        RunAiQuery::dispatch($this->pendingKey, $fullQuestion, $systemText, auth()->id());
+
+        $this->dispatch('panelScrollToBottom');
+    }
+
+    public function checkForAiResponse(): void
+    {
+        if (! $this->pendingKey || ! $this->isThinking) {
+            return;
         }
 
-        $this->dispatch('message-received');
-        $this->dispatch('panelScrollToBottom');
+        $result = Cache::get("ai_pending_{$this->pendingKey}");
+
+        if ($result !== null) {
+            $this->messages[] = [
+                'role'    => 'assistant',
+                'content' => $result['success']
+                    ? ($result['content'] ?: '(empty response)')
+                    : 'Error: ' . $result['error'],
+                'time'    => $result['time'],
+                'latency' => $result['latency'],
+                'success' => $result['success'],
+            ];
+
+            Cache::forget("ai_pending_{$this->pendingKey}");
+            $this->pendingKey = '';
+            $this->isThinking = false;
+
+            $this->dispatch('message-received');
+            $this->dispatch('panelScrollToBottom');
+        }
     }
 
     public function clearChat(): void
     {
-        $this->messages = [];
+        $this->messages   = [];
+        $this->pendingKey = '';
+        $this->isThinking = false;
     }
 
     private function buildSystemText(): string

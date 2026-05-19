@@ -26,6 +26,19 @@ class ViewReviewItem extends EditRecord
         return [];
     }
 
+    // Use canView() authorization instead of canEdit() since this page is read-only.
+    // Switching to EditRecord was necessary for Filament v5 Schema compatibility,
+    // but we must not lock out regular users who can view their own items.
+    protected function authorizeAccess(): void
+    {
+        static::authorizeResourceAccess();
+
+        abort_unless(
+            static::getResource()::canView($this->getRecord()),
+            403
+        );
+    }
+
     protected function getHeaderActions(): array
     {
         $isSuperAdmin = auth()->user()?->isSuperAdmin() ?? false;

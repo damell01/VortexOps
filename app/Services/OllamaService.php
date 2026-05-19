@@ -93,6 +93,17 @@ class OllamaService
         return $this->send($question, $systemText, 'freeform_query', $context);
     }
 
+    public function query(string $question, string $systemText, ?int $userId = null): AiLog
+    {
+        $log = $this->send($question, $systemText, 'freeform_query', []);
+
+        if ($userId !== null && ! $log->user_id) {
+            $log->update(['user_id' => $userId]);
+        }
+
+        return $log;
+    }
+
     /**
      * Stream an Ollama response token-by-token, calling $onToken for each chunk.
      * Returns an AiLog with the full concatenated response.

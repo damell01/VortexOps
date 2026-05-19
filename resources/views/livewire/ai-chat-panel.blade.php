@@ -4,26 +4,20 @@
         pendingMessage: '',
         pendingElapsed: 0,
         pendingTimer: null,
-        streamStarted: false,
         beginPending(message) {
             this.pendingMessage = message;
             this.pendingElapsed = 0;
-            this.streamStarted  = false;
             clearInterval(this.pendingTimer);
             this.pendingTimer = setInterval(() => this.pendingElapsed++, 1000);
         },
         clearPending() {
             this.pendingMessage = '';
             this.pendingElapsed = 0;
-            this.streamStarted  = false;
             clearInterval(this.pendingTimer);
             this.pendingTimer = null;
         },
     }"
     x-on:message-received.window="clearPending()"
-    x-on:livewire:dispatched.window="
-        if ($event.detail.name === 'ai-stream-started') streamStarted = true
-    "
     x-on:panel-scroll-to-bottom.window="$nextTick(() => {
         const el = document.getElementById('ai-panel-messages');
         if (el) el.scrollTop = el.scrollHeight;
@@ -117,24 +111,7 @@
                 </div>
             @endforelse
 
-            {{-- Live streaming response (appears token-by-token while action runs) --}}
-            <div
-                x-show="pendingMessage && streamStarted"
-                x-cloak
-                class="flex justify-start gap-2"
-            >
-                <div class="mt-0.5 shrink-0 rounded-full bg-violet-100 p-1 dark:bg-violet-900">
-                    <x-heroicon-o-sparkles class="h-3 w-3 text-violet-500" />
-                </div>
-                <div class="max-w-[85%]">
-                    <div class="rounded-2xl rounded-bl-sm border border-gray-200 bg-white px-3 py-2 text-xs text-gray-800 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
-                        <div wire:stream="aiStream" class="whitespace-pre-wrap"></div>
-                    </div>
-                    <div class="mt-0.5 text-[10px] text-gray-400">Generating…</div>
-                </div>
-            </div>
-
-            {{-- Optimistic: user message + typing indicator (shown before first stream token) --}}
+            {{-- Optimistic: user message + typing indicator while job is queued --}}
             <template x-if="pendingMessage">
                 <div class="space-y-3">
                     <div class="flex justify-end">
@@ -144,7 +121,7 @@
                         </div>
                     </div>
 
-                    <div class="flex justify-start gap-2" x-show="!streamStarted">
+                    <div class="flex justify-start gap-2">
                         <div class="mt-0.5 shrink-0 rounded-full bg-violet-100 p-1 dark:bg-violet-900">
                             <x-heroicon-o-sparkles class="h-3 w-3 text-violet-500" />
                         </div>
@@ -164,6 +141,11 @@
                     </div>
                 </div>
             </template>
+
+            {{-- Poll for queued job result every 2s while thinking --}}
+            @if ($isThinking)
+                <div wire:poll.2000ms="checkForAiResponse" class="hidden"></div>
+            @endif
         </div>
 
         {{-- Input --}}

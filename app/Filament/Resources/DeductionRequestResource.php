@@ -4,19 +4,12 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\DeductionRequestResource\Pages;
 use App\Models\DeductionRequest;
-use App\Services\ReconciliationService;
-use Filament\Actions\Action;
-use Filament\Actions\BulkAction;
-use Filament\Actions\BulkActionGroup;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\Textarea;
-use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Collection;
 
 class DeductionRequestResource extends Resource
 {
@@ -29,7 +22,7 @@ class DeductionRequestResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Stream Tracking';
+        return 'Streams';
     }
 
     public static function getNavigationSort(): ?int
@@ -47,18 +40,27 @@ class DeductionRequestResource extends Resource
         return 'Deduction Requests';
     }
 
-    public static function getNavigationBadge(): ?string
+    public static function canCreate(): bool
     {
-        $count = DeductionRequest::where('status', 'pending')->count();
-        return $count > 0 ? (string) $count : null;
+        return false;
     }
 
-    public static function getNavigationBadgeColor(): string|array|null
+    public static function getGloballySearchableAttributes(): array
     {
-        return 'warning';
+        return ['show.title', 'streamer.name'];
     }
 
-    public static function canCreate(): bool { return false; }
+    public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        return ($record->show->title ?? 'Show #' . $record->show_id) . ' — ' . ($record->streamer->name ?? '?');
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return array_filter([
+            'Status' => DeductionRequest::statusLabels()[$record->status] ?? $record->status,
+        ]);
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -69,105 +71,66 @@ class DeductionRequestResource extends Resource
     {
         return $table
             ->columns([
+                TextColumn::make('show.title')
+                    ->label('Show')
+                    ->default('—')
+                    ->searchable()
+                    ->url(fn (DeductionRequest $record) => ShowResource::getUrl('view', ['record' => $record->show_id])),
+
                 TextColumn::make('show.show_date')
                     ->label('Show Date')
                     ->date('M j, Y')
                     ->sortable(),
 
-                TextColumn::make('show.title')
-                    ->label('Show')
-                    ->default('—')
-                    ->searchable(),
-
-                TextColumn::make('inventoryItem.name')
-                    ->label('Item')
-                    ->searchable(),
-
-                TextColumn::make('inventoryItem.sku')
-                    ->label('SKU')
-                    ->default('—'),
-
-                TextColumn::make('location.name')
-                    ->label('Location'),
-
-                TextColumn::make('quantity')
-                    ->numeric(2),
-
-                TextColumn::make('show.streamers.name')
-                    ->label('Streamer(s)')
+                TextColumn::make('streamer.name')
+                    ->label('Streamer')
                     ->badge()
-                    ->separator(', '),
+                    ->color('info'),
 
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => DeductionRequest::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => match ($state) {
-                        'pending'  => 'warning',
-                        'approved' => 'info',
-                        'rejected' => 'danger',
-                        'executed' => 'success',
-                        default    => 'gray',
+                        'draft'     => 'gray',
+                        'pending'   => 'warning',
+                        'approved'  => 'info',
+                        'processed' => 'success',
+                        'rejected'  => 'danger',
+                        default     => 'gray',
                     }),
 
-                TextColumn::make('reviewedBy.name')
-                    ->label('Reviewed By')
-                    ->default('—')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('lines_count')
+                    ->counts('lines')
+                    ->label('Lines'),
+
+                TextColumn::make('total_cogs')
+                    ->label('Total COGS')
+                    ->getStateUsing(fn (DeductionRequest $record) => $record->totalCogs())
+                    ->money('USD'),
+
+                TextColumn::make('created_at')
+                    ->label('Created')
+                    ->dateTime()
+                    ->sortable(),
+
+                TextColumn::make('approved_at')
+                    ->label('Approved')
+                    ->dateTime()
+                    ->placeholder('—')
+                    ->toggleable(),
             ])
-            ->defaultSort('created_at', 'desc')
             ->filters([
                 SelectFilter::make('status')
-                    ->options(DeductionRequest::statusLabels())
-                    ->default('pending'),
+                    ->options(DeductionRequest::statusLabels()),
+
+                SelectFilter::make('streamer_id')
+                    ->label('Streamer')
+                    ->relationship('streamer', 'name'),
             ])
             ->actions([
-                Action::make('approve')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn (DeductionRequest $r) => $r->status === 'pending' && auth()->user()?->isAdmin())
-                    ->requiresConfirmation()
-                    ->action(function (DeductionRequest $record) {
-                        app(ReconciliationService::class)->approve($record);
-                        Notification::make()->title('Deduction approved.')->success()->send();
-                    }),
-
-                Action::make('reject')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->visible(fn (DeductionRequest $r) => $r->status === 'pending' && auth()->user()?->isAdmin())
-                    ->form([
-                        Textarea::make('rejection_reason')
-                            ->label('Reason for rejection')
-                            ->required()
-                            ->rows(3),
-                    ])
-                    ->action(function (DeductionRequest $record, array $data) {
-                        app(ReconciliationService::class)->reject($record, $data['rejection_reason']);
-                        Notification::make()->title('Deduction rejected.')->warning()->send();
-                    }),
-
-                ViewAction::make()->iconButton(),
+                ViewAction::make()->label('Review'),
             ])
-            ->bulkActions([
-                BulkActionGroup::make([
-                    BulkAction::make('bulk_approve')
-                        ->label('Approve Selected')
-                        ->icon('heroicon-o-check-circle')
-                        ->color('success')
-                        ->visible(fn () => auth()->user()?->isAdmin())
-                        ->requiresConfirmation()
-                        ->action(function (Collection $records) {
-                            $svc   = app(ReconciliationService::class);
-                            $count = 0;
-                            foreach ($records->where('status', 'pending') as $r) {
-                                $svc->approve($r);
-                                $count++;
-                            }
-                            Notification::make()->title("{$count} deduction(s) approved.")->success()->send();
-                        })
-                        ->deselectRecordsAfterCompletion(),
-                ]),
-            ]);
+            ->defaultSort('created_at', 'desc');
     }
 
     public static function getPages(): array

@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Payout extends Model
 {
     protected $fillable = [
-        'whatnot_show_id',
+        'show_id',
         'streamer_id',
         'weekly_payout_batch_id',
         'payout_type',
@@ -29,7 +29,7 @@ class Payout extends Model
 
     public function show(): BelongsTo
     {
-        return $this->belongsTo(WhatnotShow::class, 'whatnot_show_id');
+        return $this->belongsTo(Show::class, 'show_id');
     }
 
     public function streamer(): BelongsTo

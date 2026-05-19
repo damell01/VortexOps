@@ -170,6 +170,58 @@
             </div>
         </div>
 
+        {{-- ── Show Import Settings ──────────────────────────────────────── --}}
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+
+            <div class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                    <div class="rounded-lg bg-blue-100 dark:bg-blue-900 p-2">
+                        <x-heroicon-o-video-camera class="h-5 w-5 text-blue-600 dark:text-blue-300" />
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Show Import</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Control how shows are ingested and streamers assigned</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4">
+                <label for="show_import_mode" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Import Mode</label>
+                <select wire:model.live="show_import_mode" id="show_import_mode"
+                    class="w-full max-w-xs rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none">
+                    <option value="manual">Manual Entry</option>
+                    <option value="auto_whatnot">Auto (Whatnot Scraper)</option>
+                </select>
+                <p class="mt-1 text-xs text-gray-400">Manual: staff enter shows by hand. Auto: scraper ingests shows automatically.</p>
+            </div>
+
+            <div class="px-6 py-4 flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Auto-assign High-confidence Streamers</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">When AI is confident about a streamer match, assign them automatically</p>
+                </div>
+                <button
+                    wire:click="$toggle('auto_assign_confident_streamers')"
+                    type="button"
+                    class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2
+                        {{ $auto_assign_confident_streamers ? 'bg-violet-600' : 'bg-gray-200 dark:bg-gray-700' }}"
+                    role="switch"
+                    aria-checked="{{ $auto_assign_confident_streamers ? 'true' : 'false' }}"
+                >
+                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                        {{ $auto_assign_confident_streamers ? 'translate-x-5' : 'translate-x-0' }}"></span>
+                </button>
+            </div>
+
+            <div class="px-6 py-4">
+                <label for="show_ready_notification_email" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Show-ready Notification Email</label>
+                <input wire:model.live="show_ready_notification_email" id="show_ready_notification_email" type="email" placeholder="ops@yourcompany.com"
+                    class="w-full max-w-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none" />
+                <p class="mt-1 text-xs text-gray-400">Optional. Receive an email when a show enters Pending Review.</p>
+            </div>
+
+        </div>
+
         {{-- Validation errors --}}
         @if ($errors->any())
             <div class="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 px-4 py-3">

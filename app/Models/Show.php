@@ -6,11 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
-class WhatnotShow extends Model
+class Show extends Model
 {
     use LogsActivity;
 
@@ -18,20 +17,28 @@ class WhatnotShow extends Model
         'whatnot_channel_id',
         'title',
         'show_date',
-        'started_at',
-        'ended_at',
+        'start_time',
+        'end_time',
+        'units_sold',
+        'gross_revenue',
+        'whatnot_net',
+        'tips',
+        'show_duration',
+        'import_source',
+        'raw_import_payload',
+        'ai_streamer_suggestion',
         'status',
-        'source',
         'notes',
-        'raw_data',
         'created_by',
     ];
 
     protected $casts = [
-        'show_date'  => 'date',
-        'started_at' => 'datetime',
-        'ended_at'   => 'datetime',
-        'raw_data'   => 'array',
+        'show_date'              => 'date',
+        'gross_revenue'          => 'decimal:2',
+        'whatnot_net'            => 'decimal:2',
+        'tips'                   => 'decimal:2',
+        'raw_import_payload'     => 'array',
+        'ai_streamer_suggestion' => 'array',
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -51,19 +58,19 @@ class WhatnotShow extends Model
             ->withTimestamps();
     }
 
-    public function sales(): HasMany
+    public function primaryStreamer(): ?Streamer
     {
-        return $this->hasMany(ShowSale::class);
-    }
-
-    public function financial(): HasOne
-    {
-        return $this->hasOne(ShowFinancial::class);
+        return $this->streamers()->wherePivot('is_primary', true)->first();
     }
 
     public function deductionRequests(): HasMany
     {
         return $this->hasMany(DeductionRequest::class);
+    }
+
+    public function ingestionLogs(): HasMany
+    {
+        return $this->hasMany(ShowIngestionLog::class);
     }
 
     public function payouts(): HasMany
@@ -76,33 +83,24 @@ class WhatnotShow extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function totalSales(): float
-    {
-        return (float) $this->sales()->sum('sale_price');
-    }
-
-    public function pendingDeductions(): int
-    {
-        return $this->deductionRequests()->where('status', 'pending')->count();
-    }
-
     public static function statusLabels(): array
     {
         return [
-            'draft'                  => 'Draft',
-            'pending_reconciliation' => 'Pending Reconciliation',
-            'reconciling'            => 'Reconciling',
-            'reconciled'             => 'Reconciled',
-            'paid'                   => 'Paid',
+            'draft'            => 'Draft',
+            'pending_review'   => 'Pending Review',
+            'mapping'          => 'Mapping',
+            'pending_approval' => 'Pending Approval',
+            'reconciled'       => 'Reconciled',
+            'closed'           => 'Closed',
+            'cancelled'        => 'Cancelled',
         ];
     }
 
-    public static function sourceLabels(): array
+    public static function importSourceLabels(): array
     {
         return [
-            'manual'     => 'Manual',
-            'csv_import' => 'CSV Import',
-            'scraper'    => 'Scraper',
+            'manual'       => 'Manual',
+            'auto_whatnot' => 'Auto (Whatnot)',
         ];
     }
 }

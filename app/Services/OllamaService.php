@@ -120,6 +120,30 @@ class OllamaService
         return is_array($data) ? $data : [];
     }
 
+    /**
+     * Send a prompt expecting a JSON response; returns decoded array.
+     * Non-blocking: returns [] on any failure or parse error.
+     */
+    public function json(string $prompt, string $system = '', array $context = []): array
+    {
+        try {
+            $systemText = $system ?: 'You are a precise JSON-only responder. Respond only with valid JSON. No markdown, no explanation.';
+            $log = $this->send($prompt, $systemText, 'json_request', $context);
+
+            if (! $log->success) {
+                return [];
+            }
+
+            $raw  = trim(preg_replace('/^```(?:json)?\s*|\s*```$/s', '', $log->response ?? ''));
+            $data = json_decode($raw, true);
+
+            return is_array($data) ? $data : [];
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('OllamaService::json failed', ['error' => $e->getMessage()]);
+            return [];
+        }
+    }
+
     private function send(string $prompt, string $systemText, string $actionType, array $context): AiLog
     {
         $start   = microtime(true);

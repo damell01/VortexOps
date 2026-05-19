@@ -216,7 +216,7 @@ class ShowResource extends Resource
                     }),
 
                 TextColumn::make('created_at')
-                    ->dateTime()
+                    ->dateTime('M j, Y g:i A')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

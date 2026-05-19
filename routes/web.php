@@ -4,7 +4,7 @@ use App\Http\Controllers\ExportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect('/admin');
 });
 
 Route::middleware(['auth', 'web'])->prefix('admin/export')->name('export.')->group(function () {

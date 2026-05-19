@@ -6,7 +6,10 @@ use App\Filament\Resources\PayoutResource\Pages;
 use App\Models\Payout;
 use App\Models\Streamer;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\Placeholder;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -36,7 +39,53 @@ class PayoutResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([]);
+        return $schema->components([
+            Section::make('Payout Summary')
+                ->columns(2)
+                ->schema([
+                    Placeholder::make('show')
+                        ->label('Show')
+                        ->content(fn (Payout $record): string => $record->show?->title ?? 'â€”'),
+                    Placeholder::make('show_date')
+                        ->label('Show Date')
+                        ->content(fn (Payout $record): string => $record->show?->show_date?->format('M j, Y') ?? 'â€”'),
+                    Placeholder::make('streamer')
+                        ->label('Streamer')
+                        ->content(fn (Payout $record): string => $record->streamer?->name ?? 'â€”'),
+                    Placeholder::make('status')
+                        ->label('Status')
+                        ->content(fn (Payout $record): string => Payout::statusLabels()[$record->status] ?? $record->status),
+                ]),
+            Section::make('Calculation')
+                ->schema([
+                    Grid::make(2)->schema([
+                        Placeholder::make('payout_type')
+                            ->label('Payout Type')
+                            ->content(fn (Payout $record): string => Streamer::payoutTypeLabels()[$record->payout_type] ?? $record->payout_type),
+                        Placeholder::make('batch')
+                            ->label('Pay Run')
+                            ->content(fn (Payout $record): string => $record->batch?->week_start?->format('M j, Y') ?? 'Unbatched'),
+                        Placeholder::make('gross_show_revenue')
+                            ->label('Gross Revenue')
+                            ->content(fn (Payout $record): string => '$' . number_format((float) $record->gross_show_revenue, 2)),
+                        Placeholder::make('tips_included')
+                            ->label('Tips Included')
+                            ->content(fn (Payout $record): string => '$' . number_format((float) $record->tips_included, 2)),
+                        Placeholder::make('owner_fee_deducted')
+                            ->label('Owner Fee Deducted')
+                            ->content(fn (Payout $record): string => '$' . number_format((float) $record->owner_fee_deducted, 2)),
+                        Placeholder::make('loan_repayment_deducted')
+                            ->label('Loan Repayment Deducted')
+                            ->content(fn (Payout $record): string => '$' . number_format((float) $record->loan_repayment_deducted, 2)),
+                        Placeholder::make('calculated_payout')
+                            ->label('Final Payout')
+                            ->content(fn (Payout $record): string => '$' . number_format((float) $record->calculated_payout, 2)),
+                    ]),
+                    Placeholder::make('calculation_notes')
+                        ->label('How It Was Calculated')
+                        ->content(fn (Payout $record): string => $record->calculation_notes ?: 'â€”'),
+                ]),
+        ]);
     }
 
     public static function getEloquentQuery(): Builder

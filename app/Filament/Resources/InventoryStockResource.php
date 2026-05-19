@@ -153,7 +153,7 @@ class InventoryStockResource extends Resource
                     ->getStateUsing(fn ($record) => $record->quantity * ($record->item?->unit_cost ?? 0))
                     ->money('USD'),
                 TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->dateTime('M j, Y g:i A')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -167,9 +167,13 @@ class InventoryStockResource extends Resource
                         ->distinct()
                         ->pluck('category', 'category')
                         ->toArray())
-                    ->query(fn ($query, $state) => $state['value']
-                        ? $query->whereHas('item', fn ($q) => $q->where('category', $state['value']))
-                        : $query),
+                    ->query(function (Builder $query, array $state): Builder {
+                        $value = $state['value'] ?? null;
+
+                        return $value
+                            ? $query->whereHas('item', fn ($q) => $q->where('category', $value))
+                            : $query;
+                    }),
             ])
             ->headerActions([
                 TableAction::make('export_csv')
@@ -183,7 +187,7 @@ class InventoryStockResource extends Resource
                 ViewAction::make(),
                 EditAction::make(),
             ])
-            ->defaultSort('item.name');
+            ->defaultSort('updated_at', 'desc');
     }
 
     public static function getRelations(): array

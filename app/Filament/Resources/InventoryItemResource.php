@@ -139,7 +139,7 @@ class InventoryItemResource extends Resource
                     ->boolean()
                     ->label('Active'),
                 TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->dateTime('M j, Y g:i A')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

@@ -117,7 +117,7 @@ class WeeklyPayoutBatchResource extends Resource
 
                 TextColumn::make('finalized_at')
                     ->label('Finalized')
-                    ->dateTime('M j g:ia')
+                    ->dateTime('M j, Y g:i A')
                     ->default('—')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

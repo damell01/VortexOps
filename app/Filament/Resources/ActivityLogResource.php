@@ -77,7 +77,7 @@ class ActivityLogResource extends Resource
 
                 Placeholder::make('created_at')
                     ->label('When')
-                    ->content(fn (Activity $record): string => $record->created_at->format('M j, Y H:i:s')),
+                    ->content(fn (Activity $record): string => $record->created_at->format('M j, Y g:i:s A')),
             ]),
 
             Section::make('Changes')->schema([
@@ -171,7 +171,7 @@ class ActivityLogResource extends Resource
 
                 TextColumn::make('created_at')
                     ->label('When')
-                    ->dateTime('M j, Y H:i')
+                    ->dateTime('M j, Y g:i A')
                     ->sortable(),
             ])
             ->filters([

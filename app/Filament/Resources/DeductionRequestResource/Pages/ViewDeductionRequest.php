@@ -20,6 +20,8 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ViewDeductionRequest extends EditRecord
 {
@@ -182,20 +184,34 @@ class ViewDeductionRequest extends EditRecord
                 ->modalHeading('Approve Deduction Request')
                 ->modalDescription('This will execute inventory deductions for all approved lines via InventoryService. This action cannot be undone.')
                 ->action(function () use ($request) {
-                    $this->persistLines($request);
+                    try {
+                        $this->persistLines($request);
 
-                    if ($opsNotes = $this->data['ops_notes'] ?? null) {
-                        $request->update(['ops_notes' => $opsNotes]);
+                        if ($opsNotes = $this->data['ops_notes'] ?? null) {
+                            $request->update(['ops_notes' => $opsNotes]);
+                        }
+
+                        app(DeductionApprovalService::class)->approve($request);
+
+                        Notification::make()
+                            ->title('Deduction request approved and inventory deducted')
+                            ->success()
+                            ->send();
+
+                        $this->redirect(DeductionRequestResource::getUrl('index'));
+                    } catch (Throwable $e) {
+                        Log::error('Deduction approval failed', [
+                            'deduction_request_id' => $request->id,
+                            'message' => $e->getMessage(),
+                        ]);
+
+                        Notification::make()
+                            ->title('Approval failed')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->persistent()
+                            ->send();
                     }
-
-                    app(DeductionApprovalService::class)->approve($request);
-
-                    Notification::make()
-                        ->title('Deduction request approved and inventory deducted')
-                        ->success()
-                        ->send();
-
-                    $this->redirect(DeductionRequestResource::getUrl('index'));
                 }),
 
             Action::make('reject')

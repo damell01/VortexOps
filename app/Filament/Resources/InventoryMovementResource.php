@@ -101,7 +101,7 @@ class InventoryMovementResource extends Resource
             ->columns([
                 TextColumn::make('created_at')
                     ->label('Date & Time')
-                    ->dateTime()
+                    ->dateTime('M j, Y g:i A')
                     ->sortable(),
                 TextColumn::make('item.name')
                     ->label('Item')

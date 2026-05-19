@@ -118,12 +118,12 @@ class DeductionRequestResource extends Resource
 
                 TextColumn::make('created_at')
                     ->label('Created')
-                    ->dateTime()
+                    ->dateTime('M j, Y g:i A')
                     ->sortable(),
 
                 TextColumn::make('approved_at')
                     ->label('Approved')
-                    ->dateTime()
+                    ->dateTime('M j, Y g:i A')
                     ->placeholder('—')
                     ->toggleable(),
             ])

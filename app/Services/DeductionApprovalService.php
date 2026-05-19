@@ -11,7 +11,10 @@ use Illuminate\Support\Facades\DB;
 
 class DeductionApprovalService
 {
-    public function __construct(private InventoryService $inventory) {}
+    public function __construct(
+        private InventoryService $inventory,
+        private PayoutService $payouts,
+    ) {}
 
     public function approve(DeductionRequest $request): void
     {
@@ -49,6 +52,7 @@ class DeductionApprovalService
 
             $show = $request->show;
             $show->update(['status' => 'reconciled']);
+            $this->payouts->calculateForShow($show->fresh(['streamers']));
 
             NotifyShowReconciled::dispatch($show->id)->afterCommit();
         });

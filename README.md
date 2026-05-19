@@ -51,6 +51,17 @@ To run the queue worker (required for AI mapping and title parsing jobs):
 php artisan queue:work
 ```
 
+## Deployment
+
+Production deployment assets are included in this repo now:
+
+- VPS guide: [docs/DEPLOYMENT.md](/c:/Users/Shild/Downloads/VortexOps/docs/DEPLOYMENT.md)
+- Ubuntu installer: [deploy/install-vps.sh](/c:/Users/Shild/Downloads/VortexOps/deploy/install-vps.sh)
+- Docker image: [Dockerfile](/c:/Users/Shild/Downloads/VortexOps/Dockerfile)
+- Docker stack: [docker-compose.yml](/c:/Users/Shild/Downloads/VortexOps/docker-compose.yml)
+
+Use `.env.production.example` as the starting point for production config.
+
 ---
 
 ## Navigation groups

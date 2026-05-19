@@ -151,7 +151,7 @@
             <div class="px-6 py-4 grid grid-cols-2 gap-4">
                 <div>
                     <label for="ollama_model" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Model</label>
-                    <input wire:model.live="ollama_model" id="ollama_model" type="text" placeholder="llama3.2"
+                    <input wire:model.live="ollama_model" id="ollama_model" type="text" placeholder="llama3.2:3b"
                         class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono" />
                 </div>
                 <div>
@@ -165,7 +165,7 @@
                 <p class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Quick start</p>
                 <div class="space-y-1 font-mono text-xs text-gray-500 dark:text-gray-400">
                     <p><span class="text-gray-400">$</span> ollama serve</p>
-                    <p><span class="text-gray-400">$</span> ollama pull {{ $ollama_model ?: 'llama3.2' }}</p>
+                    <p><span class="text-gray-400">$</span> ollama pull {{ $ollama_model ?: 'llama3.2:3b' }}</p>
                 </div>
             </div>
         </div>

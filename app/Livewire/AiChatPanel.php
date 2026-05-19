@@ -2,7 +2,6 @@
 
 namespace App\Livewire;
 
-use App\Models\Setting;
 use App\Services\OllamaService;
 use Illuminate\View\View;
 use Livewire\Component;
@@ -48,7 +47,7 @@ class AiChatPanel extends Component
 
         $this->question    = '';
         $this->isLoading   = true;
-        $this->messages[]  = ['role' => 'user', 'content' => $q, 'time' => now()->format('H:i')];
+        $this->messages[]  = ['role' => 'user', 'content' => $q, 'time' => now()->format('g:i A')];
 
         try {
             $service = app(OllamaService::class);
@@ -62,7 +61,7 @@ class AiChatPanel extends Component
             $this->messages[] = [
                 'role'    => 'assistant',
                 'content' => $log->success ? $log->response : 'Error: ' . $log->error_message,
-                'time'    => now()->format('H:i'),
+                'time'    => now()->format('g:i A'),
                 'latency' => $log->latency_ms,
                 'success' => $log->success,
             ];
@@ -70,7 +69,7 @@ class AiChatPanel extends Component
             $this->messages[] = [
                 'role'    => 'assistant',
                 'content' => 'Could not reach Ollama: ' . $e->getMessage(),
-                'time'    => now()->format('H:i'),
+                'time'    => now()->format('g:i A'),
                 'success' => false,
             ];
         } finally {

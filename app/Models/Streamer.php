@@ -21,6 +21,7 @@ class Streamer extends Model
         'payout_percentage',
         'package_rate',
         'hourly_rate',
+        'custom_payout_formula',
         'include_tips',
         'adp_employee_id',
         'owner_fee_type',
@@ -78,6 +79,7 @@ class Streamer extends Model
             'package'      => 'Package',
             'hourly'       => 'Hourly',
             'flat_rate'    => 'Flat Rate',
+            'custom_formula' => 'Custom Formula',
         ];
     }
 

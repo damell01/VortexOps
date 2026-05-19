@@ -4,12 +4,15 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\ShowResource\Pages;
 use App\Jobs\MapShowInventory;
+use App\Models\DeductionRequest;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WhatnotChannel;
+use Filament\Actions\Action as TableAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -19,7 +22,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Tables\Actions\Action as TableAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -32,7 +34,13 @@ class ShowResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['streamers', 'channel']);
+        return parent::getEloquentQuery()->with([
+            'streamers',
+            'channel',
+            'latestDeductionRequest.lines.inventoryItem',
+            'latestDeductionRequest.lines.location',
+            'payouts.streamer',
+        ]);
     }
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -73,7 +81,7 @@ class ShowResource extends Resource
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
     {
         return array_filter([
-            'Date'   => $record->show_date?->format('M j, Y'),
+            'Date' => $record->show_date?->format('M j, Y'),
             'Status' => Show::statusLabels()[$record->status] ?? $record->status,
         ]);
     }
@@ -157,6 +165,83 @@ class ShowResource extends Resource
                     ->rows(3)
                     ->columnSpanFull(),
             ]),
+
+            Section::make('Approval Summary')
+                ->visible(fn (?Show $record) => (bool) $record?->latestDeductionRequest)
+                ->schema([
+                    Placeholder::make('approval_status')
+                        ->label('Approval Status')
+                        ->content(function (?Show $record): string {
+                            $request = $record?->latestDeductionRequest;
+
+                            return $request
+                                ? (DeductionRequest::statusLabels()[$request->status] ?? $request->status)
+                                : 'No approval request yet';
+                        }),
+                    Placeholder::make('next_step')
+                        ->label('Next Step')
+                        ->content(function (?Show $record): string {
+                            return match ($record?->status) {
+                                'draft' => 'Finish entering show details, then assign streamers and revenue.',
+                                'pending_review' => 'Run AI mapping to build the approval packet.',
+                                'mapping' => 'AI mapping is in progress. Ops will be notified when review is ready.',
+                                'pending_approval' => 'Review the mapped lines and approve the deduction request.',
+                                'reconciled' => 'Inventory is reconciled. Review payouts and close the show when ready.',
+                                'closed' => 'This show is fully complete.',
+                                'cancelled' => 'This show has been cancelled.',
+                                default => 'Review the show details and continue the next operational step.',
+                            };
+                        }),
+                    Placeholder::make('mapped_items')
+                        ->label('Mapped Items')
+                        ->content(function (?Show $record): string {
+                            $request = $record?->latestDeductionRequest;
+
+                            if (! $request || $request->lines->isEmpty()) {
+                                return 'No mapped items yet.';
+                            }
+
+                            return $request->lines->map(function ($line) {
+                                $item = $line->inventoryItem?->name ?? 'Unknown item';
+                                $location = $line->location?->name ?? 'Unknown location';
+
+                                return "{$item} x {$line->quantity_approved} from {$location}";
+                            })->implode("\n");
+                        }),
+                    Placeholder::make('mapped_line_count')
+                        ->label('Mapped Lines')
+                        ->content(fn (?Show $record): string => (string) ($record?->latestDeductionRequest?->lines?->count() ?? 0)),
+                    Placeholder::make('mapped_total')
+                        ->label('Mapped COGS')
+                        ->content(function (?Show $record): string {
+                            $request = $record?->latestDeductionRequest;
+
+                            return $request
+                                ? '$' . number_format((float) $request->lines->sum('line_total'), 2)
+                                : '$0.00';
+                        }),
+                ]),
+
+            Section::make('Show Recap')
+                ->visible(fn (?Show $record) => (bool) $record?->payouts?->count())
+                ->schema([
+                    Placeholder::make('payouts_summary')
+                        ->label('Payout Summary')
+                        ->content(function (?Show $record): string {
+                            if (! $record || $record->payouts->isEmpty()) {
+                                return 'No payouts have been calculated yet.';
+                            }
+
+                            return $record->payouts
+                                ->map(function ($payout) {
+                                    $streamer = $payout->streamer?->name ?? 'Unknown streamer';
+                                    $type = Streamer::payoutTypeLabels()[$payout->payout_type] ?? $payout->payout_type;
+
+                                    return "{$streamer}: $" . number_format((float) $payout->calculated_payout, 2) . " ({$type})";
+                                })
+                                ->implode("\n");
+                        }),
+                ]),
         ]);
     }
 
@@ -196,23 +281,36 @@ class ShowResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn ($state) => Show::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => match ($state) {
-                        'draft'            => 'gray',
-                        'pending_review'   => 'warning',
-                        'mapping'          => 'info',
+                        'draft' => 'gray',
+                        'pending_review' => 'warning',
+                        'mapping' => 'info',
                         'pending_approval' => 'warning',
-                        'reconciled'       => 'success',
-                        'closed'           => 'success',
-                        'cancelled'        => 'danger',
-                        default            => 'gray',
+                        'reconciled' => 'success',
+                        'closed' => 'success',
+                        'cancelled' => 'danger',
+                        default => 'gray',
                     }),
+
+                TextColumn::make('latestDeductionRequest.status')
+                    ->label('Approval')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => $state ? (DeductionRequest::statusLabels()[$state] ?? $state) : 'Not started')
+                    ->color(fn ($state) => match ($state) {
+                        'pending' => 'warning',
+                        'approved' => 'info',
+                        'processed' => 'success',
+                        'rejected' => 'danger',
+                        default => 'gray',
+                    })
+                    ->toggleable(),
 
                 TextColumn::make('import_source')
                     ->badge()
                     ->formatStateUsing(fn ($state) => Show::importSourceLabels()[$state] ?? $state)
                     ->color(fn ($state) => match ($state) {
-                        'manual'       => 'gray',
+                        'manual' => 'gray',
                         'auto_whatnot' => 'info',
-                        default        => 'gray',
+                        default => 'gray',
                     }),
 
                 TextColumn::make('created_at')
@@ -246,22 +344,22 @@ class ShowResource extends Resource
             ])
             ->actions([
                 TableAction::make('run_ai_mapping')
-                    ->label('Run AI Mapping')
+                    ->label('Map Sales with AI')
                     ->icon('heroicon-o-sparkles')
-                    ->color('warning')
+                    ->color('primary')
                     ->visible(fn (Show $record) => $record->status === 'pending_review' && $record->streamers()->exists())
                     ->requiresConfirmation()
                     ->action(function (Show $record) {
                         MapShowInventory::dispatch($record->id);
                         Notification::make()
                             ->title('AI Mapping queued')
-                            ->body('The AI inventory mapping job has been dispatched.')
+                            ->body('We are mapping this show now. Ops will be notified when approval is ready.')
                             ->success()
                             ->send();
                     }),
 
                 TableAction::make('view_deduction')
-                    ->label('View Deduction')
+                    ->label(fn (Show $record) => $record->status === 'pending_approval' ? 'Review Approval' : 'View Approval')
                     ->icon('heroicon-o-clipboard-document-check')
                     ->color('info')
                     ->visible(fn (Show $record) => in_array($record->status, ['pending_approval', 'reconciled', 'closed']))
@@ -285,10 +383,10 @@ class ShowResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'  => Pages\ListShows::route('/'),
+            'index' => Pages\ListShows::route('/'),
             'create' => Pages\CreateShow::route('/create'),
-            'view'   => Pages\ViewShow::route('/{record}'),
-            'edit'   => Pages\EditShow::route('/{record}/edit'),
+            'view' => Pages\ViewShow::route('/{record}'),
+            'edit' => Pages\EditShow::route('/{record}/edit'),
         ];
     }
 }

@@ -2,13 +2,14 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\Setting;
 use App\Services\OllamaService;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
 
 class AiAssistant extends Page
 {
-    protected static ?string $title = 'AI Assistant';
+    protected static ?string $title = 'Vortex Assistant';
 
     public function getView(): string
     {
@@ -25,6 +26,11 @@ class AiAssistant extends Page
         return 1;
     }
 
+    public static function getNavigationLabel(): string
+    {
+        return 'Vortex Assistant';
+    }
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-sparkles';
@@ -34,7 +40,9 @@ class AiAssistant extends Page
     public array  $messages    = [];
     public bool   $isLoading   = false;
     public string $ollamaModel = '';
+    public string $ollamaBaseUrl = '';
     public bool   $ollamaOnline = false;
+    public array $availableModels = [];
 
     public function mount(): void
     {
@@ -43,9 +51,16 @@ class AiAssistant extends Page
 
     public function refreshStatus(): void
     {
-        $service             = app(OllamaService::class);
-        $this->ollamaOnline  = $service->isAvailable();
-        $this->ollamaModel   = config('ollama.model', 'llama3.2');
+        $service = app(OllamaService::class);
+
+        $this->ollamaOnline = $service->isAvailable();
+        $this->ollamaBaseUrl = Setting::get('ollama_base_url', $service->currentBaseUrl());
+        $this->availableModels = $service->availableModels();
+        $this->ollamaModel = Setting::get('ollama_model', $service->currentModel());
+
+        if ($this->ollamaModel === 'llama3.2' && in_array('llama3.2:3b', $this->availableModels, true)) {
+            $this->ollamaModel = 'llama3.2:3b';
+        }
     }
 
     protected function getHeaderActions(): array
@@ -74,7 +89,7 @@ class AiAssistant extends Page
 
         $this->question  = '';
         $this->isLoading = true;
-        $this->messages[] = ['role' => 'user', 'content' => $q, 'time' => now()->format('H:i')];
+        $this->messages[] = ['role' => 'user', 'content' => $q, 'time' => now()->format('g:i A')];
 
         try {
             $log = app(OllamaService::class)->askQuestion($q);
@@ -102,7 +117,7 @@ class AiAssistant extends Page
         };
 
         $this->isLoading  = true;
-        $this->messages[] = ['role' => 'user', 'content' => $label, 'time' => now()->format('H:i')];
+        $this->messages[] = ['role' => 'user', 'content' => $label, 'time' => now()->format('g:i A')];
 
         try {
             $service = app(OllamaService::class);
@@ -127,7 +142,7 @@ class AiAssistant extends Page
         $this->messages[] = [
             'role'      => 'assistant',
             'content'   => $log->success ? $log->response : ('Error: ' . $log->error_message),
-            'time'      => now()->format('H:i'),
+            'time'      => now()->format('g:i A'),
             'latency'   => $log->latency_ms,
             'success'   => $log->success,
         ];
@@ -138,7 +153,7 @@ class AiAssistant extends Page
         $this->messages[] = [
             'role'    => 'assistant',
             'content' => 'Could not reach Ollama: ' . $msg,
-            'time'    => now()->format('H:i'),
+            'time'    => now()->format('g:i A'),
             'success' => false,
         ];
     }

@@ -33,12 +33,24 @@ class DeductionRequestResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return 'Deduction Request';
+        return 'Pending Approval';
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'Deduction Requests';
+        return 'Pending Approvals';
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Pending Approvals';
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = static::getModel()::query()->where('status', 'pending')->count();
+
+        return $count > 0 ? (string) $count : null;
     }
 
     public static function canCreate(): bool
@@ -99,12 +111,12 @@ class DeductionRequestResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn ($state) => DeductionRequest::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => match ($state) {
-                        'draft'     => 'gray',
-                        'pending'   => 'warning',
-                        'approved'  => 'info',
+                        'draft' => 'gray',
+                        'pending' => 'warning',
+                        'approved' => 'info',
                         'processed' => 'success',
-                        'rejected'  => 'danger',
-                        default     => 'gray',
+                        'rejected' => 'danger',
+                        default => 'gray',
                     }),
 
                 TextColumn::make('lines_count')
@@ -128,6 +140,11 @@ class DeductionRequestResource extends Resource
                     ->toggleable(),
             ])
             ->filters([
+                SelectFilter::make('show_id')
+                    ->label('Show')
+                    ->relationship('show', 'title')
+                    ->searchable(),
+
                 SelectFilter::make('status')
                     ->options(DeductionRequest::statusLabels()),
 
@@ -145,7 +162,7 @@ class DeductionRequestResource extends Resource
     {
         return [
             'index' => Pages\ListDeductionRequests::route('/'),
-            'view'  => Pages\ViewDeductionRequest::route('/{record}'),
+            'view' => Pages\ViewDeductionRequest::route('/{record}'),
         ];
     }
 }

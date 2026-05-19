@@ -75,7 +75,7 @@ async function main() {
   const payload = {
     show_date:    showDate,
     source:       'csv_import',
-    streamer_ids: streamerIds,I wil probably 
+    streamer_ids: streamerIds,
     sales,
   };
 

@@ -7,6 +7,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\Setting;
 use App\Models\Streamer;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -19,9 +20,17 @@ class OllamaService
 
     public function __construct()
     {
-        $this->baseUrl = rtrim(config('ollama.base_url', 'http://localhost:11434'), '/');
-        $this->model   = config('ollama.model', 'llama3.2');
-        $this->timeout = config('ollama.timeout', 60);
+        try {
+            $this->baseUrl = rtrim(Setting::get('ollama_base_url', config('ollama.base_url', 'http://localhost:11434')), '/');
+            $this->model   = Setting::get('ollama_model', config('ollama.model', 'llama3.2'));
+            $this->timeout = (int) Setting::get('ollama_timeout', (string) config('ollama.timeout', 60));
+        } catch (\Throwable) {
+            $this->baseUrl = rtrim(config('ollama.base_url', 'http://localhost:11434'), '/');
+            $this->model   = config('ollama.model', 'llama3.2');
+            $this->timeout = config('ollama.timeout', 60);
+        }
+
+        $this->model = $this->resolvePreferredModel($this->model);
     }
 
     public function isAvailable(): bool
@@ -41,6 +50,33 @@ class OllamaService
         } catch (\Exception) {
             return [];
         }
+    }
+
+    private function resolvePreferredModel(string $preferred): string
+    {
+        $models = $this->availableModels();
+
+        if (empty($models)) {
+            return $preferred;
+        }
+
+        if (in_array($preferred, $models, true)) {
+            return $preferred;
+        }
+
+        $prefixMatch = collect($models)->first(fn (string $model) => str_starts_with($model, $preferred . ':'));
+
+        return $prefixMatch ?: $preferred;
+    }
+
+    public function currentModel(): string
+    {
+        return $this->model;
+    }
+
+    public function currentBaseUrl(): string
+    {
+        return $this->baseUrl;
     }
 
     public function askQuestion(string $question): AiLog
@@ -164,6 +200,32 @@ class OllamaService
 
             if ($result->successful()) {
                 $response = $result->json('message.content', '');
+            } elseif ($result->status() === 404 && str_contains($result->body(), 'model')) {
+                $fallbackModel = $this->resolvePreferredModel($this->model);
+
+                if ($fallbackModel !== $this->model) {
+                    $this->model = $fallbackModel;
+
+                    $retry = Http::timeout($this->timeout)
+                        ->post("{$this->baseUrl}/api/chat", [
+                            'model'  => $this->model,
+                            'stream' => false,
+                            'messages' => [
+                                ['role' => 'system', 'content' => $systemText],
+                                ['role' => 'user', 'content' => $prompt],
+                            ],
+                        ]);
+
+                    if ($retry->successful()) {
+                        $response = $retry->json('message.content', '');
+                    } else {
+                        $success = false;
+                        $error   = "HTTP {$retry->status()}: " . substr($retry->body(), 0, 300);
+                    }
+                } else {
+                    $success = false;
+                    $error   = "HTTP {$result->status()}: " . substr($result->body(), 0, 300);
+                }
             } else {
                 $success = false;
                 $error   = "HTTP {$result->status()}: " . substr($result->body(), 0, 300);

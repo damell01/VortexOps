@@ -81,7 +81,7 @@ class AppSettings extends Page
 
         $this->ai_enabled      = Setting::getBool('ai_enabled', true);
         $this->ollama_base_url = Setting::get('ollama_base_url', config('ollama.base_url', 'http://localhost:11434'));
-        $this->ollama_model    = Setting::get('ollama_model',    config('ollama.model',    'llama3.2'));
+        $this->ollama_model    = Setting::get('ollama_model',    config('ollama.model',    'llama3.2:3b'));
         $this->ollama_timeout  = (int) Setting::get('ollama_timeout', config('ollama.timeout', 60));
 
         $this->show_import_mode                = Setting::get('show_import_mode', 'manual');

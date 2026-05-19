@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -66,6 +67,11 @@ class Show extends Model
     public function deductionRequests(): HasMany
     {
         return $this->hasMany(DeductionRequest::class);
+    }
+
+    public function latestDeductionRequest(): HasOne
+    {
+        return $this->hasMany(DeductionRequest::class)->latestOfMany();
     }
 
     public function ingestionLogs(): HasMany

@@ -35,7 +35,10 @@ class PayoutResource extends Resource
         return 1;
     }
 
-    public static function canCreate(): bool { return false; }
+    public static function canCreate(): bool
+    {
+        return false;
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -45,13 +48,13 @@ class PayoutResource extends Resource
                 ->schema([
                     Placeholder::make('show')
                         ->label('Show')
-                        ->content(fn (Payout $record): string => $record->show?->title ?? 'â€”'),
+                        ->content(fn (Payout $record): string => $record->show?->title ?? '—'),
                     Placeholder::make('show_date')
                         ->label('Show Date')
-                        ->content(fn (Payout $record): string => $record->show?->show_date?->format('M j, Y') ?? 'â€”'),
+                        ->content(fn (Payout $record): string => $record->show?->show_date?->format('M j, Y') ?? '—'),
                     Placeholder::make('streamer')
                         ->label('Streamer')
-                        ->content(fn (Payout $record): string => $record->streamer?->name ?? 'â€”'),
+                        ->content(fn (Payout $record): string => $record->streamer?->name ?? '—'),
                     Placeholder::make('status')
                         ->label('Status')
                         ->content(fn (Payout $record): string => Payout::statusLabels()[$record->status] ?? $record->status),
@@ -83,7 +86,7 @@ class PayoutResource extends Resource
                     ]),
                     Placeholder::make('calculation_notes')
                         ->label('How It Was Calculated')
-                        ->content(fn (Payout $record): string => $record->calculation_notes ?: 'â€”'),
+                        ->content(fn (Payout $record): string => $record->calculation_notes ?: '—'),
                 ]),
         ]);
     }
@@ -93,7 +96,7 @@ class PayoutResource extends Resource
         $query = parent::getEloquentQuery()->with(['show', 'streamer', 'batch']);
 
         $user = auth()->user();
-        if ($user && $user->isStreamer() && !$user->isAdmin()) {
+        if ($user && $user->isStreamer() && ! $user->isAdmin()) {
             $streamerId = $user->streamer?->id;
             if ($streamerId) {
                 $query->where('streamer_id', $streamerId);
@@ -125,10 +128,11 @@ class PayoutResource extends Resource
                     ->formatStateUsing(fn ($state) => Streamer::payoutTypeLabels()[$state] ?? $state)
                     ->color(fn ($state) => match ($state) {
                         'profit_share' => 'success',
-                        'package'      => 'info',
-                        'hourly'       => 'warning',
-                        'flat_rate'    => 'gray',
-                        default        => 'gray',
+                        'package' => 'info',
+                        'hourly' => 'warning',
+                        'flat_rate' => 'gray',
+                        'custom_formula' => 'primary',
+                        default => 'gray',
                     }),
 
                 TextColumn::make('gross_show_revenue')
@@ -163,10 +167,10 @@ class PayoutResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn ($state) => Payout::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => match ($state) {
-                        'draft'    => 'gray',
+                        'draft' => 'gray',
                         'approved' => 'info',
-                        'paid'     => 'success',
-                        default    => 'gray',
+                        'paid' => 'success',
+                        default => 'gray',
                     }),
 
                 TextColumn::make('calculation_notes')
@@ -191,7 +195,7 @@ class PayoutResource extends Resource
     {
         return [
             'index' => Pages\ListPayouts::route('/'),
-            'view'  => Pages\ViewPayout::route('/{record}'),
+            'view' => Pages\ViewPayout::route('/{record}'),
         ];
     }
 }

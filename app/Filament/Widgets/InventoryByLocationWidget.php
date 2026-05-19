@@ -7,7 +7,6 @@ use App\Models\InventoryLocation;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
-use Illuminate\Database\Query\JoinClause;
 
 class InventoryByLocationWidget extends BaseWidget
 {

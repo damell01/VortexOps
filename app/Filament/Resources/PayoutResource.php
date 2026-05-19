@@ -160,8 +160,7 @@ class PayoutResource extends Resource
 
                 TextColumn::make('batch.week_start')
                     ->label('Pay Week')
-                    ->date('M j')
-                    ->default('Unbatched'),
+                    ->formatStateUsing(fn ($state): string => $state ? $state->format('M j') : 'Unbatched'),
 
                 TextColumn::make('status')
                     ->badge()

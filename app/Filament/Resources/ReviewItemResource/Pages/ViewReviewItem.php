@@ -10,16 +10,21 @@ use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
-use Filament\Resources\Pages\ViewRecord;
+use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\HtmlString;
 
-class ViewReviewItem extends ViewRecord
+class ViewReviewItem extends EditRecord
 {
     protected static string $resource = ReviewItemResource::class;
+
+    protected function getFormActions(): array
+    {
+        return [];
+    }
 
     protected function getHeaderActions(): array
     {
@@ -36,7 +41,6 @@ class ViewReviewItem extends ViewRecord
                 ->action(function (): void {
                     $this->record->update(['status' => 'in_progress']);
                     Notification::make()->title('Marked in progress')->success()->send();
-                    $this->refreshFormData(['status']);
                 });
 
             $actions[] = Action::make('mark_fixed')
@@ -47,7 +51,6 @@ class ViewReviewItem extends ViewRecord
                 ->action(function (): void {
                     $this->record->update(['status' => 'fixed']);
                     Notification::make()->title('Marked as fixed')->success()->send();
-                    $this->refreshFormData(['status']);
                 });
 
             $actions[] = Action::make('mark_approved')
@@ -58,7 +61,6 @@ class ViewReviewItem extends ViewRecord
                 ->action(function (): void {
                     $this->record->update(['status' => 'approved']);
                     Notification::make()->title('Approved')->success()->send();
-                    $this->refreshFormData(['status']);
                 });
 
             $actions[] = Action::make('mark_wont_fix')
@@ -70,7 +72,6 @@ class ViewReviewItem extends ViewRecord
                 ->action(function (): void {
                     $this->record->update(['status' => 'wont_fix']);
                     Notification::make()->title("Marked as won't fix")->success()->send();
-                    $this->refreshFormData(['status']);
                 });
 
             $actions[] = Action::make('mark_rejected')
@@ -82,13 +83,7 @@ class ViewReviewItem extends ViewRecord
                 ->action(function (): void {
                     $this->record->update(['status' => 'rejected']);
                     Notification::make()->title('Rejected')->warning()->send();
-                    $this->refreshFormData(['status']);
                 });
-
-            $actions[] = Action::make('edit_item')
-                ->label('Edit')
-                ->icon('heroicon-o-pencil')
-                ->url(fn () => ReviewItemResource::getUrl('edit', ['record' => $this->record]));
 
             $actions[] = DeleteAction::make()
                 ->after(fn () => $this->redirect(ReviewItemResource::getUrl('index')));
@@ -111,7 +106,6 @@ class ViewReviewItem extends ViewRecord
                     'user_id'        => Auth::id(),
                     'body'           => $data['body'],
                 ]);
-
                 $this->record->refresh();
                 Notification::make()->title('Comment added')->success()->send();
             });
@@ -119,87 +113,95 @@ class ViewReviewItem extends ViewRecord
         return $actions;
     }
 
-    public function infolist(Schema $schema): Schema
+    public function form(Schema $schema): Schema
     {
+        $record       = $this->record;
         $isSuperAdmin = auth()->user()?->isSuperAdmin() ?? false;
 
         return $schema->components([
             Section::make('Details')
                 ->columns(2)
-                ->schema(array_filter([
+                ->schema(array_values(array_filter([
                     Placeholder::make('session_title')
                         ->label('Session')
-                        ->content(fn (ReviewItem $record): string => $record->session?->title ?? '—'),
+                        ->content($record->session?->title ?? '—'),
 
                     Placeholder::make('page_title_display')
                         ->label('Page')
-                        ->content(fn (ReviewItem $record): string => $record->page_title ?? '—'),
+                        ->content($record->page_title ?? '—'),
 
                     Placeholder::make('type_label')
                         ->label('Type')
-                        ->content(fn (ReviewItem $record): string => ReviewItem::typeLabels()[$record->type] ?? $record->type),
+                        ->content(ReviewItem::typeLabels()[$record->type] ?? $record->type),
 
                     Placeholder::make('priority_label')
                         ->label('Priority')
-                        ->content(fn (ReviewItem $record): string => ReviewItem::priorityLabels()[$record->priority] ?? $record->priority),
+                        ->content(ReviewItem::priorityLabels()[$record->priority] ?? $record->priority),
 
                     Placeholder::make('status_label')
                         ->label('Status')
-                        ->content(fn (ReviewItem $record): string => ReviewItem::statusLabels()[$record->status] ?? $record->status),
+                        ->content(ReviewItem::statusLabels()[$record->status] ?? $record->status),
 
                     $isSuperAdmin
                         ? Placeholder::make('reporter_name')
                             ->label('Reporter')
-                            ->content(fn (ReviewItem $record): string => $record->createdBy?->name ?? '—')
+                            ->content($record->createdBy?->name ?? '—')
                         : null,
 
                     $isSuperAdmin
                         ? Placeholder::make('assigned_to_name')
                             ->label('Assigned To')
-                            ->content(fn (ReviewItem $record): string => $record->assignedTo?->name ?? 'Unassigned')
+                            ->content($record->assignedTo?->name ?? 'Unassigned')
                         : null,
+
+                    Placeholder::make('page_url_display')
+                        ->label('URL')
+                        ->content(new HtmlString(
+                            '<a href="' . e($record->page_url) . '" target="_blank" class="text-violet-600 underline text-xs">'
+                            . e($record->page_url)
+                            . '</a>'
+                        )),
 
                     Placeholder::make('submitted_at')
                         ->label('Submitted')
-                        ->content(fn (ReviewItem $record): string => $record->created_at->format('M j, Y g:i A')),
-                ])),
+                        ->content($record->created_at->format('M j, Y g:i A')),
+                ]))),
 
             Section::make('Comment')
                 ->schema([
                     Placeholder::make('comment_text')
                         ->label('')
-                        ->content(fn (ReviewItem $record): string => $record->comment ?: 'No comment provided.')
-                        ->columnSpanFull(),
+                        ->content($record->comment ?: 'No comment provided.'),
                 ]),
 
             Section::make('Annotation')
                 ->collapsed()
-                ->visible(fn (): bool => ! empty($this->record->screenshot))
+                ->visible(! empty($record->screenshot))
                 ->schema([
                     Placeholder::make('screenshot_img')
                         ->label('')
-                        ->content(fn (ReviewItem $record): HtmlString =>
+                        ->content(
                             $record->screenshot
-                                ? new HtmlString('<img src="' . e($record->screenshot) . '" class="block w-full rounded-lg" style="object-fit:contain;max-height:500px" loading="lazy">')
+                                ? new HtmlString('<img src="' . e($record->screenshot) . '" class="block w-full rounded-lg" style="object-fit:contain;max-height:520px" loading="lazy">')
                                 : new HtmlString('<span class="text-sm text-gray-400">No screenshot.</span>')
-                        )
-                        ->columnSpanFull(),
+                        ),
                 ]),
 
             Section::make('Thread')
                 ->schema([
                     Placeholder::make('comments_thread')
                         ->label('')
-                        ->content(fn (ReviewItem $record): HtmlString => static::renderCommentThread($record))
-                        ->columnSpanFull(),
+                        ->content($this->renderThread($record)),
                 ]),
         ]);
     }
 
-    private static function renderCommentThread(ReviewItem $record): HtmlString
+    private function renderThread(ReviewItem $record): HtmlString
     {
+        $record->load('comments.user');
+
         if ($record->comments->isEmpty()) {
-            return new HtmlString('<p class="text-sm text-gray-400 py-2">No comments yet.</p>');
+            return new HtmlString('<p class="text-sm text-gray-400 py-1">No comments yet. Use Add Comment above.</p>');
         }
 
         $html = '<div class="space-y-3">';
@@ -208,11 +210,11 @@ class ViewReviewItem extends ViewRecord
             $body = nl2br(e($comment->body));
             $time = $comment->created_at->diffForHumans();
             $html .= '<div class="rounded-xl bg-gray-50 px-4 py-3">'
-                   . '<div class="flex items-center justify-between mb-1">'
-                   . '<span class="text-xs font-semibold text-gray-700">' . $name . '</span>'
+                   . '<div class="flex items-center justify-between mb-1.5">'
+                   . '<span class="text-xs font-semibold text-gray-800">' . $name . '</span>'
                    . '<span class="text-xs text-gray-400">' . $time . '</span>'
                    . '</div>'
-                   . '<p class="text-sm text-gray-700">' . $body . '</p>'
+                   . '<p class="text-sm text-gray-700 leading-relaxed">' . $body . '</p>'
                    . '</div>';
         }
         $html .= '</div>';

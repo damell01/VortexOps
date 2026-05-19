@@ -11,6 +11,7 @@ use Filament\Tables\Actions\Action as TableAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class InventoryMovementResource extends Resource
 {
@@ -67,6 +68,11 @@ class InventoryMovementResource extends Resource
             'Date' => $record->created_at?->format('M j, Y'),
             'Qty'  => $record->quantity,
         ]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['item', 'fromLocation', 'toLocation', 'createdByUser']);
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool

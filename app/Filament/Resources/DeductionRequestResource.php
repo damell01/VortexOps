@@ -10,6 +10,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class DeductionRequestResource extends Resource
 {
@@ -43,6 +44,13 @@ class DeductionRequestResource extends Resource
     public static function canCreate(): bool
     {
         return false;
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->with(['show', 'streamer'])
+            ->withSum('lines', 'line_total');
     }
 
     public static function getGloballySearchableAttributes(): array
@@ -103,10 +111,10 @@ class DeductionRequestResource extends Resource
                     ->counts('lines')
                     ->label('Lines'),
 
-                TextColumn::make('total_cogs')
+                TextColumn::make('lines_sum_line_total')
                     ->label('Total COGS')
-                    ->getStateUsing(fn (DeductionRequest $record) => $record->totalCogs())
-                    ->money('USD'),
+                    ->money('USD')
+                    ->placeholder('$0.00'),
 
                 TextColumn::make('created_at')
                     ->label('Created')

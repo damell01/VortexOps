@@ -30,6 +30,11 @@ class ShowResource extends Resource
 {
     protected static ?string $model = Show::class;
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['streamers', 'channel']);
+    }
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-video-camera';

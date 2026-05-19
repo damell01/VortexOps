@@ -56,6 +56,7 @@ class AdminPanelProvider extends PanelProvider
             ->databaseNotifications()
             ->databaseNotificationsPolling('30s')
             ->navigationGroups([
+                NavigationGroup::make('Project Hub'),
                 NavigationGroup::make('Streams'),
                 NavigationGroup::make('Payouts & Pay Runs'),
                 NavigationGroup::make('Inventory'),

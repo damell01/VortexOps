@@ -6,6 +6,7 @@ import html2canvas from 'html2canvas';
 let reviewModeActive = false;   // persists across page loads via localStorage
 let canvasActive     = false;   // canvas overlay is shown
 let sessionId        = null;
+let projectId        = null;
 let hasUploadedImage = false;   // track if user uploaded an image (skip page screenshot)
 
 let fabricCanvas  = null;
@@ -24,6 +25,7 @@ let isDrawingArrow = false;
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     sessionId = localStorage.getItem('vortex_review_session_id') || null;
+    projectId = localStorage.getItem('vortex_project_id') || null;
     injectFab();
     if (localStorage.getItem('vortex_review_active') === '1' && sessionId) {
         reviewModeActive = true;
@@ -155,7 +157,7 @@ function showBrowsingUI() {
 
         <div style="padding:8px 12px;border-top:1px solid #f3f4f6;display:flex;gap:6px;">
             ${isAdminPage ? '' : '<a href="/admin" style="flex:1;text-align:center;font-size:10px;font-weight:600;color:#6b7280;text-decoration:none;padding:5px;border-radius:6px;border:1px solid #e5e7eb;display:block;" target="_blank">Admin ↗</a>'}
-            <a href="/review" style="flex:1;text-align:center;font-size:10px;font-weight:600;color:#6b7280;text-decoration:none;padding:5px;border-radius:6px;border:1px solid #e5e7eb;display:block;" target="_blank">Review Portal ↗</a>
+            <a href="/review" style="flex:1;text-align:center;font-size:10px;font-weight:600;color:#6b7280;text-decoration:none;padding:5px;border-radius:6px;border:1px solid #e5e7eb;display:block;" target="_blank">Project Hub ↗</a>
         </div>`;
 
     document.body.appendChild(browsingPanel);
@@ -179,7 +181,7 @@ async function loadSessionInfo() {
         const r        = await fetch('/admin/review/sessions', { headers: { Accept: 'application/json' } });
         const sessions = await r.json();
         const session  = sessions.find(s => String(s.id) === String(sessionId));
-        if (session) badge.textContent = session.title;
+        if (session) badge.textContent = session.project?.name ? session.project.name : session.title;
     } catch { /* ignore */ }
 }
 
@@ -223,7 +225,7 @@ async function loadPageAnnotations() {
         </div>`;
     });
     if (items.length > 6) {
-        html += `<div style="padding:6px 12px;font-size:10px;color:#9ca3af;text-align:center;">+${items.length - 6} more in Review Portal</div>`;
+        html += `<div style="padding:6px 12px;font-size:10px;color:#9ca3af;text-align:center;">+${items.length - 6} more in Project Hub</div>`;
     }
     container.innerHTML = html;
 }
@@ -749,14 +751,17 @@ async function pickSession() {
         });
 
         const sessionOptions = sessions.length
-            ? sessions.map(s => `<option value="${s.id}">${s.title} (${s.items_count ?? 0} items)</option>`).join('')
+            ? sessions.map(s => {
+                const projectPrefix = s.project?.name ? `${s.project.name} - ` : '';
+                return `<option value="${s.id}">${projectPrefix}${s.title} (${s.items_count ?? 0} items)</option>`;
+            }).join('')
             : '<option disabled>No open sessions — create one below</option>';
 
         modal.innerHTML = `
             <div style="background:white;border-radius:16px;padding:24px;width:400px;max-width:90vw;
                         box-shadow:0 24px 48px rgba(0,0,0,0.3);font-family:system-ui,sans-serif;">
-                <h3 style="font-size:16px;font-weight:700;color:#111827;margin:0 0 4px;">Start Review Session</h3>
-                <p style="font-size:12px;color:#9ca3af;margin:0 0 16px;">Choose or create a session to group your annotations.</p>
+                <h3 style="font-size:16px;font-weight:700;color:#111827;margin:0 0 4px;">Start Feedback Session</h3>
+                <p style="font-size:12px;color:#9ca3af;margin:0 0 16px;">Choose or create a session to group your annotations inside Project Hub.</p>
 
                 ${sessions.length ? `
                 <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Use existing session</label>
@@ -801,7 +806,7 @@ async function pickSession() {
                 const r    = await fetch('/admin/review/sessions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
-                    body: JSON.stringify({ title }),
+                    body: JSON.stringify({ title, project_id: projectId ? parseInt(projectId, 10) : null }),
                 });
                 const s = await r.json();
                 close(String(s.id));

@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Project;
 use App\Models\ReviewItem;
 use App\Models\ReviewItemComment;
 use App\Models\ReviewSession;
+use App\Modules\ProjectHub\Support\ProjectHub;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,9 +18,10 @@ class ReviewController extends Controller
     public function sessions(): JsonResponse
     {
         $sessions = ReviewSession::where('status', '!=', 'closed')
+            ->with('project:id,name')
             ->withCount('items')
             ->orderByDesc('created_at')
-            ->get(['id', 'title', 'status', 'created_at']);
+            ->get(['id', 'project_id', 'title', 'status', 'created_at']);
 
         return response()->json($sessions);
     }
@@ -25,9 +29,15 @@ class ReviewController extends Controller
     // POST /admin/review/sessions
     public function storeSession(Request $request): JsonResponse
     {
-        $request->validate(['title' => 'required|string|max:255']);
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'project_id' => 'nullable|exists:projects,id',
+        ]);
+
+        $projectId = $request->integer('project_id') ?: ProjectHub::defaultProjectId($request->user());
 
         $session = ReviewSession::create([
+            'project_id' => $projectId,
             'title'      => $request->title,
             'status'     => 'open',
             'created_by' => Auth::id(),
@@ -44,6 +54,10 @@ class ReviewController extends Controller
 
         if ($request->session_id) {
             $query->where('review_session_id', $request->session_id);
+        }
+
+        if ($request->project_id) {
+            $query->whereHas('session', fn (Builder $sessionQuery) => $sessionQuery->where('project_id', $request->project_id));
         }
 
         return response()->json($query->get());

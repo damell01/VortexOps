@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ReviewSessionResource\Pages;
+use App\Models\Project;
 use App\Models\ReviewSession;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -29,7 +30,7 @@ class ReviewSessionResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Operations';
+        return 'Project Hub';
     }
 
     public static function getNavigationSort(): ?int
@@ -51,6 +52,11 @@ class ReviewSessionResource extends Resource
     {
         return $schema->components([
             Section::make()->schema([
+                Select::make('project_id')
+                    ->label('Project')
+                    ->options(Project::orderBy('name')->pluck('name', 'id'))
+                    ->searchable()
+                    ->preload(),
                 TextInput::make('title')
                     ->required()
                     ->maxLength(255)
@@ -70,6 +76,10 @@ class ReviewSessionResource extends Resource
                 TextColumn::make('title')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('project.name')
+                    ->label('Project')
+                    ->placeholder('—')
+                    ->searchable(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => ReviewSession::statusLabels()[$state] ?? $state)
@@ -93,6 +103,9 @@ class ReviewSessionResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('status')->options(ReviewSession::statusLabels()),
+                SelectFilter::make('project_id')
+                    ->label('Project')
+                    ->relationship('project', 'name'),
             ])
             ->actions([
                 ViewAction::make(),

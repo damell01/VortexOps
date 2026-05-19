@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ReviewItemResource\Pages;
+use App\Models\Project;
 use App\Models\ReviewItem;
 use App\Models\User;
 use Filament\Actions\Action;
@@ -32,7 +33,7 @@ class ReviewItemResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Operations';
+        return 'Project Hub';
     }
 
     public static function getNavigationSort(): ?int
@@ -162,6 +163,10 @@ class ReviewItemResource extends Resource
                 TextColumn::make('id')->label('#')->sortable(),
 
                 $isSuperAdmin
+                    ? TextColumn::make('session.project.name')->label('Project')->placeholder('—')->toggleable()
+                    : null,
+
+                $isSuperAdmin
                     ? TextColumn::make('session.title')->label('Session')->limit(28)
                     : null,
 
@@ -219,6 +224,19 @@ class ReviewItemResource extends Resource
                 SelectFilter::make('status')->options(ReviewItem::statusLabels()),
                 SelectFilter::make('priority')->options(ReviewItem::priorityLabels()),
                 SelectFilter::make('type')->options(ReviewItem::typeLabels()),
+
+                $isSuperAdmin
+                    ? SelectFilter::make('project_id')
+                        ->label('Project')
+                        ->query(function (Builder $query, array $data): Builder {
+                            if (! filled($data['value'] ?? null)) {
+                                return $query;
+                            }
+
+                            return $query->whereHas('session', fn (Builder $sessionQuery) => $sessionQuery->where('project_id', $data['value']));
+                        })
+                        ->options(Project::orderBy('name')->pluck('name', 'id'))
+                    : null,
 
                 $isSuperAdmin
                     ? SelectFilter::make('review_session_id')

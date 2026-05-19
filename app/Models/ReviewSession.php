@@ -8,13 +8,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ReviewSession extends Model
 {
-    protected $fillable = ['title', 'status', 'created_by', 'submitted_at'];
+    protected $fillable = ['project_id', 'title', 'status', 'created_by', 'submitted_at'];
 
     protected $casts = ['submitted_at' => 'datetime'];
 
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function project(): BelongsTo
+    {
+        return $this->belongsTo(Project::class);
     }
 
     public function items(): HasMany

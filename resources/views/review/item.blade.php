@@ -1,29 +1,29 @@
 <x-review-layout
     title="{{ $item->page_title ?: 'Review Item #'.$item->id }}"
     :session-id="$item->review_session_id"
-    :breadcrumb="'<a href=\''.route('review.session', $item->session).'\' class=\'text-sm font-medium text-gray-700\'>'.$item->session->title.'</a>'"
+    :project-id="$item->session->project?->id"
+    :breadcrumb="$item->session->project ? '<a href=\''.route('review.project', $item->session->project).'\' class=\'text-sm font-medium text-gray-700\'>'.$item->session->project->name.'</a><span class=\'mx-2 text-gray-300\'>/</span><a href=\''.route('review.session', $item->session).'\' class=\'text-sm font-medium text-gray-700\'>'.$item->session->title.'</a>' : '<a href=\''.route('review.session', $item->session).'\' class=\'text-sm font-medium text-gray-700\'>'.$item->session->title.'</a>'"
 >
 
 @php
     $statusMap = [
-        'open'        => ['bg-red-100 text-red-700',       'ring-red-300',   'Open'],
-        'in_progress' => ['bg-yellow-100 text-yellow-700', 'ring-yellow-300','In Progress'],
-        'fixed'       => ['bg-green-100 text-green-700',   'ring-green-300', 'Fixed'],
-        'approved'    => ['bg-emerald-100 text-emerald-700','ring-emerald-300','Approved'],
-        'rejected'    => ['bg-gray-100 text-gray-500',     'ring-gray-300',  'Rejected'],
-        'wont_fix'    => ['bg-gray-100 text-gray-500',     'ring-gray-300',  "Won't Fix"],
+        'open' => ['bg-red-100 text-red-700', 'ring-red-300', 'Open'],
+        'in_progress' => ['bg-yellow-100 text-yellow-700', 'ring-yellow-300', 'In Progress'],
+        'fixed' => ['bg-green-100 text-green-700', 'ring-green-300', 'Fixed'],
+        'approved' => ['bg-emerald-100 text-emerald-700', 'ring-emerald-300', 'Approved'],
+        'rejected' => ['bg-gray-100 text-gray-500', 'ring-gray-300', 'Rejected'],
+        'wont_fix' => ['bg-gray-100 text-gray-500', 'ring-gray-300', "Won't Fix"],
     ];
     $typeMap = [
-        'annotation' => '✏️ Annotation',
-        'bug'        => '🐛 Bug',
-        'suggestion' => '💡 Suggestion',
-        'question'   => '❓ Question',
+        'annotation' => 'Annotation',
+        'bug' => 'Bug',
+        'suggestion' => 'Suggestion',
+        'question' => 'Question',
     ];
     [$statusBg, $statusRing, $statusLabel] = $statusMap[$item->status] ?? ['bg-gray-100 text-gray-500', 'ring-gray-300', ucfirst($item->status)];
     $isSuperAdmin = auth()->user()->isSuperAdmin();
 @endphp
 
-    {{-- Back --}}
     <a href="{{ route('review.session', $item->session) }}"
        class="mb-4 inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600">
         <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -33,11 +33,7 @@
     </a>
 
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-
-        {{-- Left column: Details + Screenshot --}}
         <div class="space-y-4 lg:col-span-2">
-
-            {{-- Header card --}}
             <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                 <div class="flex items-start justify-between gap-4">
                     <div>
@@ -60,8 +56,8 @@
                     </span>
                     @php
                         $priorityCss = match($item->priority) {
-                            'high'  => 'bg-red-50 text-red-700',
-                            'low'   => 'bg-gray-100 text-gray-500',
+                            'high' => 'bg-red-50 text-red-700',
+                            'low' => 'bg-gray-100 text-gray-500',
                             default => 'bg-yellow-50 text-yellow-700',
                         };
                     @endphp
@@ -90,7 +86,6 @@
                 @endif
             </div>
 
-            {{-- Super-admin status controls --}}
             @if ($isSuperAdmin)
                 <div class="rounded-2xl border border-violet-100 bg-violet-50 p-4">
                     <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-violet-600">Update Status</p>
@@ -114,7 +109,6 @@
                 </div>
             @endif
 
-            {{-- Screenshot --}}
             @if ($item->screenshot)
                 <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
                     <div class="border-b border-gray-100 px-4 py-2.5">
@@ -128,7 +122,6 @@
             @endif
         </div>
 
-        {{-- Right column: Comment thread --}}
         <div class="space-y-4">
             <div class="rounded-2xl border border-gray-200 bg-white shadow-sm">
                 <div class="border-b border-gray-100 px-4 py-3">
@@ -142,7 +135,6 @@
                     </p>
                 </div>
 
-                {{-- Comments list --}}
                 <div class="divide-y divide-gray-50">
                     @forelse ($item->comments as $comment)
                         @php $isMe = $comment->user_id === auth()->id(); @endphp
@@ -154,7 +146,7 @@
                                 </span>
                                 <span class="text-[11px] text-gray-400">{{ $comment->created_at->diffForHumans() }}</span>
                             </div>
-                            <p class="mt-1.5 text-sm text-gray-700 whitespace-pre-wrap">{{ $comment->body }}</p>
+                            <p class="mt-1.5 whitespace-pre-wrap text-sm text-gray-700">{{ $comment->body }}</p>
                         </div>
                     @empty
                         <div class="px-4 py-6 text-center text-xs text-gray-400">
@@ -163,14 +155,13 @@
                     @endforelse
                 </div>
 
-                {{-- Add comment --}}
                 <div class="border-t border-gray-100 p-4">
                     <form method="POST" action="{{ route('review.item.comment', $item) }}">
                         @csrf
                         <textarea
                             name="body"
                             rows="3"
-                            placeholder="Leave a note, ask a question, or give an update…"
+                            placeholder="Leave a note, ask a question, or give an update..."
                             class="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-violet-400"
                             required
                         ></textarea>

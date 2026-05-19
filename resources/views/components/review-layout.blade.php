@@ -1,4 +1,4 @@
-@props(['title' => null, 'sessionId' => null, 'breadcrumb' => null])
+@props(['title' => null, 'sessionId' => null, 'projectId' => null, 'breadcrumb' => null])
 
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-gray-50">
@@ -6,7 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $title ? $title . ' · ' : '' }}VortexOps Review</title>
+    <title>{{ $title ? $title . ' · ' : '' }}VortexOps Project Hub</title>
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @endif
@@ -14,6 +14,9 @@
 
     @if ($sessionId)
         <script>localStorage.setItem('vortex_review_session_id', '{{ $sessionId }}');</script>
+    @endif
+    @if ($projectId)
+        <script>localStorage.setItem('vortex_project_id', '{{ $projectId }}');</script>
     @endif
 </head>
 <body class="h-full font-sans antialiased">
@@ -28,7 +31,7 @@
                                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                         </svg>
                     </div>
-                    Review Portal
+                    Project Hub
                 </a>
 
                 @if ($breadcrumb)

@@ -8,11 +8,10 @@ use Livewire\Component;
 
 class AiChatPanel extends Component
 {
-    public bool   $isOpen      = false;
-    public string $question    = '';
-    public array  $messages    = [];
-    public bool   $isLoading   = false;
-    public array  $pageContext = [];
+    public bool   $isOpen       = false;
+    public string $question     = '';
+    public array  $messages     = [];
+    public array  $pageContext  = [];
     public string $contextLabel = 'VortexOps';
     public bool   $ollamaOnline = false;
 
@@ -41,26 +40,28 @@ class AiChatPanel extends Component
     public function sendMessage(): void
     {
         $q = trim($this->question);
-        if ($q === '' || $this->isLoading) {
+        if ($q === '') {
             return;
         }
 
-        $this->question    = '';
-        $this->isLoading   = true;
-        $this->messages[]  = ['role' => 'user', 'content' => $q, 'time' => now()->format('g:i A')];
+        $this->question   = '';
+        $this->messages[] = ['role' => 'user', 'content' => $q, 'time' => now()->format('g:i A')];
+
+        $service     = app(OllamaService::class);
+        $contextNote = $this->buildContextNote();
+        $fullQuestion = $contextNote ? "{$contextNote}\n\nUser question: {$q}" : $q;
+        $systemText  = $this->buildSystemText();
 
         try {
-            $service = app(OllamaService::class);
-
-            // Inject current page context into the question
-            $contextNote = $this->buildContextNote();
-            $fullQuestion = $contextNote ? "{$contextNote}\n\nUser question: {$q}" : $q;
-
-            $log = $service->askQuestion($fullQuestion);
+            $log = $service->streamQuestion($fullQuestion, $systemText, function (string $token): void {
+                $this->stream(to: 'aiStream', value: $token, replace: false);
+            });
 
             $this->messages[] = [
                 'role'    => 'assistant',
-                'content' => $log->success ? $log->response : 'Error: ' . $log->error_message,
+                'content' => $log->success
+                    ? ($log->response ?: '(empty response)')
+                    : 'Error: ' . $log->error_message,
                 'time'    => now()->format('g:i A'),
                 'latency' => $log->latency_ms,
                 'success' => $log->success,
@@ -72,16 +73,26 @@ class AiChatPanel extends Component
                 'time'    => now()->format('g:i A'),
                 'success' => false,
             ];
-        } finally {
-            $this->isLoading = false;
         }
 
+        $this->dispatch('message-received');
         $this->dispatch('panelScrollToBottom');
     }
 
     public function clearChat(): void
     {
         $this->messages = [];
+    }
+
+    private function buildSystemText(): string
+    {
+        $context = app(OllamaService::class)->buildInventoryContext();
+
+        return "You are VortexOps AI, an inventory assistant for Vortex Breaks — a sports card break business that streams on Whatnot. "
+            . "You have access to the current inventory snapshot below. Answer questions concisely and accurately. "
+            . "Use plain text or bullet points. Do not use markdown headers.\n\n"
+            . "Current inventory snapshot:\n"
+            . json_encode($context, JSON_PRETTY_PRINT);
     }
 
     private function buildContextNote(): string

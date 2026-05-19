@@ -87,6 +87,78 @@ class OllamaService
         return $this->send($question, $systemText, 'freeform_query', $context);
     }
 
+    /**
+     * Stream an Ollama response token-by-token, calling $onToken for each chunk.
+     * Returns an AiLog with the full concatenated response.
+     */
+    public function streamQuestion(string $question, string $systemText, callable $onToken): AiLog
+    {
+        $start        = microtime(true);
+        $fullResponse = '';
+        $success      = true;
+        $error        = null;
+
+        try {
+            $response = Http::withOptions(['stream' => true])
+                ->timeout($this->timeout)
+                ->post("{$this->baseUrl}/api/chat", [
+                    'model'    => $this->model,
+                    'stream'   => true,
+                    'messages' => [
+                        ['role' => 'system', 'content' => $systemText],
+                        ['role' => 'user',   'content' => $question],
+                    ],
+                ]);
+
+            if ($response->successful()) {
+                $body   = $response->toPsrResponse()->getBody();
+                $buffer = '';
+
+                while (! $body->eof()) {
+                    $buffer .= $body->read(512);
+
+                    while (($pos = strpos($buffer, "\n")) !== false) {
+                        $line   = substr($buffer, 0, $pos);
+                        $buffer = substr($buffer, $pos + 1);
+
+                        if (trim($line) === '') {
+                            continue;
+                        }
+
+                        $data = json_decode($line, true);
+                        if (isset($data['message']['content'])) {
+                            $token         = $data['message']['content'];
+                            $fullResponse .= $token;
+                            $onToken($token);
+                        }
+
+                        if ($data['done'] ?? false) {
+                            break 2;
+                        }
+                    }
+                }
+            } else {
+                $success = false;
+                $error   = "HTTP {$response->status()}: " . substr($response->body(), 0, 300);
+            }
+        } catch (\Exception $e) {
+            $success = false;
+            $error   = $e->getMessage();
+        }
+
+        return AiLog::create([
+            'model'         => $this->model,
+            'action_type'   => 'freeform_query',
+            'prompt'        => $question,
+            'response'      => $fullResponse,
+            'context'       => [],
+            'latency_ms'    => (int) ((microtime(true) - $start) * 1000),
+            'success'       => $success,
+            'error_message' => $error,
+            'user_id'       => Auth::id(),
+        ]);
+    }
+
     public function inventoryAnalysis(): AiLog
     {
         $context    = $this->buildInventoryContext();

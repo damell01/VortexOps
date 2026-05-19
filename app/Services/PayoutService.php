@@ -3,39 +3,37 @@
 namespace App\Services;
 
 use App\Models\Payout;
-use App\Models\ShowFinancial;
+use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WeeklyPayoutBatch;
-use App\Models\WhatnotShow;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class PayoutService
 {
-    public function calculateForShow(WhatnotShow $show): array
+    public function calculateForShow(Show $show): array
     {
-        $financial = $show->financial;
-        $streamers  = $show->streamers;
+        $streamers = $show->streamers;
 
-        if (!$financial || $streamers->isEmpty()) {
+        if ($streamers->isEmpty()) {
             return [];
         }
 
         $payouts = [];
 
         foreach ($streamers as $streamer) {
-            $existing = Payout::where('whatnot_show_id', $show->id)
+            $existing = Payout::where('show_id', $show->id)
                 ->where('streamer_id', $streamer->id)
                 ->first();
 
-            $result = $this->computeStreamerPayout($streamer, $financial, $streamers->count());
+            $result = $this->computeStreamerPayout($streamer, $show, $streamers->count());
 
             $payout = $existing
                 ? $existing->fill($result)
                 : new Payout(array_merge($result, [
-                    'whatnot_show_id' => $show->id,
-                    'streamer_id'     => $streamer->id,
+                    'show_id'    => $show->id,
+                    'streamer_id' => $streamer->id,
                 ]));
 
             $payout->save();
@@ -45,19 +43,14 @@ class PayoutService
         return $payouts;
     }
 
-    private function computeStreamerPayout(Streamer $streamer, ShowFinancial $financial, int $streamerCount): array
+    private function computeStreamerPayout(Streamer $streamer, Show $show, int $streamerCount): array
     {
-        $netRevenue      = (float) $financial->net_revenue;
-        $tips            = (float) $financial->tips_collected;
-        $ownerFeePct     = (float) $financial->owner_platform_fee_pct;
-        $ownerFee        = round($netRevenue * ($ownerFeePct / 100), 2);
-        $revenueAfterFee = $netRevenue - $ownerFee;
+        $netRevenue      = (float) $show->whatnot_net;
+        $tips            = (float) $show->tips;
+        $streamerShare   = $streamerCount > 1 ? $netRevenue / $streamerCount : $netRevenue;
 
-        // Split revenue equally among co-streamers for non-profit-share types
-        $streamerShare = $streamerCount > 1 ? $revenueAfterFee / $streamerCount : $revenueAfterFee;
-
-        $calculatedPayout  = 0;
-        $calculationNotes  = '';
+        $calculatedPayout = 0;
+        $calculationNotes = '';
 
         switch ($streamer->payout_type) {
             case 'profit_share':
@@ -73,8 +66,6 @@ class PayoutService
                 break;
 
             case 'package':
-                // Package rate: count of break slots sold on this show
-                // Caller should pass slot count; we default to 1 here until we have slot tracking
                 $calculatedPayout = (float) $streamer->package_rate;
                 $calculationNotes = "Package rate \${$streamer->package_rate}";
                 if ($streamer->include_tips) {
@@ -85,9 +76,9 @@ class PayoutService
                 break;
 
             case 'hourly':
-                // Hours derived from started_at / ended_at — caller fills in
-                $calculatedPayout = (float) $streamer->hourly_rate;
-                $calculationNotes = "Hourly rate \${$streamer->hourly_rate}/hr (hours TBD)";
+                $hours = $show->show_duration ? round($show->show_duration / 60, 2) : 1;
+                $calculatedPayout = round((float) $streamer->hourly_rate * $hours, 2);
+                $calculationNotes = "Hourly rate \${$streamer->hourly_rate}/hr × {$hours}hrs";
                 break;
 
             case 'flat_rate':
@@ -99,7 +90,7 @@ class PayoutService
         return [
             'payout_type'        => $streamer->payout_type,
             'gross_show_revenue' => $netRevenue,
-            'owner_fee_deducted' => $ownerFee,
+            'owner_fee_deducted' => 0,
             'tips_included'      => $streamer->include_tips ? round($tips / $streamerCount, 2) : 0,
             'calculated_payout'  => $calculatedPayout,
             'calculation_notes'  => $calculationNotes,
@@ -120,7 +111,6 @@ class PayoutService
                 'created_by' => Auth::id(),
             ]);
 
-            // Attach all unbatched approved payouts for shows in this week
             Payout::whereNull('weekly_payout_batch_id')
                 ->where('status', 'draft')
                 ->whereHas('show', fn ($q) => $q->whereBetween('show_date', [$start, $end]))
@@ -135,7 +125,7 @@ class PayoutService
     public function finalizeBatch(WeeklyPayoutBatch $batch): void
     {
         if ($batch->status !== 'draft') {
-            throw new \RuntimeException("Only draft batches can be finalized.");
+            throw new \RuntimeException('Only draft batches can be finalized.');
         }
 
         $batch->recalculateTotal();

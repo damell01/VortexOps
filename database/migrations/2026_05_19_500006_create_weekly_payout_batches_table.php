@@ -17,7 +17,7 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('finalized_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->dateTime('finalized_at')->nullable();
+            $table->timestamp('finalized_at')->nullable();
             $table->timestamps();
         });
     }

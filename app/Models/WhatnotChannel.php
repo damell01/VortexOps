@@ -25,7 +25,7 @@ class WhatnotChannel extends Model
 
     public function shows(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
-        return $this->hasMany(WhatnotShow::class);
+        return $this->hasMany(Show::class);
     }
 
     public static function statusLabels(): array

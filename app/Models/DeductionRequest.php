@@ -4,67 +4,66 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DeductionRequest extends Model
 {
     protected $fillable = [
-        'whatnot_show_id',
-        'show_sale_id',
-        'inventory_item_id',
-        'inventory_location_id',
-        'quantity',
-        'unit_cost',
+        'show_id',
+        'streamer_id',
         'status',
-        'reviewed_by',
-        'reviewed_at',
-        'inventory_movement_id',
+        'ai_mapping_notes',
         'rejection_reason',
-        'notes',
+        'ops_notes',
+        'approved_by',
+        'approved_at',
+        'processed_by',
+        'processed_at',
     ];
 
     protected $casts = [
-        'quantity'    => 'decimal:2',
-        'unit_cost'   => 'decimal:2',
-        'reviewed_at' => 'datetime',
+        'approved_at'  => 'datetime',
+        'processed_at' => 'datetime',
     ];
 
     public function show(): BelongsTo
     {
-        return $this->belongsTo(WhatnotShow::class, 'whatnot_show_id');
+        return $this->belongsTo(Show::class);
     }
 
-    public function sale(): BelongsTo
+    public function streamer(): BelongsTo
     {
-        return $this->belongsTo(ShowSale::class, 'show_sale_id');
+        return $this->belongsTo(Streamer::class);
     }
 
-    public function inventoryItem(): BelongsTo
+    public function lines(): HasMany
     {
-        return $this->belongsTo(InventoryItem::class);
+        return $this->hasMany(DeductionRequestLine::class);
     }
 
-    public function location(): BelongsTo
+    public function approvedBy(): BelongsTo
     {
-        return $this->belongsTo(InventoryLocation::class, 'inventory_location_id');
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
-    public function reviewedBy(): BelongsTo
+    public function processedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'reviewed_by');
+        return $this->belongsTo(User::class, 'processed_by');
     }
 
-    public function movement(): BelongsTo
+    public function totalCogs(): float
     {
-        return $this->belongsTo(InventoryMovement::class, 'inventory_movement_id');
+        return (float) $this->lines()->sum('line_total');
     }
 
     public static function statusLabels(): array
     {
         return [
-            'pending'  => 'Pending',
-            'approved' => 'Approved',
-            'rejected' => 'Rejected',
-            'executed' => 'Executed',
+            'draft'     => 'Draft',
+            'pending'   => 'Pending',
+            'approved'  => 'Approved',
+            'processed' => 'Processed',
+            'rejected'  => 'Rejected',
         ];
     }
 }

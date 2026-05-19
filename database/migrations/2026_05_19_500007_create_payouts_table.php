@@ -10,8 +10,8 @@ return new class extends Migration
     {
         Schema::create('payouts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('whatnot_show_id')->constrained('whatnot_shows')->cascadeOnDelete();
-            $table->foreignId('streamer_id')->constrained('streamers')->cascadeOnDelete();
+            $table->foreignId('show_id')->nullable()->constrained('shows')->nullOnDelete();
+            $table->foreignId('streamer_id')->constrained('streamers');
             $table->foreignId('weekly_payout_batch_id')->nullable()->constrained('weekly_payout_batches')->nullOnDelete();
             $table->enum('payout_type', ['profit_share', 'package', 'hourly', 'flat_rate']);
             $table->decimal('gross_show_revenue', 12, 2)->default(0);

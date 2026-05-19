@@ -3,17 +3,16 @@
 namespace Database\Seeders;
 
 use App\Models\DeductionRequest;
+use App\Models\DeductionRequestLine;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\Payout;
-use App\Models\ShowFinancial;
-use App\Models\ShowSale;
+use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WeeklyPayoutBatch;
 use App\Models\WhatnotChannel;
-use App\Models\WhatnotShow;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 
@@ -31,19 +30,19 @@ class DemoDataSeeder extends Seeder
             'adp_employee_id'   => 'ADP-001',
         ]);
         $taylor = Streamer::firstOrCreate(['name' => 'Taylor'], [
-            'email'        => 'taylor@vortexbreaks.com',
-            'payout_type'  => 'package',
-            'package_rate' => 15.00,
-            'include_tips' => true,
-            'status'       => 'active',
+            'email'           => 'taylor@vortexbreaks.com',
+            'payout_type'     => 'package',
+            'package_rate'    => 15.00,
+            'include_tips'    => true,
+            'status'          => 'active',
             'adp_employee_id' => 'ADP-002',
         ]);
         $morgan = Streamer::firstOrCreate(['name' => 'Morgan'], [
-            'email'       => 'morgan@vortexbreaks.com',
-            'payout_type' => 'hourly',
-            'hourly_rate' => 22.50,
-            'include_tips'=> false,
-            'status'      => 'on_leave',
+            'email'        => 'morgan@vortexbreaks.com',
+            'payout_type'  => 'hourly',
+            'hourly_rate'  => 22.50,
+            'include_tips' => false,
+            'status'       => 'on_leave',
         ]);
 
         // ── Locations ────────────────────────────────────────────────────────
@@ -63,7 +62,7 @@ class DemoDataSeeder extends Seeder
             'status'      => 'active',
         ]);
 
-        // ── Inventory items ───────────────────────────────────────────────────
+        // ── Inventory items ──────────────────────────────────────────────────
         $itemData = [
             ['sku' => 'BCH-2024-001', 'name' => '2024 Bowman Chrome Hobby Box',    'category' => 'Baseball',   'unit_cost' => 125.00, 'reorder_level' => 5],
             ['sku' => 'TPS-2024-002', 'name' => '2024 Topps Series 1 Hobby Box',   'category' => 'Baseball',   'unit_cost' => 95.00,  'reorder_level' => 8],
@@ -84,41 +83,41 @@ class DemoDataSeeder extends Seeder
         }
         [$bowman, $topps, $prizm, $optic, $pokemon, $mtg, $bowmanDraft, $hoops] = $items;
 
-        // ── Stock ─────────────────────────────────────────────────────────────
+        // ── Stock ────────────────────────────────────────────────────────────
         $stockData = [
-            [$bowman,      $mainStorage, 12], [$bowman,      $jordanLoc,  6],
-            [$topps,       $mainStorage, 24], [$topps,       $taylorLoc,  3],
-            [$prizm,       $mainStorage,  8], [$prizm,       $jordanLoc,  2],
-            [$optic,       $mainStorage, 15], [$optic,       $taylorLoc,  1],
-            [$pokemon,     $mainStorage, 120],[$pokemon,     $fulfillment,30],
+            [$bowman,      $mainStorage,  8], [$bowman,      $jordanLoc,  4],
+            [$topps,       $mainStorage, 22], [$topps,       $taylorLoc,  3],
+            [$prizm,       $mainStorage,  5], [$prizm,       $jordanLoc,  2],
+            [$optic,       $mainStorage, 13], [$optic,       $taylorLoc,  1],
+            [$pokemon,     $mainStorage, 110],[$pokemon,     $fulfillment, 30],
             [$mtg,         $mainStorage,  7],
             [$bowmanDraft, $mainStorage,  1],
-            [$hoops,       $mainStorage, 45], [$hoops,       $returnedLoc, 3],
+            [$hoops,       $mainStorage, 41], [$hoops,       $returnedLoc, 3],
         ];
 
         foreach ($stockData as [$item, $loc, $qty]) {
-            if (!$loc) continue;
+            if (! $loc) continue;
             InventoryStock::updateOrCreate(
                 ['inventory_item_id' => $item->id, 'inventory_location_id' => $loc->id],
                 ['quantity' => $qty]
             );
         }
 
-        // ── Movement history ──────────────────────────────────────────────────
+        // ── Movement history ─────────────────────────────────────────────────
         $movements = [
-            [$bowman,  null,        $mainStorage, 18, 'opening',  'Initial stock received'],
-            [$bowman,  $mainStorage,$jordanLoc,    6, 'transfer', 'Transferred to Jordan for stream'],
-            [$topps,   null,        $mainStorage, 27, 'opening',  'Initial stock received'],
-            [$topps,   $mainStorage,$taylorLoc,    3, 'transfer', 'Transferred to Taylor'],
-            [$prizm,   null,        $mainStorage,  8, 'opening',  'Opening inventory'],
-            [$prizm,   $mainStorage,$jordanLoc,    2, 'transfer', 'Jordan stream prep'],
-            [$pokemon, null,        $mainStorage,150, 'opening',  'Bulk Pokémon restock'],
-            [$pokemon, $mainStorage,$fulfillment,  30, 'transfer','Moved to fulfillment'],
-            [$hoops,   $mainStorage,$returnedLoc,   3, 'return',  'Customer returns processed'],
+            [$bowman,  null,        $mainStorage, 12, 'opening',  'Initial stock received'],
+            [$bowman,  $mainStorage, $jordanLoc,   4, 'transfer', 'Transferred to Jordan for stream'],
+            [$topps,   null,        $mainStorage, 25, 'opening',  'Initial stock received'],
+            [$topps,   $mainStorage, $taylorLoc,   3, 'transfer', 'Transferred to Taylor'],
+            [$prizm,   null,        $mainStorage,  7, 'opening',  'Opening inventory'],
+            [$prizm,   $mainStorage, $jordanLoc,   2, 'transfer', 'Jordan stream prep'],
+            [$pokemon, null,        $mainStorage, 140,'opening',  'Bulk Pokémon restock'],
+            [$pokemon, $mainStorage, $fulfillment, 30, 'transfer','Moved to fulfillment'],
+            [$hoops,   $mainStorage, $returnedLoc,  3, 'return',  'Customer returns processed'],
         ];
 
         foreach ($movements as [$item, $from, $to, $qty, $type, $reason]) {
-            if (!$to) continue;
+            if (! $to) continue;
             InventoryMovement::create([
                 'inventory_item_id' => $item->id,
                 'from_location_id'  => $from?->id,
@@ -130,96 +129,112 @@ class DemoDataSeeder extends Seeder
             ]);
         }
 
-        // ── Whatnot channel ───────────────────────────────────────────────────
+        // ── Whatnot channel ──────────────────────────────────────────────────
         $channel = WhatnotChannel::where('name', 'Vortex Main Channel')->first();
 
-        // ── Shows ─────────────────────────────────────────────────────────────
-
-        // Show 1 — fully reconciled, paid out
-        $show1 = WhatnotShow::firstOrCreate(
+        // ── Show 1 — Fully reconciled (processed deduction + executed lines) ─
+        $show1 = Show::firstOrCreate(
             ['title' => 'Mojo Break #41 — Baseball Night'],
             [
                 'whatnot_channel_id' => $channel?->id,
                 'show_date'          => Carbon::now()->subDays(14)->toDateString(),
-                'started_at'         => Carbon::now()->subDays(14)->setTime(19, 0),
-                'ended_at'           => Carbon::now()->subDays(14)->setTime(22, 30),
+                'start_time'         => '19:00:00',
+                'end_time'           => '22:30:00',
+                'show_duration'      => 210,
+                'units_sold'         => 6,
+                'gross_revenue'      => 1240.00,
+                'whatnot_net'        => 1140.80,
+                'tips'               => 42.00,
+                'import_source'      => 'manual',
                 'status'             => 'reconciled',
-                'source'             => 'manual',
                 'created_by'         => 1,
             ]
         );
         $show1->streamers()->syncWithoutDetaching([$jordan->id => ['is_primary' => true]]);
 
-        ShowFinancial::updateOrCreate(['whatnot_show_id' => $show1->id], [
-            'gross_sales'            => 1240.00,
-            'platform_fee_pct'       => 8.00,
-            'platform_fee_amount'    => 99.20,
-            'shipping_collected'     => 85.00,
-            'tips_collected'         => 42.00,
-            'owner_platform_fee_pct' => 10.00,
-            'net_revenue'            => 1140.80,
-            'cogs'                   => 625.00,
-            'gross_profit'           => 515.80,
+        $req1 = DeductionRequest::firstOrCreate(
+            ['show_id' => $show1->id, 'streamer_id' => $jordan->id],
+            [
+                'status'           => 'processed',
+                'ai_mapping_notes' => 'AI matched 2 line items with high confidence based on show title and streamer inventory.',
+                'approved_by'      => 1,
+                'approved_at'      => Carbon::now()->subDays(13),
+                'processed_by'     => 1,
+                'processed_at'     => Carbon::now()->subDays(13),
+            ]
+        );
+
+        DeductionRequestLine::firstOrCreate(
+            ['deduction_request_id' => $req1->id, 'inventory_item_id' => $bowman->id],
+            [
+                'inventory_location_id' => $jordanLoc->id,
+                'quantity_suggested'    => 4,
+                'quantity_approved'     => 4,
+                'unit_cost_snapshot'    => 125.00,
+                'line_total'            => 500.00,
+                'raw_description'       => '4x 2024 Bowman Chrome Hobby Box',
+                'ai_confidence'         => 'high',
+                'ai_reason'             => 'Title mentions "Baseball Night", Jordan inventory has Bowman boxes',
+            ]
+        );
+        DeductionRequestLine::firstOrCreate(
+            ['deduction_request_id' => $req1->id, 'inventory_item_id' => $topps->id],
+            [
+                'inventory_location_id' => $taylorLoc->id,
+                'quantity_suggested'    => 2,
+                'quantity_approved'     => 2,
+                'unit_cost_snapshot'    => 95.00,
+                'line_total'            => 190.00,
+                'raw_description'       => '2x 2024 Topps Series 1',
+                'ai_confidence'         => 'high',
+                'ai_reason'             => 'SKU matches exactly',
+            ]
+        );
+
+        // Record sale_deduction movements for show 1
+        InventoryMovement::create([
+            'inventory_item_id' => $bowman->id,
+            'from_location_id'  => $jordanLoc->id,
+            'to_location_id'    => null,
+            'quantity'          => 4,
+            'movement_type'     => 'sale_deduction',
+            'reason'            => 'Approved deduction for show #' . $show1->id,
+            'reference_type'    => 'deduction_request',
+            'reference_id'      => $req1->id,
+            'created_by'        => 1,
+        ]);
+        InventoryMovement::create([
+            'inventory_item_id' => $topps->id,
+            'from_location_id'  => $taylorLoc->id,
+            'to_location_id'    => null,
+            'quantity'          => 2,
+            'movement_type'     => 'sale_deduction',
+            'reason'            => 'Approved deduction for show #' . $show1->id,
+            'reference_type'    => 'deduction_request',
+            'reference_id'      => $req1->id,
+            'created_by'        => 1,
         ]);
 
-        $sale1a = ShowSale::firstOrCreate(
-            ['whatnot_show_id' => $show1->id, 'order_id' => 'WN-10001'],
-            [
-                'inventory_item_id' => $bowman->id,
-                'item_name'         => '2024 Bowman Chrome Hobby Box',
-                'sku'               => 'BCH-2024-001',
-                'quantity'          => 4,
-                'sale_price'        => 165.00,
-                'buyer_username'    => 'cardkid_88',
-                'sale_type'         => 'break_slot',
-                'sold_at'           => Carbon::now()->subDays(14)->setTime(19, 45),
-            ]
-        );
-        $sale1b = ShowSale::firstOrCreate(
-            ['whatnot_show_id' => $show1->id, 'order_id' => 'WN-10002'],
-            [
-                'inventory_item_id' => $topps->id,
-                'item_name'         => '2024 Topps Series 1 Hobby Box',
-                'sku'               => 'TPS-2024-002',
-                'quantity'          => 2,
-                'sale_price'        => 130.00,
-                'buyer_username'    => 'baseballbreaks',
-                'sale_type'         => 'break_slot',
-                'sold_at'           => Carbon::now()->subDays(14)->setTime(20, 15),
-            ]
-        );
-
-        // Deduction requests for show 1 — executed
-        foreach ([
-            [$sale1a, $bowman, $jordanLoc, 4, 125.00],
-            [$sale1b, $topps,  $taylorLoc, 2, 95.00],
-        ] as [$sale, $item, $loc, $qty, $cost]) {
-            DeductionRequest::firstOrCreate(
-                ['show_sale_id' => $sale->id],
-                [
-                    'whatnot_show_id'       => $show1->id,
-                    'inventory_item_id'     => $item->id,
-                    'inventory_location_id' => $loc->id,
-                    'quantity'              => $qty,
-                    'unit_cost'             => $cost,
-                    'status'                => 'executed',
-                    'reviewed_by'           => 1,
-                    'reviewed_at'           => Carbon::now()->subDays(13),
-                ]
-            );
-        }
-
-        // Show 2 — last week, pending reconciliation
-        $show2 = WhatnotShow::firstOrCreate(
+        // ── Show 2 — Pending approval (AI mapping complete, awaiting ops) ────
+        $show2 = Show::firstOrCreate(
             ['title' => 'Mojo Break #42 — Hoops & Football'],
             [
-                'whatnot_channel_id' => $channel?->id,
-                'show_date'          => Carbon::now()->subDays(5)->toDateString(),
-                'started_at'         => Carbon::now()->subDays(5)->setTime(20, 0),
-                'ended_at'           => Carbon::now()->subDays(5)->setTime(23, 0),
-                'status'             => 'pending_reconciliation',
-                'source'             => 'manual',
-                'created_by'         => 1,
+                'whatnot_channel_id'     => $channel?->id,
+                'show_date'              => Carbon::now()->subDays(3)->toDateString(),
+                'start_time'             => '20:00:00',
+                'end_time'               => '23:00:00',
+                'show_duration'          => 180,
+                'units_sold'             => 9,
+                'gross_revenue'          => 960.00,
+                'whatnot_net'            => 883.20,
+                'tips'                   => 28.00,
+                'import_source'          => 'manual',
+                'status'                 => 'pending_approval',
+                'ai_streamer_suggestion' => [
+                    ['streamer_id' => $jordan->id, 'streamer_name' => 'Jordan', 'confidence' => 'high', 'reason' => 'Title matches Jordan\'s Hoops series'],
+                    ['streamer_id' => $taylor->id, 'streamer_name' => 'Taylor', 'confidence' => 'medium', 'reason' => 'Taylor also does Football breaks'],
+                ],
+                'created_by'             => 1,
             ]
         );
         $show2->streamers()->syncWithoutDetaching([
@@ -227,120 +242,73 @@ class DemoDataSeeder extends Seeder
             $taylor->id => ['is_primary' => false],
         ]);
 
-        ShowFinancial::updateOrCreate(['whatnot_show_id' => $show2->id], [
-            'gross_sales'            => 960.00,
-            'platform_fee_pct'       => 8.00,
-            'platform_fee_amount'    => 76.80,
-            'shipping_collected'     => 60.00,
-            'tips_collected'         => 28.00,
-            'owner_platform_fee_pct' => 10.00,
-            'net_revenue'            => 883.20,
-            'cogs'                   => 0,
-            'gross_profit'           => 0,
-        ]);
-
-        $sale2a = ShowSale::firstOrCreate(
-            ['whatnot_show_id' => $show2->id, 'order_id' => 'WN-10010'],
+        $req2 = DeductionRequest::firstOrCreate(
+            ['show_id' => $show2->id, 'streamer_id' => $jordan->id],
             [
-                'inventory_item_id' => $prizm->id,
-                'item_name'         => '2024 Prizm Basketball Hobby Box',
-                'sku'               => 'PRI-2024-003',
-                'quantity'          => 3,
-                'sale_price'        => 240.00,
-                'buyer_username'    => 'hoopsking',
-                'sale_type'         => 'break_slot',
-                'sold_at'           => Carbon::now()->subDays(5)->setTime(20, 30),
-            ]
-        );
-        $sale2b = ShowSale::firstOrCreate(
-            ['whatnot_show_id' => $show2->id, 'order_id' => 'WN-10011'],
-            [
-                'inventory_item_id' => $optic->id,
-                'item_name'         => '2024 Donruss Optic Football Box',
-                'sku'               => 'OPT-2024-004',
-                'quantity'          => 2,
-                'sale_price'        => 195.00,
-                'buyer_username'    => 'gridiron_breaks',
-                'sale_type'         => 'break_slot',
-                'sold_at'           => Carbon::now()->subDays(5)->setTime(21, 10),
-            ]
-        );
-        $sale2c = ShowSale::firstOrCreate(
-            ['whatnot_show_id' => $show2->id, 'order_id' => null],
-            [
-                // Unmatched — no inventory_item_id, tests AI matching flow
-                'inventory_item_id' => null,
-                'item_name'         => 'Hoops Blaster Box x4',
-                'sku'               => null,
-                'quantity'          => 4,
-                'sale_price'        => 30.00,
-                'buyer_username'    => 'blasterking',
-                'sale_type'         => 'fixed_price',
-                'sold_at'           => Carbon::now()->subDays(5)->setTime(22, 0),
+                'status'           => 'pending',
+                'ai_mapping_notes' => 'AI identified 3 line items. Prizm boxes are high confidence; Optic and Hoops are medium — qty may need ops review.',
             ]
         );
 
-        // Pending deductions for show 2
-        foreach ([
-            [$sale2a, $prizm, $jordanLoc, 3, 185.00],
-            [$sale2b, $optic, $taylorLoc, 2, 145.00],
-        ] as [$sale, $item, $loc, $qty, $cost]) {
-            DeductionRequest::firstOrCreate(
-                ['show_sale_id' => $sale->id],
-                [
-                    'whatnot_show_id'       => $show2->id,
-                    'inventory_item_id'     => $item->id,
-                    'inventory_location_id' => $loc->id,
-                    'quantity'              => $qty,
-                    'unit_cost'             => $cost,
-                    'status'                => 'pending',
-                ]
-            );
-        }
+        DeductionRequestLine::firstOrCreate(
+            ['deduction_request_id' => $req2->id, 'inventory_item_id' => $prizm->id],
+            [
+                'inventory_location_id' => $jordanLoc->id,
+                'quantity_suggested'    => 3,
+                'quantity_approved'     => 3,
+                'unit_cost_snapshot'    => 185.00,
+                'line_total'            => 555.00,
+                'raw_description'       => '3x Prizm Basketball Hobby',
+                'ai_confidence'         => 'high',
+                'ai_reason'             => 'Prizm is Jordan\'s signature product; exact qty from gross revenue match',
+            ]
+        );
+        DeductionRequestLine::firstOrCreate(
+            ['deduction_request_id' => $req2->id, 'inventory_item_id' => $optic->id],
+            [
+                'inventory_location_id' => $taylorLoc->id,
+                'quantity_suggested'    => 2,
+                'quantity_approved'     => 2,
+                'unit_cost_snapshot'    => 145.00,
+                'line_total'            => 290.00,
+                'raw_description'       => 'Optic Football box x2',
+                'ai_confidence'         => 'medium',
+                'ai_reason'             => 'Football mentioned in title; Optic is highest-cost football product in Taylor inventory',
+            ]
+        );
+        DeductionRequestLine::firstOrCreate(
+            ['deduction_request_id' => $req2->id, 'inventory_item_id' => $hoops->id],
+            [
+                'inventory_location_id' => $mainStorage->id,
+                'quantity_suggested'    => 4,
+                'quantity_approved'     => 4,
+                'unit_cost_snapshot'    => 22.00,
+                'line_total'            => 88.00,
+                'raw_description'       => 'Hoops blasters x4',
+                'ai_confidence'         => 'low',
+                'ai_reason'             => 'Title mentions Hoops but qty uncertain — recommend ops verification',
+            ]
+        );
 
-        // Show 3 — draft, just created today
-        $show3 = WhatnotShow::firstOrCreate(
+        // ── Show 3 — Pending review (streamer assigned, no mapping yet) ──────
+        $show3 = Show::firstOrCreate(
             ['title' => 'Mojo Break #43 — TCG Night'],
             [
                 'whatnot_channel_id' => $channel?->id,
                 'show_date'          => Carbon::now()->toDateString(),
-                'status'             => 'draft',
-                'source'             => 'manual',
+                'units_sold'         => 12,
+                'gross_revenue'      => 350.00,
+                'whatnot_net'        => 322.00,
+                'tips'               => 15.00,
+                'import_source'      => 'manual',
+                'status'             => 'pending_review',
                 'created_by'         => 1,
             ]
         );
         $show3->streamers()->syncWithoutDetaching([$taylor->id => ['is_primary' => true]]);
 
-        ShowFinancial::firstOrCreate(['whatnot_show_id' => $show3->id]);
+        // ── Payouts ──────────────────────────────────────────────────────────
 
-        ShowSale::firstOrCreate(
-            ['whatnot_show_id' => $show3->id, 'order_id' => 'WN-10020'],
-            [
-                'inventory_item_id' => $pokemon->id,
-                'item_name'         => 'Pokémon SV Booster Pack',
-                'sku'               => 'PKM-2024-005',
-                'quantity'          => 10,
-                'sale_price'        => 6.00,
-                'buyer_username'    => 'pkmnmaster',
-                'sale_type'         => 'fixed_price',
-            ]
-        );
-        ShowSale::firstOrCreate(
-            ['whatnot_show_id' => $show3->id, 'order_id' => 'WN-10021'],
-            [
-                'inventory_item_id' => $mtg->id,
-                'item_name'         => 'MTG Bloomburrow Set Booster Box',
-                'sku'               => 'MTG-2024-006',
-                'quantity'          => 2,
-                'sale_price'        => 145.00,
-                'buyer_username'    => 'mtgaddict',
-                'sale_type'         => 'break_slot',
-            ]
-        );
-
-        // ── Payouts ───────────────────────────────────────────────────────────
-
-        // Week 1 batch — finalized and paid
         $batch1 = WeeklyPayoutBatch::firstOrCreate(
             ['week_start' => Carbon::now()->subDays(14)->startOfWeek()->toDateString()],
             [
@@ -354,7 +322,7 @@ class DemoDataSeeder extends Seeder
         );
 
         Payout::firstOrCreate(
-            ['whatnot_show_id' => $show1->id, 'streamer_id' => $jordan->id],
+            ['show_id' => $show1->id, 'streamer_id' => $jordan->id],
             [
                 'weekly_payout_batch_id' => $batch1->id,
                 'payout_type'            => 'profit_share',
@@ -367,19 +335,18 @@ class DemoDataSeeder extends Seeder
             ]
         );
 
-        // Week 2 batch — draft (show 2 payouts pending)
         $batch2 = WeeklyPayoutBatch::firstOrCreate(
-            ['week_start' => Carbon::now()->subDays(5)->startOfWeek()->toDateString()],
+            ['week_start' => Carbon::now()->subDays(3)->startOfWeek()->toDateString()],
             [
-                'week_end'   => Carbon::now()->subDays(5)->endOfWeek()->toDateString(),
-                'status'     => 'draft',
+                'week_end'     => Carbon::now()->subDays(3)->endOfWeek()->toDateString(),
+                'status'       => 'draft',
                 'total_payout' => 0,
-                'created_by' => 1,
+                'created_by'   => 1,
             ]
         );
 
         Payout::firstOrCreate(
-            ['whatnot_show_id' => $show2->id, 'streamer_id' => $jordan->id],
+            ['show_id' => $show2->id, 'streamer_id' => $jordan->id],
             [
                 'weekly_payout_batch_id' => $batch2->id,
                 'payout_type'            => 'profit_share',
@@ -392,7 +359,7 @@ class DemoDataSeeder extends Seeder
             ]
         );
         Payout::firstOrCreate(
-            ['whatnot_show_id' => $show2->id, 'streamer_id' => $taylor->id],
+            ['show_id' => $show2->id, 'streamer_id' => $taylor->id],
             [
                 'weekly_payout_batch_id' => $batch2->id,
                 'payout_type'            => 'package',

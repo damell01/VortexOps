@@ -9,12 +9,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('show_streamer', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('whatnot_show_id')->constrained('whatnot_shows')->cascadeOnDelete();
+            $table->foreignId('show_id')->constrained('shows')->cascadeOnDelete();
             $table->foreignId('streamer_id')->constrained('streamers')->cascadeOnDelete();
             $table->boolean('is_primary')->default(false);
             $table->timestamps();
-            $table->unique(['whatnot_show_id', 'streamer_id']);
+            $table->primary(['show_id', 'streamer_id']);
         });
     }
 

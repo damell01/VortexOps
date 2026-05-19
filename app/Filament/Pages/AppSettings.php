@@ -56,6 +56,12 @@ class AppSettings extends Page
     public string $ollama_model    = '';
     public int    $ollama_timeout  = 60;
 
+    // ── Show Import ──────────────────────────────────────────────────────────
+
+    public string  $show_import_mode                 = 'manual';
+    public bool    $auto_assign_confident_streamers  = true;
+    public string  $show_ready_notification_email    = '';
+
     public function mount(): void
     {
         $this->brand_name     = Setting::get('brand_name',    'VortexOps');
@@ -66,6 +72,10 @@ class AppSettings extends Page
         $this->ollama_base_url = Setting::get('ollama_base_url', config('ollama.base_url', 'http://localhost:11434'));
         $this->ollama_model    = Setting::get('ollama_model',    config('ollama.model',    'llama3.2'));
         $this->ollama_timeout  = (int) Setting::get('ollama_timeout', config('ollama.timeout', 60));
+
+        $this->show_import_mode                = Setting::get('show_import_mode', 'manual');
+        $this->auto_assign_confident_streamers = Setting::getBool('auto_assign_confident_streamers', true);
+        $this->show_ready_notification_email   = Setting::get('show_ready_notification_email', '');
     }
 
     protected function getHeaderActions(): array
@@ -87,12 +97,14 @@ class AppSettings extends Page
     public function saveSettings(): void
     {
         $this->validate([
-            'brand_name'      => 'required|string|max:60',
-            'primary_color'   => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'logo_upload'     => 'nullable|image|max:2048',
-            'ollama_base_url' => 'required|url',
-            'ollama_model'    => 'required|string|max:100',
-            'ollama_timeout'  => 'required|integer|min:5|max:300',
+            'brand_name'                      => 'required|string|max:60',
+            'primary_color'                   => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'logo_upload'                     => 'nullable|image|max:2048',
+            'ollama_base_url'                 => 'required|url',
+            'ollama_model'                    => 'required|string|max:100',
+            'ollama_timeout'                  => 'required|integer|min:5|max:300',
+            'show_import_mode'                => 'required|in:manual,auto_whatnot',
+            'show_ready_notification_email'   => 'nullable|email|max:255',
         ]);
 
         // Handle logo upload
@@ -109,6 +121,9 @@ class AppSettings extends Page
         Setting::set('ollama_base_url', $this->ollama_base_url);
         Setting::set('ollama_model',    $this->ollama_model);
         Setting::set('ollama_timeout',  (string) $this->ollama_timeout);
+        Setting::set('show_import_mode', $this->show_import_mode);
+        Setting::set('auto_assign_confident_streamers', $this->auto_assign_confident_streamers ? 'true' : 'false');
+        Setting::set('show_ready_notification_email', $this->show_ready_notification_email);
 
         Notification::make()
             ->title('Settings saved')

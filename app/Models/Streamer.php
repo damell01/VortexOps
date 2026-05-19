@@ -51,7 +51,7 @@ class Streamer extends Model
 
     public function shows(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
-        return $this->belongsToMany(WhatnotShow::class, 'show_streamer')
+        return $this->belongsToMany(Show::class, 'show_streamer')
             ->withPivot('is_primary')
             ->withTimestamps();
     }

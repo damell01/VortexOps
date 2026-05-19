@@ -8,6 +8,7 @@ use App\Models\ReviewItem;
 use App\Models\ReviewItemComment;
 use App\Models\ReviewSession;
 use App\Modules\ProjectHub\Support\ProjectHub;
+use App\Modules\ProjectHub\Support\ProjectHubRoadmap;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse as HttpRedirectResponse;
@@ -18,6 +19,10 @@ class ReviewPortalController extends Controller
     public function index(): View|HttpRedirectResponse
     {
         $user = auth()->user();
+
+        if ($user?->isAdmin() && ! Project::query()->exists()) {
+            ProjectHubRoadmap::ensureWorkspace($user);
+        }
 
         $projects = ProjectHub::visibleProjectsFor($user)
             ->withCount([

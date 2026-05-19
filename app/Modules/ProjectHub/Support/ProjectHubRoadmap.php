@@ -3,10 +3,40 @@
 namespace App\Modules\ProjectHub\Support;
 
 use App\Models\Project;
-use Illuminate\Support\Arr;
+use App\Models\User;
 
 class ProjectHubRoadmap
 {
+    public static function ensureWorkspace(?User $user = null): Project
+    {
+        $existing = Project::query()
+            ->orderByDesc('is_active')
+            ->orderByDesc('updated_at')
+            ->first();
+
+        if ($existing) {
+            static::apply($existing);
+
+            return $existing;
+        }
+
+        $project = Project::create([
+            'name' => 'Vortex Breaks Project Hub',
+            'slug' => 'vortex-breaks-project-hub',
+            'status' => 'planning',
+            'phase' => 'Operational Discovery',
+            'progress_percent' => 5,
+            'owner_user_id' => $user?->id,
+            'manager_user_id' => $user?->isAdmin() ? $user->id : null,
+            'is_active' => true,
+            'client_visible' => true,
+        ]);
+
+        static::apply($project);
+
+        return $project;
+    }
+
     public static function apply(Project $project): void
     {
         $roadmap = static::template();

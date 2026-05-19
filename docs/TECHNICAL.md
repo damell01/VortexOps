@@ -430,28 +430,70 @@ $user->isSuperAdmin()  // hasRole('super_admin')
 
 **Display:** Filament's built-in bell icon widget, polled every 30 seconds.
 
-**Currently dispatched:**
+### Notification routing
 
-| Notification | Trigger | Recipients |
+Recipients for each notification type are configured in **Settings → Notifications** and resolved at dispatch time by `App\Services\NotificationRouter`.
+
+**Three modes per notification type:**
+
+| Mode | Who receives it |
+|---|---|
+| `all` | Every user in the system |
+| `admins` | Users with `admin` or `super_admin` role |
+| `custom` | Specific users selected by the admin |
+
+**Settings keys** (stored in the `settings` table):
+
+| Key | Default | Description |
 |---|---|---|
-| Low stock warning | After any stock mutation when `totalQuantity <= reorder_level` | All users |
-| Items marked damaged | After `InventoryService::markDamaged()` | All users |
-| Show ready for review | After `CreateShow::afterCreate()` (via `NotifyShowReady` job) | All users |
-| Show reconciled | After deduction approved (via `NotifyShowReconciled` job) | All users |
+| `notify_low_stock_mode` | `all` | Recipient mode for low stock alerts |
+| `notify_low_stock_users` | `[]` | JSON array of user IDs (mode=custom only) |
+| `notify_damaged_mode` | `all` | Recipient mode for damaged item alerts |
+| `notify_damaged_users` | `[]` | JSON array of user IDs |
+| `notify_show_ready_mode` | `admins` | Recipient mode for show-ready alerts |
+| `notify_show_ready_users` | `[]` | JSON array of user IDs |
+| `notify_show_reconciled_mode` | `admins` | Recipient mode for reconciliation alerts |
+| `notify_show_reconciled_users` | `[]` | JSON array of user IDs |
 
-**Sending to all users:**
+**Special case — `show_reconciled`:** The show's linked streamer users are **always** notified regardless of the recipient mode. The router resolves the configured recipients first, then the job also notifies any streamer users not already in that set (deduplicated by user ID).
+
+**Using the router:**
 ```php
+// Inject via constructor (preferred)
+public function __construct(private NotificationRouter $notificationRouter) {}
+
+// Filament-style notification (InventoryService)
 Notification::make()
-    ->title('...')
-    ->body('...')
+    ->title('Low Stock: ' . $item->name)
     ->warning()
-    ->sendToDatabase(User::all());
+    ->sendToDatabase($this->notificationRouter->getRecipients('low_stock'));
+
+// Laravel notification class (Jobs)
+public function handle(NotificationRouter $router): void
+{
+    foreach ($router->getRecipients('show_ready') as $user) {
+        $user->notify(new ShowReadyNotification($show));
+    }
+}
 ```
 
-**To add a new notification:**
-1. Create a notification class in `app/Notifications/` if it needs rich formatting, or use the Filament `Notification` facade inline
-2. Dispatch via `sendToDatabase(User::all())` for broadcast-to-all, or target specific users
-3. For notifications triggered by async events, put them in a `Job` dispatched `->afterCommit()` if inside a transaction
+**Dispatch points:**
+
+| Notification | File | Method |
+|---|---|---|
+| Low stock | `InventoryService::notifyIfLowStock()` | `sendToDatabase()` |
+| Damaged | `InventoryService::markDamaged()` | `sendToDatabase()` |
+| Show ready | `NotifyShowReady::handle()` | `$user->notify()` |
+| Show reconciled | `NotifyShowReconciled::handle()` | `$user->notify()` |
+
+**To add a new configurable notification type:**
+1. Pick a type key, e.g. `low_payout`
+2. Add a default to `NotificationRouter::DEFAULTS`
+3. Add properties to `AppSettings`: `notify_low_payout_mode` (string) and `notify_low_payout_users` (array)
+4. Load and save them in `AppSettings::mount()` and `saveSettings()` following the existing pattern
+5. Add validation rules in `saveSettings()`
+6. Add a new row to the `$notifTypes` array in `app-settings.blade.php`
+7. Use `$router->getRecipients('low_payout')` at the dispatch point
 
 ---
 

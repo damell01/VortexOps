@@ -3,16 +3,13 @@
 namespace App\Jobs;
 
 use App\Models\Show;
-use App\Models\User;
+use App\Services\NotificationRouter;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
-use Illuminate\Notifications\Notification as BaseNotification;
 
 class NotifyShowReady implements ShouldQueue
 {
@@ -22,7 +19,7 @@ class NotifyShowReady implements ShouldQueue
 
     public function __construct(public readonly int $showId) {}
 
-    public function handle(): void
+    public function handle(NotificationRouter $router): void
     {
         try {
             $show = Show::find($this->showId);
@@ -31,9 +28,7 @@ class NotifyShowReady implements ShouldQueue
                 return;
             }
 
-            $recipients = User::role(['admin', 'super_admin'])->get();
-
-            foreach ($recipients as $user) {
+            foreach ($router->getRecipients('show_ready') as $user) {
                 $user->notify(new \App\Notifications\ShowReadyNotification($show));
             }
         } catch (\Exception $e) {

@@ -222,6 +222,113 @@
 
         </div>
 
+        {{-- ── Notifications ────────────────────────────────────────────── --}}
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+
+            <div class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                    <div class="rounded-lg bg-amber-100 dark:bg-amber-900 p-2">
+                        <x-heroicon-o-bell class="h-5 w-5 text-amber-600 dark:text-amber-300" />
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Notifications</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Control who receives each type of in-app notification</p>
+                    </div>
+                </div>
+            </div>
+
+            @php
+                $notifTypes = [
+                    [
+                        'key'         => 'low_stock',
+                        'label'       => 'Low Stock Alert',
+                        'description' => 'Sent when an item\'s total quantity falls at or below its reorder level.',
+                        'icon'        => 'heroicon-o-exclamation-triangle',
+                        'color'       => 'text-yellow-500',
+                    ],
+                    [
+                        'key'         => 'damaged',
+                        'label'       => 'Items Marked Damaged',
+                        'description' => 'Sent immediately when units are moved to the damaged location.',
+                        'icon'        => 'heroicon-o-fire',
+                        'color'       => 'text-red-500',
+                    ],
+                    [
+                        'key'         => 'show_ready',
+                        'label'       => 'Show Ready for Review',
+                        'description' => 'Sent when a new show is created and needs streamer assignment.',
+                        'icon'        => 'heroicon-o-video-camera',
+                        'color'       => 'text-blue-500',
+                    ],
+                    [
+                        'key'         => 'show_reconciled',
+                        'label'       => 'Show Reconciled',
+                        'description' => 'Sent when a deduction request is approved and inventory is deducted. The show\'s streamers always receive this regardless of this setting.',
+                        'icon'        => 'heroicon-o-check-circle',
+                        'color'       => 'text-green-500',
+                    ],
+                ];
+
+                $modeLabels = ['all' => 'All Users', 'admins' => 'Admins Only', 'custom' => 'Specific Users'];
+                $allUsers   = \App\Models\User::orderBy('name')->get();
+            @endphp
+
+            @foreach ($notifTypes as $notif)
+                @php
+                    $modeKey  = 'notify_' . $notif['key'] . '_mode';
+                    $usersKey = 'notify_' . $notif['key'] . '_users';
+                @endphp
+                <div class="px-6 py-4 space-y-3">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex items-start gap-3 flex-1">
+                            <div class="mt-0.5 shrink-0 {{ $notif['color'] }}">
+                                <x-dynamic-component :component="$notif['icon']" class="h-4 w-4" />
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $notif['label'] }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{{ $notif['description'] }}</p>
+                            </div>
+                        </div>
+                        <div class="shrink-0">
+                            <select
+                                wire:model.live="{{ $modeKey }}"
+                                class="rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none"
+                            >
+                                @foreach ($modeLabels as $val => $label)
+                                    <option value="{{ $val }}" @selected($$modeKey === $val)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+
+                    @if ($$modeKey === 'custom')
+                        <div class="ml-7 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 p-3">
+                            <p class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Select recipients</p>
+                            <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                                @forelse ($allUsers as $user)
+                                    <label class="flex items-center gap-2.5 cursor-pointer group">
+                                        <input
+                                            type="checkbox"
+                                            wire:model.live="{{ $usersKey }}"
+                                            value="{{ $user->id }}"
+                                            class="rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500 focus:ring-offset-0 bg-white dark:bg-gray-900"
+                                        />
+                                        <span class="text-sm text-gray-800 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white">
+                                            {{ $user->name }}
+                                        </span>
+                                        <span class="text-xs text-gray-400 dark:text-gray-500">{{ $user->email }}</span>
+                                    </label>
+                                @empty
+                                    <p class="text-xs text-gray-400">No users found.</p>
+                                @endforelse
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            @endforeach
+
+        </div>
+
         {{-- Validation errors --}}
         @if ($errors->any())
             <div class="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 px-4 py-3">

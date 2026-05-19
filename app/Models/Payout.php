@@ -14,6 +14,7 @@ class Payout extends Model
         'payout_type',
         'gross_show_revenue',
         'owner_fee_deducted',
+        'loan_repayment_deducted',
         'tips_included',
         'calculated_payout',
         'calculation_notes',
@@ -21,10 +22,11 @@ class Payout extends Model
     ];
 
     protected $casts = [
-        'gross_show_revenue' => 'decimal:2',
-        'owner_fee_deducted' => 'decimal:2',
-        'tips_included'      => 'decimal:2',
-        'calculated_payout'  => 'decimal:2',
+        'gross_show_revenue'      => 'decimal:2',
+        'owner_fee_deducted'      => 'decimal:2',
+        'loan_repayment_deducted' => 'decimal:2',
+        'tips_included'           => 'decimal:2',
+        'calculated_payout'       => 'decimal:2',
     ];
 
     public function show(): BelongsTo

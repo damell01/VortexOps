@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\StreamerResource\Pages;
+use App\Filament\Resources\StreamerResource\RelationManagers\LoansRelationManager;
 use App\Models\Streamer;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -110,6 +111,27 @@ class StreamerResource extends Resource
                 ]),
             ]),
 
+            Section::make('Owner Fee')->schema([
+                Grid::make(3)->schema([
+                    Select::make('owner_fee_type')
+                        ->label('Fee Type')
+                        ->options(Streamer::ownerFeeTypeLabels())
+                        ->placeholder('No owner fee')
+                        ->nullable()
+                        ->live(),
+                    TextInput::make('owner_fee_value')
+                        ->label(fn ($get) => $get('owner_fee_type') === 'flat' ? 'Fee Amount ($)' : 'Fee Percentage (%)')
+                        ->numeric()
+                        ->minValue(0)
+                        ->nullable()
+                        ->visible(fn ($get) => ! empty($get('owner_fee_type'))),
+                    Toggle::make('owner_fee_deduct_from_payout')
+                        ->label('Deduct from payout')
+                        ->helperText('On: reduces calculated payout. Off: tracked separately.')
+                        ->visible(fn ($get) => ! empty($get('owner_fee_type'))),
+                ]),
+            ]),
+
             Section::make('Status & Notes')->schema([
                 Grid::make(2)->schema([
                     Select::make('status')
@@ -184,7 +206,9 @@ class StreamerResource extends Resource
 
     public static function getRelations(): array
     {
-        return [];
+        return [
+            LoansRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Setting;
+use App\Models\User;
 use App\Services\OllamaService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -30,7 +31,6 @@ class AppSettings extends Page
         return 'heroicon-o-cog-6-tooth';
     }
 
-    // Only admins can access settings
     public static function canAccess(): bool
     {
         return auth()->user()?->isAdmin() ?? false;
@@ -43,11 +43,11 @@ class AppSettings extends Page
 
     // ── Branding ──────────────────────────────────────────────────────────────
 
-    public string $brand_name     = 'VortexOps';
-    public string $primary_color  = '#7c3aed';
+    public string  $brand_name    = 'VortexOps';
+    public string  $primary_color = '#7c3aed';
     public ?string $logo_path     = null;
     /** @var mixed */
-    public $logo_upload            = null;
+    public $logo_upload = null;
 
     // ── AI ────────────────────────────────────────────────────────────────────
 
@@ -58,15 +58,26 @@ class AppSettings extends Page
 
     // ── Show Import ──────────────────────────────────────────────────────────
 
-    public string  $show_import_mode                 = 'manual';
-    public bool    $auto_assign_confident_streamers  = true;
-    public string  $show_ready_notification_email    = '';
+    public string $show_import_mode                = 'manual';
+    public bool   $auto_assign_confident_streamers = true;
+    public string $show_ready_notification_email   = '';
+
+    // ── Notifications ────────────────────────────────────────────────────────
+
+    public string $notify_low_stock_mode       = 'all';
+    public array  $notify_low_stock_users      = [];
+    public string $notify_damaged_mode         = 'all';
+    public array  $notify_damaged_users        = [];
+    public string $notify_show_ready_mode      = 'admins';
+    public array  $notify_show_ready_users     = [];
+    public string $notify_show_reconciled_mode  = 'admins';
+    public array  $notify_show_reconciled_users = [];
 
     public function mount(): void
     {
-        $this->brand_name     = Setting::get('brand_name',    'VortexOps');
-        $this->primary_color  = Setting::get('primary_color', '#7c3aed');
-        $this->logo_path      = Setting::get('logo_path');
+        $this->brand_name    = Setting::get('brand_name',    'VortexOps');
+        $this->primary_color = Setting::get('primary_color', '#7c3aed');
+        $this->logo_path     = Setting::get('logo_path');
 
         $this->ai_enabled      = Setting::getBool('ai_enabled', true);
         $this->ollama_base_url = Setting::get('ollama_base_url', config('ollama.base_url', 'http://localhost:11434'));
@@ -76,6 +87,20 @@ class AppSettings extends Page
         $this->show_import_mode                = Setting::get('show_import_mode', 'manual');
         $this->auto_assign_confident_streamers = Setting::getBool('auto_assign_confident_streamers', true);
         $this->show_ready_notification_email   = Setting::get('show_ready_notification_email', '');
+
+        $this->notify_low_stock_mode       = Setting::get('notify_low_stock_mode', 'all');
+        $this->notify_low_stock_users      = json_decode(Setting::get('notify_low_stock_users', '[]'), true) ?? [];
+        $this->notify_damaged_mode         = Setting::get('notify_damaged_mode', 'all');
+        $this->notify_damaged_users        = json_decode(Setting::get('notify_damaged_users', '[]'), true) ?? [];
+        $this->notify_show_ready_mode      = Setting::get('notify_show_ready_mode', 'admins');
+        $this->notify_show_ready_users     = json_decode(Setting::get('notify_show_ready_users', '[]'), true) ?? [];
+        $this->notify_show_reconciled_mode  = Setting::get('notify_show_reconciled_mode', 'admins');
+        $this->notify_show_reconciled_users = json_decode(Setting::get('notify_show_reconciled_users', '[]'), true) ?? [];
+    }
+
+    public function getAllUsersProperty(): \Illuminate\Support\Collection
+    {
+        return User::orderBy('name')->get()->mapWithKeys(fn ($u) => [$u->id => $u->name . ' (' . $u->email . ')']);
     }
 
     protected function getHeaderActions(): array
@@ -97,33 +122,53 @@ class AppSettings extends Page
     public function saveSettings(): void
     {
         $this->validate([
-            'brand_name'                      => 'required|string|max:60',
-            'primary_color'                   => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
-            'logo_upload'                     => 'nullable|image|max:2048',
-            'ollama_base_url'                 => 'required|url',
-            'ollama_model'                    => 'required|string|max:100',
-            'ollama_timeout'                  => 'required|integer|min:5|max:300',
-            'show_import_mode'                => 'required|in:manual,auto_whatnot',
-            'show_ready_notification_email'   => 'nullable|email|max:255',
+            'brand_name'                       => 'required|string|max:60',
+            'primary_color'                    => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'logo_upload'                      => 'nullable|image|max:2048',
+            'ollama_base_url'                  => 'required|url',
+            'ollama_model'                     => 'required|string|max:100',
+            'ollama_timeout'                   => 'required|integer|min:5|max:300',
+            'show_import_mode'                 => 'required|in:manual,auto_whatnot',
+            'show_ready_notification_email'    => 'nullable|email|max:255',
+            'notify_low_stock_mode'            => 'required|in:all,admins,custom',
+            'notify_low_stock_users'           => 'nullable|array',
+            'notify_low_stock_users.*'         => 'integer|exists:users,id',
+            'notify_damaged_mode'              => 'required|in:all,admins,custom',
+            'notify_damaged_users'             => 'nullable|array',
+            'notify_damaged_users.*'           => 'integer|exists:users,id',
+            'notify_show_ready_mode'           => 'required|in:all,admins,custom',
+            'notify_show_ready_users'          => 'nullable|array',
+            'notify_show_ready_users.*'        => 'integer|exists:users,id',
+            'notify_show_reconciled_mode'      => 'required|in:all,admins,custom',
+            'notify_show_reconciled_users'     => 'nullable|array',
+            'notify_show_reconciled_users.*'   => 'integer|exists:users,id',
         ]);
 
-        // Handle logo upload
         if ($this->logo_upload) {
             $path = $this->logo_upload->store('brand', 'public');
             Setting::set('logo_path', $path);
-            $this->logo_path    = $path;
-            $this->logo_upload  = null;
+            $this->logo_path   = $path;
+            $this->logo_upload = null;
         }
 
-        Setting::set('brand_name',     $this->brand_name);
-        Setting::set('primary_color',  $this->primary_color);
-        Setting::set('ai_enabled',     $this->ai_enabled ? 'true' : 'false');
+        Setting::set('brand_name',    $this->brand_name);
+        Setting::set('primary_color', $this->primary_color);
+        Setting::set('ai_enabled',    $this->ai_enabled ? 'true' : 'false');
         Setting::set('ollama_base_url', $this->ollama_base_url);
         Setting::set('ollama_model',    $this->ollama_model);
         Setting::set('ollama_timeout',  (string) $this->ollama_timeout);
         Setting::set('show_import_mode', $this->show_import_mode);
         Setting::set('auto_assign_confident_streamers', $this->auto_assign_confident_streamers ? 'true' : 'false');
         Setting::set('show_ready_notification_email', $this->show_ready_notification_email);
+
+        Setting::set('notify_low_stock_mode',       $this->notify_low_stock_mode);
+        Setting::set('notify_low_stock_users',       json_encode($this->notify_low_stock_users));
+        Setting::set('notify_damaged_mode',          $this->notify_damaged_mode);
+        Setting::set('notify_damaged_users',         json_encode($this->notify_damaged_users));
+        Setting::set('notify_show_ready_mode',       $this->notify_show_ready_mode);
+        Setting::set('notify_show_ready_users',      json_encode($this->notify_show_ready_users));
+        Setting::set('notify_show_reconciled_mode',  $this->notify_show_reconciled_mode);
+        Setting::set('notify_show_reconciled_users', json_encode($this->notify_show_reconciled_users));
 
         Notification::make()
             ->title('Settings saved')

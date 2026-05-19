@@ -6,13 +6,13 @@ use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
-use App\Models\User;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class InventoryService
 {
+    public function __construct(private NotificationRouter $notificationRouter) {}
     public function addStock(
         InventoryItem $item,
         InventoryLocation $location,
@@ -165,7 +165,7 @@ class InventoryService
                 ->body(number_format($quantity) . 'x ' . $item->name . ' moved to damaged from ' . $from->name)
                 ->danger()
                 ->icon('heroicon-o-fire')
-                ->sendToDatabase(User::all());
+                ->sendToDatabase($this->notificationRouter->getRecipients('damaged'));
 
             $this->notifyIfLowStock($item);
 
@@ -263,6 +263,6 @@ class InventoryService
             ->body(number_format($qty) . ' units remaining (reorder at ' . number_format((float) $item->reorder_level) . ')')
             ->warning()
             ->icon('heroicon-o-exclamation-triangle')
-            ->sendToDatabase(User::all());
+            ->sendToDatabase($this->notificationRouter->getRecipients('low_stock'));
     }
 }

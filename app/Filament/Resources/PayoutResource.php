@@ -88,7 +88,13 @@ class PayoutResource extends Resource
 
                 TextColumn::make('owner_fee_deducted')
                     ->label('Owner Fee')
-                    ->money('USD'),
+                    ->money('USD')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('loan_repayment_deducted')
+                    ->label('Loan Repayment')
+                    ->money('USD')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('tips_included')
                     ->label('Tips')

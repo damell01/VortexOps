@@ -66,9 +66,9 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => Blade::render(
-                    "@vite(['resources/css/app.css', 'resources/js/app.js'])"
-                ),
+                fn (): string => (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
+                    ? Blade::render("@vite(['resources/css/app.css', 'resources/js/app.js'])")
+                    : '',
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,

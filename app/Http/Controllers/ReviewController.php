@@ -83,7 +83,7 @@ class ReviewController extends Controller
     public function updateItem(Request $request, ReviewItem $item): JsonResponse
     {
         $request->validate([
-            'status'      => 'sometimes|in:open,in_progress,resolved,rejected',
+            'status'      => 'sometimes|in:open,in_progress,fixed,approved,rejected,wont_fix',
             'priority'    => 'sometimes|in:low,normal,high',
             'type'        => 'sometimes|in:annotation,bug,suggestion,question',
             'assigned_to' => 'sometimes|nullable|exists:users,id',

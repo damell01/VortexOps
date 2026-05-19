@@ -7,19 +7,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ? $title . ' · ' : '' }}VortexOps Review</title>
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @endif
     <style>[x-cloak] { display: none !important; }</style>
 
     @if ($sessionId)
-    <script>localStorage.setItem('vortex_review_session_id', '{{ $sessionId }}');</script>
+        <script>localStorage.setItem('vortex_review_session_id', '{{ $sessionId }}');</script>
     @endif
 </head>
 <body class="h-full font-sans antialiased">
 
-    {{-- Nav --}}
     <header class="sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm">
         <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-
             <div class="flex items-center gap-3">
                 <a href="{{ route('review.index') }}" class="flex items-center gap-2 text-sm font-bold text-gray-900">
                     <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-violet-600">
@@ -38,9 +38,9 @@
             </div>
 
             <div class="flex items-center gap-3">
-                @if (auth()->user()->isSuperAdmin())
+                @if (auth()->user()?->isSuperAdmin())
                     <a href="/admin" class="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50">
-                        Admin Panel ↗
+                        Admin Panel →
                     </a>
                 @endif
 
@@ -56,7 +56,7 @@
                 </button>
 
                 <div class="flex items-center gap-2">
-                    <span class="text-xs text-gray-500">{{ auth()->user()->name }}</span>
+                    <span class="text-xs text-gray-500">{{ auth()->user()?->name }}</span>
                     <form method="POST" action="{{ route('filament.admin.auth.logout') }}">
                         @csrf
                         <button type="submit" class="text-xs text-gray-400 hover:text-gray-600">Logout</button>

@@ -1,4 +1,5 @@
-import { fabric } from 'fabric';
+import * as fabricModule from 'fabric';
+const fabric = fabricModule.fabric ?? fabricModule.default?.fabric ?? fabricModule.default ?? fabricModule;
 import html2canvas from 'html2canvas';
 
 // ─── State ────────────────────────────────────────────────────────────────────

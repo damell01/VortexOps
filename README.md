@@ -2,7 +2,7 @@
 
 Internal operations platform for **Vortex Breaks** — a Whatnot-based sports card break business.
 
-Built with **Laravel 13** + **Filament v5**. Phase 1: Inventory Foundation.
+Built with **Laravel 13** + **Filament v5**. Phases 1–3 complete: inventory foundation, show tracking, AI-assisted deduction, and streamer payouts.
 
 ---
 
@@ -23,9 +23,10 @@ Built with **Laravel 13** + **Filament v5**. Phase 1: Inventory Foundation.
 ## Key design constraints
 
 - **Single-tenant only** — not a SaaS platform
-- **Inventory deductions never happen automatically** — every deduction requires explicit approval
+- **Inventory deductions never happen automatically** — every deduction requires explicit ops approval
 - **Full audit trail** — every inventory change creates an immutable movement record
 - **Whatnot channels are shared** — multiple streamers can work on the same channel
+- **Payouts are calculated, not entered** — the payout engine derives amounts from show financials and streamer rate config
 
 ---
 
@@ -42,317 +43,166 @@ php artisan serve
 Admin login: `admin@vortexbreaks.com` / `password`  
 Dev (super admin): `dev@vortexbreaks.com` / `devpassword`
 
-Demo data includes 3 streamers, 8 inventory items, stock across all locations, 3 shows (reconciled / pending / draft), deduction requests, payouts, and 2 weekly pay run batches.
+Demo data includes 3 streamers, 8 inventory items, stock across all locations, 3 shows at different stages (reconciled / pending approval / draft), deduction requests, payouts, and 2 weekly pay run batches.
 
----
-
-## Screenshots
-
-### Login
-
-![Login page](docs/screenshots/00-login.png)
-
----
-
-### Dashboard
-
-The dashboard shows real-time stats across the entire inventory, low-stock alerts, recent movement activity, a per-location breakdown, and active streamers.
-
-![Dashboard](docs/screenshots/01-dashboard.png)
-
----
-
-### Inventory Items
-
-#### Items list
-
-All inventory items with category badges, total quantity across all locations, reorder-level warnings, and per-row action menus.
-
-![Items list](docs/screenshots/02-inventory-items-list.png)
-
-#### Filters panel
-
-Filter by category, low-stock threshold, and active/inactive status.
-
-![Items filters](docs/screenshots/03-inventory-items-filters.png)
-
-#### Create item
-
-Form for creating a new inventory item with SKU, name, category, unit cost, and reorder level.
-
-![Create item](docs/screenshots/04-inventory-items-create.png)
-
-#### Item detail
-
-View a single item. The view page provides quick access to all stock operations via the header action button.
-
-![Item detail](docs/screenshots/05-inventory-item-view.png)
-
----
-
-### Inventory Actions
-
-Each item row has a grouped action menu with five stock operations. All operations are wrapped in database transactions and create mandatory movement log entries.
-
-#### Action menu
-
-![Action dropdown](docs/screenshots/06-inventory-actions-dropdown.png)
-
-#### Add Stock
-
-Add units to any location. Logs a movement record with the selected movement type (opening balance, adjustment, return, etc.).
-
-![Add Stock modal](docs/screenshots/07-add-stock-modal.png)
-
-#### Transfer Stock
-
-Move units between two locations. Creates paired debit/credit movement records.
-
-![Transfer Stock modal](docs/screenshots/08-transfer-stock-modal.png)
-
-#### Adjust Inventory
-
-Set the exact quantity for a location. Computes the delta and logs a positive or negative adjustment movement.
-
-![Adjust Inventory modal](docs/screenshots/09-adjust-inventory-modal.png)
-
----
-
-### Inventory Locations
-
-#### Locations list
-
-All storage locations with type badges, streamer assignments, and aggregate SKU count.
-
-![Locations list](docs/screenshots/10-inventory-locations-list.png)
-
-#### Create location
-
-Location type drives conditional field visibility — selecting **Streamer Inventory** reveals the streamer assignment field.
-
-![Create location form](docs/screenshots/11-inventory-locations-create.png)
-
-#### Streamer inventory type — conditional field
-
-When the location type is `streamer_inventory`, the streamer selector appears automatically.
-
-![Conditional streamer field](docs/screenshots/12-location-streamer-field.png)
-
-#### Location detail
-
-![Location detail](docs/screenshots/13-inventory-location-view.png)
-
----
-
-### Stock Levels
-
-Read-only view of every item × location combination showing current quantity, unit cost, and computed stock value. Records cannot be created or deleted here — all changes go through the inventory actions.
-
-![Stock levels](docs/screenshots/14-stock-levels.png)
-
-#### Stock levels filters
-
-Filter by location, item, or quantity range.
-
-![Stock levels filters](docs/screenshots/15-stock-levels-filters.png)
-
----
-
-### Movement Log
-
-Immutable audit trail. Every stock operation — add, transfer, adjustment, sale deduction, return, damaged — creates a permanent record. Records cannot be created, edited, or deleted through the UI.
-
-![Movement log](docs/screenshots/16-movement-log.png)
-
-#### Movement log filters
-
-Filter movements by type, item, or location.
-
-![Movement log filters](docs/screenshots/17-movement-log-filters.png)
-
----
-
-### Streamers
-
-#### Streamers list
-
-All streamers with payout type badges, status (active / inactive / on leave), and tips configuration at a glance.
-
-![Streamers list](docs/screenshots/18-streamers-list.png)
-
-#### Create streamer
-
-The payout section uses conditional fields — only the relevant rate fields appear based on the selected payout type.
-
-![Create streamer form](docs/screenshots/19-streamers-create.png)
-
-#### Payout type — Profit Share
-
-Profit share shows the payout percentage field.
-
-![Profit share payout](docs/screenshots/20-streamer-profit-share.png)
-
-#### Payout type — Package Rate
-
-Package rate shows the per-slot package rate field.
-
-![Package rate payout](docs/screenshots/21-streamer-package-rate.png)
-
-#### Payout type — Hourly
-
-Hourly shows the hourly rate field.
-
-![Hourly rate payout](docs/screenshots/22-streamer-hourly-rate.png)
-
-#### Streamer detail
-
-![Streamer detail](docs/screenshots/23-streamer-view.png)
-
----
-
-### Whatnot Channels
-
-#### Channels list
-
-All company Whatnot channels. Channels are shared — multiple streamers can operate on the same channel.
-
-![Channels list](docs/screenshots/24-whatnot-channels-list.png)
-
-#### Create channel
-
-![Create channel form](docs/screenshots/25-whatnot-channels-create.png)
-
----
-
-### User Management
-
-Full user CRUD with role assignment. Accessible to admins only.
-
-![Users list](docs/screenshots/36-users-list.png)
-
-![Create user](docs/screenshots/37-users-create.png)
-
-**Roles:**
-| Role | Access |
-|---|---|
-| `admin` | Full access to all resources, settings, and user management |
-| `streamer` | Inventory items, their own locations + shared locations, movement log. No settings, no user management. |
-
-When a user is assigned the `streamer` role, link them to a Streamer profile via the **Linked Streamer Profile** field. Inventory locations are then automatically scoped to their profile + all shared (non-streamer) locations.
-
----
-
-### Activity Log
-
-Every model change — creates, updates, deletes — is automatically captured by Spatie Activitylog. The log is immutable and admin-only.
-
-![Activity log](docs/screenshots/38-activity-log.png)
-
-#### Diff view
-
-Click any log entry to see a before/after comparison table showing exactly which fields changed.
-
-![Activity log detail](docs/screenshots/39-activity-log-detail.png)
-
----
-
-### Settings
-
-Settings page controls branding and AI configuration. Admin-only.
-
-![Settings page](docs/screenshots/31-settings-page.png)
-
-**Branding options:**
-- **Logo** — upload PNG/JPG/SVG (max 2 MB). Displays in the sidebar header.
-- **Brand name** — shown as text when no logo is set.
-- **Primary color** — 8 preset swatches or a custom hex/color-picker. Changes the color of buttons, badges, active nav items, and all accent elements across the panel.
-
-![Color changed to blue](docs/screenshots/35-settings-color-changed.png)
-
-All changes apply on the next page load (color and logo are read from settings on every request, cached for 1 hour).
-
----
-
-### Notifications
-
-Database notifications appear in the bell icon in the Filament header (polled every 30 seconds). Two types are dispatched automatically:
-
-- **Low Stock** (warning) — fired after any stock operation (add, transfer, adjust, return) when the item's total quantity falls at or below its reorder level.
-- **Damaged Items** (danger) — fired immediately when units are moved to the damaged location via Mark Damaged.
-
-All notifications are sent to every user in the system and stored in the `notifications` table.
-
-![Dashboard with notification bell](docs/screenshots/01-dashboard.png)
-
----
-
-### Settings
-
-The Settings page controls the global AI toggle and Ollama connection. All changes persist to the database immediately.
-
-![Settings page](docs/screenshots/31-settings-page.png)
-
-**AI toggle off:**
-
-![AI disabled](docs/screenshots/34-settings-ai-disabled.png)
-
-When AI is disabled, the floating button is removed from every page and no AI requests can be made.
-
----
-
-### AI Assistant (Ollama)
-
-The AI connects to a local [Ollama](https://ollama.com) instance. No data leaves your server.
-
-#### Floating panel (available on every page)
-
-A persistent sparkles button sits in the bottom-right corner of every admin page. Click it to open a chat panel that automatically loads context for whatever you're currently viewing.
-
-**Dashboard — full inventory overview loaded as context:**
-
-![AI panel on dashboard](docs/screenshots/29-ai-panel-dashboard.png)
-
-**Inventory item detail — item stock levels and recent movements loaded:**
-
-![AI panel on item](docs/screenshots/30-ai-panel-item-detail.png)
-
-**Location page — all stock at that location loaded:**
-
-![AI panel on location](docs/screenshots/32-ai-panel-location-context.png)
-
-**Streamer page — streamer's locations and payout config loaded:**
-
-![AI panel on streamer](docs/screenshots/33-ai-panel-streamer-context.png)
-
-The context badge in the panel header always shows what the AI currently knows about. Hit the refresh button (↺) to reload context after navigating.
-
-#### Dedicated AI Assistant page
-
-Full-screen chat with three quick-action buttons for common analysis tasks.
-
-![AI Assistant page](docs/screenshots/26-ai-assistant-empty.png)
-
-**Quick actions:**
-| Action | Description |
-|---|---|
-| Inventory Health | Key concerns, urgent items, one recommendation |
-| Reorder Suggestions | Low-stock priorities with estimated order quantities |
-| Movement Analysis | Anomalies and high-velocity items from recent movements |
-
-#### AI Logs
-
-Read-only table of every AI interaction — model used, action type, latency, success/fail status. Click any row to see the full prompt, response, and inventory snapshot that was sent.
-
-![AI Logs](docs/screenshots/28-ai-logs.png)
-
-**Setup:**
+To run the queue worker (required for AI mapping and title parsing jobs):
 
 ```bash
-ollama serve
-ollama pull llama3.2   # or any model you prefer
+php artisan queue:work
 ```
 
-Configure in `.env` or via the Settings page:
+---
+
+## Navigation groups
+
+| Group | Resources |
+|---|---|
+| **Streams** | Shows, Deduction Requests |
+| **Inventory** | Items, Locations, Stock Levels, Movement Log |
+| **Payouts & Pay Runs** | Payouts, Pay Runs (Weekly Batches) |
+| **People** | Streamers, Whatnot Channels |
+| **Admin** | Users, Activity Log, AI Logs |
+| **Settings** | App Settings |
+
+---
+
+## Shows & the operational loop
+
+The core workflow that ties everything together:
+
+```
+Create Show
+    │
+    ▼
+pending_review ──► Assign streamers + enter financials
+    │
+    ▼
+[Run AI Mapping] ──► Jobs: ParseShowTitle → MapShowInventory
+    │
+    ▼
+mapping ──► AI reads show title + available inventory → creates DeductionRequest with suggested lines
+    │
+    ▼
+pending_approval ──► Ops reviews/edits deduction lines in the approval UI
+    │
+    ├── Approve ──► inventory deducted, show → reconciled, payouts calculated
+    └── Reject  ──► show returns to pending_review (retry loop)
+```
+
+### Show statuses
+
+| Status | Meaning |
+|---|---|
+| `draft` | Just created; no streamers or financials yet |
+| `pending_review` | Ready for ops to assign streamers and trigger AI mapping |
+| `mapping` | AI job running — deduction lines being generated |
+| `pending_approval` | Deduction request created; waiting for ops to approve or reject |
+| `reconciled` | Approved and inventory deducted; payouts generated |
+| `closed` | Manually closed without reconciliation |
+| `cancelled` | Cancelled; no deductions |
+
+---
+
+## Deduction Requests
+
+Each show generates one `DeductionRequest` (one per streamer at the time of AI mapping). The request contains one or more `DeductionRequestLine` records, each representing one inventory item to be deducted.
+
+**Approval UI** (`/admin/deduction-requests/{id}`):
+- Shows the full show summary (revenue, units sold, streamer)
+- Displays AI mapping notes and confidence levels per line
+- Ops can edit quantity approved, unit cost, and item/location per line
+- Ops can add or remove lines manually
+- Approve button persists all edits, then calls `InventoryService::deductStock()` for each approved line
+- Reject button returns the show to `pending_review` and records the rejection reason
+
+### Deduction line confidence levels
+
+| Level | Meaning |
+|---|---|
+| `high` | AI is confident in the item match |
+| `medium` | AI has a reasonable guess but needs review |
+| `low` | AI is unsure; ops should verify or replace |
+| `manual` | Line was added or overridden by ops |
+
+---
+
+## Payout engine
+
+Payouts are calculated by `PayoutService::calculateForShow()` and triggered automatically after a deduction request is approved.
+
+### Payout types (set per streamer)
+
+| Type | Calculation |
+|---|---|
+| `profit_share` | `whatnot_net × (payout_percentage / 100)`, optionally + tips share |
+| `package` | Fixed `package_rate`, optionally + tips share |
+| `hourly` | `hourly_rate × (show_duration_minutes / 60)` |
+| `flat_rate` | Fixed `package_rate` (no tips) |
+
+Tips are divided equally among all streamers on the show when `include_tips = true`.
+
+### Weekly pay runs (batches)
+
+Ops creates a `WeeklyPayoutBatch` for a given Monday–Sunday range. All unbatched draft payouts for shows in that week are pulled into the batch. Finalizing a batch marks all included payouts as `approved`. Batch statuses: `draft → finalized → submitted_to_adp → paid`.
+
+---
+
+## Inventory
+
+### Location types
+
+| Type | Purpose |
+|---|---|
+| `main_storage` | Primary warehouse / storage |
+| `streamer_inventory` | Stock assigned to a specific streamer |
+| `returned` | Buyer returns staging area |
+| `damaged` | Damaged / unsellable units |
+| `fulfillment` | Outbound / shipping staging |
+
+### Stock operations (per item, via action menu)
+
+| Action | What it does |
+|---|---|
+| Add Stock | Adds units to a location. Logs `opening`, `adjustment`, or `return` movement. |
+| Transfer Stock | Moves units between two locations. Debits source, credits destination. |
+| Adjust Inventory | Sets an exact quantity. Computes delta and logs a signed `adjustment` movement. |
+| Mark Damaged | Moves units from any location to the designated damaged location. Sends a danger notification. |
+| Move to Returns | Moves units to the designated returns location. |
+
+All operations are wrapped in database transactions. Insufficient stock throws `RuntimeException` before any mutation occurs.
+
+### Low stock notifications
+
+After every stock operation, `InventoryService` checks `item.totalQuantity() <= item.reorder_level`. When triggered, a warning database notification is broadcast to all users.
+
+---
+
+## AI (Ollama)
+
+All AI runs locally via Ollama. No data leaves the server.
+
+### AI services
+
+| Service | What it does |
+|---|---|
+| `AiTitleParserService` | Parses a show title to suggest which streamer hosted it. Called by `ParseShowTitle` job. |
+| `AiInventoryMapperService` | Given a show's title, units sold, and available inventory catalogue, returns a JSON mapping of which items were likely sold. Called by `MapShowInventory` job. |
+| `OllamaService` | HTTP client wrapper. `chat()`, `json()`, `isAvailable()`, `availableModels()`. All calls are logged to `ai_logs`. |
+
+### Queue jobs
+
+| Job | Triggered by | On failure |
+|---|---|---|
+| `ParseShowTitle` | Show created with a non-null title | Logs error; show stays `pending_review` |
+| `MapShowInventory` | "Run AI Mapping" action on show | Logs error; show returns to `pending_review` |
+| `NotifyShowReady` | Show created | Sends database notification to all admins |
+| `NotifyShowReconciled` | Deduction approved | Sends database notification to all admins |
+
+### AI floating panel
+
+A sparkles button sits in the bottom-right corner of every admin page. Clicking it opens a chat panel that automatically loads context for the current page (inventory item, location, streamer, or dashboard overview).
+
+### Settings
 
 ```
 OLLAMA_BASE_URL=http://localhost:11434
@@ -360,20 +210,47 @@ OLLAMA_MODEL=llama3.2
 OLLAMA_TIMEOUT=60
 ```
 
-The panel degrades gracefully if Ollama is offline — a red dot shows in the button and the input is disabled until Ollama comes back online.
+Or configure via **Settings → AI Assistant**. Use the "Test Ollama" button to verify connectivity.
+
+```bash
+ollama serve
+ollama pull llama3.2
+```
+
+---
+
+## Roles & access
+
+| Role | Access |
+|---|---|
+| `super_admin` | Everything, including role assignment. Dev use only. |
+| `admin` | Full access to all resources, settings, and user management |
+| `streamer` | Inventory items, their own locations + shared locations, movement log, their own payouts. No settings, no user management. |
+
+Assign a streamer user to a **Streamer profile** via the linked profile field on the user form. Inventory locations then scope automatically to that streamer's own locations plus all shared (non-streamer-assigned) locations.
 
 ---
 
 ## Data model
 
 ```
-Streamer ──< InventoryLocation >──< InventoryStock >── InventoryItem
-                    │                                       │
-                    └──────────────────────────────────────┘
-                                InventoryMovement
-                         (from_location, to_location, qty, type)
+WhatnotChannel
+     │
+     └──< Show >────────────────────────────< show_streamer >─────────< Streamer
+              │                                                               │
+              ├──< ShowIngestionLog                          InventoryLocation (streamer_id FK)
+              │                                                               │
+              ├──< DeductionRequest >─────< DeductionRequestLine             │
+              │         │                       │          │            InventoryStock
+              │   approved_by (User)     InventoryItem  Location             │
+              │                                                        InventoryItem
+              └──< Payout >──< WeeklyPayoutBatch
+                    │
+                 Streamer
 
-WhatnotChannel  (standalone — shared by multiple streamers)
+InventoryMovement (inventory_item_id, from_location_id, to_location_id, quantity, type, created_by)
+Setting (key / value — cached 1 hour)
+AiLog (action, prompt, response, latency_ms, success)
 ```
 
 ### Movement types
@@ -382,10 +259,10 @@ WhatnotChannel  (standalone — shared by multiple streamers)
 |---|---|
 | `opening` | Initial stock entry |
 | `transfer` | Stock moved between locations |
-| `adjustment` | Quantity corrected |
-| `sale_deduction` | Manual sale deduction (requires approval) |
+| `adjustment` | Quantity corrected to exact value |
+| `sale_deduction` | Inventory deducted from an approved deduction request |
 | `return` | Item returned to inventory |
-| `damaged` | Item marked as damaged |
+| `damaged` | Item moved to damaged location |
 
 ---
 
@@ -394,45 +271,76 @@ WhatnotChannel  (standalone — shared by multiple streamers)
 ```
 app/
 ├── Filament/
+│   ├── Pages/
+│   │   ├── AppSettings.php          # branding, AI, show import settings
+│   │   └── AiAssistant.php          # full-screen AI chat page
 │   ├── Resources/
-│   │   ├── InventoryItemResource.php       # 5 stock action modals
+│   │   ├── ShowResource.php         # show CRUD + AI mapping actions
+│   │   ├── DeductionRequestResource.php
+│   │   │   └── Pages/
+│   │   │       ├── ListDeductionRequests.php
+│   │   │       └── ViewDeductionRequest.php   # approval/reject UI
+│   │   ├── InventoryItemResource.php          # 5 stock operation modals
 │   │   ├── InventoryLocationResource.php
-│   │   ├── InventoryMovementResource.php   # read-only audit log
-│   │   ├── InventoryStockResource.php      # read-only stock view
+│   │   ├── InventoryMovementResource.php      # read-only audit log
+│   │   ├── InventoryStockResource.php         # read-only stock view
 │   │   ├── StreamerResource.php
-│   │   └── WhatnotChannelResource.php
+│   │   ├── WhatnotChannelResource.php
+│   │   ├── PayoutResource.php
+│   │   ├── WeeklyPayoutBatchResource.php
+│   │   ├── UserResource.php
+│   │   ├── ActivityLogResource.php            # Spatie activity log viewer
+│   │   └── AiLogResource.php
 │   └── Widgets/
 │       ├── StatsOverviewWidget.php
 │       ├── LowStockWidget.php
 │       ├── RecentMovementsWidget.php
 │       ├── InventoryByLocationWidget.php
 │       └── ActiveStreamersWidget.php
+├── Jobs/
+│   ├── ParseShowTitle.php
+│   ├── MapShowInventory.php
+│   ├── NotifyShowReady.php
+│   └── NotifyShowReconciled.php
 ├── Models/
+│   ├── Show.php
+│   ├── ShowIngestionLog.php
+│   ├── DeductionRequest.php
+│   ├── DeductionRequestLine.php
 │   ├── InventoryItem.php
 │   ├── InventoryLocation.php
 │   ├── InventoryMovement.php
 │   ├── InventoryStock.php
 │   ├── Streamer.php
-│   └── WhatnotChannel.php
+│   ├── WhatnotChannel.php
+│   ├── Payout.php
+│   ├── WeeklyPayoutBatch.php
+│   ├── User.php
+│   ├── Setting.php
+│   └── AiLog.php
 └── Services/
-    └── InventoryService.php    # all stock operations, DB transactions
+    ├── InventoryService.php          # all stock mutations, transactions
+    ├── OllamaService.php             # Ollama HTTP client + AI log
+    ├── PayoutService.php             # payout calculation + weekly batch creation
+    ├── AiTitleParserService.php      # show title → streamer suggestion
+    ├── AiInventoryMapperService.php  # show → deduction request via AI
+    ├── DeductionApprovalService.php  # approve + execute deductions
+    └── DeductionRejectionService.php # reject + return show to pending_review
 ```
 
 ---
 
-## Development Phases
-
-> **Note:** Phases 1–3 form the core operational loop and are most valuable when developed together. Phase 1 (inventory foundation) is only useful in production once Phase 3 (reconciliation & deduction) is live — otherwise inventory counts drift from reality immediately after the first break. Phase 2 (stream tracking) provides the data that Phase 3 reconciles against. The three phases are tightly coupled: know what you have → track what you sold → update what you have.
+## Development phases
 
 | Phase | Scope | Status |
 |---|---|---|
 | **Phase 1** | Inventory & Product Cost Foundation — items, locations, stock levels, movement log, streamer profiles, Whatnot channels | ✅ Complete |
-| **Phase 2** | Stream Tracking & Reporting — break scheduling, slot management, buyer tracking, per-break reporting | 🔜 Next |
-| **Phase 3** | Reconciliation & Inventory Deduction — post-break reconciliation workflow, approval-gated deductions, variance reporting | 🔜 Next |
-| **Phase 4** | Payout Reporting & Operational Reporting — streamer payout calculation engine, P&L summaries, operational dashboards | Planned |
-| **Phase 5** | Automation, Workflow Enhancements & Future Expansion — Whatnot API integration, automated alerts, advanced analytics | Planned |
+| **Phase 2** | Stream Tracking — show scheduling, status workflow, AI title parsing, show financials | ✅ Complete |
+| **Phase 3** | Reconciliation & Deduction — AI inventory mapping, deduction approval workflow, payout calculation engine, weekly pay runs | ✅ Complete |
+| **Phase 4** | Operational Reporting — P&L summaries, per-streamer profitability, COGS trends, show performance dashboards | Planned |
+| **Phase 5** | Automation & Expansion — Whatnot API integration, automated show ingestion, advanced analytics, webhook alerts | Planned |
 
-**Timeline notes:** Timelines vary depending on workflow discoveries, operational changes, review cycles, testing, platform limitations, client feedback, and evolving business requirements. Additional feature requests, integrations, or major operational changes outside the roadmap are reviewed and scoped separately.
+**Timeline notes:** Timelines vary depending on workflow discoveries, operational changes, review cycles, testing, platform limitations, client feedback, and evolving business requirements. Feature requests, integrations, or major operational changes outside the roadmap are reviewed and scoped separately.
 
 ---
 

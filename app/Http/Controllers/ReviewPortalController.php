@@ -27,10 +27,10 @@ class ReviewPortalController extends Controller
         $projects = ProjectHub::visibleProjectsFor($user)
             ->withCount([
                 'reviewItems as total_review_items_count',
-                'reviewItems as open_review_items_count' => fn ($q) => $q->whereIn('status', ['open', 'in_progress']),
-                'reviewItems as resolved_review_items_count' => fn ($q) => $q->whereIn('status', ['fixed', 'approved']),
-                'approvals as pending_approvals_count' => fn ($q) => $q->where('status', 'pending'),
-                'milestones as completed_milestones_count' => fn ($q) => $q->whereIn('status', ['completed', 'approved']),
+                'reviewItems as open_review_items_count' => fn ($q) => $q->whereIn('review_items.status', ['open', 'in_progress']),
+                'reviewItems as resolved_review_items_count' => fn ($q) => $q->whereIn('review_items.status', ['fixed', 'approved']),
+                'approvals as pending_approvals_count' => fn ($q) => $q->where('project_approvals.status', 'pending'),
+                'milestones as completed_milestones_count' => fn ($q) => $q->whereIn('project_milestones.status', ['completed', 'approved']),
                 'milestones as total_milestones_count',
             ])
             ->where('client_visible', true)
@@ -65,9 +65,9 @@ class ReviewPortalController extends Controller
         ]);
 
         $project->loadCount([
-            'reviewItems as open_review_items_count' => fn ($q) => $q->whereIn('status', ['open', 'in_progress']),
-            'reviewItems as resolved_review_items_count' => fn ($q) => $q->whereIn('status', ['fixed', 'approved']),
-            'approvals as pending_approvals_count' => fn ($q) => $q->where('status', 'pending'),
+            'reviewItems as open_review_items_count' => fn ($q) => $q->whereIn('review_items.status', ['open', 'in_progress']),
+            'reviewItems as resolved_review_items_count' => fn ($q) => $q->whereIn('review_items.status', ['fixed', 'approved']),
+            'approvals as pending_approvals_count' => fn ($q) => $q->where('project_approvals.status', 'pending'),
         ]);
 
         return view('review.project', compact('project'));

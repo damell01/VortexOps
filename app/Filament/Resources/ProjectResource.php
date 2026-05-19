@@ -71,8 +71,8 @@ class ProjectResource extends Resource
         return parent::getEloquentQuery()
             ->withCount([
                 'reviewSessions',
-                'reviewItems as open_review_items_count' => fn (Builder $query) => $query->whereIn('status', ['open', 'in_progress']),
-                'approvals as pending_approvals_count' => fn (Builder $query) => $query->where('status', 'pending'),
+                'reviewItems as open_review_items_count' => fn (Builder $query) => $query->whereIn('review_items.status', ['open', 'in_progress']),
+                'approvals as pending_approvals_count' => fn (Builder $query) => $query->where('project_approvals.status', 'pending'),
             ]);
     }
 

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class ReviewItem extends Model
 {
@@ -40,6 +41,24 @@ class ReviewItem extends Model
     public function comments(): HasMany
     {
         return $this->hasMany(ReviewItemComment::class);
+    }
+
+    public function getScreenshotAttribute(?string $value): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        if (
+            str_starts_with($value, 'data:image/')
+            || str_starts_with($value, 'http://')
+            || str_starts_with($value, 'https://')
+            || str_starts_with($value, '/storage/')
+        ) {
+            return $value;
+        }
+
+        return Storage::disk('public')->url($value);
     }
 
     public static function typeLabels(): array

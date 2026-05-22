@@ -33,19 +33,23 @@
         <div class="space-y-6 lg:col-span-2">
             <section class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
                 <h2 class="text-lg font-semibold text-gray-900">Overview</h2>
-                <div class="mt-5 grid gap-4 sm:grid-cols-3">
-                    <div class="rounded-2xl bg-violet-50 p-4">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-violet-500">Open Issues</p>
-                        <p class="mt-2 text-3xl font-bold text-violet-900">{{ $project->open_review_items_count }}</p>
-                    </div>
+                <div class="mt-5 grid gap-4 {{ $reviewsEnabled ? 'sm:grid-cols-3' : 'sm:grid-cols-1' }}">
+                    @if ($reviewsEnabled)
+                        <div class="rounded-2xl bg-violet-50 p-4">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-violet-500">Open Issues</p>
+                            <p class="mt-2 text-3xl font-bold text-violet-900">{{ $project->open_review_items_count }}</p>
+                        </div>
+                    @endif
                     <div class="rounded-2xl bg-amber-50 p-4">
                         <p class="text-xs font-semibold uppercase tracking-wide text-amber-600">Pending Approvals</p>
                         <p class="mt-2 text-3xl font-bold text-amber-900">{{ $project->pending_approvals_count }}</p>
                     </div>
-                    <div class="rounded-2xl bg-emerald-50 p-4">
-                        <p class="text-xs font-semibold uppercase tracking-wide text-emerald-600">Resolved</p>
-                        <p class="mt-2 text-3xl font-bold text-emerald-900">{{ $project->resolved_review_items_count }}</p>
-                    </div>
+                    @if ($reviewsEnabled)
+                        <div class="rounded-2xl bg-emerald-50 p-4">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-600">Resolved</p>
+                            <p class="mt-2 text-3xl font-bold text-emerald-900">{{ $project->resolved_review_items_count }}</p>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="mt-6 grid gap-4 md:grid-cols-2">
@@ -92,60 +96,62 @@
                 </div>
             </section>
 
-            <section class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-lg font-semibold text-gray-900">Feedback Sessions</h2>
-                    <span class="text-xs text-gray-400">{{ $project->reviewSessions->count() }} sessions</span>
-                </div>
-                <div class="mt-4 space-y-3">
-                    @forelse ($project->reviewSessions as $session)
-                        <a href="{{ route('review.session', $session) }}" class="block rounded-2xl border border-gray-100 p-4 transition hover:border-violet-300 hover:bg-violet-50/40">
-                            <div class="flex items-center justify-between gap-3">
-                                <div>
-                                    <p class="font-medium text-gray-900">{{ $session->title }}</p>
-                                    <p class="mt-1 text-xs text-gray-400">{{ $session->items_count }} item{{ $session->items_count === 1 ? '' : 's' }} · {{ $session->created_at->format('M j, Y g:i A') }}</p>
+            @if ($reviewsEnabled)
+                <section class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-lg font-semibold text-gray-900">Feedback Sessions</h2>
+                        <span class="text-xs text-gray-400">{{ $project->reviewSessions->count() }} sessions</span>
+                    </div>
+                    <div class="mt-4 space-y-3">
+                        @forelse ($project->reviewSessions as $session)
+                            <a href="{{ route('review.session', $session) }}" class="block rounded-2xl border border-gray-100 p-4 transition hover:border-violet-300 hover:bg-violet-50/40">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div>
+                                        <p class="font-medium text-gray-900">{{ $session->title }}</p>
+                                        <p class="mt-1 text-xs text-gray-400">{{ $session->items_count }} item{{ $session->items_count === 1 ? '' : 's' }} · {{ $session->created_at->format('M j, Y g:i A') }}</p>
+                                    </div>
+                                    <span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
+                                        {{ \App\Models\ReviewSession::statusLabels()[$session->status] ?? ucfirst($session->status) }}
+                                    </span>
                                 </div>
-                                <span class="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-                                    {{ \App\Models\ReviewSession::statusLabels()[$session->status] ?? ucfirst($session->status) }}
-                                </span>
-                            </div>
-                        </a>
-                    @empty
-                        <p class="text-sm text-gray-400">No feedback sessions yet. Review Mode will start filling this in.</p>
-                    @endforelse
-                </div>
-            </section>
+                            </a>
+                        @empty
+                            <p class="text-sm text-gray-400">No feedback sessions yet. Review Mode will start filling this in.</p>
+                        @endforelse
+                    </div>
+                </section>
 
-            <section class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-                <div class="flex items-center justify-between">
-                    <h2 class="text-lg font-semibold text-gray-900">Latest Annotations</h2>
-                    <span class="text-xs text-gray-400">{{ $project->reviewItems->count() }} shown</span>
-                </div>
-                <div class="mt-4 space-y-3">
-                    @forelse ($project->reviewItems as $item)
-                        <a href="{{ route('review.item', $item) }}" class="block rounded-2xl border border-gray-100 p-4 transition hover:border-violet-300 hover:bg-violet-50/40">
-                            <div class="flex items-start justify-between gap-3">
-                                <div class="min-w-0 flex-1">
-                                    <p class="truncate font-medium text-gray-900">{{ $item->page_title ?: $item->page_url }}</p>
-                                    @if ($item->comment)
-                                        <p class="mt-1 line-clamp-2 text-sm text-gray-600">{{ $item->comment }}</p>
-                                    @endif
-                                    <p class="mt-2 text-xs text-gray-400">
-                                        {{ $item->session?->title ?: 'Session' }}
-                                        · {{ $item->createdBy?->name ?: 'Unknown' }}
-                                        · {{ $item->created_at->format('M j, Y g:i A') }}
-                                    </p>
+                <section class="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-lg font-semibold text-gray-900">Latest Annotations</h2>
+                        <span class="text-xs text-gray-400">{{ $project->reviewItems->count() }} shown</span>
+                    </div>
+                    <div class="mt-4 space-y-3">
+                        @forelse ($project->reviewItems as $item)
+                            <a href="{{ route('review.item', $item) }}" class="block rounded-2xl border border-gray-100 p-4 transition hover:border-violet-300 hover:bg-violet-50/40">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div class="min-w-0 flex-1">
+                                        <p class="truncate font-medium text-gray-900">{{ $item->page_title ?: $item->page_url }}</p>
+                                        @if ($item->comment)
+                                            <p class="mt-1 line-clamp-2 text-sm text-gray-600">{{ $item->comment }}</p>
+                                        @endif
+                                        <p class="mt-2 text-xs text-gray-400">
+                                            {{ $item->session?->title ?: 'Session' }}
+                                            · {{ $item->createdBy?->name ?: 'Unknown' }}
+                                            · {{ $item->created_at->format('M j, Y g:i A') }}
+                                        </p>
+                                    </div>
+                                    <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium {{ in_array($item->status, ['open', 'in_progress']) ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700' }}">
+                                        {{ \App\Models\ReviewItem::statusLabels()[$item->status] ?? ucfirst($item->status) }}
+                                    </span>
                                 </div>
-                                <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium {{ in_array($item->status, ['open', 'in_progress']) ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700' }}">
-                                    {{ \App\Models\ReviewItem::statusLabels()[$item->status] ?? ucfirst($item->status) }}
-                                </span>
-                            </div>
-                        </a>
-                    @empty
-                        <p class="text-sm text-gray-400">No annotations have been captured for this workspace yet.</p>
-                    @endforelse
-                </div>
-            </section>
+                            </a>
+                        @empty
+                            <p class="text-sm text-gray-400">No annotations have been captured for this workspace yet.</p>
+                        @endforelse
+                    </div>
+                </section>
+            @endif
         </div>
 
         <div class="space-y-6">

@@ -1,16 +1,23 @@
 @props(['title' => null, 'sessionId' => null, 'projectId' => null, 'breadcrumb' => null])
 
+@php
+    $projectsEnabled = \App\Support\AdminModules::isEnabled('projects');
+    $reviewsEnabled = \App\Support\AdminModules::isEnabled('reviews');
+    $portalTitle = $projectsEnabled ? 'VortexOps Project Hub' : 'VortexOps';
+@endphp
+
 <!DOCTYPE html>
 <html lang="en" class="h-full bg-gray-50">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ $title ? $title . ' · ' : '' }}VortexOps Project Hub</title>
+    <title>{{ $title ? $title . ' · ' : '' }}{{ $portalTitle }}</title>
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     @endif
     <style>[x-cloak] { display: none !important; }</style>
+    <script>window.VortexModules = {{ \Illuminate\Support\Js::from(['projects' => $projectsEnabled, 'reviews' => $reviewsEnabled]) }};</script>
 
     @if ($sessionId)
         <script>localStorage.setItem('vortex_review_session_id', '{{ $sessionId }}');</script>
@@ -47,16 +54,18 @@
                     </a>
                 @endif
 
-                <button
-                    onclick="document.getElementById('review-toggle-btn')?.click()"
-                    class="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-700"
-                >
-                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                    </svg>
-                    Leave Feedback
-                </button>
+                @if ($reviewsEnabled)
+                    <button
+                        onclick="document.getElementById('review-toggle-btn')?.click()"
+                        class="flex items-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-700"
+                    >
+                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                        </svg>
+                        Leave Feedback
+                    </button>
+                @endif
 
                 <div class="flex items-center gap-2">
                     <span class="text-xs text-gray-500">{{ auth()->user()?->name }}</span>

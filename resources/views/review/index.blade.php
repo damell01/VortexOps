@@ -4,7 +4,7 @@
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Project Hub</h1>
             <p class="mt-1 text-sm text-gray-500">
-                Track implementation progress, review feedback, approvals, and launch work in one place.
+                Track implementation progress, approvals, launch work, and{{ $reviewsEnabled ? ' review feedback' : '' }} in one place.
             </p>
         </div>
     </div>
@@ -58,18 +58,22 @@
                 </div>
 
                 <div class="grid min-w-[280px] grid-cols-2 gap-3 lg:w-[340px]">
-                    <div class="rounded-2xl bg-violet-50 p-3">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-violet-500">Open Review Items</p>
-                        <p class="mt-1 text-2xl font-bold text-violet-900">{{ $project->open_review_items_count }}</p>
-                    </div>
+                    @if ($reviewsEnabled)
+                        <div class="rounded-2xl bg-violet-50 p-3">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-violet-500">Open Review Items</p>
+                            <p class="mt-1 text-2xl font-bold text-violet-900">{{ $project->open_review_items_count }}</p>
+                        </div>
+                    @endif
                     <div class="rounded-2xl bg-amber-50 p-3">
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-amber-600">Pending Approvals</p>
                         <p class="mt-1 text-2xl font-bold text-amber-900">{{ $project->pending_approvals_count }}</p>
                     </div>
-                    <div class="rounded-2xl bg-emerald-50 p-3">
-                        <p class="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">Resolved Feedback</p>
-                        <p class="mt-1 text-2xl font-bold text-emerald-900">{{ $project->resolved_review_items_count }}</p>
-                    </div>
+                    @if ($reviewsEnabled)
+                        <div class="rounded-2xl bg-emerald-50 p-3">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-emerald-600">Resolved Feedback</p>
+                            <p class="mt-1 text-2xl font-bold text-emerald-900">{{ $project->resolved_review_items_count }}</p>
+                        </div>
+                    @endif
                     <div class="rounded-2xl bg-slate-50 p-3">
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Milestones</p>
                         <p class="mt-1 text-sm font-semibold text-slate-900">{{ $milestoneSummary }}</p>

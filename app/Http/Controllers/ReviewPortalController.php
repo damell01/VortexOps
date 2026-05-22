@@ -9,6 +9,7 @@ use App\Models\ReviewItemComment;
 use App\Models\ReviewSession;
 use App\Modules\ProjectHub\Support\ProjectHub;
 use App\Modules\ProjectHub\Support\ProjectHubRoadmap;
+use App\Support\AdminModules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse as HttpRedirectResponse;
@@ -19,20 +20,26 @@ class ReviewPortalController extends Controller
     public function index(): View|HttpRedirectResponse
     {
         $user = auth()->user();
+        $reviewsEnabled = AdminModules::isEnabled('reviews');
 
         if ($user?->isAdmin() && ! Project::query()->exists()) {
             ProjectHubRoadmap::ensureWorkspace($user);
         }
 
+        $projectCounts = [
+            'approvals as pending_approvals_count' => fn ($q) => $q->where('project_approvals.status', 'pending'),
+            'milestones as completed_milestones_count' => fn ($q) => $q->whereIn('project_milestones.status', ['completed', 'approved']),
+            'milestones as total_milestones_count',
+        ];
+
+        if ($reviewsEnabled) {
+            $projectCounts['reviewItems as total_review_items_count'] = fn ($q) => $q;
+            $projectCounts['reviewItems as open_review_items_count'] = fn ($q) => $q->whereIn('review_items.status', ['open', 'in_progress']);
+            $projectCounts['reviewItems as resolved_review_items_count'] = fn ($q) => $q->whereIn('review_items.status', ['fixed', 'approved']);
+        }
+
         $projects = ProjectHub::visibleProjectsFor($user)
-            ->withCount([
-                'reviewItems as total_review_items_count',
-                'reviewItems as open_review_items_count' => fn ($q) => $q->whereIn('review_items.status', ['open', 'in_progress']),
-                'reviewItems as resolved_review_items_count' => fn ($q) => $q->whereIn('review_items.status', ['fixed', 'approved']),
-                'approvals as pending_approvals_count' => fn ($q) => $q->where('project_approvals.status', 'pending'),
-                'milestones as completed_milestones_count' => fn ($q) => $q->whereIn('project_milestones.status', ['completed', 'approved']),
-                'milestones as total_milestones_count',
-            ])
+            ->withCount($projectCounts)
             ->where('client_visible', true)
             ->with(['owner:id,name', 'manager:id,name'])
             ->orderByDesc('is_active')
@@ -43,34 +50,45 @@ class ReviewPortalController extends Controller
             return redirect()->route('review.project', $projects->first());
         }
 
-        return view('review.index', compact('projects'));
+        return view('review.index', compact('projects', 'reviewsEnabled'));
     }
 
     public function project(Project $project): View
     {
         abort_unless(ProjectHub::visibleProjectsFor(auth()->user())->whereKey($project->id)->exists(), 403);
+        $reviewsEnabled = AdminModules::isEnabled('reviews');
 
-        $project->load([
+        $projectRelations = [
             'milestones' => fn ($query) => $query->where('visible_to_client', true),
             'approvals' => fn ($query) => $query->where('visible_to_client', true)->latest('requested_at'),
             'statusUpdates' => fn ($query) => $query->where('visible_to_client', true)->latest(),
             'statusUpdates.author:id,name',
             'comments' => fn ($query) => $query->with('user:id,name')->latest()->limit(20),
-            'reviewSessions' => fn ($query) => $query->withCount('items')->latest(),
-            'reviewItems' => fn ($query) => $query
+        ];
+
+        if ($reviewsEnabled) {
+            $projectRelations['reviewSessions'] = fn ($query) => $query->withCount('items')->latest();
+            $projectRelations['reviewItems'] = fn ($query) => $query
                 ->with(['session:id,title,project_id', 'createdBy:id,name'])
                 ->whereIn('status', ['open', 'in_progress', 'fixed'])
                 ->latest()
-                ->limit(10),
-        ]);
+                ->limit(10);
+        }
 
-        $project->loadCount([
-            'reviewItems as open_review_items_count' => fn ($q) => $q->whereIn('review_items.status', ['open', 'in_progress']),
-            'reviewItems as resolved_review_items_count' => fn ($q) => $q->whereIn('review_items.status', ['fixed', 'approved']),
+        $project->load($projectRelations);
+
+        $projectCounts = [
             'approvals as pending_approvals_count' => fn ($q) => $q->where('project_approvals.status', 'pending'),
-        ]);
+        ];
 
-        return view('review.project', compact('project'));
+        if ($reviewsEnabled) {
+            $projectCounts['reviewItems as open_review_items_count'] = fn ($q) => $q->whereIn('review_items.status', ['open', 'in_progress']);
+            $projectCounts['reviewItems as resolved_review_items_count'] = fn ($q) => $q->whereIn('review_items.status', ['fixed', 'approved']);
+        }
+
+        $project->loadCount($projectCounts);
+
+        return view('review.project', compact('project', 'reviewsEnabled'));
     }
 
     public function storeProjectComment(Request $request, Project $project): RedirectResponse

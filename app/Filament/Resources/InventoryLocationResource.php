@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\InventoryLocationResource\Pages;
 use App\Models\InventoryLocation;
+use App\Support\AdminModules;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -22,6 +24,10 @@ use Filament\Tables\Table;
 
 class InventoryLocationResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'inventory';
+
     protected static ?string $model = InventoryLocation::class;
 
     // Streamers see only their own locations + shared locations (no streamer assigned)
@@ -48,7 +54,7 @@ class InventoryLocationResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Inventory';
+        return AdminModules::navigationGroupFor('inventory');
     }
 
     public static function getNavigationSort(): ?int

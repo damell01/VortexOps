@@ -2,12 +2,14 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\ShowResource\Pages;
 use App\Jobs\MapShowInventory;
 use App\Models\DeductionRequest;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WhatnotChannel;
+use App\Support\AdminModules;
 use Filament\Actions\Action as TableAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -30,6 +32,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ShowResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'streams';
+
     protected static ?string $model = Show::class;
 
     public static function getEloquentQuery(): Builder
@@ -50,7 +56,7 @@ class ShowResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Streams';
+        return AdminModules::navigationGroupFor('streams');
     }
 
     public static function getNavigationSort(): ?int

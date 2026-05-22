@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\InventoryStockResource\Pages;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryStock;
+use App\Support\AdminModules;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Actions\Action as TableAction;
@@ -22,6 +24,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class InventoryStockResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'inventory';
+
     protected static ?string $model = InventoryStock::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -31,7 +37,7 @@ class InventoryStockResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Inventory';
+        return AdminModules::navigationGroupFor('inventory');
     }
 
     public static function getNavigationSort(): ?int

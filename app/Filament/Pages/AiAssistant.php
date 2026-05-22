@@ -2,13 +2,19 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Models\Setting;
 use App\Services\OllamaService;
+use App\Support\AdminModules;
 use Filament\Actions\Action;
 use Filament\Pages\Page;
 
 class AiAssistant extends Page
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'ai';
+
     protected static ?string $title = 'Vortex Assistant';
 
     public function getView(): string
@@ -18,7 +24,7 @@ class AiAssistant extends Page
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'AI';
+        return AdminModules::navigationGroupFor('ai');
     }
 
     public static function getNavigationSort(): ?int

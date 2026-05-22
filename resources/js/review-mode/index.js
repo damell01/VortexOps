@@ -2,6 +2,8 @@ import * as fabricModule from 'fabric';
 const fabric = fabricModule.fabric ?? fabricModule.default?.fabric ?? fabricModule.default ?? fabricModule;
 import html2canvas from 'html2canvas';
 
+const reviewModuleEnabled = window.VortexModules?.reviews ?? true;
+
 // ─── State ────────────────────────────────────────────────────────────────────
 let reviewModeActive = false;   // persists across page loads via localStorage
 let canvasActive     = false;   // canvas overlay is shown
@@ -15,6 +17,7 @@ let toolbarEl     = null;
 let browsingPanel = null;       // floating panel shown in browsing mode
 let pickerActive  = false;
 let pickerBoxEl   = null;
+let pickerMode    = 'annotate';
 
 let currentTool    = 'select';
 let currentColor   = '#e11d48';
@@ -27,6 +30,8 @@ let seedAnnotationPoint = null;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+    if (!reviewModuleEnabled) return;
+
     sessionId = localStorage.getItem('vortex_review_session_id') || null;
     projectId = localStorage.getItem('vortex_project_id') || null;
     injectFab();
@@ -116,7 +121,7 @@ function showBrowsingUI() {
         bottom: '70px',
         left: '16px',
         zIndex: '99997',
-        width: '230px',
+        width: '260px',
         background: 'white',
         borderRadius: '14px',
         boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
@@ -134,17 +139,28 @@ function showBrowsingUI() {
 
         <div style="padding:10px 12px;border-bottom:1px solid #f3f4f6;">
             <div style="font-size:11px;color:#6b7280;line-height:1.45;margin-bottom:8px;">
-                Browse the live page normally, then pick the exact spot you want to mark up.
+                Browse the live page normally, then either drop a quick note or open full markup when you need arrows and boxes.
             </div>
-            <button id="review-pick-spot-btn"
-                style="width:100%;padding:8px;background:#111827;color:white;border:none;border-radius:8px;
-                       font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px;">
-                <svg style="width:12px;height:12px" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15 15l5 5m-2-9a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
-                Pick Spot On Page
-            </button>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px;">
+                <button id="review-quick-note-btn"
+                    style="padding:8px;background:#111827;color:white;border:none;border-radius:8px;
+                       font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                    <svg style="width:12px;height:12px" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M7 8h10M7 12h8m-8 4h6m7-10v12l-3-3H5a2 2 0 01-2-2V6a2 2 0 012-2h13a2 2 0 012 2z"/>
+                    </svg>
+                    Quick Note
+                </button>
+                <button id="review-pick-spot-btn"
+                    style="padding:8px;background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe;border-radius:8px;
+                       font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                    <svg style="width:12px;height:12px" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 15l5 5m-2-9a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    Pick Spot
+                </button>
+            </div>
             <button id="review-open-canvas-btn"
                 style="width:100%;padding:8px;background:#7c3aed;color:white;border:none;border-radius:8px;
                        font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
@@ -152,7 +168,7 @@ function showBrowsingUI() {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
                 </svg>
-                Annotate This Page
+                Open Full Markup
             </button>
             <button id="review-upload-annotate-btn"
                 style="width:100%;padding:6px;background:transparent;color:#7c3aed;border:1px solid #e9d5ff;border-radius:8px;
@@ -179,7 +195,8 @@ function showBrowsingUI() {
 
     document.getElementById('review-open-canvas-btn').addEventListener('click', () => openCanvas(false));
     document.getElementById('review-upload-annotate-btn').addEventListener('click', () => openCanvas(true));
-    document.getElementById('review-pick-spot-btn').addEventListener('click', activatePickerMode);
+    document.getElementById('review-pick-spot-btn').addEventListener('click', () => activatePickerMode('annotate'));
+    document.getElementById('review-quick-note-btn').addEventListener('click', () => activatePickerMode('quick_note'));
 
     loadSessionInfo();
     loadPageAnnotations();
@@ -252,6 +269,7 @@ function openCanvas(uploadMode = false, options = {}) {
     canvasActive     = true;
     hasUploadedImage = false;
     seedAnnotationPoint = options.seedPoint ?? null;
+    const autoOpenSave = options.autoOpenSave ?? false;
     deactivatePickerMode();
     removeBrowsingUI();
     buildOverlay();
@@ -263,6 +281,13 @@ function openCanvas(uploadMode = false, options = {}) {
 
     if (uploadMode) {
         setTimeout(() => triggerImageUpload(), 200);
+    }
+
+    if (autoOpenSave) {
+        setTimeout(() => openSaveModal({
+            type: 'annotation',
+            placeholder: 'Leave a quick note about this exact section…',
+        }), 120);
     }
 }
 
@@ -291,7 +316,7 @@ function buildOverlay() {
     Object.assign(overlayEl.style, {
         position: 'fixed', inset: '0',
         zIndex: '99990',
-        background: 'rgba(15, 23, 42, 0.18)',
+        background: 'rgba(15, 23, 42, 0.12)',
         overflow: 'hidden',
     });
 
@@ -351,9 +376,10 @@ function addSeedMarker(seedPoint) {
     pushHistory();
 }
 
-function activatePickerMode() {
+function activatePickerMode(mode = 'annotate') {
     if (pickerActive || canvasActive) return;
     pickerActive = true;
+    pickerMode = mode;
 
     if (browsingPanel) {
         browsingPanel.style.boxShadow = '0 12px 32px rgba(124,58,237,0.28)';
@@ -377,7 +403,7 @@ function activatePickerMode() {
     document.addEventListener('mousemove', handlePickerMove, true);
     document.addEventListener('click', handlePickerClick, true);
     document.body.style.cursor = 'crosshair';
-    showToast('Click the spot you want to annotate');
+    showToast(mode === 'quick_note' ? 'Click the exact spot for a quick note' : 'Click the spot you want to annotate');
 }
 
 function deactivatePickerMode() {
@@ -387,6 +413,7 @@ function deactivatePickerMode() {
     document.removeEventListener('click', handlePickerClick, true);
     pickerBoxEl?.remove();
     pickerBoxEl = null;
+    pickerMode = 'annotate';
     document.body.style.cursor = '';
 
     if (browsingPanel) {
@@ -440,7 +467,7 @@ function handlePickerClick(event) {
         },
     };
 
-    openCanvas(false, { seedPoint });
+    openCanvas(false, { seedPoint, autoOpenSave: pickerMode === 'quick_note' });
 }
 
 function isReviewUi(target) {
@@ -468,13 +495,20 @@ function buildToolbar() {
         zIndex: '99995',
         background: 'white',
         borderRadius: '16px',
-        padding: '12px 8px',
+        padding: '12px 10px',
         display: 'flex',
         flexDirection: 'column',
         gap: '4px',
         boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
-        minWidth: '52px',
+        minWidth: '70px',
     });
+
+    const header = document.createElement('div');
+    header.innerHTML = `
+        <div style="font-size:10px;font-weight:800;color:#111827;letter-spacing:0.05em;text-align:center;">MARKUP</div>
+        <div style="font-size:10px;color:#6b7280;text-align:center;margin-top:2px;">Esc returns to page</div>
+    `;
+    toolbarEl.appendChild(header);
 
     // Done button at top
     const doneBtn = makeToolBtn('✕', 'Done (Esc)', () => closeCanvas());
@@ -483,6 +517,11 @@ function buildToolbar() {
     doneBtn.style.borderRadius = '10px';
     doneBtn.style.color = '#dc2626';
     toolbarEl.appendChild(doneBtn);
+
+    const backBtn = makeToolBtn('←', 'Back to browsing', () => closeCanvas(true));
+    backBtn.style.borderRadius = '10px';
+    backBtn.style.color = '#475569';
+    toolbarEl.appendChild(backBtn);
 
     toolbarEl.appendChild(makeSep());
 
@@ -536,7 +575,7 @@ function buildToolbar() {
     toolbarEl.appendChild(makeSep());
 
     // Save
-    const saveBtn = makeToolBtn('💾', 'Save annotation', openSaveModal);
+    const saveBtn = makeToolBtn('💾', 'Save annotation', () => openSaveModal());
     Object.assign(saveBtn.style, {
         background: '#7c3aed', color: 'white',
         borderRadius: '10px', padding: '8px',
@@ -759,15 +798,75 @@ async function captureForSave() {
         if (fabricCanvas?.lowerCanvasEl) {
             ctx.drawImage(fabricCanvas.lowerCanvasEl, 0, 0);
         }
-        return pageCanvas.toDataURL('image/jpeg', 0.85);
+
+        const bounds = getAnnotationBounds();
+        if (!bounds) {
+            return pageCanvas.toDataURL('image/jpeg', 0.85);
+        }
+
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = bounds.width;
+        cropCanvas.height = bounds.height;
+        const cropCtx = cropCanvas.getContext('2d');
+        cropCtx.drawImage(
+            pageCanvas,
+            bounds.left,
+            bounds.top,
+            bounds.width,
+            bounds.height,
+            0,
+            0,
+            bounds.width,
+            bounds.height
+        );
+
+        return cropCanvas.toDataURL('image/jpeg', 0.9);
     } catch {
         if (overlayEl) overlayEl.style.visibility = '';
         return null;
     }
 }
 
+function getAnnotationBounds() {
+    const objects = fabricCanvas?.getObjects?.() ?? [];
+
+    if (!objects.length) {
+        return null;
+    }
+
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = 0;
+    let maxY = 0;
+
+    objects.forEach(object => {
+        const rect = object.getBoundingRect();
+        minX = Math.min(minX, rect.left);
+        minY = Math.min(minY, rect.top);
+        maxX = Math.max(maxX, rect.left + rect.width);
+        maxY = Math.max(maxY, rect.top + rect.height);
+    });
+
+    if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+        return null;
+    }
+
+    const padding = 36;
+    const left = Math.max(0, Math.floor(minX - padding));
+    const top = Math.max(0, Math.floor(minY - padding));
+    const width = Math.min(window.innerWidth - left, Math.ceil(maxX - minX + padding * 2));
+    const height = Math.min(window.innerHeight - top, Math.ceil(maxY - minY + padding * 2));
+
+    return {
+        left,
+        top,
+        width: Math.max(40, width),
+        height: Math.max(40, height),
+    };
+}
+
 // ─── Save Modal ───────────────────────────────────────────────────────────────
-function openSaveModal() {
+function openSaveModal(options = {}) {
     document.getElementById('review-save-modal')?.remove();
 
     const modal = document.createElement('div');
@@ -791,7 +890,7 @@ function openSaveModal() {
 
             <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:6px;">Comment</label>
             <textarea id="review-comment-input" rows="3"
-                placeholder="Describe the issue, suggestion, or question…"
+                placeholder="${options.placeholder ?? 'Describe the issue, suggestion, or question…'}"
                 style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;
                        font-size:13px;resize:vertical;outline:none;box-sizing:border-box;font-family:inherit;"></textarea>
 
@@ -835,6 +934,13 @@ function openSaveModal() {
     document.getElementById('review-cancel-btn').addEventListener('click', () => modal.remove());
     document.getElementById('review-save-btn').addEventListener('click', () => submitAnnotation(modal));
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+    const typeSelect = document.getElementById('review-type-select');
+    if (options.type) {
+        typeSelect.value = options.type;
+    }
+
+    document.getElementById('review-comment-input')?.focus();
 }
 
 async function submitAnnotation(modal) {

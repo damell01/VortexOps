@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\InventoryMovementResource\Pages;
 use App\Models\InventoryMovement;
+use App\Support\AdminModules;
 use Filament\Actions\Action as TableAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Placeholder;
@@ -18,6 +20,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class InventoryMovementResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'inventory';
+
     protected static ?string $model = InventoryMovement::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -27,7 +33,7 @@ class InventoryMovementResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Inventory';
+        return AdminModules::navigationGroupFor('inventory');
     }
 
     public static function getNavigationSort(): ?int

@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\ReviewItemResource\Pages;
 use App\Models\Project;
 use App\Models\ReviewItem;
 use App\Models\User;
+use App\Support\AdminModules;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
@@ -17,6 +19,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -24,6 +27,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ReviewItemResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'reviews';
+
     protected static ?string $model = ReviewItem::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -33,7 +40,7 @@ class ReviewItemResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Project Hub';
+        return AdminModules::navigationGroupFor('reviews');
     }
 
     public static function getNavigationSort(): ?int
@@ -160,6 +167,12 @@ class ReviewItemResource extends Resource
 
         return $table
             ->columns(array_filter([
+                ImageColumn::make('screenshot')
+                    ->label('Shot')
+                    ->square()
+                    ->size(56)
+                    ->toggleable(isToggledHiddenByDefault: false),
+
                 TextColumn::make('id')->label('#')->sortable(),
 
                 $isSuperAdmin

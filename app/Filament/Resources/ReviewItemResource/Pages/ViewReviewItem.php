@@ -187,15 +187,19 @@ class ViewReviewItem extends EditRecord
                         ->content($record->comment ?: 'No comment provided.'),
                 ]),
 
-            Section::make('Annotation')
-                ->collapsed()
+            Section::make('Annotated Screenshot')
                 ->visible(! empty($record->screenshot))
                 ->schema([
                     Placeholder::make('screenshot_img')
                         ->label('')
                         ->content(
                             $record->screenshot
-                                ? new HtmlString('<img src="' . e($record->screenshot) . '" class="block w-full rounded-lg" style="object-fit:contain;max-height:520px" loading="lazy">')
+                                ? new HtmlString(
+                                    '<div class="space-y-3">'
+                                    . '<img src="' . e($record->screenshot) . '" class="block w-full rounded-xl border border-gray-200 bg-white" style="object-fit:contain;max-height:620px" loading="lazy">'
+                                    . '<p class="text-xs text-gray-500">Saved visual context from the annotated page section.</p>'
+                                    . '</div>'
+                                )
                                 : new HtmlString('<span class="text-sm text-gray-400">No screenshot.</span>')
                         ),
                 ]),

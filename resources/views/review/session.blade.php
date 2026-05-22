@@ -18,6 +18,32 @@
         </div>
     </div>
 
+    @if ($session->project)
+        <section class="mb-6 rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-sky-50 p-5 shadow-sm">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div class="min-w-0">
+                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-violet-600">Project Status</p>
+                    <h2 class="mt-2 text-xl font-semibold text-slate-950">{{ $session->project->name }}</h2>
+                    <p class="mt-1 text-sm text-slate-600">
+                        {{ $session->project->phase ?: (\App\Models\Project::statusLabels()[$session->project->status] ?? ucfirst($session->project->status)) }}
+                    </p>
+                </div>
+                <div class="min-w-[220px] rounded-2xl border border-white/70 bg-white/80 p-4 backdrop-blur">
+                    <div class="flex items-center justify-between text-xs font-medium text-slate-500">
+                        <span>Progress</span>
+                        <span>{{ $session->project->progress_percent }}%</span>
+                    </div>
+                    <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                        <div class="h-full rounded-full bg-gradient-to-r from-violet-500 to-sky-500" style="width: {{ max(0, min(100, $session->project->progress_percent)) }}%"></div>
+                    </div>
+                    @if ($session->project->current_focus)
+                        <p class="mt-3 line-clamp-2 text-xs leading-5 text-slate-600">{{ $session->project->current_focus }}</p>
+                    @endif
+                </div>
+            </div>
+        </section>
+    @endif
+
     @if ($items->isEmpty())
         <div class="rounded-2xl border border-dashed border-gray-300 bg-white py-16 text-center">
             <p class="text-sm font-medium text-gray-400">No items in this session yet.</p>

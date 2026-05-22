@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\DeductionRequestResource\Pages;
 use App\Models\DeductionRequest;
+use App\Support\AdminModules;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -14,6 +16,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class DeductionRequestResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'streams';
+
     protected static ?string $model = DeductionRequest::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -23,7 +29,7 @@ class DeductionRequestResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Streams';
+        return AdminModules::navigationGroupFor('streams');
     }
 
     public static function getNavigationSort(): ?int

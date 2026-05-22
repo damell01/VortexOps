@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\StreamerResource\Pages;
 use App\Filament\Resources\StreamerResource\RelationManagers\LoansRelationManager;
 use App\Models\Streamer;
+use App\Support\AdminModules;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -24,6 +26,10 @@ use Filament\Tables\Table;
 
 class StreamerResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'operations';
+
     protected static ?string $model = Streamer::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -33,7 +39,7 @@ class StreamerResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Operations';
+        return AdminModules::navigationGroupFor('operations');
     }
 
     public static function getNavigationSort(): ?int

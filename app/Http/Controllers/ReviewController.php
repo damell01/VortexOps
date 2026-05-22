@@ -7,6 +7,7 @@ use App\Models\ReviewItem;
 use App\Models\ReviewItemComment;
 use App\Models\ReviewSession;
 use App\Modules\ProjectHub\Support\ProjectHub;
+use App\Support\ReviewScreenshotStore;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -81,7 +82,7 @@ class ReviewController extends Controller
             'review_session_id' => $request->review_session_id,
             'page_url'          => $request->page_url,
             'page_title'        => $request->page_title,
-            'screenshot'        => $request->screenshot,
+            'screenshot'        => ReviewScreenshotStore::persist($request->string('screenshot')->toString()),
             'fabric_json'       => $request->fabric_json,
             'comment'           => $request->comment,
             'type'              => $request->type ?? 'annotation',

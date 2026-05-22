@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\ProjectResource\Pages;
 use App\Filament\Resources\ProjectResource\RelationManagers\ApprovalsRelationManager;
 use App\Filament\Resources\ProjectResource\RelationManagers\CommentsRelationManager;
@@ -10,6 +11,7 @@ use App\Filament\Resources\ProjectResource\RelationManagers\ReviewSessionsRelati
 use App\Filament\Resources\ProjectResource\RelationManagers\StatusUpdatesRelationManager;
 use App\Models\Project;
 use App\Models\User;
+use App\Support\AdminModules;
 use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -29,6 +31,10 @@ use Illuminate\Support\Str;
 
 class ProjectResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'projects';
+
     protected static ?string $model = Project::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -38,7 +44,7 @@ class ProjectResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Project Hub';
+        return AdminModules::navigationGroupFor('projects');
     }
 
     public static function getNavigationSort(): ?int
@@ -68,12 +74,16 @@ class ProjectResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
-            ->withCount([
-                'reviewSessions',
-                'reviewItems as open_review_items_count' => fn (Builder $query) => $query->whereIn('review_items.status', ['open', 'in_progress']),
-                'approvals as pending_approvals_count' => fn (Builder $query) => $query->where('project_approvals.status', 'pending'),
-            ]);
+        $counts = [
+            'approvals as pending_approvals_count' => fn (Builder $query) => $query->where('project_approvals.status', 'pending'),
+        ];
+
+        if (AdminModules::isEnabled('reviews')) {
+            $counts['reviewSessions'] = fn (Builder $query) => $query;
+            $counts['reviewItems as open_review_items_count'] = fn (Builder $query) => $query->whereIn('review_items.status', ['open', 'in_progress']);
+        }
+
+        return parent::getEloquentQuery()->withCount($counts);
     }
 
     public static function form(Schema $schema): Schema
@@ -138,8 +148,10 @@ class ProjectResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $reviewsEnabled = AdminModules::isEnabled('reviews');
+
         return $table
-            ->columns([
+            ->columns(array_filter([
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable()
@@ -163,10 +175,12 @@ class ProjectResource extends Resource
                     ->label('Progress')
                     ->suffix('%')
                     ->sortable(),
-                TextColumn::make('open_review_items_count')
-                    ->label('Open Feedback')
-                    ->badge()
-                    ->color('warning'),
+                $reviewsEnabled
+                    ? TextColumn::make('open_review_items_count')
+                        ->label('Open Feedback')
+                        ->badge()
+                        ->color('warning')
+                    : null,
                 TextColumn::make('pending_approvals_count')
                     ->label('Pending Approvals')
                     ->badge()
@@ -175,7 +189,7 @@ class ProjectResource extends Resource
                     ->label('Launch ETA')
                     ->date('M j, Y')
                     ->placeholder('—'),
-            ])
+            ]))
             ->headerActions([
                 CreateAction::make()
                     ->visible(fn () => static::canCreate()),
@@ -189,13 +203,18 @@ class ProjectResource extends Resource
 
     public static function getRelations(): array
     {
-        return [
+        $relations = [
             MilestonesRelationManager::class,
             ApprovalsRelationManager::class,
             StatusUpdatesRelationManager::class,
             CommentsRelationManager::class,
-            ReviewSessionsRelationManager::class,
         ];
+
+        if (AdminModules::isEnabled('reviews')) {
+            $relations[] = ReviewSessionsRelationManager::class;
+        }
+
+        return $relations;
     }
 
     public static function getPages(): array

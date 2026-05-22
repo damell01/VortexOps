@@ -14,7 +14,7 @@ Route::middleware(['auth', 'web'])->prefix('admin/export')->name('export.')->gro
     Route::get('movement-log',    [ExportController::class, 'movementLog'])->name('movement-log');
 });
 
-Route::middleware(['auth', 'web'])->prefix('admin/review')->name('review.')->group(function () {
+Route::middleware(['auth', 'web', 'module:reviews'])->prefix('admin/review')->name('review.')->group(function () {
     Route::get('sessions',                              [ReviewController::class, 'sessions'])->name('sessions');
     Route::post('sessions',                             [ReviewController::class, 'storeSession'])->name('sessions.store');
     Route::get('items',                                 [ReviewController::class, 'items'])->name('items');

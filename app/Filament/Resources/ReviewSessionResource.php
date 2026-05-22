@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\ReviewSessionResource\Pages;
 use App\Models\Project;
 use App\Models\ReviewSession;
+use App\Support\AdminModules;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -21,6 +23,10 @@ use Filament\Tables\Table;
 
 class ReviewSessionResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'reviews';
+
     protected static ?string $model = ReviewSession::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -30,7 +36,7 @@ class ReviewSessionResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Project Hub';
+        return AdminModules::navigationGroupFor('reviews');
     }
 
     public static function getNavigationSort(): ?int

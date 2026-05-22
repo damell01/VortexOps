@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\PayoutResource\Pages;
 use App\Models\Payout;
 use App\Models\Streamer;
+use App\Support\AdminModules;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Placeholder;
 use Filament\Resources\Resource;
@@ -18,6 +20,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class PayoutResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'payouts';
+
     protected static ?string $model = Payout::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -27,7 +33,7 @@ class PayoutResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Payouts & Pay Runs';
+        return AdminModules::navigationGroupFor('payouts');
     }
 
     public static function getNavigationSort(): ?int

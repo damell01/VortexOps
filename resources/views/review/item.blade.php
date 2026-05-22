@@ -1,121 +1,110 @@
 <x-review-layout
-    title="{{ $item->page_title ?: 'Review Item #'.$item->id }}"
+    title="{{ $item->page_title ?: 'Review Item #' . $item->id }}"
     :session-id="$item->review_session_id"
     :project-id="$item->session->project?->id"
-    :breadcrumb="$item->session->project ? '<a href=\''.route('review.project', $item->session->project).'\' class=\'text-sm font-medium text-gray-700\'>'.$item->session->project->name.'</a><span class=\'mx-2 text-gray-300\'>/</span><a href=\''.route('review.session', $item->session).'\' class=\'text-sm font-medium text-gray-700\'>'.$item->session->title.'</a>' : '<a href=\''.route('review.session', $item->session).'\' class=\'text-sm font-medium text-gray-700\'>'.$item->session->title.'</a>'"
+    :breadcrumb="$item->session->project ? '<a href=\''.route('review.project', $item->session->project).'\' class=\'text-sm font-medium text-slate-200\'>'.$item->session->project->name.'</a><span class=\'mx-2 text-slate-500\'>/</span><a href=\''.route('review.session', $item->session).'\' class=\'text-sm font-medium text-slate-300\'>'.$item->session->title.'</a>' : '<a href=\''.route('review.session', $item->session).'\' class=\'text-sm font-medium text-slate-300\'>'.$item->session->title.'</a>'"
 >
 
 @php
     $statusMap = [
-        'open' => ['bg-red-100 text-red-700', 'ring-red-300', 'Open'],
-        'in_progress' => ['bg-yellow-100 text-yellow-700', 'ring-yellow-300', 'In Progress'],
-        'fixed' => ['bg-green-100 text-green-700', 'ring-green-300', 'Fixed'],
-        'approved' => ['bg-emerald-100 text-emerald-700', 'ring-emerald-300', 'Approved'],
-        'rejected' => ['bg-gray-100 text-gray-500', 'ring-gray-300', 'Rejected'],
-        'wont_fix' => ['bg-gray-100 text-gray-500', 'ring-gray-300', "Won't Fix"],
+        'open' => ['text-rose-200 bg-rose-400/10 border-rose-300/20', 'Open'],
+        'in_progress' => ['text-amber-200 bg-amber-400/10 border-amber-300/20', 'In Progress'],
+        'fixed' => ['text-emerald-200 bg-emerald-400/10 border-emerald-300/20', 'Fixed'],
+        'approved' => ['text-cyan-200 bg-cyan-400/10 border-cyan-300/20', 'Approved'],
+        'rejected' => ['text-slate-300 bg-slate-400/10 border-slate-300/20', 'Rejected'],
+        'wont_fix' => ['text-slate-300 bg-slate-400/10 border-slate-300/20', "Won't Fix"],
     ];
     $typeMap = [
-        'annotation' => 'Annotation',
-        'bug' => 'Bug',
-        'suggestion' => 'Suggestion',
-        'question' => 'Question',
+        'annotation' => ['Annotation', 'text-violet-200 bg-violet-400/10 border-violet-300/20'],
+        'bug' => ['Bug', 'text-rose-200 bg-rose-400/10 border-rose-300/20'],
+        'suggestion' => ['Suggestion', 'text-sky-200 bg-sky-400/10 border-sky-300/20'],
+        'question' => ['Question', 'text-amber-200 bg-amber-400/10 border-amber-300/20'],
     ];
-    [$statusBg, $statusRing, $statusLabel] = $statusMap[$item->status] ?? ['bg-gray-100 text-gray-500', 'ring-gray-300', ucfirst($item->status)];
+    $priorityMap = [
+        'high' => 'text-rose-200 bg-rose-400/10 border-rose-300/20',
+        'normal' => 'text-amber-200 bg-amber-400/10 border-amber-300/20',
+        'low' => 'text-slate-300 bg-slate-400/10 border-slate-300/20',
+    ];
+    [$statusCss, $statusLabel] = $statusMap[$item->status] ?? ['text-slate-300 bg-slate-400/10 border-slate-300/20', ucfirst($item->status)];
+    [$typeLabel, $typeCss] = $typeMap[$item->type] ?? [ucfirst($item->type), 'text-slate-300 bg-slate-400/10 border-slate-300/20'];
+    $priorityCss = $priorityMap[$item->priority] ?? 'text-slate-300 bg-slate-400/10 border-slate-300/20';
     $isSuperAdmin = auth()->user()->isSuperAdmin();
 @endphp
 
-    <a href="{{ route('review.session', $item->session) }}"
-       class="mb-4 inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600">
-        <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-        </svg>
-        {{ $item->session->title }}
-    </a>
+    <section class="rounded-[1.75rem] border border-white/10 bg-[rgba(9,16,31,0.8)] p-6 shadow-[0_24px_60px_rgba(2,6,23,0.32)] backdrop-blur-xl">
+        <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div class="max-w-3xl">
+                <a href="{{ route('review.session', $item->session) }}" class="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-cyan-300/80 transition hover:text-cyan-200">
+                    <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                    {{ $item->session->title }}
+                </a>
+                <h1 class="mt-3 text-3xl font-semibold tracking-tight text-white">
+                    {{ $item->page_title ?: 'Item #' . $item->id }}
+                </h1>
+                <a href="{{ $item->page_url }}" target="_blank" class="mt-3 inline-flex max-w-full items-center gap-2 truncate text-sm text-sky-300 transition hover:text-sky-200">
+                    <span class="truncate">{{ $item->page_url }}</span>
+                </a>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+                <span class="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] {{ $statusCss }}">{{ $statusLabel }}</span>
+                <span class="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] {{ $typeCss }}">{{ $typeLabel }}</span>
+                <span class="rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] {{ $priorityCss }}">{{ ucfirst($item->priority) }} Priority</span>
+            </div>
+        </div>
+
+        <div class="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/8 pt-4 text-xs text-slate-400">
+            <span>Submitted {{ $item->created_at->format('M j, Y g:i A') }}</span>
+            @if ($isSuperAdmin && $item->createdBy)
+                <span>Reporter <span class="font-medium text-slate-200">{{ $item->createdBy->name }}</span></span>
+            @endif
+            @if ($isSuperAdmin && $item->assignedTo)
+                <span>Assigned <span class="font-medium text-slate-200">{{ $item->assignedTo->name }}</span></span>
+            @endif
+        </div>
+    </section>
 
     @if ($item->session->project)
-        <section class="mb-6 rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-sky-50 p-5 shadow-sm">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                <div class="min-w-0">
-                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-violet-600">Project Status</p>
-                    <h2 class="mt-2 text-xl font-semibold text-slate-950">{{ $item->session->project->name }}</h2>
-                    <p class="mt-1 text-sm text-slate-600">
+        <section class="mt-6 rounded-[1.75rem] border border-cyan-300/10 bg-[linear-gradient(135deg,rgba(15,23,42,0.88),rgba(8,15,29,0.92))] p-6 shadow-[0_24px_60px_rgba(2,6,23,0.28)]">
+            <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                <div class="max-w-3xl">
+                    <p class="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300/80">Project Status</p>
+                    <h2 class="mt-3 text-2xl font-semibold text-white">{{ $item->session->project->name }}</h2>
+                    <p class="mt-2 text-sm text-slate-300">
                         {{ $item->session->project->phase ?: (\App\Models\Project::statusLabels()[$item->session->project->status] ?? ucfirst($item->session->project->status)) }}
                     </p>
+                    @if ($item->session->project->current_focus)
+                        <p class="mt-4 text-sm leading-7 text-slate-300">{{ $item->session->project->current_focus }}</p>
+                    @endif
                 </div>
-                <div class="min-w-[220px] rounded-2xl border border-white/70 bg-white/80 p-4 backdrop-blur">
-                    <div class="flex items-center justify-between text-xs font-medium text-slate-500">
+                <div class="min-w-[240px] rounded-2xl border border-white/10 bg-white/5 p-5">
+                    <div class="flex items-center justify-between text-xs font-medium text-slate-400">
                         <span>Progress</span>
                         <span>{{ $item->session->project->progress_percent }}%</span>
                     </div>
-                    <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                        <div class="h-full rounded-full bg-gradient-to-r from-violet-500 to-sky-500" style="width: {{ max(0, min(100, $item->session->project->progress_percent)) }}%"></div>
+                    <div class="mt-3 h-2.5 overflow-hidden rounded-full bg-slate-800">
+                        <div class="h-full rounded-full bg-gradient-to-r from-cyan-400 via-sky-500 to-violet-500" style="width: {{ max(0, min(100, $item->session->project->progress_percent)) }}%"></div>
                     </div>
-                    @if ($item->session->project->current_focus)
-                        <p class="mt-3 line-clamp-2 text-xs leading-5 text-slate-600">{{ $item->session->project->current_focus }}</p>
-                    @endif
                 </div>
             </div>
         </section>
     @endif
 
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div class="space-y-4 lg:col-span-2">
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <h1 class="text-lg font-bold text-gray-900">
-                            {{ $item->page_title ?: 'Item #' . $item->id }}
-                        </h1>
-                        <a href="{{ $item->page_url }}" target="_blank"
-                           class="mt-0.5 inline-block max-w-xs truncate text-xs text-violet-500 hover:underline">
-                            {{ $item->page_url }}
-                        </a>
-                    </div>
-                    <span class="shrink-0 rounded-full px-3 py-1 text-xs font-semibold ring-1 {{ $statusBg }} {{ $statusRing }}">
-                        {{ $statusLabel }}
-                    </span>
-                </div>
-
-                <div class="mt-4 flex flex-wrap gap-2">
-                    <span class="rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-                        {{ $typeMap[$item->type] ?? ucfirst($item->type) }}
-                    </span>
-                    @php
-                        $priorityCss = match($item->priority) {
-                            'high' => 'bg-red-50 text-red-700',
-                            'low' => 'bg-gray-100 text-gray-500',
-                            default => 'bg-yellow-50 text-yellow-700',
-                        };
-                    @endphp
-                    <span class="rounded-lg px-2.5 py-1 text-xs font-medium {{ $priorityCss }}">
-                        {{ ucfirst($item->priority) }} priority
-                    </span>
-                    <span class="rounded-lg bg-gray-100 px-2.5 py-1 text-xs text-gray-500">
-                        {{ $item->created_at->format('M j, Y g:i A') }}
-                    </span>
-                    @if ($isSuperAdmin && $item->createdBy)
-                        <span class="rounded-lg bg-violet-50 px-2.5 py-1 text-xs text-violet-700">
-                            by {{ $item->createdBy->name }}
-                        </span>
-                    @endif
-                    @if ($isSuperAdmin && $item->assignedTo)
-                        <span class="rounded-lg bg-blue-50 px-2.5 py-1 text-xs text-blue-700">
-                            assigned to {{ $item->assignedTo->name }}
-                        </span>
-                    @endif
-                </div>
-
-                @if ($item->comment)
-                    <p class="mt-4 rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-700">
-                        {{ $item->comment }}
-                    </p>
-                @endif
-            </div>
+    <div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.35fr,0.65fr]">
+        <div class="space-y-6">
+            @if ($item->comment)
+                <section class="rounded-[1.5rem] border border-white/10 bg-[rgba(9,16,31,0.78)] p-5 shadow-[0_20px_50px_rgba(2,6,23,0.24)] backdrop-blur-xl">
+                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Context</p>
+                    <p class="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-200">{{ $item->comment }}</p>
+                </section>
+            @endif
 
             @if ($isSuperAdmin)
-                <div class="rounded-2xl border border-violet-100 bg-violet-50 p-4">
-                    <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-violet-600">Update Status</p>
-                    <form method="POST" action="{{ route('review.item.status', $item) }}" class="flex flex-wrap gap-2">
+                <section class="rounded-[1.5rem] border border-violet-300/15 bg-violet-400/10 p-5 shadow-[0_20px_50px_rgba(2,6,23,0.18)] backdrop-blur-xl">
+                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-violet-200">Workflow Controls</p>
+                    <form method="POST" action="{{ route('review.item.status', $item) }}" class="mt-4 flex flex-wrap gap-2">
                         @csrf
                         @method('PATCH')
                         @foreach (\App\Models\ReviewItem::statusLabels() as $value => $label)
@@ -123,87 +112,85 @@
                                 type="submit"
                                 name="status"
                                 value="{{ $value }}"
-                                class="rounded-lg border px-3 py-1.5 text-xs font-medium transition
-                                    {{ $item->status === $value
-                                        ? 'border-violet-500 bg-violet-600 text-white shadow-sm'
-                                        : 'border-gray-200 bg-white text-gray-700 hover:border-violet-300 hover:text-violet-700' }}"
+                                class="rounded-xl border px-3 py-2 text-xs font-semibold transition {{ $item->status === $value ? 'border-violet-300 bg-violet-500 text-white shadow-lg shadow-violet-950/20' : 'border-white/10 bg-slate-950/40 text-slate-200 hover:border-cyan-300/20 hover:text-white' }}"
                             >
                                 {{ $label }}
                             </button>
                         @endforeach
                     </form>
-                </div>
+                </section>
             @endif
 
             @if ($item->screenshot)
-                <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-                    <div class="border-b border-gray-100 px-4 py-2.5">
-                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Annotation</p>
+                <section class="overflow-hidden rounded-[1.5rem] border border-white/10 bg-[rgba(9,16,31,0.78)] shadow-[0_20px_50px_rgba(2,6,23,0.24)] backdrop-blur-xl">
+                    <div class="flex items-center justify-between border-b border-white/8 px-5 py-4">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Annotated Capture</p>
+                            <p class="mt-1 text-sm text-slate-300">Saved screenshot with markup for this ticket.</p>
+                        </div>
                     </div>
-                    <img src="{{ $item->screenshot }}"
-                         alt="Annotated screenshot"
-                         class="block w-full"
-                         loading="lazy">
-                </div>
+                    <div class="bg-slate-950/60 p-3">
+                        <img src="{{ $item->screenshot }}"
+                             alt="Annotated screenshot"
+                             class="block w-full rounded-2xl border border-white/10"
+                             loading="lazy">
+                    </div>
+                </section>
             @endif
         </div>
 
-        <div class="space-y-4">
-            <div class="rounded-2xl border border-gray-200 bg-white shadow-sm">
-                <div class="border-b border-gray-100 px-4 py-3">
-                    <p class="text-sm font-semibold text-gray-900">
-                        Thread
-                        @if ($item->comments->isNotEmpty())
-                            <span class="ml-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
-                                {{ $item->comments->count() }}
-                            </span>
-                        @endif
-                    </p>
+        <aside class="space-y-6">
+            <section class="rounded-[1.5rem] border border-white/10 bg-[rgba(9,16,31,0.78)] shadow-[0_20px_50px_rgba(2,6,23,0.24)] backdrop-blur-xl">
+                <div class="border-b border-white/8 px-5 py-4">
+                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Conversation Thread</p>
+                    <p class="mt-1 text-sm text-slate-300">{{ $item->comments->count() }} message{{ $item->comments->count() === 1 ? '' : 's' }}</p>
                 </div>
 
-                <div class="divide-y divide-gray-50">
+                <div class="divide-y divide-white/6">
                     @forelse ($item->comments as $comment)
                         @php $isMe = $comment->user_id === auth()->id(); @endphp
-                        <div class="px-4 py-3">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-semibold {{ $isMe ? 'text-violet-700' : 'text-gray-700' }}">
+                        <div class="px-5 py-4">
+                            <div class="flex items-center justify-between gap-3">
+                                <span class="text-xs font-semibold {{ $isMe ? 'text-cyan-200' : 'text-slate-200' }}">
                                     {{ $comment->user?->name ?? 'Unknown' }}
-                                    @if ($isMe) <span class="font-normal text-violet-400">(you)</span> @endif
+                                    @if ($isMe)
+                                        <span class="font-normal text-cyan-400/80">(you)</span>
+                                    @endif
                                 </span>
-                                <span class="text-[11px] text-gray-400">{{ $comment->created_at->diffForHumans() }}</span>
+                                <span class="text-[11px] text-slate-500">{{ $comment->created_at->diffForHumans() }}</span>
                             </div>
-                            <p class="mt-1.5 whitespace-pre-wrap text-sm text-gray-700">{{ $comment->body }}</p>
+                            <p class="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-300">{{ $comment->body }}</p>
                         </div>
                     @empty
-                        <div class="px-4 py-6 text-center text-xs text-gray-400">
-                            No comments yet. Add one below.
+                        <div class="px-5 py-8 text-center text-sm text-slate-500">
+                            No comments yet. Start the thread below.
                         </div>
                     @endforelse
                 </div>
 
-                <div class="border-t border-gray-100 p-4">
+                <div class="border-t border-white/8 p-5">
                     <form method="POST" action="{{ route('review.item.comment', $item) }}">
                         @csrf
                         <textarea
                             name="body"
-                            rows="3"
-                            placeholder="Leave a note, ask a question, or give an update..."
-                            class="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-800 placeholder-gray-400 focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-violet-400"
+                            rows="4"
+                            placeholder="Leave a note, ask a question, or post an update..."
+                            class="w-full resize-none rounded-2xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-300/30 focus:outline-none focus:ring-2 focus:ring-cyan-400/10"
                             required
                         ></textarea>
                         @error('body')
-                            <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
+                            <p class="mt-2 text-xs text-rose-300">{{ $message }}</p>
                         @enderror
                         <button
                             type="submit"
-                            class="mt-2 w-full rounded-lg bg-violet-600 py-2 text-xs font-semibold text-white transition hover:bg-violet-700"
+                            class="mt-3 w-full rounded-2xl bg-gradient-to-r from-violet-600 to-cyan-500 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-950/20 transition hover:scale-[1.01]"
                         >
                             Send Reply
                         </button>
                     </form>
                 </div>
-            </div>
-        </div>
+            </section>
+        </aside>
     </div>
 
 </x-review-layout>

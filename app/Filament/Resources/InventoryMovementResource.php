@@ -165,6 +165,7 @@ class InventoryMovementResource extends Resource
                 ViewAction::make(),
             ])
             ->striped()
+            ->deferLoading()
             ->defaultSort('created_at', 'desc');
     }
 

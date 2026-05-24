@@ -8,6 +8,7 @@ use App\Services\OllamaService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Artisan;
 use Livewire\WithFileUploads;
 
 class AppSettings extends Page
@@ -61,6 +62,10 @@ class AppSettings extends Page
     public string $show_import_mode                = 'manual';
     public bool   $auto_assign_confident_streamers = true;
     public string $show_ready_notification_email   = '';
+
+    // ── Maintenance ──────────────────────────────────────────────────────────
+
+    public string $lastCommandOutput = '';
 
     // ── Notifications ────────────────────────────────────────────────────────
 
@@ -202,6 +207,65 @@ class AppSettings extends Page
                 ->body('Could not connect to ' . $this->ollama_base_url . '. Run: ollama serve')
                 ->danger()
                 ->send();
+        }
+    }
+
+    public function runMigrations(): void
+    {
+        try {
+            $exitCode = Artisan::call('migrate', ['--force' => true]);
+            $output   = trim(Artisan::output());
+
+            $this->lastCommandOutput = $output ?: 'Nothing to migrate — database is already up to date.';
+
+            $exitCode === 0
+                ? Notification::make()->title('Migrations completed')->body($this->lastCommandOutput)->success()->send()
+                : Notification::make()->title('Migration failed')->body($this->lastCommandOutput)->danger()->send();
+        } catch (\Throwable $e) {
+            $this->lastCommandOutput = $e->getMessage();
+            Notification::make()->title('Migration error')->body($e->getMessage())->danger()->send();
+        }
+    }
+
+    public function optimizeApp(): void
+    {
+        try {
+            Artisan::call('optimize');
+            $out = trim(Artisan::output());
+            Artisan::call('filament:optimize');
+            $out .= "\n" . trim(Artisan::output());
+
+            $this->lastCommandOutput = trim($out);
+
+            Notification::make()
+                ->title('Application optimized')
+                ->body('Config, routes, views, and Filament components are now cached.')
+                ->success()
+                ->send();
+        } catch (\Throwable $e) {
+            $this->lastCommandOutput = $e->getMessage();
+            Notification::make()->title('Optimize failed')->body($e->getMessage())->danger()->send();
+        }
+    }
+
+    public function clearCaches(): void
+    {
+        try {
+            Artisan::call('optimize:clear');
+            $out = trim(Artisan::output());
+            Artisan::call('filament:optimize-clear');
+            $out .= "\n" . trim(Artisan::output());
+
+            $this->lastCommandOutput = trim($out);
+
+            Notification::make()
+                ->title('Caches cleared')
+                ->body('All config, route, view, and Filament caches have been flushed.')
+                ->success()
+                ->send();
+        } catch (\Throwable $e) {
+            $this->lastCommandOutput = $e->getMessage();
+            Notification::make()->title('Cache clear failed')->body($e->getMessage())->danger()->send();
         }
     }
 }

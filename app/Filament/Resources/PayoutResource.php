@@ -125,6 +125,7 @@ class PayoutResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->striped()
+            ->deferLoading()
             ->defaultSort('created_at', 'desc')
             ->filters([
                 SelectFilter::make('status')

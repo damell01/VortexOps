@@ -221,6 +221,7 @@ class ShowResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->striped()
+            ->deferLoading()
             ->defaultSort('show_date', 'desc')
             ->filters([
                 SelectFilter::make('status')

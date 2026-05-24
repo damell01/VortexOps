@@ -335,6 +335,7 @@ class InventoryItemResource extends Resource
                 ]),
             ])
             ->striped()
+            ->deferLoading()
             ->defaultSort('name');
     }
 

@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div class="space-y-6 max-w-2xl">
+    <div class="space-y-6 max-w-3xl">
 
         {{-- ── Branding ──────────────────────────────────────────────────── --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -326,6 +326,114 @@
                     @endif
                 </div>
             @endforeach
+
+        </div>
+
+        {{-- ── System & Maintenance ────────────────────────────────────────── --}}
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+
+            <div class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                    <div class="rounded-lg bg-gray-100 dark:bg-gray-800 p-2">
+                        <x-heroicon-o-wrench-screwdriver class="h-5 w-5 text-gray-600 dark:text-gray-300" />
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">System & Maintenance</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Run migrations, optimize caches, and keep the app running at peak speed</p>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Run Migrations --}}
+            <div class="px-6 py-4 flex items-center justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Run Pending Migrations</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Updates the database schema. Safe to run at any time — only applies outstanding changes.</p>
+                </div>
+                <button
+                    wire:click="runMigrations"
+                    wire:loading.attr="disabled"
+                    wire:target="runMigrations"
+                    type="button"
+                    class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    <span wire:loading.remove wire:target="runMigrations">
+                        <x-heroicon-o-circle-stack class="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                    </span>
+                    <span wire:loading wire:target="runMigrations">
+                        <svg class="h-4 w-4 animate-spin text-violet-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </span>
+                    <span wire:loading.remove wire:target="runMigrations">Run Migrations</span>
+                    <span wire:loading wire:target="runMigrations">Running…</span>
+                </button>
+            </div>
+
+            {{-- Optimize App --}}
+            <div class="px-6 py-4 flex items-center justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Optimize Application</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Caches config, routes, views, and Filament components. Run this after every deployment for maximum speed.</p>
+                </div>
+                <button
+                    wire:click="optimizeApp"
+                    wire:loading.attr="disabled"
+                    wire:target="optimizeApp"
+                    type="button"
+                    class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950 px-3 py-2 text-sm font-medium text-emerald-700 dark:text-emerald-300 shadow-sm hover:bg-emerald-100 dark:hover:bg-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    <span wire:loading.remove wire:target="optimizeApp">
+                        <x-heroicon-o-bolt class="h-4 w-4" />
+                    </span>
+                    <span wire:loading wire:target="optimizeApp">
+                        <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </span>
+                    <span wire:loading.remove wire:target="optimizeApp">Optimize</span>
+                    <span wire:loading wire:target="optimizeApp">Optimizing…</span>
+                </button>
+            </div>
+
+            {{-- Clear Caches --}}
+            <div class="px-6 py-4 flex items-center justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Clear All Caches</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Wipes config, route, view, and Filament component caches. Use when changes aren't reflecting after deployment.</p>
+                </div>
+                <button
+                    wire:click="clearCaches"
+                    wire:loading.attr="disabled"
+                    wire:target="clearCaches"
+                    type="button"
+                    class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950 px-3 py-2 text-sm font-medium text-rose-700 dark:text-rose-300 shadow-sm hover:bg-rose-100 dark:hover:bg-rose-900 focus:outline-none focus:ring-2 focus:ring-rose-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    <span wire:loading.remove wire:target="clearCaches">
+                        <x-heroicon-o-trash class="h-4 w-4" />
+                    </span>
+                    <span wire:loading wire:target="clearCaches">
+                        <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </span>
+                    <span wire:loading.remove wire:target="clearCaches">Clear Caches</span>
+                    <span wire:loading wire:target="clearCaches">Clearing…</span>
+                </button>
+            </div>
+
+            {{-- Last command output --}}
+            @if ($lastCommandOutput)
+                <div class="px-6 py-4 bg-gray-950 rounded-b-xl">
+                    <p class="text-xs font-medium text-gray-400 mb-2 flex items-center gap-1.5">
+                        <x-heroicon-o-command-line class="h-3.5 w-3.5" /> Last command output
+                    </p>
+                    <pre class="text-xs text-emerald-400 font-mono whitespace-pre-wrap leading-relaxed">{{ $lastCommandOutput }}</pre>
+                </div>
+            @endif
 
         </div>
 

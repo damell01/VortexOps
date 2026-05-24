@@ -19,7 +19,7 @@ class LowStockWidget extends BaseWidget
         return $table
             ->query(
                 InventoryItem::query()
-                    ->with('stock')
+                    ->withSum('stock', 'quantity')
                     ->where('is_active', true)
                     ->whereNotNull('reorder_level')
                     ->whereExists(function ($query) {
@@ -40,12 +40,10 @@ class LowStockWidget extends BaseWidget
                     ->badge()
                     ->color('gray')
                     ->placeholder('—'),
-                TextColumn::make('total_qty')
+                TextColumn::make('stock_sum_quantity')
                     ->label('Current Qty')
-                    ->getStateUsing(fn ($record) => number_format(
-                        $record->stock->sum('quantity'),
-                        0
-                    ))
+                    ->numeric(decimalPlaces: 0)
+                    ->default(0)
                     ->color('danger'),
                 TextColumn::make('reorder_level')
                     ->label('Reorder At'),

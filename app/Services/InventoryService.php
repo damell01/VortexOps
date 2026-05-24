@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\SendLowStockNotification;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
@@ -251,18 +252,7 @@ class InventoryService
 
     private function notifyIfLowStock(InventoryItem $item): void
     {
-        $item->refresh();
-        if (! $item->isLowStock()) {
-            return;
-        }
-
-        $qty = $item->totalQuantity();
-
-        Notification::make()
-            ->title('Low Stock: ' . $item->name)
-            ->body(number_format($qty) . ' units remaining (reorder at ' . number_format((float) $item->reorder_level) . ')')
-            ->warning()
-            ->icon('heroicon-o-exclamation-triangle')
-            ->sendToDatabase($this->notificationRouter->getRecipients('low_stock'));
+        // Dispatch async so inventory actions return immediately without waiting for DB notification writes.
+        SendLowStockNotification::dispatch($item->id)->afterCommit();
     }
 }

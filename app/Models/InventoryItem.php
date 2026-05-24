@@ -44,6 +44,10 @@ class InventoryItem extends Model
 
     public function totalQuantity(): float
     {
+        if ($this->relationLoaded('stock')) {
+            return (float) $this->stock->sum('quantity');
+        }
+
         return (float) $this->stock()->sum('quantity');
     }
 

@@ -183,7 +183,7 @@ class InventoryItemResource extends Resource
                         ->form([
                             Select::make('location_id')
                                 ->label('Location')
-                                ->options(fn () => InventoryLocation::where('status', 'active')->pluck('name', 'id'))
+                                ->options(fn () => InventoryLocation::activeOptions())
                                 ->required()
                                 ->searchable(),
                             TextInput::make('quantity')
@@ -216,12 +216,12 @@ class InventoryItemResource extends Resource
                         ->form([
                             Select::make('from_location_id')
                                 ->label('From Location')
-                                ->options(fn () => InventoryLocation::where('status', 'active')->pluck('name', 'id'))
+                                ->options(fn () => InventoryLocation::activeOptions())
                                 ->required()
                                 ->searchable(),
                             Select::make('to_location_id')
                                 ->label('To Location')
-                                ->options(fn () => InventoryLocation::where('status', 'active')->pluck('name', 'id'))
+                                ->options(fn () => InventoryLocation::activeOptions())
                                 ->required()
                                 ->searchable(),
                             TextInput::make('quantity')
@@ -245,7 +245,7 @@ class InventoryItemResource extends Resource
                         ->form([
                             Select::make('location_id')
                                 ->label('Location')
-                                ->options(fn () => InventoryLocation::where('status', 'active')->pluck('name', 'id'))
+                                ->options(fn () => InventoryLocation::activeOptions())
                                 ->required()
                                 ->searchable(),
                             TextInput::make('new_quantity')
@@ -271,12 +271,12 @@ class InventoryItemResource extends Resource
                         ->form([
                             Select::make('from_location_id')
                                 ->label('From Location')
-                                ->options(fn () => InventoryLocation::where('status', 'active')->pluck('name', 'id'))
+                                ->options(fn () => InventoryLocation::activeOptions())
                                 ->required()
                                 ->searchable(),
                             Select::make('damaged_location_id')
                                 ->label('Damaged Inventory Location')
-                                ->options(fn () => InventoryLocation::where('type', 'damaged')->where('status', 'active')->pluck('name', 'id'))
+                                ->options(fn () => InventoryLocation::activeOptionsByType('damaged'))
                                 ->required()
                                 ->searchable(),
                             TextInput::make('quantity')
@@ -299,12 +299,12 @@ class InventoryItemResource extends Resource
                         ->form([
                             Select::make('from_location_id')
                                 ->label('From Location')
-                                ->options(fn () => InventoryLocation::where('status', 'active')->pluck('name', 'id'))
+                                ->options(fn () => InventoryLocation::activeOptions())
                                 ->required()
                                 ->searchable(),
                             Select::make('returns_location_id')
                                 ->label('Returns Location')
-                                ->options(fn () => InventoryLocation::where('type', 'returned')->where('status', 'active')->pluck('name', 'id'))
+                                ->options(fn () => InventoryLocation::activeOptionsByType('returned'))
                                 ->required()
                                 ->searchable(),
                             TextInput::make('quantity')

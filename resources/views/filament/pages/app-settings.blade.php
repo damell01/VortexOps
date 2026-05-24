@@ -48,7 +48,7 @@
             <div class="px-6 py-4">
                 <label for="brand_name" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Brand Name</label>
                 <input
-                    wire:model.live="brand_name"
+                    wire:model.blur="brand_name"
                     id="brand_name"
                     type="text"
                     maxlength="60"
@@ -144,19 +144,19 @@
 
             <div class="px-6 py-4">
                 <label for="ollama_base_url" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Ollama Base URL</label>
-                <input wire:model.live="ollama_base_url" id="ollama_base_url" type="text" placeholder="http://localhost:11434"
+                <input wire:model.blur="ollama_base_url" id="ollama_base_url" type="text" placeholder="http://localhost:11434"
                     class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono" />
             </div>
 
-            <div class="px-6 py-4 grid grid-cols-2 gap-4">
+            <div class="px-6 py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label for="ollama_model" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Model</label>
-                    <input wire:model.live="ollama_model" id="ollama_model" type="text" placeholder="llama3.2"
+                    <input wire:model.blur="ollama_model" id="ollama_model" type="text" placeholder="llama3.2"
                         class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono" />
                 </div>
                 <div>
                     <label for="ollama_timeout" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Timeout (seconds)</label>
-                    <input wire:model.live="ollama_timeout" id="ollama_timeout" type="number" min="5" max="300"
+                    <input wire:model.blur="ollama_timeout" id="ollama_timeout" type="number" min="5" max="300"
                         class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none" />
                 </div>
             </div>
@@ -215,7 +215,7 @@
 
             <div class="px-6 py-4">
                 <label for="show_ready_notification_email" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Show-ready Notification Email</label>
-                <input wire:model.live="show_ready_notification_email" id="show_ready_notification_email" type="email" placeholder="ops@yourcompany.com"
+                <input wire:model.blur="show_ready_notification_email" id="show_ready_notification_email" type="email" placeholder="ops@yourcompany.com"
                     class="w-full max-w-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none" />
                 <p class="mt-1 text-xs text-gray-400">Optional. Receive an email when a show enters Pending Review.</p>
             </div>
@@ -279,7 +279,7 @@
                     $usersKey = 'notify_' . $notif['key'] . '_users';
                 @endphp
                 <div class="px-6 py-4 space-y-3">
-                    <div class="flex items-start justify-between gap-4">
+                    <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                         <div class="flex items-start gap-3 flex-1">
                             <div class="mt-0.5 shrink-0 {{ $notif['color'] }}">
                                 <x-dynamic-component :component="$notif['icon']" class="h-4 w-4" />
@@ -339,13 +339,13 @@
                     </div>
                     <div>
                         <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">System & Maintenance</h2>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">Run migrations, optimize caches, and keep the app running at peak speed</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Run migrations, optimize caches, and keep the app running at peak speed. Run <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">php artisan queue:work</code> in the background for async notifications.</p>
                     </div>
                 </div>
             </div>
 
             {{-- Run Migrations --}}
-            <div class="px-6 py-4 flex items-center justify-between gap-4">
+            <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Run Pending Migrations</p>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Updates the database schema. Safe to run at any time — only applies outstanding changes.</p>
@@ -372,7 +372,7 @@
             </div>
 
             {{-- Optimize App --}}
-            <div class="px-6 py-4 flex items-center justify-between gap-4">
+            <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Optimize Application</p>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Caches config, routes, views, and Filament components. Run this after every deployment for maximum speed.</p>
@@ -399,7 +399,7 @@
             </div>
 
             {{-- Clear Caches --}}
-            <div class="px-6 py-4 flex items-center justify-between gap-4">
+            <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Clear All Caches</p>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Wipes config, route, view, and Filament component caches. Use when changes aren't reflecting after deployment.</p>

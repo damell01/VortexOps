@@ -44,7 +44,10 @@ class AdminPanelProvider extends PanelProvider
             ->brandName($brandName)
             ->font('Inter')
             ->sidebarCollapsibleOnDesktop()
+            ->sidebarFullyCollapsibleOnDesktop()
             ->maxContentWidth(\Filament\Support\Enums\Width::SevenExtraLarge)
+            ->globalSearchKeyBindings(['mod+k'])
+            ->globalSearchDebounce('300ms')
             ->colors([
                 'primary' => Color::hex($primaryColor),
                 'gray'    => Color::Zinc,
@@ -61,8 +64,9 @@ class AdminPanelProvider extends PanelProvider
         }
 
         return $panel
+            ->spa(hasPrefetching: true)
             ->databaseNotifications()
-            ->databaseNotificationsPolling('60s')
+            ->databaseNotificationsPolling('300s')
             ->navigationGroups([
                 NavigationGroup::make('Streams'),
                 NavigationGroup::make('Payouts & Pay Runs'),

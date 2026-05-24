@@ -8,6 +8,7 @@ use App\Models\InventoryStock;
 use App\Models\Streamer;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Facades\Cache;
 
 class InventoryOverviewWidget extends BaseWidget
 {
@@ -15,20 +16,23 @@ class InventoryOverviewWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $totalQty = InventoryStock::sum('quantity');
-        $totalItems = InventoryItem::where('is_active', true)->count();
-        $lowStockCount = InventoryItem::whereNotNull('reorder_level')
-            ->where('is_active', true)
-            ->whereExists(function ($q) {
-                $q->selectRaw('1')
-                    ->from('inventory_stock')
-                    ->whereColumn('inventory_stock.inventory_item_id', 'inventory_items.id')
-                    ->groupBy('inventory_stock.inventory_item_id')
-                    ->havingRaw('SUM(quantity) <= inventory_items.reorder_level');
-            })
-            ->count();
-        $activeLocations = InventoryLocation::where('status', 'active')->count();
-        $activeStreamers = Streamer::where('status', 'active')->count();
+        [$totalQty, $totalItems, $lowStockCount, $activeLocations, $activeStreamers] =
+            Cache::remember('widget:inventory_overview', 300, function () {
+                return [
+                    InventoryStock::sum('quantity'),
+                    InventoryItem::where('is_active', true)->count(),
+                    InventoryItem::whereNotNull('reorder_level')
+                        ->where('is_active', true)
+                        ->whereExists(fn ($q) => $q->selectRaw('1')
+                            ->from('inventory_stock')
+                            ->whereColumn('inventory_stock.inventory_item_id', 'inventory_items.id')
+                            ->groupBy('inventory_stock.inventory_item_id')
+                            ->havingRaw('SUM(quantity) <= inventory_items.reorder_level'))
+                        ->count(),
+                    InventoryLocation::where('status', 'active')->count(),
+                    Streamer::where('status', 'active')->count(),
+                ];
+            });
 
         return [
             Stat::make('Total Units in Stock', number_format($totalQty, 0))

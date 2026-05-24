@@ -124,6 +124,7 @@ class PayoutResource extends Resource
                     ->label('How Calculated')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->striped()
             ->defaultSort('created_at', 'desc')
             ->filters([
                 SelectFilter::make('status')

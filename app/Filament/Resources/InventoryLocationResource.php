@@ -27,7 +27,7 @@ class InventoryLocationResource extends Resource
     // Streamers see only their own locations + shared locations (no streamer assigned)
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery();
+        $query = parent::getEloquentQuery()->with(['streamer']);
         $user  = auth()->user();
 
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {
@@ -166,6 +166,7 @@ class InventoryLocationResource extends Resource
                     DeleteBulkAction::make(),
                 ]),
             ])
+            ->striped()
             ->defaultSort('name');
     }
 

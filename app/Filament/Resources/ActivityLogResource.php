@@ -13,6 +13,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Placeholder;
+use Illuminate\Database\Eloquent\Builder;
 use Spatie\Activitylog\Models\Activity;
 
 class ActivityLogResource extends Resource
@@ -48,6 +49,11 @@ class ActivityLogResource extends Resource
     public static function canAccess(): bool
     {
         return auth()->user()?->isAdmin() ?? false;
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['causer']);
     }
 
     public static function canCreate(): bool  { return false; }
@@ -194,6 +200,7 @@ class ActivityLogResource extends Resource
                             ->toArray()
                     ),
             ])
+            ->striped()
             ->defaultSort('id', 'desc')
             ->recordAction(fn ($record) => 'view')
             ->actions([ViewAction::make()->iconButton()]);

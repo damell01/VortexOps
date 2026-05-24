@@ -42,8 +42,16 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->brandName($brandName)
+            ->font('Inter')
+            ->sidebarCollapsibleOnDesktop()
+            ->maxContentWidth(\Filament\Support\Enums\Width::SevenExtraLarge)
             ->colors([
                 'primary' => Color::hex($primaryColor),
+                'gray'    => Color::Zinc,
+                'info'    => Color::Sky,
+                'success' => Color::Emerald,
+                'warning' => Color::Amber,
+                'danger'  => Color::Rose,
             ]);
 
         if ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {
@@ -54,7 +62,7 @@ class AdminPanelProvider extends PanelProvider
 
         return $panel
             ->databaseNotifications()
-            ->databaseNotificationsPolling('30s')
+            ->databaseNotificationsPolling('60s')
             ->navigationGroups([
                 NavigationGroup::make('Streams'),
                 NavigationGroup::make('Payouts & Pay Runs'),

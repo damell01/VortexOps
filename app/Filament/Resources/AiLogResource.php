@@ -16,6 +16,7 @@ use Filament\Tables\Table;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Placeholder;
+use Illuminate\Database\Eloquent\Builder;
 
 class AiLogResource extends Resource
 {
@@ -44,6 +45,11 @@ class AiLogResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return 'AI Logs';
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['user']);
     }
 
     public static function canCreate(): bool { return false; }
@@ -155,6 +161,7 @@ class AiLogResource extends Resource
                     ->trueLabel('Successful')
                     ->falseLabel('Failed'),
             ])
+            ->striped()
             ->defaultSort('id', 'desc')
             ->recordAction(fn ($record) => 'view')
             ->actions([ViewAction::make()->iconButton()]);

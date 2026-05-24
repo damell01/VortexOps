@@ -138,6 +138,7 @@ class DeductionRequestResource extends Resource
             ->actions([
                 ViewAction::make()->label('Review'),
             ])
+            ->striped()
             ->defaultSort('created_at', 'desc');
     }
 

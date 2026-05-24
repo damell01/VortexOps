@@ -121,6 +121,7 @@ class WeeklyPayoutBatchResource extends Resource
                     ->default('—')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->striped()
             ->defaultSort('week_start', 'desc')
             ->filters([
                 SelectFilter::make('status')

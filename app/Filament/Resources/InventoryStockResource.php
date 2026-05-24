@@ -183,6 +183,7 @@ class InventoryStockResource extends Resource
                 ViewAction::make(),
                 EditAction::make(),
             ])
+            ->striped()
             ->defaultSort('item.name');
     }
 

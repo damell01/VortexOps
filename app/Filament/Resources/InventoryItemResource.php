@@ -53,6 +53,11 @@ class InventoryItemResource extends Resource
         return 'Items';
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->withSum('stock', 'quantity');
+    }
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['sku', 'name', 'category'];
@@ -128,10 +133,11 @@ class InventoryItemResource extends Resource
                 TextColumn::make('unit_cost')
                     ->money('USD')
                     ->sortable(),
-                TextColumn::make('total_quantity')
+                TextColumn::make('stock_sum_quantity')
                     ->label('Total Qty')
-                    ->getStateUsing(fn ($record) => number_format($record->totalQuantity(), 0))
-                    ->sortable(false),
+                    ->numeric(decimalPlaces: 0)
+                    ->default(0)
+                    ->sortable(),
                 TextColumn::make('reorder_level')
                     ->label('Reorder At')
                     ->placeholder('—'),
@@ -328,6 +334,7 @@ class InventoryItemResource extends Resource
                     DeleteBulkAction::make(),
                 ]),
             ])
+            ->striped()
             ->defaultSort('name');
     }
 

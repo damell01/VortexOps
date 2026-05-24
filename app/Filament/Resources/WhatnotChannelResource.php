@@ -110,6 +110,7 @@ class WhatnotChannelResource extends Resource
                     DeleteBulkAction::make(),
                 ]),
             ])
+            ->striped()
             ->defaultSort('name');
     }
 

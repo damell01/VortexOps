@@ -15,6 +15,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 
@@ -45,6 +46,11 @@ class UserResource extends Resource
     public static function getPluralModelLabel(): string
     {
         return 'Users';
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['roles', 'streamer']);
     }
 
     // Only admins can access user management
@@ -134,6 +140,7 @@ class UserResource extends Resource
                     ->date('M j, Y')
                     ->sortable(),
             ])
+            ->striped()
             ->defaultSort('name')
             ->actions([
                 ViewAction::make()->iconButton(),

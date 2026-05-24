@@ -59,6 +59,11 @@ class StreamerResource extends Resource
         ]);
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()->withCount('inventoryLocations');
+    }
+
     // Streamers cannot manage other streamers
     public static function canCreate(): bool    { return auth()->user()?->isAdmin() ?? false; }
     public static function canEdit($r): bool    { return auth()->user()?->isAdmin() ?? false; }
@@ -201,6 +206,7 @@ class StreamerResource extends Resource
                     DeleteBulkAction::make(),
                 ]),
             ])
+            ->striped()
             ->defaultSort('name');
     }
 

@@ -87,6 +87,7 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => Blade::render(
                     (Setting::getBool('ai_enabled', true) ? "@livewire('ai-chat-panel')" : '')
                     . "<x-tour-button />"
+                    . "@livewire('feedback-widget')"
                 ),
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')

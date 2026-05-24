@@ -38,6 +38,17 @@ class WeeklyPayoutBatchResource extends Resource
         return 2;
     }
 
+    public static function getNavigationBadge(): ?string
+    {
+        $count = \App\Models\WeeklyPayoutBatch::where('status', 'draft')->count();
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'info';
+    }
+
     public static function getModelLabel(): string
     {
         return 'Pay Run';
@@ -122,6 +133,9 @@ class WeeklyPayoutBatchResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->striped()
+            ->persistFiltersInSession()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
             ->deferLoading()
             ->defaultSort('week_start', 'desc')
             ->filters([

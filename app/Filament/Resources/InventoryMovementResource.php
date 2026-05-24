@@ -165,6 +165,9 @@ class InventoryMovementResource extends Resource
                 ViewAction::make(),
             ])
             ->striped()
+            ->persistFiltersInSession()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
             ->deferLoading()
             ->defaultSort('created_at', 'desc');
     }

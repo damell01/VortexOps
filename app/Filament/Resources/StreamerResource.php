@@ -207,6 +207,10 @@ class StreamerResource extends Resource
                 ]),
             ])
             ->striped()
+            ->persistFiltersInSession()
+            ->stackedOnMobile()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
             ->defaultSort('name');
     }
 

@@ -162,6 +162,9 @@ class AiLogResource extends Resource
                     ->falseLabel('Failed'),
             ])
             ->striped()
+            ->persistFiltersInSession()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
             ->defaultSort('id', 'desc')
             ->recordAction(fn ($record) => 'view')
             ->actions([ViewAction::make()->iconButton()]);

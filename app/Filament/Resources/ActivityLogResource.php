@@ -14,6 +14,7 @@ use Filament\Tables\Table;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Placeholder;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 use Spatie\Activitylog\Models\Activity;
 
 class ActivityLogResource extends Resource
@@ -191,16 +192,17 @@ class ActivityLogResource extends Resource
 
                 SelectFilter::make('subject_type')
                     ->label('Model')
-                    ->options(
-                        Activity::query()
-                            ->whereNotNull('subject_type')
-                            ->distinct()
-                            ->pluck('subject_type', 'subject_type')
-                            ->mapWithKeys(fn ($v) => [$v => class_basename($v)])
-                            ->toArray()
-                    ),
+                    ->options(fn () => Cache::remember('filter:activity_subject_types', 300, fn () => Activity::query()
+                        ->whereNotNull('subject_type')
+                        ->distinct()
+                        ->pluck('subject_type', 'subject_type')
+                        ->mapWithKeys(fn ($v) => [$v => class_basename($v)])
+                        ->toArray())),
             ])
             ->striped()
+            ->persistFiltersInSession()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
             ->defaultSort('id', 'desc')
             ->recordAction(fn ($record) => 'view')
             ->actions([ViewAction::make()->iconButton()]);

@@ -12,6 +12,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 
 class PayoutResource extends Resource
 {
@@ -125,6 +126,10 @@ class PayoutResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->striped()
+            ->persistFiltersInSession()
+            ->stackedOnMobile()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
             ->deferLoading()
             ->defaultSort('created_at', 'desc')
             ->filters([
@@ -132,7 +137,7 @@ class PayoutResource extends Resource
                     ->options(Payout::statusLabels()),
                 SelectFilter::make('streamer_id')
                     ->label('Streamer')
-                    ->options(Streamer::pluck('name', 'id'))
+                    ->options(fn () => Cache::remember('filter:streamers', 300, fn () => Streamer::pluck('name', 'id')->toArray()))
                     ->visible(fn () => auth()->user()?->isAdmin()),
             ])
             ->actions([

@@ -28,6 +28,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 
 class InventoryItemResource extends Resource
 {
@@ -151,10 +152,10 @@ class InventoryItemResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('category')
-                    ->options(fn () => InventoryItem::whereNotNull('category')
+                    ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
                         ->distinct()
                         ->pluck('category', 'category')
-                        ->toArray()),
+                        ->toArray())),
                 Filter::make('low_stock')
                     ->label('Low Stock Only')
                     ->query(fn (Builder $query) => $query
@@ -335,6 +336,10 @@ class InventoryItemResource extends Resource
                 ]),
             ])
             ->striped()
+            ->persistFiltersInSession()
+            ->stackedOnMobile()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
             ->deferLoading()
             ->defaultSort('name');
     }

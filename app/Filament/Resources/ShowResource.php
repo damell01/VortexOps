@@ -50,6 +50,17 @@ class ShowResource extends Resource
         return 1;
     }
 
+    public static function getNavigationBadge(): ?string
+    {
+        $count = \App\Models\Show::where('status', 'pending_review')->count();
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
     public static function getModelLabel(): string
     {
         return 'Show';
@@ -221,6 +232,10 @@ class ShowResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->striped()
+            ->persistFiltersInSession()
+            ->stackedOnMobile()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
             ->deferLoading()
             ->defaultSort('show_date', 'desc')
             ->filters([

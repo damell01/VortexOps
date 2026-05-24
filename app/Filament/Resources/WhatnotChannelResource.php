@@ -111,6 +111,9 @@ class WhatnotChannelResource extends Resource
                 ]),
             ])
             ->striped()
+            ->persistFiltersInSession()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
             ->defaultSort('name');
     }
 

@@ -31,6 +31,17 @@ class DeductionRequestResource extends Resource
         return 2;
     }
 
+    public static function getNavigationBadge(): ?string
+    {
+        $count = \App\Models\DeductionRequest::where('status', 'pending')->count();
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
+    }
+
     public static function getModelLabel(): string
     {
         return 'Deduction Request';
@@ -139,6 +150,10 @@ class DeductionRequestResource extends Resource
                 ViewAction::make()->label('Review'),
             ])
             ->striped()
+            ->persistFiltersInSession()
+            ->stackedOnMobile()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
             ->deferLoading()
             ->defaultSort('created_at', 'desc');
     }

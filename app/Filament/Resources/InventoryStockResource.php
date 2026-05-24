@@ -19,6 +19,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 
 class InventoryStockResource extends Resource
 {
@@ -163,10 +164,10 @@ class InventoryStockResource extends Resource
                     ->relationship('location', 'name'),
                 SelectFilter::make('category')
                     ->label('Category')
-                    ->options(fn () => InventoryItem::whereNotNull('category')
+                    ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
                         ->distinct()
                         ->pluck('category', 'category')
-                        ->toArray())
+                        ->toArray()))
                     ->query(fn ($query, $state) => $state['value']
                         ? $query->whereHas('item', fn ($q) => $q->where('category', $state['value']))
                         : $query),
@@ -184,6 +185,9 @@ class InventoryStockResource extends Resource
                 EditAction::make(),
             ])
             ->striped()
+            ->persistFiltersInSession()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
             ->defaultSort('item.name');
     }
 

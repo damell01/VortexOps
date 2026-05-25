@@ -71,7 +71,7 @@ class Show extends Model
 
     public function latestDeductionRequest(): HasOne
     {
-        return $this->hasMany(DeductionRequest::class)->latestOfMany();
+        return $this->hasOne(DeductionRequest::class)->latestOfMany();
     }
 
     public function ingestionLogs(): HasMany

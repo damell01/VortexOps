@@ -2,7 +2,53 @@
 
 Internal operations platform for **Vortex Breaks** — a Whatnot-based sports card break business.
 
-Built with **Laravel 13** + **Filament v5**. Phases 1–3 complete: inventory foundation, show tracking, AI-assisted deduction, and streamer payouts.
+Built with **Laravel 13** + **Filament v5**. Phases 1–3 complete: inventory foundation, show tracking, AI-assisted deduction, streamer payouts, and client feedback tooling.
+
+---
+
+## Screenshots
+
+### Dashboard
+![Dashboard](docs/screenshots/01-dashboard.png)
+
+### Shows — Operational Loop
+| Shows List | Show Detail |
+|---|---|
+| ![Shows](docs/screenshots/02-shows-list.png) | ![Show Detail](docs/screenshots/05-show-view.png) |
+
+### Deduction Requests — AI-Assisted Review
+| Queue | Review & Approve |
+|---|---|
+| ![Deduction List](docs/screenshots/06-deduction-requests-list.png) | ![Review UI](docs/screenshots/07-deduction-request-review.png) |
+
+### Inventory
+| Items List | Action Menu | Add Stock |
+|---|---|---|
+| ![Items](docs/screenshots/08-inventory-items-list.png) | ![Actions](docs/screenshots/12-inventory-actions-dropdown.png) | ![Add Stock](docs/screenshots/13-add-stock-modal.png) |
+
+| Stock Levels | Movement Log |
+|---|---|
+| ![Stock](docs/screenshots/19-stock-levels.png) | ![Movements](docs/screenshots/20-movement-log.png) |
+
+### Payouts & Pay Runs
+| Payouts | Weekly Pay Run |
+|---|---|
+| ![Payouts](docs/screenshots/21-payouts-list.png) | ![Pay Run](docs/screenshots/24-pay-run-view.png) |
+
+### Feedback System
+| Ticket List | Feedback Button |
+|---|---|
+| ![Feedback Tickets](docs/screenshots/27-feedback-tickets-list.png) | ![Feedback Widget](docs/screenshots/28-feedback-widget-button.png) |
+
+### AI & Settings
+| AI Assistant | App Settings |
+|---|---|
+| ![AI](docs/screenshots/29-ai-assistant.png) | ![Settings](docs/screenshots/31-settings.png) |
+
+### Admin
+| Users | Activity Log |
+|---|---|
+| ![Users](docs/screenshots/32-users-list.png) | ![Activity](docs/screenshots/33-activity-log.png) |
 
 ---
 
@@ -11,7 +57,7 @@ Built with **Laravel 13** + **Filament v5**. Phases 1–3 complete: inventory fo
 | Layer | Technology |
 |---|---|
 | Framework | Laravel 13 |
-| Admin panel | Filament v5 |
+| Admin panel | Filament v5 + Livewire 3 |
 | Database | SQLite (dev) / MySQL (prod) |
 | Auth & Roles | Spatie Laravel Permission v7 |
 | Audit log | Spatie Activitylog v5 |
@@ -45,10 +91,17 @@ Dev (super admin): `dev@vortexbreaks.com` / `devpassword`
 
 Demo data includes 3 streamers, 8 inventory items, stock across all locations, 3 shows at different stages (reconciled / pending approval / draft), deduction requests, payouts, and 2 weekly pay run batches.
 
-To run the queue worker (required for AI mapping and title parsing jobs):
+To run the queue worker (required for AI mapping and low-stock notifications):
 
 ```bash
 php artisan queue:work
+```
+
+To regenerate docs screenshots:
+
+```bash
+php artisan serve --port=8765 &
+node screenshot.cjs
 ```
 
 ---
@@ -60,9 +113,9 @@ php artisan queue:work
 | **Streams** | Shows, Deduction Requests |
 | **Inventory** | Items, Locations, Stock Levels, Movement Log |
 | **Payouts & Pay Runs** | Payouts, Pay Runs (Weekly Batches) |
-| **People** | Streamers, Whatnot Channels |
-| **Admin** | Users, Activity Log, AI Logs |
-| **Settings** | App Settings |
+| **Operations** | Feedback Tickets |
+| **AI** | AI Assistant, AI Logs |
+| **Settings** | App Settings, Users, Activity Log |
 
 ---
 
@@ -173,7 +226,23 @@ All operations are wrapped in database transactions. Insufficient stock throws `
 
 ### Low stock notifications
 
-After every stock operation, `InventoryService` checks `item.totalQuantity() <= item.reorder_level`. When triggered, a warning database notification is broadcast to all users.
+After every stock operation, `InventoryService` checks `item.totalQuantity() <= item.reorder_level`. When triggered, a queued `SendLowStockNotification` job sends a warning database notification to all users.
+
+---
+
+## Feedback system
+
+A floating **"Feedback"** button sits in the bottom-right corner of every page. Clicking it:
+
+1. **Captures a live screenshot** of the current page (via html2canvas) without the widget visible
+2. Opens an **annotation canvas** with tools: freehand pen, rectangle, arrow, highlight — 6 colors + 3 line widths + undo
+3. Prompts for **title, description, and priority** (Low / Medium / High)
+4. Submits and stores the annotated screenshot + metadata as a **FeedbackTicket**
+
+Tickets are managed under **Operations → Feedback** with full priority/status lifecycle:
+`open → in_progress → resolved / closed` (re-open supported)
+
+Admins can assign tickets, add internal notes, and view the annotated screenshot inline.
 
 ---
 
@@ -197,6 +266,7 @@ All AI runs locally via Ollama. No data leaves the server.
 | `MapShowInventory` | "Run AI Mapping" action on show | Logs error; show returns to `pending_review` |
 | `NotifyShowReady` | Show created | Sends database notification to all admins |
 | `NotifyShowReconciled` | Deduction approved | Sends database notification to all admins |
+| `SendLowStockNotification` | Any stock operation that drops below reorder level | Sends warning notification (queued, after commit) |
 
 ### AI floating panel
 
@@ -238,19 +308,18 @@ WhatnotChannel
      │
      └──< Show >────────────────────────────< show_streamer >─────────< Streamer
               │                                                               │
-              ├──< ShowIngestionLog                          InventoryLocation (streamer_id FK)
+              ├──< DeductionRequest >─────< DeductionRequestLine      InventoryLocation (streamer_id FK)
+              │         │                       │          │                  │
+              │   approved_by (User)     InventoryItem  Location        InventoryStock
               │                                                               │
-              ├──< DeductionRequest >─────< DeductionRequestLine             │
-              │         │                       │          │            InventoryStock
-              │   approved_by (User)     InventoryItem  Location             │
-              │                                                        InventoryItem
-              └──< Payout >──< WeeklyPayoutBatch
+              └──< Payout >──< WeeklyPayoutBatch                       InventoryItem
                     │
                  Streamer
 
 InventoryMovement (inventory_item_id, from_location_id, to_location_id, quantity, type, created_by)
-Setting (key / value — cached 1 hour)
-AiLog (action, prompt, response, latency_ms, success)
+FeedbackTicket    (title, description, screenshot_path, page_url, status, priority, submitted_by, assigned_to)
+Setting           (key / value — cached 1 hour)
+AiLog             (action, prompt, response, latency_ms, success)
 ```
 
 ### Movement types
@@ -272,27 +341,27 @@ AiLog (action, prompt, response, latency_ms, success)
 app/
 ├── Filament/
 │   ├── Pages/
-│   │   ├── AppSettings.php          # branding, AI, show import settings
-│   │   └── AiAssistant.php          # full-screen AI chat page
+│   │   ├── AppSettings.php              # branding, AI, notifications, maintenance actions
+│   │   └── AiAssistant.php             # full-screen AI chat page
 │   ├── Resources/
-│   │   ├── ShowResource.php         # show CRUD + AI mapping actions
-│   │   ├── DeductionRequestResource.php
-│   │   │   └── Pages/
-│   │   │       ├── ListDeductionRequests.php
-│   │   │       └── ViewDeductionRequest.php   # approval/reject UI
-│   │   ├── InventoryItemResource.php          # 5 stock operation modals
+│   │   ├── ShowResource.php            # show CRUD + AI mapping action
+│   │   ├── DeductionRequestResource/
+│   │   │   └── Pages/ViewDeductionRequest.php   # approval/reject UI
+│   │   ├── FeedbackTicketResource/
+│   │   │   └── Pages/ViewFeedbackTicket.php     # status lifecycle + admin notes
+│   │   ├── InventoryItemResource.php   # 5 stock operation modals
 │   │   ├── InventoryLocationResource.php
-│   │   ├── InventoryMovementResource.php      # read-only audit log
-│   │   ├── InventoryStockResource.php         # read-only stock view
-│   │   ├── StreamerResource.php
-│   │   ├── WhatnotChannelResource.php
+│   │   ├── InventoryMovementResource.php        # read-only audit log
+│   │   ├── InventoryStockResource.php           # read-only stock view
 │   │   ├── PayoutResource.php
 │   │   ├── WeeklyPayoutBatchResource.php
+│   │   ├── StreamerResource.php
+│   │   ├── WhatnotChannelResource.php
 │   │   ├── UserResource.php
-│   │   ├── ActivityLogResource.php            # Spatie activity log viewer
+│   │   ├── ActivityLogResource.php              # Spatie activity log viewer
 │   │   └── AiLogResource.php
 │   └── Widgets/
-│       ├── StatsOverviewWidget.php
+│       ├── InventoryOverviewWidget.php  # cached stat cards
 │       ├── LowStockWidget.php
 │       ├── RecentMovementsWidget.php
 │       ├── InventoryByLocationWidget.php
@@ -301,31 +370,26 @@ app/
 │   ├── ParseShowTitle.php
 │   ├── MapShowInventory.php
 │   ├── NotifyShowReady.php
-│   └── NotifyShowReconciled.php
+│   ├── NotifyShowReconciled.php
+│   └── SendLowStockNotification.php    # queued, dispatched after commit
+├── Livewire/
+│   ├── AiChatPanel.php                 # floating AI chat sidebar
+│   └── FeedbackWidget.php             # screenshot capture + annotation + submit
 ├── Models/
-│   ├── Show.php
-│   ├── ShowIngestionLog.php
-│   ├── DeductionRequest.php
-│   ├── DeductionRequestLine.php
-│   ├── InventoryItem.php
-│   ├── InventoryLocation.php
-│   ├── InventoryMovement.php
-│   ├── InventoryStock.php
-│   ├── Streamer.php
-│   ├── WhatnotChannel.php
-│   ├── Payout.php
-│   ├── WeeklyPayoutBatch.php
-│   ├── User.php
-│   ├── Setting.php
-│   └── AiLog.php
+│   ├── Show.php · DeductionRequest.php · DeductionRequestLine.php
+│   ├── InventoryItem.php · InventoryLocation.php · InventoryMovement.php · InventoryStock.php
+│   ├── Streamer.php · WhatnotChannel.php
+│   ├── Payout.php · WeeklyPayoutBatch.php
+│   ├── FeedbackTicket.php
+│   ├── User.php · Setting.php · AiLog.php
 └── Services/
-    ├── InventoryService.php          # all stock mutations, transactions
-    ├── OllamaService.php             # Ollama HTTP client + AI log
-    ├── PayoutService.php             # payout calculation + weekly batch creation
-    ├── AiTitleParserService.php      # show title → streamer suggestion
-    ├── AiInventoryMapperService.php  # show → deduction request via AI
-    ├── DeductionApprovalService.php  # approve + execute deductions
-    └── DeductionRejectionService.php # reject + return show to pending_review
+    ├── InventoryService.php             # all stock mutations, transactions
+    ├── OllamaService.php               # Ollama HTTP client + AI log
+    ├── PayoutService.php               # payout calculation + weekly batch creation
+    ├── AiTitleParserService.php
+    ├── AiInventoryMapperService.php
+    ├── DeductionApprovalService.php    # approve + execute deductions
+    └── DeductionRejectionService.php   # reject + return show to pending_review
 ```
 
 ---
@@ -337,10 +401,11 @@ app/
 | **Phase 1** | Inventory & Product Cost Foundation — items, locations, stock levels, movement log, streamer profiles, Whatnot channels | ✅ Complete |
 | **Phase 2** | Stream Tracking — show scheduling, status workflow, AI title parsing, show financials | ✅ Complete |
 | **Phase 3** | Reconciliation & Deduction — AI inventory mapping, deduction approval workflow, payout calculation engine, weekly pay runs | ✅ Complete |
+| **Phase 3.5** | Platform Polish — performance optimization, mobile-responsive tables, nav badges, filter caching, client feedback tooling | ✅ Complete |
 | **Phase 4** | Operational Reporting — P&L summaries, per-streamer profitability, COGS trends, show performance dashboards | Planned |
 | **Phase 5** | Automation & Expansion — Whatnot API integration, automated show ingestion, advanced analytics, webhook alerts | Planned |
 
-**Timeline notes:** Timelines vary depending on workflow discoveries, operational changes, review cycles, testing, platform limitations, client feedback, and evolving business requirements. Feature requests, integrations, or major operational changes outside the roadmap are reviewed and scoped separately.
+**Timeline notes:** Timelines vary depending on workflow discoveries, operational changes, review cycles, testing, platform limitations, client feedback, and evolving business requirements.
 
 ---
 

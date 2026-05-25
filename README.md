@@ -104,6 +104,14 @@ php artisan serve --port=8765 &
 node screenshot.cjs
 ```
 
+## Deployment
+
+Production deployment assets:
+
+- Docker image: `Dockerfile` + `docker-compose.yml`
+- Production env: `.env.production.example`
+- Ubuntu VPS installer: `deploy/install-vps.sh`
+
 ---
 
 ## Navigation groups

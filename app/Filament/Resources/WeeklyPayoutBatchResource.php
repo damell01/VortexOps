@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\WeeklyPayoutBatchResource\Pages;
 use App\Models\WeeklyPayoutBatch;
 use App\Services\PayoutService;
+use App\Support\AdminModules;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\ViewAction;
@@ -21,6 +23,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class WeeklyPayoutBatchResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'payouts';
+
     protected static ?string $model = WeeklyPayoutBatch::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -30,7 +36,7 @@ class WeeklyPayoutBatchResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Payouts & Pay Runs';
+        return AdminModules::navigationGroupFor('payouts');
     }
 
     public static function getNavigationSort(): ?int
@@ -59,7 +65,7 @@ class WeeklyPayoutBatchResource extends Resource
         return 'Pay Runs';
     }
 
-    public static function canAccess(): bool
+    protected static function passesModuleAccessCheck(): bool
     {
         return auth()->user()?->isAdmin() ?? false;
     }
@@ -128,7 +134,7 @@ class WeeklyPayoutBatchResource extends Resource
 
                 TextColumn::make('finalized_at')
                     ->label('Finalized')
-                    ->dateTime('M j g:ia')
+                    ->dateTime('M j, Y g:i A')
                     ->default('—')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

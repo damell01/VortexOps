@@ -4,7 +4,6 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Resources\StreamerResource;
 use App\Models\Streamer;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -36,6 +35,7 @@ class ActiveStreamersWidget extends BaseWidget
                         'package' => 'info',
                         'hourly' => 'warning',
                         'flat_rate' => 'gray',
+                        'custom_formula' => 'primary',
                         default => 'gray',
                     }),
                 TextColumn::make('inventory_locations_count')

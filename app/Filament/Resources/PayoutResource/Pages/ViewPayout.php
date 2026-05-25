@@ -8,4 +8,6 @@ use Filament\Resources\Pages\ViewRecord;
 class ViewPayout extends ViewRecord
 {
     protected static string $resource = PayoutResource::class;
+
+    protected string $view = 'filament.resources.payout-resource.pages.view-payout';
 }

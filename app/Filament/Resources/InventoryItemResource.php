@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\InventoryItemResource\Pages;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Services\InventoryService;
+use App\Support\AdminModules;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -21,7 +23,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Tables\Actions\Action as TableAction;
+use Filament\Actions\Action as TableAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -32,6 +34,10 @@ use Illuminate\Support\Facades\Cache;
 
 class InventoryItemResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'inventory';
+
     protected static ?string $model = InventoryItem::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -41,7 +47,7 @@ class InventoryItemResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Inventory';
+        return AdminModules::navigationGroupFor('inventory');
     }
 
     public static function getNavigationSort(): ?int
@@ -146,7 +152,7 @@ class InventoryItemResource extends Resource
                     ->boolean()
                     ->label('Active'),
                 TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->dateTime('M j, Y g:i A')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

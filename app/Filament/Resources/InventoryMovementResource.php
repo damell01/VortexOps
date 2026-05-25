@@ -2,12 +2,17 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\InventoryMovementResource\Pages;
 use App\Models\InventoryMovement;
-use Filament\Resources\Resource;
-use Filament\Schemas\Schema;
+use App\Support\AdminModules;
+use Filament\Actions\Action as TableAction;
 use Filament\Actions\ViewAction;
-use Filament\Tables\Actions\Action as TableAction;
+use Filament\Forms\Components\Placeholder;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -15,6 +20,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class InventoryMovementResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'inventory';
+
     protected static ?string $model = InventoryMovement::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -24,7 +33,7 @@ class InventoryMovementResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Inventory';
+        return AdminModules::navigationGroupFor('inventory');
     }
 
     public static function getNavigationSort(): ?int
@@ -66,7 +75,7 @@ class InventoryMovementResource extends Resource
     {
         return array_filter([
             'Date' => $record->created_at?->format('M j, Y'),
-            'Qty'  => $record->quantity,
+            'Qty' => $record->quantity,
         ]);
     }
 
@@ -92,7 +101,43 @@ class InventoryMovementResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([]);
+        return $schema->components([
+            Section::make('Movement Details')
+                ->schema([
+                    Grid::make(2)->schema([
+                        Placeholder::make('created_at')
+                            ->label('Date & Time')
+                            ->content(fn (InventoryMovement $record): string => $record->created_at?->format('M j, Y g:i A') ?? '—'),
+                        Placeholder::make('movement_type')
+                            ->label('Movement Type')
+                            ->content(fn (InventoryMovement $record): string => InventoryMovement::movementTypeLabels()[$record->movement_type] ?? $record->movement_type),
+                        Placeholder::make('item')
+                            ->label('Item')
+                            ->content(fn (InventoryMovement $record): string => $record->item?->name ?? '—'),
+                        Placeholder::make('sku')
+                            ->label('SKU')
+                            ->content(fn (InventoryMovement $record): string => $record->item?->sku ?? '—'),
+                        Placeholder::make('quantity')
+                            ->label('Quantity')
+                            ->content(fn (InventoryMovement $record): string => number_format((float) $record->quantity, 0)),
+                        Placeholder::make('created_by')
+                            ->label('Created By')
+                            ->content(fn (InventoryMovement $record): string => $record->createdByUser?->name ?? 'System'),
+                        Placeholder::make('from_location')
+                            ->label('From Location')
+                            ->content(fn (InventoryMovement $record): string => $record->fromLocation?->name ?? '—'),
+                        Placeholder::make('to_location')
+                            ->label('To Location')
+                            ->content(fn (InventoryMovement $record): string => $record->toLocation?->name ?? '—'),
+                        Placeholder::make('reference')
+                            ->label('Reference')
+                            ->content(fn (InventoryMovement $record): string => $record->reference_type && $record->reference_id ? "{$record->reference_type} #{$record->reference_id}" : 'Manual update'),
+                    ]),
+                    Placeholder::make('reason')
+                        ->label('Reason')
+                        ->content(fn (InventoryMovement $record): string => $record->reason ?: '—'),
+                ]),
+        ]);
     }
 
     public static function table(Table $table): Table
@@ -101,7 +146,7 @@ class InventoryMovementResource extends Resource
             ->columns([
                 TextColumn::make('created_at')
                     ->label('Date & Time')
-                    ->dateTime()
+                    ->dateTime('M j, Y g:i A')
                     ->sortable(),
                 TextColumn::make('item.name')
                     ->label('Item')

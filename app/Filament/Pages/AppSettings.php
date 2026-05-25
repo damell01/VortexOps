@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\OllamaService;
+use App\Support\AdminModules;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -55,7 +56,7 @@ class AppSettings extends Page
     public bool   $ai_enabled      = true;
     public string $ollama_base_url = '';
     public string $ollama_model    = '';
-    public int    $ollama_timeout  = 60;
+    public int    $ollama_timeout  = 120;
 
     // ── Show Import ──────────────────────────────────────────────────────────
 
@@ -77,6 +78,7 @@ class AppSettings extends Page
     public array  $notify_show_ready_users     = [];
     public string $notify_show_reconciled_mode  = 'admins';
     public array  $notify_show_reconciled_users = [];
+    public array $enabled_modules = [];
 
     public function mount(): void
     {
@@ -86,8 +88,8 @@ class AppSettings extends Page
 
         $this->ai_enabled      = Setting::getBool('ai_enabled', true);
         $this->ollama_base_url = Setting::get('ollama_base_url', config('ollama.base_url', 'http://localhost:11434'));
-        $this->ollama_model    = Setting::get('ollama_model',    config('ollama.model',    'llama3.2'));
-        $this->ollama_timeout  = (int) Setting::get('ollama_timeout', config('ollama.timeout', 60));
+        $this->ollama_model    = Setting::get('ollama_model',    config('ollama.model',    'llama3.2:3b'));
+        $this->ollama_timeout  = (int) Setting::get('ollama_timeout', config('ollama.timeout', 120));
 
         $this->show_import_mode                = Setting::get('show_import_mode', 'manual');
         $this->auto_assign_confident_streamers = Setting::getBool('auto_assign_confident_streamers', true);
@@ -101,11 +103,20 @@ class AppSettings extends Page
         $this->notify_show_ready_users     = json_decode(Setting::get('notify_show_ready_users', '[]'), true) ?? [];
         $this->notify_show_reconciled_mode  = Setting::get('notify_show_reconciled_mode', 'admins');
         $this->notify_show_reconciled_users = json_decode(Setting::get('notify_show_reconciled_users', '[]'), true) ?? [];
+        $this->enabled_modules = AdminModules::enabledSlugs();
     }
 
     public function getAllUsersProperty(): \Illuminate\Support\Collection
     {
         return User::orderBy('name')->get()->mapWithKeys(fn ($u) => [$u->id => $u->name . ' (' . $u->email . ')']);
+    }
+
+    /**
+     * @return array<string, array{label: string, description: string, group: string, order: int}>
+     */
+    public function getAvailableModulesProperty(): array
+    {
+        return AdminModules::definitions();
     }
 
     protected function getHeaderActions(): array
@@ -126,13 +137,15 @@ class AppSettings extends Page
 
     public function saveSettings(): void
     {
+        $this->enabled_modules = AdminModules::normalizeEnabledSlugs($this->enabled_modules);
+
         $this->validate([
             'brand_name'                       => 'required|string|max:60',
             'primary_color'                    => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'logo_upload'                      => 'nullable|image|max:2048',
             'ollama_base_url'                  => 'required|url',
             'ollama_model'                     => 'required|string|max:100',
-            'ollama_timeout'                   => 'required|integer|min:5|max:300',
+            'ollama_timeout'                   => 'required|integer|min:5|max:600',
             'show_import_mode'                 => 'required|in:manual,auto_whatnot',
             'show_ready_notification_email'    => 'nullable|email|max:255',
             'notify_low_stock_mode'            => 'required|in:all,admins,custom',
@@ -147,6 +160,8 @@ class AppSettings extends Page
             'notify_show_reconciled_mode'      => 'required|in:all,admins,custom',
             'notify_show_reconciled_users'     => 'nullable|array',
             'notify_show_reconciled_users.*'   => 'integer|exists:users,id',
+            'enabled_modules'                  => 'required|array|min:1',
+            'enabled_modules.*'                => 'in:' . implode(',', array_keys(AdminModules::definitions())),
         ]);
 
         if ($this->logo_upload) {
@@ -174,10 +189,11 @@ class AppSettings extends Page
         Setting::set('notify_show_ready_users',      json_encode($this->notify_show_ready_users));
         Setting::set('notify_show_reconciled_mode',  $this->notify_show_reconciled_mode);
         Setting::set('notify_show_reconciled_users', json_encode($this->notify_show_reconciled_users));
+        Setting::set('enabled_admin_modules', json_encode(AdminModules::normalizeEnabledSlugs($this->enabled_modules)));
 
         Notification::make()
             ->title('Settings saved')
-            ->body('Branding changes take effect on the next page load.')
+            ->body('Branding and workspace changes take effect on the next page load.')
             ->success()
             ->send();
     }

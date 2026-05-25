@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\StreamerResource\Pages;
 use App\Filament\Resources\StreamerResource\RelationManagers\LoansRelationManager;
 use App\Models\Streamer;
+use App\Support\AdminModules;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -24,6 +26,10 @@ use Filament\Tables\Table;
 
 class StreamerResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'operations';
+
     protected static ?string $model = Streamer::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -33,7 +39,7 @@ class StreamerResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Operations';
+        return AdminModules::navigationGroupFor('operations');
     }
 
     public static function getNavigationSort(): ?int
@@ -108,6 +114,13 @@ class StreamerResource extends Resource
                         ->prefix('$')
                         ->suffix('/hr')
                         ->visible(fn ($get) => $get('payout_type') === 'hourly'),
+                    Textarea::make('custom_payout_formula')
+                        ->label('Custom Formula')
+                        ->rows(4)
+                        ->placeholder('streamer_share_net * 0.35 + tip_share')
+                        ->helperText('Supported variables: gross_revenue, whatnot_net, streamer_share_net, units_sold, show_duration_hours, show_duration_minutes, tips, tip_share, payout_percentage, package_rate, hourly_rate. Supported operators: + - * / and parentheses.')
+                        ->visible(fn ($get) => $get('payout_type') === 'custom_formula')
+                        ->columnSpanFull(),
                     Toggle::make('include_tips')
                         ->default(true),
                     TextInput::make('adp_employee_id')
@@ -169,6 +182,7 @@ class StreamerResource extends Resource
                         'package' => 'info',
                         'hourly' => 'warning',
                         'flat_rate' => 'gray',
+                        'custom_formula' => 'primary',
                         default => 'gray',
                     }),
                 TextColumn::make('status')

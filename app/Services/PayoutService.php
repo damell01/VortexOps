@@ -46,8 +46,10 @@ class PayoutService
     private function computeStreamerPayout(Streamer $streamer, Show $show, int $streamerCount): array
     {
         $netRevenue    = (float) $show->whatnot_net;
+        $grossRevenue  = (float) $show->gross_revenue;
         $tips          = (float) $show->tips;
         $streamerShare = $streamerCount > 1 ? $netRevenue / $streamerCount : $netRevenue;
+        $tipShare      = $streamerCount > 0 ? round($tips / $streamerCount, 2) : 0;
 
         $calculatedPayout = 0;
         $calculationNotes = '';
@@ -57,7 +59,6 @@ class PayoutService
                 $pct              = (float) $streamer->payout_percentage / 100;
                 $calculatedPayout = round($streamerShare * $pct, 2);
                 if ($streamer->include_tips) {
-                    $tipShare          = round($tips / $streamerCount, 2);
                     $calculatedPayout += $tipShare;
                     $calculationNotes  = "Profit share {$streamer->payout_percentage}% of \${$streamerShare} + \${$tipShare} tips";
                 } else {
@@ -69,7 +70,6 @@ class PayoutService
                 $calculatedPayout = (float) $streamer->package_rate;
                 $calculationNotes = "Package rate \${$streamer->package_rate}";
                 if ($streamer->include_tips) {
-                    $tipShare          = round($tips / $streamerCount, 2);
                     $calculatedPayout += $tipShare;
                     $calculationNotes .= " + \${$tipShare} tips";
                 }
@@ -84,6 +84,26 @@ class PayoutService
             case 'flat_rate':
                 $calculatedPayout = (float) ($streamer->package_rate ?? 0);
                 $calculationNotes = "Flat rate \${$calculatedPayout}";
+                break;
+
+            case 'custom_formula':
+                $formula = trim((string) $streamer->custom_payout_formula);
+                $calculatedPayout = $formula !== ''
+                    ? round($this->evaluateCustomFormula($formula, [
+                        'gross_revenue' => $grossRevenue,
+                        'whatnot_net' => $netRevenue,
+                        'streamer_share_net' => $streamerShare,
+                        'units_sold' => (float) $show->units_sold,
+                        'show_duration_hours' => $show->show_duration ? round($show->show_duration / 60, 2) : 0,
+                        'show_duration_minutes' => (float) ($show->show_duration ?? 0),
+                        'tips' => $tips,
+                        'tip_share' => $tipShare,
+                        'payout_percentage' => (float) ($streamer->payout_percentage ?? 0),
+                        'package_rate' => (float) ($streamer->package_rate ?? 0),
+                        'hourly_rate' => (float) ($streamer->hourly_rate ?? 0),
+                    ]), 2)
+                    : 0;
+                $calculationNotes = "Custom formula: {$formula}";
                 break;
         }
 
@@ -104,11 +124,119 @@ class PayoutService
             'payout_type'        => $streamer->payout_type,
             'gross_show_revenue' => $netRevenue,
             'owner_fee_deducted' => $ownerFeeDeducted,
-            'tips_included'      => $streamer->include_tips ? round($tips / $streamerCount, 2) : 0,
+            'tips_included'      => $streamer->include_tips ? $tipShare : 0,
             'calculated_payout'  => $calculatedPayout,
             'calculation_notes'  => $calculationNotes,
             'status'             => 'draft',
         ];
+    }
+
+    private function evaluateCustomFormula(string $formula, array $variables): float
+    {
+        if (! preg_match('/^[\w\s+\-*\/().]+$/', $formula)) {
+            throw new \RuntimeException('Custom payout formula contains unsupported characters.');
+        }
+
+        $tokens = $this->tokenizeFormula($formula);
+        $output = [];
+        $operators = [];
+        $precedence = ['+' => 1, '-' => 1, '*' => 2, '/' => 2];
+
+        foreach ($tokens as $token) {
+            if (is_numeric($token)) {
+                $output[] = (float) $token;
+                continue;
+            }
+
+            if (preg_match('/^[A-Za-z_]\w*$/', $token)) {
+                if (! array_key_exists($token, $variables)) {
+                    throw new \RuntimeException("Unknown formula variable: {$token}");
+                }
+
+                $output[] = (float) $variables[$token];
+                continue;
+            }
+
+            if (isset($precedence[$token])) {
+                while (! empty($operators)) {
+                    $top = end($operators);
+                    if (! isset($precedence[$top]) || $precedence[$top] < $precedence[$token]) {
+                        break;
+                    }
+
+                    $output[] = array_pop($operators);
+                }
+
+                $operators[] = $token;
+                continue;
+            }
+
+            if ($token === '(') {
+                $operators[] = $token;
+                continue;
+            }
+
+            if ($token === ')') {
+                while (! empty($operators) && end($operators) !== '(') {
+                    $output[] = array_pop($operators);
+                }
+
+                if (empty($operators) || array_pop($operators) !== '(') {
+                    throw new \RuntimeException('Custom payout formula has mismatched parentheses.');
+                }
+            }
+        }
+
+        while (! empty($operators)) {
+            $operator = array_pop($operators);
+            if (in_array($operator, ['(', ')'], true)) {
+                throw new \RuntimeException('Custom payout formula has mismatched parentheses.');
+            }
+
+            $output[] = $operator;
+        }
+
+        return $this->evaluateRpn($output);
+    }
+
+    private function tokenizeFormula(string $formula): array
+    {
+        preg_match_all('/([A-Za-z_]\w*|\d+(?:\.\d+)?|[()+\-*\/])/', str_replace(' ', '', $formula), $matches);
+
+        return $matches[0] ?? [];
+    }
+
+    private function evaluateRpn(array $tokens): float
+    {
+        $stack = [];
+
+        foreach ($tokens as $token) {
+            if (is_float($token) || is_int($token)) {
+                $stack[] = (float) $token;
+                continue;
+            }
+
+            $right = array_pop($stack);
+            $left = array_pop($stack);
+
+            if ($left === null || $right === null) {
+                throw new \RuntimeException('Custom payout formula is incomplete.');
+            }
+
+            $stack[] = match ($token) {
+                '+' => $left + $right,
+                '-' => $left - $right,
+                '*' => $left * $right,
+                '/' => $right == 0.0 ? throw new \RuntimeException('Custom payout formula cannot divide by zero.') : $left / $right,
+                default => throw new \RuntimeException("Unsupported operator in formula: {$token}"),
+            };
+        }
+
+        if (count($stack) !== 1) {
+            throw new \RuntimeException('Custom payout formula could not be evaluated.');
+        }
+
+        return (float) $stack[0];
     }
 
     public function createWeeklyBatch(string $weekStart): WeeklyPayoutBatch

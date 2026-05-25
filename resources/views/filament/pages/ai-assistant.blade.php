@@ -1,40 +1,77 @@
 <x-filament-panels::page>
     <div
-        x-data="{ loading: @entangle('isLoading') }"
+        x-data="{
+            loading: @entangle('isLoading'),
+            pendingMessage: '',
+            pendingElapsed: 0,
+            pendingTimer: null,
+            beginPending(message) {
+                this.pendingMessage = message;
+                this.pendingElapsed = 0;
+                clearInterval(this.pendingTimer);
+                this.pendingTimer = setInterval(() => {
+                    this.pendingElapsed += 1;
+                }, 1000);
+            },
+            clearPending() {
+                this.pendingMessage = '';
+                this.pendingElapsed = 0;
+                clearInterval(this.pendingTimer);
+                this.pendingTimer = null;
+            },
+        }"
+        x-effect="if (!loading && pendingMessage) clearPending()"
         x-on:scroll-to-bottom.window="$nextTick(() => {
             const el = document.getElementById('chat-messages');
             if (el) el.scrollTop = el.scrollHeight;
         })"
         class="space-y-4"
     >
-
-        {{-- ── Status bar ───────────────────────────────────────────────── --}}
-        <div class="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-2 text-sm">
-            @if ($ollamaOnline)
-                <span class="flex items-center gap-1.5 text-success-600 dark:text-success-400">
-                    <span class="relative flex h-2 w-2">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success-400 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-success-500"></span>
+        <div class="space-y-3 rounded-xl border border-gray-200 bg-white p-4 text-sm dark:border-gray-700 dark:bg-gray-900">
+            <div class="flex flex-wrap items-center gap-3">
+                @if ($ollamaOnline)
+                    <span class="flex items-center gap-1.5 text-success-600 dark:text-success-400">
+                        <span class="relative flex h-2 w-2">
+                            <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-success-400 opacity-75"></span>
+                            <span class="relative inline-flex h-2 w-2 rounded-full bg-success-500"></span>
+                        </span>
+                        Ollama online
                     </span>
-                    Ollama online
+                @else
+                    <span class="flex items-center gap-1.5 text-danger-600 dark:text-danger-400">
+                        <span class="h-2 w-2 rounded-full bg-danger-500"></span>
+                        Ollama offline
+                    </span>
+                @endif
+
+                <span class="text-gray-400">·</span>
+                <span class="text-gray-500 dark:text-gray-400">
+                    Model:
+                    <span class="font-mono text-xs font-semibold text-gray-700 dark:text-gray-200">{{ $ollamaModel }}</span>
                 </span>
                 <span class="text-gray-400">·</span>
-                <span class="text-gray-500 dark:text-gray-400">Model: <span class="font-mono text-xs font-semibold text-gray-700 dark:text-gray-200">{{ $ollamaModel }}</span></span>
-            @else
-                <span class="flex items-center gap-1.5 text-danger-600 dark:text-danger-400">
-                    <span class="h-2 w-2 rounded-full bg-danger-500"></span>
-                    Ollama offline
+                <span class="text-gray-500 dark:text-gray-400">
+                    URL:
+                    <span class="font-mono text-xs text-gray-700 dark:text-gray-200">{{ $ollamaBaseUrl }}</span>
                 </span>
-                <span class="text-gray-400 text-xs">— run <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">ollama serve</code> to enable AI features</span>
+            </div>
+
+            @if (! empty($availableModels))
+                <div class="text-xs text-gray-500 dark:text-gray-400">
+                    Available models: {{ implode(', ', $availableModels) }}
+                </div>
+            @elseif (! $ollamaOnline)
+                <div class="text-xs text-gray-500 dark:text-gray-400">
+                    Run <code class="rounded bg-gray-100 px-1 font-mono dark:bg-gray-800">ollama serve</code> to enable AI features.
+                </div>
             @endif
         </div>
 
-        {{-- ── Quick actions ────────────────────────────────────────────── --}}
         <div class="flex flex-wrap gap-2">
             <button
                 wire:click="runQuickAction('inventory_analysis')"
                 :disabled="loading"
-                class="inline-flex items-center gap-1.5 rounded-lg border border-primary-300 dark:border-primary-600 bg-primary-50 dark:bg-primary-950 px-3 py-1.5 text-xs font-medium text-primary-700 dark:text-primary-300 hover:bg-primary-100 dark:hover:bg-primary-900 disabled:opacity-40 transition"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-primary-300 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700 transition hover:bg-primary-100 disabled:opacity-40 dark:border-primary-600 dark:bg-primary-950 dark:text-primary-300 dark:hover:bg-primary-900"
             >
                 <x-heroicon-o-chart-bar-square class="h-3.5 w-3.5" />
                 Inventory Health
@@ -42,7 +79,7 @@
             <button
                 wire:click="runQuickAction('reorder_suggestions')"
                 :disabled="loading"
-                class="inline-flex items-center gap-1.5 rounded-lg border border-warning-300 dark:border-warning-600 bg-warning-50 dark:bg-warning-950 px-3 py-1.5 text-xs font-medium text-warning-700 dark:text-warning-300 hover:bg-warning-100 dark:hover:bg-warning-900 disabled:opacity-40 transition"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-warning-300 bg-warning-50 px-3 py-1.5 text-xs font-medium text-warning-700 transition hover:bg-warning-100 disabled:opacity-40 dark:border-warning-600 dark:bg-warning-950 dark:text-warning-300 dark:hover:bg-warning-900"
             >
                 <x-heroicon-o-shopping-cart class="h-3.5 w-3.5" />
                 Reorder Suggestions
@@ -50,21 +87,19 @@
             <button
                 wire:click="runQuickAction('movement_analysis')"
                 :disabled="loading"
-                class="inline-flex items-center gap-1.5 rounded-lg border border-info-300 dark:border-info-600 bg-info-50 dark:bg-info-950 px-3 py-1.5 text-xs font-medium text-info-700 dark:text-info-300 hover:bg-info-100 dark:hover:bg-info-900 disabled:opacity-40 transition"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-info-300 bg-info-50 px-3 py-1.5 text-xs font-medium text-info-700 transition hover:bg-info-100 disabled:opacity-40 dark:border-info-600 dark:bg-info-950 dark:text-info-300 dark:hover:bg-info-900"
             >
                 <x-heroicon-o-arrow-trending-up class="h-3.5 w-3.5" />
                 Movement Analysis
             </button>
         </div>
 
-        {{-- ── Chat window ──────────────────────────────────────────────── --}}
         <div
             id="chat-messages"
-            class="flex flex-col gap-4 min-h-96 max-h-[36rem] overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 p-4"
+            class="flex max-h-[36rem] min-h-96 flex-col gap-4 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-950"
         >
             @forelse ($messages as $msg)
                 @if ($msg['role'] === 'user')
-                    {{-- User bubble --}}
                     <div class="flex justify-end">
                         <div class="max-w-2xl">
                             <div class="rounded-2xl rounded-br-sm bg-primary-600 px-4 py-2.5 text-sm text-white shadow-sm">
@@ -74,14 +109,12 @@
                         </div>
                     </div>
                 @else
-                    {{-- AI bubble --}}
                     <div class="flex justify-start gap-2.5">
-                        <div class="mt-1 flex-shrink-0 rounded-full bg-violet-100 dark:bg-violet-900 p-1.5">
+                        <div class="mt-1 flex-shrink-0 rounded-full bg-violet-100 p-1.5 dark:bg-violet-900">
                             <x-heroicon-o-sparkles class="h-3.5 w-3.5 text-violet-600 dark:text-violet-300" />
                         </div>
                         <div class="max-w-3xl">
-                            <div class="rounded-2xl rounded-bl-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-2.5 text-sm shadow-sm
-                                {{ isset($msg['success']) && ! $msg['success'] ? 'border-danger-300 dark:border-danger-700 bg-danger-50 dark:bg-danger-950' : '' }}">
+                            <div class="rounded-2xl rounded-bl-sm border border-gray-200 bg-white px-4 py-2.5 text-sm shadow-sm dark:border-gray-700 dark:bg-gray-800 {{ isset($msg['success']) && ! $msg['success'] ? 'border-danger-300 bg-danger-50 dark:border-danger-700 dark:bg-danger-950' : '' }}">
                                 @if (isset($msg['success']) && ! $msg['success'])
                                     <span class="text-danger-600 dark:text-danger-400">{{ $msg['content'] }}</span>
                                 @else
@@ -100,7 +133,7 @@
                 @endif
             @empty
                 <div class="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
-                    <div class="rounded-full bg-violet-100 dark:bg-violet-900 p-4">
+                    <div class="rounded-full bg-violet-100 p-4 dark:bg-violet-900">
                         <x-heroicon-o-sparkles class="h-8 w-8 text-violet-500" />
                     </div>
                     <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Ask anything about your inventory</p>
@@ -108,42 +141,59 @@
                 </div>
             @endforelse
 
-            {{-- Typing indicator --}}
-            @if ($isLoading)
-                <div class="flex justify-start gap-2.5">
-                    <div class="mt-1 flex-shrink-0 rounded-full bg-violet-100 dark:bg-violet-900 p-1.5">
-                        <x-heroicon-o-sparkles class="h-3.5 w-3.5 text-violet-600 dark:text-violet-300" />
+            <template x-if="pendingMessage">
+                <div class="space-y-4">
+                    <div class="flex justify-end">
+                        <div class="max-w-2xl">
+                            <div class="rounded-2xl rounded-br-sm bg-primary-600 px-4 py-2.5 text-sm text-white shadow-sm" x-text="pendingMessage"></div>
+                            <div class="mt-1 text-right text-xs text-gray-400">Sending…</div>
+                        </div>
                     </div>
-                    <div class="rounded-2xl rounded-bl-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3 shadow-sm">
-                        <div class="flex items-center gap-1">
-                            <span class="h-2 w-2 animate-bounce rounded-full bg-gray-400" style="animation-delay: 0ms"></span>
-                            <span class="h-2 w-2 animate-bounce rounded-full bg-gray-400" style="animation-delay: 150ms"></span>
-                            <span class="h-2 w-2 animate-bounce rounded-full bg-gray-400" style="animation-delay: 300ms"></span>
+
+                    <div class="flex justify-start gap-2.5">
+                        <div class="mt-1 flex-shrink-0 rounded-full bg-violet-100 p-1.5 dark:bg-violet-900">
+                            <x-heroicon-o-sparkles class="h-3.5 w-3.5 text-violet-600 dark:text-violet-300" />
+                        </div>
+                        <div class="max-w-3xl">
+                            <div class="rounded-2xl rounded-bl-sm border border-gray-200 bg-white px-4 py-3 text-sm shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                                <div class="flex items-center gap-2">
+                                    <span class="h-2 w-2 animate-bounce rounded-full bg-gray-400" style="animation-delay: 0ms"></span>
+                                    <span class="h-2 w-2 animate-bounce rounded-full bg-gray-400" style="animation-delay: 150ms"></span>
+                                    <span class="h-2 w-2 animate-bounce rounded-full bg-gray-400" style="animation-delay: 300ms"></span>
+                                    <span class="text-xs text-gray-500 dark:text-gray-400">
+                                        Vortex Assistant is thinking...
+                                        <span x-show="pendingElapsed >= 8" x-text="' ' + pendingElapsed + 's'"></span>
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            @endif
+            </template>
         </div>
 
-        {{-- ── Input area ───────────────────────────────────────────────── --}}
-        <form wire:submit="sendMessage" class="flex gap-2">
+        <form
+            wire:submit="sendMessage"
+            x-on:submit="if ($refs.question.value.trim()) beginPending($refs.question.value.trim())"
+            class="flex gap-2"
+        >
             <input
+                x-ref="question"
                 wire:model="question"
                 type="text"
-                placeholder="Ask about your inventory…"
+                placeholder="Ask Vortex Assistant about your inventory..."
                 autocomplete="off"
                 :disabled="loading"
-                class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 shadow-sm focus:border-primary-500 focus:ring-2 focus:ring-primary-500 focus:outline-none disabled:opacity-50"
+                class="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-sm placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             />
             <button
                 type="submit"
                 :disabled="loading"
-                class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 transition"
+                class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
             >
                 <x-heroicon-o-paper-airplane class="h-4 w-4" />
                 Send
             </button>
         </form>
-
     </div>
 </x-filament-panels::page>

@@ -7,7 +7,17 @@ use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\Payout;
+use App\Models\ReviewItem;
+use App\Models\ReviewSession;
+use App\Models\Setting;
+use App\Models\Show;
 use App\Models\Streamer;
+use App\Models\StreamerLoan;
+use App\Models\WeeklyPayoutBatch;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 
@@ -19,9 +29,17 @@ class OllamaService
 
     public function __construct()
     {
-        $this->baseUrl = rtrim(config('ollama.base_url', 'http://localhost:11434'), '/');
-        $this->model   = config('ollama.model', 'llama3.2');
-        $this->timeout = config('ollama.timeout', 60);
+        try {
+            $this->baseUrl = rtrim(Setting::get('ollama_base_url', config('ollama.base_url', 'http://localhost:11434')), '/');
+            $this->model   = Setting::get('ollama_model', config('ollama.model', 'llama3.2'));
+            $this->timeout = (int) Setting::get('ollama_timeout', (string) config('ollama.timeout', 120));
+        } catch (\Throwable) {
+            $this->baseUrl = rtrim(config('ollama.base_url', 'http://localhost:11434'), '/');
+            $this->model   = config('ollama.model', 'llama3.2');
+            $this->timeout = config('ollama.timeout', 120);
+        }
+
+        $this->model = $this->resolvePreferredModel($this->model);
     }
 
     public function isAvailable(): bool
@@ -43,12 +61,127 @@ class OllamaService
         }
     }
 
+    private function resolvePreferredModel(string $preferred): string
+    {
+        $models = $this->availableModels();
+
+        if (empty($models)) {
+            return $preferred;
+        }
+
+        if (in_array($preferred, $models, true)) {
+            return $preferred;
+        }
+
+        $prefixMatch = collect($models)->first(fn (string $model) => str_starts_with($model, $preferred . ':'));
+
+        return $prefixMatch ?: $preferred;
+    }
+
+    public function currentModel(): string
+    {
+        return $this->model;
+    }
+
+    public function currentBaseUrl(): string
+    {
+        return $this->baseUrl;
+    }
+
+    public function currentTimeout(): int
+    {
+        return $this->timeout;
+    }
+
     public function askQuestion(string $question): AiLog
     {
         $context    = $this->buildInventoryContext();
         $systemText = $this->systemPrompt($context);
 
         return $this->send($question, $systemText, 'freeform_query', $context);
+    }
+
+    public function query(string $question, string $systemText, ?int $userId = null): AiLog
+    {
+        $log = $this->send($question, $systemText, 'freeform_query', []);
+
+        if ($userId !== null && ! $log->user_id) {
+            $log->update(['user_id' => $userId]);
+        }
+
+        return $log;
+    }
+
+    /**
+     * Stream an Ollama response token-by-token, calling $onToken for each chunk.
+     * Returns an AiLog with the full concatenated response.
+     */
+    public function streamQuestion(string $question, string $systemText, callable $onToken): AiLog
+    {
+        $start        = microtime(true);
+        $fullResponse = '';
+        $success      = true;
+        $error        = null;
+
+        try {
+            $response = Http::withOptions(['stream' => true])
+                ->timeout($this->timeout)
+                ->post("{$this->baseUrl}/api/chat", [
+                    'model'    => $this->model,
+                    'stream'   => true,
+                    'messages' => [
+                        ['role' => 'system', 'content' => $systemText],
+                        ['role' => 'user',   'content' => $question],
+                    ],
+                ]);
+
+            if ($response->successful()) {
+                $body   = $response->toPsrResponse()->getBody();
+                $buffer = '';
+
+                while (! $body->eof()) {
+                    $buffer .= $body->read(512);
+
+                    while (($pos = strpos($buffer, "\n")) !== false) {
+                        $line   = substr($buffer, 0, $pos);
+                        $buffer = substr($buffer, $pos + 1);
+
+                        if (trim($line) === '') {
+                            continue;
+                        }
+
+                        $data = json_decode($line, true);
+                        if (isset($data['message']['content'])) {
+                            $token         = $data['message']['content'];
+                            $fullResponse .= $token;
+                            $onToken($token);
+                        }
+
+                        if ($data['done'] ?? false) {
+                            break 2;
+                        }
+                    }
+                }
+            } else {
+                $success = false;
+                $error   = "HTTP {$response->status()}: " . substr($response->body(), 0, 300);
+            }
+        } catch (\Exception $e) {
+            $success = false;
+            $error   = $e->getMessage();
+        }
+
+        return AiLog::create([
+            'model'         => $this->model,
+            'action_type'   => 'freeform_query',
+            'prompt'        => $question,
+            'response'      => $fullResponse,
+            'context'       => [],
+            'latency_ms'    => (int) ((microtime(true) - $start) * 1000),
+            'success'       => $success,
+            'error_message' => $error,
+            'user_id'       => Auth::id(),
+        ]);
     }
 
     public function inventoryAnalysis(): AiLog
@@ -152,25 +285,34 @@ class OllamaService
         $error    = null;
 
         try {
-            $result = Http::timeout($this->timeout)
-                ->post("{$this->baseUrl}/api/chat", [
-                    'model'  => $this->model,
-                    'stream' => false,
-                    'messages' => [
-                        ['role' => 'system', 'content' => $systemText],
-                        ['role' => 'user',   'content' => $prompt],
-                    ],
-                ]);
+            $result = $this->sendChatRequest($this->model, $systemText, $prompt);
 
             if ($result->successful()) {
                 $response = $result->json('message.content', '');
+            } elseif ($result->status() === 404 && str_contains($result->body(), 'model')) {
+                $fallbackModel = $this->resolvePreferredModel($this->model);
+
+                if ($fallbackModel !== $this->model) {
+                    $this->model = $fallbackModel;
+
+                    $retry = $this->sendChatRequest($this->model, $systemText, $prompt);
+
+                    if ($retry->successful()) {
+                        $response = $retry->json('message.content', '');
+                    } else {
+                        $success = false;
+                        $error   = "HTTP {$retry->status()}: " . substr($retry->body(), 0, 300);
+                    }
+                } else {
+                    $success = false;
+                    $error   = "HTTP {$result->status()}: " . substr($result->body(), 0, 300);
+                }
             } else {
                 $success = false;
                 $error   = "HTTP {$result->status()}: " . substr($result->body(), 0, 300);
             }
-        } catch (\Exception $e) {
-            $success = false;
-            $error   = $e->getMessage();
+        } catch (\Throwable $e) {
+            [$success, $response, $error] = $this->handleChatException($e, $systemText, $prompt);
         }
 
         return AiLog::create([
@@ -186,6 +328,84 @@ class OllamaService
         ]);
     }
 
+    private function ollamaRequest(?int $timeout = null): PendingRequest
+    {
+        return Http::acceptJson()
+            ->connectTimeout(5)
+            ->timeout($timeout ?? $this->timeout);
+    }
+
+    private function sendChatRequest(string $model, string $systemText, string $prompt): Response
+    {
+        return $this->ollamaRequest()->post("{$this->baseUrl}/api/chat", [
+            'model' => $model,
+            'stream' => false,
+            'messages' => [
+                ['role' => 'system', 'content' => $systemText],
+                ['role' => 'user', 'content' => $prompt],
+            ],
+        ]);
+    }
+
+    private function handleChatException(\Throwable $e, string $systemText, string $prompt): array
+    {
+        if (! $this->isTimeoutException($e)) {
+            return [false, '', $e->getMessage()];
+        }
+
+        $fallbackModel = $this->fastFallbackModel($this->model);
+
+        if (! $fallbackModel || $fallbackModel === $this->model) {
+            return [false, '', $e->getMessage()];
+        }
+
+        try {
+            $retry = $this->sendChatRequest($fallbackModel, $systemText, $prompt);
+
+            if ($retry->successful()) {
+                $this->model = $fallbackModel;
+
+                return [true, $retry->json('message.content', ''), null];
+            }
+
+            return [false, '', "HTTP {$retry->status()}: " . substr($retry->body(), 0, 300)];
+        } catch (\Throwable $retryException) {
+            return [false, '', $retryException->getMessage()];
+        }
+    }
+
+    private function isTimeoutException(\Throwable $e): bool
+    {
+        if (! $e instanceof ConnectionException) {
+            return false;
+        }
+
+        $message = strtolower($e->getMessage());
+
+        return str_contains($message, 'curl error 28')
+            || str_contains($message, 'timed out')
+            || str_contains($message, 'operation timed out');
+    }
+
+    private function fastFallbackModel(string $current): ?string
+    {
+        $models = $this->availableModels();
+
+        if (empty($models)) {
+            return null;
+        }
+
+        foreach (['qwen2.5:0.5b', 'qwen2.5:3b', 'llama3.2:3b', 'qwen2.5-coder:3b'] as $candidate) {
+            $resolved = $this->resolvePreferredModel($candidate);
+
+            if ($resolved !== $current && in_array($resolved, $models, true)) {
+                return $resolved;
+            }
+        }
+
+        return null;
+    }
+
     private function systemPrompt(array $context): string
     {
         return "You are VortexOps AI, an inventory assistant for Vortex Breaks — a sports card break business that streams on Whatnot. "
@@ -193,6 +413,112 @@ class OllamaService
             . "Use plain text or bullet points. Do not use markdown headers.\n\n"
             . "Current inventory snapshot:\n"
             . json_encode($context, JSON_PRETTY_PRINT);
+    }
+
+    public function buildProjectContext(): array
+    {
+        $ctx = [];
+
+        // Inventory
+        try {
+            $ctx['inventory'] = $this->buildInventoryContext();
+        } catch (\Exception) {
+            $ctx['inventory'] = ['error' => 'unavailable'];
+        }
+
+        // Streamers
+        try {
+            $ctx['streamers'] = Streamer::with(['loans' => fn ($q) => $q->where('status', 'active')])
+                ->get()
+                ->map(fn ($s) => [
+                    'id'                  => $s->id,
+                    'name'                => $s->name,
+                    'status'              => $s->status,
+                    'payout_type'         => $s->payout_type,
+                    'payout_percentage'   => (float) ($s->payout_percentage ?? 0),
+                    'package_rate'        => (float) ($s->package_rate ?? 0),
+                    'hourly_rate'         => (float) ($s->hourly_rate ?? 0),
+                    'custom_formula'      => $s->custom_payout_formula,
+                    'owner_fee_type'      => $s->owner_fee_type,
+                    'owner_fee_value'     => (float) ($s->owner_fee_value ?? 0),
+                    'outstanding_loans'   => $s->loans->sum('remaining_balance'),
+                ])->all();
+        } catch (\Exception) {
+            $ctx['streamers'] = ['error' => 'unavailable'];
+        }
+
+        // Recent shows
+        try {
+            $ctx['recent_shows'] = Show::with('streamers:id,name')
+                ->latest('show_date')
+                ->limit(10)
+                ->get()
+                ->map(fn ($s) => [
+                    'id'            => $s->id,
+                    'title'         => $s->title,
+                    'show_date'     => $s->show_date?->toDateString(),
+                    'status'        => $s->status,
+                    'gross_revenue' => (float) ($s->gross_revenue ?? 0),
+                    'units_sold'    => (int) ($s->units_sold ?? 0),
+                    'streamers'     => $s->streamers->pluck('name')->all(),
+                ])->all();
+
+            $ctx['shows_summary'] = [
+                'total'              => Show::count(),
+                'pending_review'     => Show::where('status', 'pending_review')->count(),
+                'pending_approval'   => Show::where('status', 'pending_approval')->count(),
+                'gross_revenue_30d'  => (float) Show::where('show_date', '>=', now()->subDays(30))->sum('gross_revenue'),
+            ];
+        } catch (\Exception) {
+            $ctx['shows_summary'] = ['error' => 'unavailable'];
+        }
+
+        // Payouts
+        try {
+            $ctx['payouts_summary'] = [
+                'total_draft'          => Payout::where('status', 'draft')->count(),
+                'total_approved'       => Payout::where('status', 'approved')->count(),
+                'total_paid_30d'       => Payout::where('status', 'paid')->where('updated_at', '>=', now()->subDays(30))->count(),
+                'amount_paid_30d'      => (float) Payout::where('status', 'paid')->where('updated_at', '>=', now()->subDays(30))->sum('calculated_payout'),
+                'current_draft_amount' => (float) Payout::where('status', 'draft')->sum('calculated_payout'),
+            ];
+
+            $ctx['current_pay_run'] = WeeklyPayoutBatch::with('payouts.streamer')
+                ->latest()
+                ->first()?->only(['week_start', 'week_end', 'status', 'total_payout']);
+        } catch (\Exception) {
+            $ctx['payouts_summary'] = ['error' => 'unavailable'];
+        }
+
+        // Loans
+        try {
+            $ctx['loans'] = StreamerLoan::with('streamer:id,name')
+                ->where('status', 'active')
+                ->get()
+                ->map(fn ($l) => [
+                    'streamer'           => $l->streamer?->name,
+                    'original_amount'    => (float) $l->amount,
+                    'remaining_balance'  => (float) $l->remaining_balance,
+                    'issued_date'        => $l->issued_date?->toDateString(),
+                ])->all();
+        } catch (\Exception) {
+            $ctx['loans'] = ['error' => 'unavailable'];
+        }
+
+        // Review items
+        try {
+            $ctx['review_summary'] = [
+                'open_items'        => ReviewItem::where('status', 'open')->count(),
+                'in_progress_items' => ReviewItem::where('status', 'in_progress')->count(),
+                'active_sessions'   => ReviewSession::where('status', '!=', 'closed')->count(),
+            ];
+        } catch (\Exception) {
+            $ctx['review_summary'] = ['error' => 'unavailable'];
+        }
+
+        $ctx['snapshot_at'] = now()->toISOString();
+
+        return $ctx;
     }
 
     public function detectPageContext(string $path): array
@@ -229,13 +555,8 @@ class OllamaService
                 }
             }
 
-            // Inventory items list
             if (str_contains($path, 'admin/inventory-items')) {
-                return [
-                    'page_type'  => 'inventory_items_list',
-                    'page_title' => 'Inventory Items List',
-                    'summary'    => $this->buildInventoryContext(),
-                ];
+                return ['page_type' => 'inventory_items_list', 'page_title' => 'Inventory Items'];
             }
 
             // Location detail
@@ -259,61 +580,140 @@ class OllamaService
                 }
             }
 
-            // Locations list
             if (str_contains($path, 'admin/inventory-locations')) {
-                return [
-                    'page_type'  => 'inventory_locations_list',
-                    'page_title' => 'Inventory Locations',
-                    'summary'    => $this->buildInventoryContext(),
-                ];
+                return ['page_type' => 'inventory_locations_list', 'page_title' => 'Inventory Locations'];
+            }
+
+            if (str_contains($path, 'admin/inventory-movements')) {
+                return ['page_type' => 'movement_log', 'page_title' => 'Movement Log'];
+            }
+
+            if (str_contains($path, 'admin/inventory-stocks')) {
+                return ['page_type' => 'stock_levels', 'page_title' => 'Stock Levels'];
             }
 
             // Streamer detail
             if (preg_match('#admin/streamers/(\d+)#', $path, $m)) {
-                $streamer = Streamer::with(['locations.stock'])->find($m[1]);
+                $streamer = Streamer::with(['locations.stock', 'loans' => fn ($q) => $q->where('status', 'active'), 'payouts' => fn ($q) => $q->latest()->limit(5)])->find($m[1]);
                 if ($streamer) {
                     return [
-                        'page_type' => 'streamer',
+                        'page_type'  => 'streamer',
                         'page_title' => $streamer->name,
-                        'streamer'  => [
+                        'streamer'   => [
                             'name'               => $streamer->name,
                             'status'             => $streamer->status,
                             'payout_type'        => $streamer->payout_type,
+                            'payout_percentage'  => (float) ($streamer->payout_percentage ?? 0),
+                            'owner_fee_type'     => $streamer->owner_fee_type,
+                            'owner_fee_value'    => (float) ($streamer->owner_fee_value ?? 0),
+                            'outstanding_loans'  => $streamer->loans->sum('remaining_balance'),
+                            'recent_payouts'     => $streamer->payouts->map(fn ($p) => [
+                                'calculated_payout' => (float) $p->calculated_payout,
+                                'status'            => $p->status,
+                                'date'              => $p->created_at->toDateString(),
+                            ])->all(),
                             'locations'          => $streamer->locations->map(fn ($l) => [
                                 'name'      => $l->name,
                                 'sku_count' => $l->stock->count(),
-                                'total_qty' => $l->stock->sum('quantity'),
                             ])->all(),
                         ],
                     ];
                 }
             }
 
-            // Movement log
-            if (str_contains($path, 'admin/inventory-movements')) {
-                return [
-                    'page_type'  => 'movement_log',
-                    'page_title' => 'Movement Log',
-                    'summary'    => $this->buildInventoryContext(),
-                ];
+            if (str_contains($path, 'admin/streamers')) {
+                return ['page_type' => 'streamers_list', 'page_title' => 'Streamers'];
             }
 
-            // Stock levels
-            if (str_contains($path, 'admin/inventory-stocks')) {
-                return [
-                    'page_type'  => 'stock_levels',
-                    'page_title' => 'Stock Levels',
-                    'summary'    => $this->buildInventoryContext(),
-                ];
+            // Show detail
+            if (preg_match('#admin/shows/(\d+)#', $path, $m)) {
+                $show = Show::with(['streamers:id,name', 'payouts.streamer:id,name'])->find($m[1]);
+                if ($show) {
+                    return [
+                        'page_type'  => 'show',
+                        'page_title' => $show->title ?? 'Show #' . $show->id,
+                        'show'       => [
+                            'id'            => $show->id,
+                            'title'         => $show->title,
+                            'show_date'     => $show->show_date?->toDateString(),
+                            'status'        => $show->status,
+                            'gross_revenue' => (float) ($show->gross_revenue ?? 0),
+                            'units_sold'    => (int) ($show->units_sold ?? 0),
+                            'streamers'     => $show->streamers->pluck('name')->all(),
+                            'payouts'       => $show->payouts->map(fn ($p) => [
+                                'streamer'          => $p->streamer?->name,
+                                'calculated_payout' => (float) $p->calculated_payout,
+                                'status'            => $p->status,
+                            ])->all(),
+                        ],
+                    ];
+                }
+            }
+
+            if (str_contains($path, 'admin/shows')) {
+                return ['page_type' => 'shows_list', 'page_title' => 'Shows'];
+            }
+
+            // Payout detail
+            if (preg_match('#admin/payouts/(\d+)#', $path, $m)) {
+                $payout = Payout::with(['show', 'streamer', 'batch'])->find($m[1]);
+                if ($payout) {
+                    return [
+                        'page_type'  => 'payout',
+                        'page_title' => 'Payout for ' . ($payout->streamer?->name ?? 'Unknown'),
+                        'payout'     => [
+                            'streamer'                => $payout->streamer?->name,
+                            'show'                    => $payout->show?->title,
+                            'payout_type'             => $payout->payout_type,
+                            'gross_show_revenue'      => (float) $payout->gross_show_revenue,
+                            'owner_fee_deducted'      => (float) ($payout->owner_fee_deducted ?? 0),
+                            'loan_repayment_deducted' => (float) ($payout->loan_repayment_deducted ?? 0),
+                            'tips_included'           => (float) $payout->tips_included,
+                            'calculated_payout'       => (float) $payout->calculated_payout,
+                            'status'                  => $payout->status,
+                        ],
+                    ];
+                }
+            }
+
+            if (str_contains($path, 'admin/payouts')) {
+                return ['page_type' => 'payouts_list', 'page_title' => 'Payouts'];
+            }
+
+            // Pay runs
+            if (preg_match('#admin/weekly-payout-batches/(\d+)#', $path, $m)) {
+                $batch = WeeklyPayoutBatch::with('payouts.streamer')->find($m[1]);
+                if ($batch) {
+                    return [
+                        'page_type'  => 'pay_run',
+                        'page_title' => 'Pay Run ' . $batch->week_start?->format('M j'),
+                        'pay_run'    => [
+                            'week_start'    => $batch->week_start?->toDateString(),
+                            'week_end'      => $batch->week_end?->toDateString(),
+                            'status'        => $batch->status,
+                            'total_payout'  => (float) $batch->total_payout,
+                            'streamer_count' => $batch->payouts->count(),
+                            'payouts'       => $batch->payouts->map(fn ($p) => [
+                                'streamer'          => $p->streamer?->name,
+                                'calculated_payout' => (float) $p->calculated_payout,
+                            ])->all(),
+                        ],
+                    ];
+                }
+            }
+
+            if (str_contains($path, 'admin/weekly-payout-batches')) {
+                return ['page_type' => 'pay_runs_list', 'page_title' => 'Pay Runs'];
+            }
+
+            // Review items
+            if (str_contains($path, 'admin/review-items') || str_contains($path, 'admin/review-sessions')) {
+                return ['page_type' => 'review', 'page_title' => 'Review Items'];
             }
 
             // Dashboard
             if ($path === 'admin' || $path === 'admin/') {
-                return [
-                    'page_type'  => 'dashboard',
-                    'page_title' => 'Dashboard',
-                    'summary'    => $this->buildInventoryContext(),
-                ];
+                return ['page_type' => 'dashboard', 'page_title' => 'Dashboard'];
             }
         } catch (\Exception) {
         }

@@ -109,6 +109,42 @@
 
         </div>
 
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+            <div class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                    <div class="rounded-lg bg-slate-100 dark:bg-slate-800 p-2">
+                        <x-heroicon-o-squares-2x2 class="h-5 w-5 text-slate-600 dark:text-slate-300" />
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Workspace Modules</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Choose which major admin sections stay visible inside the app.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 space-y-3">
+                @foreach ($this->availableModules as $slug => $module)
+                    <label class="flex items-start gap-3 rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-3 cursor-pointer hover:border-violet-300 dark:hover:border-violet-700 transition-colors">
+                        <input
+                            type="checkbox"
+                            wire:model.live="enabled_modules"
+                            value="{{ $slug }}"
+                            class="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500 focus:ring-offset-0 bg-white dark:bg-gray-900"
+                        />
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $module['label'] }}</span>
+                                <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">{{ $module['group'] }}</span>
+                            </div>
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $module['description'] }}</p>
+                        </div>
+                    </label>
+                @endforeach
+
+                <p class="text-xs text-gray-400">Hidden modules disappear from navigation and their admin pages stop being accessible until you re-enable them. Review &amp; Feedback also controls the client feedback portal and review mode overlay.</p>
+            </div>
+        </div>
+
         {{-- ── AI Settings ───────────────────────────────────────────────── --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
 
@@ -151,13 +187,14 @@
             <div class="px-6 py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                     <label for="ollama_model" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Model</label>
-                    <input wire:model.blur="ollama_model" id="ollama_model" type="text" placeholder="llama3.2"
+                    <input wire:model.blur="ollama_model" id="ollama_model" type="text" placeholder="llama3.2:3b"
                         class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono" />
                 </div>
                 <div>
                     <label for="ollama_timeout" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Timeout (seconds)</label>
-                    <input wire:model.blur="ollama_timeout" id="ollama_timeout" type="number" min="5" max="300"
+                    <input wire:model.blur="ollama_timeout" id="ollama_timeout" type="number" min="5" max="600"
                         class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none" />
+                    <p class="mt-1 text-xs text-gray-400">For larger local models, 120 to 180 seconds is a safer default.</p>
                 </div>
             </div>
 
@@ -165,7 +202,7 @@
                 <p class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Quick start</p>
                 <div class="space-y-1 font-mono text-xs text-gray-500 dark:text-gray-400">
                     <p><span class="text-gray-400">$</span> ollama serve</p>
-                    <p><span class="text-gray-400">$</span> ollama pull {{ $ollama_model ?: 'llama3.2' }}</p>
+                    <p><span class="text-gray-400">$</span> ollama pull {{ $ollama_model ?: 'llama3.2:3b' }}</p>
                 </div>
             </div>
         </div>

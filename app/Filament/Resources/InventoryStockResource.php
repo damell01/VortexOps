@@ -2,19 +2,21 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\InventoryStockResource\Pages;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryStock;
+use App\Support\AdminModules;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Actions\Action as TableAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
-use Filament\Tables\Actions\Action as TableAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -23,6 +25,10 @@ use Illuminate\Support\Facades\Cache;
 
 class InventoryStockResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'inventory';
+
     protected static ?string $model = InventoryStock::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -32,7 +38,7 @@ class InventoryStockResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Inventory';
+        return AdminModules::navigationGroupFor('inventory');
     }
 
     public static function getNavigationSort(): ?int
@@ -154,7 +160,7 @@ class InventoryStockResource extends Resource
                     ->getStateUsing(fn ($record) => $record->quantity * ($record->item?->unit_cost ?? 0))
                     ->money('USD'),
                 TextColumn::make('updated_at')
-                    ->dateTime()
+                    ->dateTime('M j, Y g:i A')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -168,9 +174,13 @@ class InventoryStockResource extends Resource
                         ->distinct()
                         ->pluck('category', 'category')
                         ->toArray()))
-                    ->query(fn ($query, $state) => $state['value']
-                        ? $query->whereHas('item', fn ($q) => $q->where('category', $state['value']))
-                        : $query),
+                    ->query(function (Builder $query, array $state): Builder {
+                        $value = $state['value'] ?? null;
+
+                        return $value
+                            ? $query->whereHas('item', fn ($q) => $q->where('category', $value))
+                            : $query;
+                    }),
             ])
             ->headerActions([
                 TableAction::make('export_csv')
@@ -188,7 +198,7 @@ class InventoryStockResource extends Resource
             ->persistFiltersInSession()
             ->paginationPageOptions([10, 25, 50])
             ->defaultPaginationPageOption(25)
-            ->defaultSort('item.name');
+            ->defaultSort('updated_at', 'desc');
     }
 
     public static function getRelations(): array

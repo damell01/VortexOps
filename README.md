@@ -1,231 +1,434 @@
-# Vortex Ops
+# VortexOps
 
-A Frappe/ERPNext custom app that replaces the spreadsheets and paper reports used by **Vortex Breaks** — a Whatnot-based sports card and trading card break business — with a central operations platform covering inventory, payroll, and show management.
+Internal operations platform for **Vortex Breaks** — a Whatnot-based sports card break business.
+
+Built with **Laravel 13** + **Filament v5**. Phases 1–3 complete: inventory foundation, show tracking, AI-assisted deduction, streamer payouts, and client feedback tooling.
 
 ---
 
-## What It Does
+## Screenshots
 
-| Problem | Solution |
+### Dashboard
+![Dashboard](docs/screenshots/01-dashboard.png)
+
+### Shows — Operational Loop
+| Shows List | Show Detail |
 |---|---|
-| Multiple spreadsheets tracking per-streamer data | Single ERPNext database with per-streamer records |
-| Manual payout calculations each week | Automated payout generation with configurable pay types |
-| Paper sheets for show sales data | Sales Upload DocType with manual entry or Whatnot auto-scrape |
-| Inventory tracked manually per box type | Per-streamer ERPNext warehouses with stock entries |
-| Loan deductions tracked separately | Loan records auto-deduct on payout approval |
-| Post-show CSV matching done by hand | Ollama AI matches product descriptions to inventory items |
+| ![Shows](docs/screenshots/02-shows-list.png) | ![Show Detail](docs/screenshots/05-show-view.png) |
 
----
-
-## Architecture
-
-```
-ERPNext v15 (Frappe)
-└── vortex_ops (custom app)
-    ├── vortex_ops/          # main module
-    │   ├── doctype/         # all custom DocTypes
-    │   ├── report/          # script reports
-    │   ├── page/            # custom pages (Inventory dashboard)
-    │   ├── ai/              # Ollama AI integrations
-    │   └── automation/      # scheduled tasks + Whatnot scraper
-    ├── setup/               # one-time setup helpers
-    └── utils.py             # shared helpers (safe_float, ollama_chat, etc.)
-```
-
-Two businesses run on the same ERPNext instance. Every stream, payout period, and inventory location is scoped to a **Company** (business) via the `Whatnot Channel → Business` link.
-
----
-
-## Full Workflow
-
-### 1 — Stream happens
-
-1. Create a **Stream Event** — link the Whatnot Channel, set the primary streamer, add any co-hosts in the Additional Streamers table.
-2. After the show ends, enter (or scrape) the financials: Gross Sales, Platform Fees, Tips, Packages.
-3. Submit the Stream Event → status moves to **Completed**, notifications sent.
-
-### 2 — Sales Upload & inventory deduction
-
-**Option A — Manual entry (paper sheet):**
-1. Open the Stream Event → create a **Sales Upload**.
-2. Streamer and warehouse auto-fill from the event.
-3. Add line items: box type, qty sold, sale price.
-4. Approve → Submit → inventory deducted automatically (Material Issue in ERPNext).
-
-**Option B — Whatnot auto-scrape:**
-1. Paste the Whatnot show URL into the `Whatnot Show URL` field on the Stream Event.
-2. Click **"Fetch from Whatnot"** → Playwright logs in and grabs the recap page.
-3. Ollama AI parses the raw page text into structured item lines (falls back to regex if Ollama is down).
-4. Review the pre-populated Sales Upload, run **Run AI Match** to map descriptions to inventory items, approve, and submit.
-
-### 3 — Weekly payroll
-
-1. Create a **Payout Period** — set the date range and business. The period name auto-suggests from the dates ("Week of Jun 2–8, 2025").
-2. **1 · Pull Streams** — fetches all submitted streams for that business in the date range.
-3. **2 · Generate Payouts** — creates one **Streamer Payout** per streamer, pulls their stream data automatically.
-4. Review each payout — the form shows a live net total and warns on negative payouts. Adjust tips, adjustments, or deductions as needed.
-5. **3 · Approve All Reviewed** (or approve individually) — marks payouts Approved and records any loan deductions.
-6. **Payroll Export** report → export to ADP CSV per streamer.
-
----
-
-## DocTypes
-
-### Core
-
-| DocType | Purpose |
+### Deduction Requests — AI-Assisted Review
+| Queue | Review & Approve |
 |---|---|
-| **Stream Event** | One record per Whatnot show — financials, streamers, status |
-| **Whatnot Channel** | Channel config — Whatnot username/password, linked business |
-| **Streamer** | Per-streamer config — pay type, rates, fees, ADP ID, warehouse |
-| **Payout Period** | Weekly/monthly pay cycle — contains linked streams |
-| **Streamer Payout** | Calculated payout per streamer per period |
-| **Loan Record** | Tracks outstanding loans; repayments auto-deduct from payouts |
-| **Sales Upload** | Post-show sales entry — populates inventory deductions |
+| ![Deduction List](docs/screenshots/06-deduction-requests-list.png) | ![Review UI](docs/screenshots/07-deduction-request-review.png) |
 
-### Child Tables
-
-| DocType | Parent | Purpose |
+### Inventory
+| Items List | Action Menu | Add Stock |
 |---|---|---|
-| **Stream Streamer** | Stream Event | Additional streamers / co-hosts |
-| **Payout Period Stream** | Payout Period | Streams linked to a period |
-| **Loan Repayment** | Loan Record | Per-period repayment schedule |
-| **Sales Upload Line** | Sales Upload | One row per box/product sold |
+| ![Items](docs/screenshots/08-inventory-items-list.png) | ![Actions](docs/screenshots/12-inventory-actions-dropdown.png) | ![Add Stock](docs/screenshots/13-add-stock-modal.png) |
+
+| Stock Levels | Movement Log |
+|---|---|
+| ![Stock](docs/screenshots/19-stock-levels.png) | ![Movements](docs/screenshots/20-movement-log.png) |
+
+### Payouts & Pay Runs
+| Payouts | Weekly Pay Run |
+|---|---|
+| ![Payouts](docs/screenshots/21-payouts-list.png) | ![Pay Run](docs/screenshots/24-pay-run-view.png) |
+
+### Feedback System
+| Ticket List | Feedback Button |
+|---|---|
+| ![Feedback Tickets](docs/screenshots/27-feedback-tickets-list.png) | ![Feedback Widget](docs/screenshots/28-feedback-widget-button.png) |
+
+### AI & Settings
+| AI Assistant | App Settings |
+|---|---|
+| ![AI](docs/screenshots/29-ai-assistant.png) | ![Settings](docs/screenshots/31-settings.png) |
+
+### Admin
+| Users | Activity Log |
+|---|---|
+| ![Users](docs/screenshots/32-users-list.png) | ![Activity](docs/screenshots/33-activity-log.png) |
 
 ---
 
-## Payout Types
+## Stack
 
-Every streamer can be configured independently:
+| Layer | Technology |
+|---|---|
+| Framework | Laravel 13 |
+| Admin panel | Filament v5 + Livewire 3 |
+| Database | SQLite (dev) / MySQL (prod) |
+| Auth & Roles | Spatie Laravel Permission v7 |
+| Audit log | Spatie Activitylog v5 |
+| Queue | Laravel Queues (database driver) |
+| AI | Ollama (local LLM, no external API) |
+
+---
+
+## Key design constraints
+
+- **Single-tenant only** — not a SaaS platform
+- **Inventory deductions never happen automatically** — every deduction requires explicit ops approval
+- **Full audit trail** — every inventory change creates an immutable movement record
+- **Whatnot channels are shared** — multiple streamers can work on the same channel
+- **Payouts are calculated, not entered** — the payout engine derives amounts from show financials and streamer rate config
+
+---
+
+## Getting started
+
+```bash
+composer install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate --seed
+php artisan serve
+```
+
+Admin login: `admin@vortexbreaks.com` / `password`  
+Dev (super admin): `dev@vortexbreaks.com` / `devpassword`
+
+Demo data includes 3 streamers, 8 inventory items, stock across all locations, 3 shows at different stages (reconciled / pending approval / draft), deduction requests, payouts, and 2 weekly pay run batches.
+
+To run the queue worker (required for AI mapping and low-stock notifications):
+
+```bash
+php artisan queue:work
+```
+
+To regenerate docs screenshots:
+
+```bash
+php artisan serve --port=8765 &
+node screenshot.cjs
+```
+
+---
+
+## Navigation groups
+
+| Group | Resources |
+|---|---|
+| **Streams** | Shows, Deduction Requests |
+| **Inventory** | Items, Locations, Stock Levels, Movement Log |
+| **Payouts & Pay Runs** | Payouts, Pay Runs (Weekly Batches) |
+| **Operations** | Feedback Tickets |
+| **AI** | AI Assistant, AI Logs |
+| **Settings** | App Settings, Users, Activity Log |
+
+---
+
+## Shows & the operational loop
+
+The core workflow that ties everything together:
+
+```
+Create Show
+    │
+    ▼
+pending_review ──► Assign streamers + enter financials
+    │
+    ▼
+[Run AI Mapping] ──► Jobs: ParseShowTitle → MapShowInventory
+    │
+    ▼
+mapping ──► AI reads show title + available inventory → creates DeductionRequest with suggested lines
+    │
+    ▼
+pending_approval ──► Ops reviews/edits deduction lines in the approval UI
+    │
+    ├── Approve ──► inventory deducted, show → reconciled, payouts calculated
+    └── Reject  ──► show returns to pending_review (retry loop)
+```
+
+### Show statuses
+
+| Status | Meaning |
+|---|---|
+| `draft` | Just created; no streamers or financials yet |
+| `pending_review` | Ready for ops to assign streamers and trigger AI mapping |
+| `mapping` | AI job running — deduction lines being generated |
+| `pending_approval` | Deduction request created; waiting for ops to approve or reject |
+| `reconciled` | Approved and inventory deducted; payouts generated |
+| `closed` | Manually closed without reconciliation |
+| `cancelled` | Cancelled; no deductions |
+
+---
+
+## Deduction Requests
+
+Each show generates one `DeductionRequest` (one per streamer at the time of AI mapping). The request contains one or more `DeductionRequestLine` records, each representing one inventory item to be deducted.
+
+**Approval UI** (`/admin/deduction-requests/{id}`):
+- Shows the full show summary (revenue, units sold, streamer)
+- Displays AI mapping notes and confidence levels per line
+- Ops can edit quantity approved, unit cost, and item/location per line
+- Ops can add or remove lines manually
+- Approve button persists all edits, then calls `InventoryService::deductStock()` for each approved line
+- Reject button returns the show to `pending_review` and records the rejection reason
+
+### Deduction line confidence levels
+
+| Level | Meaning |
+|---|---|
+| `high` | AI is confident in the item match |
+| `medium` | AI has a reasonable guess but needs review |
+| `low` | AI is unsure; ops should verify or replace |
+| `manual` | Line was added or overridden by ops |
+
+---
+
+## Payout engine
+
+Payouts are calculated by `PayoutService::calculateForShow()` and triggered automatically after a deduction request is approved.
+
+### Payout types (set per streamer)
 
 | Type | Calculation |
 |---|---|
-| **Profit Share** | `gross_sales × profit_share_pct` |
-| **Package** | `package_count × package_rate` |
-| **Hourly** | Manual entry |
-| **Flat Rate** | Fixed amount per period |
+| `profit_share` | `whatnot_net × (payout_percentage / 100)`, optionally + tips share |
+| `package` | Fixed `package_rate`, optionally + tips share |
+| `hourly` | `hourly_rate × (show_duration_minutes / 60)` |
+| `flat_rate` | Fixed `package_rate` (no tips) |
 
-Plus: tips (toggleable per streamer), adjustments (manual +/−), owner platform fee (% taken from gross), and loan deductions (from Loan Record schedule).
+Tips are divided equally among all streamers on the show when `include_tips = true`.
+
+### Weekly pay runs (batches)
+
+Ops creates a `WeeklyPayoutBatch` for a given Monday–Sunday range. All unbatched draft payouts for shows in that week are pulled into the batch. Finalizing a batch marks all included payouts as `approved`. Batch statuses: `draft → finalized → submitted_to_adp → paid`.
 
 ---
 
 ## Inventory
 
-Inventory is tracked **by box** (not individual cards) using ERPNext's native stock system.
+### Location types
 
-- Each streamer gets a personal **Warehouse** (e.g. "Jordan Inventory - VB").
-- Shared locations: Main Storage, Returned Inventory, Damaged Inventory, Fulfillment Area.
-- Stock operations: Add (receipt), Remove, Transfer between locations, Adjust (correction/damage).
-- The **Vortex Inventory** page (`/vortex-inventory`) gives a card-grid overview of all locations with SKU count, total units, stock value, and low-stock alerts.
-- When a Sales Upload is submitted, a **Material Issue** stock entry deducts exactly what was sold from the streamer's warehouse. COGS and gross profit update on the Stream Event.
+| Type | Purpose |
+|---|---|
+| `main_storage` | Primary warehouse / storage |
+| `streamer_inventory` | Stock assigned to a specific streamer |
+| `returned` | Buyer returns staging area |
+| `damaged` | Damaged / unsellable units |
+| `fulfillment` | Outbound / shipping staging |
 
-### Inventory reports
+### Stock operations (per item, via action menu)
 
-- **Inventory by Streamer** — per-location breakdown with unit cost, total value, reorder alerts, and subtotals.
-- ERPNext Stock Ledger — full audit trail for all stock movements.
+| Action | What it does |
+|---|---|
+| Add Stock | Adds units to a location. Logs `opening`, `adjustment`, or `return` movement. |
+| Transfer Stock | Moves units between two locations. Debits source, credits destination. |
+| Adjust Inventory | Sets an exact quantity. Computes delta and logs a signed `adjustment` movement. |
+| Mark Damaged | Moves units from any location to the designated damaged location. Sends a danger notification. |
+| Move to Returns | Moves units to the designated returns location. |
+
+All operations are wrapped in database transactions. Insufficient stock throws `RuntimeException` before any mutation occurs.
+
+### Low stock notifications
+
+After every stock operation, `InventoryService` checks `item.totalQuantity() <= item.reorder_level`. When triggered, a queued `SendLowStockNotification` job sends a warning database notification to all users.
 
 ---
 
-## AI Features (Ollama)
+## Feedback system
 
-All AI runs locally via [Ollama](https://ollama.com). No data leaves the server.
+A floating **"Feedback"** button sits in the bottom-right corner of every page. Clicking it:
 
-| Feature | Where | What it does |
+1. **Captures a live screenshot** of the current page (via html2canvas) without the widget visible
+2. Opens an **annotation canvas** with tools: freehand pen, rectangle, arrow, highlight — 6 colors + 3 line widths + undo
+3. Prompts for **title, description, and priority** (Low / Medium / High)
+4. Submits and stores the annotated screenshot + metadata as a **FeedbackTicket**
+
+Tickets are managed under **Operations → Feedback** with full priority/status lifecycle:
+`open → in_progress → resolved / closed` (re-open supported)
+
+Admins can assign tickets, add internal notes, and view the annotated screenshot inline.
+
+---
+
+## AI (Ollama)
+
+All AI runs locally via Ollama. No data leaves the server.
+
+### AI services
+
+| Service | What it does |
+|---|---|
+| `AiTitleParserService` | Parses a show title to suggest which streamer hosted it. Called by `ParseShowTitle` job. |
+| `AiInventoryMapperService` | Given a show's title, units sold, and available inventory catalogue, returns a JSON mapping of which items were likely sold. Called by `MapShowInventory` job. |
+| `OllamaService` | HTTP client wrapper. `chat()`, `json()`, `isAvailable()`, `availableModels()`. All calls are logged to `ai_logs`. |
+
+### Queue jobs
+
+| Job | Triggered by | On failure |
 |---|---|---|
-| **Whatnot Page Parser** | Whatnot scraper | Reads raw page text, extracts totals + item list as JSON |
-| **Product Matcher** | Sales Upload | Matches informal box descriptions to ERPNext item codes |
-| **Anomaly Detection** | Payout Period | Flags unusual payout amounts before approval |
-| **Stream Summary** | Stream Event (on submit) | Auto-generates a text summary of the show |
-| **Low Stock Predictor** | Automation | Predicts reorder needs based on sales velocity |
+| `ParseShowTitle` | Show created with a non-null title | Logs error; show stays `pending_review` |
+| `MapShowInventory` | "Run AI Mapping" action on show | Logs error; show returns to `pending_review` |
+| `NotifyShowReady` | Show created | Sends database notification to all admins |
+| `NotifyShowReconciled` | Deduction approved | Sends database notification to all admins |
+| `SendLowStockNotification` | Any stock operation that drops below reorder level | Sends warning notification (queued, after commit) |
 
-### Setup
+### AI floating panel
+
+A sparkles button sits in the bottom-right corner of every admin page. Clicking it opens a chat panel that automatically loads context for the current page (inventory item, location, streamer, or dashboard overview).
+
+### Settings
+
+```
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+OLLAMA_TIMEOUT=60
+```
+
+Or configure via **Settings → AI Assistant**. Use the "Test Ollama" button to verify connectivity.
 
 ```bash
-# Install Ollama on the server
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull llama3.1:8b   # or any model you prefer
-
-# Optional: set model in site config
-# frappe.conf.ollama_model = "llama3.1:8b"
+ollama serve
+ollama pull llama3.2
 ```
 
 ---
 
-## Whatnot Scraper
-
-Automates post-show data collection via Playwright + Ollama.
-
-### Install
-
-```bash
-pip install playwright
-playwright install chromium
-```
-
-### Configure
-
-1. Open the **Whatnot Channel** record for your channel.
-2. Set `Whatnot Username` and `Whatnot Password` (stored encrypted).
-
-### Use
-
-1. After a show ends, find the show URL in your Whatnot seller dashboard.
-2. Paste it into `Whatnot Show URL` on the **Stream Event**.
-3. Click **"Fetch from Whatnot"** — the scraper logs in, grabs the recap, and Ollama extracts the data into a Sales Upload.
-4. If Ollama is unavailable, regex extraction runs as a fallback.
-5. If the page structure has changed and nothing is extracted, check the **Error Log** for a page snippet — adjust selectors in `automation/whatnot_scraper.py`.
-
----
-
-## Reports
-
-| Report | DocType | Notes |
-|---|---|---|
-| **Payroll Export** | Streamer Payout | Full per-streamer breakdown; filters by period and draft/submitted |
-| **Inventory by Streamer** | Bin / Warehouse | Stock by location with cost, value, reorder alerts |
-| **Loan Balance Ledger** | Loan Record | Outstanding balances with status colors; filter by streamer |
-
----
-
-## Setup
-
-### First-time inventory setup
-
-```python
-# From the Frappe console or via bench execute:
-from vortex_ops.setup.inventory_setup import run
-run()
-```
-
-This creates UOMs (Box, Case, Pack, etc.), item groups (Sports Cards, TCG, Sealed Wax, etc.), and base warehouses (Main Storage, Returned Inventory, etc.).
-
-Or click **Setup Inventory** on the Vortex Ops workspace.
-
-### Roles
+## Roles & access
 
 | Role | Access |
 |---|---|
-| `Vortex Admin` | Full access — all DocTypes, AI features, anomaly checks |
-| `Vortex Operations` | Day-to-day — streams, payouts, sales uploads, approvals |
-| `Vortex Accounting` | Payroll export, ADP CSV download |
+| `super_admin` | Everything, including role assignment. Dev use only. |
+| `admin` | Full access to all resources, settings, and user management |
+| `streamer` | Inventory items, their own locations + shared locations, movement log, their own payouts. No settings, no user management. |
+
+Assign a streamer user to a **Streamer profile** via the linked profile field on the user form. Inventory locations then scope automatically to that streamer's own locations plus all shared (non-streamer-assigned) locations.
 
 ---
 
-## Requirements
+## Data model
 
 ```
-frappe/erpnext v15
-requests >= 2.31.0
-playwright          (optional — for Whatnot auto-scrape)
-ollama              (optional — local AI, recommended)
+WhatnotChannel
+     │
+     └──< Show >────────────────────────────< show_streamer >─────────< Streamer
+              │                                                               │
+              ├──< DeductionRequest >─────< DeductionRequestLine      InventoryLocation (streamer_id FK)
+              │         │                       │          │                  │
+              │   approved_by (User)     InventoryItem  Location        InventoryStock
+              │                                                               │
+              └──< Payout >──< WeeklyPayoutBatch                       InventoryItem
+                    │
+                 Streamer
+
+InventoryMovement (inventory_item_id, from_location_id, to_location_id, quantity, type, created_by)
+FeedbackTicket    (title, description, screenshot_path, page_url, status, priority, submitted_by, assigned_to)
+Setting           (key / value — cached 1 hour)
+AiLog             (action, prompt, response, latency_ms, success)
+```
+
+### Movement types
+
+| Type | When created |
+|---|---|
+| `opening` | Initial stock entry |
+| `transfer` | Stock moved between locations |
+| `adjustment` | Quantity corrected to exact value |
+| `sale_deduction` | Inventory deducted from an approved deduction request |
+| `return` | Item returned to inventory |
+| `damaged` | Item moved to damaged location |
+
+---
+
+## Project structure
+
+```
+app/
+├── Filament/
+│   ├── Pages/
+│   │   ├── AppSettings.php              # branding, AI, notifications, maintenance actions
+│   │   └── AiAssistant.php             # full-screen AI chat page
+│   ├── Resources/
+│   │   ├── ShowResource.php            # show CRUD + AI mapping action
+│   │   ├── DeductionRequestResource/
+│   │   │   └── Pages/ViewDeductionRequest.php   # approval/reject UI
+│   │   ├── FeedbackTicketResource/
+│   │   │   └── Pages/ViewFeedbackTicket.php     # status lifecycle + admin notes
+│   │   ├── InventoryItemResource.php   # 5 stock operation modals
+│   │   ├── InventoryLocationResource.php
+│   │   ├── InventoryMovementResource.php        # read-only audit log
+│   │   ├── InventoryStockResource.php           # read-only stock view
+│   │   ├── PayoutResource.php
+│   │   ├── WeeklyPayoutBatchResource.php
+│   │   ├── StreamerResource.php
+│   │   ├── WhatnotChannelResource.php
+│   │   ├── UserResource.php
+│   │   ├── ActivityLogResource.php              # Spatie activity log viewer
+│   │   └── AiLogResource.php
+│   └── Widgets/
+│       ├── InventoryOverviewWidget.php  # cached stat cards
+│       ├── LowStockWidget.php
+│       ├── RecentMovementsWidget.php
+│       ├── InventoryByLocationWidget.php
+│       └── ActiveStreamersWidget.php
+├── Jobs/
+│   ├── ParseShowTitle.php
+│   ├── MapShowInventory.php
+│   ├── NotifyShowReady.php
+│   ├── NotifyShowReconciled.php
+│   └── SendLowStockNotification.php    # queued, dispatched after commit
+├── Livewire/
+│   ├── AiChatPanel.php                 # floating AI chat sidebar
+│   └── FeedbackWidget.php             # screenshot capture + annotation + submit
+├── Models/
+│   ├── Show.php · DeductionRequest.php · DeductionRequestLine.php
+│   ├── InventoryItem.php · InventoryLocation.php · InventoryMovement.php · InventoryStock.php
+│   ├── Streamer.php · WhatnotChannel.php
+│   ├── Payout.php · WeeklyPayoutBatch.php
+│   ├── FeedbackTicket.php
+│   ├── User.php · Setting.php · AiLog.php
+└── Services/
+    ├── InventoryService.php             # all stock mutations, transactions
+    ├── OllamaService.php               # Ollama HTTP client + AI log
+    ├── PayoutService.php               # payout calculation + weekly batch creation
+    ├── AiTitleParserService.php
+    ├── AiInventoryMapperService.php
+    ├── DeductionApprovalService.php    # approve + execute deductions
+    └── DeductionRejectionService.php   # reject + return show to pending_review
 ```
 
 ---
 
-## Two-Business Setup
+## Development phases
 
-Both businesses run on the same ERPNext instance. Separation is handled by:
-- **Company** field on Payout Period, Stream Event, and Whatnot Channel.
-- `pull_streams()` filters streams by the period's company.
-- Separate Whatnot Channels with separate credentials.
-- Streamer records are shared if a streamer works for both businesses.
+| Phase | Scope | Status |
+|---|---|---|
+| **Phase 1** | Inventory & Product Cost Foundation — items, locations, stock levels, movement log, streamer profiles, Whatnot channels | ✅ Complete |
+| **Phase 2** | Stream Tracking — show scheduling, status workflow, AI title parsing, show financials | ✅ Complete |
+| **Phase 3** | Reconciliation & Deduction — AI inventory mapping, deduction approval workflow, payout calculation engine, weekly pay runs | ✅ Complete |
+| **Phase 3.5** | Platform Polish — performance optimization, mobile-responsive tables, nav badges, filter caching, client feedback tooling | ✅ Complete |
+| **Phase 4** | Operational Reporting — P&L summaries, per-streamer profitability, COGS trends, show performance dashboards | Planned |
+| **Phase 5** | Automation & Expansion — Whatnot API integration, automated show ingestion, advanced analytics, webhook alerts | Planned |
+
+**Timeline notes:** Timelines vary depending on workflow discoveries, operational changes, review cycles, testing, platform limitations, client feedback, and evolving business requirements.
+
+---
+
+## Partnership & Pricing
+
+**Prepared by DBell Creations for Vortex Breaks**
+
+| | |
+|---|---|
+| **Project Initiation & Environment Setup** | **$1,000** one-time setup fee |
+| **Monthly Partnership Retainer** | **$4,000 / mo** ongoing development & management |
+
+### What the monthly retainer includes
+
+| | |
+|---|---|
+| Ongoing platform development and feature enhancements | Hosting and infrastructure management |
+| Workflow improvements and operational updates | Backups and platform monitoring |
+| Inventory workflow development and reporting enhancements | Future operational enhancements and additions |
+| Support and maintenance | Workflow optimization and operational consulting |
+| Bug fixes and platform improvements | |
+
+---
+
+**DBell Creations**  
+📞 (251) 406-2292 · ✉ dbellcreations@gmail.com · 🌐 www.dbellcreation.com

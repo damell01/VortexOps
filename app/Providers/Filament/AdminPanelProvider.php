@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Models\Setting;
+use App\Support\AdminModules;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -19,6 +20,7 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Js;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
@@ -60,35 +62,44 @@ class AdminPanelProvider extends PanelProvider
         if ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {
             $panel = $panel
                 ->brandLogo(asset('storage/' . $logoPath))
-                ->brandLogoHeight('2rem');
+                ->brandLogoHeight('2.75rem');
         }
+
+        $isAuthenticatedAdminView = fn (): bool => auth()->check();
+        $hasViteManifest = fn (): bool => file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot'));
 
         return $panel
             ->spa(hasPrefetching: true)
             ->databaseNotifications()
             ->databaseNotificationsPolling('300s')
-            ->navigationGroups([
-                NavigationGroup::make('Streams'),
-                NavigationGroup::make('Payouts & Pay Runs'),
-                NavigationGroup::make('Inventory'),
-                NavigationGroup::make('Operations'),
-                NavigationGroup::make('AI'),
-                NavigationGroup::make('Settings')
-                    ->collapsed(),
-            ])
+            ->navigationGroups(array_map(
+                fn (string $group): NavigationGroup => $group === 'Settings'
+                    ? NavigationGroup::make($group)->collapsed()
+                    : NavigationGroup::make($group),
+                AdminModules::visibleNavigationGroups(),
+            ))
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => Blade::render(
-                    "@vite(['resources/css/app.css', 'resources/js/app.js'])"
-                ),
+                fn (): string => ! $hasViteManifest()
+                    ? ''
+                    : ($isAuthenticatedAdminView()
+                        ? Blade::render("@vite(['resources/css/app.css', 'resources/js/app.js'])")
+                        : Blade::render("@vite(['resources/css/app.css'])")),
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn (): string => Blade::render(
-                    (Setting::getBool('ai_enabled', true) ? "@livewire('ai-chat-panel')" : '')
-                    . "<x-tour-button />"
-                    . "@livewire('feedback-widget')"
-                ),
+                fn (): string => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : Blade::render(
+                        '<script>window.VortexModules = ' . Js::from([
+                            'projects' => AdminModules::isEnabled('projects'),
+                            'reviews'  => AdminModules::isEnabled('reviews'),
+                            'ai'       => AdminModules::isEnabled('ai'),
+                        ]) . ';</script>' .
+                        (AdminModules::isEnabled('ai') ? "@livewire('ai-chat-panel')" : '')
+                        . "<x-tour-button />"
+                        . (AdminModules::isEnabled('reviews') ? "@livewire('feedback-widget')" : '')
+                    ),
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

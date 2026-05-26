@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\AiLogResource\Pages;
 use App\Models\AiLog;
+use App\Support\AdminModules;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -20,11 +22,15 @@ use Illuminate\Database\Eloquent\Builder;
 
 class AiLogResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'ai';
+
     protected static ?string $model = AiLog::class;
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'AI';
+        return AdminModules::navigationGroupFor('ai');
     }
 
     public static function getNavigationSort(): ?int

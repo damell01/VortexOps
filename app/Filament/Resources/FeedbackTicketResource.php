@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\FeedbackTicketResource\Pages;
 use App\Models\FeedbackTicket;
+use App\Support\AdminModules;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -15,6 +17,10 @@ use Illuminate\Support\Facades\Cache;
 
 class FeedbackTicketResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'reviews';
+
     protected static ?string $model = FeedbackTicket::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -24,17 +30,19 @@ class FeedbackTicketResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Operations';
+        return AdminModules::navigationGroupFor('reviews');
     }
 
     public static function getNavigationSort(): ?int
     {
-        return 10;
+        return 12;
     }
 
     public static function getNavigationBadge(): ?string
     {
-        $count = FeedbackTicket::whereIn('status', ['open', 'in_progress'])->count();
+        $count = Cache::remember('nav_badge:feedback_open', 60, fn () =>
+            FeedbackTicket::whereIn('status', ['open', 'in_progress'])->count()
+        );
         return $count > 0 ? (string) $count : null;
     }
 

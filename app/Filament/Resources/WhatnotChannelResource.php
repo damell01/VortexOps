@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\WhatnotChannelResource\Pages;
 use App\Models\WhatnotChannel;
+use App\Support\AdminModules;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -21,6 +23,10 @@ use Filament\Tables\Table;
 
 class WhatnotChannelResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'operations';
+
     protected static ?string $model = WhatnotChannel::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -30,7 +36,7 @@ class WhatnotChannelResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Operations';
+        return AdminModules::navigationGroupFor('operations');
     }
 
     public static function getNavigationSort(): ?int

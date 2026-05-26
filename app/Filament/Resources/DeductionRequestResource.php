@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\DeductionRequestResource\Pages;
 use App\Models\DeductionRequest;
+use App\Support\AdminModules;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -14,6 +16,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class DeductionRequestResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'streams';
+
     protected static ?string $model = DeductionRequest::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -23,7 +29,7 @@ class DeductionRequestResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Streams';
+        return AdminModules::navigationGroupFor('streams');
     }
 
     public static function getNavigationSort(): ?int
@@ -31,25 +37,31 @@ class DeductionRequestResource extends Resource
         return 2;
     }
 
+    public static function getModelLabel(): string
+    {
+        return 'Pending Approval';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Pending Approvals';
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Pending Approvals';
+    }
+
     public static function getNavigationBadge(): ?string
     {
-        $count = \App\Models\DeductionRequest::where('status', 'pending')->count();
+        $count = static::getModel()::query()->where('status', 'pending')->count();
+
         return $count > 0 ? (string) $count : null;
     }
 
     public static function getNavigationBadgeColor(): ?string
     {
         return 'warning';
-    }
-
-    public static function getModelLabel(): string
-    {
-        return 'Deduction Request';
-    }
-
-    public static function getPluralModelLabel(): string
-    {
-        return 'Deduction Requests';
     }
 
     public static function canCreate(): bool
@@ -110,12 +122,12 @@ class DeductionRequestResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn ($state) => DeductionRequest::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => match ($state) {
-                        'draft'     => 'gray',
-                        'pending'   => 'warning',
-                        'approved'  => 'info',
+                        'draft' => 'gray',
+                        'pending' => 'warning',
+                        'approved' => 'info',
                         'processed' => 'success',
-                        'rejected'  => 'danger',
-                        default     => 'gray',
+                        'rejected' => 'danger',
+                        default => 'gray',
                     }),
 
                 TextColumn::make('lines_count')
@@ -129,16 +141,21 @@ class DeductionRequestResource extends Resource
 
                 TextColumn::make('created_at')
                     ->label('Created')
-                    ->dateTime()
+                    ->dateTime('M j, Y g:i A')
                     ->sortable(),
 
                 TextColumn::make('approved_at')
                     ->label('Approved')
-                    ->dateTime()
+                    ->dateTime('M j, Y g:i A')
                     ->placeholder('—')
                     ->toggleable(),
             ])
             ->filters([
+                SelectFilter::make('show_id')
+                    ->label('Show')
+                    ->relationship('show', 'title')
+                    ->searchable(),
+
                 SelectFilter::make('status')
                     ->options(DeductionRequest::statusLabels()),
 
@@ -162,7 +179,7 @@ class DeductionRequestResource extends Resource
     {
         return [
             'index' => Pages\ListDeductionRequests::route('/'),
-            'view'  => Pages\ViewDeductionRequest::route('/{record}'),
+            'view' => Pages\ViewDeductionRequest::route('/{record}'),
         ];
     }
 }

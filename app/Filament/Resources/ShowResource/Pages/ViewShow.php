@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\ShowResource\Pages;
 
 use App\Filament\Resources\ShowResource;
+use App\Filament\Resources\DeductionRequestResource;
 use App\Jobs\MapShowInventory;
 use App\Jobs\ParseShowTitle;
 use Filament\Actions\EditAction;
@@ -28,15 +29,26 @@ class ViewShow extends ViewRecord
                 }),
 
             Action::make('run_ai_mapping')
-                ->label('Run AI Mapping')
+                ->label('Map Sales with AI')
                 ->icon('heroicon-o-sparkles')
-                ->color('warning')
+                ->color('primary')
                 ->visible(fn () => $this->record->status === 'pending_review' && $this->record->streamers()->exists())
                 ->requiresConfirmation()
                 ->action(function () {
                     MapShowInventory::dispatch($this->record->id);
-                    Notification::make()->title('AI Mapping queued')->success()->send();
+                    Notification::make()
+                        ->title('AI Mapping queued')
+                        ->body('We are mapping this show now. Ops will be notified when approval is ready.')
+                        ->success()
+                        ->send();
                 }),
+
+            Action::make('review_approval')
+                ->label('Review Approval')
+                ->icon('heroicon-o-clipboard-document-check')
+                ->color('info')
+                ->visible(fn () => in_array($this->record->status, ['pending_approval', 'reconciled', 'closed']))
+                ->url(fn () => DeductionRequestResource::getUrl('index', ['tableFilters[show_id][value]' => $this->record->id])),
 
             EditAction::make(),
         ];

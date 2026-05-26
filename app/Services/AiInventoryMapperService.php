@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\NotifyShowPendingApproval;
 use App\Models\DeductionRequest;
 use App\Models\DeductionRequestLine;
 use App\Models\InventoryItem;
@@ -102,6 +103,8 @@ class AiInventoryMapperService
 
                 $show->update(['status' => 'pending_approval']);
             });
+
+            NotifyShowPendingApproval::dispatch($show->id)->afterCommit();
         } catch (\Exception $e) {
             Log::error('AiInventoryMapperService failed', ['show_id' => $show->id, 'error' => $e->getMessage()]);
             $show->update(['status' => 'pending_review']);

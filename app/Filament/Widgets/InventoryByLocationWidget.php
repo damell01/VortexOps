@@ -19,15 +19,27 @@ class InventoryByLocationWidget extends BaseWidget
         return $table
             ->query(
                 InventoryLocation::query()
-                    ->select('inventory_locations.*')
+                    ->select([
+                        'inventory_locations.id',
+                        'inventory_locations.name',
+                        'inventory_locations.type',
+                        'inventory_locations.streamer_id',
+                        'inventory_locations.status',
+                    ])
                     ->selectRaw('COUNT(DISTINCT s.inventory_item_id) as sku_count')
                     ->selectRaw('COALESCE(SUM(s.quantity), 0) as total_units')
                     ->selectRaw('COALESCE(SUM(s.quantity * i.unit_cost), 0) as stock_value')
                     ->leftJoin('inventory_stock as s', 's.inventory_location_id', '=', 'inventory_locations.id')
                     ->leftJoin('inventory_items as i', 'i.id', '=', 's.inventory_item_id')
-                    ->groupBy('inventory_locations.id')
+                    ->groupBy([
+                        'inventory_locations.id',
+                        'inventory_locations.name',
+                        'inventory_locations.type',
+                        'inventory_locations.streamer_id',
+                        'inventory_locations.status',
+                    ])
                     ->where('inventory_locations.status', 'active')
-                    ->with('streamer')
+                    ->with('streamer:id,name')
             )
             ->columns([
                 TextColumn::make('name')

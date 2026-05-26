@@ -198,7 +198,7 @@ class ProjectResource extends Resource
                 ViewAction::make(),
                 EditAction::make(),
             ])
-            ->defaultSort('updated_at', 'desc');
+            ->defaultSort('projects.updated_at', 'desc');
     }
 
     public static function getRelations(): array

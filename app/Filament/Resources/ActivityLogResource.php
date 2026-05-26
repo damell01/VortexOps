@@ -146,6 +146,9 @@ class ActivityLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->withoutEagerLoads()
+                ->with(['causer:id,name']))
             ->columns([
                 TextColumn::make('id')
                     ->label('#')
@@ -203,6 +206,7 @@ class ActivityLogResource extends Resource
             ->persistFiltersInSession()
             ->paginationPageOptions([10, 25, 50])
             ->defaultPaginationPageOption(25)
+            ->deferLoading()
             ->defaultSort('id', 'desc')
             ->recordAction(fn ($record) => 'view')
             ->actions([ViewAction::make()->iconButton()]);

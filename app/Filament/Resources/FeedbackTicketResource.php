@@ -34,7 +34,8 @@ class FeedbackTicketResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = FeedbackTicket::whereIn('status', ['open', 'in_progress'])->count();
+        $count = Cache::remember('nav-badge:feedback-tickets:open', 30, fn (): int => FeedbackTicket::whereIn('status', ['open', 'in_progress'])->count());
+
         return $count > 0 ? (string) $count : null;
     }
 

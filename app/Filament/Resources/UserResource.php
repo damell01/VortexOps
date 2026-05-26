@@ -109,6 +109,9 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->withoutEagerLoads()
+                ->with(['roles:name', 'streamer:id,name']))
             ->columns([
                 TextColumn::make('name')
                     ->searchable()
@@ -144,6 +147,7 @@ class UserResource extends Resource
             ->persistFiltersInSession()
             ->paginationPageOptions([10, 25, 50])
             ->defaultPaginationPageOption(25)
+            ->deferLoading()
             ->defaultSort('name')
             ->actions([
                 ViewAction::make()->iconButton(),

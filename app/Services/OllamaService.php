@@ -19,6 +19,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class OllamaService
@@ -38,27 +39,30 @@ class OllamaService
             $this->model   = config('ollama.model', 'llama3.2');
             $this->timeout = config('ollama.timeout', 120);
         }
-
-        $this->model = $this->resolvePreferredModel($this->model);
     }
 
     public function isAvailable(): bool
     {
-        try {
-            return Http::timeout(3)->get("{$this->baseUrl}/api/tags")->successful();
-        } catch (\Exception) {
-            return false;
-        }
+        return Cache::remember($this->cacheKey('available'), now()->addSeconds(15), function (): bool {
+            try {
+                return Http::timeout(3)->get("{$this->baseUrl}/api/tags")->successful();
+            } catch (\Exception) {
+                return false;
+            }
+        });
     }
 
     public function availableModels(): array
     {
-        try {
-            $resp = Http::timeout(5)->get("{$this->baseUrl}/api/tags");
-            return collect($resp->json('models', []))->pluck('name')->all();
-        } catch (\Exception) {
-            return [];
-        }
+        return Cache::remember($this->cacheKey('models'), now()->addSeconds(60), function (): array {
+            try {
+                $resp = Http::timeout(5)->get("{$this->baseUrl}/api/tags");
+
+                return collect($resp->json('models', []))->pluck('name')->all();
+            } catch (\Exception) {
+                return [];
+            }
+        });
     }
 
     private function resolvePreferredModel(string $preferred): string
@@ -122,12 +126,13 @@ class OllamaService
         $fullResponse = '';
         $success      = true;
         $error        = null;
+        $model        = $this->resolvePreferredModel($this->model);
 
         try {
             $response = Http::withOptions(['stream' => true])
                 ->timeout($this->timeout)
                 ->post("{$this->baseUrl}/api/chat", [
-                    'model'    => $this->model,
+                    'model'    => $model,
                     'stream'   => true,
                     'messages' => [
                         ['role' => 'system', 'content' => $systemText],
@@ -172,7 +177,7 @@ class OllamaService
         }
 
         return AiLog::create([
-            'model'         => $this->model,
+            'model'         => $model,
             'action_type'   => 'freeform_query',
             'prompt'        => $question,
             'response'      => $fullResponse,
@@ -279,23 +284,24 @@ class OllamaService
 
     private function send(string $prompt, string $systemText, string $actionType, array $context): AiLog
     {
-        $start   = microtime(true);
-        $success = true;
+        $start    = microtime(true);
+        $success  = true;
         $response = '';
         $error    = null;
+        $model    = $this->resolvePreferredModel($this->model);
 
         try {
-            $result = $this->sendChatRequest($this->model, $systemText, $prompt);
+            $result = $this->sendChatRequest($model, $systemText, $prompt);
 
             if ($result->successful()) {
                 $response = $result->json('message.content', '');
             } elseif ($result->status() === 404 && str_contains($result->body(), 'model')) {
-                $fallbackModel = $this->resolvePreferredModel($this->model);
+                $fallbackModel = $this->resolvePreferredModel($model);
 
-                if ($fallbackModel !== $this->model) {
-                    $this->model = $fallbackModel;
+                if ($fallbackModel !== $model) {
+                    $model = $fallbackModel;
 
-                    $retry = $this->sendChatRequest($this->model, $systemText, $prompt);
+                    $retry = $this->sendChatRequest($model, $systemText, $prompt);
 
                     if ($retry->successful()) {
                         $response = $retry->json('message.content', '');
@@ -312,11 +318,11 @@ class OllamaService
                 $error   = "HTTP {$result->status()}: " . substr($result->body(), 0, 300);
             }
         } catch (\Throwable $e) {
-            [$success, $response, $error] = $this->handleChatException($e, $systemText, $prompt);
+            [$success, $response, $error, $model] = $this->handleChatException($e, $systemText, $prompt, $model);
         }
 
         return AiLog::create([
-            'model'          => $this->model,
+            'model'          => $model,
             'action_type'    => $actionType,
             'prompt'         => $prompt,
             'response'       => $response,
@@ -347,30 +353,28 @@ class OllamaService
         ]);
     }
 
-    private function handleChatException(\Throwable $e, string $systemText, string $prompt): array
+    private function handleChatException(\Throwable $e, string $systemText, string $prompt, string $model): array
     {
         if (! $this->isTimeoutException($e)) {
-            return [false, '', $e->getMessage()];
+            return [false, '', $e->getMessage(), $model];
         }
 
-        $fallbackModel = $this->fastFallbackModel($this->model);
+        $fallbackModel = $this->fastFallbackModel($model);
 
-        if (! $fallbackModel || $fallbackModel === $this->model) {
-            return [false, '', $e->getMessage()];
+        if (! $fallbackModel || $fallbackModel === $model) {
+            return [false, '', $e->getMessage(), $model];
         }
 
         try {
             $retry = $this->sendChatRequest($fallbackModel, $systemText, $prompt);
 
             if ($retry->successful()) {
-                $this->model = $fallbackModel;
-
-                return [true, $retry->json('message.content', ''), null];
+                return [true, $retry->json('message.content', ''), null, $fallbackModel];
             }
 
-            return [false, '', "HTTP {$retry->status()}: " . substr($retry->body(), 0, 300)];
+            return [false, '', "HTTP {$retry->status()}: " . substr($retry->body(), 0, 300), $model];
         } catch (\Throwable $retryException) {
-            return [false, '', $retryException->getMessage()];
+            return [false, '', $retryException->getMessage(), $model];
         }
     }
 
@@ -404,6 +408,11 @@ class OllamaService
         }
 
         return null;
+    }
+
+    private function cacheKey(string $suffix): string
+    {
+        return 'ollama:' . md5($this->baseUrl) . ':' . $suffix;
     }
 
     private function systemPrompt(array $context): string

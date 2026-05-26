@@ -143,6 +143,14 @@ class InventoryMovementResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->withoutEagerLoads()
+                ->with([
+                    'item:id,name,sku',
+                    'fromLocation:id,name',
+                    'toLocation:id,name',
+                    'createdByUser:id,name',
+                ]))
             ->columns([
                 TextColumn::make('created_at')
                     ->label('Date & Time')

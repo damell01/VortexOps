@@ -116,6 +116,13 @@ class PayoutResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->withoutEagerLoads()
+                ->with([
+                    'show:id,title,show_date',
+                    'streamer:id,name',
+                    'batch:id,week_start',
+                ]))
             ->columns([
                 TextColumn::make('show.show_date')
                     ->label('Show Date')

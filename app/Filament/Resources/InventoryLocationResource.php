@@ -119,6 +119,10 @@ class InventoryLocationResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->withoutEagerLoads()
+                ->with(['streamer:id,name'])
+                ->withCount('stock'))
             ->columns([
                 TextColumn::make('name')
                     ->searchable()
@@ -176,6 +180,7 @@ class InventoryLocationResource extends Resource
             ->persistFiltersInSession()
             ->paginationPageOptions([10, 25, 50])
             ->defaultPaginationPageOption(25)
+            ->deferLoading()
             ->defaultSort('name');
     }
 

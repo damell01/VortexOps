@@ -125,6 +125,12 @@ class InventoryStockResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->withoutEagerLoads()
+                ->with([
+                    'item:id,name,sku,category,reorder_level,unit_cost',
+                    'location:id,name,type',
+                ]))
             ->columns([
                 TextColumn::make('item.name')
                     ->label('Item')
@@ -198,6 +204,7 @@ class InventoryStockResource extends Resource
             ->persistFiltersInSession()
             ->paginationPageOptions([10, 25, 50])
             ->defaultPaginationPageOption(25)
+            ->deferLoading()
             ->defaultSort('updated_at', 'desc');
     }
 

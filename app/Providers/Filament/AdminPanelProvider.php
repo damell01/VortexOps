@@ -69,7 +69,7 @@ class AdminPanelProvider extends PanelProvider
         $hasViteManifest = fn (): bool => file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot'));
 
         return $panel
-            ->spa(hasPrefetching: true)
+            ->spa(hasPrefetching: false)
             ->databaseNotifications()
             ->databaseNotificationsPolling('300s')
             ->navigationGroups(array_map(
@@ -96,9 +96,43 @@ class AdminPanelProvider extends PanelProvider
                             'reviews'  => AdminModules::isEnabled('reviews'),
                             'ai'       => AdminModules::isEnabled('ai'),
                         ]) . ';</script>' .
-                        (AdminModules::isEnabled('ai') ? "@livewire('ai-chat-panel')" : '')
+                        (AdminModules::isEnabled('ai')
+                            ? '
+                                <div x-data="{ aiPanelLoaded: false }">
+                                    <button
+                                        x-cloak
+                                        x-show="! aiPanelLoaded"
+                                        @click="aiPanelLoaded = true"
+                                        class="fixed bottom-24 right-6 z-[99999] rounded-full bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-xl transition hover:scale-105 hover:bg-violet-700"
+                                        title="Open Vortex Assistant"
+                                    >
+                                        Assistant
+                                    </button>
+
+                                    <div x-cloak x-show="aiPanelLoaded">
+                                        <livewire:ai-chat-panel lazy :initially-open="true" />
+                                    </div>
+                                </div>
+                            '
+                            : '')
                         . "<x-tour-button />"
-                        . "@livewire('feedback-widget')"
+                        . '
+                            <div x-data="{ feedbackWidgetLoaded: false }">
+                                <button
+                                    x-cloak
+                                    x-show="! feedbackWidgetLoaded"
+                                    @click="feedbackWidgetLoaded = true"
+                                    class="fixed bottom-6 right-6 z-[99998] flex items-center gap-2 rounded-full bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg ring-1 ring-primary-500/20 transition hover:bg-primary-500"
+                                    title="Leave feedback"
+                                >
+                                    Feedback
+                                </button>
+
+                                <div x-cloak x-show="feedbackWidgetLoaded">
+                                    <livewire:feedback-widget lazy />
+                                </div>
+                            </div>
+                        '
                     ),
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')

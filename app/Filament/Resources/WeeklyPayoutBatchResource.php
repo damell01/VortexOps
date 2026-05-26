@@ -20,6 +20,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 
 class WeeklyPayoutBatchResource extends Resource
 {
@@ -46,7 +47,8 @@ class WeeklyPayoutBatchResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = \App\Models\WeeklyPayoutBatch::where('status', 'draft')->count();
+        $count = Cache::remember('nav-badge:weekly-payout-batches:draft', 30, fn (): int => WeeklyPayoutBatch::where('status', 'draft')->count());
+
         return $count > 0 ? (string) $count : null;
     }
 

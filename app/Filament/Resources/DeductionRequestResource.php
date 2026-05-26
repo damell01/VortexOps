@@ -13,6 +13,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 
 class DeductionRequestResource extends Resource
 {
@@ -54,7 +55,7 @@ class DeductionRequestResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = static::getModel()::query()->where('status', 'pending')->count();
+        $count = Cache::remember('nav-badge:deduction-requests:pending', 30, fn (): int => static::getModel()::query()->where('status', 'pending')->count());
 
         return $count > 0 ? (string) $count : null;
     }

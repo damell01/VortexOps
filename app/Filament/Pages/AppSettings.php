@@ -53,7 +53,7 @@ class AppSettings extends Page
 
     // ── AI ────────────────────────────────────────────────────────────────────
 
-    public bool   $ai_enabled      = true;
+    public bool   $ai_enabled      = false;
     public string $ollama_base_url = '';
     public string $ollama_model    = '';
     public int    $ollama_timeout  = 120;
@@ -86,7 +86,7 @@ class AppSettings extends Page
         $this->primary_color = Setting::get('primary_color', '#7c3aed');
         $this->logo_path     = Setting::get('logo_path');
 
-        $this->ai_enabled      = Setting::getBool('ai_enabled', true);
+        $this->ai_enabled      = Setting::getBool('ai_enabled', false);
         $this->ollama_base_url = Setting::get('ollama_base_url', config('ollama.base_url', 'http://localhost:11434'));
         $this->ollama_model    = Setting::get('ollama_model',    config('ollama.model',    'llama3.2:3b'));
         $this->ollama_timeout  = (int) Setting::get('ollama_timeout', config('ollama.timeout', 120));

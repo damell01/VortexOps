@@ -19,26 +19,39 @@ class AiChatPanel extends Component
     public bool   $ollamaOnline = false;
     public string $pendingKey   = '';
     public bool   $isThinking   = false;
+    public string $contextPath  = '';
 
-    public function mount(): void
+    public function mount(bool $initiallyOpen = false): void
     {
-        $this->refreshContext();
+        $this->isOpen = $initiallyOpen;
+
+        if ($this->isOpen) {
+            $this->refreshContext(request()->path());
+        }
     }
 
     public function toggle(): void
     {
         $this->isOpen = ! $this->isOpen;
-        if ($this->isOpen) {
-            $this->refreshContext();
+    }
+
+    public function openPanel(string $path = ''): void
+    {
+        $this->isOpen = true;
+
+        if (($path !== '' && $path !== $this->contextPath) || empty($this->pageContext)) {
+            $this->refreshContext($path);
         }
     }
 
-    public function refreshContext(): void
+    public function refreshContext(?string $path = null): void
     {
         $service            = app(OllamaService::class);
-        $ctx                = $service->detectPageContext(request()->path());
+        $resolvedPath       = $this->normalizePath($path);
+        $ctx                = $service->detectPageContext($resolvedPath);
         $this->pageContext   = $ctx;
         $this->contextLabel = $ctx['page_title'] ?? 'VortexOps';
+        $this->contextPath  = $resolvedPath;
         $this->ollamaOnline = $service->isAvailable();
     }
 
@@ -148,5 +161,22 @@ PROMPT
     public function render(): View
     {
         return view('livewire.ai-chat-panel');
+    }
+
+    private function normalizePath(?string $path = null): string
+    {
+        $path = is_string($path) ? trim($path) : '';
+
+        if ($path === '') {
+            return request()->path();
+        }
+
+        $parsed = parse_url($path, PHP_URL_PATH);
+
+        if (! is_string($parsed) || trim($parsed, '/') === '') {
+            return request()->path();
+        }
+
+        return trim($parsed, '/');
     }
 }

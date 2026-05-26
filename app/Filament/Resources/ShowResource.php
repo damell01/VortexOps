@@ -29,6 +29,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 
 class ShowResource extends Resource
 {
@@ -66,7 +67,8 @@ class ShowResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = \App\Models\Show::where('status', 'pending_review')->count();
+        $count = Cache::remember('nav-badge:shows:pending_review', 30, fn (): int => Show::where('status', 'pending_review')->count());
+
         return $count > 0 ? (string) $count : null;
     }
 
@@ -265,6 +267,13 @@ class ShowResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->withoutEagerLoads()
+                ->with([
+                    'streamers:id,name',
+                    'channel:id,name',
+                    'latestDeductionRequest:id,show_id,status',
+                ]))
             ->columns([
                 TextColumn::make('show_date')
                     ->label('Date')

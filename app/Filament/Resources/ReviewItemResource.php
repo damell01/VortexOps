@@ -24,6 +24,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 
 class ReviewItemResource extends Resource
 {
@@ -55,7 +56,21 @@ class ReviewItemResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = static::getEloquentQuery()->where('status', 'open')->count();
+        $user = auth()->user();
+        $cacheKey = ($user?->isSuperAdmin() ?? false)
+            ? 'nav-badge:review-items:open:admin'
+            : 'nav-badge:review-items:open:user:' . ($user?->getAuthIdentifier() ?? 'guest');
+
+        $count = Cache::remember($cacheKey, 30, function () use ($user): int {
+            return static::getModel()::query()
+                ->when(
+                    ! ($user?->isSuperAdmin() ?? false),
+                    fn (Builder $query) => $query->where('created_by', $user?->getAuthIdentifier()),
+                )
+                ->where('status', 'open')
+                ->count();
+        });
+
         return $count > 0 ? (string) $count : null;
     }
 
@@ -95,7 +110,7 @@ class ReviewItemResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
-            ->with(['session', 'createdBy', 'assignedTo', 'comments.user']);
+            ->with(['session.project', 'createdBy', 'assignedTo']);
 
         if (! (auth()->user()?->isSuperAdmin() ?? false)) {
             $query->where('created_by', auth()->id());
@@ -147,7 +162,11 @@ class ReviewItemResource extends Resource
 
                     Select::make('assigned_to')
                         ->label('Assigned To')
-                        ->options(User::pluck('name', 'id'))
+                        ->options(fn (): array => Cache::remember(
+                            'review-items:assigned-users',
+                            300,
+                            fn (): array => User::orderBy('name')->pluck('name', 'id')->toArray(),
+                        ))
                         ->nullable()
                         ->columnSpanFull()
                         ->visible(fn () => auth()->user()?->isSuperAdmin() ?? false),
@@ -166,6 +185,7 @@ class ReviewItemResource extends Resource
         $isSuperAdmin = auth()->user()?->isSuperAdmin() ?? false;
 
         return $table
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['session.project', 'createdBy', 'assignedTo']))
             ->columns(array_filter([
                 ImageColumn::make('screenshot')
                     ->label('Shot')
@@ -248,7 +268,11 @@ class ReviewItemResource extends Resource
 
                             return $query->whereHas('session', fn (Builder $sessionQuery) => $sessionQuery->where('project_id', $data['value']));
                         })
-                        ->options(Project::orderBy('name')->pluck('name', 'id'))
+                        ->options(fn (): array => Cache::remember(
+                            'review-items:projects',
+                            300,
+                            fn (): array => Project::orderBy('name')->pluck('name', 'id')->toArray(),
+                        ))
                     : null,
 
                 $isSuperAdmin

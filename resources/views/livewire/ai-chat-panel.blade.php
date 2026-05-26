@@ -52,7 +52,7 @@
                 <button wire:click="clearChat" title="Clear chat" class="opacity-60 transition hover:opacity-100">
                     <x-heroicon-o-trash class="h-3.5 w-3.5" />
                 </button>
-                <button wire:click="refreshContext" title="Refresh context" class="opacity-60 transition hover:opacity-100">
+                <button @click="$wire.refreshContext(window.location.pathname)" title="Refresh context" class="opacity-60 transition hover:opacity-100">
                     <x-heroicon-o-arrow-path class="h-3.5 w-3.5" />
                 </button>
                 <button @click="open = false" class="opacity-60 transition hover:opacity-100">
@@ -182,7 +182,7 @@
 
     {{-- FAB --}}
     <button
-        @click="open = !open; if (open) $wire.refreshContext()"
+        @click="open = !open; if (open) $wire.openPanel(window.location.pathname)"
         class="group relative rounded-full bg-violet-600 p-3.5 shadow-xl transition-all duration-200 hover:scale-105 hover:bg-violet-700"
         :class="{ 'animate-pulse': !!pendingMessage }"
         title="Vortex Assistant"

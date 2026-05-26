@@ -109,6 +109,7 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->deferLoading()
             ->columns([
                 TextColumn::make('name')
                     ->searchable()

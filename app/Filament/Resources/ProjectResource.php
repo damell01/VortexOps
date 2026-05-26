@@ -151,6 +151,7 @@ class ProjectResource extends Resource
         $reviewsEnabled = AdminModules::isEnabled('reviews');
 
         return $table
+            ->deferLoading()
             ->columns(array_filter([
                 TextColumn::make('name')
                     ->searchable()

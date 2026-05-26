@@ -29,6 +29,7 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 
 class ShowResource extends Resource
 {
@@ -66,7 +67,9 @@ class ShowResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = \App\Models\Show::where('status', 'pending_review')->count();
+        $count = Cache::remember('nav_badge:shows_pending_review', 60, fn () =>
+            \App\Models\Show::where('status', 'pending_review')->count()
+        );
         return $count > 0 ? (string) $count : null;
     }
 

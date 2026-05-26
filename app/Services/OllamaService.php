@@ -19,6 +19,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class OllamaService
@@ -44,21 +45,25 @@ class OllamaService
 
     public function isAvailable(): bool
     {
-        try {
-            return Http::timeout(3)->get("{$this->baseUrl}/api/tags")->successful();
-        } catch (\Exception) {
-            return false;
-        }
+        return Cache::remember("ollama_available:{$this->baseUrl}", 30, function () {
+            try {
+                return Http::timeout(1)->get("{$this->baseUrl}/api/tags")->successful();
+            } catch (\Exception) {
+                return false;
+            }
+        });
     }
 
     public function availableModels(): array
     {
-        try {
-            $resp = Http::timeout(5)->get("{$this->baseUrl}/api/tags");
-            return collect($resp->json('models', []))->pluck('name')->all();
-        } catch (\Exception) {
-            return [];
-        }
+        return Cache::remember("ollama_models:{$this->baseUrl}", 60, function () {
+            try {
+                $resp = Http::timeout(2)->get("{$this->baseUrl}/api/tags");
+                return collect($resp->json('models', []))->pluck('name')->all();
+            } catch (\Exception) {
+                return [];
+            }
+        });
     }
 
     private function resolvePreferredModel(string $preferred): string

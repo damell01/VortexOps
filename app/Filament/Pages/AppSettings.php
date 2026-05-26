@@ -190,6 +190,7 @@ class AppSettings extends Page
         Setting::set('notify_show_reconciled_mode',  $this->notify_show_reconciled_mode);
         Setting::set('notify_show_reconciled_users', json_encode($this->notify_show_reconciled_users));
         Setting::set('enabled_admin_modules', json_encode(AdminModules::normalizeEnabledSlugs($this->enabled_modules)));
+        AdminModules::flushMemo();
 
         Notification::make()
             ->title('Settings saved')

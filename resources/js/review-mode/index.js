@@ -5,12 +5,13 @@ import html2canvas from 'html2canvas';
 const reviewModuleEnabled = window.VortexModules?.reviews ?? true;
 
 // ── State ──────────────────────────────────────────────────────────────────────
-let reviewModeActive = false;
-let canvasActive     = false;
-let sessionId        = null;
-let projectId        = null;
-let hasUploadedImage = false;
-let browsingExpanded = false;
+let reviewModeActive    = false;
+let canvasActive        = false;
+let sessionId           = null;
+let projectId           = null;
+let hasUploadedImage    = false;
+let browsingExpanded    = false;
+let pageScreenshotDataUrl = null;  // captured once when canvas opens
 
 let fabricCanvas        = null;
 let overlayEl           = null;
@@ -332,12 +333,32 @@ function removeBrowsingUI() {
 
 async function loadSessionChipLabel() {
     const el = document.getElementById('review-chip-label');
-    if (!el || !sessionId) return;
+    if (!el) return;
+
+    if (!sessionId) {
+        el.textContent = 'Review Active';
+        // Still load page annotations for badge (no session = no items, but call to clear stale badge)
+        loadPageAnnotationsForBadge();
+        return;
+    }
+
     try {
         const r = await fetch('/admin/review/sessions', { headers: { Accept: 'application/json' } });
         const sessions = await r.json();
         const s = sessions.find(x => String(x.id) === String(sessionId));
         if (s) el.textContent = (s.project?.name ? s.project.name + ': ' : '') + s.title.substring(0, 22);
+    } catch { /* ignore */ }
+
+    loadPageAnnotationsForBadge();
+}
+
+async function loadPageAnnotationsForBadge() {
+    if (!sessionId) return;
+    try {
+        const r   = await fetch(`/admin/review/items?session_id=${sessionId}`, { headers: { Accept: 'application/json' } });
+        const all = await r.json();
+        const pageItems = all.filter(i => i.page_url === window.location.href);
+        updateChipBadge(pageItems);
     } catch { /* ignore */ }
 }
 
@@ -359,31 +380,38 @@ async function loadPopoverAnnotations() {
         return;
     }
 
-    let items = [];
+    let allItems = [], pageItems = [];
     try {
-        const r   = await fetch(`/admin/review/items?session_id=${sessionId}`, { headers: { Accept: 'application/json' } });
-        const all = await r.json();
-        items     = all.filter(item => item.page_url === window.location.href);
+        const r = await fetch(`/admin/review/items?session_id=${sessionId}`, { headers: { Accept: 'application/json' } });
+        allItems  = await r.json();
+        pageItems = allItems.filter(item => item.page_url === window.location.href);
     } catch {
         container.innerHTML = `<div style="padding:14px 12px;color:${T.subtle};font-size:11px;text-align:center;">Could not load annotations.</div>`;
         return;
     }
 
-    if (!items.length) {
+    // Update chip badge
+    updateChipBadge(pageItems);
+
+    if (!pageItems.length) {
         container.innerHTML = `<div style="padding:14px 12px;color:${T.subtle};font-size:11px;text-align:center;">No annotations on this page yet.</div>`;
         return;
     }
 
     const statusDot = { open: '#ef4444', in_progress: '#f59e0b', fixed: '#22c55e', approved: '#10b981', rejected: '#9ca3af', wont_fix: '#9ca3af' };
-    const typeIcon  = { annotation: '✏', bug: '●', suggestion: '◆', question: '?' };
+    const typeIcon  = { annotation: '✏', bug: '⬤', suggestion: '◆', question: '?' };
+    const pageUrl   = encodeURIComponent(window.location.href);
 
-    let html = `<div style="padding:7px 12px 3px;font-size:10px;font-weight:700;color:${T.subtle};text-transform:uppercase;letter-spacing:.04em;">${items.length} on this page</div>`;
-    items.slice(0, 5).forEach(item => {
+    let html = `<div style="padding:7px 12px 3px;font-size:10px;font-weight:700;color:${T.subtle};text-transform:uppercase;letter-spacing:.04em;">${pageItems.length} on this page</div>`;
+
+    pageItems.slice(0, 6).forEach(item => {
         const dot  = statusDot[item.status] ?? '#9ca3af';
-        const icon = typeIcon[item.type] ?? '●';
-        const txt  = (item.comment || item.page_title || 'Annotation').substring(0, 36);
-        html += `<div style="padding:7px 12px;border-top:1px solid rgba(0,0,0,.05);display:flex;gap:8px;align-items:flex-start;">
-            <span style="font-size:10px;color:${T.muted};flex-shrink:0;line-height:1.6;">${icon}</span>
+        const icon = typeIcon[item.type] ?? '⬤';
+        const txt  = (item.comment || item.page_title || 'Annotation').substring(0, 40);
+        const reviewUrl = `/review/items/${item.id}`;
+        html += `
+        <div style="padding:7px 10px 7px 12px;border-top:1px solid rgba(0,0,0,.05);display:flex;gap:8px;align-items:flex-start;">
+            <span style="font-size:9px;color:${T.muted};flex-shrink:0;line-height:1.8;">${icon}</span>
             <div style="min-width:0;flex:1;">
                 <div style="font-size:11px;font-weight:600;color:${T.text};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${txt}</div>
                 <div style="display:flex;align-items:center;gap:4px;margin-top:2px;">
@@ -391,28 +419,142 @@ async function loadPopoverAnnotations() {
                     <span style="font-size:10px;color:${T.subtle};">${(item.status || '').replace('_', ' ')}</span>
                 </div>
             </div>
+            <a href="${reviewUrl}" target="_blank"
+               style="flex-shrink:0;display:flex;align-items:center;justify-content:center;
+                      width:22px;height:22px;border-radius:5px;border:1px solid rgba(0,0,0,.08);
+                      color:${T.muted};text-decoration:none;transition:${T.transition};"
+               title="Open in Project Hub"
+               onmouseenter="this.style.borderColor='${T.accentBorder}';this.style.color='${T.accent}'"
+               onmouseleave="this.style.borderColor='rgba(0,0,0,.08)';this.style.color='${T.muted}'">
+                ${svg('<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>', 12)}
+            </a>
         </div>`;
     });
-    if (items.length > 5) {
-        html += `<div style="padding:6px 12px;font-size:10px;color:${T.subtle};text-align:center;">+${items.length - 5} more in Project Hub</div>`;
+
+    if (pageItems.length > 6) {
+        html += `<div style="padding:6px 12px;font-size:10px;color:${T.subtle};text-align:center;">+${pageItems.length - 6} more in Project Hub</div>`;
     }
     container.innerHTML = html;
 }
 
+function updateChipBadge(pageItems) {
+    // Remove existing badge
+    document.getElementById('review-chip-badge')?.remove();
+
+    const openCount = pageItems.filter(i => i.status === 'open' || i.status === 'in_progress').length;
+    if (!openCount || !browsingChip) return;
+
+    const badge = document.createElement('span');
+    badge.id = 'review-chip-badge';
+    Object.assign(badge.style, {
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        minWidth: '17px', height: '17px',
+        background: '#ef4444',
+        color: 'white',
+        borderRadius: '999px',
+        fontSize: '9px',
+        fontWeight: '800',
+        padding: '0 4px',
+        lineHeight: '1',
+        marginLeft: '2px',
+    });
+    badge.textContent = openCount;
+
+    const expandIcon = document.getElementById('review-chip-expand');
+    if (expandIcon) browsingChip.insertBefore(badge, expandIcon);
+    else browsingChip.appendChild(badge);
+}
+
 // ── Open / Close Canvas ────────────────────────────────────────────────────────
-function openCanvas(uploadMode = false, options = {}) {
-    canvasActive     = true;
-    hasUploadedImage = false;
+async function openCanvas(uploadMode = false, options = {}) {
+    canvasActive        = true;
+    hasUploadedImage    = false;
+    pageScreenshotDataUrl = null;
     seedAnnotationPoint = options.seedPoint ?? null;
     const autoOpenSave = options.autoOpenSave ?? false;
+
     deactivatePickerMode();
     removeBrowsingUI();
+
+    if (!uploadMode) {
+        // Capture the page first so we can use it as the canvas background
+        const spinner = showCaptureSpinner();
+        try {
+            pageScreenshotDataUrl = await capturePageNow();
+        } catch { /* ignore */ }
+        spinner.remove();
+    }
+
     buildOverlay();
     buildToolbar();
 
+    // Inject the captured screenshot as a locked background layer
+    if (pageScreenshotDataUrl) {
+        fabric.Image.fromURL(pageScreenshotDataUrl, img => {
+            img.set({ selectable: false, evented: false, left: 0, top: 0, originX: 'left', originY: 'top' });
+            const scaleX = fabricCanvas.width  / img.width;
+            const scaleY = fabricCanvas.height / img.height;
+            img.scale(Math.max(scaleX, scaleY));
+            fabricCanvas.insertAt(img, 0);
+            fabricCanvas.requestRenderAll();
+        });
+    }
+
     if (seedAnnotationPoint) addSeedMarker(seedAnnotationPoint);
-    if (uploadMode) setTimeout(triggerImageUpload, 200);
-    if (autoOpenSave) setTimeout(() => openSaveModal({ type: 'annotation' }), 140);
+    if (uploadMode)     setTimeout(triggerImageUpload, 200);
+    if (autoOpenSave)   setTimeout(() => openSaveModal({ type: 'annotation' }), 140);
+}
+
+function showCaptureSpinner() {
+    ensureSpinKeyframe();
+    const el = document.createElement('div');
+    el.id = 'review-capture-spinner';
+    Object.assign(el.style, {
+        position: 'fixed', inset: '0', zIndex: '99999',
+        background: 'rgba(15,23,42,.65)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        backdropFilter: 'blur(3px)',
+    });
+    el.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;gap:14px;">
+            <div style="width:28px;height:28px;border:3px solid rgba(255,255,255,.2);
+                        border-top-color:white;border-radius:50%;
+                        animation:review-spin .65s linear infinite;"></div>
+            <p style="color:rgba(255,255,255,.9);font-size:13px;font-weight:600;
+                      font-family:${T.font};letter-spacing:-0.01em;">Capturing page…</p>
+        </div>`;
+    document.body.appendChild(el);
+    return el;
+}
+
+function ensureSpinKeyframe() {
+    if (document.getElementById('review-spin-style')) return;
+    const s = document.createElement('style');
+    s.id = 'review-spin-style';
+    s.textContent = '@keyframes review-spin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(s);
+}
+
+async function capturePageNow() {
+    // Hide any review UI before capture
+    const hide = ['#review-fab-wrap', '#review-chip', '#review-chip-actions',
+                   '#review-popover', '#review-capture-spinner'];
+    const hidden = hide.map(sel => {
+        const el = document.querySelector(sel);
+        if (el) { el.style.visibility = 'hidden'; }
+        return el;
+    }).filter(Boolean);
+
+    try {
+        const c = await html2canvas(document.documentElement, {
+            useCORS: true, allowTaint: true, scale: 1,
+            width: window.innerWidth, height: window.innerHeight,
+            scrollX: 0, scrollY: 0,
+        });
+        return c.toDataURL('image/jpeg', 0.88);
+    } finally {
+        hidden.forEach(el => { el.style.visibility = ''; });
+    }
 }
 
 function closeCanvas(returnToBrowsing = true) {
@@ -428,8 +570,10 @@ function closeCanvas(returnToBrowsing = true) {
 }
 
 document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && canvasActive) closeCanvas();
+    if (e.key === 'Escape' && canvasActive) { e.preventDefault(); closeCanvas(); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && canvasActive) { e.preventDefault(); undoLast(); }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z' && canvasActive) { e.preventDefault(); /* redo noop */ }
+    if (canvasActive && !e.ctrlKey && !e.metaKey) handleToolShortcuts(e);
 });
 
 // ── Overlay ────────────────────────────────────────────────────────────────────
@@ -674,7 +818,6 @@ function buildToolbar() {
     highlightActiveTool();
 
     // Keyboard shortcuts in annotation mode
-    document.addEventListener('keydown', handleToolShortcuts);
 }
 
 function makeVDiv() {
@@ -719,9 +862,11 @@ function highlightActiveTool() {
 }
 
 function handleToolShortcuts(e) {
-    if (!canvasActive || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (!canvasActive) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.target.closest && e.target.closest('[contenteditable]')) return;
     const map = { v: 'select', p: 'draw', b: 'box', a: 'arrow', t: 'text' };
-    if (map[e.key]) setTool(map[e.key]);
+    if (map[e.key.toLowerCase()]) setTool(map[e.key.toLowerCase()]);
 }
 
 // ── Image Upload ───────────────────────────────────────────────────────────────
@@ -857,41 +1002,41 @@ function undoLast() {
 }
 
 // ── Screenshot capture ─────────────────────────────────────────────────────────
+// The page screenshot is already baked into the fabric canvas as the first layer,
+// so we just export the canvas directly — no second html2canvas call needed.
 async function captureForSave() {
-    if (hasUploadedImage) {
-        try { return fabricCanvas.toDataURL({ format: 'jpeg', quality: 0.85 }); } catch { return null; }
-    }
     try {
-        overlayEl.style.visibility = 'hidden';
-        toolbarEl.style.visibility = 'hidden';
-        const pageCanvas = await html2canvas(document.documentElement, {
-            useCORS: true, allowTaint: true, scale: 1,
-            width: window.innerWidth, height: window.innerHeight,
-            scrollX: 0, scrollY: 0,
-        });
-        overlayEl.style.visibility = '';
-        toolbarEl.style.visibility = '';
+        // Find annotation-only objects (skip the background image at index 0 if present)
+        const objects  = fabricCanvas.getObjects();
+        const hasAnnotations = objects.length > (pageScreenshotDataUrl ? 1 : 0);
 
-        const ctx = pageCanvas.getContext('2d');
-        if (fabricCanvas?.lowerCanvasEl) ctx.drawImage(fabricCanvas.lowerCanvasEl, 0, 0);
+        if (!hasAnnotations) {
+            // No drawings — save just the page screenshot
+            return pageScreenshotDataUrl ?? null;
+        }
 
-        const bounds = getAnnotationBounds();
-        if (!bounds) return pageCanvas.toDataURL('image/jpeg', 0.85);
+        // Determine crop region around annotations (skip bg image)
+        const annotObjs = pageScreenshotDataUrl ? objects.slice(1) : objects;
+        const bounds    = getAnnotationBounds(annotObjs);
 
-        const crop = document.createElement('canvas');
-        crop.width = bounds.width; crop.height = bounds.height;
-        crop.getContext('2d').drawImage(pageCanvas, bounds.left, bounds.top, bounds.width, bounds.height, 0, 0, bounds.width, bounds.height);
-        return crop.toDataURL('image/jpeg', 0.90);
-    } catch {
-        if (overlayEl) overlayEl.style.visibility = '';
-        if (toolbarEl) toolbarEl.style.visibility = '';
-        return null;
-    }
+        if (!bounds) {
+            return fabricCanvas.toDataURL({ format: 'jpeg', quality: 0.88 });
+        }
+
+        // Crop the canvas around the annotations (+ padding)
+        const pad = 40;
+        const left   = Math.max(0, bounds.left   - pad);
+        const top    = Math.max(0, bounds.top    - pad);
+        const width  = Math.min(fabricCanvas.width  - left, bounds.width  + pad * 2);
+        const height = Math.min(fabricCanvas.height - top,  bounds.height + pad * 2);
+
+        return fabricCanvas.toDataURL({ format: 'jpeg', quality: 0.90,
+            left, top, width: Math.max(80, width), height: Math.max(80, height) });
+    } catch { return null; }
 }
 
-function getAnnotationBounds() {
-    const objects = fabricCanvas?.getObjects?.() ?? [];
-    if (!objects.length) return null;
+function getAnnotationBounds(objects) {
+    if (!objects?.length) return null;
     let minX = Infinity, minY = Infinity, maxX = 0, maxY = 0;
     objects.forEach(o => {
         const r = o.getBoundingRect();
@@ -899,12 +1044,7 @@ function getAnnotationBounds() {
         maxX = Math.max(maxX, r.left + r.width); maxY = Math.max(maxY, r.top + r.height);
     });
     if (!isFinite(minX)) return null;
-    const pad = 40;
-    return {
-        left: Math.max(0, minX - pad), top: Math.max(0, minY - pad),
-        width:  Math.max(40, Math.min(window.innerWidth,  maxX - minX + pad * 2)),
-        height: Math.max(40, Math.min(window.innerHeight, maxY - minY + pad * 2)),
-    };
+    return { left: minX, top: minY, width: maxX - minX, height: maxY - minY };
 }
 
 // ── Save Modal ─────────────────────────────────────────────────────────────────
@@ -1095,7 +1235,11 @@ async function submitAnnotation(modal) {
 
         modal.remove();
         showToast('Annotation saved');
+
+        // Clear drawings but keep the page screenshot background
+        const bgImg = pageScreenshotDataUrl ? fabricCanvas.getObjects()[0] : null;
         fabricCanvas.clear();
+        if (bgImg) { fabricCanvas.insertAt(bgImg, 0); fabricCanvas.requestRenderAll(); }
         history = [];
         hasUploadedImage = false;
     } catch (err) {

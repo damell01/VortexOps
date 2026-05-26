@@ -34,6 +34,8 @@ class ReviewItemResource extends Resource
 
     protected static ?string $model = ReviewItem::class;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-chat-bubble-left-right';

@@ -29,6 +29,8 @@ class ReviewSessionResource extends Resource
 
     protected static ?string $model = ReviewSession::class;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-clipboard-document-check';

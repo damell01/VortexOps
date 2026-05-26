@@ -109,13 +109,9 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-<<<<<<< HEAD
             ->modifyQueryUsing(fn (Builder $query): Builder => $query
                 ->withoutEagerLoads()
                 ->with(['roles:name', 'streamer:id,name']))
-=======
-            ->deferLoading()
->>>>>>> c978be893c3301dc9ddd4532010e33b3538a8ee3
             ->columns([
                 TextColumn::make('name')
                     ->searchable()

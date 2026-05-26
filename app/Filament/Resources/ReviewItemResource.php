@@ -58,7 +58,6 @@ class ReviewItemResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-<<<<<<< HEAD
         $user = auth()->user();
         $cacheKey = ($user?->isSuperAdmin() ?? false)
             ? 'nav-badge:review-items:open:admin'
@@ -73,12 +72,6 @@ class ReviewItemResource extends Resource
                 ->where('status', 'open')
                 ->count();
         });
-
-=======
-        $count = Cache::remember('nav_badge:review_items_open', 60, fn () =>
-            parent::getEloquentQuery()->where('status', 'open')->count()
-        );
->>>>>>> c978be893c3301dc9ddd4532010e33b3538a8ee3
         return $count > 0 ? (string) $count : null;
     }
 
@@ -193,11 +186,7 @@ class ReviewItemResource extends Resource
         $isSuperAdmin = auth()->user()?->isSuperAdmin() ?? false;
 
         return $table
-<<<<<<< HEAD
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(['session.project', 'createdBy', 'assignedTo']))
-=======
-            ->deferLoading()
->>>>>>> c978be893c3301dc9ddd4532010e33b3538a8ee3
             ->columns(array_filter([
                 ImageColumn::make('screenshot')
                     ->label('Shot')

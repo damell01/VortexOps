@@ -43,15 +43,9 @@ class OllamaService
 
     public function isAvailable(): bool
     {
-<<<<<<< HEAD
         return Cache::remember($this->cacheKey('available'), now()->addSeconds(15), function (): bool {
             try {
-                return Http::timeout(3)->get("{$this->baseUrl}/api/tags")->successful();
-=======
-        return Cache::remember("ollama_available:{$this->baseUrl}", 30, function () {
-            try {
                 return Http::timeout(1)->get("{$this->baseUrl}/api/tags")->successful();
->>>>>>> c978be893c3301dc9ddd4532010e33b3538a8ee3
             } catch (\Exception) {
                 return false;
             }
@@ -60,16 +54,9 @@ class OllamaService
 
     public function availableModels(): array
     {
-<<<<<<< HEAD
         return Cache::remember($this->cacheKey('models'), now()->addSeconds(60), function (): array {
             try {
-                $resp = Http::timeout(5)->get("{$this->baseUrl}/api/tags");
-
-=======
-        return Cache::remember("ollama_models:{$this->baseUrl}", 60, function () {
-            try {
                 $resp = Http::timeout(2)->get("{$this->baseUrl}/api/tags");
->>>>>>> c978be893c3301dc9ddd4532010e33b3538a8ee3
                 return collect($resp->json('models', []))->pluck('name')->all();
             } catch (\Exception) {
                 return [];

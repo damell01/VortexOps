@@ -102,9 +102,7 @@ class AiLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query
-                ->withoutEagerLoads()
-                ->with(['user:id,name']))
+            ->deferLoading()
             ->columns([
                 TextColumn::make('id')
                     ->label('#')

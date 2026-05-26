@@ -22,10 +22,13 @@ class PayoutService
 
         $payouts = [];
 
+        $existingPayouts = Payout::where('show_id', $show->id)
+            ->whereIn('streamer_id', $streamers->pluck('id'))
+            ->get()
+            ->keyBy('streamer_id');
+
         foreach ($streamers as $streamer) {
-            $existing = Payout::where('show_id', $show->id)
-                ->where('streamer_id', $streamer->id)
-                ->first();
+            $existing = $existingPayouts->get($streamer->id);
 
             $result = $this->computeStreamerPayout($streamer, $show, $streamers->count());
 
@@ -168,9 +171,8 @@ class PayoutService
                 continue;
             }
 
-            $activeLoans = $payout->streamer->loans()
-                ->where('status', 'active')
-                ->get();
+            $activeLoans = $payout->streamer->loans
+                ->where('status', 'active');
 
             $totalDeducted = 0;
             $loanNotes     = [];

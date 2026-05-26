@@ -119,6 +119,7 @@ class InventoryStockResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->deferLoading()
             ->columns([
                 TextColumn::make('item.name')
                     ->label('Item')

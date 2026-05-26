@@ -42,8 +42,8 @@ class ReviewPortalController extends Controller
             ->withCount($projectCounts)
             ->where('client_visible', true)
             ->with(['owner:id,name', 'manager:id,name'])
-            ->orderByDesc('is_active')
-            ->orderByDesc('created_at')
+            ->orderByDesc('projects.is_active')
+            ->orderByDesc('projects.created_at')
             ->get();
 
         if ($projects->count() === 1) {

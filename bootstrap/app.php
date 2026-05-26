@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->redirectGuestsTo(fn () => route('filament.admin.auth.login'));
         $middleware->alias([
             'api.token' => \App\Http\Middleware\ApiTokenMiddleware::class,
             'module' => \App\Http\Middleware\EnsureModuleEnabled::class,

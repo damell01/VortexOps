@@ -29,6 +29,8 @@ class ReviewSessionResource extends Resource
 
     protected static ?string $model = ReviewSession::class;
 
+    protected static bool $shouldRegisterNavigation = false;
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-clipboard-document-check';
@@ -75,9 +77,17 @@ class ReviewSessionResource extends Resource
         ]);
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()->with(['project', 'createdBy']);
+    }
+
     public static function table(Table $table): Table
     {
         return $table
+            ->deferLoading()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
             ->columns([
                 TextColumn::make('title')
                     ->searchable()

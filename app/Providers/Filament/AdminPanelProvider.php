@@ -116,6 +116,7 @@ class AdminPanelProvider extends PanelProvider
                             '
                             : '')
                         . "<x-tour-button />"
+<<<<<<< HEAD
                         . '
                             <div x-data="{ feedbackWidgetLoaded: false }">
                                 <button
@@ -133,6 +134,9 @@ class AdminPanelProvider extends PanelProvider
                                 </div>
                             </div>
                         '
+=======
+                        . (AdminModules::isEnabled('reviews') ? "@livewire('feedback-widget')" : '')
+>>>>>>> c978be893c3301dc9ddd4532010e33b3538a8ee3
                     ),
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')

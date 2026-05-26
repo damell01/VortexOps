@@ -119,10 +119,14 @@ class InventoryLocationResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+<<<<<<< HEAD
             ->modifyQueryUsing(fn (Builder $query): Builder => $query
                 ->withoutEagerLoads()
                 ->with(['streamer:id,name'])
                 ->withCount('stock'))
+=======
+            ->deferLoading()
+>>>>>>> c978be893c3301dc9ddd4532010e33b3538a8ee3
             ->columns([
                 TextColumn::make('name')
                     ->searchable()

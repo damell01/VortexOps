@@ -102,10 +102,10 @@ function injectFab() {
             style="position:fixed;bottom:24px;left:24px;z-index:99998;
                    display:flex;align-items:center;gap:7px;
                    padding:9px 16px;border:none;border-radius:999px;
-                   background:#111318;color:white;
+                   background:linear-gradient(135deg,#7c3aed,#0ea5e9);color:white;
                    font-family:${T.font};font-size:12px;font-weight:700;
                    letter-spacing:-0.01em;cursor:pointer;
-                   box-shadow:0 4px 14px rgba(0,0,0,.25),0 0 0 1px rgba(255,255,255,.08) inset;
+                   box-shadow:0 4px 20px rgba(124,58,237,.45),0 2px 6px rgba(0,0,0,.2),0 0 0 1px rgba(255,255,255,.12) inset;
                    transition:${T.transition};">
             <span id="review-fab-icon" style="display:flex;align-items:center;flex-shrink:0;opacity:.9;">
                 ${ICONS.review}
@@ -127,8 +127,8 @@ function updateFabState() {
         icon.innerHTML  = ICONS.exit;
         label.textContent = 'Exit Review';
     } else {
-        btn.style.background = '#111318';
-        btn.style.boxShadow  = '0 4px 14px rgba(0,0,0,.25),0 0 0 1px rgba(255,255,255,.08) inset';
+        btn.style.background = 'linear-gradient(135deg,#7c3aed,#0ea5e9)';
+        btn.style.boxShadow  = '0 4px 20px rgba(124,58,237,.45),0 2px 6px rgba(0,0,0,.2),0 0 0 1px rgba(255,255,255,.12) inset';
         icon.innerHTML  = ICONS.review;
         label.textContent = 'Review';
     }
@@ -476,17 +476,20 @@ async function openCanvas(uploadMode = false, options = {}) {
     deactivatePickerMode();
     removeBrowsingUI();
 
+    let screenshotFailed = false;
     if (!uploadMode) {
-        // Capture the page first so we can use it as the canvas background
         const spinner = showCaptureSpinner();
         try {
             pageScreenshotDataUrl = await capturePageNow();
-        } catch { /* ignore */ }
+        } catch {
+            screenshotFailed = true;
+        }
         spinner.remove();
     }
 
     buildOverlay();
     buildToolbar();
+    if (screenshotFailed) showScreenshotFailToast();
 
     // Inject the captured screenshot as a locked background layer
     if (pageScreenshotDataUrl) {
@@ -503,6 +506,26 @@ async function openCanvas(uploadMode = false, options = {}) {
     if (seedAnnotationPoint) addSeedMarker(seedAnnotationPoint);
     if (uploadMode)     setTimeout(triggerImageUpload, 200);
     if (autoOpenSave)   setTimeout(() => openSaveModal({ type: 'annotation' }), 140);
+}
+
+function showScreenshotFailToast() {
+    const el = document.createElement('div');
+    el.id = 'review-screenshot-toast';
+    Object.assign(el.style, {
+        position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+        zIndex: '99999', display: 'flex', alignItems: 'center', gap: '10px',
+        padding: '10px 16px', borderRadius: '10px',
+        background: 'rgba(15,23,42,.95)', border: '1px solid rgba(255,255,255,.12)',
+        color: 'rgba(255,255,255,.9)', fontFamily: T.font, fontSize: '12px',
+        boxShadow: '0 8px 24px rgba(0,0,0,.3)',
+        backdropFilter: 'blur(8px)',
+    });
+    el.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span>Couldn't capture screenshot — you can still annotate or <strong>submit text-only</strong>.</span>
+        <button onclick="this.parentNode.remove()" style="margin-left:6px;background:none;border:none;color:rgba(255,255,255,.5);cursor:pointer;font-size:14px;line-height:1;">×</button>`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 6000);
 }
 
 function showCaptureSpinner() {

@@ -67,8 +67,14 @@ class ShowResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
+<<<<<<< HEAD
         $count = Cache::remember('nav-badge:shows:pending_review', 30, fn (): int => Show::where('status', 'pending_review')->count());
 
+=======
+        $count = Cache::remember('nav_badge:shows_pending_review', 60, fn () =>
+            \App\Models\Show::where('status', 'pending_review')->count()
+        );
+>>>>>>> c978be893c3301dc9ddd4532010e33b3538a8ee3
         return $count > 0 ? (string) $count : null;
     }
 

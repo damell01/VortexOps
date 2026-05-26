@@ -40,6 +40,7 @@ class ApprovalsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            ->deferLoading()
             ->columns([
                 TextColumn::make('label')->searchable()->weight('bold'),
                 TextColumn::make('status')

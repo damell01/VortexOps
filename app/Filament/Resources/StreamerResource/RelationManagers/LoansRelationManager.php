@@ -75,6 +75,7 @@ class LoansRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            ->deferLoading()
             ->columns([
                 TextColumn::make('label')
                     ->label('Description')

@@ -146,6 +146,7 @@ class ActivityLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->deferLoading()
             ->modifyQueryUsing(fn (Builder $query): Builder => $query
                 ->withoutEagerLoads()
                 ->with(['causer:id,name']))

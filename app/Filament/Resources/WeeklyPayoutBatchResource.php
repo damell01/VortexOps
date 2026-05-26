@@ -47,8 +47,14 @@ class WeeklyPayoutBatchResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
+<<<<<<< HEAD
         $count = Cache::remember('nav-badge:weekly-payout-batches:draft', 30, fn (): int => WeeklyPayoutBatch::where('status', 'draft')->count());
 
+=======
+        $count = Cache::remember('nav_badge:payout_batches_draft', 60, fn () =>
+            \App\Models\WeeklyPayoutBatch::where('status', 'draft')->count()
+        );
+>>>>>>> c978be893c3301dc9ddd4532010e33b3538a8ee3
         return $count > 0 ? (string) $count : null;
     }
 

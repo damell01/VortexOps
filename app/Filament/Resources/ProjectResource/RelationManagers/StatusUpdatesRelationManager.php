@@ -37,6 +37,7 @@ class StatusUpdatesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            ->deferLoading()
             ->columns([
                 TextColumn::make('title')->searchable()->weight('bold'),
                 TextColumn::make('status')

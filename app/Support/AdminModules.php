@@ -6,6 +6,7 @@ use App\Models\Setting;
 
 class AdminModules
 {
+    private static ?array $memoizedSlugs = null;
     /**
      * @return array<string, array{label: string, description: string, group: string, order: int}>
      */
@@ -70,23 +71,32 @@ class AdminModules
      */
     public static function enabledSlugs(): array
     {
+        if (static::$memoizedSlugs !== null) {
+            return static::$memoizedSlugs;
+        }
+
         try {
             $raw = Setting::get('enabled_admin_modules');
         } catch (\Throwable) {
-            return static::defaultEnabledSlugs();
+            return static::$memoizedSlugs = static::defaultEnabledSlugs();
         }
 
         if (! is_string($raw) || trim($raw) === '') {
-            return static::defaultEnabledSlugs();
+            return static::$memoizedSlugs = static::defaultEnabledSlugs();
         }
 
         $decoded = json_decode($raw, true);
 
         if (! is_array($decoded)) {
-            return static::defaultEnabledSlugs();
+            return static::$memoizedSlugs = static::defaultEnabledSlugs();
         }
 
-        return static::normalizeEnabledSlugs($decoded);
+        return static::$memoizedSlugs = static::normalizeEnabledSlugs($decoded);
+    }
+
+    public static function flushMemo(): void
+    {
+        static::$memoizedSlugs = null;
     }
 
     /**

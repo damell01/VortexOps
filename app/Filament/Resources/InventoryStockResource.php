@@ -125,12 +125,16 @@ class InventoryStockResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+<<<<<<< HEAD
             ->modifyQueryUsing(fn (Builder $query): Builder => $query
                 ->withoutEagerLoads()
                 ->with([
                     'item:id,name,sku,category,reorder_level,unit_cost',
                     'location:id,name,type',
                 ]))
+=======
+            ->deferLoading()
+>>>>>>> c978be893c3301dc9ddd4532010e33b3538a8ee3
             ->columns([
                 TextColumn::make('item.name')
                     ->label('Item')

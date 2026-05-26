@@ -151,6 +151,7 @@ class ProjectResource extends Resource
         $reviewsEnabled = AdminModules::isEnabled('reviews');
 
         return $table
+            ->deferLoading()
             ->columns(array_filter([
                 TextColumn::make('name')
                     ->searchable()
@@ -198,7 +199,7 @@ class ProjectResource extends Resource
                 ViewAction::make(),
                 EditAction::make(),
             ])
-            ->defaultSort('updated_at', 'desc');
+            ->defaultSort('projects.updated_at', 'desc');
     }
 
     public static function getRelations(): array

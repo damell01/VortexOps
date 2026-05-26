@@ -55,7 +55,13 @@ class DeductionRequestResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
+<<<<<<< HEAD
         $count = Cache::remember('nav-badge:deduction-requests:pending', 30, fn (): int => static::getModel()::query()->where('status', 'pending')->count());
+=======
+        $count = Cache::remember('nav_badge:deduction_requests_pending', 60, fn () =>
+            static::getModel()::query()->where('status', 'pending')->count()
+        );
+>>>>>>> c978be893c3301dc9ddd4532010e33b3538a8ee3
 
         return $count > 0 ? (string) $count : null;
     }

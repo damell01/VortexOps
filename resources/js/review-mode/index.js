@@ -12,6 +12,7 @@ let projectId           = null;
 let hasUploadedImage    = false;
 let browsingExpanded    = false;
 let pageScreenshotDataUrl = null;  // captured once when canvas opens
+const REVIEW_FAB_MINIMIZED_KEY = 'vortex_review_fab_minimized';
 
 let fabricCanvas        = null;
 let overlayEl           = null;
@@ -53,6 +54,19 @@ const T = {
     transition:'all 0.14s ease',
     font:      "'Inter',system-ui,sans-serif",
 };
+
+function currentReviewUrl() {
+    return `${window.location.origin}${window.location.pathname}${window.location.search}`;
+}
+
+function isFabMinimized() {
+    return localStorage.getItem(REVIEW_FAB_MINIMIZED_KEY) === '1';
+}
+
+function setFabMinimized(value) {
+    if (value) localStorage.setItem(REVIEW_FAB_MINIMIZED_KEY, '1');
+    else localStorage.removeItem(REVIEW_FAB_MINIMIZED_KEY);
+}
 
 // SVG icon helper ───────────────────────────────────────────────────────────────
 const svg = (path, size = 16, extra = '') =>
@@ -97,10 +111,18 @@ document.addEventListener('DOMContentLoaded', () => {
 function injectFab() {
     const wrap = document.createElement('div');
     wrap.id = 'review-fab-wrap';
+    Object.assign(wrap.style, {
+        position: 'fixed',
+        top: '16px',
+        right: '20px',
+        zIndex: '99998',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+    });
     wrap.innerHTML = `
         <button id="review-toggle-btn" title="Review Mode"
-            style="position:fixed;bottom:24px;left:24px;z-index:99998;
-                   display:flex;align-items:center;gap:7px;
+            style="display:flex;align-items:center;gap:7px;
                    padding:9px 16px;border:none;border-radius:999px;
                    background:linear-gradient(135deg,#7c3aed,#0ea5e9);color:white;
                    font-family:${T.font};font-size:12px;font-weight:700;
@@ -111,16 +133,48 @@ function injectFab() {
                 ${ICONS.review}
             </span>
             <span id="review-fab-label">Review</span>
+        </button>
+        <button id="review-fab-minimize-btn" title="Hide review controls"
+            style="display:flex;align-items:center;justify-content:center;
+                   width:34px;height:34px;border:none;border-radius:999px;
+                   background:rgba(17,19,24,.92);color:white;cursor:pointer;
+                   box-shadow:0 4px 14px rgba(0,0,0,.18);transition:${T.transition};">
+            ${ICONS.exit.replace('width="16" height="16"', 'width="13" height="13"')}
         </button>`;
     document.body.appendChild(wrap);
-    wrap.querySelector('#review-toggle-btn').addEventListener('click', handleFabClick);
+    wrap.querySelector('#review-toggle-btn')?.addEventListener('click', handleFabClick);
+    wrap.querySelector('#review-fab-minimize-btn')?.addEventListener('click', e => {
+        e.stopPropagation();
+        setFabMinimized(true);
+        updateFabState();
+    });
+    updateFabState();
 }
 
 function updateFabState() {
+    const wrap  = document.getElementById('review-fab-wrap');
     const btn   = document.getElementById('review-toggle-btn');
     const icon  = document.getElementById('review-fab-icon');
     const label = document.getElementById('review-fab-label');
-    if (!btn) return;
+    const hideBtn = document.getElementById('review-fab-minimize-btn');
+    if (!wrap || !btn || !icon || !label || !hideBtn) return;
+
+    const minimized = isFabMinimized();
+
+    wrap.style.top = '16px';
+    wrap.style.right = '20px';
+    btn.style.padding = minimized ? '9px 12px' : '9px 16px';
+    label.style.display = minimized ? 'none' : '';
+    hideBtn.style.display = minimized ? 'none' : 'flex';
+    btn.title = minimized ? 'Open review controls' : 'Review Mode';
+
+    if (minimized) {
+        btn.style.background = '#111318';
+        btn.style.boxShadow = '0 4px 14px rgba(0,0,0,.18)';
+        icon.innerHTML = ICONS.review;
+        return;
+    }
+
     if (reviewModeActive) {
         btn.style.background = '#be123c';
         btn.style.boxShadow  = '0 4px 14px rgba(190,18,60,.35),0 0 0 1px rgba(255,255,255,.08) inset';
@@ -135,6 +189,12 @@ function updateFabState() {
 }
 
 async function handleFabClick() {
+    if (isFabMinimized()) {
+        setFabMinimized(false);
+        updateFabState();
+        return;
+    }
+
     if (reviewModeActive) exitReviewMode();
     else enterReviewMode();
 }
@@ -164,8 +224,8 @@ function showBrowsingUI() {
     browsingChip.id = 'review-chip';
     Object.assign(browsingChip.style, {
         position: 'fixed',
-        bottom: '68px',
-        left: '24px',
+        top: '60px',
+        right: '20px',
         zIndex: '99997',
         display: 'flex',
         alignItems: 'center',
@@ -204,8 +264,8 @@ function injectChipActions() {
     actions.id = 'review-chip-actions';
     Object.assign(actions.style, {
         position: 'fixed',
-        bottom: '104px',
-        left: '24px',
+        top: '104px',
+        right: '20px',
         zIndex: '99997',
         display: 'flex',
         flexDirection: 'column',
@@ -269,8 +329,8 @@ function showBrowsingPopover() {
     browsingPopover.id = 'review-popover';
     Object.assign(browsingPopover.style, {
         position: 'fixed',
-        bottom: '240px',
-        left: '24px',
+        top: '152px',
+        right: '20px',
         zIndex: '99997',
         width: '260px',
         background: T.bg,
@@ -357,7 +417,7 @@ async function loadPageAnnotationsForBadge() {
     try {
         const r   = await fetch(`/admin/review/items?session_id=${sessionId}`, { headers: { Accept: 'application/json' } });
         const all = await r.json();
-        const pageItems = all.filter(i => i.page_url === window.location.href);
+        const pageItems = all.filter(i => i.page_url === currentReviewUrl());
         updateChipBadge(pageItems);
     } catch { /* ignore */ }
 }
@@ -384,7 +444,7 @@ async function loadPopoverAnnotations() {
     try {
         const r = await fetch(`/admin/review/items?session_id=${sessionId}`, { headers: { Accept: 'application/json' } });
         allItems  = await r.json();
-        pageItems = allItems.filter(item => item.page_url === window.location.href);
+        pageItems = allItems.filter(item => item.page_url === currentReviewUrl());
     } catch {
         container.innerHTML = `<div style="padding:14px 12px;color:${T.subtle};font-size:11px;text-align:center;">Could not load annotations.</div>`;
         return;
@@ -400,7 +460,7 @@ async function loadPopoverAnnotations() {
 
     const statusDot = { open: '#ef4444', in_progress: '#f59e0b', fixed: '#22c55e', approved: '#10b981', rejected: '#9ca3af', wont_fix: '#9ca3af' };
     const typeIcon  = { annotation: '✏', bug: '⬤', suggestion: '◆', question: '?' };
-    const pageUrl   = encodeURIComponent(window.location.href);
+    const pageUrl   = encodeURIComponent(currentReviewUrl());
 
     let html = `<div style="padding:7px 12px 3px;font-size:10px;font-weight:700;color:${T.subtle};text-transform:uppercase;letter-spacing:.04em;">${pageItems.length} on this page</div>`;
 
@@ -1218,6 +1278,10 @@ async function submitAnnotation(modal) {
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
                 body: JSON.stringify({ title, project_id: projectId ? parseInt(projectId, 10) : null }),
             });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                throw new Error(err.message || `Server error ${r.status}`);
+            }
             const s = await r.json();
             sessionId = String(s.id);
             localStorage.setItem('vortex_review_session_id', sessionId);
@@ -1241,9 +1305,9 @@ async function submitAnnotation(modal) {
         const resp = await fetch('/admin/review/items', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
-            body: JSON.stringify({
+                body: JSON.stringify({
                 review_session_id: parseInt(sessionId, 10),
-                page_url:    window.location.href,
+                page_url:    currentReviewUrl(),
                 page_title:  document.title,
                 screenshot:  screenshotDataUrl,
                 fabric_json: fabricJson,
@@ -1360,6 +1424,10 @@ async function pickSession() {
                     headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
                     body: JSON.stringify({ title, project_id: projectId ? parseInt(projectId, 10) : null }),
                 });
+                if (!r.ok) {
+                    const err = await r.json().catch(() => ({}));
+                    throw new Error(err.message || `Server error ${r.status}`);
+                }
                 const s = await r.json();
                 close(String(s.id));
             } catch (e) { alert('Could not create session: ' + e.message); }

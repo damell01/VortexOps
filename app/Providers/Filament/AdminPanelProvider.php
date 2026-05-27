@@ -136,25 +136,6 @@ class AdminPanelProvider extends PanelProvider
                             '
                             : '')
                         . "<x-tour-button />"
-                        . ($moduleFlags['reviews']
-                            ? '
-                                <div x-data="{ feedbackWidgetLoaded: false }">
-                                    <button
-                                        x-cloak
-                                        x-show="! feedbackWidgetLoaded"
-                                        @click="feedbackWidgetLoaded = true"
-                                        class="fixed bottom-6 right-6 z-[99998] flex items-center gap-2 rounded-full bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg ring-1 ring-primary-500/20 transition hover:bg-primary-500"
-                                        title="Leave feedback"
-                                    >
-                                        Feedback
-                                    </button>
-
-                                    <div x-cloak x-show="feedbackWidgetLoaded">
-                                        <livewire:feedback-widget lazy />
-                                    </div>
-                                </div>
-                            '
-                            : '')
                     ),
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')

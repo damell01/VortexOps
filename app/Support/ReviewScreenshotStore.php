@@ -4,6 +4,7 @@ namespace App\Support;
 
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Throwable;
 
 class ReviewScreenshotStore
 {
@@ -38,7 +39,14 @@ class ReviewScreenshotStore
 
         $path = 'review-screenshots/' . now()->format('Y/m') . '/' . Str::uuid() . '.' . $extension;
 
-        Storage::disk('public')->put($path, $binary);
+        try {
+            Storage::disk('public')->makeDirectory(dirname($path));
+            Storage::disk('public')->put($path, $binary);
+        } catch (Throwable $e) {
+            report($e);
+
+            return null;
+        }
 
         return $path;
     }

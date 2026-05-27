@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Throwable;
 
 class ReviewController extends Controller
 {
@@ -35,16 +36,24 @@ class ReviewController extends Controller
             'project_id' => 'nullable|exists:projects,id',
         ]);
 
-        $projectId = $request->integer('project_id') ?: ProjectHub::defaultProjectId($request->user());
+        try {
+            $projectId = $request->integer('project_id') ?: ProjectHub::defaultProjectId($request->user());
 
-        $session = ReviewSession::create([
-            'project_id' => $projectId,
-            'title'      => $request->title,
-            'status'     => 'open',
-            'created_by' => Auth::id(),
-        ]);
+            $session = ReviewSession::create([
+                'project_id' => $projectId,
+                'title'      => $request->string('title')->toString(),
+                'status'     => 'open',
+                'created_by' => Auth::id(),
+            ]);
 
-        return response()->json($session, 201);
+            return response()->json($session, 201);
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Unable to create the review session right now.',
+            ], 500);
+        }
     }
 
     // GET /admin/review/items?session_id=X
@@ -69,7 +78,7 @@ class ReviewController extends Controller
     {
         $request->validate([
             'review_session_id' => 'required|exists:review_sessions,id',
-            'page_url'          => 'required|string|max:1000',
+            'page_url'          => 'required|string|max:4000',
             'page_title'        => 'nullable|string|max:255',
             'screenshot'        => 'nullable|string',
             'fabric_json'       => 'nullable|string',
@@ -78,20 +87,28 @@ class ReviewController extends Controller
             'priority'          => 'nullable|in:low,normal,high',
         ]);
 
-        $item = ReviewItem::create([
-            'review_session_id' => $request->review_session_id,
-            'page_url'          => $request->page_url,
-            'page_title'        => $request->page_title,
-            'screenshot'        => ReviewScreenshotStore::persist($request->string('screenshot')->toString()),
-            'fabric_json'       => $request->fabric_json,
-            'comment'           => $request->comment,
-            'type'              => $request->type ?? 'annotation',
-            'status'            => 'open',
-            'priority'          => $request->priority ?? 'normal',
-            'created_by'        => Auth::id(),
-        ]);
+        try {
+            $item = ReviewItem::create([
+                'review_session_id' => $request->integer('review_session_id'),
+                'page_url'          => $this->normalizePageUrl($request->string('page_url')->toString()),
+                'page_title'        => $request->string('page_title')->toString() ?: null,
+                'screenshot'        => ReviewScreenshotStore::persist($request->string('screenshot')->toString()),
+                'fabric_json'       => $request->string('fabric_json')->toString() ?: null,
+                'comment'           => $request->string('comment')->toString() ?: null,
+                'type'              => $request->string('type')->toString() ?: 'annotation',
+                'status'            => 'open',
+                'priority'          => $request->string('priority')->toString() ?: 'normal',
+                'created_by'        => Auth::id(),
+            ]);
 
-        return response()->json($item->load('createdBy:id,name'), 201);
+            return response()->json($item->load('createdBy:id,name'), 201);
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Unable to save the review item right now.',
+            ], 500);
+        }
     }
 
     // PATCH /admin/review/items/{item}
@@ -123,12 +140,31 @@ class ReviewController extends Controller
     {
         $request->validate(['body' => 'required|string|max:2000']);
 
-        $comment = ReviewItemComment::create([
-            'review_item_id' => $item->id,
-            'user_id'        => Auth::id(),
-            'body'           => $request->body,
-        ]);
+        try {
+            $comment = ReviewItemComment::create([
+                'review_item_id' => $item->id,
+                'user_id'        => Auth::id(),
+                'body'           => $request->string('body')->toString(),
+            ]);
 
-        return response()->json($comment->load('user:id,name'), 201);
+            return response()->json($comment->load('user:id,name'), 201);
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Unable to save the comment right now.',
+            ], 500);
+        }
+    }
+
+    private function normalizePageUrl(string $url): string
+    {
+        $url = trim($url);
+
+        if ($url === '') {
+            return '/';
+        }
+
+        return mb_substr($url, 0, 4000);
     }
 }

@@ -68,6 +68,26 @@ class AdminPanelProvider extends PanelProvider
         $isAuthenticatedAdminView = fn (): bool => auth()->check();
         $hasViteManifest = fn (): bool => file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot'));
 
+        try {
+            $navigationGroups = AdminModules::visibleNavigationGroups();
+        } catch (\Throwable) {
+            $navigationGroups = ['Settings'];
+        }
+
+        try {
+            $moduleFlags = [
+                'projects' => AdminModules::isEnabled('projects'),
+                'reviews'  => AdminModules::isEnabled('reviews'),
+                'ai'       => AdminModules::isEnabled('ai'),
+            ];
+        } catch (\Throwable) {
+            $moduleFlags = [
+                'projects' => true,
+                'reviews'  => true,
+                'ai'       => false,
+            ];
+        }
+
         return $panel
             ->spa(hasPrefetching: false)
             ->databaseNotifications()
@@ -76,7 +96,7 @@ class AdminPanelProvider extends PanelProvider
                 fn (string $group): NavigationGroup => $group === 'Settings'
                     ? NavigationGroup::make($group)->collapsed()
                     : NavigationGroup::make($group),
-                AdminModules::visibleNavigationGroups(),
+                $navigationGroups,
             ))
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
@@ -92,11 +112,11 @@ class AdminPanelProvider extends PanelProvider
                     ? ''
                     : Blade::render(
                         '<script>window.VortexModules = ' . Js::from([
-                            'projects' => AdminModules::isEnabled('projects'),
-                            'reviews'  => AdminModules::isEnabled('reviews'),
-                            'ai'       => AdminModules::isEnabled('ai'),
+                            'projects' => $moduleFlags['projects'],
+                            'reviews'  => $moduleFlags['reviews'],
+                            'ai'       => $moduleFlags['ai'],
                         ]) . ';</script>' .
-                        (AdminModules::isEnabled('ai')
+                        ($moduleFlags['ai']
                             ? '
                                 <div x-data="{ aiPanelLoaded: false }">
                                     <button
@@ -116,7 +136,7 @@ class AdminPanelProvider extends PanelProvider
                             '
                             : '')
                         . "<x-tour-button />"
-                        . (AdminModules::isEnabled('reviews')
+                        . ($moduleFlags['reviews']
                             ? '
                                 <div x-data="{ feedbackWidgetLoaded: false }">
                                     <button

@@ -129,11 +129,19 @@ class AdminModules
 
     public static function isEnabled(string $slug): bool
     {
-        if ($slug === 'ai' && ! Setting::getBool('ai_enabled', false)) {
-            return false;
-        }
+        try {
+            if ($slug === 'ai' && ! Setting::getBool('ai_enabled', false)) {
+                return false;
+            }
 
-        return in_array($slug, static::enabledSlugs(), true);
+            return in_array($slug, static::enabledSlugs(), true);
+        } catch (\Throwable) {
+            if ($slug === 'ai') {
+                return false;
+            }
+
+            return in_array($slug, static::defaultEnabledSlugs(), true);
+        }
     }
 
     /**

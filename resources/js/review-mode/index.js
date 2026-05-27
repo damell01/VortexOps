@@ -12,7 +12,6 @@ let projectId           = null;
 let hasUploadedImage    = false;
 let browsingExpanded    = false;
 let pageScreenshotDataUrl = null;  // captured once when canvas opens
-const REVIEW_FAB_MINIMIZED_KEY = 'vortex_review_fab_minimized';
 
 let fabricCanvas        = null;
 let overlayEl           = null;
@@ -59,15 +58,6 @@ function currentReviewUrl() {
     return `${window.location.origin}${window.location.pathname}${window.location.search}`;
 }
 
-function isFabMinimized() {
-    return localStorage.getItem(REVIEW_FAB_MINIMIZED_KEY) === '1';
-}
-
-function setFabMinimized(value) {
-    if (value) localStorage.setItem(REVIEW_FAB_MINIMIZED_KEY, '1');
-    else localStorage.removeItem(REVIEW_FAB_MINIMIZED_KEY);
-}
-
 // SVG icon helper ───────────────────────────────────────────────────────────────
 const svg = (path, size = 16, extra = '') =>
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24"
@@ -99,6 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!reviewModuleEnabled) return;
     sessionId = localStorage.getItem('vortex_review_session_id') || null;
     projectId = localStorage.getItem('vortex_project_id') || null;
+    localStorage.removeItem('vortex_review_fab_minimized');
     injectFab();
     if (localStorage.getItem('vortex_review_active') === '1') {
         reviewModeActive = true;
@@ -133,21 +124,9 @@ function injectFab() {
                 ${ICONS.review}
             </span>
             <span id="review-fab-label">Review</span>
-        </button>
-        <button id="review-fab-minimize-btn" title="Hide review controls"
-            style="display:flex;align-items:center;justify-content:center;
-                   width:34px;height:34px;border:none;border-radius:999px;
-                   background:rgba(17,19,24,.92);color:white;cursor:pointer;
-                   box-shadow:0 4px 14px rgba(0,0,0,.18);transition:${T.transition};">
-            ${ICONS.exit.replace('width="16" height="16"', 'width="13" height="13"')}
         </button>`;
     document.body.appendChild(wrap);
     wrap.querySelector('#review-toggle-btn')?.addEventListener('click', handleFabClick);
-    wrap.querySelector('#review-fab-minimize-btn')?.addEventListener('click', e => {
-        e.stopPropagation();
-        setFabMinimized(true);
-        updateFabState();
-    });
     updateFabState();
 }
 
@@ -156,24 +135,13 @@ function updateFabState() {
     const btn   = document.getElementById('review-toggle-btn');
     const icon  = document.getElementById('review-fab-icon');
     const label = document.getElementById('review-fab-label');
-    const hideBtn = document.getElementById('review-fab-minimize-btn');
-    if (!wrap || !btn || !icon || !label || !hideBtn) return;
-
-    const minimized = isFabMinimized();
+    if (!wrap || !btn || !icon || !label) return;
 
     wrap.style.top = '16px';
     wrap.style.right = '20px';
-    btn.style.padding = minimized ? '9px 12px' : '9px 16px';
-    label.style.display = minimized ? 'none' : '';
-    hideBtn.style.display = minimized ? 'none' : 'flex';
-    btn.title = minimized ? 'Open review controls' : 'Review Mode';
-
-    if (minimized) {
-        btn.style.background = '#111318';
-        btn.style.boxShadow = '0 4px 14px rgba(0,0,0,.18)';
-        icon.innerHTML = ICONS.review;
-        return;
-    }
+    btn.style.padding = '9px 16px';
+    label.style.display = '';
+    btn.title = 'Review Mode';
 
     if (reviewModeActive) {
         btn.style.background = '#be123c';
@@ -189,12 +157,6 @@ function updateFabState() {
 }
 
 async function handleFabClick() {
-    if (isFabMinimized()) {
-        setFabMinimized(false);
-        updateFabState();
-        return;
-    }
-
     if (reviewModeActive) exitReviewMode();
     else enterReviewMode();
 }

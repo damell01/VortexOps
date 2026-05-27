@@ -131,11 +131,15 @@ class PayoutResource extends Resource
 
                 TextColumn::make('show.title')
                     ->label('Show')
-                    ->default('—'),
+                    ->default('—')
+                    ->searchable()
+                    ->weight('semibold')
+                    ->description(fn (Payout $record): ?string => $record->show?->show_date?->format('M j, Y')),
 
                 TextColumn::make('streamer.name')
                     ->label('Streamer')
-                    ->sortable(),
+                    ->sortable()
+                    ->searchable(),
 
                 TextColumn::make('payout_type')
                     ->badge()
@@ -150,8 +154,9 @@ class PayoutResource extends Resource
                     }),
 
                 TextColumn::make('gross_show_revenue')
-                    ->label('Gross Revenue')
-                    ->money('USD'),
+                    ->label('Revenue')
+                    ->money('USD')
+                    ->sortable(),
 
                 TextColumn::make('owner_fee_deducted')
                     ->label('Owner Fee')
@@ -165,16 +170,19 @@ class PayoutResource extends Resource
 
                 TextColumn::make('tips_included')
                     ->label('Tips')
-                    ->money('USD'),
+                    ->money('USD')
+                    ->sortable(),
 
                 TextColumn::make('calculated_payout')
-                    ->label('Payout')
+                    ->label('Final Payout')
                     ->money('USD')
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->sortable(),
 
                 TextColumn::make('batch.week_start')
                     ->label('Pay Week')
-                    ->formatStateUsing(fn ($state): string => $state ? $state->format('M j') : 'Unbatched'),
+                    ->formatStateUsing(fn ($state): string => $state ? $state->format('M j') : 'Unbatched')
+                    ->toggleable(),
 
                 TextColumn::make('status')
                     ->badge()
@@ -199,9 +207,10 @@ class PayoutResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->filters([
                 SelectFilter::make('status')
+                    ->label('By Status')
                     ->options(Payout::statusLabels()),
                 SelectFilter::make('streamer_id')
-                    ->label('Streamer')
+                    ->label('By Streamer')
                     ->options(fn () => Cache::remember('filter:streamers', 300, fn () => Streamer::pluck('name', 'id')->toArray()))
                     ->visible(fn () => auth()->user()?->isAdmin()),
             ])

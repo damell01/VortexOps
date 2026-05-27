@@ -11,6 +11,7 @@ Use this file for:
 - quick production sanity checks
 
 For deeper implementation notes, see [TECHNICAL.md](./TECHNICAL.md).  
+For the business flows, replaced spreadsheets, and product requirements view, see [PRODUCT_PRD.md](./PRODUCT_PRD.md).  
 For deployment setup, see [DEPLOYMENT.md](./DEPLOYMENT.md).  
 For a running human-readable update log, see [CHANGELOG.md](./CHANGELOG.md).
 

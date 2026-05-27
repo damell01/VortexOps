@@ -102,7 +102,8 @@ class WeeklyPayoutBatchResource extends Resource
                 TextColumn::make('week_start')
                     ->label('Week Of')
                     ->date('M j, Y')
-                    ->sortable(),
+                    ->sortable()
+                    ->weight('semibold'),
 
                 TextColumn::make('week_end')
                     ->label('Week End')
@@ -110,10 +111,10 @@ class WeeklyPayoutBatchResource extends Resource
 
                 TextColumn::make('payouts_count')
                     ->counts('payouts')
-                    ->label('Streamers'),
+                    ->label('Payouts'),
 
                 TextColumn::make('total_payout')
-                    ->label('Total Payout')
+                    ->label('Total Paid')
                     ->money('USD')
                     ->weight('bold'),
 
@@ -147,6 +148,7 @@ class WeeklyPayoutBatchResource extends Resource
             ->defaultSort('week_start', 'desc')
             ->filters([
                 SelectFilter::make('status')
+                    ->label('By Status')
                     ->options(WeeklyPayoutBatch::statusLabels()),
             ])
             ->actions([

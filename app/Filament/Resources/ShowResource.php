@@ -277,32 +277,41 @@ class ShowResource extends Resource
                 TextColumn::make('show_date')
                     ->label('Date')
                     ->date('M j, Y')
+                    ->description(fn (Show $record): ?string => $record->start_time?->format('g:i A'))
                     ->sortable(),
 
                 TextColumn::make('title')
                     ->label('Show Title')
                     ->default('—')
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable()
+                    ->weight('semibold')
+                    ->description(fn (Show $record): ?string => filled($record->notes) ? str($record->notes)->limit(42)->toString() : null),
 
                 TextColumn::make('channel.name')
                     ->label('Channel')
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->toggleable(),
 
                 TextColumn::make('streamers.name')
                     ->label('Streamers')
                     ->badge()
-                    ->separator(', '),
+                    ->separator(', ')
+                    ->toggleable(),
 
                 TextColumn::make('gross_revenue')
-                    ->label('Gross Revenue')
+                    ->label('Revenue')
                     ->money('USD')
-                    ->default('—'),
+                    ->default('—')
+                    ->sortable(),
 
                 TextColumn::make('units_sold')
                     ->label('Units')
-                    ->numeric(),
+                    ->numeric()
+                    ->sortable(),
 
                 TextColumn::make('status')
+                    ->label('Workflow')
                     ->badge()
                     ->formatStateUsing(fn ($state) => Show::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => match ($state) {
@@ -330,6 +339,7 @@ class ShowResource extends Resource
                     ->toggleable(),
 
                 TextColumn::make('import_source')
+                    ->label('Source')
                     ->badge()
                     ->formatStateUsing(fn ($state) => Show::importSourceLabels()[$state] ?? $state)
                     ->color(fn ($state) => match ($state) {
@@ -352,17 +362,19 @@ class ShowResource extends Resource
             ->defaultSort('show_date', 'desc')
             ->filters([
                 SelectFilter::make('status')
+                    ->label('By Status')
                     ->options(Show::statusLabels()),
 
                 SelectFilter::make('whatnot_channel_id')
-                    ->label('Channel')
+                    ->label('By Channel')
                     ->relationship('channel', 'name'),
 
                 SelectFilter::make('import_source')
-                    ->label('Import Source')
+                    ->label('By Source')
                     ->options(Show::importSourceLabels()),
 
                 Filter::make('show_date')
+                    ->label('By Date Range')
                     ->form([
                         DatePicker::make('from')->label('From Date'),
                         DatePicker::make('until')->label('Until Date'),

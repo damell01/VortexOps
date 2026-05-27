@@ -131,7 +131,9 @@ class InventoryItemResource extends Resource
                     ->placeholder('—'),
                 TextColumn::make('name')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->weight('semibold')
+                    ->description(fn (InventoryItem $record): ?string => filled($record->description) ? str($record->description)->limit(48)->toString() : null),
                 TextColumn::make('category')
                     ->searchable()
                     ->badge()
@@ -141,16 +143,19 @@ class InventoryItemResource extends Resource
                     ->money('USD')
                     ->sortable(),
                 TextColumn::make('stock_sum_quantity')
-                    ->label('Total Qty')
+                    ->label('On Hand')
                     ->numeric(decimalPlaces: 0)
                     ->default(0)
-                    ->sortable(),
+                    ->sortable()
+                    ->weight('semibold'),
                 TextColumn::make('reorder_level')
                     ->label('Reorder At')
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->description(fn (InventoryItem $record): ?string => $record->reorder_level !== null && (int) ($record->stock_sum_quantity ?? 0) <= (int) $record->reorder_level ? 'Needs restock' : null),
                 IconColumn::make('is_active')
                     ->boolean()
-                    ->label('Active'),
+                    ->label('Active')
+                    ->toggleable(),
                 TextColumn::make('updated_at')
                     ->dateTime('M j, Y g:i A')
                     ->sortable()
@@ -158,6 +163,7 @@ class InventoryItemResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('category')
+                    ->label('By Category')
                     ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
                         ->distinct()
                         ->pluck('category', 'category')
@@ -179,6 +185,7 @@ class InventoryItemResource extends Resource
                     ->query(fn (Builder $query) => $query->where('is_active', true))
                     ->default(),
             ])
+            ->recordUrl(fn (InventoryItem $record): string => static::getUrl('view', ['record' => $record]))
             ->actions([
                 ViewAction::make(),
                 EditAction::make(),

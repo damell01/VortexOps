@@ -1,10 +1,11 @@
 <div
-    id="vortexops-tour-btn"
+    id="vortexops-top-actions"
     x-data
     x-cloak
-    style="position:fixed;top:0.875rem;right:5.75rem;z-index:45;"
+    style="position:fixed;top:0.875rem;right:1rem;z-index:60;display:flex;align-items:center;gap:0.625rem;"
 >
     <button
+        id="vortexops-tour-btn"
         @click="window.vortexTour?.start()"
         title="Help & guided tour"
         style="

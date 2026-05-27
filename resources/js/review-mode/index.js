@@ -100,13 +100,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── FAB ────────────────────────────────────────────────────────────────────────
 function injectFab() {
+    const dock = document.getElementById('vortexops-top-actions');
     const wrap = document.createElement('div');
     wrap.id = 'review-fab-wrap';
-    Object.assign(wrap.style, {
+    Object.assign(wrap.style, dock ? {
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        order: '-1',
+    } : {
         position: 'fixed',
-        top: '16px',
-        right: '20px',
-        zIndex: '99998',
+        top: '0.875rem',
+        right: '10.5rem',
+        zIndex: '46',
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
@@ -114,18 +121,19 @@ function injectFab() {
     wrap.innerHTML = `
         <button id="review-toggle-btn" title="Review Mode"
             style="display:flex;align-items:center;gap:7px;
-                   padding:9px 16px;border:none;border-radius:999px;
-                   background:linear-gradient(135deg,#7c3aed,#0ea5e9);color:white;
-                   font-family:${T.font};font-size:12px;font-weight:700;
+                   padding:0.42rem 0.8rem;border:1px solid rgba(124,58,237,.18);border-radius:999px;
+                   background:rgba(255,255,255,0.94);color:#5b21b6;
+                   font-family:${T.font};font-size:0.78rem;font-weight:700;
                    letter-spacing:-0.01em;cursor:pointer;
-                   box-shadow:0 4px 20px rgba(124,58,237,.45),0 2px 6px rgba(0,0,0,.2),0 0 0 1px rgba(255,255,255,.12) inset;
+                   backdrop-filter:blur(10px);
+                   box-shadow:0 1px 6px rgba(0,0,0,0.10);
                    transition:${T.transition};">
             <span id="review-fab-icon" style="display:flex;align-items:center;flex-shrink:0;opacity:.9;">
                 ${ICONS.review}
             </span>
             <span id="review-fab-label">Review</span>
         </button>`;
-    document.body.appendChild(wrap);
+    (dock ?? document.body).appendChild(wrap);
     wrap.querySelector('#review-toggle-btn')?.addEventListener('click', handleFabClick);
     updateFabState();
 }
@@ -137,20 +145,27 @@ function updateFabState() {
     const label = document.getElementById('review-fab-label');
     if (!wrap || !btn || !icon || !label) return;
 
-    wrap.style.top = '16px';
-    wrap.style.right = '20px';
-    btn.style.padding = '9px 16px';
+    const docked = wrap.parentElement?.id === 'vortexops-top-actions';
+    wrap.style.position = docked ? 'relative' : 'fixed';
+    wrap.style.top = docked ? 'auto' : '0.875rem';
+    wrap.style.right = docked ? 'auto' : '10.5rem';
+    wrap.style.zIndex = docked ? 'auto' : '46';
+    btn.style.padding = '0.42rem 0.8rem';
     label.style.display = '';
     btn.title = 'Review Mode';
 
     if (reviewModeActive) {
-        btn.style.background = '#be123c';
-        btn.style.boxShadow  = '0 4px 14px rgba(190,18,60,.35),0 0 0 1px rgba(255,255,255,.08) inset';
+        btn.style.background = 'linear-gradient(135deg,#7c3aed,#0ea5e9)';
+        btn.style.color = '#ffffff';
+        btn.style.borderColor = 'rgba(124,58,237,.35)';
+        btn.style.boxShadow  = '0 6px 18px rgba(124,58,237,.28)';
         icon.innerHTML  = ICONS.exit;
         label.textContent = 'Exit Review';
     } else {
-        btn.style.background = 'linear-gradient(135deg,#7c3aed,#0ea5e9)';
-        btn.style.boxShadow  = '0 4px 20px rgba(124,58,237,.45),0 2px 6px rgba(0,0,0,.2),0 0 0 1px rgba(255,255,255,.12) inset';
+        btn.style.background = 'rgba(255,255,255,0.94)';
+        btn.style.color = '#5b21b6';
+        btn.style.borderColor = 'rgba(124,58,237,.18)';
+        btn.style.boxShadow  = '0 1px 6px rgba(0,0,0,0.10)';
         icon.innerHTML  = ICONS.review;
         label.textContent = 'Review';
     }
@@ -186,8 +201,8 @@ function showBrowsingUI() {
     browsingChip.id = 'review-chip';
     Object.assign(browsingChip.style, {
         position: 'fixed',
-        top: '60px',
-        right: '20px',
+        top: '3.5rem',
+        right: '1rem',
         zIndex: '99997',
         display: 'flex',
         alignItems: 'center',
@@ -226,8 +241,8 @@ function injectChipActions() {
     actions.id = 'review-chip-actions';
     Object.assign(actions.style, {
         position: 'fixed',
-        top: '104px',
-        right: '20px',
+        top: '6rem',
+        right: '1rem',
         zIndex: '99997',
         display: 'flex',
         flexDirection: 'column',

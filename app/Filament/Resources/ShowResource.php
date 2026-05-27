@@ -41,13 +41,7 @@ class ShowResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with([
-            'streamers',
-            'channel',
-            'latestDeductionRequest.lines.inventoryItem',
-            'latestDeductionRequest.lines.location',
-            'payouts.streamer',
-        ]);
+        return parent::getEloquentQuery();
     }
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -271,7 +265,13 @@ class ShowResource extends Resource
                 ->with([
                     'streamers:id,name',
                     'channel:id,name',
-                    'latestDeductionRequest:id,show_id,status',
+                ])
+                ->addSelect([
+                    'latest_deduction_status' => DeductionRequest::query()
+                        ->select('status')
+                        ->whereColumn('show_id', 'shows.id')
+                        ->latest('id')
+                        ->limit(1),
                 ]))
             ->columns([
                 TextColumn::make('show_date')
@@ -316,7 +316,7 @@ class ShowResource extends Resource
                         default => 'gray',
                     }),
 
-                TextColumn::make('latestDeductionRequest.status')
+                TextColumn::make('latest_deduction_status')
                     ->label('Approval')
                     ->badge()
                     ->formatStateUsing(fn ($state) => $state ? (DeductionRequest::statusLabels()[$state] ?? $state) : 'Not started')
@@ -378,7 +378,7 @@ class ShowResource extends Resource
                     ->label('Map Sales with AI')
                     ->icon('heroicon-o-sparkles')
                     ->color('primary')
-                    ->visible(fn (Show $record) => $record->status === 'pending_review' && $record->streamers()->exists())
+                    ->visible(fn (Show $record) => $record->status === 'pending_review' && $record->streamers->isNotEmpty())
                     ->requiresConfirmation()
                     ->action(function (Show $record) {
                         MapShowInventory::dispatch($record->id);

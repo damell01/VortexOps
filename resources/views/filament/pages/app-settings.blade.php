@@ -24,6 +24,8 @@
                     <div class="flex-shrink-0 w-24 h-12 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
                         @if ($logo_path && file_exists(storage_path('app/public/' . $logo_path)))
                             <img src="{{ asset('storage/' . $logo_path) }}" alt="Logo" class="max-h-10 max-w-full object-contain" />
+                        @elseif (file_exists(public_path(\App\Support\Branding::DEFAULT_LOGO_ASSET)))
+                            <img src="{{ asset(\App\Support\Branding::DEFAULT_LOGO_ASSET) }}" alt="Default logo" class="max-h-10 max-w-full object-contain" />
                         @else
                             <span class="text-xs font-bold text-gray-400">{{ $brand_name }}</span>
                         @endif
@@ -52,7 +54,7 @@
                     id="brand_name"
                     type="text"
                     maxlength="60"
-                    placeholder="VortexOps"
+                    placeholder="{{ \App\Support\Branding::DEFAULT_NAME }}"
                     class="w-full max-w-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
                 />
                 <p class="mt-1 text-xs text-gray-400">Shown in the sidebar header when no logo is set.</p>
@@ -64,20 +66,7 @@
                 <div class="flex items-center gap-3 flex-wrap">
 
                     {{-- Preset swatches --}}
-                    @php
-                        $presets = [
-                            ['label' => 'Violet',   'hex' => '#7c3aed'],
-                            ['label' => 'Blue',     'hex' => '#2563eb'],
-                            ['label' => 'Indigo',   'hex' => '#4338ca'],
-                            ['label' => 'Rose',     'hex' => '#e11d48'],
-                            ['label' => 'Emerald',  'hex' => '#059669'],
-                            ['label' => 'Amber',    'hex' => '#d97706'],
-                            ['label' => 'Slate',    'hex' => '#475569'],
-                            ['label' => 'Fuchsia',  'hex' => '#a21caf'],
-                        ];
-                    @endphp
-
-                    @foreach ($presets as $preset)
+                    @foreach ($this->brandColorPresets as $preset)
                         <button
                             type="button"
                             wire:click="$set('primary_color', '{{ $preset['hex'] }}')"
@@ -99,12 +88,12 @@
                             wire:model.live="primary_color"
                             type="text"
                             maxlength="7"
-                            placeholder="#7c3aed"
+                            placeholder="{{ \App\Support\Branding::DEFAULT_PRIMARY_COLOR }}"
                             class="w-24 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-2.5 py-1.5 text-xs font-mono text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:outline-none"
                         />
                     </div>
                 </div>
-                <p class="mt-2 text-xs text-gray-400">Applies to buttons, badges, active nav items, and accent elements. Reload after saving to see the change.</p>
+                <p class="mt-2 text-xs text-gray-400">Applies to buttons, badges, active nav items, and accent elements. The default Vortex palette uses aqua accents against deep indigo surfaces. Reload after saving to see the change.</p>
             </div>
 
         </div>

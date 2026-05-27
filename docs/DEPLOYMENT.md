@@ -7,9 +7,10 @@ This repo now includes two supported deployment paths:
 
 The app is a Laravel 13 + Filament 5 project with:
 
-- PHP 8.3
+- PHP 8.4 recommended
 - MySQL in production
-- database-backed queues, sessions, and cache
+- database-backed queues
+- file-backed sessions and cache by default
 - a long-running queue worker
 - optional Ollama for AI features
 

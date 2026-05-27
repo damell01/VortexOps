@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Pages\Dashboard;
 use App\Models\Setting;
 use App\Support\AdminModules;
+use App\Support\Branding;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -29,12 +30,12 @@ class AdminPanelProvider extends PanelProvider
     {
         // Read branding from settings (cached 1hr), fall back to defaults on fresh install
         try {
-            $brandName    = Setting::get('brand_name',    'VortexOps');
-            $primaryColor = Setting::get('primary_color', '#7c3aed');
+            $brandName    = Setting::get('brand_name', Branding::DEFAULT_NAME);
+            $primaryColor = Setting::get('primary_color', Branding::DEFAULT_PRIMARY_COLOR);
             $logoPath     = Setting::get('logo_path');
         } catch (\Exception) {
-            $brandName    = 'VortexOps';
-            $primaryColor = '#7c3aed';
+            $brandName    = Branding::DEFAULT_NAME;
+            $primaryColor = Branding::DEFAULT_PRIMARY_COLOR;
             $logoPath     = null;
         }
 
@@ -63,6 +64,10 @@ class AdminPanelProvider extends PanelProvider
             $panel = $panel
                 ->brandLogo(asset('storage/' . $logoPath))
                 ->brandLogoHeight('2.75rem');
+        } elseif (file_exists(public_path(Branding::DEFAULT_LOGO_ASSET))) {
+            $panel = $panel
+                ->brandLogo(asset(Branding::DEFAULT_LOGO_ASSET))
+                ->brandLogoHeight('2.5rem');
         }
 
         $isAuthenticatedAdminView = fn (): bool => auth()->check();

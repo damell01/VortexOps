@@ -44,17 +44,17 @@
     --vx-text-secondary: #667085;
     --vx-text-tertiary:  #9ca3af;
 
-    /* Accent (primary color = violet) */
-    --vx-accent-subtle: rgb(124 58 237 / .08);
-    --vx-accent-border: rgb(124 58 237 / .25);
-    --vx-accent-text:   #6d28d9;
+    /* Accent (Vortex aqua + indigo) */
+    --vx-accent-subtle: rgb(41 231 231 / .11);
+    --vx-accent-border: rgb(41 231 231 / .28);
+    --vx-accent-text:   #0f766e;
 
     /* Interactive */
     --vx-row-hover:   rgb(79 70 229 / .035);
     --vx-row-stripe:  rgb(15 23 42 / .016);
     --vx-input-bg:    #ffffff;
     --vx-input-border: rgb(15 23 42 / .10);
-    --vx-input-focus:  rgb(124 58 237 / .18);
+    --vx-input-focus:  rgb(41 231 231 / .18);
 }
 
 .dark {
@@ -68,14 +68,14 @@
     --vx-text-primary:    #f4f4f5;
     --vx-text-secondary:  #a1a1aa;
     --vx-text-tertiary:   #71717a;
-    --vx-accent-subtle:   rgb(139 92 246 / .12);
-    --vx-accent-border:   rgb(139 92 246 / .30);
-    --vx-accent-text:     #c4b5fd;
+    --vx-accent-subtle:   rgb(41 231 231 / .12);
+    --vx-accent-border:   rgb(41 231 231 / .28);
+    --vx-accent-text:     #99f6e4;
     --vx-row-hover:       rgb(255 255 255 / .03);
     --vx-row-stripe:      rgb(255 255 255 / .02);
     --vx-input-bg:        #1c1c1f;
     --vx-input-border:    rgb(255 255 255 / .10);
-    --vx-input-focus:     rgb(139 92 246 / .30);
+    --vx-input-focus:     rgb(41 231 231 / .24);
 }
 
 /* ── Base ── */
@@ -208,7 +208,7 @@ body {
     box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08) !important;
 }
 
-.fi-active .fi-sidebar-item-btn svg { color: #c4b5fd !important; opacity: 1 !important; }
+.fi-active .fi-sidebar-item-btn svg { color: #67e8f9 !important; opacity: 1 !important; }
 
 .fi-sidebar-item-btn svg {
     width: 1.0625rem !important;

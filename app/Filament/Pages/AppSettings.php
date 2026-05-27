@@ -6,6 +6,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\OllamaService;
 use App\Support\AdminModules;
+use App\Support\Branding;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -45,8 +46,8 @@ class AppSettings extends Page
 
     // ── Branding ──────────────────────────────────────────────────────────────
 
-    public string  $brand_name    = 'VortexOps';
-    public string  $primary_color = '#7c3aed';
+    public string  $brand_name    = Branding::DEFAULT_NAME;
+    public string  $primary_color = Branding::DEFAULT_PRIMARY_COLOR;
     public ?string $logo_path     = null;
     /** @var mixed */
     public $logo_upload = null;
@@ -82,8 +83,8 @@ class AppSettings extends Page
 
     public function mount(): void
     {
-        $this->brand_name    = Setting::get('brand_name',    'VortexOps');
-        $this->primary_color = Setting::get('primary_color', '#7c3aed');
+        $this->brand_name    = Setting::get('brand_name', Branding::DEFAULT_NAME);
+        $this->primary_color = Setting::get('primary_color', Branding::DEFAULT_PRIMARY_COLOR);
         $this->logo_path     = Setting::get('logo_path');
 
         $this->ai_enabled      = Setting::getBool('ai_enabled', false);
@@ -117,6 +118,14 @@ class AppSettings extends Page
     public function getAvailableModulesProperty(): array
     {
         return AdminModules::definitions();
+    }
+
+    /**
+     * @return array<int, array{label: string, hex: string}>
+     */
+    public function getBrandColorPresetsProperty(): array
+    {
+        return Branding::presets();
     }
 
     protected function getHeaderActions(): array

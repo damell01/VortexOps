@@ -2,8 +2,6 @@ import * as fabricModule from 'fabric';
 const fabric = fabricModule.fabric ?? fabricModule.default?.fabric ?? fabricModule.default ?? fabricModule;
 import html2canvas from 'html2canvas';
 
-const reviewModuleEnabled = window.VortexModules?.reviews ?? true;
-
 // ── State ──────────────────────────────────────────────────────────────────────
 let reviewModeActive    = false;
 let canvasActive        = false;
@@ -41,9 +39,9 @@ const T = {
     text:      '#111318',
     muted:     '#6b7280',
     subtle:    '#9ca3af',
-    accent:    '#7c3aed',
-    accentSoft:'rgba(124,58,237,.10)',
-    accentBorder:'rgba(124,58,237,.28)',
+    accent:    '#29e7e7',
+    accentSoft:'rgba(41,231,231,.12)',
+    accentBorder:'rgba(41,231,231,.28)',
     danger:    '#dc2626',
     success:   '#16a34a',
     radius:    '10px',
@@ -85,18 +83,73 @@ const ICONS = {
 };
 
 // ── Init ───────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-    if (!reviewModuleEnabled) return;
+function isReviewModuleEnabled() {
+    return window.VortexModules?.reviews ?? true;
+}
+
+function moveFabToDockIfAvailable() {
+    const wrap = document.getElementById('review-fab-wrap');
+    const dock = document.getElementById('vortexops-top-actions');
+
+    if (!wrap || !dock || wrap.parentElement === dock) {
+        return;
+    }
+
+    wrap.style.order = '-1';
+    dock.insertBefore(wrap, dock.firstChild);
+}
+
+function initializeReviewUi() {
+    if (!isReviewModuleEnabled()) {
+        document.getElementById('review-fab-wrap')?.remove();
+        removeBrowsingUI();
+        reviewModeActive = false;
+        return;
+    }
+
     sessionId = localStorage.getItem('vortex_review_session_id') || null;
     projectId = localStorage.getItem('vortex_project_id') || null;
     localStorage.removeItem('vortex_review_fab_minimized');
-    injectFab();
+
+    if (!document.getElementById('review-fab-wrap')) {
+        injectFab();
+    } else {
+        moveFabToDockIfAvailable();
+        updateFabState();
+    }
+
     if (localStorage.getItem('vortex_review_active') === '1') {
         reviewModeActive = true;
         updateFabState();
-        showBrowsingUI();
+
+        if (!document.getElementById('review-chip')) {
+            showBrowsingUI();
+        }
+    } else {
+        reviewModeActive = false;
+        removeBrowsingUI();
+        updateFabState();
     }
-});
+}
+
+function scheduleReviewUiInit() {
+    window.requestAnimationFrame(() => {
+        initializeReviewUi();
+
+        window.setTimeout(() => {
+            moveFabToDockIfAvailable();
+            updateFabState();
+        }, 40);
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scheduleReviewUiInit);
+} else {
+    scheduleReviewUiInit();
+}
+
+document.addEventListener('livewire:navigated', scheduleReviewUiInit);
 
 // ── FAB ────────────────────────────────────────────────────────────────────────
 function injectFab() {
@@ -121,8 +174,8 @@ function injectFab() {
     wrap.innerHTML = `
         <button id="review-toggle-btn" title="Review Mode"
             style="display:flex;align-items:center;gap:7px;
-                   padding:0.42rem 0.8rem;border:1px solid rgba(124,58,237,.18);border-radius:999px;
-                   background:rgba(255,255,255,0.94);color:#5b21b6;
+                   padding:0.42rem 0.8rem;border:1px solid rgba(41,231,231,.20);border-radius:999px;
+                   background:rgba(255,255,255,0.94);color:#3b1b72;
                    font-family:${T.font};font-size:0.78rem;font-weight:700;
                    letter-spacing:-0.01em;cursor:pointer;
                    backdrop-filter:blur(10px);
@@ -155,16 +208,16 @@ function updateFabState() {
     btn.title = 'Review Mode';
 
     if (reviewModeActive) {
-        btn.style.background = 'linear-gradient(135deg,#7c3aed,#0ea5e9)';
+        btn.style.background = 'linear-gradient(135deg,#6d28d9,#29e7e7)';
         btn.style.color = '#ffffff';
-        btn.style.borderColor = 'rgba(124,58,237,.35)';
-        btn.style.boxShadow  = '0 6px 18px rgba(124,58,237,.28)';
+        btn.style.borderColor = 'rgba(41,231,231,.36)';
+        btn.style.boxShadow  = '0 6px 18px rgba(41,231,231,.22)';
         icon.innerHTML  = ICONS.exit;
         label.textContent = 'Exit Review';
     } else {
         btn.style.background = 'rgba(255,255,255,0.94)';
-        btn.style.color = '#5b21b6';
-        btn.style.borderColor = 'rgba(124,58,237,.18)';
+        btn.style.color = '#3b1b72';
+        btn.style.borderColor = 'rgba(41,231,231,.20)';
         btn.style.boxShadow  = '0 1px 6px rgba(0,0,0,0.10)';
         icon.innerHTML  = ICONS.review;
         label.textContent = 'Review';
@@ -214,16 +267,16 @@ function showBrowsingUI() {
         fontFamily: T.font,
         fontSize: '11px',
         fontWeight: '600',
-        color: '#6d28d9',
+        color: '#3b1b72',
         cursor: 'pointer',
         backdropFilter: 'blur(8px)',
-        boxShadow: '0 2px 8px rgba(124,58,237,.15)',
+        boxShadow: '0 2px 8px rgba(41,231,231,.16)',
         transition: T.transition,
         userSelect: 'none',
     });
 
     browsingChip.innerHTML = `
-        <span style="width:6px;height:6px;border-radius:50%;background:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.2);flex-shrink:0;"></span>
+        <span style="width:6px;height:6px;border-radius:50%;background:#29e7e7;box-shadow:0 0 0 3px rgba(41,231,231,.2);flex-shrink:0;"></span>
         <span id="review-chip-label">Review Active</span>
         <span id="review-chip-expand" style="opacity:.6;display:flex;align-items:center;margin-left:2px;">${svg('<polyline points="6 9 12 15 18 9"/>', 12)}</span>`;
 
@@ -764,6 +817,7 @@ const COLORS = [
     { hex: '#2563eb', name: 'Blue' },
     { hex: '#16a34a', name: 'Green' },
     { hex: '#d97706', name: 'Amber' },
+    { hex: '#29e7e7', name: 'Aqua' },
     { hex: '#7c3aed', name: 'Violet' },
     { hex: '#000000', name: 'Black' },
 ];

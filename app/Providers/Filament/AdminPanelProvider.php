@@ -47,7 +47,7 @@ class AdminPanelProvider extends PanelProvider
             ->font('Inter')
             ->sidebarCollapsibleOnDesktop()
             ->sidebarFullyCollapsibleOnDesktop()
-            ->maxContentWidth(\Filament\Support\Enums\Width::SevenExtraLarge)
+            ->maxContentWidth(\Filament\Support\Enums\Width::Full)
             ->globalSearchKeyBindings(['mod+k'])
             ->globalSearchDebounce('300ms')
             ->colors([

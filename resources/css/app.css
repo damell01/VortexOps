@@ -106,6 +106,24 @@ body {
 .fi-layout { background-color: var(--vx-page-bg) !important; }
 .fi-page-main { background-color: var(--vx-page-bg) !important; }
 
+.fi-main,
+.fi-main-ctn,
+.fi-page,
+.fi-page-content,
+.fi-page-content-ctn,
+.fi-topbar > div,
+.fi-topbar-ctn {
+    max-width: none !important;
+    width: 100% !important;
+}
+
+.fi-page-content,
+.fi-page-content-ctn,
+.fi-wi,
+.fi-ta {
+    min-width: 0 !important;
+}
+
 /* ═══════════════════════════════════════════
    SIDEBAR
    ═══════════════════════════════════════════ */
@@ -316,11 +334,32 @@ body {
     border: 1px solid var(--vx-card-border) !important;
     border-radius: var(--vx-radius-lg) !important;
     box-shadow: var(--vx-shadow-xs) !important;
-    overflow: hidden !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
 }
 
 .fi-ta-main { border-radius: 0 !important; }
-.fi-ta-table { border-collapse: collapse !important; }
+.fi-ta-table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+    min-width: max-content !important;
+}
+
+.fi-ta-content,
+.fi-ta-content-ctn,
+.fi-wi-table,
+.fi-wi-stats-overview {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+@media (max-width: 1024px) {
+    #vortexops-tour-btn {
+        top: auto !important;
+        right: 1rem !important;
+        bottom: 1rem !important;
+    }
+}
 
 /* Toolbar */
 .fi-ta-header-toolbar {

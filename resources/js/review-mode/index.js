@@ -151,6 +151,33 @@ if (document.readyState === 'loading') {
 
 document.addEventListener('livewire:navigated', scheduleReviewUiInit);
 
+async function ensureSessionSelected() {
+    if (sessionId) {
+        return sessionId;
+    }
+
+    try {
+        const response = await fetch('/admin/review/sessions', {
+            headers: { Accept: 'application/json' },
+        });
+
+        if (response.ok) {
+            const sessions = await response.json();
+            const latest = Array.isArray(sessions) ? sessions[0] : null;
+
+            if (latest?.id) {
+                sessionId = String(latest.id);
+                localStorage.setItem('vortex_review_session_id', sessionId);
+                loadSessionChipLabel();
+
+                return sessionId;
+            }
+        }
+    } catch { /* ignore */ }
+
+    return null;
+}
+
 // ── FAB ────────────────────────────────────────────────────────────────────────
 function injectFab() {
     const dock = document.getElementById('vortexops-top-actions');
@@ -659,15 +686,83 @@ async function capturePageNow() {
     }).filter(Boolean);
 
     try {
-        const c = await html2canvas(document.documentElement, {
-            useCORS: true, allowTaint: true, scale: 1,
-            width: window.innerWidth, height: window.innerHeight,
-            scrollX: 0, scrollY: 0,
-        });
-        return c.toDataURL('image/jpeg', 0.88);
+        const root = getCaptureRoot();
+        const attempts = [
+            {
+                element: root,
+                options: {
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false,
+                    backgroundColor: null,
+                    scale: Math.min(window.devicePixelRatio || 1, 2),
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                    x: window.scrollX,
+                    y: window.scrollY,
+                    scrollX: -window.scrollX,
+                    scrollY: -window.scrollY,
+                    windowWidth: document.documentElement.clientWidth,
+                    windowHeight: document.documentElement.clientHeight,
+                    ignoreElements: el => isReviewElement(el),
+                },
+            },
+            {
+                element: document.body,
+                options: {
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false,
+                    backgroundColor: '#f8fafc',
+                    scale: 1,
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                    x: window.scrollX,
+                    y: window.scrollY,
+                    scrollX: -window.scrollX,
+                    scrollY: -window.scrollY,
+                    ignoreElements: el => isReviewElement(el),
+                },
+            },
+        ];
+
+        for (const attempt of attempts) {
+            try {
+                const canvas = await html2canvas(attempt.element, attempt.options);
+
+                if (canvas?.width && canvas?.height) {
+                    return canvas.toDataURL('image/jpeg', 0.88);
+                }
+            } catch { /* try fallback */ }
+        }
+
+        throw new Error('capture-failed');
     } finally {
         hidden.forEach(el => { el.style.visibility = ''; });
     }
+}
+
+function getCaptureRoot() {
+    return document.querySelector('.fi-layout')
+        ?? document.querySelector('.fi-page')
+        ?? document.body
+        ?? document.documentElement;
+}
+
+function isReviewElement(el) {
+    if (!(el instanceof Element)) return false;
+
+    return !!el.closest(
+        '#review-fab-wrap,' +
+        '#review-chip,' +
+        '#review-chip-actions,' +
+        '#review-popover,' +
+        '#review-capture-spinner,' +
+        '#review-toolbar,' +
+        '#review-overlay,' +
+        '#review-save-modal,' +
+        '#vortexops-top-actions'
+    );
 }
 
 function closeCanvas(returnToBrowsing = true) {
@@ -1164,6 +1259,7 @@ function getAnnotationBounds(objects) {
 // ── Save Modal ─────────────────────────────────────────────────────────────────
 function openSaveModal(options = {}) {
     document.getElementById('review-save-modal')?.remove();
+    const suggestedSessionTitle = `Quick Review - ${new Date().toLocaleDateString()}`;
 
     const modal = document.createElement('div');
     modal.id = 'review-save-modal';
@@ -1275,6 +1371,13 @@ function openSaveModal(options = {}) {
         if (sel) sel.value = options.type;
     }
 
+    if (!sessionId) {
+        const sessionInput = document.getElementById('review-new-session-inline');
+        if (sessionInput && !sessionInput.value.trim()) {
+            sessionInput.value = suggestedSessionTitle;
+        }
+    }
+
     document.getElementById('review-comment-input')?.focus();
 }
 
@@ -1292,10 +1395,12 @@ async function submitAnnotation(modal) {
         return;
     }
 
-    // Inline session creation if no session
+    sessionId = await ensureSessionSelected();
+
+    // Inline / automatic session creation if no session
     if (!sessionId) {
         const nameInput = document.getElementById('review-new-session-inline');
-        const title     = nameInput?.value?.trim();
+        const title     = nameInput?.value?.trim() || `Quick Review - ${new Date().toLocaleDateString()}`;
         if (!title) {
             errEl.textContent = 'Please enter a session name to save this annotation.';
             errEl.style.display = 'block';
@@ -1316,6 +1421,7 @@ async function submitAnnotation(modal) {
             const s = await r.json();
             sessionId = String(s.id);
             localStorage.setItem('vortex_review_session_id', sessionId);
+            loadSessionChipLabel();
         } catch (e) {
             errEl.textContent = 'Could not create session: ' + e.message;
             errEl.style.display = 'block';

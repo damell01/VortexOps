@@ -134,6 +134,56 @@
             </div>
         </div>
 
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+            <div class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                    <div class="rounded-lg bg-cyan-100 dark:bg-cyan-900 p-2">
+                        <x-heroicon-o-rectangle-group class="h-5 w-5 text-cyan-600 dark:text-cyan-300" />
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Topbar Controls</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Choose which helper buttons appear beside search, notifications, and profile controls.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Show Review Button</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Lets staff launch page review mode from the admin topbar.</p>
+                </div>
+                <button
+                    wire:click="$toggle('show_review_button')"
+                    type="button"
+                    class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2
+                        {{ $show_review_button ? 'bg-violet-600' : 'bg-gray-200 dark:bg-gray-700' }}"
+                    role="switch"
+                    aria-checked="{{ $show_review_button ? 'true' : 'false' }}"
+                >
+                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                        {{ $show_review_button ? 'translate-x-5' : 'translate-x-0' }}"></span>
+                </button>
+            </div>
+
+            <div class="px-6 py-4 flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Show Guided Tour Button</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Keeps the page-level tour launcher visible in the topbar.</p>
+                </div>
+                <button
+                    wire:click="$toggle('show_tour_button')"
+                    type="button"
+                    class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2
+                        {{ $show_tour_button ? 'bg-violet-600' : 'bg-gray-200 dark:bg-gray-700' }}"
+                    role="switch"
+                    aria-checked="{{ $show_tour_button ? 'true' : 'false' }}"
+                >
+                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                        {{ $show_tour_button ? 'translate-x-5' : 'translate-x-0' }}"></span>
+                </button>
+            </div>
+        </div>
+
         {{-- ── AI Settings ───────────────────────────────────────────────── --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
 

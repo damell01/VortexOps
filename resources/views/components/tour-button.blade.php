@@ -1,9 +1,14 @@
+@props([
+    'showTour' => true,
+])
+
 <div
     id="vortexops-top-actions"
     x-data
     x-cloak
-    style="position:fixed;top:0.875rem;right:1rem;z-index:60;display:flex;align-items:center;gap:0.625rem;"
+    style="display:flex;align-items:center;gap:0.625rem;margin-inline-start:0.75rem;"
 >
+    @if ($showTour)
     <button
         id="vortexops-tour-btn"
         @click="window.vortexTour?.start()"
@@ -28,4 +33,5 @@
         </svg>
         Tour
     </button>
+    @endif
 </div>

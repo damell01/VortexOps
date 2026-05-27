@@ -84,12 +84,16 @@ class AdminPanelProvider extends PanelProvider
                 'projects' => AdminModules::isEnabled('projects'),
                 'reviews'  => AdminModules::isEnabled('reviews'),
                 'ai'       => AdminModules::isEnabled('ai'),
+                'showReviewButton' => Setting::getBool('show_review_button', true),
+                'showTourButton' => Setting::getBool('show_tour_button', true),
             ];
         } catch (\Throwable) {
             $moduleFlags = [
                 'projects' => true,
                 'reviews'  => true,
                 'ai'       => false,
+                'showReviewButton' => true,
+                'showTourButton' => true,
             ];
         }
 
@@ -112,6 +116,16 @@ class AdminPanelProvider extends PanelProvider
                         : Blade::render("@vite(['resources/css/app.css'])")),
             )
             ->renderHook(
+                PanelsRenderHook::TOPBAR_END,
+                fn (): string => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : Blade::render(
+                        ($moduleFlags['showReviewButton'] || $moduleFlags['showTourButton'])
+                            ? "<x-tour-button :show-tour=\"" . ($moduleFlags['showTourButton'] ? 'true' : 'false') . "\" />"
+                            : ''
+                    ),
+            )
+            ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn (): string => ! $isAuthenticatedAdminView()
                     ? ''
@@ -120,6 +134,8 @@ class AdminPanelProvider extends PanelProvider
                             'projects' => $moduleFlags['projects'],
                             'reviews'  => $moduleFlags['reviews'],
                             'ai'       => $moduleFlags['ai'],
+                            'showReviewButton' => $moduleFlags['showReviewButton'],
+                            'showTourButton' => $moduleFlags['showTourButton'],
                         ]) . ';</script>' .
                         ($moduleFlags['ai']
                             ? '
@@ -140,7 +156,6 @@ class AdminPanelProvider extends PanelProvider
                                 </div>
                             '
                             : '')
-                        . "<x-tour-button />"
                     ),
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')

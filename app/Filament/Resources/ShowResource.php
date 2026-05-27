@@ -282,7 +282,7 @@ class ShowResource extends Resource
 
                 TextColumn::make('title')
                     ->label('Show Title')
-                    ->default('—')
+                    ->default('-')
                     ->searchable()
                     ->sortable()
                     ->weight('semibold')
@@ -290,7 +290,7 @@ class ShowResource extends Resource
 
                 TextColumn::make('channel.name')
                     ->label('Channel')
-                    ->placeholder('—')
+                    ->placeholder('-')
                     ->toggleable(),
 
                 TextColumn::make('streamers.name')
@@ -302,7 +302,7 @@ class ShowResource extends Resource
                 TextColumn::make('gross_revenue')
                     ->label('Revenue')
                     ->money('USD')
-                    ->default('—')
+                    ->default('-')
                     ->sortable(),
 
                 TextColumn::make('units_sold')

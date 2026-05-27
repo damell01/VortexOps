@@ -96,7 +96,9 @@ const ICONS = {
 
 // ── Init ───────────────────────────────────────────────────────────────────────
 function isReviewModuleEnabled() {
-    return window.VortexModules?.reviews ?? true;
+    const modules = window.VortexModules ?? {};
+
+    return (modules.reviews ?? true) && (modules.showReviewButton ?? true);
 }
 
 function moveFabToDockIfAvailable() {
@@ -633,14 +635,7 @@ async function openCanvas(uploadMode = false, options = {}) {
 
     // Inject the captured screenshot as a locked background layer
     if (pageScreenshotDataUrl) {
-        fabric.Image.fromURL(pageScreenshotDataUrl, img => {
-            img.set({ selectable: false, evented: false, left: 0, top: 0, originX: 'left', originY: 'top' });
-            const scaleX = fabricCanvas.width  / img.width;
-            const scaleY = fabricCanvas.height / img.height;
-            img.scale(Math.max(scaleX, scaleY));
-            fabricCanvas.insertAt(img, 0);
-            fabricCanvas.requestRenderAll();
-        });
+        await insertScreenshotBackground(pageScreenshotDataUrl);
     }
 
     if (seedAnnotationPoint) addSeedMarker(seedAnnotationPoint);
@@ -918,6 +913,28 @@ function buildOverlay() {
     });
     setTool('select');
     bindCanvasEvents();
+}
+
+async function insertScreenshotBackground(dataUrl) {
+    await new Promise(resolve => {
+        fabric.Image.fromURL(dataUrl, img => {
+            img.set({
+                selectable: false,
+                evented: false,
+                left: 0,
+                top: 0,
+                originX: 'left',
+                originY: 'top',
+                hasBorders: false,
+                hasControls: false,
+            });
+            img.scaleX = fabricCanvas.width / img.width;
+            img.scaleY = fabricCanvas.height / img.height;
+            fabricCanvas.insertAt(img, 0);
+            fabricCanvas.requestRenderAll();
+            resolve();
+        }, { crossOrigin: 'anonymous' });
+    });
 }
 
 function addSeedMarker(seedPoint) {
@@ -1336,6 +1353,10 @@ async function captureForSave() {
             return pageScreenshotDataUrl ?? null;
         }
 
+        if (pageScreenshotDataUrl) {
+            return await mergePageScreenshotWithAnnotations();
+        }
+
         // Determine crop region around annotations (skip bg image)
         const annotObjs = pageScreenshotDataUrl ? objects.slice(1) : objects;
         const bounds    = getAnnotationBounds(annotObjs);
@@ -1354,6 +1375,84 @@ async function captureForSave() {
         return fabricCanvas.toDataURL({ format: 'jpeg', quality: 0.90,
             left, top, width: Math.max(80, width), height: Math.max(80, height) });
     } catch { return null; }
+}
+
+async function mergePageScreenshotWithAnnotations() {
+    const background = pageScreenshotDataUrl;
+
+    if (!background) {
+        return fabricCanvas.toDataURL({
+            format: 'jpeg',
+            quality: 0.92,
+            left: 0,
+            top: 0,
+            width: fabricCanvas.width,
+            height: fabricCanvas.height,
+        });
+    }
+
+    const overlay = exportAnnotationOverlay();
+
+    if (!overlay) {
+        return background;
+    }
+
+    const [backgroundImage, overlayImage] = await Promise.all([
+        loadImageElement(background),
+        loadImageElement(overlay),
+    ]);
+
+    const output = document.createElement('canvas');
+    output.width = fabricCanvas.width;
+    output.height = fabricCanvas.height;
+
+    const context = output.getContext('2d');
+    context.fillStyle = '#f8fafc';
+    context.fillRect(0, 0, output.width, output.height);
+    context.drawImage(backgroundImage, 0, 0, output.width, output.height);
+    context.drawImage(overlayImage, 0, 0, output.width, output.height);
+
+    return output.toDataURL('image/jpeg', 0.92);
+}
+
+function exportAnnotationOverlay() {
+    const backgroundObject = pageScreenshotDataUrl ? fabricCanvas.getObjects()[0] : null;
+
+    if (!backgroundObject) {
+        return fabricCanvas.toDataURL({
+            format: 'png',
+            left: 0,
+            top: 0,
+            width: fabricCanvas.width,
+            height: fabricCanvas.height,
+        });
+    }
+
+    const originalVisibility = backgroundObject.visible;
+    backgroundObject.visible = false;
+    fabricCanvas.requestRenderAll();
+
+    const dataUrl = fabricCanvas.toDataURL({
+        format: 'png',
+        left: 0,
+        top: 0,
+        width: fabricCanvas.width,
+        height: fabricCanvas.height,
+    });
+
+    backgroundObject.visible = originalVisibility;
+    fabricCanvas.requestRenderAll();
+
+    return dataUrl;
+}
+
+function loadImageElement(src) {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('image-load-failed'));
+        image.src = src;
+    });
 }
 
 function getAnnotationBounds(objects) {

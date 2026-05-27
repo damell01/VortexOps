@@ -55,6 +55,8 @@ class AppSettings extends Page
     // ── AI ────────────────────────────────────────────────────────────────────
 
     public bool   $ai_enabled      = false;
+    public bool   $show_review_button = true;
+    public bool   $show_tour_button = true;
     public string $ollama_base_url = '';
     public string $ollama_model    = '';
     public int    $ollama_timeout  = 120;
@@ -88,6 +90,8 @@ class AppSettings extends Page
         $this->logo_path     = Setting::get('logo_path');
 
         $this->ai_enabled      = Setting::getBool('ai_enabled', false);
+        $this->show_review_button = Setting::getBool('show_review_button', true);
+        $this->show_tour_button = Setting::getBool('show_tour_button', true);
         $this->ollama_base_url = Setting::get('ollama_base_url', config('ollama.base_url', 'http://localhost:11434'));
         $this->ollama_model    = Setting::get('ollama_model',    config('ollama.model',    'llama3.2:3b'));
         $this->ollama_timeout  = (int) Setting::get('ollama_timeout', config('ollama.timeout', 120));
@@ -183,6 +187,8 @@ class AppSettings extends Page
         Setting::set('brand_name',    $this->brand_name);
         Setting::set('primary_color', $this->primary_color);
         Setting::set('ai_enabled',    $this->ai_enabled ? 'true' : 'false');
+        Setting::set('show_review_button', $this->show_review_button ? 'true' : 'false');
+        Setting::set('show_tour_button', $this->show_tour_button ? 'true' : 'false');
         Setting::set('ollama_base_url', $this->ollama_base_url);
         Setting::set('ollama_model',    $this->ollama_model);
         Setting::set('ollama_timeout',  (string) $this->ollama_timeout);

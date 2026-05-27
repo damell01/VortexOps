@@ -77,7 +77,7 @@ class ReviewController extends Controller
     public function storeItem(Request $request): JsonResponse
     {
         $request->validate([
-            'review_session_id' => 'required|exists:review_sessions,id',
+            'review_session_id' => 'nullable|exists:review_sessions,id',
             'page_url'          => 'required|string|max:4000',
             'page_title'        => 'nullable|string|max:255',
             'screenshot'        => 'nullable|string',
@@ -88,8 +88,10 @@ class ReviewController extends Controller
         ]);
 
         try {
+            $reviewSessionId = $this->resolveReviewSessionId($request);
+
             $item = ReviewItem::create([
-                'review_session_id' => $request->integer('review_session_id'),
+                'review_session_id' => $reviewSessionId,
                 'page_url'          => $this->normalizePageUrl($request->string('page_url')->toString()),
                 'page_title'        => $request->string('page_title')->toString() ?: null,
                 'screenshot'        => ReviewScreenshotStore::persist($request->string('screenshot')->toString()),
@@ -106,7 +108,7 @@ class ReviewController extends Controller
             report($e);
 
             return response()->json([
-                'message' => 'Unable to save the review item right now.',
+                'message' => $e->getMessage() !== '' ? $e->getMessage() : 'Unable to save the review item right now.',
             ], 500);
         }
     }
@@ -166,5 +168,35 @@ class ReviewController extends Controller
         }
 
         return mb_substr($url, 0, 4000);
+    }
+
+    private function resolveReviewSessionId(Request $request): int
+    {
+        $sessionId = $request->integer('review_session_id');
+
+        if ($sessionId > 0) {
+            return $sessionId;
+        }
+
+        $existingSessionId = ReviewSession::query()
+            ->where('status', '!=', 'closed')
+            ->where('created_by', Auth::id())
+            ->orderByDesc('created_at')
+            ->value('id');
+
+        if ($existingSessionId) {
+            return (int) $existingSessionId;
+        }
+
+        $projectId = $request->integer('project_id') ?: ProjectHub::defaultProjectId($request->user());
+
+        $session = ReviewSession::create([
+            'project_id' => $projectId,
+            'title' => 'Quick Review - ' . now()->format('M j, Y g:i A'),
+            'status' => 'open',
+            'created_by' => Auth::id(),
+        ]);
+
+        return (int) $session->id;
     }
 }

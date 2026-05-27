@@ -56,6 +56,18 @@ function currentReviewUrl() {
     return `${window.location.origin}${window.location.pathname}${window.location.search}`;
 }
 
+function normalizeSessionId(value) {
+    const raw = typeof value === 'string' ? value.trim() : String(value ?? '').trim();
+
+    if (!raw || raw === 'null' || raw === 'undefined') {
+        return null;
+    }
+
+    const numeric = Number.parseInt(raw, 10);
+
+    return Number.isFinite(numeric) && numeric > 0 ? String(numeric) : null;
+}
+
 // SVG icon helper ───────────────────────────────────────────────────────────────
 const svg = (path, size = 16, extra = '') =>
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24"
@@ -107,7 +119,7 @@ function initializeReviewUi() {
         return;
     }
 
-    sessionId = localStorage.getItem('vortex_review_session_id') || null;
+    sessionId = normalizeSessionId(localStorage.getItem('vortex_review_session_id'));
     projectId = localStorage.getItem('vortex_project_id') || null;
     localStorage.removeItem('vortex_review_fab_minimized');
 
@@ -166,7 +178,12 @@ async function ensureSessionSelected() {
             const latest = Array.isArray(sessions) ? sessions[0] : null;
 
             if (latest?.id) {
-                sessionId = String(latest.id);
+                sessionId = normalizeSessionId(latest.id);
+
+                if (!sessionId) {
+                    return null;
+                }
+
                 localStorage.setItem('vortex_review_session_id', sessionId);
                 loadSessionChipLabel();
 
@@ -427,7 +444,13 @@ function showBrowsingPopover() {
     document.getElementById('review-popover-change-session')?.addEventListener('click', async () => {
         const s = await pickSession();
         if (s) {
-            sessionId = String(s);
+            sessionId = normalizeSessionId(s);
+
+            if (!sessionId) {
+                showToast('Could not switch review session.', 'danger');
+                return;
+            }
+
             localStorage.setItem('vortex_review_session_id', sessionId);
             loadSessionChipLabel();
             loadPopoverAnnotations();
@@ -692,9 +715,10 @@ async function capturePageNow() {
                 element: root,
                 options: {
                     useCORS: true,
-                    allowTaint: true,
+                    allowTaint: false,
                     logging: false,
-                    backgroundColor: null,
+                    backgroundColor: '#f8fafc',
+                    foreignObjectRendering: false,
                     scale: Math.min(window.devicePixelRatio || 1, 2),
                     width: window.innerWidth,
                     height: window.innerHeight,
@@ -705,15 +729,17 @@ async function capturePageNow() {
                     windowWidth: document.documentElement.clientWidth,
                     windowHeight: document.documentElement.clientHeight,
                     ignoreElements: el => isReviewElement(el),
+                    onclone: stripUnsafeMediaFromClone,
                 },
             },
             {
                 element: document.body,
                 options: {
                     useCORS: true,
-                    allowTaint: true,
+                    allowTaint: false,
                     logging: false,
                     backgroundColor: '#f8fafc',
+                    foreignObjectRendering: false,
                     scale: 1,
                     width: window.innerWidth,
                     height: window.innerHeight,
@@ -722,6 +748,26 @@ async function capturePageNow() {
                     scrollX: -window.scrollX,
                     scrollY: -window.scrollY,
                     ignoreElements: el => isReviewElement(el),
+                    onclone: stripUnsafeMediaFromClone,
+                },
+            },
+            {
+                element: document.documentElement,
+                options: {
+                    useCORS: true,
+                    allowTaint: false,
+                    logging: false,
+                    backgroundColor: '#f8fafc',
+                    foreignObjectRendering: false,
+                    scale: 1,
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                    x: window.scrollX,
+                    y: window.scrollY,
+                    scrollX: -window.scrollX,
+                    scrollY: -window.scrollY,
+                    ignoreElements: el => isReviewElement(el),
+                    onclone: stripUnsafeMediaFromClone,
                 },
             },
         ];
@@ -747,6 +793,72 @@ function getCaptureRoot() {
         ?? document.querySelector('.fi-page')
         ?? document.body
         ?? document.documentElement;
+}
+
+function stripUnsafeMediaFromClone(clonedDocument) {
+    try {
+        clonedDocument.querySelectorAll(
+            '#review-fab-wrap,' +
+            '#review-chip,' +
+            '#review-chip-actions,' +
+            '#review-popover,' +
+            '#review-capture-spinner,' +
+            '#review-toolbar,' +
+            '#review-overlay,' +
+            '#review-save-modal,' +
+            '#vortexops-top-actions'
+        ).forEach(el => el.remove());
+
+        clonedDocument.querySelectorAll('img').forEach(img => {
+            const src = img.getAttribute('src') ?? '';
+
+            if (isUnsafeCaptureUrl(src)) {
+                img.setAttribute('src', '');
+                img.style.visibility = 'hidden';
+            }
+        });
+
+        clonedDocument.querySelectorAll('[style]').forEach(el => {
+            const style = el.getAttribute('style') ?? '';
+            const sanitized = style.replace(/background(?:-image)?:[^;]*url\([^;]+\)[^;]*;?/gi, '');
+
+            if (sanitized !== style) {
+                el.setAttribute('style', sanitized);
+            }
+        });
+
+        clonedDocument.querySelectorAll('*').forEach(el => {
+            const backgroundImage = el.style?.backgroundImage;
+
+            if (backgroundImage && isUnsafeCssBackground(backgroundImage)) {
+                el.style.backgroundImage = 'none';
+            }
+        });
+    } catch {
+        // Best effort only.
+    }
+}
+
+function isUnsafeCssBackground(value) {
+    const urls = [...String(value).matchAll(/url\((['"]?)(.*?)\1\)/gi)].map(match => match[2]);
+
+    return urls.some(url => isUnsafeCaptureUrl(url));
+}
+
+function isUnsafeCaptureUrl(url) {
+    const raw = String(url ?? '').trim();
+
+    if (!raw || raw.startsWith('data:') || raw.startsWith('blob:') || raw.startsWith('/')) {
+        return false;
+    }
+
+    try {
+        const resolved = new URL(raw, window.location.href);
+
+        return resolved.origin !== window.location.origin;
+    } catch {
+        return false;
+    }
 }
 
 function isReviewElement(el) {
@@ -1419,7 +1531,12 @@ async function submitAnnotation(modal) {
                 throw new Error(err.message || `Server error ${r.status}`);
             }
             const s = await r.json();
-            sessionId = String(s.id);
+            sessionId = normalizeSessionId(s.id);
+
+            if (!sessionId) {
+                throw new Error('Session was created but no valid id was returned.');
+            }
+
             localStorage.setItem('vortex_review_session_id', sessionId);
             loadSessionChipLabel();
         } catch (e) {
@@ -1439,11 +1556,19 @@ async function submitAnnotation(modal) {
         const fabricJson        = JSON.stringify(fabricCanvas.toJSON());
         const csrf              = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
+        const normalizedSessionId = normalizeSessionId(sessionId);
+
+        if (!normalizedSessionId) {
+            throw new Error('A review session could not be prepared. Please try again.');
+        }
+
+        sessionId = normalizedSessionId;
+
         const resp = await fetch('/admin/review/items', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, Accept: 'application/json' },
                 body: JSON.stringify({
-                review_session_id: parseInt(sessionId, 10),
+                review_session_id: Number.parseInt(sessionId, 10),
                 page_url:    currentReviewUrl(),
                 page_title:  document.title,
                 screenshot:  screenshotDataUrl,

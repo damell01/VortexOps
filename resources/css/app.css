@@ -582,6 +582,7 @@ body {
 #vortexops-top-actions {
     display: inline-flex;
     align-items: center;
+    gap: 0.5rem;
     pointer-events: auto;
 }
 
@@ -1125,4 +1126,17 @@ textarea.fi-input { padding: 0.5rem 0.75rem !important; line-height: 1.5 !import
 
 button:focus, a:focus, input:focus, select:focus, textarea:focus {
     outline: none;
+}
+
+/* ═══════════════════════════════════════════
+   TOPBAR FULL-WIDTH FIX
+   On Windows, the browser scrollbar lives inside .fi-main (overflow-y: auto),
+   which narrows the sticky topbar by ~15px. Overlay scrollbars don't reserve
+   layout space, so the topbar spans the full content area.
+   ═══════════════════════════════════════════ */
+
+@supports (overflow-y: overlay) {
+    .fi-main {
+        overflow-y: overlay !important;
+    }
 }

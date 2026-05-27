@@ -162,7 +162,7 @@
             <div class="flex items-center gap-2">
                 @if (auth()->user()?->isSuperAdmin())
                     <a href="/admin" class="review-toolbar-chip rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 transition">
-                        Admin Panel ->
+                        Admin Panel &rarr;
                     </a>
                 @endif
 

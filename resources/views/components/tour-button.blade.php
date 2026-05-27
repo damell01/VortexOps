@@ -2,27 +2,13 @@
     'showTour' => true,
 ])
 
-<div
-    id="vortexops-top-actions"
-    x-data
-    x-cloak
-    style="display:flex;align-items:center;gap:0.625rem;margin-inline-start:0.75rem;"
->
+<div id="vortexops-top-actions" class="flex items-center gap-2">
     @if ($showTour)
     <button
         id="vortexops-tour-btn"
-        @click="window.vortexTour?.start()"
+        onclick="window.vortexTour?.start()"
         title="Help & guided tour"
-        style="
-            display:flex;align-items:center;gap:0.4rem;
-            background:rgba(255,255,255,0.92);border:1px solid rgba(41,231,231,0.22);border-radius:9999px;
-            padding:0.42rem 0.8rem;font-size:0.78rem;font-weight:600;
-            color:#1f2a44;cursor:pointer;box-shadow:0 1px 6px rgba(0,0,0,0.10);
-            backdrop-filter:blur(10px);
-            transition:box-shadow 0.15s,border-color 0.15s,transform 0.15s;
-        "
-        onmouseover="this.style.boxShadow='0 4px 14px rgba(0,0,0,0.14)';this.style.borderColor='#67e8f9';this.style.transform='translateY(-1px)';"
-        onmouseout="this.style.boxShadow='0 1px 6px rgba(0,0,0,0.10)';this.style.borderColor='rgba(41,231,231,0.22)';this.style.transform='translateY(0)';"
+        class="inline-flex items-center gap-1.5 rounded-full border border-[rgba(41,231,231,0.22)] bg-white/90 px-3 py-1.5 text-[0.78rem] font-semibold text-[#1f2a44] shadow-sm backdrop-blur-sm transition hover:-translate-y-px hover:border-cyan-300 hover:shadow-md"
     >
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
              fill="none" stroke="currentColor" stroke-width="2.5"

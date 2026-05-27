@@ -102,7 +102,7 @@
             <div class="px-6 py-4">
                 <div class="flex items-center gap-3">
                     <div class="rounded-lg bg-slate-100 dark:bg-slate-800 p-2">
-                        <x-heroicon-o-squares-2x2 class="h-5 w-5 text-slate-600 dark:text-slate-300" />
+                        <x-heroicon-o-window class="h-5 w-5 text-slate-600 dark:text-slate-300" />
                     </div>
                     <div>
                         <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Workspace Modules</h2>
@@ -138,7 +138,7 @@
             <div class="px-6 py-4">
                 <div class="flex items-center gap-3">
                     <div class="rounded-lg bg-cyan-100 dark:bg-cyan-900 p-2">
-                        <x-heroicon-o-rectangle-group class="h-5 w-5 text-cyan-600 dark:text-cyan-300" />
+                        <x-heroicon-o-adjustments-horizontal class="h-5 w-5 text-cyan-600 dark:text-cyan-300" />
                     </div>
                     <div>
                         <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Topbar Controls</h2>

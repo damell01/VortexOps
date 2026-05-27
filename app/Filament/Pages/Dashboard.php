@@ -15,7 +15,7 @@ use Illuminate\Contracts\Support\Htmlable;
 
 class Dashboard extends BaseDashboard
 {
-    protected static ?string $title = 'VortexOps Dashboard';
+    protected static ?string $title = 'Operations Dashboard';
 
     public function getColumns(): int | array
     {
@@ -40,12 +40,12 @@ class Dashboard extends BaseDashboard
     {
         return [
             Action::make('new_show')
-                ->label('New Show')
+                ->label('Create Show')
                 ->icon('heroicon-o-plus')
                 ->color('primary')
                 ->url(ShowResource::getUrl('create')),
             Action::make('review_sessions')
-                ->label('Review Sessions')
+                ->label('Feedback Queue')
                 ->icon('heroicon-o-chat-bubble-left-right')
                 ->color('gray')
                 ->url(ReviewSessionResource::getUrl('index')),
@@ -54,6 +54,6 @@ class Dashboard extends BaseDashboard
 
     public function getSubheading(): string | Htmlable | null
     {
-        return 'Live operations view for inventory, shows, payouts, and review activity.';
+        return 'Unified view for inventory, shows, payouts, and feedback operations.';
     }
 }

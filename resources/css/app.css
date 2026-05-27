@@ -918,6 +918,116 @@ textarea.fi-input { padding: 0.5rem 0.75rem !important; line-height: 1.5 !import
     gap: 0.875rem !important;
 }
 
+/* Final UI polish */
+.fi-topbar nav,
+.fi-topbar .fi-topbar-start,
+.fi-topbar .fi-topbar-end {
+    gap: 0.625rem !important;
+}
+
+.fi-header {
+    margin-bottom: 0.95rem !important;
+}
+
+.fi-header-actions .fi-btn,
+.fi-ta-header-toolbar .fi-btn {
+    min-height: 2.45rem !important;
+    padding-inline: 0.95rem !important;
+}
+
+.fi-icon-btn {
+    min-height: 2.35rem !important;
+    min-width: 2.35rem !important;
+    border-radius: 12px !important;
+    border: 1px solid rgb(15 23 42 / .08) !important;
+    background: rgb(255 255 255 / .92) !important;
+}
+
+.fi-icon-btn:hover {
+    background: #ffffff !important;
+    border-color: rgb(34 211 238 / .22) !important;
+    box-shadow: 0 8px 18px rgb(15 23 42 / .08) !important;
+}
+
+.fi-section-header {
+    background:
+        linear-gradient(180deg, rgb(255 255 255 / .92), rgb(248 250 252 / .96)) !important;
+}
+
+.fi-section,
+.fi-ta {
+    border-radius: 16px !important;
+}
+
+.fi-ta-header-toolbar,
+.fi-ta-header-cell {
+    background:
+        linear-gradient(180deg, rgb(255 255 255 / .99), rgb(248 250 252 / .98)) !important;
+}
+
+.fi-ta-record {
+    transition: transform var(--vx-transition-fast), box-shadow var(--vx-transition-fast) !important;
+}
+
+.fi-ta-record:hover {
+    transform: translateY(-1px) !important;
+}
+
+.fi-ta-cell-content {
+    font-size: 0.79rem !important;
+}
+
+.fi-ta-text-item-label {
+    font-weight: 600 !important;
+}
+
+.fi-ta-text-item-description,
+.fi-ta-text-item-label {
+    line-height: 1.32 !important;
+}
+
+.fi-select-input,
+.fi-input {
+    min-height: 2.55rem !important;
+}
+
+.fi-fo-field-wrp {
+    gap: 0.35rem !important;
+}
+
+.fi-fo-placeholder {
+    color: var(--vx-text-primary) !important;
+}
+
+.fi-wi-stats-overview {
+    align-items: stretch !important;
+}
+
+.fi-wi-stats-overview-stat-content:hover {
+    box-shadow: 0 18px 36px rgb(15 23 42 / .08), 0 1px 2px rgb(0 0 0 / .04) !important;
+    transform: translateY(-2px) !important;
+}
+
+.fi-wi-stats-overview-stat-chart {
+    opacity: 0.95 !important;
+}
+
+.fi-resource-list-records-page .fi-ta,
+.fi-resource-view-record-page .fi-section,
+.fi-resource-edit-record-page .fi-section,
+.fi-resource-create-record-page .fi-section {
+    border-radius: 18px !important;
+}
+
+.fi-global-search-results-ctn {
+    overflow: hidden !important;
+}
+
+#vortexops-top-actions button,
+#vortexops-top-actions .review-top-link {
+    min-height: 2.35rem;
+}
+
 .fi-wi-stats-overview-stat {
     height: 100% !important;
 }
@@ -1127,4 +1237,3 @@ textarea.fi-input { padding: 0.5rem 0.75rem !important; line-height: 1.5 !import
 button:focus, a:focus, input:focus, select:focus, textarea:focus {
     outline: none;
 }
-

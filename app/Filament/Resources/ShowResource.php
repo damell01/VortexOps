@@ -367,7 +367,10 @@ class ShowResource extends Resource
 
                 SelectFilter::make('whatnot_channel_id')
                     ->label('By Channel')
-                    ->relationship('channel', 'name'),
+                    ->options(fn (): array => WhatnotChannel::query()
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all()),
 
                 SelectFilter::make('import_source')
                     ->label('By Source')
@@ -390,7 +393,7 @@ class ShowResource extends Resource
                     ->label('Map Sales with AI')
                     ->icon('heroicon-o-sparkles')
                     ->color('primary')
-                    ->visible(fn (Show $record) => $record->status === 'pending_review' && $record->streamers->isNotEmpty())
+                    ->visible(fn (Show $record) => $record->status === 'pending_review')
                     ->requiresConfirmation()
                     ->action(function (Show $record) {
                         MapShowInventory::dispatch($record->id);

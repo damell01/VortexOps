@@ -12,7 +12,10 @@ class LowStockWidget extends BaseWidget
 {
     protected static ?int $sort = 2;
     protected static ?string $heading = 'Low Stock Alerts';
-    protected int | string | array $columnSpan = 'full';
+    protected int | string | array $columnSpan = [
+        'md' => 6,
+        'xl' => 5,
+    ];
 
     public function table(Table $table): Table
     {

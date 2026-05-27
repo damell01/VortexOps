@@ -13,7 +13,10 @@ class ActiveStreamersWidget extends BaseWidget
 {
     protected static ?int $sort = 5;
     protected static ?string $heading = 'Active Streamers';
-    protected int | string | array $columnSpan = 'full';
+    protected int | string | array $columnSpan = [
+        'md' => 6,
+        'xl' => 5,
+    ];
 
     public function table(Table $table): Table
     {

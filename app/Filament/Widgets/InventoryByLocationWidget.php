@@ -12,7 +12,10 @@ class InventoryByLocationWidget extends BaseWidget
 {
     protected static ?int $sort = 4;
     protected static ?string $heading = 'Inventory by Location';
-    protected int | string | array $columnSpan = 'full';
+    protected int | string | array $columnSpan = [
+        'md' => 6,
+        'xl' => 7,
+    ];
 
     public function table(Table $table): Table
     {

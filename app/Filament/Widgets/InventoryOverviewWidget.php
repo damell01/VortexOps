@@ -14,6 +14,13 @@ class InventoryOverviewWidget extends BaseWidget
 {
     protected static ?int $sort = 1;
 
+    protected int | string | array $columnSpan = 'full';
+
+    protected int | array | null $columns = [
+        'md' => 2,
+        'xl' => 4,
+    ];
+
     protected function getStats(): array
     {
         [$totalQty, $totalItems, $lowStockCount, $activeLocations, $activeStreamers] =

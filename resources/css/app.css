@@ -290,6 +290,12 @@ body {
 
 .fi-header-actions-ctn { gap: 0.5rem !important; flex-wrap: wrap !important; }
 
+.fi-page > .grid,
+.fi-page-content > .grid,
+.fi-page-content-ctn > .grid {
+    gap: 0.9rem !important;
+}
+
 @media (min-width: 1280px) {
     .fi-page-content {
         padding-inline: 1rem !important;
@@ -529,6 +535,88 @@ body {
 
 #vortexops-top-actions > * {
     flex-shrink: 0;
+}
+
+.fi-wi {
+    height: 100%;
+}
+
+.fi-wi-table .fi-ta {
+    height: 100% !important;
+}
+
+.fi-wi-table .fi-ta-header-toolbar-actions,
+.fi-wi-table .fi-ta-header-toolbar > * {
+    gap: 0.5rem !important;
+}
+
+.fi-wi-table .fi-input-wrp,
+.fi-wi-table .fi-select-input-ctn {
+    min-height: 2.4rem !important;
+}
+
+.fi-wi-table .fi-ta-cell-content {
+    white-space: nowrap;
+}
+
+.fi-wi-table .fi-ta-cell-content a,
+.fi-wi-table .fi-ta-cell-content span {
+    vertical-align: middle;
+}
+
+.fi-wi-table .fi-ta-header {
+    padding-bottom: 0 !important;
+}
+
+.fi-wi-table .fi-section-header {
+    padding-inline: 0 !important;
+    padding-top: 0 !important;
+    border-bottom: none !important;
+}
+
+.fi-wi-table .fi-section-header-heading {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+}
+
+.fi-wi-table .fi-section-content {
+    padding: 0 !important;
+}
+
+.fi-wi-stats-overview-stat-description {
+    font-size: 0.84rem !important;
+    line-height: 1.35 !important;
+}
+
+.fi-ta-search-field input,
+.fi-input,
+.fi-select-input {
+    background-color: rgb(248 250 252 / .9) !important;
+}
+
+.fi-ta-search-field input:focus,
+.fi-input:focus,
+.fi-select-input:focus {
+    background-color: #ffffff !important;
+    box-shadow: 0 0 0 4px rgb(124 58 237 / .08) !important;
+}
+
+.fi-badge {
+    border-radius: 999px !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.01em !important;
+}
+
+.fi-topbar .fi-icon-btn,
+.fi-header-actions .fi-btn,
+.fi-ta-header-toolbar .fi-btn,
+.fi-ta-header-toolbar .fi-icon-btn {
+    box-shadow: 0 1px 2px rgb(15 23 42 / .04) !important;
+}
+
+.fi-ta-pagination {
+    border-top: 1px solid rgb(15 23 42 / .06) !important;
+    background: linear-gradient(180deg, rgb(255 255 255 / .98), rgb(248 250 252 / .98)) !important;
 }
 
 .fi-ta-cell-label {

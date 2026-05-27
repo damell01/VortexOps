@@ -11,7 +11,10 @@ class RecentMovementsWidget extends BaseWidget
 {
     protected static ?int $sort = 3;
     protected static ?string $heading = 'Recent Inventory Movements';
-    protected int | string | array $columnSpan = 'full';
+    protected int | string | array $columnSpan = [
+        'md' => 6,
+        'xl' => 7,
+    ];
 
     public function table(Table $table): Table
     {

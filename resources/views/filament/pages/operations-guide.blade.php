@@ -74,7 +74,7 @@
                     </p>
                     <div class="mt-4 space-y-3">
                         <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                            <strong>Show form:</strong> title, date, streamers, gross revenue, tips, and show-level notes.
+                            <strong>Show form:</strong> title, date, streamers, gross revenue, tips, show-level notes, and optionally the sold inventory items if ops already knows what moved.
                         </div>
                         <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
                             <strong>Sold items step:</strong> after the show exists, use the <strong>Enter Sold Items</strong> action on the show to choose what cases or sealed products were actually sold.

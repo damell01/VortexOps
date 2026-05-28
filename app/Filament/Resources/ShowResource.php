@@ -6,19 +6,25 @@ use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\ShowResource\Pages;
 use App\Jobs\MapShowInventory;
 use App\Models\DeductionRequest;
+use App\Models\InventoryItem;
+use App\Models\InventoryLocation;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WhatnotChannel;
 use App\Support\AdminModules;
+use App\Support\ShowSalesFormHelper;
 use Filament\Actions\Action as TableAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
@@ -178,6 +184,89 @@ class ShowResource extends Resource
                     ->columnSpanFull(),
             ]),
 
+            Section::make('Sold Items Worksheet (Optional)')
+                ->description('Phase 1 flow: create the show, choose what sealed products or cases sold, then let ops approve the deduction packet. If you do not know the sold items yet, you can skip this and add them later from the show view.')
+                ->schema([
+                    Select::make('manual_sales_streamer_id')
+                        ->label('Worksheet Streamer')
+                        ->options(Streamer::where('status', 'active')->pluck('name', 'id'))
+                        ->searchable()
+                        ->preload()
+                        ->native(false)
+                        ->helperText('Usually the primary streamer whose inventory this sale should be reviewed against.'),
+
+                    Repeater::make('manual_sold_items')
+                        ->label('Sold Items')
+                        ->defaultItems(0)
+                        ->reorderable(false)
+                        ->addActionLabel('Add Sold Item')
+                        ->schema([
+                            Select::make('inventory_item_id')
+                                ->label('Inventory Item')
+                                ->options(fn (): array => ShowSalesFormHelper::inventoryItemOptions())
+                                ->searchable()
+                                ->preload()
+                                ->required()
+                                ->native(false)
+                                ->live()
+                                ->helperText(fn (Get $get): string => ShowSalesFormHelper::stockSummaryForItem(
+                                    $get('inventory_item_id') ? (int) $get('inventory_item_id') : null
+                                ))
+                                ->afterStateUpdated(function (?string $state, Set $set): void {
+                                    if (! $state) {
+                                        return;
+                                    }
+
+                                    $item = InventoryItem::find($state);
+
+                                    if (! $item) {
+                                        return;
+                                    }
+
+                                    $unitCost = (float) ($item->average_unit_cost ?: $item->landed_unit_cost ?: $item->unit_cost);
+
+                                    $set('unit_cost_snapshot', number_format($unitCost, 2, '.', ''));
+                                    $set('raw_description', $item->name);
+                                    $set('inventory_location_id', ShowSalesFormHelper::bestLocationIdForItem((int) $state));
+                                }),
+
+                            Select::make('inventory_location_id')
+                                ->label('Location')
+                                ->options(fn (Get $get): array => ShowSalesFormHelper::locationOptionsForItem(
+                                    $get('inventory_item_id') ? (int) $get('inventory_item_id') : null
+                                ))
+                                ->searchable()
+                                ->preload()
+                                ->native(false)
+                                ->required()
+                                ->helperText(fn (Get $get): string => ShowSalesFormHelper::bestLocationHintForItem(
+                                    $get('inventory_item_id') ? (int) $get('inventory_item_id') : null
+                                )),
+
+                            TextInput::make('quantity_approved')
+                                ->label('Qty Sold')
+                                ->numeric()
+                                ->minValue(0.01)
+                                ->step(0.01)
+                                ->required(),
+
+                            TextInput::make('unit_cost_snapshot')
+                                ->label('Unit Cost')
+                                ->numeric()
+                                ->prefix('$')
+                                ->minValue(0)
+                                ->step(0.01)
+                                ->required(),
+
+                            TextInput::make('raw_description')
+                                ->label('Show Recap Label')
+                                ->placeholder('Optional recap or ops label')
+                                ->maxLength(255),
+                        ])
+                        ->columns(5)
+                        ->columnSpanFull(),
+                ]),
+
             Section::make('Approval Summary')
                 ->visible(fn (?Show $record) => (bool) $record?->latestDeductionRequest)
                 ->schema([
@@ -232,6 +321,23 @@ class ShowResource extends Resource
                                 ? '$' . number_format((float) $request->lines->sum('line_total'), 2)
                                 : '$0.00';
                         }),
+                ]),
+
+            Section::make('Inventory Deduction Preview')
+                ->visible(fn (?Show $record) => (bool) $record?->latestDeductionRequest)
+                ->description('Use this to sanity-check where stock will come from before approving the show reconciliation packet.')
+                ->schema([
+                    Placeholder::make('mapped_sell_through_preview')
+                        ->label('Likely Sold From')
+                        ->content(fn (?Show $record): string => ShowSalesFormHelper::mappedItemsPreview($record)),
+
+                    Placeholder::make('stock_impact_preview')
+                        ->label('Current Stock Check')
+                        ->content(fn (?Show $record): string => ShowSalesFormHelper::stockImpactPreview($record)),
+
+                    Placeholder::make('phase_one_review_note')
+                        ->label('Phase 1 Reminder')
+                        ->content('The goal in Phase 1 is simple: log the show, confirm what sealed products or cases sold, approve the deduction packet, then let payouts follow from reconciled inventory and revenue.'),
                 ]),
 
             Section::make('Show Recap')

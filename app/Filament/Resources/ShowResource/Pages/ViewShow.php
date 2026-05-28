@@ -7,11 +7,12 @@ use App\Filament\Resources\ShowResource;
 use App\Models\DeductionRequest;
 use App\Models\DeductionRequestLine;
 use App\Models\InventoryItem;
-use App\Models\InventoryLocation;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Jobs\MapShowInventory;
 use App\Jobs\ParseShowTitle;
+use App\Services\ShowSalesWorksheetService;
+use App\Support\ShowSalesFormHelper;
 use Filament\Actions\EditAction;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Repeater;
@@ -21,7 +22,6 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
-use Illuminate\Support\Facades\DB;
 
 class ViewShow extends ViewRecord
 {
@@ -52,19 +52,15 @@ class ViewShow extends ViewRecord
                         ->schema([
                             Select::make('inventory_item_id')
                                 ->label('Inventory Item')
-                                ->options(fn (): array => InventoryItem::query()
-                                    ->where('is_active', true)
-                                    ->orderBy('name')
-                                    ->get()
-                                    ->mapWithKeys(fn (InventoryItem $item): array => [
-                                        $item->id => "{$item->name} ({$item->sku})",
-                                    ])
-                                    ->all())
+                                ->options(fn (): array => ShowSalesFormHelper::inventoryItemOptions())
                                 ->searchable()
                                 ->preload()
                                 ->required()
                                 ->native(false)
                                 ->live()
+                                ->helperText(fn (Get $get): string => ShowSalesFormHelper::stockSummaryForItem(
+                                    $get('inventory_item_id') ? (int) $get('inventory_item_id') : null
+                                ))
                                 ->afterStateUpdated(function (?string $state, Set $set): void {
                                     if (! $state) {
                                         return;
@@ -80,34 +76,21 @@ class ViewShow extends ViewRecord
 
                                     $set('unit_cost_snapshot', number_format($unitCost, 2, '.', ''));
                                     $set('raw_description', $item->name);
+                                    $set('inventory_location_id', ShowSalesFormHelper::bestLocationIdForItem((int) $state));
                                 }),
 
                             Select::make('inventory_location_id')
                                 ->label('Location')
-                                ->options(function (Get $get): array {
-                                    $itemId = $get('inventory_item_id');
-
-                                    if (! $itemId) {
-                                        return InventoryLocation::query()
-                                            ->where('status', 'active')
-                                            ->orderBy('name')
-                                            ->pluck('name', 'id')
-                                            ->all();
-                                    }
-
-                                    return InventoryLocation::query()
-                                        ->where('status', 'active')
-                                        ->whereHas('stock', fn ($query) => $query
-                                            ->where('inventory_item_id', $itemId)
-                                            ->where('quantity', '>', 0))
-                                        ->orderBy('name')
-                                        ->pluck('name', 'id')
-                                        ->all();
-                                })
+                                ->options(fn (Get $get): array => ShowSalesFormHelper::locationOptionsForItem(
+                                    $get('inventory_item_id') ? (int) $get('inventory_item_id') : null
+                                ))
                                 ->searchable()
                                 ->preload()
                                 ->native(false)
-                                ->required(),
+                                ->required()
+                                ->helperText(fn (Get $get): string => ShowSalesFormHelper::bestLocationHintForItem(
+                                    $get('inventory_item_id') ? (int) $get('inventory_item_id') : null
+                                )),
 
                             TextInput::make('quantity_approved')
                                 ->label('Qty Sold')
@@ -236,51 +219,10 @@ class ViewShow extends ViewRecord
         /** @var Show $show */
         $show = $this->record;
 
-        return DB::transaction(function () use ($show, $data): DeductionRequest {
-            $request = $show->deductionRequests()
-                ->whereIn('status', ['draft', 'pending'])
-                ->latest('id')
-                ->first();
-
-            if (! $request) {
-                $request = new DeductionRequest([
-                    'show_id' => $show->id,
-                ]);
-            }
-
-            $request->fill([
-                'streamer_id' => $data['streamer_id'],
-                'status' => 'pending',
-                'ai_mapping_notes' => 'Manual sold-item worksheet entered by ops.',
-            ])->save();
-
-            $request->lines()->delete();
-
-            foreach ($data['lines'] ?? [] as $lineData) {
-                $item = InventoryItem::findOrFail($lineData['inventory_item_id']);
-                $unitCost = (float) $lineData['unit_cost_snapshot'];
-                $qty = (float) $lineData['quantity_approved'];
-
-                DeductionRequestLine::create([
-                    'deduction_request_id' => $request->id,
-                    'inventory_item_id' => $item->id,
-                    'inventory_location_id' => $lineData['inventory_location_id'],
-                    'quantity_suggested' => $qty,
-                    'quantity_approved' => $qty,
-                    'unit_cost_snapshot' => $unitCost,
-                    'line_total' => round($qty * $unitCost, 2),
-                    'raw_description' => $lineData['raw_description'] ?: $item->name,
-                    'ai_confidence' => 'manual',
-                    'ai_reason' => 'Selected manually while entering sold items for the show.',
-                    'ops_overridden' => true,
-                ]);
-            }
-
-            $show->update([
-                'status' => 'pending_approval',
-            ]);
-
-            return $request->fresh(['lines', 'streamer']);
-        });
+        return app(ShowSalesWorksheetService::class)->storeManualSoldItems(
+            show: $show,
+            streamerId: (int) $data['streamer_id'],
+            lines: $data['lines'] ?? [],
+        );
     }
 }

@@ -140,11 +140,14 @@ body {
         linear-gradient(180deg, #0d1025 0%, #151338 44%, #1b1550 100%) !important;
     border-right: 1px solid var(--vx-sidebar-border) !important;
     box-shadow: inset -1px 0 0 rgb(255 255 255 / .03) !important;
+    border-radius: 1.4rem !important;
+    margin: 0.85rem 0 0.85rem 0.5rem !important;
+    overflow: hidden !important;
 }
 
 .fi-sidebar-header {
     border-bottom: 1px solid rgb(255 255 255 / .06) !important;
-    padding: 0.9375rem 1rem 0.9375rem 1.125rem !important;
+    padding: 0.875rem 0.9rem 0.9rem 0.95rem !important;
 }
 
 .fi-logo {
@@ -259,7 +262,7 @@ body {
     -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
     border-bottom: 1px solid rgb(15 23 42 / .06) !important;
     box-shadow: 0 1px 0 rgb(255 255 255 / .8) inset, 0 8px 24px rgb(15 23 42 / .03) !important;
-    margin: 0.6rem 0.75rem 0 !important;
+    margin: 0.85rem 0.85rem 0 !important;
     border-radius: 1.15rem !important;
     padding-inline: 0.2rem !important;
 }
@@ -277,6 +280,7 @@ body {
 
 .fi-topbar-start {
     min-width: 0 !important;
+    gap: 0.9rem !important;
 }
 
 .fi-topbar-end {
@@ -303,6 +307,7 @@ body {
 
 .fi-global-search-ctn {
     min-width: min(40rem, 48vw) !important;
+    max-width: 44rem !important;
 }
 
 .fi-global-search-field {
@@ -1073,6 +1078,29 @@ textarea.fi-input { padding: 0.5rem 0.75rem !important; line-height: 1.5 !import
     flex: 0 0 auto !important;
     align-items: center !important;
     align-self: center !important;
+}
+
+.fi-topbar .fi-logo {
+    display: none !important;
+}
+
+.fi-topbar-close-collapse-sidebar-btn,
+.fi-topbar-open-collapse-sidebar-btn {
+    margin-inline-end: 0.1rem !important;
+}
+
+.fi-topbar-end .fi-user-menu-trigger,
+.fi-topbar-end .fi-no-notification-btn,
+.fi-topbar-end .fi-dropdown-trigger {
+    border-radius: 999px !important;
+}
+
+.fi-topbar-end .fi-user-menu-trigger {
+    box-shadow: 0 6px 16px rgb(15 23 42 / 0.07) !important;
+}
+
+.fi-page {
+    border-radius: 1.7rem !important;
 }
 
 #vortexops-top-actions > * {

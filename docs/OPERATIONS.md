@@ -93,6 +93,20 @@ curl -o /dev/null -s -w "connect=%{time_connect} starttransfer=%{time_starttrans
 
 ---
 
+## Demo data
+
+Use the in-app buttons in **Admin > Settings > Demo Workspace Data** for the easiest path.
+
+Server-side commands are also available:
+
+```bash
+php artisan vortex:demo-seed
+php artisan vortex:demo-clear
+```
+
+`vortex:demo-seed` refreshes the sample shows, deduction requests, payouts, and pallet/case demo records.  
+`vortex:demo-clear` removes that seeded demo set without wiping the whole database.
+
 ## Demo data cleanup
 
 ### Local or disposable environment
@@ -101,17 +115,19 @@ If you want a totally clean reset with fresh demo data:
 
 ```bash
 php artisan migrate:fresh --seed
+php artisan vortex:demo-seed
 ```
 
 This will:
 
 - delete all existing tables
 - rebuild the schema
-- reseed defaults, admin users, and demo data
+- reseed defaults and admin users
+- reload the optional demo data pack
 
 ### Local or disposable environment without demo data
 
-If you want defaults and bootstrap accounts but do not want the demo inventory / shows / payouts, comment out `DemoDataSeeder` in `database/seeders/DatabaseSeeder.php`, then run:
+If you want defaults and bootstrap accounts but do not want the optional demo inventory / shows / payouts, just run:
 
 ```bash
 php artisan migrate:fresh --seed
@@ -124,10 +140,8 @@ Do **not** run `migrate:fresh` in production.
 If you need to remove demo data from a live database, do it intentionally with backups first. The safer pattern is:
 
 1. back up the database
-2. identify which records came from demo seeding
-3. delete them with targeted SQL or an application-specific cleanup script
-
-If you ever want a dedicated cleanup command, add a custom artisan command instead of relying on manual table deletes.
+2. use `php artisan vortex:demo-clear`
+3. confirm the expected demo shows and items were removed before continuing
 
 ---
 

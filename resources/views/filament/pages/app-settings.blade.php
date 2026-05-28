@@ -405,6 +405,74 @@
 
         </div>
 
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+
+            <div class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                    <div class="rounded-lg bg-sky-100 dark:bg-sky-900 p-2">
+                        <x-heroicon-o-beaker class="h-5 w-5 text-sky-600 dark:text-sky-300" />
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Demo Workspace Data</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Seed sample shows, sold-item deduction reviews, payouts, and pallet/case examples so the full ops flow is easier to test.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Load Demo Content</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Refreshes sample inventory, shows, deduction requests, payouts, and demo containers. Good for testing the phase 1 flow from show entry through sold-item approval.</p>
+                </div>
+                <button
+                    wire:click="seedDemoData"
+                    wire:loading.attr="disabled"
+                    wire:target="seedDemoData"
+                    type="button"
+                    class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-sky-300 dark:border-sky-700 bg-sky-50 dark:bg-sky-950 px-3 py-2 text-sm font-medium text-sky-700 dark:text-sky-300 shadow-sm hover:bg-sky-100 dark:hover:bg-sky-900 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    <span wire:loading.remove wire:target="seedDemoData">
+                        <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
+                    </span>
+                    <span wire:loading wire:target="seedDemoData">
+                        <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </span>
+                    <span wire:loading.remove wire:target="seedDemoData">Load Demo Data</span>
+                    <span wire:loading wire:target="seedDemoData">Loading…</span>
+                </button>
+            </div>
+
+            <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Remove Demo Content</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Deletes the seeded sample shows, deduction requests, payouts, demo stock history, and demo container records. Use after client demos or testing.</p>
+                </div>
+                <button
+                    wire:click="clearDemoData"
+                    wire:loading.attr="disabled"
+                    wire:target="clearDemoData"
+                    onclick="if (! confirm('Remove the seeded demo shows, payouts, deduction requests, and demo container data?')) { event.stopImmediatePropagation(); }"
+                    type="button"
+                    class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 px-3 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 shadow-sm hover:bg-amber-100 dark:hover:bg-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    <span wire:loading.remove wire:target="clearDemoData">
+                        <x-heroicon-o-archive-box-x-mark class="h-4 w-4" />
+                    </span>
+                    <span wire:loading wire:target="clearDemoData">
+                        <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </span>
+                    <span wire:loading.remove wire:target="clearDemoData">Remove Demo Data</span>
+                    <span wire:loading wire:target="clearDemoData">Removing…</span>
+                </button>
+            </div>
+        </div>
+
         {{-- ── System & Maintenance ────────────────────────────────────────── --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
 

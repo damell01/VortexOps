@@ -11,6 +11,7 @@ use App\Support\AdminModules;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Collection;
 use UnitEnum;
 
 class InventoryBreakdown extends Page
@@ -93,6 +94,10 @@ class InventoryBreakdown extends Page
      */
     public function parentContainerOptions(): array
     {
+        if (! InventoryContainer::schemaReady()) {
+            return [];
+        }
+
         return InventoryContainer::query()
             ->with(['item:id,name,sku', 'location:id,name'])
             ->whereIn('container_type', ['pallet', 'case', 'box'])
@@ -127,6 +132,10 @@ class InventoryBreakdown extends Page
 
     public function selectedParent(): ?InventoryContainer
     {
+        if (! InventoryContainer::schemaReady()) {
+            return null;
+        }
+
         if (! $this->parent_container_id) {
             return null;
         }
@@ -154,6 +163,10 @@ class InventoryBreakdown extends Page
      */
     public function recentlyBrokenDown()
     {
+        if (! InventoryContainer::schemaReady()) {
+            return Collection::make();
+        }
+
         return InventoryContainer::query()
             ->with(['parentContainer:id,label', 'item:id,name,sku', 'location:id,name'])
             ->whereNotNull('parent_container_id')
@@ -164,6 +177,16 @@ class InventoryBreakdown extends Page
 
     public function runBreakdown(): void
     {
+        if (! InventoryContainer::schemaReady()) {
+            Notification::make()
+                ->title('Inventory container tables are not ready yet')
+                ->body('Run the latest migrations on the server before using Receiving, Breakdown, or Putaway.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         $validated = $this->validate([
             'parent_container_id' => ['required', 'exists:inventory_containers,id'],
             'destination_location_id' => ['required', 'exists:inventory_locations,id'],

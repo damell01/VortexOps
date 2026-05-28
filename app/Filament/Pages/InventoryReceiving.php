@@ -12,6 +12,7 @@ use App\Support\AdminModules;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Collection;
 use UnitEnum;
 
 class InventoryReceiving extends Page
@@ -77,6 +78,10 @@ class InventoryReceiving extends Page
 
     public function mount(): void
     {
+        if (! InventoryContainer::schemaReady()) {
+            return;
+        }
+
         $this->inventory_location_id = InventoryLocation::query()
             ->where('type', 'receiving')
             ->where('status', 'active')
@@ -132,6 +137,10 @@ class InventoryReceiving extends Page
      */
     public function recentReceipts()
     {
+        if (! InventoryContainer::schemaReady()) {
+            return Collection::make();
+        }
+
         return InventoryContainer::query()
             ->with(['item:id,name,sku', 'location:id,name'])
             ->latest('id')
@@ -150,6 +159,16 @@ class InventoryReceiving extends Page
 
     public function receiveInventory(): void
     {
+        if (! InventoryContainer::schemaReady()) {
+            Notification::make()
+                ->title('Inventory container tables are not ready yet')
+                ->body('Run the latest migrations on the server before using Receiving, Breakdown, or Putaway.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         $validated = $this->validate([
             'inventory_item_id' => ['required', 'exists:inventory_items,id'],
             'inventory_location_id' => ['required', 'exists:inventory_locations,id'],

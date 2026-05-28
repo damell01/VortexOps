@@ -1,5 +1,19 @@
 <x-filament-panels::page>
     <div class="space-y-6">
+        @unless (\App\Models\InventoryContainer::schemaReady())
+            <section class="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+                <div class="flex items-start gap-3">
+                    <x-heroicon-o-exclamation-triangle class="mt-0.5 h-5 w-5 text-amber-600" />
+                    <div>
+                        <h2 class="text-sm font-semibold text-amber-900">Inventory workflow needs the latest migration</h2>
+                        <p class="mt-1 text-sm text-amber-800">
+                            The container-tracking tables are not available yet on this environment. Run the latest migrations, then this screen will move cases and boxes into their final storage locations.
+                        </p>
+                    </div>
+                </div>
+            </section>
+        @endunless
+
         <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div>

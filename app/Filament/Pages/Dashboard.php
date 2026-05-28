@@ -49,6 +49,11 @@ class Dashboard extends BaseDashboard
                 ->icon('heroicon-o-chat-bubble-left-right')
                 ->color('gray')
                 ->url(ReviewSessionResource::getUrl('index')),
+            Action::make('ops_guide')
+                ->label('Ops Guide')
+                ->icon('heroicon-o-book-open')
+                ->color('gray')
+                ->url(OperationsGuide::getUrl()),
         ];
     }
 

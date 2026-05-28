@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -75,5 +76,14 @@ class InventoryContainer extends Model
             'broken_down' => 'Broken Down',
             'archived' => 'Archived',
         ];
+    }
+
+    public static function schemaReady(): bool
+    {
+        try {
+            return Schema::hasTable('inventory_containers');
+        } catch (\Throwable) {
+            return false;
+        }
     }
 }

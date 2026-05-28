@@ -113,12 +113,13 @@ class InventoryContainerResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query
-                ->with([
+            ->query(fn (): Builder => InventoryContainer::schemaReady()
+                ? InventoryContainer::query()->with([
                     'item:id,name,sku',
                     'location:id,name',
                     'parentContainer:id,label',
-                ]))
+                ])
+                : InventoryItem::query()->whereRaw('1 = 0'))
             ->columns([
                 TextColumn::make('label')
                     ->searchable()

@@ -227,6 +227,8 @@ Purpose:
 
 1. Ops creates or updates inventory items.
 2. Ops receives inbound inventory into a receiving location as a pallet, case, box, or loose-unit container.
+3. For this business, the practical inventory unit is the sealed case rather than individual cards.
+4. Pallets are treated as inbound transport containers that can be broken down into cases.
 3. Cost details can be attached at intake, including seller cost, shipping, and other per-unit fees.
 4. If needed, ops breaks a parent container down into child cases or smaller containers while preserving lineage.
 5. Ops puts active child containers away into their destination inventory locations.

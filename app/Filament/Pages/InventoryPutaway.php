@@ -11,6 +11,7 @@ use App\Support\AdminModules;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Collection;
 use UnitEnum;
 
 class InventoryPutaway extends Page
@@ -72,6 +73,10 @@ class InventoryPutaway extends Page
 
     public function updatedContainerId(?int $state): void
     {
+        if (! InventoryContainer::schemaReady()) {
+            return;
+        }
+
         $container = $state ? InventoryContainer::find($state) : null;
 
         if ($container && (! $this->destination_location_id || $this->destination_location_id === $container->inventory_location_id)) {
@@ -88,6 +93,10 @@ class InventoryPutaway extends Page
      */
     public function movableContainerOptions(): array
     {
+        if (! InventoryContainer::schemaReady()) {
+            return [];
+        }
+
         return InventoryContainer::query()
             ->with(['item:id,name,sku', 'location:id,name'])
             ->where('status', 'active')
@@ -121,6 +130,10 @@ class InventoryPutaway extends Page
 
     public function selectedContainer(): ?InventoryContainer
     {
+        if (! InventoryContainer::schemaReady()) {
+            return null;
+        }
+
         if (! $this->container_id) {
             return null;
         }
@@ -133,6 +146,10 @@ class InventoryPutaway extends Page
      */
     public function recentlyMoved()
     {
+        if (! InventoryContainer::schemaReady()) {
+            return Collection::make();
+        }
+
         return InventoryContainer::query()
             ->with(['item:id,name,sku', 'location:id,name'])
             ->where('status', 'active')
@@ -143,6 +160,16 @@ class InventoryPutaway extends Page
 
     public function moveContainer(): void
     {
+        if (! InventoryContainer::schemaReady()) {
+            Notification::make()
+                ->title('Inventory container tables are not ready yet')
+                ->body('Run the latest migrations on the server before using Receiving, Breakdown, or Putaway.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         $validated = $this->validate([
             'container_id' => ['required', 'exists:inventory_containers,id'],
             'destination_location_id' => ['required', 'exists:inventory_locations,id'],

@@ -2,6 +2,20 @@
     @php($summary = $this->breakdownSummary())
 
     <div class="space-y-6">
+        @unless (\App\Models\InventoryContainer::schemaReady())
+            <section class="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+                <div class="flex items-start gap-3">
+                    <x-heroicon-o-exclamation-triangle class="mt-0.5 h-5 w-5 text-amber-600" />
+                    <div>
+                        <h2 class="text-sm font-semibold text-amber-900">Inventory workflow needs the latest migration</h2>
+                        <p class="mt-1 text-sm text-amber-800">
+                            The container-tracking tables are not available yet on this environment. Run the latest migrations, then this screen will handle pallet-to-case breakdown safely.
+                        </p>
+                    </div>
+                </div>
+            </section>
+        @endunless
+
         <section class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div>
@@ -109,7 +123,7 @@
                         @endif
                     </div>
                     <button type="submit" class="inline-flex items-center gap-2 rounded-2xl bg-cyan-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-cyan-400">
-                        <x-heroicon-o-scissors class="h-5 w-5" />
+                        <x-heroicon-o-squares-2x2 class="h-5 w-5" />
                         Run breakdown
                     </button>
                 </div>

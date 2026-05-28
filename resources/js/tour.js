@@ -5,11 +5,16 @@ const STORAGE_KEY = 'vortexops_tour_v1';
 function page() {
     const p = window.location.pathname;
     if (p.match(/\/admin\/?$/))                return 'dashboard';
+    if (p.includes('operations-guide'))        return 'operations-guide';
     if (p.includes('whatnot-shows'))           return 'shows';
     if (p.includes('deduction-requests'))      return 'deductions';
     if (p.includes('payouts') && !p.includes('weekly')) return 'payouts';
     if (p.includes('weekly-payout-batches'))   return 'pay-runs';
     if (p.includes('inventory-items'))         return 'items';
+    if (p.includes('inventory-containers'))    return 'containers';
+    if (p.includes('inventory-receiving'))     return 'containers';
+    if (p.includes('inventory-breakdown'))     return 'containers';
+    if (p.includes('inventory-putaway'))       return 'containers';
     if (p.includes('inventory-locations'))     return 'locations';
     if (p.includes('inventory-movements'))     return 'movements';
     if (p.includes('inventory-stock'))         return 'stock';
@@ -81,6 +86,7 @@ const TOURS = {
                 title: '📦 Inventory',
                 description:
                     '<b>Items</b> — your product catalogue with cost basis and reorder levels.<br><br>'
+                    + '<b>Containers</b> — pallets and inbound breakdown records that eventually become stored cases.<br><br>'
                     + '<b>Locations</b> — Main Storage, streamer locations, damaged, returned.<br><br>'
                     + '<b>Stock Levels</b> — read-only view of every item × location combination.<br><br>'
                     + '<b>Movement Log</b> — immutable audit trail of every stock change.',
@@ -133,7 +139,9 @@ const TOURS = {
             popover: {
                 title: "✅ You're all set!",
                 description:
-                    'Start by adding your inventory items and locations under <b>Operations</b>. '
+                    'Start by adding your inventory items and locations under <b>Inventory</b>. '
+                    + 'Remember: this system treats sealed <b>cases</b> as the real inventory unit. '
+                    + 'Pallets are for intake and breakdown, then cases get stored in locations. '
                     + 'After your first show, log it under <b>Stream Tracking → Shows</b>, '
                     + 'approve the deductions, and calculate payouts. '
                     + '<br><br>The <b>?</b> button gives you context-specific guidance on any page.',
@@ -299,7 +307,7 @@ const TOURS = {
             popover: {
                 title: '📦 Inventory Items',
                 description:
-                    'Your product catalogue. Every card box, pack, or product you stock lives here with its SKU, category, unit cost, and reorder level.',
+                    'Your product catalogue. In your workflow, these represent the sealed products you care about operationally, especially cases and similar inventory units.',
                 side: 'bottom',
                 align: 'start',
             },
@@ -325,6 +333,51 @@ const TOURS = {
                     + '• <b>Mark Damaged</b> — move to the damaged location<br>'
                     + '• <b>Move to Returns</b> — handle customer returns<br><br>'
                     + 'Every action is wrapped in a transaction and creates a permanent movement record.',
+                side: 'over',
+                align: 'center',
+            },
+        },
+    ],
+
+    containers: [
+        {
+            element: el('h1, .fi-header-heading'),
+            popover: {
+                title: '📦 Container Workflow',
+                description:
+                    'This part of the app supports inbound logistics. Use it when inventory arrives on pallets or in grouped cases before it is assigned to a final storage location.',
+                side: 'bottom',
+                align: 'start',
+            },
+        },
+        {
+            popover: {
+                title: 'What is a pallet here?',
+                description:
+                    'A pallet is not the thing you ultimately sell from. It is an inbound container that helps you receive a shipment, attach receipt or cost context, and then break it down into the real inventory units you track day to day.',
+                side: 'over',
+                align: 'center',
+            },
+        },
+        {
+            popover: {
+                title: 'What is the real inventory unit?',
+                description:
+                    'For your operation, the real inventory unit is the <b>case</b>. That means:<br>'
+                    + '• receive shipment<br>'
+                    + '• break pallets into cases if needed<br>'
+                    + '• assign those cases to locations<br>'
+                    + '• later deduct from those location-based case quantities after shows',
+                side: 'over',
+                align: 'center',
+            },
+        },
+        {
+            popover: {
+                title: 'Recommended flow',
+                description:
+                    '<b>Distributor receipt</b> → <b>Receive into pallet or inbound case</b> → <b>Break down pallet into cases</b> → <b>Put cases into locations</b> → <b>Use show deductions later</b>.<br><br>'
+                    + 'The next major improvement should be a proper receipt / invoice intake layer ahead of this workflow.',
                 side: 'over',
                 align: 'center',
             },
@@ -381,6 +434,28 @@ const TOURS = {
                 description:
                     'Connects to a local Ollama instance — no data leaves your server.<br><br>'
                     + 'Toggle it on/off here. When enabled, a sparkles button appears on every page and loads context for what you\'re viewing. You can also use the dedicated AI Assistant page for full-screen chat.',
+                side: 'over',
+                align: 'center',
+            },
+        },
+    ],
+
+    'operations-guide': [
+        {
+            element: el('h1, .fi-header-heading'),
+            popover: {
+                title: '📘 Operations Guide',
+                description:
+                    'This page explains the intended operating model in plain English so the team can understand how inventory, shows, deductions, and payouts are supposed to fit together.',
+                side: 'bottom',
+                align: 'start',
+            },
+        },
+        {
+            popover: {
+                title: 'Cases, not individual cards',
+                description:
+                    'The guide makes one key assumption explicit: your real tracked inventory is the <b>case</b>, not each individual card. That keeps warehouse flow and show reconciliation much more realistic.',
                 side: 'over',
                 align: 'center',
             },

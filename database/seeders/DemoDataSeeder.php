@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\DeductionRequest;
 use App\Models\DeductionRequestLine;
+use App\Models\InventoryContainer;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
@@ -78,7 +79,7 @@ class DemoDataSeeder extends Seeder
         foreach ($itemData as $d) {
             $items[] = InventoryItem::firstOrCreate(
                 ['sku' => $d['sku']],
-                array_merge($d, ['is_active' => true])
+                array_merge($d, ['is_active' => true, 'notes' => 'Demo inventory item for show and deduction workflow testing.'])
             );
         }
         [$bowman, $topps, $prizm, $optic, $pokemon, $mtg, $bowmanDraft, $hoops] = $items;
@@ -118,7 +119,7 @@ class DemoDataSeeder extends Seeder
 
         foreach ($movements as [$item, $from, $to, $qty, $type, $reason]) {
             if (! $to) continue;
-            InventoryMovement::create([
+            InventoryMovement::firstOrCreate([
                 'inventory_item_id' => $item->id,
                 'from_location_id'  => $from?->id,
                 'to_location_id'    => $to->id,
@@ -147,6 +148,7 @@ class DemoDataSeeder extends Seeder
                 'tips'               => 42.00,
                 'import_source'      => 'manual',
                 'status'             => 'reconciled',
+                'notes'              => 'Demo show with approved sold-item deductions and completed payout math.',
                 'created_by'         => 1,
             ]
         );
@@ -192,7 +194,7 @@ class DemoDataSeeder extends Seeder
         );
 
         // Record sale_deduction movements for show 1
-        InventoryMovement::create([
+        InventoryMovement::firstOrCreate([
             'inventory_item_id' => $bowman->id,
             'from_location_id'  => $jordanLoc->id,
             'to_location_id'    => null,
@@ -203,7 +205,7 @@ class DemoDataSeeder extends Seeder
             'reference_id'      => $req1->id,
             'created_by'        => 1,
         ]);
-        InventoryMovement::create([
+        InventoryMovement::firstOrCreate([
             'inventory_item_id' => $topps->id,
             'from_location_id'  => $taylorLoc->id,
             'to_location_id'    => null,
@@ -230,6 +232,7 @@ class DemoDataSeeder extends Seeder
                 'tips'                   => 28.00,
                 'import_source'          => 'manual',
                 'status'                 => 'pending_approval',
+                'notes'                  => 'Demo show awaiting ops approval of AI-suggested sold inventory items.',
                 'ai_streamer_suggestion' => [
                     ['streamer_id' => $jordan->id, 'streamer_name' => 'Jordan', 'confidence' => 'high', 'reason' => 'Title matches Jordan\'s Hoops series'],
                     ['streamer_id' => $taylor->id, 'streamer_name' => 'Taylor', 'confidence' => 'medium', 'reason' => 'Taylor also does Football breaks'],
@@ -302,6 +305,7 @@ class DemoDataSeeder extends Seeder
                 'tips'               => 15.00,
                 'import_source'      => 'manual',
                 'status'             => 'pending_review',
+                'notes'              => 'Demo show ready for manual sold-item selection and deduction review.',
                 'created_by'         => 1,
             ]
         );
@@ -373,5 +377,89 @@ class DemoDataSeeder extends Seeder
         );
 
         $batch2->recalculateTotal();
+
+        $this->seedDemoContainers(
+            bowman: $bowman,
+            pokemon: $pokemon,
+            mainStorage: $mainStorage,
+            fulfillment: $fulfillment
+        );
+    }
+
+    private function seedDemoContainers(
+        InventoryItem $bowman,
+        InventoryItem $pokemon,
+        ?InventoryLocation $mainStorage,
+        ?InventoryLocation $fulfillment,
+    ): void {
+        if (! InventoryContainer::schemaReady() || ! $mainStorage) {
+            return;
+        }
+
+        $receiving = InventoryLocation::firstOrCreate(['name' => 'Demo Receiving Bay'], [
+            'type' => 'receiving',
+            'status' => 'active',
+            'notes' => 'Demo receiving location for pallet and case intake walkthroughs.',
+        ]);
+
+        $bowmanPallet = InventoryContainer::firstOrCreate(['label' => 'DEMO-PAL-BCH-001'], [
+            'inventory_item_id' => $bowman->id,
+            'inventory_location_id' => $receiving->id,
+            'container_type' => 'pallet',
+            'barcode' => 'DEMO-PAL-BCH-001',
+            'quantity' => 8,
+            'status' => 'active',
+            'scanner_ready' => true,
+            'notes' => 'Demo inbound pallet before breakdown into sellable cases.',
+        ]);
+
+        InventoryContainer::firstOrCreate(['label' => 'DEMO-CASE-BCH-001'], [
+            'inventory_item_id' => $bowman->id,
+            'inventory_location_id' => $mainStorage->id,
+            'parent_container_id' => $bowmanPallet->id,
+            'container_type' => 'case',
+            'barcode' => 'DEMO-CASE-BCH-001',
+            'quantity' => 4,
+            'status' => 'active',
+            'scanner_ready' => true,
+            'notes' => 'Demo sellable case after pallet breakdown.',
+        ]);
+
+        InventoryContainer::firstOrCreate(['label' => 'DEMO-CASE-BCH-002'], [
+            'inventory_item_id' => $bowman->id,
+            'inventory_location_id' => $mainStorage->id,
+            'parent_container_id' => $bowmanPallet->id,
+            'container_type' => 'case',
+            'barcode' => 'DEMO-CASE-BCH-002',
+            'quantity' => 4,
+            'status' => 'active',
+            'scanner_ready' => true,
+            'notes' => 'Second demo case ready to assign to a location.',
+        ]);
+
+        if ($fulfillment) {
+            $pokemonPallet = InventoryContainer::firstOrCreate(['label' => 'DEMO-PAL-PKM-001'], [
+                'inventory_item_id' => $pokemon->id,
+                'inventory_location_id' => $receiving->id,
+                'container_type' => 'pallet',
+                'barcode' => 'DEMO-PAL-PKM-001',
+                'quantity' => 60,
+                'status' => 'active',
+                'scanner_ready' => true,
+                'notes' => 'Demo TCG pallet used to illustrate receiving and putaway.',
+            ]);
+
+            InventoryContainer::firstOrCreate(['label' => 'DEMO-CASE-PKM-001'], [
+                'inventory_item_id' => $pokemon->id,
+                'inventory_location_id' => $fulfillment->id,
+                'parent_container_id' => $pokemonPallet->id,
+                'container_type' => 'case',
+                'barcode' => 'DEMO-CASE-PKM-001',
+                'quantity' => 30,
+                'status' => 'active',
+                'scanner_ready' => true,
+                'notes' => 'Demo TCG case already put away to fulfillment.',
+            ]);
+        }
     }
 }

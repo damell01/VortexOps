@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\OllamaService;
 use App\Support\AdminModules;
 use App\Support\Branding;
+use App\Support\DemoDataManager;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -298,6 +299,45 @@ class AppSettings extends Page
         } catch (\Throwable $e) {
             $this->lastCommandOutput = $e->getMessage();
             Notification::make()->title('Cache clear failed')->body($e->getMessage())->danger()->send();
+        }
+    }
+
+    public function seedDemoData(): void
+    {
+        try {
+            $result = app(DemoDataManager::class)->seed();
+
+            $this->lastCommandOutput = implode("\n", array_merge(
+                [$result['message']],
+                $result['details']
+            ));
+
+            Notification::make()
+                ->title('Demo data ready')
+                ->body('Shows, sold-item review requests, and inventory workflow examples have been refreshed.')
+                ->success()
+                ->send();
+        } catch (\Throwable $e) {
+            $this->lastCommandOutput = $e->getMessage();
+            Notification::make()->title('Demo seed failed')->body($e->getMessage())->danger()->send();
+        }
+    }
+
+    public function clearDemoData(): void
+    {
+        try {
+            $result = app(DemoDataManager::class)->clear();
+
+            $this->lastCommandOutput = "Demo data cleared.\n" . $result['summary'];
+
+            Notification::make()
+                ->title('Demo data removed')
+                ->body('Seeded shows, deduction requests, payouts, and demo container records were removed.')
+                ->success()
+                ->send();
+        } catch (\Throwable $e) {
+            $this->lastCommandOutput = $e->getMessage();
+            Notification::make()->title('Demo clear failed')->body($e->getMessage())->danger()->send();
         }
     }
 }

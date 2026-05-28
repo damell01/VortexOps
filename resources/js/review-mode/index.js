@@ -220,9 +220,9 @@ function injectFab() {
     wrap.innerHTML = `
         <button id="review-toggle-btn" title="Review Mode"
             style="display:flex;align-items:center;gap:7px;
-                   padding:0.42rem 0.8rem;border:1px solid rgba(41,231,231,.20);border-radius:999px;
-                   background:rgba(255,255,255,0.94);color:#3b1b72;
-                   font-family:${T.font};font-size:0.78rem;font-weight:700;
+                   padding:0.38rem 0.72rem;border:1px solid rgba(148,163,184,.24);border-radius:999px;
+                   background:rgba(255,255,255,0.94);color:#334155;
+                   font-family:${T.font};font-size:0.74rem;font-weight:700;
                    letter-spacing:-0.01em;cursor:pointer;
                    backdrop-filter:blur(10px);
                    box-shadow:0 1px 6px rgba(0,0,0,0.10);
@@ -249,7 +249,7 @@ function updateFabState() {
     wrap.style.top = docked ? 'auto' : '0.875rem';
     wrap.style.right = docked ? 'auto' : '10.5rem';
     wrap.style.zIndex = docked ? 'auto' : '46';
-    btn.style.padding = '0.42rem 0.8rem';
+    btn.style.padding = docked ? '0.38rem 0.72rem' : '0.42rem 0.8rem';
     label.style.display = '';
     btn.title = 'Review Mode';
 
@@ -262,8 +262,8 @@ function updateFabState() {
         label.textContent = 'Exit Review';
     } else {
         btn.style.background = 'rgba(255,255,255,0.94)';
-        btn.style.color = '#3b1b72';
-        btn.style.borderColor = 'rgba(41,231,231,.20)';
+        btn.style.color = docked ? '#334155' : '#3b1b72';
+        btn.style.borderColor = docked ? 'rgba(148,163,184,.24)' : 'rgba(41,231,231,.20)';
         btn.style.boxShadow  = '0 1px 6px rgba(0,0,0,0.10)';
         icon.innerHTML  = ICONS.review;
         label.textContent = 'Review';

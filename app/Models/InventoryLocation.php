@@ -66,7 +66,7 @@ class InventoryLocation extends Model
     {
         $bust = function () {
             cache()->forget('inv_loc:active');
-            foreach (['main_storage', 'streamer_inventory', 'returned', 'damaged', 'fulfillment', 'other'] as $type) {
+            foreach (['main_storage', 'streamer_inventory', 'returned', 'damaged', 'fulfillment', 'receiving', 'other'] as $type) {
                 cache()->forget("inv_loc:type:{$type}");
             }
         };
@@ -83,6 +83,7 @@ class InventoryLocation extends Model
             'returned' => 'Returned',
             'damaged' => 'Damaged',
             'fulfillment' => 'Fulfillment',
+            'receiving' => 'Receiving',
             'other' => 'Other',
         ];
     }

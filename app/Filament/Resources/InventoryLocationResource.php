@@ -136,6 +136,7 @@ class InventoryLocationResource extends Resource
                         'returned' => 'warning',
                         'damaged' => 'danger',
                         'fulfillment' => 'primary',
+                        'receiving' => 'info',
                         default => 'gray',
                     }),
                 TextColumn::make('streamer.name')

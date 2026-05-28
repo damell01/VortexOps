@@ -1,18 +1,18 @@
 <?php
 
-namespace App\Filament\Resources\InventoryItemResource\Pages;
+namespace App\Filament\Resources\InventoryContainerResource\Pages;
 
 use App\Filament\Pages\InventoryBreakdown;
 use App\Filament\Pages\InventoryPutaway;
 use App\Filament\Pages\InventoryReceiving;
-use App\Filament\Resources\InventoryItemResource;
+use App\Filament\Resources\InventoryContainerResource;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 
-class ListInventoryItems extends ListRecords
+class ListInventoryContainers extends ListRecords
 {
-    protected static string $resource = InventoryItemResource::class;
+    protected static string $resource = InventoryContainerResource::class;
 
     protected function getHeaderActions(): array
     {

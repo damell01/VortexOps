@@ -8,6 +8,13 @@ use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Services\InventoryService;
 use App\Support\AdminModules;
+use Filament\Actions\Action;
+use Filament\Actions\Action as TableAction;
+use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -17,13 +24,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
-use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
-use Filament\Actions\ViewAction;
-use Filament\Actions\Action as TableAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -67,7 +67,7 @@ class InventoryItemResource extends Resource
 
     public static function getGloballySearchableAttributes(): array
     {
-        return ['sku', 'name', 'category'];
+        return ['sku', 'barcode', 'name', 'category'];
     }
 
     public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
@@ -78,7 +78,8 @@ class InventoryItemResource extends Resource
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
     {
         return array_filter([
-            'SKU'      => $record->sku,
+            'SKU' => $record->sku,
+            'Barcode' => $record->barcode,
             'Category' => $record->category,
         ]);
     }
@@ -92,6 +93,10 @@ class InventoryItemResource extends Resource
                         ->label('SKU')
                         ->unique(ignoreRecord: true)
                         ->maxLength(100),
+                    TextInput::make('barcode')
+                        ->label('Barcode / Scan Code')
+                        ->unique(ignoreRecord: true)
+                        ->maxLength(255),
                     TextInput::make('name')
                         ->required()
                         ->maxLength(255),
@@ -101,7 +106,28 @@ class InventoryItemResource extends Resource
                         ->numeric()
                         ->prefix('$')
                         ->required()
-                        ->default(0),
+                        ->default(0)
+                        ->label('Base Unit Cost'),
+                    TextInput::make('seller_unit_cost')
+                        ->numeric()
+                        ->prefix('$')
+                        ->default(0)
+                        ->label('Seller Cost / Unit'),
+                    TextInput::make('shipping_unit_cost')
+                        ->numeric()
+                        ->prefix('$')
+                        ->default(0)
+                        ->label('Shipping / Unit'),
+                    TextInput::make('other_unit_fees')
+                        ->numeric()
+                        ->prefix('$')
+                        ->default(0)
+                        ->label('Other Fees / Unit'),
+                    TextInput::make('average_unit_cost')
+                        ->numeric()
+                        ->prefix('$')
+                        ->label('Average Unit Cost')
+                        ->helperText('Optional override when the average paid cost varies across invoices or lots.'),
                     TextInput::make('reorder_level')
                         ->numeric()
                         ->minValue(0)
@@ -116,6 +142,11 @@ class InventoryItemResource extends Resource
                 Textarea::make('notes')
                     ->rows(2)
                     ->columnSpanFull(),
+                Textarea::make('cost_notes')
+                    ->rows(2)
+                    ->label('Cost Notes / Extra Fees')
+                    ->helperText('Use this for custom fees or tracked cost details until exact fee categories are finalized.')
+                    ->columnSpanFull(),
             ]),
         ]);
     }
@@ -128,7 +159,8 @@ class InventoryItemResource extends Resource
                     ->label('SKU')
                     ->searchable()
                     ->copyable()
-                    ->placeholder('—'),
+                    ->placeholder('-')
+                    ->description(fn (InventoryItem $record): ?string => $record->barcode ?: null),
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable()
@@ -138,10 +170,21 @@ class InventoryItemResource extends Resource
                     ->searchable()
                     ->badge()
                     ->color('gray')
-                    ->placeholder('—'),
+                    ->placeholder('-'),
                 TextColumn::make('unit_cost')
+                    ->label('Base Cost')
                     ->money('USD')
                     ->sortable(),
+                TextColumn::make('landed_unit_cost')
+                    ->label('Landed Cost')
+                    ->money('USD')
+                    ->state(fn (InventoryItem $record): float => $record->landed_unit_cost)
+                    ->sortable(query: fn (Builder $query, string $direction): Builder => $query->orderByRaw('(seller_unit_cost + shipping_unit_cost + other_unit_fees) ' . $direction)),
+                TextColumn::make('average_unit_cost')
+                    ->label('Avg Cost')
+                    ->money('USD')
+                    ->placeholder('-')
+                    ->toggleable(),
                 TextColumn::make('stock_sum_quantity')
                     ->label('On Hand')
                     ->numeric(decimalPlaces: 0)
@@ -150,7 +193,7 @@ class InventoryItemResource extends Resource
                     ->weight('semibold'),
                 TextColumn::make('reorder_level')
                     ->label('Reorder At')
-                    ->placeholder('—')
+                    ->placeholder('-')
                     ->description(fn (InventoryItem $record): ?string => $record->reorder_level !== null && (int) ($record->stock_sum_quantity ?? 0) <= (int) $record->reorder_level ? 'Needs restock' : null),
                 IconColumn::make('is_active')
                     ->boolean()

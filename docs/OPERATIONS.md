@@ -12,6 +12,7 @@ Use this file for:
 
 For deeper implementation notes, see [TECHNICAL.md](./TECHNICAL.md).  
 For the business flows, replaced spreadsheets, and product requirements view, see [PRODUCT_PRD.md](./PRODUCT_PRD.md).  
+For a cleaner client-facing project overview, see [CLIENT_PROJECT_PRD.md](./CLIENT_PROJECT_PRD.md).  
 For deployment setup, see [DEPLOYMENT.md](./DEPLOYMENT.md).  
 For a running human-readable update log, see [CHANGELOG.md](./CHANGELOG.md).
 

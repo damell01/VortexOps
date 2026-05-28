@@ -226,10 +226,13 @@ Purpose:
 ### Workflow A: inventory management
 
 1. Ops creates or updates inventory items.
-2. Stock is assigned to locations.
-3. Inventory is moved, adjusted, returned, or marked damaged.
-4. Every mutation is logged in movement history.
-5. Low-stock rules can trigger notifications.
+2. Ops receives inbound inventory into a receiving location as a pallet, case, box, or loose-unit container.
+3. Cost details can be attached at intake, including seller cost, shipping, and other per-unit fees.
+4. If needed, ops breaks a parent container down into child cases or smaller containers while preserving lineage.
+5. Ops puts active child containers away into their destination inventory locations.
+6. Inventory is moved, adjusted, returned, or marked damaged as ongoing operations continue.
+7. Every stock mutation is logged in movement history.
+8. Low-stock rules can trigger notifications.
 
 ### Workflow B: show reconciliation
 
@@ -309,6 +312,10 @@ When you get more business info, update this section first.
 - Are there any location types not yet modeled?
 - Are there pack / box / case conversions that need support?
 - Are partial deductions or substitutions common?
+- Does inventory need a hierarchy like pallet -> case -> unit or pallet -> case -> location assignment?
+- When cases are broken apart, should the system retain lineage back to the original pallet or purchase lot?
+- Will scanner workflows eventually be used only for receiving, or also for transfers, deductions, counts, and picks?
+- Should costing preserve purchase-specific detail when the same SKU is bought on different invoices at different prices?
 
 ### Show workflow questions
 
@@ -340,6 +347,35 @@ These are product-level ideas, not engineering tasks yet:
 - stronger exception handling for unusual show reconciliation cases
 - saved operational reports replacing remaining spreadsheet summaries
 - better review session templates by project phase
+- inventory hierarchy support for pallet / case / unit lineage
+- scanner-assisted inventory receiving, transfer, and count workflows
+- landed-cost tracking including seller cost, shipping fees, and total acquisition cost
+- average-cost and lot-cost reporting when the same SKU is purchased at different prices
+- later-phase employee time tracking with clock-in / clock-out
+
+### Current roadmap notes from latest client direction
+
+These notes should guide future planning, but they are not immediate build work:
+
+- Time tracking is later and not part of the current implementation window.
+- Inventory now has a first-pass pallet -> case -> location workflow in the admin for receiving, breakdown, and putaway.
+- Scanner functionality is still planned for later inventory work.
+- Inventory costing should eventually support:
+  - seller cost
+  - shipping fees
+  - total landed cost
+  - average price paid across different invoices for the same item
+  - purchase-lot-aware cost visibility
+
+### Recommended future inventory architecture direction
+
+When this work starts, the safest product direction is likely:
+
+- keep the existing item catalog as the SKU definition layer
+- add receipt or lot records for purchase-specific costs
+- add optional container records for pallet / case relationships
+- preserve movement history when inventory is broken down from parent containers into destination locations
+- calculate reporting values from lot-level data rather than overwriting one static unit cost
 
 ---
 

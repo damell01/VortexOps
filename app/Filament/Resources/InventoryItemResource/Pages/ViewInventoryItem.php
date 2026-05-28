@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\InventoryItemResource\Pages;
 
 use App\Filament\Resources\InventoryItemResource;
+use App\Filament\Resources\InventoryContainerResource;
 use App\Models\InventoryLocation;
 use App\Services\InventoryService;
 use Filament\Actions\Action;
@@ -21,6 +22,13 @@ class ViewInventoryItem extends ViewRecord
     {
         return [
             EditAction::make(),
+            Action::make('new_container')
+                ->label('Add Container')
+                ->icon('heroicon-o-cube-transparent')
+                ->color('info')
+                ->url(fn (): string => InventoryContainerResource::getUrl('create', [
+                    'inventory_item_id' => $this->record->getKey(),
+                ])),
             Action::make('add_stock')
                 ->label('Add Stock')
                 ->icon('heroicon-o-plus-circle')

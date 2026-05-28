@@ -259,15 +259,50 @@ body {
     -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
     border-bottom: 1px solid rgb(15 23 42 / .06) !important;
     box-shadow: 0 1px 0 rgb(255 255 255 / .8) inset, 0 8px 24px rgb(15 23 42 / .03) !important;
+    margin: 0.6rem 0.75rem 0 !important;
+    border-radius: 1.15rem !important;
+    padding-inline: 0.2rem !important;
 }
 
 .fi-topbar-ctn {
     padding: 0 0.875rem !important;
-    min-height: 3rem !important;
+    min-height: 4.1rem !important;
+}
+
+.fi-topbar-start,
+.fi-topbar-end {
+    gap: 0.75rem !important;
+    align-items: center !important;
+}
+
+.fi-topbar-start {
+    min-width: 0 !important;
+}
+
+.fi-topbar-end {
+    margin-inline-start: auto !important;
+}
+
+.fi-topbar-open-sidebar-btn,
+.fi-topbar-close-sidebar-btn,
+.fi-topbar-open-collapse-sidebar-btn,
+.fi-topbar-close-collapse-sidebar-btn {
+    border-radius: 0.95rem !important;
+    background: rgb(255 255 255 / 0.88) !important;
+    border: 1px solid rgb(15 23 42 / 0.08) !important;
+    box-shadow: 0 8px 18px rgb(15 23 42 / 0.05) !important;
+}
+
+.fi-topbar-start .fi-logo {
+    color: #0f172a !important;
+}
+
+.fi-user-menu {
+    flex-shrink: 0 !important;
 }
 
 .fi-global-search-ctn {
-    min-width: min(32rem, 42vw) !important;
+    min-width: min(40rem, 48vw) !important;
 }
 
 .fi-global-search-field {
@@ -275,7 +310,8 @@ body {
     border-radius: 999px !important;
     background: rgb(255 255 255 / .92) !important;
     box-shadow: 0 8px 20px rgb(15 23 42 / .04) !important;
-    padding-inline: 0.25rem !important;
+    min-height: 2.95rem !important;
+    padding-inline: 0.55rem !important;
 }
 
 .fi-global-search-field input {
@@ -1029,12 +1065,14 @@ textarea.fi-input { padding: 0.5rem 0.75rem !important; line-height: 1.5 !import
 }
 
 #vortexops-top-actions {
-    order: -1;
+    display: flex !important;
+    order: 0;
     margin-inline-start: 0 !important;
-    margin-inline-end: 0.25rem !important;
-    gap: 0.375rem !important;
+    margin-inline-end: 0 !important;
+    gap: 0.5rem !important;
     flex: 0 0 auto !important;
     align-items: center !important;
+    align-self: center !important;
 }
 
 #vortexops-top-actions > * {
@@ -1044,25 +1082,48 @@ textarea.fi-input { padding: 0.5rem 0.75rem !important; line-height: 1.5 !import
 #vortexops-top-actions button,
 #vortexops-top-actions .review-top-link,
 #review-fab-wrap #review-toggle-btn {
-    min-height: 2.2rem !important;
-    padding-inline: 0.72rem !important;
+    min-height: 2.35rem !important;
+    padding-inline: 0.82rem !important;
     font-size: 0.74rem !important;
     line-height: 1 !important;
+    border-radius: 999px !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
 }
 
 #review-fab-wrap {
     margin: 0 !important;
 }
 
+#review-fab-wrap #review-toggle-btn,
+#vortexops-tour-btn {
+    box-shadow: 0 8px 18px rgb(15 23 42 / 0.08) !important;
+}
+
+#review-fab-wrap #review-toggle-btn {
+    background: linear-gradient(135deg, rgb(255 255 255 / .98), rgb(248 250 252 / .96)) !important;
+    color: #4c1d95 !important;
+    border: 1px solid rgb(34 211 238 / .22) !important;
+}
+
+#review-fab-wrap #review-toggle-btn:hover,
+#vortexops-tour-btn:hover {
+    transform: translateY(-1px) !important;
+}
+
+#vortexops-tour-btn {
+    color: #334155 !important;
+}
+
 @media (max-width: 1536px) {
     .fi-global-search-ctn {
-        min-width: min(20rem, 24vw) !important;
+        min-width: min(24rem, 30vw) !important;
     }
 }
 
 @media (max-width: 1280px) {
     .fi-global-search-ctn {
-        min-width: min(15rem, 18vw) !important;
+        min-width: min(18rem, 22vw) !important;
     }
 
     #vortexops-top-actions button,

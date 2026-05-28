@@ -116,7 +116,7 @@ class AdminPanelProvider extends PanelProvider
                         : Blade::render("@vite(['resources/css/app.css'])")),
             )
             ->renderHook(
-                PanelsRenderHook::TOPBAR_END,
+                PanelsRenderHook::USER_MENU_BEFORE,
                 fn (): string => ! $isAuthenticatedAdminView()
                     ? ''
                     : Blade::render(

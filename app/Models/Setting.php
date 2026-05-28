@@ -10,18 +10,29 @@ class Setting extends Model
 
     public static function get(string $key, mixed $default = null): mixed
     {
-        return cache()->remember("setting:{$key}", 3600, function () use ($key, $default) {
-            $val = static::where('key', $key)->value('value');
-            return $val ?? $default;
-        });
+        try {
+            return cache()->remember("setting:{$key}", 3600, function () use ($key, $default) {
+                try {
+                    $val = static::query()->where('key', $key)->value('value');
+                } catch (\Throwable) {
+                    return $default;
+                }
+
+                return $val ?? $default;
+            });
+        } catch (\Throwable) {
+            return $default;
+        }
     }
 
     public static function getBool(string $key, bool $default = false): bool
     {
-        $val = static::get($key);
+        $val = static::get($key, $default ? 'true' : 'false');
+
         if ($val === null) {
             return $default;
         }
+
         return filter_var($val, FILTER_VALIDATE_BOOLEAN);
     }
 

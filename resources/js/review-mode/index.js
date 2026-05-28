@@ -777,6 +777,21 @@ async function capturePageNow() {
             } catch { /* try fallback */ }
         }
 
+        try {
+            const legacyCanvas = await html2canvas(document.body, {
+                logging: false,
+                useCORS: true,
+                allowTaint: true,
+                scale: Math.min(window.devicePixelRatio || 1, 1.5),
+                backgroundColor: '#f8fafc',
+                ignoreElements: el => isReviewElement(el),
+            });
+
+            if (legacyCanvas?.width && legacyCanvas?.height) {
+                return legacyCanvas.toDataURL('image/png');
+            }
+        } catch { /* final fallback failed */ }
+
         throw new Error('capture-failed');
     } finally {
         hidden.forEach(el => { el.style.visibility = ''; });
@@ -1344,6 +1359,12 @@ function undoLast() {
 // so we just export the canvas directly — no second html2canvas call needed.
 async function captureForSave() {
     try {
+        if (!pageScreenshotDataUrl) {
+            try {
+                pageScreenshotDataUrl = await capturePageNow();
+            } catch { /* keep going with overlay-only fallback */ }
+        }
+
         // Find annotation-only objects (skip the background image at index 0 if present)
         const objects  = fabricCanvas.getObjects();
         const hasAnnotations = objects.length > (pageScreenshotDataUrl ? 1 : 0);
@@ -1362,7 +1383,7 @@ async function captureForSave() {
         const bounds    = getAnnotationBounds(annotObjs);
 
         if (!bounds) {
-            return fabricCanvas.toDataURL({ format: 'jpeg', quality: 0.88 });
+            return fabricCanvas.toDataURL({ format: 'png' });
         }
 
         // Crop the canvas around the annotations (+ padding)
@@ -1372,7 +1393,7 @@ async function captureForSave() {
         const width  = Math.min(fabricCanvas.width  - left, bounds.width  + pad * 2);
         const height = Math.min(fabricCanvas.height - top,  bounds.height + pad * 2);
 
-        return fabricCanvas.toDataURL({ format: 'jpeg', quality: 0.90,
+        return fabricCanvas.toDataURL({ format: 'png',
             left, top, width: Math.max(80, width), height: Math.max(80, height) });
     } catch { return null; }
 }

@@ -6,7 +6,6 @@ use App\Models\Project;
 use App\Models\ReviewItem;
 use App\Models\ReviewItemComment;
 use App\Models\ReviewSession;
-use App\Modules\ProjectHub\Support\ProjectHub;
 use App\Support\ReviewScreenshotStore;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -37,7 +36,7 @@ class ReviewController extends Controller
         ]);
 
         try {
-            $projectId = $request->integer('project_id') ?: ProjectHub::defaultProjectId($request->user());
+            $projectId = $request->integer('project_id');
 
             $session = ReviewSession::create([
                 'project_id' => $projectId,
@@ -188,7 +187,7 @@ class ReviewController extends Controller
             return (int) $existingSessionId;
         }
 
-        $projectId = $request->integer('project_id') ?: ProjectHub::defaultProjectId($request->user());
+        $projectId = $request->integer('project_id');
 
         $session = ReviewSession::create([
             'project_id' => $projectId,

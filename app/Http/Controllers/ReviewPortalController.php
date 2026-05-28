@@ -7,7 +7,6 @@ use App\Models\ProjectComment;
 use App\Models\ReviewItem;
 use App\Models\ReviewItemComment;
 use App\Models\ReviewSession;
-use App\Modules\ProjectHub\Support\ProjectHub;
 use App\Modules\ProjectHub\Support\ProjectHubRoadmap;
 use App\Support\AdminModules;
 use Illuminate\Http\RedirectResponse;
@@ -21,36 +20,28 @@ class ReviewPortalController extends Controller
     {
         $user = auth()->user();
         $reviewsEnabled = AdminModules::isEnabled('reviews');
+        $projectsEnabled = AdminModules::isEnabled('projects');
 
-        if ($user?->isAdmin() && ! Project::query()->exists()) {
+        if ($projectsEnabled && $user?->isAdmin() && ! Project::query()->exists()) {
             ProjectHubRoadmap::ensureWorkspace($user);
         }
 
-        $projectCounts = [
-            'approvals as pending_approvals_count' => fn ($q) => $q->where('project_approvals.status', 'pending'),
-            'milestones as completed_milestones_count' => fn ($q) => $q->whereIn('project_milestones.status', ['completed', 'approved']),
-            'milestones as total_milestones_count',
-        ];
-
-        if ($reviewsEnabled) {
-            $projectCounts['reviewItems as total_review_items_count'] = fn ($q) => $q;
-            $projectCounts['reviewItems as open_review_items_count'] = fn ($q) => $q->whereIn('review_items.status', ['open', 'in_progress']);
-            $projectCounts['reviewItems as resolved_review_items_count'] = fn ($q) => $q->whereIn('review_items.status', ['fixed', 'approved']);
-        }
-
-        $projects = ProjectHub::visibleProjectsFor($user)
-            ->withCount($projectCounts)
-            ->where('client_visible', true)
-            ->with(['owner:id,name', 'manager:id,name'])
-            ->orderByDesc('projects.is_active')
-            ->orderByDesc('projects.created_at')
+        $sessions = ReviewSession::query()
+            ->with(['project:id,name', 'createdBy:id,name'])
+            ->withCount('items')
+            ->when(! $user?->isSuperAdmin(), fn ($query) => $query->where('status', '!=', 'closed'))
+            ->orderByRaw("CASE WHEN status = 'open' THEN 0 WHEN status = 'submitted' THEN 1 ELSE 2 END")
+            ->orderByDesc('updated_at')
+            ->limit(24)
             ->get();
 
-        if ($projects->count() === 1) {
-            return redirect()->route('review.project', $projects->first());
-        }
+        $recentItems = ReviewItem::query()
+            ->with(['session:id,title,project_id', 'session.project:id,name', 'createdBy:id,name'])
+            ->latest()
+            ->limit(10)
+            ->get();
 
-        return view('review.index', compact('projects', 'reviewsEnabled'));
+        return view('review.index', compact('sessions', 'recentItems', 'reviewsEnabled', 'projectsEnabled'));
     }
 
     public function project(Project $project): View

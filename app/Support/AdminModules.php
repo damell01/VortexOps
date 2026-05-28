@@ -118,10 +118,6 @@ class AdminModules
             $normalized[] = $slug;
         }
 
-        if (in_array('reviews', $normalized, true) && ! in_array('projects', $normalized, true)) {
-            $normalized[] = 'projects';
-        }
-
         $valid = array_keys(static::definitions());
 
         return array_values(array_unique(array_intersect($valid, $normalized)));

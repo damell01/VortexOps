@@ -12,7 +12,7 @@
                     <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                     </svg>
-                    {{ $session->project ? $session->project->name : 'Project Hub' }}
+                    {{ $session->project ? $session->project->name : 'Feedback Center' }}
                 </a>
                 <h1 class="mt-3 text-3xl font-semibold tracking-tight text-slate-950">{{ $session->title }}</h1>
                 <p class="mt-2 text-sm text-slate-600">{{ $items->count() }} item{{ $items->count() !== 1 ? 's' : '' }} captured in this review session.</p>

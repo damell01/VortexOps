@@ -3,7 +3,7 @@
 @php
     $projectsEnabled = \App\Support\AdminModules::isEnabled('projects');
     $reviewsEnabled = \App\Support\AdminModules::isEnabled('reviews');
-    $portalTitle = $projectsEnabled ? 'VortexOps Project Hub' : 'VortexOps';
+    $portalTitle = $reviewsEnabled ? 'VortexOps Feedback Center' : 'VortexOps';
     $showReviewButton = \App\Models\Setting::getBool('show_review_button', true);
 @endphp
 
@@ -147,7 +147,7 @@
                     </div>
                     <div class="min-w-0">
                         <div class="review-kicker text-[10px] uppercase tracking-[0.22em]">Client Workspace</div>
-                        <div class="truncate text-sm text-slate-900">Project Hub</div>
+                        <div class="truncate text-sm text-slate-900">Feedback Center</div>
                     </div>
                 </a>
 

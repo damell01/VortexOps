@@ -1,2 +1,2 @@
 import './tour.js';
-import './review-mode/index.js';
+import './feedback-annotation.js';

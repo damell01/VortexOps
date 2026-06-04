@@ -20,7 +20,6 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Blade;
-use Illuminate\Support\Js;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
@@ -91,13 +90,7 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => ! $isAuthenticatedAdminView()
                     ? ''
                     : Blade::render(
-                        '<script>window.VortexModules = ' . Js::from([
-                            'projects' => AdminModules::isEnabled('projects'),
-                            'reviews'  => AdminModules::isEnabled('reviews'),
-                            'ai'       => AdminModules::isEnabled('ai'),
-                        ]) . ';</script>' .
-                        (AdminModules::isEnabled('ai') ? "@livewire('ai-chat-panel')" : '')
-                        . "<x-tour-button />"
+                        "<x-tour-button />"
                         . "@livewire('feedback-widget')"
                     ),
             )

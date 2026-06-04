@@ -4,7 +4,6 @@ namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\ShowResource\Pages;
-use App\Jobs\MapShowInventory;
 use App\Models\DeductionRequest;
 use App\Models\Show;
 use App\Models\Streamer;
@@ -369,21 +368,6 @@ class ShowResource extends Resource
                     }),
             ])
             ->actions([
-                TableAction::make('run_ai_mapping')
-                    ->label('Map Sales with AI')
-                    ->icon('heroicon-o-sparkles')
-                    ->color('primary')
-                    ->visible(fn (Show $record) => $record->status === 'pending_review' && $record->streamers()->exists())
-                    ->requiresConfirmation()
-                    ->action(function (Show $record) {
-                        MapShowInventory::dispatch($record->id);
-                        Notification::make()
-                            ->title('AI Mapping queued')
-                            ->body('We are mapping this show now. Ops will be notified when approval is ready.')
-                            ->success()
-                            ->send();
-                    }),
-
                 TableAction::make('view_deduction')
                     ->label(fn (Show $record) => $record->status === 'pending_approval' ? 'Review Approval' : 'View Approval')
                     ->icon('heroicon-o-clipboard-document-check')

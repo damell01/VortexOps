@@ -5,17 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ProjectComment extends Model
+class FeedbackTicketComment extends Model
 {
-    protected $fillable = [
-        'project_id',
-        'user_id',
-        'body',
-    ];
+    protected $fillable = ['feedback_ticket_id', 'user_id', 'body'];
 
-    public function project(): BelongsTo
+    public function ticket(): BelongsTo
     {
-        return $this->belongsTo(Project::class);
+        return $this->belongsTo(FeedbackTicket::class, 'feedback_ticket_id');
     }
 
     public function user(): BelongsTo

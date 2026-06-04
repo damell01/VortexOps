@@ -141,69 +141,7 @@
                     </label>
                 @endforeach
 
-                <p class="text-xs text-gray-400">Hidden modules disappear from navigation and their admin pages stop being accessible until you re-enable them. Review &amp; Feedback also controls the client feedback portal and review mode overlay.</p>
-            </div>
-        </div>
-
-        {{-- ── AI Settings ───────────────────────────────────────────────── --}}
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-
-            <div class="px-6 py-4">
-                <div class="flex items-center gap-3">
-                    <div class="rounded-lg bg-violet-100 dark:bg-violet-900 p-2">
-                        <x-heroicon-o-sparkles class="h-5 w-5 text-violet-600 dark:text-violet-300" />
-                    </div>
-                    <div>
-                        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">AI Assistant</h2>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">Local AI via Ollama — no data leaves your server</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="px-6 py-4 flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Enable AI Assistant</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Shows the floating AI button on every admin page</p>
-                </div>
-                <button
-                    wire:click="$toggle('ai_enabled')"
-                    type="button"
-                    class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2
-                        {{ $ai_enabled ? 'bg-violet-600' : 'bg-gray-200 dark:bg-gray-700' }}"
-                    role="switch"
-                    aria-checked="{{ $ai_enabled ? 'true' : 'false' }}"
-                >
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                        {{ $ai_enabled ? 'translate-x-5' : 'translate-x-0' }}"></span>
-                </button>
-            </div>
-
-            <div class="px-6 py-4">
-                <label for="ollama_base_url" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Ollama Base URL</label>
-                <input wire:model.blur="ollama_base_url" id="ollama_base_url" type="text" placeholder="http://localhost:11434"
-                    class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono" />
-            </div>
-
-            <div class="px-6 py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                    <label for="ollama_model" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Model</label>
-                    <input wire:model.blur="ollama_model" id="ollama_model" type="text" placeholder="llama3.2:3b"
-                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono" />
-                </div>
-                <div>
-                    <label for="ollama_timeout" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Timeout (seconds)</label>
-                    <input wire:model.blur="ollama_timeout" id="ollama_timeout" type="number" min="5" max="600"
-                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none" />
-                    <p class="mt-1 text-xs text-gray-400">For larger local models, 120 to 180 seconds is a safer default.</p>
-                </div>
-            </div>
-
-            <div class="px-6 py-4 bg-gray-50 dark:bg-gray-950 rounded-b-xl">
-                <p class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">Quick start</p>
-                <div class="space-y-1 font-mono text-xs text-gray-500 dark:text-gray-400">
-                    <p><span class="text-gray-400">$</span> ollama serve</p>
-                    <p><span class="text-gray-400">$</span> ollama pull {{ $ollama_model ?: 'llama3.2:3b' }}</p>
-                </div>
+                <p class="text-xs text-gray-400">Hidden modules disappear from navigation and their admin pages stop being accessible until you re-enable them.</p>
             </div>
         </div>
 
@@ -230,24 +168,6 @@
                     <option value="auto_whatnot">Auto (Whatnot Scraper)</option>
                 </select>
                 <p class="mt-1 text-xs text-gray-400">Manual: staff enter shows by hand. Auto: scraper ingests shows automatically.</p>
-            </div>
-
-            <div class="px-6 py-4 flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Auto-assign High-confidence Streamers</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">When AI is confident about a streamer match, assign them automatically</p>
-                </div>
-                <button
-                    wire:click="$toggle('auto_assign_confident_streamers')"
-                    type="button"
-                    class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2
-                        {{ $auto_assign_confident_streamers ? 'bg-violet-600' : 'bg-gray-200 dark:bg-gray-700' }}"
-                    role="switch"
-                    aria-checked="{{ $auto_assign_confident_streamers ? 'true' : 'false' }}"
-                >
-                    <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                        {{ $auto_assign_confident_streamers ? 'translate-x-5' : 'translate-x-0' }}"></span>
-                </button>
             </div>
 
             <div class="px-6 py-4">

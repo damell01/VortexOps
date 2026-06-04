@@ -7,64 +7,68 @@ use App\Models\Setting;
 class AdminModules
 {
     private static ?array $memoizedSlugs = null;
+
     /**
      * @return array<string, array{label: string, description: string, group: string, order: int}>
      */
     public static function definitions(): array
     {
         return [
-            'projects' => [
-                'label' => 'Project Workspace',
-                'description' => 'Project hub, roadmap, milestones, approvals, comments, and rollout updates.',
-                'group' => 'Project Delivery',
-                'order' => 10,
-            ],
-            'reviews' => [
-                'label' => 'Review & Feedback',
-                'description' => 'Client review portal, review mode, feedback sessions, and annotated review items.',
-                'group' => 'Project Delivery',
-                'order' => 15,
-            ],
             'streams' => [
-                'label' => 'Streams',
+                'label'       => 'Streams',
                 'description' => 'Shows and pending approvals for operational review.',
-                'group' => 'Streams',
-                'order' => 20,
+                'group'       => 'Streams',
+                'order'       => 10,
             ],
             'payouts' => [
-                'label' => 'Payouts & Pay Runs',
+                'label'       => 'Payouts & Pay Runs',
                 'description' => 'Payout records, pay runs, and reconciliation outputs.',
-                'group' => 'Payouts & Pay Runs',
-                'order' => 30,
+                'group'       => 'Payouts & Pay Runs',
+                'order'       => 20,
             ],
             'inventory' => [
-                'label' => 'Inventory',
+                'label'       => 'Inventory',
                 'description' => 'Items, locations, stock levels, and movement logs.',
-                'group' => 'Inventory',
-                'order' => 40,
+                'group'       => 'Inventory',
+                'order'       => 30,
             ],
             'operations' => [
-                'label' => 'Operations',
+                'label'       => 'Operations',
                 'description' => 'Streamers, channels, and other supporting ops tools.',
-                'group' => 'Operations',
-                'order' => 50,
+                'group'       => 'Operations',
+                'order'       => 40,
+            ],
+            // Advanced modules — disabled by default in shell phase.
+            // Super-admins can enable these from App Settings.
+            'projects' => [
+                'label'       => 'Project Workspace',
+                'description' => 'Project hub, milestones, approvals, and status updates. (Advanced)',
+                'group'       => 'Project Delivery',
+                'order'       => 50,
+            ],
+            'reviews' => [
+                'label'       => 'Review & Feedback Portal',
+                'description' => 'Client review portal, review sessions, and annotated review items. (Advanced)',
+                'group'       => 'Project Delivery',
+                'order'       => 55,
             ],
             'ai' => [
-                'label' => 'AI',
-                'description' => 'Vortex Assistant and AI activity logs.',
-                'group' => 'AI',
-                'order' => 60,
+                'label'       => 'AI Assistant',
+                'description' => 'Vortex AI assistant and AI activity logs. Requires Ollama. (Advanced)',
+                'group'       => 'AI',
+                'order'       => 60,
             ],
         ];
     }
 
     /**
+     * Shell-phase defaults — core operational modules only.
+     * Super-admins enable projects / reviews / ai from App Settings.
+     *
      * @return array<int, string>
      */
     public static function defaultEnabledSlugs(): array
     {
-        // Shell-phase defaults: core operational modules only.
-        // Super-admins can enable projects, reviews, and ai from App Settings.
         return ['streams', 'payouts', 'inventory', 'operations'];
     }
 
@@ -113,10 +117,8 @@ class AdminModules
             if ($slug === 'project_hub') {
                 $normalized[] = 'projects';
                 $normalized[] = 'reviews';
-
                 continue;
             }
-
             $normalized[] = $slug;
         }
 
@@ -131,10 +133,6 @@ class AdminModules
 
     public static function isEnabled(string $slug): bool
     {
-        if ($slug === 'ai' && ! Setting::getBool('ai_enabled', true)) {
-            return false;
-        }
-
         return in_array($slug, static::enabledSlugs(), true);
     }
 

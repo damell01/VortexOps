@@ -3,10 +3,20 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\FeedbackTicketResource\Pages;
+use App\Filament\Resources\FeedbackTicketResource\RelationManagers\CommentsRelationManager;
 use App\Models\FeedbackTicket;
+use App\Models\User;
+use Filament\Actions\Action;
+use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -32,10 +42,15 @@ class FeedbackTicketResource extends Resource
         return 20;
     }
 
+    public static function getNavigationLabel(): string
+    {
+        return 'Feedback';
+    }
+
     public static function getNavigationBadge(): ?string
     {
         $count = Cache::remember('nav_badge:feedback_open', 60, fn () =>
-            FeedbackTicket::whereIn('status', ['open', 'in_progress'])->count()
+            FeedbackTicket::whereIn('status', ['open', 'in_progress', 'needs_info'])->count()
         );
         return $count > 0 ? (string) $count : null;
     }
@@ -67,17 +82,68 @@ class FeedbackTicketResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([]);
+        return $schema->components([
+            Section::make('Ticket Details')->schema([
+                Grid::make(2)->schema([
+                    Select::make('status')
+                        ->options(FeedbackTicket::statusLabels())
+                        ->required(),
+
+                    Select::make('priority')
+                        ->options(FeedbackTicket::priorityLabels())
+                        ->required(),
+
+                    Select::make('type')
+                        ->options(FeedbackTicket::typeLabels())
+                        ->required(),
+
+                    Select::make('assigned_to')
+                        ->label('Assigned To')
+                        ->options(User::orderBy('name')->pluck('name', 'id'))
+                        ->nullable()
+                        ->searchable(),
+                ]),
+
+                Textarea::make('admin_notes')
+                    ->label('Internal Notes')
+                    ->rows(3)
+                    ->columnSpanFull(),
+            ]),
+        ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->deferLoading()
+            ->striped()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
+            ->defaultSort('created_at', 'desc')
             ->columns([
+                ImageColumn::make('screenshot_path')
+                    ->label('')
+                    ->square()
+                    ->size(48)
+                    ->disk('public')
+                    ->defaultImageUrl(null)
+                    ->toggleable(),
+
                 TextColumn::make('id')
                     ->label('#')
                     ->sortable()
-                    ->width('60px'),
+                    ->width('48px'),
+
+                TextColumn::make('type')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => FeedbackTicket::typeLabels()[$state] ?? $state)
+                    ->color(fn ($state) => match ($state) {
+                        'bug'        => 'danger',
+                        'suggestion' => 'info',
+                        'question'   => 'warning',
+                        default      => 'gray',
+                    })
+                    ->width('90px'),
 
                 TextColumn::make('priority')
                     ->badge()
@@ -85,14 +151,15 @@ class FeedbackTicketResource extends Resource
                     ->color(fn ($state) => match ($state) {
                         'high'   => 'danger',
                         'medium' => 'warning',
-                        'low'    => 'info',
+                        'low'    => 'gray',
                         default  => 'gray',
                     })
                     ->width('80px'),
 
                 TextColumn::make('title')
                     ->searchable()
-                    ->wrap(),
+                    ->wrap()
+                    ->weight('medium'),
 
                 TextColumn::make('status')
                     ->badge()
@@ -100,6 +167,7 @@ class FeedbackTicketResource extends Resource
                     ->color(fn ($state) => match ($state) {
                         'open'        => 'danger',
                         'in_progress' => 'warning',
+                        'needs_info'  => 'info',
                         'resolved'    => 'success',
                         'closed'      => 'gray',
                         default       => 'gray',
@@ -111,38 +179,69 @@ class FeedbackTicketResource extends Resource
                     ->toggleable(),
 
                 TextColumn::make('assignee.name')
-                    ->label('Assigned To')
-                    ->default('—')
-                    ->toggleable(isToggledHiddenByDefault: true),
-
-                TextColumn::make('page_url')
-                    ->label('Page')
-                    ->limit(35)
-                    ->tooltip(fn (FeedbackTicket $record): ?string => $record->page_url)
-                    ->placeholder('—')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->label('Assigned')
+                    ->default('Unassigned')
+                    ->toggleable(),
 
                 TextColumn::make('created_at')
                     ->label('Submitted')
-                    ->dateTime('M j, g:ia')
+                    ->since()
                     ->sortable(),
             ])
-            ->striped()
-            ->persistFiltersInSession()
-            ->paginationPageOptions([10, 25, 50])
-            ->defaultPaginationPageOption(25)
-            ->deferLoading()
-            ->defaultSort('created_at', 'desc')
             ->filters([
                 SelectFilter::make('status')
                     ->options(FeedbackTicket::statusLabels()),
 
                 SelectFilter::make('priority')
                     ->options(FeedbackTicket::priorityLabels()),
+
+                SelectFilter::make('type')
+                    ->options(FeedbackTicket::typeLabels()),
             ])
             ->actions([
-                ViewAction::make()->label('Review')->iconButton(false),
+                Action::make('mark_in_progress')
+                    ->label('Start')
+                    ->icon('heroicon-o-play')
+                    ->color('warning')
+                    ->visible(fn (FeedbackTicket $r) => $r->status === 'open')
+                    ->action(function (FeedbackTicket $r) {
+                        $r->update(['status' => 'in_progress']);
+                        Cache::forget('nav_badge:feedback_open');
+                        Notification::make()->title('Marked in progress')->success()->send();
+                    }),
+
+                Action::make('mark_resolved')
+                    ->label('Resolve')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->visible(fn (FeedbackTicket $r) => in_array($r->status, ['open', 'in_progress', 'needs_info']))
+                    ->action(function (FeedbackTicket $r) {
+                        $r->update(['status' => 'resolved', 'resolved_at' => now()]);
+                        Cache::forget('nav_badge:feedback_open');
+                        Notification::make()->title('Marked resolved')->success()->send();
+                    }),
+
+                Action::make('needs_info')
+                    ->label('Needs Info')
+                    ->icon('heroicon-o-question-mark-circle')
+                    ->color('info')
+                    ->visible(fn (FeedbackTicket $r) => in_array($r->status, ['open', 'in_progress']))
+                    ->action(function (FeedbackTicket $r) {
+                        $r->update(['status' => 'needs_info']);
+                        Cache::forget('nav_badge:feedback_open');
+                        Notification::make()->title('Marked — needs more info')->warning()->send();
+                    }),
+
+                ViewAction::make(),
+                EditAction::make(),
             ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            CommentsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array
@@ -150,6 +249,7 @@ class FeedbackTicketResource extends Resource
         return [
             'index' => Pages\ListFeedbackTickets::route('/'),
             'view'  => Pages\ViewFeedbackTicket::route('/{record}'),
+            'edit'  => Pages\EditFeedbackTicket::route('/{record}/edit'),
         ];
     }
 }

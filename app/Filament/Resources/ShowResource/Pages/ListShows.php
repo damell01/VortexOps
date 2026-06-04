@@ -3,8 +3,6 @@
 namespace App\Filament\Resources\ShowResource\Pages;
 
 use App\Filament\Resources\ShowResource;
-use App\Jobs\NotifyShowReady;
-use App\Jobs\ParseShowTitle;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
 

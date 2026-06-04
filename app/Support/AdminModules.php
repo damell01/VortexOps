@@ -63,7 +63,9 @@ class AdminModules
      */
     public static function defaultEnabledSlugs(): array
     {
-        return array_keys(static::definitions());
+        // Shell-phase defaults: core operational modules only.
+        // Super-admins can enable projects, reviews, and ai from App Settings.
+        return ['streams', 'payouts', 'inventory', 'operations'];
     }
 
     /**

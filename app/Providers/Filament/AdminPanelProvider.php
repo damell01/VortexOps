@@ -98,7 +98,7 @@ class AdminPanelProvider extends PanelProvider
                         ]) . ';</script>' .
                         (AdminModules::isEnabled('ai') ? "@livewire('ai-chat-panel')" : '')
                         . "<x-tour-button />"
-                        . (AdminModules::isEnabled('reviews') ? "@livewire('feedback-widget')" : '')
+                        . "@livewire('feedback-widget')"
                     ),
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')

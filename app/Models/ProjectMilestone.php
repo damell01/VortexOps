@@ -11,20 +11,16 @@ class ProjectMilestone extends Model
         'project_id',
         'title',
         'description',
-        'status',
-        'sort_order',
         'due_date',
+        'status',
         'completed_at',
-        'approved_at',
-        'visible_to_client',
+        'sort_order',
     ];
 
     protected $casts = [
-        'due_date' => 'date',
+        'due_date'     => 'date',
         'completed_at' => 'datetime',
-        'approved_at' => 'datetime',
-        'visible_to_client' => 'boolean',
-        'sort_order' => 'integer',
+        'sort_order'   => 'integer',
     ];
 
     public function project(): BelongsTo
@@ -35,11 +31,9 @@ class ProjectMilestone extends Model
     public static function statusLabels(): array
     {
         return [
-            'not_started' => 'Not Started',
+            'pending'     => 'Pending',
             'in_progress' => 'In Progress',
-            'blocked' => 'Blocked',
-            'completed' => 'Completed',
-            'approved' => 'Approved',
+            'completed'   => 'Completed',
         ];
     }
 }

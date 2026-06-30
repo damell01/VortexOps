@@ -3,15 +3,14 @@
 namespace App\Filament\Resources\ProjectResource\Pages;
 
 use App\Filament\Resources\ProjectResource;
-use App\Modules\ProjectHub\Support\ProjectHubRoadmap;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateProject extends CreateRecord
 {
     protected static string $resource = ProjectResource::class;
 
-    protected function afterCreate(): void
+    protected function getRedirectUrl(): string
     {
-        ProjectHubRoadmap::apply($this->record);
+        return ProjectResource::getUrl('view', ['record' => $this->getRecord()]);
     }
 }

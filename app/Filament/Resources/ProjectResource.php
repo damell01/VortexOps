@@ -4,29 +4,24 @@ namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\ProjectResource\Pages;
-use App\Filament\Resources\ProjectResource\RelationManagers\ApprovalsRelationManager;
-use App\Filament\Resources\ProjectResource\RelationManagers\CommentsRelationManager;
 use App\Filament\Resources\ProjectResource\RelationManagers\MilestonesRelationManager;
-use App\Filament\Resources\ProjectResource\RelationManagers\ReviewSessionsRelationManager;
-use App\Filament\Resources\ProjectResource\RelationManagers\StatusUpdatesRelationManager;
+use App\Filament\Resources\ProjectResource\RelationManagers\UpdatesRelationManager;
 use App\Models\Project;
 use App\Models\User;
 use App\Support\AdminModules;
-use Filament\Actions\CreateAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Tables\Columns\ColorColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Str;
 
 class ProjectResource extends Resource
@@ -39,7 +34,7 @@ class ProjectResource extends Resource
 
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
-        return 'heroicon-o-briefcase';
+        return 'heroicon-o-rectangle-stack';
     }
 
     public static function getNavigationGroup(): string|\UnitEnum|null
@@ -49,181 +44,144 @@ class ProjectResource extends Resource
 
     public static function getNavigationSort(): ?int
     {
-        return 1;
+        return 30;
     }
 
-    public static function getNavigationLabel(): string
+    public static function getModelLabel(): string
     {
-        return 'Project Hub';
+        return 'Project';
     }
 
-    public static function canCreate(): bool
+    public static function getPluralModelLabel(): string
     {
-        return static::$model::query()->count() === 0;
+        return 'Projects';
     }
 
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    public static function getGloballySearchableAttributes(): array
     {
-        return false;
-    }
-
-    public static function canDeleteAny(): bool
-    {
-        return false;
-    }
-
-    public static function getEloquentQuery(): Builder
-    {
-        $counts = [
-            'approvals as pending_approvals_count' => fn (Builder $query) => $query->where('project_approvals.status', 'pending'),
-        ];
-
-        if (AdminModules::isEnabled('reviews')) {
-            $counts['reviewSessions'] = fn (Builder $query) => $query;
-            $counts['reviewItems as open_review_items_count'] = fn (Builder $query) => $query->whereIn('review_items.status', ['open', 'in_progress']);
-        }
-
-        return parent::getEloquentQuery()->withCount($counts);
+        return ['name', 'description'];
     }
 
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Project Overview')
-                ->schema([
-                    Grid::make(2)->schema([
-                        TextInput::make('name')
-                            ->required()
-                            ->maxLength(255)
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(fn ($state, callable $set) => $set('slug', Str::slug((string) $state))),
-                        TextInput::make('slug')
-                            ->required()
-                            ->maxLength(255)
-                            ->unique(ignoreRecord: true),
-                        Select::make('status')
-                            ->options(Project::statusLabels())
-                            ->required()
-                            ->default('planning'),
-                        TextInput::make('phase')
-                            ->placeholder('Testing, Launch Prep, Homepage QA'),
-                        TextInput::make('progress_percent')
-                            ->label('Progress %')
-                            ->numeric()
-                            ->minValue(0)
-                            ->maxValue(100)
-                            ->default(0),
-                        DatePicker::make('launch_date')
-                            ->label('Launch ETA'),
-                        Select::make('owner_user_id')
-                            ->label('Client Owner')
-                            ->options(User::orderBy('name')->pluck('name', 'id'))
-                            ->searchable()
-                            ->preload(),
-                        Select::make('manager_user_id')
-                            ->label('Project Manager')
-                            ->options(User::orderBy('name')->pluck('name', 'id'))
-                            ->searchable()
-                            ->preload(),
-                        Toggle::make('is_active')
-                            ->default(true),
-                        Toggle::make('client_visible')
-                            ->default(true),
-                    ]),
-                    Textarea::make('summary')
-                        ->rows(3)
-                        ->columnSpanFull()
-                        ->placeholder('High-level project summary for the client and internal team.'),
-                    Textarea::make('current_focus')
-                        ->rows(4)
-                        ->columnSpanFull()
-                        ->placeholder("- Mobile responsiveness\n- Stripe ACH integration\n- Driver dashboard cleanup"),
-                    Textarea::make('client_needs')
-                        ->rows(4)
-                        ->columnSpanFull()
-                        ->placeholder("- Upload final logo\n- Approve homepage hero\n- Provide SMTP credentials"),
-                ]),
+            Section::make('Project Details')->columns(2)->schema([
+                TextInput::make('name')
+                    ->required()
+                    ->maxLength(255)
+                    ->columnSpanFull(),
+
+                Select::make('status')
+                    ->options(Project::statusLabels())
+                    ->default('planning')
+                    ->required(),
+
+                Select::make('priority')
+                    ->options(Project::priorityLabels())
+                    ->default('medium')
+                    ->required(),
+
+                Select::make('owner_id')
+                    ->label('Owner')
+                    ->options(User::pluck('name', 'id'))
+                    ->searchable()
+                    ->nullable(),
+
+                DatePicker::make('target_date')
+                    ->label('Target Date')
+                    ->nullable(),
+
+                ColorPicker::make('color')
+                    ->label('Color')
+                    ->default('#6366f1'),
+
+                Textarea::make('description')
+                    ->rows(3)
+                    ->columnSpanFull(),
+            ]),
         ]);
     }
 
     public static function table(Table $table): Table
     {
-        $reviewsEnabled = AdminModules::isEnabled('reviews');
-
         return $table
-            ->columns(array_filter([
+            ->columns([
+                ColorColumn::make('color')
+                    ->label('')
+                    ->width('4px'),
+
                 TextColumn::make('name')
                     ->searchable()
-                    ->sortable()
-                    ->weight('bold'),
+                    ->description(fn (Project $record) => Str::limit($record->description ?? '', 60)),
+
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => Project::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => match ($state) {
-                        'planning' => 'gray',
-                        'implementation' => 'info',
-                        'review' => 'warning',
-                        'blocked' => 'danger',
-                        'ready_to_launch' => 'success',
-                        'launched' => 'success',
-                        'archived' => 'gray',
-                        default => 'gray',
+                        'planning'  => 'gray',
+                        'active'    => 'success',
+                        'on_hold'   => 'warning',
+                        'completed' => 'info',
+                        'cancelled' => 'danger',
+                        default     => 'gray',
                     }),
-                TextColumn::make('phase')
-                    ->placeholder('—'),
-                TextColumn::make('progress_percent')
-                    ->label('Progress')
-                    ->suffix('%')
-                    ->sortable(),
-                $reviewsEnabled
-                    ? TextColumn::make('open_review_items_count')
-                        ->label('Open Feedback')
-                        ->badge()
-                        ->color('warning')
-                    : null,
-                TextColumn::make('pending_approvals_count')
-                    ->label('Pending Approvals')
+
+                TextColumn::make('priority')
                     ->badge()
-                    ->color('info'),
-                TextColumn::make('launch_date')
-                    ->label('Launch ETA')
-                    ->date('M j, Y')
+                    ->formatStateUsing(fn ($state) => Project::priorityLabels()[$state] ?? $state)
+                    ->color(fn ($state) => match ($state) {
+                        'low'      => 'gray',
+                        'medium'   => 'info',
+                        'high'     => 'warning',
+                        'critical' => 'danger',
+                        default    => 'gray',
+                    }),
+
+                TextColumn::make('milestone_progress')
+                    ->label('Milestones')
+                    ->state(fn (Project $record) => $record->milestoneProgress())
+                    ->formatStateUsing(function ($state): string {
+                        if (! is_array($state)) {
+                            return '—';
+                        }
+
+                        return "{$state['done']}/{$state['total']}";
+                    }),
+
+                TextColumn::make('owner.name')
+                    ->label('Owner')
                     ->placeholder('—'),
-            ]))
-            ->headerActions([
-                CreateAction::make()
-                    ->visible(fn () => static::canCreate()),
+
+                TextColumn::make('target_date')
+                    ->label('Target')
+                    ->date('M j, Y')
+                    ->color(fn (Project $record) => $record->target_date?->isPast() && $record->status !== 'completed' ? 'danger' : null)
+                    ->placeholder('—'),
             ])
+            ->striped()
+            ->defaultSort('created_at', 'desc')
+            ->deferLoading()
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
-            ])
-            ->defaultSort('updated_at', 'desc');
+                ViewAction::make()->iconButton(),
+                EditAction::make()->iconButton(),
+            ]);
     }
 
-    public static function getRelations(): array
+    public static function getRelationManagers(): array
     {
-        $relations = [
+        return [
             MilestonesRelationManager::class,
-            ApprovalsRelationManager::class,
-            StatusUpdatesRelationManager::class,
-            CommentsRelationManager::class,
+            UpdatesRelationManager::class,
         ];
-
-        if (AdminModules::isEnabled('reviews')) {
-            $relations[] = ReviewSessionsRelationManager::class;
-        }
-
-        return $relations;
     }
 
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListProjects::route('/'),
+            'index'  => Pages\ListProjects::route('/'),
             'create' => Pages\CreateProject::route('/create'),
-            'view' => Pages\ViewProject::route('/{record}'),
-            'edit' => Pages\EditProject::route('/{record}/edit'),
+            'view'   => Pages\ViewProject::route('/{record}'),
+            'edit'   => Pages\EditProject::route('/{record}/edit'),
         ];
     }
 }

@@ -10,10 +10,9 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Schema;
+use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
@@ -26,30 +25,64 @@ class MilestonesRelationManager extends RelationManager
     public function form(Schema $schema): Schema
     {
         return $schema->components([
-            Grid::make(2)->schema([
-                TextInput::make('title')->required()->maxLength(255)->columnSpanFull(),
-                Select::make('status')->options(ProjectMilestone::statusLabels())->required()->default('not_started'),
-                TextInput::make('sort_order')->numeric()->default(0),
-                DatePicker::make('due_date'),
-                Toggle::make('visible_to_client')->default(true),
-                Textarea::make('description')->rows(3)->columnSpanFull(),
-            ]),
+            TextInput::make('title')->required()->maxLength(255)->columnSpanFull(),
+            Textarea::make('description')->rows(2)->columnSpanFull(),
+            Select::make('status')
+                ->options(ProjectMilestone::statusLabels())
+                ->default('pending')
+                ->required(),
+            DatePicker::make('due_date')->nullable(),
+            TextInput::make('sort_order')->numeric()->default(0),
         ]);
     }
 
     public function table(Table $table): Table
     {
         return $table
+            ->reorderable('sort_order')
             ->columns([
-                TextColumn::make('title')->searchable()->weight('bold'),
+                TextColumn::make('sort_order')
+                    ->label('#')
+                    ->width('40px'),
+
+                TextColumn::make('title')
+                    ->description(fn ($record) => $record->description),
+
                 TextColumn::make('status')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => ProjectMilestone::statusLabels()[$state] ?? $state),
-                TextColumn::make('due_date')->date('M j, Y')->placeholder('—'),
-                TextColumn::make('visible_to_client')->label('Client Visible')->formatStateUsing(fn ($state) => $state ? 'Yes' : 'No'),
+                    ->formatStateUsing(fn ($state) => ProjectMilestone::statusLabels()[$state] ?? $state)
+                    ->color(fn ($state) => match ($state) {
+                        'completed'   => 'success',
+                        'in_progress' => 'warning',
+                        default       => 'gray',
+                    }),
+
+                TextColumn::make('due_date')
+                    ->label('Due')
+                    ->date('M j, Y')
+                    ->color(fn ($record) => $record->due_date?->isPast() && $record->status !== 'completed' ? 'danger' : null)
+                    ->placeholder('—'),
             ])
-            ->headerActions([CreateAction::make()])
-            ->actions([EditAction::make(), DeleteAction::make()])
-            ->defaultSort('sort_order');
+            ->headerActions([
+                CreateAction::make(),
+            ])
+            ->actions([
+                Action::make('complete')
+                    ->label('Done')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->visible(fn ($record) => $record->status !== 'completed')
+                    ->action(fn ($record) => $record->update(['status' => 'completed', 'completed_at' => now()])),
+
+                Action::make('reopen')
+                    ->label('Re-open')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('gray')
+                    ->visible(fn ($record) => $record->status === 'completed')
+                    ->action(fn ($record) => $record->update(['status' => 'pending', 'completed_at' => null])),
+
+                EditAction::make()->iconButton(),
+                DeleteAction::make()->iconButton(),
+            ]);
     }
 }

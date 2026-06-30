@@ -104,6 +104,11 @@ class AppSettings extends Page
         return AdminModules::definitions();
     }
 
+    public function getCanSeeModuleTogglesProperty(): bool
+    {
+        return auth()->user()?->isOwner() ?? false;
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -116,9 +121,13 @@ class AppSettings extends Page
 
     public function saveSettings(): void
     {
-        $this->enabled_modules = AdminModules::normalizeEnabledSlugs($this->enabled_modules);
+        $isOwner = auth()->user()?->isOwner() ?? false;
 
-        $this->validate([
+        if ($isOwner) {
+            $this->enabled_modules = AdminModules::normalizeEnabledSlugs($this->enabled_modules);
+        }
+
+        $rules = [
             'brand_name'                       => 'required|string|max:60',
             'primary_color'                    => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'logo_upload'                      => 'nullable|image|max:2048',
@@ -136,9 +145,14 @@ class AppSettings extends Page
             'notify_show_reconciled_mode'      => 'required|in:all,admins,custom',
             'notify_show_reconciled_users'     => 'nullable|array',
             'notify_show_reconciled_users.*'   => 'integer|exists:users,id',
-            'enabled_modules'                  => 'required|array|min:1',
-            'enabled_modules.*'                => 'in:' . implode(',', array_keys(AdminModules::definitions())),
-        ]);
+        ];
+
+        if ($isOwner) {
+            $rules['enabled_modules']    = 'required|array|min:1';
+            $rules['enabled_modules.*']  = 'in:' . implode(',', array_keys(AdminModules::definitions()));
+        }
+
+        $this->validate($rules);
 
         if ($this->logo_upload) {
             $path = $this->logo_upload->store('brand', 'public');
@@ -160,8 +174,10 @@ class AppSettings extends Page
         Setting::set('notify_show_ready_users',       json_encode($this->notify_show_ready_users));
         Setting::set('notify_show_reconciled_mode',   $this->notify_show_reconciled_mode);
         Setting::set('notify_show_reconciled_users',  json_encode($this->notify_show_reconciled_users));
-        Setting::set('enabled_admin_modules', json_encode(AdminModules::normalizeEnabledSlugs($this->enabled_modules)));
-        AdminModules::flushMemo();
+        if ($isOwner) {
+            Setting::set('enabled_admin_modules', json_encode(AdminModules::normalizeEnabledSlugs($this->enabled_modules)));
+            AdminModules::flushMemo();
+        }
 
         Notification::make()
             ->title('Settings saved')

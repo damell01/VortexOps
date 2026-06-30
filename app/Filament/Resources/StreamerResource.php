@@ -101,24 +101,40 @@ class StreamerResource extends Resource
                         ->options(Streamer::payoutTypeLabels())
                         ->required()
                         ->live(),
-                    TextInput::make('payout_percentage')
-                        ->numeric()
-                        ->suffix('%')
-                        ->visible(fn ($get) => $get('payout_type') === 'profit_share'),
-                    TextInput::make('package_rate')
+                    // PWE + Labels fields
+                    TextInput::make('pwe_rate')
+                        ->label('PWE Rate ($ per package)')
                         ->numeric()
                         ->prefix('$')
-                        ->visible(fn ($get) => $get('payout_type') === 'package'),
+                        ->minValue(0)
+                        ->visible(fn ($get) => $get('payout_type') === 'pwe_labels'),
+                    TextInput::make('label_rate')
+                        ->label('Label Rate ($ per label)')
+                        ->numeric()
+                        ->prefix('$')
+                        ->minValue(0)
+                        ->visible(fn ($get) => $get('payout_type') === 'pwe_labels'),
+
+                    // Hybrid fields (also uses hourly_rate and payout_percentage)
                     TextInput::make('hourly_rate')
                         ->numeric()
                         ->prefix('$')
                         ->suffix('/hr')
-                        ->visible(fn ($get) => $get('payout_type') === 'hourly'),
+                        ->visible(fn ($get) => in_array($get('payout_type'), ['hourly', 'hybrid', 'pwe_labels'])),
+                    TextInput::make('payout_percentage')
+                        ->numeric()
+                        ->suffix('%')
+                        ->label(fn ($get) => $get('payout_type') === 'hybrid' ? 'Profit Share %' : 'Payout %')
+                        ->visible(fn ($get) => in_array($get('payout_type'), ['profit_share', 'hybrid'])),
+                    TextInput::make('package_rate')
+                        ->numeric()
+                        ->prefix('$')
+                        ->visible(fn ($get) => in_array($get('payout_type'), ['package', 'flat_rate'])),
                     Textarea::make('custom_payout_formula')
                         ->label('Custom Formula')
                         ->rows(4)
                         ->placeholder('streamer_share_net * 0.35 + tip_share')
-                        ->helperText('Supported variables: gross_revenue, whatnot_net, streamer_share_net, units_sold, show_duration_hours, show_duration_minutes, tips, tip_share, payout_percentage, package_rate, hourly_rate. Supported operators: + - * / and parentheses.')
+                        ->helperText('Supported variables: gross_revenue, whatnot_net, streamer_share_net, units_sold, show_duration_hours, show_duration_minutes, tips, tip_share, payout_percentage, package_rate, hourly_rate, pwe_rate, label_rate. Operators: + - * / and parentheses.')
                         ->visible(fn ($get) => $get('payout_type') === 'custom_formula')
                         ->columnSpanFull(),
                     Toggle::make('include_tips')
@@ -128,6 +144,25 @@ class StreamerResource extends Resource
                         ->maxLength(100),
                 ]),
             ]),
+
+            Section::make('Burden Rate')
+                ->description('Applied to base pay before tips/profit share in Hybrid model. Optional on all models.')
+                ->collapsed()
+                ->schema([
+                    Grid::make(2)->schema([
+                        Select::make('burden_rate_type')
+                            ->label('Burden Rate Type')
+                            ->options(['percentage' => 'Percentage (%)', 'flat' => 'Flat Amount ($)'])
+                            ->placeholder('No burden rate')
+                            ->nullable()
+                            ->live(),
+                        TextInput::make('burden_rate_value')
+                            ->label(fn ($get) => $get('burden_rate_type') === 'flat' ? 'Burden Amount ($)' : 'Burden Percentage (%)')
+                            ->numeric()
+                            ->minValue(0)
+                            ->visible(fn ($get) => ! empty($get('burden_rate_type'))),
+                    ]),
+                ]),
 
             Section::make('Owner Fee')->schema([
                 Grid::make(3)->schema([
@@ -179,13 +214,23 @@ class StreamerResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn ($state) => Streamer::payoutTypeLabels()[$state] ?? $state)
                     ->color(fn ($state) => match ($state) {
-                        'profit_share' => 'success',
-                        'package' => 'info',
-                        'hourly' => 'warning',
-                        'flat_rate' => 'gray',
+                        'profit_share'   => 'success',
+                        'package'        => 'info',
+                        'hourly'         => 'warning',
+                        'flat_rate'      => 'gray',
+                        'pwe_labels'     => 'info',
+                        'hybrid'         => 'primary',
                         'custom_formula' => 'primary',
-                        default => 'gray',
+                        default          => 'gray',
                     }),
+                TextColumn::make('total_earnings_due')
+                    ->label('Due')
+                    ->money('USD')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('total_earnings_paid')
+                    ->label('Paid')
+                    ->money('USD')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => Streamer::statusLabels()[$state] ?? $state)

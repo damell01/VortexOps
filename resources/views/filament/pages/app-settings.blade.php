@@ -109,6 +109,7 @@
 
         </div>
 
+        @if ($this->canSeeModuleToggles)
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
             <div class="px-6 py-4">
                 <div class="flex items-center gap-3">
@@ -144,6 +145,7 @@
                 <p class="text-xs text-gray-400">Hidden modules disappear from navigation and their admin pages stop being accessible until you re-enable them.</p>
             </div>
         </div>
+        @endif
 
         {{-- ── Show Import Settings ──────────────────────────────────────── --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">

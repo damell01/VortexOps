@@ -32,6 +32,12 @@ class AdminModules
                 'group'       => 'Inventory',
                 'order'       => 30,
             ],
+            'purchasing' => [
+                'label'       => 'Purchasing & Receiving',
+                'description' => 'Vendors, pallets, and the case-level receiving workflow.',
+                'group'       => 'Inventory',
+                'order'       => 35,
+            ],
             'operations' => [
                 'label'       => 'Operations',
                 'description' => 'Streamers, channels, and other supporting ops tools.',

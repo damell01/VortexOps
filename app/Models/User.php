@@ -51,4 +51,9 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->hasRole('streamer') && ! $this->isAdmin();
     }
+
+    public function isOwner(): bool
+    {
+        return $this->email === 'dbellcreations@gmail.com';
+    }
 }

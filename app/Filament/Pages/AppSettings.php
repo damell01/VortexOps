@@ -4,6 +4,8 @@ namespace App\Filament\Pages;
 
 use App\Models\Setting;
 use App\Models\User;
+use App\Models\WhatnotChannel;
+use App\Services\WhatnotScraper;
 use App\Support\AdminModules;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -54,6 +56,11 @@ class AppSettings extends Page
 
     public string $show_import_mode                = 'manual';
     public string $show_ready_notification_email   = '';
+
+    // ── Whatnot import ───────────────────────────────────────────────────────
+
+    public string $whatnotImportResult = '';
+    public string $whatnotImportStatus = ''; // 'success' | 'error' | ''
 
     // ── Maintenance ──────────────────────────────────────────────────────────
 
@@ -192,6 +199,43 @@ class AppSettings extends Page
         $this->logo_path = null;
 
         Notification::make()->title('Logo removed')->success()->send();
+    }
+
+    public function getWhatnotConfiguredProperty(): bool
+    {
+        return ! empty(config('vortex.whatnot.email')) && ! empty(config('vortex.whatnot.password'));
+    }
+
+    public function importWhatnotShows(): void
+    {
+        $this->whatnotImportResult = '';
+        $this->whatnotImportStatus = '';
+
+        try {
+            $channel = WhatnotChannel::where('status', 'active')->first();
+            $result  = app(WhatnotScraper::class)->importShows(
+                channel: $channel,
+                limit:   (int) config('vortex.whatnot.limit', 50),
+            );
+
+            $this->whatnotImportResult = "Import complete — {$result['created']} created, {$result['updated']} updated, {$result['skipped']} skipped.";
+            $this->whatnotImportStatus = 'success';
+
+            Notification::make()
+                ->title('Whatnot import complete')
+                ->body($this->whatnotImportResult)
+                ->success()
+                ->send();
+        } catch (\RuntimeException $e) {
+            $this->whatnotImportResult = $e->getMessage();
+            $this->whatnotImportStatus = 'error';
+
+            Notification::make()
+                ->title('Whatnot import failed')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
     }
 
     public function runMigrations(): void

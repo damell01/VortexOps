@@ -182,8 +182,35 @@ class PayoutService
             'burden_rate_applied'  => $burdenRateApplied,
             'calculated_payout'    => $calculatedPayout,
             'calculation_notes'    => $calculationNotes,
+            'routing_bank_label'   => $this->resolveRoutingLabel($streamer, $show),
             'status'               => 'draft',
         ];
+    }
+
+    private function resolveRoutingLabel(Streamer $streamer, Show $show): ?string
+    {
+        $rules = $streamer->channel_routing_rules;
+
+        if (empty($rules) || ! is_array($rules)) {
+            return null;
+        }
+
+        $channelName = $show->relationLoaded('channel')
+            ? $show->channel?->name
+            : $show->channel()->value('name');
+
+        if (! $channelName) {
+            return null;
+        }
+
+        foreach ($rules as $rule) {
+            if (isset($rule['channel'], $rule['bank_label'])
+                && strcasecmp((string) $rule['channel'], $channelName) === 0) {
+                return (string) $rule['bank_label'];
+            }
+        }
+
+        return null;
     }
 
     private function evaluateCustomFormula(string $formula, array $variables): float

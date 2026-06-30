@@ -31,12 +31,14 @@ class ActiveStreamersWidget extends BaseWidget
                     ->badge()
                     ->formatStateUsing(fn ($state) => Streamer::payoutTypeLabels()[$state] ?? $state)
                     ->color(fn ($state) => match ($state) {
-                        'profit_share' => 'success',
-                        'package' => 'info',
-                        'hourly' => 'warning',
-                        'flat_rate' => 'gray',
+                        'profit_share'   => 'success',
+                        'package'        => 'info',
+                        'hourly'         => 'warning',
+                        'flat_rate'      => 'gray',
+                        'pwe_labels'     => 'info',
+                        'hybrid'         => 'primary',
                         'custom_formula' => 'primary',
-                        default => 'gray',
+                        default          => 'gray',
                     }),
                 TextColumn::make('inventory_locations_count')
                     ->label('Locations'),

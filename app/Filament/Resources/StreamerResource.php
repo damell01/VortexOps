@@ -7,6 +7,7 @@ use App\Filament\Resources\StreamerResource\Pages;
 use App\Filament\Resources\StreamerResource\RelationManagers\LoansRelationManager;
 use App\Models\Streamer;
 use App\Support\AdminModules;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -184,6 +185,30 @@ class StreamerResource extends Resource
                         ->visible(fn ($get) => ! empty($get('owner_fee_type'))),
                 ]),
             ]),
+
+            Section::make('Channel Routing')
+                ->description('Map each channel to a specific bank account for payout splits. The routing_bank_label on each payout is set from this table.')
+                ->collapsed()
+                ->schema([
+                    Repeater::make('channel_routing_rules')
+                        ->label('')
+                        ->schema([
+                            TextInput::make('channel')
+                                ->label('Channel Name')
+                                ->placeholder('Breaks')
+                                ->required()
+                                ->maxLength(100),
+                            TextInput::make('bank_label')
+                                ->label('Bank / Account Label')
+                                ->placeholder('Chase Business Checking x1234')
+                                ->required()
+                                ->maxLength(255),
+                        ])
+                        ->columns(2)
+                        ->addActionLabel('Add routing rule')
+                        ->columnSpanFull()
+                        ->defaultItems(0),
+                ]),
 
             Section::make('Status & Notes')->schema([
                 Grid::make(2)->schema([

@@ -55,6 +55,18 @@ class RunShowAiMappingJob implements ShouldQueue
         $this->notify($task);
     }
 
+    public function failed(\Throwable $e): void
+    {
+        Log::error('RunShowAiMappingJob timed out or failed fatally', [
+            'show_id'    => $this->showId,
+            'ai_task_id' => $this->aiTaskId,
+            'error'      => $e->getMessage(),
+        ]);
+
+        optional(AiTask::find($this->aiTaskId))->markFailed($e->getMessage());
+        optional(Show::find($this->showId))->update(['status' => 'pending_review']);
+    }
+
     private function extractRawLines(Show $show): array
     {
         $lines = [];

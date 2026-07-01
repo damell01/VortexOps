@@ -224,6 +224,7 @@ class InventoryService
         return DB::transaction(function () use ($item, $location, $quantity, $reason, $referenceId) {
             $stock = InventoryStock::where('inventory_item_id', $item->id)
                 ->where('inventory_location_id', $location->id)
+                ->lockForUpdate()
                 ->first();
 
             if (! $stock || $stock->quantity < $quantity) {

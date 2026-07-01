@@ -67,6 +67,16 @@ class ParsePalletSlipJob implements ShouldQueue
         return [base64_encode(file_get_contents($path))];
     }
 
+    public function failed(\Throwable $e): void
+    {
+        @unlink($this->storedPath);
+        Log::error('ParsePalletSlipJob timed out or failed fatally', [
+            'ai_task_id' => $this->aiTaskId,
+            'error'      => $e->getMessage(),
+        ]);
+        optional(AiTask::find($this->aiTaskId))->markFailed($e->getMessage());
+    }
+
     /** @return list<string> base64 PNGs, one per page */
     private function pdfToImages(string $pdfPath): array
     {

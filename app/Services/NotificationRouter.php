@@ -9,15 +9,16 @@ use Illuminate\Database\Eloquent\Collection;
 class NotificationRouter
 {
     private const DEFAULTS = [
-        'low_stock'       => 'all',
-        'damaged'         => 'all',
-        'show_ready'      => 'admins',
-        'show_reconciled' => 'admins',
+        'low_stock'            => 'all',
+        'damaged'              => 'all',
+        'show_ready'           => 'admins',
+        'show_reconciled'      => 'admins',
+        'show_pending_approval' => 'admins',
     ];
 
     /**
      * Returns the users who should receive a given notification type.
-     * Types: low_stock, damaged, show_ready, show_reconciled
+     * Types: low_stock, damaged, show_ready, show_reconciled, show_pending_approval
      */
     public function getRecipients(string $type): Collection
     {

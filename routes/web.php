@@ -2,11 +2,15 @@
 
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\FeedbackController;
+use App\Http\Controllers\HealthController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return redirect('/admin');
 });
+
+// Public health endpoint — no auth, used by UptimeRobot / BetterUptime / Docker
+Route::get('/health', HealthController::class)->name('health');
 
 Route::middleware(['auth', 'web'])->prefix('admin')->name('admin.')->group(function () {
     Route::post('feedback', [FeedbackController::class, 'store'])->name('feedback.store');

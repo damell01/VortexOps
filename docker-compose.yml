@@ -31,6 +31,12 @@ services:
       - "8080:80"
     volumes:
       - app-storage:/var/www/html/storage
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   worker:
     image: vortexops:local

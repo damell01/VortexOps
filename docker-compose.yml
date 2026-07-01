@@ -80,6 +80,37 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
 
+  scheduler:
+    image: vortexops:local
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-vortexops}
+      DB_USERNAME: ${DB_USERNAME:-vortexops}
+      DB_PASSWORD: ${DB_PASSWORD:-change-me}
+      QUEUE_CONNECTION: database
+      CACHE_STORE: database
+      SESSION_DRIVER: database
+      FILESYSTEM_DISK: public
+      RUN_MIGRATIONS: "false"
+      WAIT_FOR_DB: "true"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      app:
+        condition: service_started
+    command: >
+      sh -c "while true; do php artisan schedule:run --no-interaction; sleep 60; done"
+    volumes:
+      - app-storage:/var/www/html/storage
+
   ollama:
     image: ollama/ollama:latest
     profiles: ["ai"]

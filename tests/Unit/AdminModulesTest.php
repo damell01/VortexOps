@@ -1,0 +1,140 @@
+<?php
+
+namespace Tests\Unit;
+
+use App\Models\Setting;
+use App\Support\AdminModules;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class AdminModulesTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        AdminModules::flushMemo();
+    }
+
+    protected function tearDown(): void
+    {
+        AdminModules::flushMemo();
+        parent::tearDown();
+    }
+
+    public function test_definitions_returns_all_expected_modules(): void
+    {
+        $defs = AdminModules::definitions();
+
+        $expected = ['streams', 'payouts', 'inventory', 'purchasing', 'operations', 'projects', 'reviews', 'ai'];
+
+        foreach ($expected as $slug) {
+            $this->assertArrayHasKey($slug, $defs, "Module '{$slug}' missing from definitions");
+        }
+
+        $this->assertCount(count($expected), $defs);
+    }
+
+    public function test_each_definition_has_required_keys(): void
+    {
+        foreach (AdminModules::definitions() as $slug => $def) {
+            $this->assertArrayHasKey('label', $def,       "Module '{$slug}' missing label");
+            $this->assertArrayHasKey('description', $def, "Module '{$slug}' missing description");
+            $this->assertArrayHasKey('group', $def,       "Module '{$slug}' missing group");
+            $this->assertArrayHasKey('order', $def,       "Module '{$slug}' missing order");
+        }
+    }
+
+    public function test_default_enabled_slugs_excludes_advanced_modules(): void
+    {
+        $defaults  = AdminModules::defaultEnabledSlugs();
+        $advanced  = ['projects', 'reviews', 'ai', 'purchasing'];
+
+        foreach ($advanced as $slug) {
+            $this->assertNotContains($slug, $defaults, "Advanced module '{$slug}' should not be a default");
+        }
+    }
+
+    public function test_normalize_expands_project_hub_alias(): void
+    {
+        $result = AdminModules::normalizeEnabledSlugs(['project_hub']);
+
+        $this->assertContains('projects', $result);
+        $this->assertContains('reviews', $result);
+        $this->assertNotContains('project_hub', $result);
+    }
+
+    public function test_normalize_adds_projects_when_reviews_enabled_without_projects(): void
+    {
+        $result = AdminModules::normalizeEnabledSlugs(['streams', 'reviews']);
+
+        $this->assertContains('reviews', $result);
+        $this->assertContains('projects', $result, 'projects must be auto-added when reviews is enabled');
+    }
+
+    public function test_normalize_filters_out_unknown_slugs(): void
+    {
+        $result = AdminModules::normalizeEnabledSlugs(['streams', 'not_a_real_module', 'inventory']);
+
+        $this->assertContains('streams', $result);
+        $this->assertContains('inventory', $result);
+        $this->assertNotContains('not_a_real_module', $result);
+    }
+
+    public function test_normalize_deduplicates(): void
+    {
+        $result = AdminModules::normalizeEnabledSlugs(['streams', 'streams', 'inventory']);
+
+        $this->assertEquals(count($result), count(array_unique($result)));
+    }
+
+    public function test_is_enabled_returns_true_for_stored_module(): void
+    {
+        Setting::set('enabled_admin_modules', json_encode(['streams', 'inventory']));
+        AdminModules::flushMemo();
+
+        $this->assertTrue(AdminModules::isEnabled('streams'));
+        $this->assertTrue(AdminModules::isEnabled('inventory'));
+        $this->assertFalse(AdminModules::isEnabled('payouts'));
+    }
+
+    public function test_flush_memo_causes_re_read_from_settings(): void
+    {
+        Setting::set('enabled_admin_modules', json_encode(['streams']));
+        AdminModules::flushMemo();
+        $this->assertTrue(AdminModules::isEnabled('streams'));
+        $this->assertFalse(AdminModules::isEnabled('payouts'));
+
+        // Change settings, flush, re-check
+        Setting::set('enabled_admin_modules', json_encode(['payouts']));
+        AdminModules::flushMemo();
+        $this->assertFalse(AdminModules::isEnabled('streams'));
+        $this->assertTrue(AdminModules::isEnabled('payouts'));
+    }
+
+    public function test_visible_navigation_groups_always_includes_settings(): void
+    {
+        $groups = AdminModules::visibleNavigationGroups();
+
+        $this->assertContains('Settings', $groups);
+    }
+
+    public function test_navigation_group_for_returns_null_with_single_operational_group(): void
+    {
+        Setting::set('enabled_admin_modules', json_encode(['streams']));
+        AdminModules::flushMemo();
+
+        // Only 'Streams' group visible operationally → groups collapse to null
+        $this->assertNull(AdminModules::navigationGroupFor('streams'));
+    }
+
+    public function test_navigation_group_for_returns_group_name_with_multiple_groups(): void
+    {
+        Setting::set('enabled_admin_modules', json_encode(['streams', 'payouts', 'inventory']));
+        AdminModules::flushMemo();
+
+        $this->assertEquals('Streams', AdminModules::navigationGroupFor('streams'));
+        $this->assertEquals('Payouts & Pay Runs', AdminModules::navigationGroupFor('payouts'));
+    }
+}

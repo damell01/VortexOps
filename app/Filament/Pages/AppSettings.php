@@ -4,6 +4,8 @@ namespace App\Filament\Pages;
 
 use App\Models\Setting;
 use App\Models\User;
+use App\Models\WhatnotChannel;
+use App\Services\WhatnotScraper;
 use App\Support\AdminModules;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -55,9 +57,16 @@ class AppSettings extends Page
     public string $show_import_mode                = 'manual';
     public string $show_ready_notification_email   = '';
 
+    // ── Whatnot import ───────────────────────────────────────────────────────
+
+    public string $whatnotImportResult = '';
+    public string $whatnotImportStatus = ''; // 'success' | 'error' | ''
+
     // ── Maintenance ──────────────────────────────────────────────────────────
 
     public string $lastCommandOutput = '';
+    public string $backupResult      = '';
+    public string $backupStatus      = ''; // 'success' | 'error' | ''
 
     // ── Notifications ────────────────────────────────────────────────────────
 
@@ -104,6 +113,11 @@ class AppSettings extends Page
         return AdminModules::definitions();
     }
 
+    public function getCanSeeModuleTogglesProperty(): bool
+    {
+        return auth()->user()?->isOwner() ?? false;
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -116,9 +130,13 @@ class AppSettings extends Page
 
     public function saveSettings(): void
     {
-        $this->enabled_modules = AdminModules::normalizeEnabledSlugs($this->enabled_modules);
+        $isOwner = auth()->user()?->isOwner() ?? false;
 
-        $this->validate([
+        if ($isOwner) {
+            $this->enabled_modules = AdminModules::normalizeEnabledSlugs($this->enabled_modules);
+        }
+
+        $rules = [
             'brand_name'                       => 'required|string|max:60',
             'primary_color'                    => ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'logo_upload'                      => 'nullable|image|max:2048',
@@ -136,9 +154,14 @@ class AppSettings extends Page
             'notify_show_reconciled_mode'      => 'required|in:all,admins,custom',
             'notify_show_reconciled_users'     => 'nullable|array',
             'notify_show_reconciled_users.*'   => 'integer|exists:users,id',
-            'enabled_modules'                  => 'required|array|min:1',
-            'enabled_modules.*'                => 'in:' . implode(',', array_keys(AdminModules::definitions())),
-        ]);
+        ];
+
+        if ($isOwner) {
+            $rules['enabled_modules']    = 'required|array|min:1';
+            $rules['enabled_modules.*']  = 'in:' . implode(',', array_keys(AdminModules::definitions()));
+        }
+
+        $this->validate($rules);
 
         if ($this->logo_upload) {
             $path = $this->logo_upload->store('brand', 'public');
@@ -160,8 +183,10 @@ class AppSettings extends Page
         Setting::set('notify_show_ready_users',       json_encode($this->notify_show_ready_users));
         Setting::set('notify_show_reconciled_mode',   $this->notify_show_reconciled_mode);
         Setting::set('notify_show_reconciled_users',  json_encode($this->notify_show_reconciled_users));
-        Setting::set('enabled_admin_modules', json_encode(AdminModules::normalizeEnabledSlugs($this->enabled_modules)));
-        AdminModules::flushMemo();
+        if ($isOwner) {
+            Setting::set('enabled_admin_modules', json_encode(AdminModules::normalizeEnabledSlugs($this->enabled_modules)));
+            AdminModules::flushMemo();
+        }
 
         Notification::make()
             ->title('Settings saved')
@@ -176,6 +201,43 @@ class AppSettings extends Page
         $this->logo_path = null;
 
         Notification::make()->title('Logo removed')->success()->send();
+    }
+
+    public function getWhatnotConfiguredProperty(): bool
+    {
+        return ! empty(config('vortex.whatnot.email')) && ! empty(config('vortex.whatnot.password'));
+    }
+
+    public function importWhatnotShows(): void
+    {
+        $this->whatnotImportResult = '';
+        $this->whatnotImportStatus = '';
+
+        try {
+            $channel = WhatnotChannel::where('status', 'active')->first();
+            $result  = app(WhatnotScraper::class)->importShows(
+                channel: $channel,
+                limit:   (int) config('vortex.whatnot.limit', 50),
+            );
+
+            $this->whatnotImportResult = "Import complete — {$result['created']} created, {$result['updated']} updated, {$result['skipped']} skipped.";
+            $this->whatnotImportStatus = 'success';
+
+            Notification::make()
+                ->title('Whatnot import complete')
+                ->body($this->whatnotImportResult)
+                ->success()
+                ->send();
+        } catch (\RuntimeException $e) {
+            $this->whatnotImportResult = $e->getMessage();
+            $this->whatnotImportStatus = 'error';
+
+            Notification::make()
+                ->title('Whatnot import failed')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
     }
 
     public function runMigrations(): void
@@ -213,6 +275,28 @@ class AppSettings extends Page
         } catch (\Throwable $e) {
             $this->lastCommandOutput = $e->getMessage();
             Notification::make()->title('Optimize failed')->body($e->getMessage())->danger()->send();
+        }
+    }
+
+    public function runBackup(): void
+    {
+        $this->backupResult = '';
+        $this->backupStatus = '';
+
+        try {
+            $exitCode = Artisan::call('db:backup');
+            $output   = trim(Artisan::output());
+
+            $this->backupResult = $output ?: 'Backup complete.';
+            $this->backupStatus = $exitCode === 0 ? 'success' : 'error';
+
+            $exitCode === 0
+                ? Notification::make()->title('Backup complete')->body($this->backupResult)->success()->send()
+                : Notification::make()->title('Backup failed')->body($this->backupResult)->danger()->send();
+        } catch (\Throwable $e) {
+            $this->backupResult = $e->getMessage();
+            $this->backupStatus = 'error';
+            Notification::make()->title('Backup error')->body($e->getMessage())->danger()->send();
         }
     }
 

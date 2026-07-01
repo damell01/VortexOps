@@ -109,6 +109,7 @@
 
         </div>
 
+        @if ($this->canSeeModuleToggles)
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
             <div class="px-6 py-4">
                 <div class="flex items-center gap-3">
@@ -144,6 +145,7 @@
                 <p class="text-xs text-gray-400">Hidden modules disappear from navigation and their admin pages stop being accessible until you re-enable them.</p>
             </div>
         </div>
+        @endif
 
         {{-- ── Show Import Settings ──────────────────────────────────────── --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -285,6 +287,126 @@
             @endforeach
 
         </div>
+
+        {{-- ── Whatnot Import (owner only) ────────────────────────────────── --}}
+        @if ($this->canSeeModuleToggles)
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+
+            <div class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                    <div class="rounded-lg bg-indigo-100 dark:bg-indigo-900/40 p-2">
+                        <x-heroicon-o-arrow-down-tray class="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Whatnot Show Import</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            Scrapes completed shows from the Whatnot seller dashboard and creates draft Show records.
+                            Requires <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">WHATNOT_EMAIL</code>
+                            and <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">WHATNOT_PASSWORD</code> in <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">.env</code>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    @if ($this->whatnotConfigured)
+                        <div class="flex items-center gap-1.5 text-sm text-emerald-600 dark:text-emerald-400">
+                            <x-heroicon-o-check-circle class="h-4 w-4" />
+                            Credentials configured
+                        </div>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Last import: run manually or via <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">php artisan whatnot:import</code></p>
+                    @else
+                        <div class="flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-400">
+                            <x-heroicon-o-exclamation-triangle class="h-4 w-4" />
+                            Credentials not set — add WHATNOT_EMAIL and WHATNOT_PASSWORD to .env
+                        </div>
+                    @endif
+                </div>
+                <button
+                    wire:click="importWhatnotShows"
+                    wire:loading.attr="disabled"
+                    wire:target="importWhatnotShows"
+                    @if (! $this->whatnotConfigured) disabled @endif
+                    type="button"
+                    class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950 px-3 py-2 text-sm font-medium text-indigo-700 dark:text-indigo-300 shadow-sm hover:bg-indigo-100 dark:hover:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    <span wire:loading.remove wire:target="importWhatnotShows">
+                        <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
+                    </span>
+                    <span wire:loading wire:target="importWhatnotShows">
+                        <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </span>
+                    <span wire:loading.remove wire:target="importWhatnotShows">Run Import</span>
+                    <span wire:loading wire:target="importWhatnotShows">Importing…</span>
+                </button>
+            </div>
+
+            @if ($whatnotImportResult)
+                <div class="px-6 py-3 {{ $whatnotImportStatus === 'success' ? 'bg-emerald-50 dark:bg-emerald-950' : 'bg-red-50 dark:bg-red-950' }} rounded-b-xl">
+                    <p class="text-xs font-mono {{ $whatnotImportStatus === 'success' ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300' }} whitespace-pre-wrap">{{ $whatnotImportResult }}</p>
+                </div>
+            @endif
+
+        </div>
+        @endif
+
+        {{-- ── Database Backup (owner only) ──────────────────────────────────── --}}
+        @if ($this->canSeeModuleToggles)
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+
+            <div class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                    <div class="rounded-lg bg-teal-100 dark:bg-teal-900/40 p-2">
+                        <x-heroicon-o-circle-stack class="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Database Backup</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">
+                            Dumps the database to <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">storage/app/backups/</code>.
+                            Also runs automatically every night at 02:00 via the scheduler.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Run Backup Now</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Creates a timestamped <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">.sql.gz</code> file and prunes copies older than 14 days.</p>
+                </div>
+                <button
+                    wire:click="runBackup"
+                    wire:loading.attr="disabled"
+                    wire:target="runBackup"
+                    type="button"
+                    class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-teal-300 dark:border-teal-700 bg-teal-50 dark:bg-teal-950 px-3 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 shadow-sm hover:bg-teal-100 dark:hover:bg-teal-900 focus:outline-none focus:ring-2 focus:ring-teal-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    <span wire:loading.remove wire:target="runBackup">
+                        <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
+                    </span>
+                    <span wire:loading wire:target="runBackup">
+                        <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </span>
+                    <span wire:loading.remove wire:target="runBackup">Back Up Now</span>
+                    <span wire:loading wire:target="runBackup">Backing up…</span>
+                </button>
+            </div>
+
+            @if ($backupResult)
+                <div class="px-6 py-3 {{ $backupStatus === 'success' ? 'bg-teal-50 dark:bg-teal-950' : 'bg-red-50 dark:bg-red-950' }} rounded-b-xl">
+                    <p class="text-xs font-mono {{ $backupStatus === 'success' ? 'text-teal-700 dark:text-teal-300' : 'text-red-700 dark:text-red-300' }} whitespace-pre-wrap">{{ $backupResult }}</p>
+                </div>
+            @endif
+
+        </div>
+        @endif
 
         {{-- ── System & Maintenance ────────────────────────────────────────── --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">

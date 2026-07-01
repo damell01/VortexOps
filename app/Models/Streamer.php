@@ -30,11 +30,18 @@ class Streamer extends Model
         'package_rate',
         'hourly_rate',
         'custom_payout_formula',
+        'pwe_rate',
+        'label_rate',
+        'burden_rate_type',
+        'burden_rate_value',
         'include_tips',
         'adp_employee_id',
         'owner_fee_type',
         'owner_fee_value',
         'owner_fee_deduct_from_payout',
+        'total_earnings_due',
+        'total_earnings_paid',
+        'channel_routing_rules',
         'status',
         'notes',
     ];
@@ -44,8 +51,14 @@ class Streamer extends Model
         'payout_percentage'            => 'decimal:2',
         'package_rate'                 => 'decimal:2',
         'hourly_rate'                  => 'decimal:2',
+        'pwe_rate'                     => 'decimal:4',
+        'label_rate'                   => 'decimal:4',
+        'burden_rate_value'            => 'decimal:4',
         'owner_fee_value'              => 'decimal:2',
         'owner_fee_deduct_from_payout' => 'boolean',
+        'total_earnings_due'           => 'decimal:2',
+        'total_earnings_paid'          => 'decimal:2',
+        'channel_routing_rules'        => 'array',
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -80,13 +93,20 @@ class Streamer extends Model
         return $this->hasMany(StreamerLoan::class);
     }
 
+    public function outstandingBalance(): float
+    {
+        return max(0, (float) $this->total_earnings_due - (float) $this->total_earnings_paid);
+    }
+
     public static function payoutTypeLabels(): array
     {
         return [
-            'profit_share' => 'Profit Share',
-            'package'      => 'Package',
-            'hourly'       => 'Hourly',
-            'flat_rate'    => 'Flat Rate',
+            'profit_share'   => 'Profit Share',
+            'package'        => 'Package',
+            'hourly'         => 'Hourly',
+            'flat_rate'      => 'Flat Rate',
+            'pwe_labels'     => 'PWE + Labels',
+            'hybrid'         => 'Hybrid (Hourly + Tips + Profit Share)',
             'custom_formula' => 'Custom Formula',
         ];
     }

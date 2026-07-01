@@ -18,7 +18,7 @@ class ExportController extends Controller
             ->get();
 
         return $this->streamCsv('inventory-items', function () use ($rows) {
-            $this->row(['SKU', 'Name', 'Category', 'Unit Cost', 'Reorder Level', 'Total Qty', 'Active', 'Notes']);
+            $this->row(['SKU', 'Name', 'Category', 'List Cost', 'Avg Cost', 'Units Received', 'Reorder Level', 'Total Qty', 'Active', 'Notes']);
 
             foreach ($rows as $item) {
                 $this->row([
@@ -26,6 +26,8 @@ class ExportController extends Controller
                     $item->name,
                     $item->category,
                     number_format((float) $item->unit_cost, 2),
+                    number_format((float) $item->average_cost, 4),
+                    number_format((float) $item->total_units_received, 2),
                     $item->reorder_level ?? '',
                     number_format($item->totalQuantity(), 2),
                     $item->is_active ? 'Yes' : 'No',
@@ -46,9 +48,10 @@ class ExportController extends Controller
             ->get();
 
         return $this->streamCsv('stock-levels', function () use ($rows) {
-            $this->row(['Item', 'SKU', 'Category', 'Location', 'Location Type', 'Quantity', 'Unit Cost', 'Stock Value']);
+            $this->row(['Item', 'SKU', 'Category', 'Location', 'Location Type', 'Quantity', 'Avg Cost', 'Stock Value']);
 
             foreach ($rows as $stock) {
+                $avgCost = (float) ($stock->item->average_cost > 0 ? $stock->item->average_cost : $stock->item->unit_cost ?? 0);
                 $this->row([
                     $stock->item->name ?? '',
                     $stock->item->sku ?? '',
@@ -56,8 +59,8 @@ class ExportController extends Controller
                     $stock->location->name ?? '',
                     $stock->location->type ?? '',
                     number_format((float) $stock->quantity, 2),
-                    number_format((float) ($stock->item->unit_cost ?? 0), 2),
-                    number_format((float) $stock->quantity * (float) ($stock->item->unit_cost ?? 0), 2),
+                    number_format($avgCost, 4),
+                    number_format((float) $stock->quantity * $avgCost, 2),
                 ]);
             }
         });

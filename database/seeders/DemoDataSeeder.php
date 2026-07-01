@@ -3,6 +3,11 @@
 namespace Database\Seeders;
 
 use App\Models\DeductionRequest;
+use App\Models\InventoryCase;
+use App\Models\Pallet;
+use App\Models\PalletLine;
+use App\Models\Vendor;
+use App\Services\ReceivingService;
 use App\Models\DeductionRequestLine;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
@@ -373,5 +378,57 @@ class DemoDataSeeder extends Seeder
         );
 
         $batch2->recalculateTotal();
+
+        // ── Vendor & Pallet demo ─────────────────────────────────────────────
+        $vendor = Vendor::firstOrCreate(
+            ['name' => 'Sports Cards Direct'],
+            [
+                'contact_name'   => 'Mike Torres',
+                'email'          => 'mike@scardsdirect.com',
+                'phone'          => '800-555-0100',
+                'account_number' => 'SCD-4472',
+                'status'         => 'active',
+            ]
+        );
+
+        $pallet = Pallet::firstOrCreate(
+            ['reference' => 'PO-2026-001'],
+            [
+                'vendor_id'     => $vendor->id,
+                'received_date' => Carbon::now()->subDays(7)->toDateString(),
+                'status'        => 'received',
+                'total_cost'    => 1575.00,
+                'notes'         => 'Demo pallet — baseball & TCG restocking order',
+                'created_by'    => 1,
+            ]
+        );
+
+        if ($pallet->wasRecentlyCreated) {
+            $line1 = PalletLine::create([
+                'pallet_id'             => $pallet->id,
+                'line_number'           => 1,
+                'description'           => '2024 Bowman Chrome Hobby Box',
+                'inventory_item_id'     => $bowman->id,
+                'inventory_location_id' => $mainStorage?->id,
+                'case_count'            => 2,
+                'quantity_per_case'     => 6,
+                'unit_cost'             => 125.00,
+            ]);
+
+            $line2 = PalletLine::create([
+                'pallet_id'             => $pallet->id,
+                'line_number'           => 2,
+                'description'           => 'Pokémon SV Booster Packs (display)',
+                'inventory_item_id'     => $pokemon->id,
+                'inventory_location_id' => $mainStorage?->id,
+                'case_count'            => 3,
+                'quantity_per_case'     => 36,
+                'unit_cost'             => 4.25,
+            ]);
+
+            $receivingService = app(ReceivingService::class);
+            $receivingService->receiveAllCasesForLine($line1);
+            $receivingService->receiveAllCasesForLine($line2);
+        }
     }
 }

@@ -57,6 +57,11 @@ class PayoutService
         $calculatedPayout = 0;
         $calculationNotes = '';
 
+        $hours    = $show->show_duration ? round($show->show_duration / 60, 2) : 0;
+        $pweCount   = 0;
+        $labelCount = 0;
+        $burdenRateApplied = null;
+
         switch ($streamer->payout_type) {
             case 'profit_share':
                 $pct              = (float) $streamer->payout_percentage / 100;
@@ -79,9 +84,9 @@ class PayoutService
                 break;
 
             case 'hourly':
-                $hours            = $show->show_duration ? round($show->show_duration / 60, 2) : 1;
-                $calculatedPayout = round((float) $streamer->hourly_rate * $hours, 2);
-                $calculationNotes = "Hourly rate \${$streamer->hourly_rate}/hr × {$hours}hrs";
+                $actualHours      = $hours > 0 ? $hours : 1;
+                $calculatedPayout = round((float) $streamer->hourly_rate * $actualHours, 2);
+                $calculationNotes = "Hourly rate \${$streamer->hourly_rate}/hr × {$actualHours}hrs";
                 break;
 
             case 'flat_rate':
@@ -89,21 +94,65 @@ class PayoutService
                 $calculationNotes = "Flat rate \${$calculatedPayout}";
                 break;
 
+            case 'pwe_labels':
+                // Per-package (PWE) + per-label model, with optional hourly component.
+                // pwe_count and label_count come from show metadata or are prompted at payout review.
+                $pweCount   = (int) ($show->units_sold ?? 0);
+                $labelCount = $pweCount;
+                $pweEarned    = round((float) ($streamer->pwe_rate ?? 0) * $pweCount, 2);
+                $labelEarned  = round((float) ($streamer->label_rate ?? 0) * $labelCount, 2);
+                $hourlyEarned = $hours > 0 ? round((float) ($streamer->hourly_rate ?? 0) * $hours, 2) : 0;
+                $calculatedPayout = $pweEarned + $labelEarned + $hourlyEarned;
+                $calculationNotes = "\${$streamer->pwe_rate}/PWE × {$pweCount} + \${$streamer->label_rate}/label × {$labelCount}";
+                if ($hourlyEarned > 0) {
+                    $calculationNotes .= " + \${$streamer->hourly_rate}/hr × {$hours}hrs";
+                }
+                if ($streamer->include_tips) {
+                    $calculatedPayout += $tipShare;
+                    $calculationNotes .= " + \${$tipShare} tips";
+                }
+                break;
+
+            case 'hybrid':
+                // Hourly base + tips share + profit share component, with optional burden rate.
+                $hourlyBase   = $hours > 0 ? round((float) ($streamer->hourly_rate ?? 0) * $hours, 2) : 0;
+                $profitComp   = round($streamerShare * ((float) ($streamer->payout_percentage ?? 0) / 100), 2);
+                $base         = $hourlyBase + $profitComp + ($streamer->include_tips ? $tipShare : 0);
+
+                if ($streamer->burden_rate_type && (float) ($streamer->burden_rate_value ?? 0) > 0) {
+                    $burdenRateApplied = $streamer->burden_rate_type === 'percentage'
+                        ? round($base * ((float) $streamer->burden_rate_value / 100), 4)
+                        : (float) $streamer->burden_rate_value;
+                    $base += $burdenRateApplied;
+                }
+
+                $calculatedPayout = round($base, 2);
+                $calculationNotes = "Hybrid: \${$hourlyBase} hourly ({$hours}hrs) + {$streamer->payout_percentage}% profit (\${$profitComp})";
+                if ($streamer->include_tips) {
+                    $calculationNotes .= " + \${$tipShare} tips";
+                }
+                if ($burdenRateApplied) {
+                    $calculationNotes .= " + \${$burdenRateApplied} burden";
+                }
+                break;
+
             case 'custom_formula':
                 $formula = trim((string) $streamer->custom_payout_formula);
                 $calculatedPayout = $formula !== ''
                     ? round($this->evaluateCustomFormula($formula, [
-                        'gross_revenue' => $grossRevenue,
-                        'whatnot_net' => $netRevenue,
-                        'streamer_share_net' => $streamerShare,
-                        'units_sold' => (float) $show->units_sold,
-                        'show_duration_hours' => $show->show_duration ? round($show->show_duration / 60, 2) : 0,
+                        'gross_revenue'         => $grossRevenue,
+                        'whatnot_net'           => $netRevenue,
+                        'streamer_share_net'    => $streamerShare,
+                        'units_sold'            => (float) $show->units_sold,
+                        'show_duration_hours'   => $hours,
                         'show_duration_minutes' => (float) ($show->show_duration ?? 0),
-                        'tips' => $tips,
-                        'tip_share' => $tipShare,
-                        'payout_percentage' => (float) ($streamer->payout_percentage ?? 0),
-                        'package_rate' => (float) ($streamer->package_rate ?? 0),
-                        'hourly_rate' => (float) ($streamer->hourly_rate ?? 0),
+                        'tips'                  => $tips,
+                        'tip_share'             => $tipShare,
+                        'payout_percentage'     => (float) ($streamer->payout_percentage ?? 0),
+                        'package_rate'          => (float) ($streamer->package_rate ?? 0),
+                        'hourly_rate'           => (float) ($streamer->hourly_rate ?? 0),
+                        'pwe_rate'              => (float) ($streamer->pwe_rate ?? 0),
+                        'label_rate'            => (float) ($streamer->label_rate ?? 0),
                     ]), 2)
                     : 0;
                 $calculationNotes = "Custom formula: {$formula}";
@@ -124,14 +173,44 @@ class PayoutService
         }
 
         return [
-            'payout_type'        => $streamer->payout_type,
-            'gross_show_revenue' => $netRevenue,
-            'owner_fee_deducted' => $ownerFeeDeducted,
-            'tips_included'      => $streamer->include_tips ? $tipShare : 0,
-            'calculated_payout'  => $calculatedPayout,
-            'calculation_notes'  => $calculationNotes,
-            'status'             => 'draft',
+            'payout_type'          => $streamer->payout_type,
+            'gross_show_revenue'   => $netRevenue,
+            'owner_fee_deducted'   => $ownerFeeDeducted,
+            'tips_included'        => $streamer->include_tips ? $tipShare : 0,
+            'pwe_count'            => $pweCount > 0 ? $pweCount : null,
+            'label_count'          => $labelCount > 0 ? $labelCount : null,
+            'burden_rate_applied'  => $burdenRateApplied,
+            'calculated_payout'    => $calculatedPayout,
+            'calculation_notes'    => $calculationNotes,
+            'routing_bank_label'   => $this->resolveRoutingLabel($streamer, $show),
+            'status'               => 'draft',
         ];
+    }
+
+    private function resolveRoutingLabel(Streamer $streamer, Show $show): ?string
+    {
+        $rules = $streamer->channel_routing_rules;
+
+        if (empty($rules) || ! is_array($rules)) {
+            return null;
+        }
+
+        $channelName = $show->relationLoaded('channel')
+            ? $show->channel?->name
+            : $show->channel()->value('name');
+
+        if (! $channelName) {
+            return null;
+        }
+
+        foreach ($rules as $rule) {
+            if (isset($rule['channel'], $rule['bank_label'])
+                && strcasecmp((string) $rule['channel'], $channelName) === 0) {
+                return (string) $rule['bank_label'];
+            }
+        }
+
+        return null;
     }
 
     private function evaluateCustomFormula(string $formula, array $variables): float
@@ -283,6 +362,38 @@ class PayoutService
         ]);
 
         $batch->payouts()->update(['status' => 'approved']);
+
+        $this->updateStreamerBalances($batch);
+    }
+
+    /**
+     * Increment each streamer's total_earnings_due by their finalized payout amount.
+     * Call after payouts are approved so the running balance stays accurate.
+     */
+    private function updateStreamerBalances(WeeklyPayoutBatch $batch): void
+    {
+        $batch->payouts()
+            ->where('status', 'approved')
+            ->with('streamer')
+            ->get()
+            ->groupBy('streamer_id')
+            ->each(function ($payouts, $streamerId) {
+                $total = $payouts->sum('calculated_payout');
+                \App\Models\Streamer::where('id', $streamerId)
+                    ->increment('total_earnings_due', $total);
+            });
+    }
+
+    /**
+     * Call when a payout is marked as paid to keep total_earnings_paid in sync.
+     */
+    public function markPayoutPaid(\App\Models\Payout $payout): void
+    {
+        DB::transaction(function () use ($payout) {
+            $payout->update(['status' => 'paid']);
+            \App\Models\Streamer::where('id', $payout->streamer_id)
+                ->increment('total_earnings_paid', (float) $payout->calculated_payout);
+        });
     }
 
     private function applyLoanRepayments(WeeklyPayoutBatch $batch): void

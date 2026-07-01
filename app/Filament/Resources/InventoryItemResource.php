@@ -6,12 +6,14 @@ use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\InventoryItemResource\Pages;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
+use App\Models\Vendor;
 use App\Services\InventoryService;
 use App\Support\AdminModules;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
@@ -97,11 +99,26 @@ class InventoryItemResource extends Resource
                         ->maxLength(255),
                     TextInput::make('category')
                         ->maxLength(100),
+                    Select::make('preferred_vendor_id')
+                        ->label('Preferred Vendor')
+                        ->options(fn () => Vendor::activeOptions())
+                        ->searchable()
+                        ->nullable()
+                        ->placeholder('No preferred vendor'),
                     TextInput::make('unit_cost')
+                        ->label('List Unit Cost ($)')
                         ->numeric()
                         ->prefix('$')
                         ->required()
-                        ->default(0),
+                        ->default(0)
+                        ->helperText('Used as fallback when no receipts exist.'),
+                    TextInput::make('average_cost')
+                        ->label('Average Cost ($)')
+                        ->numeric()
+                        ->prefix('$')
+                        ->default(0)
+                        ->helperText('Auto-calculated from receiving. Edit to override.')
+                        ->step(0.0001),
                     TextInput::make('reorder_level')
                         ->numeric()
                         ->minValue(0)
@@ -138,8 +155,17 @@ class InventoryItemResource extends Resource
                     ->color('gray')
                     ->placeholder('—'),
                 TextColumn::make('unit_cost')
+                    ->label('List Cost')
                     ->money('USD')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('average_cost')
+                    ->label('Avg Cost')
+                    ->money('USD')
+                    ->sortable()
+                    ->description(fn ($record) => $record->total_units_received > 0
+                        ? number_format((float) $record->total_units_received, 0) . ' units received'
+                        : null),
                 TextColumn::make('stock_sum_quantity')
                     ->label('Total Qty')
                     ->numeric(decimalPlaces: 0)

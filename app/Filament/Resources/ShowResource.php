@@ -18,6 +18,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
@@ -177,6 +178,31 @@ class ShowResource extends Resource
                     ->numeric()
                     ->prefix('$')
                     ->default(0),
+            ]),
+
+            Section::make('Paper Sales')->columns(3)->schema([
+                TextInput::make('paper_sales_gross')
+                    ->label('Paper Sales Gross')
+                    ->numeric()
+                    ->prefix('$')
+                    ->nullable()
+                    ->helperText('Revenue from the streamer\'s own paper tracking (not Whatnot).'),
+
+                TextInput::make('paper_sales_units')
+                    ->label('Paper Sales Units')
+                    ->numeric()
+                    ->nullable(),
+
+                Toggle::make('sales_reconciled')
+                    ->label('Sales Reconciled')
+                    ->helperText('Mark when Whatnot totals and paper sheet have been compared.')
+                    ->columnSpanFull(),
+
+                Textarea::make('paper_sales_notes')
+                    ->label('Paper Sales Notes')
+                    ->rows(2)
+                    ->nullable()
+                    ->columnSpanFull(),
             ]),
 
             Section::make('Notes')->schema([

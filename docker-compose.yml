@@ -28,7 +28,7 @@ services:
       mysql:
         condition: service_healthy
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
     volumes:
       - app-storage:/var/www/html/storage
     healthcheck:

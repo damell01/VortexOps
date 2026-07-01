@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\InventoryLocation;
+use App\Models\Setting;
 use App\Models\User;
 use App\Models\WhatnotChannel;
 use Illuminate\Database\Seeder;
@@ -43,6 +44,11 @@ class DefaultDataSeeder extends Seeder
         WhatnotChannel::firstOrCreate(
             ['name' => 'Vortex Main Channel'],
             ['status' => 'active']
+        );
+
+        Setting::firstOrCreate(
+            ['key' => 'enabled_admin_modules'],
+            ['value' => json_encode(['streams', 'payouts', 'inventory', 'purchasing', 'operations'])]
         );
     }
 }

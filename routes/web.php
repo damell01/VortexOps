@@ -9,6 +9,11 @@ Route::get('/', function () {
     return redirect('/admin');
 });
 
+// Offline fallback page — served by the service worker when the network is unavailable
+Route::get('/offline', function () {
+    return response()->file(public_path('offline.html'));
+})->name('offline');
+
 // Public health endpoint — no auth, used by UptimeRobot / BetterUptime / Docker
 Route::get('/health', HealthController::class)->name('health');
 

@@ -18,19 +18,32 @@ services:
       DB_USERNAME: ${DB_USERNAME:-vortexops}
       DB_PASSWORD: ${DB_PASSWORD:-change-me}
       QUEUE_CONNECTION: database
-      CACHE_STORE: database
-      SESSION_DRIVER: database
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_CLIENT: phpredis
       FILESYSTEM_DISK: public
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
       RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
       WAIT_FOR_DB: "true"
     depends_on:
       mysql:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
     volumes:
       - app-storage:/var/www/html/storage
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   worker:
     image: vortexops:local
@@ -48,24 +61,32 @@ services:
       DB_USERNAME: ${DB_USERNAME:-vortexops}
       DB_PASSWORD: ${DB_PASSWORD:-change-me}
       QUEUE_CONNECTION: database
-      CACHE_STORE: database
-      SESSION_DRIVER: database
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_CLIENT: phpredis
       FILESYSTEM_DISK: public
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
       RUN_MIGRATIONS: "false"
       WAIT_FOR_DB: "true"
     depends_on:
       mysql:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       app:
         condition: service_started
-    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--timeout=120"]
+    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--timeout=120", "--max-jobs=500", "--max-time=3600"]
     volumes:
       - app-storage:/var/www/html/storage
 
   mysql:
     image: mysql:8.4
     restart: unless-stopped
+    command: --innodb-buffer-pool-size=256M --max-connections=100
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-vortexops}
       MYSQL_USER: ${DB_USERNAME:-vortexops}
@@ -79,6 +100,18 @@ services:
       start_period: 20s
     volumes:
       - mysql-data:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning --maxmemory 128mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - redis-data:/data
 
   scheduler:
     image: vortexops:local
@@ -96,18 +129,62 @@ services:
       DB_USERNAME: ${DB_USERNAME:-vortexops}
       DB_PASSWORD: ${DB_PASSWORD:-change-me}
       QUEUE_CONNECTION: database
-      CACHE_STORE: database
-      SESSION_DRIVER: database
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_CLIENT: phpredis
       FILESYSTEM_DISK: public
       RUN_MIGRATIONS: "false"
       WAIT_FOR_DB: "true"
     depends_on:
       mysql:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       app:
         condition: service_started
     command: >
       sh -c "while true; do php artisan schedule:run --no-interaction; sleep 60; done"
+    volumes:
+      - app-storage:/var/www/html/storage
+
+  ai-worker:
+    image: vortexops:local
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-vortexops}
+      DB_USERNAME: ${DB_USERNAME:-vortexops}
+      DB_PASSWORD: ${DB_PASSWORD:-change-me}
+      QUEUE_CONNECTION: database
+      CACHE_STORE: redis
+      SESSION_DRIVER: redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_CLIENT: phpredis
+      FILESYSTEM_DISK: public
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      RUN_MIGRATIONS: "false"
+      WAIT_FOR_DB: "true"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_started
+    command: ["php", "artisan", "queue:work", "--queue=ai", "--sleep=5", "--tries=1", "--timeout=300"]
     volumes:
       - app-storage:/var/www/html/storage
 
@@ -121,4 +198,5 @@ services:
 volumes:
   app-storage:
   mysql-data:
+  redis-data:
   ollama-data:

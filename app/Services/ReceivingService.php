@@ -98,7 +98,9 @@ class ReceivingService
 
     /**
      * Bulk-receive all unmapped/uncreated cases for a pallet line.
-     * Creates the expected cases if they don't exist yet, then receives them all.
+     * Creates the expected cases if they don't exist yet, then receives them all
+     * in a single transaction (one stock update + one WAC recalculation instead
+     * of one-per-case).
      *
      * @throws RuntimeException if line is not mapped.
      */
@@ -111,18 +113,71 @@ class ReceivingService
         $expectedCases = $line->cases()->where('status', 'expected')->get();
 
         if ($expectedCases->isEmpty()) {
-            // Auto-create expected cases if none exist yet
             $this->generateExpectedCases($line);
             $expectedCases = $line->cases()->where('status', 'expected')->get();
         }
 
-        $count = 0;
-        foreach ($expectedCases as $case) {
-            $this->receiveCase($case);
-            $count++;
+        if ($expectedCases->isEmpty()) {
+            return 0;
         }
 
-        return $count;
+        return $this->receiveCaseBatch($line, $expectedCases);
+    }
+
+    /**
+     * Receive a collection of cases belonging to the same line in one transaction.
+     * Avoids N separate transactions, N PalletLine reloads, and N WAC updates.
+     */
+    private function receiveCaseBatch(PalletLine $line, \Illuminate\Support\Collection $cases): int
+    {
+        $line->loadMissing(['inventoryItem', 'location']);
+
+        $item     = $line->inventoryItem;
+        $location = $line->location;
+        $qty      = (float) $line->quantity_per_case;
+        $unitCost = (float) $line->unit_cost;
+        $count    = $cases->count();
+        $now      = now();
+        $userId   = Auth::id();
+        $totalQty = $qty * $count;
+
+        return DB::transaction(function () use ($cases, $item, $location, $qty, $unitCost, $line, $now, $userId, $count, $totalQty) {
+            // Bulk-mark all cases received
+            InventoryCase::whereIn('id', $cases->pluck('id'))
+                ->update([
+                    'status'            => 'received',
+                    'quantity_received' => $qty,
+                    'received_at'       => $now,
+                    'received_by'       => $userId,
+                ]);
+
+            // Single stock increment for the whole batch
+            $stock = InventoryStock::firstOrCreate(
+                ['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id],
+                ['quantity' => 0]
+            );
+            $stock->increment('quantity', $totalQty);
+
+            // Bulk-insert movement records (movements are the audit trail)
+            InventoryMovement::insert($cases->map(fn ($case) => [
+                'inventory_item_id' => $item->id,
+                'from_location_id'  => null,
+                'to_location_id'    => $location->id,
+                'quantity'          => $qty,
+                'movement_type'     => 'opening',
+                'reason'            => "Received via pallet #{$line->pallet_id}, line #{$line->line_number}",
+                'reference_type'    => 'inventory_case',
+                'reference_id'      => $case->id,
+                'created_by'        => $userId,
+                'created_at'        => $now,
+                'updated_at'        => $now,
+            ])->toArray());
+
+            // Single WAC recalculation for the entire batch
+            $this->recalculateAverageCost($item, $totalQty, $unitCost);
+
+            return $count;
+        });
     }
 
     /**
@@ -200,21 +255,30 @@ class ReceivingService
     public function recalculateAverageCost(InventoryItem $item, float $incomingQty, float $incomingUnitCost): void
     {
         if ($incomingUnitCost <= 0) {
-            $item->increment('total_units_received', $incomingQty);
+            InventoryItem::where('id', $item->id)->increment('total_units_received', $incomingQty);
+            $item->total_units_received = (float) $item->total_units_received + $incomingQty;
             return;
         }
 
-        $existingQty  = (float) $item->total_units_received;
-        $existingAvg  = (float) $item->average_cost;
-        $totalQty     = $existingQty + $incomingQty;
+        // Lock the row so concurrent receipts (barcode scan + batch receive) don't race on WAC.
+        // This must be called from within an existing DB::transaction (receiveCaseBatch already provides one).
+        $fresh = InventoryItem::lockForUpdate()->findOrFail($item->id);
+
+        $existingQty = (float) $fresh->total_units_received;
+        $existingAvg = (float) $fresh->average_cost;
+        $totalQty    = $existingQty + $incomingQty;
 
         $newAvg = $totalQty > 0
             ? (($existingQty * $existingAvg) + ($incomingQty * $incomingUnitCost)) / $totalQty
             : $incomingUnitCost;
 
-        $item->update([
+        $fresh->update([
             'average_cost'         => round($newAvg, 4),
             'total_units_received' => $totalQty,
         ]);
+
+        // Sync in-memory model so callers that chain multiple lines see fresh values
+        $item->average_cost         = $fresh->average_cost;
+        $item->total_units_received = $fresh->total_units_received;
     }
 }

@@ -42,6 +42,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         pdo_mysql \
         pdo_sqlite \
         zip \
+    && pecl install redis \
+    && docker-php-ext-enable opcache redis \
     && a2enmod rewrite headers expires \
     && sed -ri "s!/var/www/html!${APACHE_DOCUMENT_ROOT}!g" /etc/apache2/sites-available/*.conf /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf \
     && rm -rf /var/lib/apt/lists/*
@@ -50,6 +52,7 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY --from=vendor /app/vendor ./vendor
 COPY . .
 COPY --from=frontend /app/public/build ./public/build
+COPY docker/php.ini /usr/local/etc/php/conf.d/app.ini
 COPY docker/php-entrypoint.sh /usr/local/bin/php-entrypoint
 
 RUN chmod +x /usr/local/bin/php-entrypoint \

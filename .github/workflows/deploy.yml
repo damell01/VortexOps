@@ -60,6 +60,20 @@ jobs:
     environment: production
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Push docker-compose.yml so the VPS never needs a repo clone.
+      # This is the only file the server needs — the image comes from GHCR.
+      - name: Copy docker-compose.yml to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "docker-compose.yml"
+          target: "/opt/vortexops/"
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
         with:

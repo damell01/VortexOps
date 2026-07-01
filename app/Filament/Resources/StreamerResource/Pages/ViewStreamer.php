@@ -88,28 +88,38 @@ class ViewStreamer extends ViewRecord
                         return;
                     }
 
-                    DB::transaction(function () use ($item, $fromLoc, $poolLocation, $qty, $data, $streamer): void {
-                        InventoryStock::where('inventory_item_id', $item->id)
-                            ->where('inventory_location_id', $fromLoc->id)
-                            ->lockForUpdate()
-                            ->first()
-                            ->decrement('quantity', $qty);
+                    try {
+                        DB::transaction(function () use ($item, $fromLoc, $poolLocation, $qty, $data, $streamer): void {
+                            $locked = InventoryStock::where('inventory_item_id', $item->id)
+                                ->where('inventory_location_id', $fromLoc->id)
+                                ->lockForUpdate()
+                                ->first();
 
-                        InventoryStock::firstOrCreate(
-                            ['inventory_item_id' => $item->id, 'inventory_location_id' => $poolLocation->id],
-                            ['quantity' => 0]
-                        )->increment('quantity', $qty);
+                            if (! $locked || (float) $locked->quantity < $qty) {
+                                throw new \RuntimeException('Insufficient stock (concurrent modification detected).');
+                            }
 
-                        InventoryMovement::create([
-                            'inventory_item_id' => $item->id,
-                            'from_location_id'  => $fromLoc->id,
-                            'to_location_id'    => $poolLocation->id,
-                            'quantity'          => $qty,
-                            'movement_type'     => 'transfer',
-                            'reason'            => $data['reason'] ?: "Allocated to {$streamer->name} pool",
-                            'created_by'        => Auth::id(),
-                        ]);
-                    });
+                            $locked->decrement('quantity', $qty);
+
+                            InventoryStock::firstOrCreate(
+                                ['inventory_item_id' => $item->id, 'inventory_location_id' => $poolLocation->id],
+                                ['quantity' => 0]
+                            )->increment('quantity', $qty);
+
+                            InventoryMovement::create([
+                                'inventory_item_id' => $item->id,
+                                'from_location_id'  => $fromLoc->id,
+                                'to_location_id'    => $poolLocation->id,
+                                'quantity'          => $qty,
+                                'movement_type'     => 'transfer',
+                                'reason'            => $data['reason'] ?: "Allocated to {$streamer->name} pool",
+                                'created_by'        => Auth::id(),
+                            ]);
+                        });
+                    } catch (\RuntimeException $e) {
+                        Notification::make()->title($e->getMessage())->danger()->send();
+                        return;
+                    }
 
                     Notification::make()
                         ->title("Allocated {$qty} × {$item->name} → {$streamer->name}'s pool.")

@@ -75,7 +75,7 @@ class AdminModules
      */
     public static function defaultEnabledSlugs(): array
     {
-        return ['streams', 'payouts', 'inventory', 'operations'];
+        return ['streams', 'payouts', 'inventory', 'purchasing', 'operations'];
     }
 
     /**

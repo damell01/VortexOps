@@ -49,11 +49,14 @@ class AdminModulesTest extends TestCase
     public function test_default_enabled_slugs_excludes_advanced_modules(): void
     {
         $defaults  = AdminModules::defaultEnabledSlugs();
-        $advanced  = ['projects', 'reviews', 'ai', 'purchasing'];
+        $advanced  = ['projects', 'reviews', 'ai'];
 
         foreach ($advanced as $slug) {
             $this->assertNotContains($slug, $defaults, "Advanced module '{$slug}' should not be a default");
         }
+
+        // purchasing is a core operational module and must be enabled by default
+        $this->assertContains('purchasing', $defaults, "Core module 'purchasing' must be a default");
     }
 
     public function test_normalize_expands_project_hub_alias(): void

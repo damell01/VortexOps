@@ -5,7 +5,6 @@ namespace App\Filament\Widgets;
 use App\Filament\Resources\ShowResource;
 use App\Models\Show;
 use App\Support\AdminModules;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;

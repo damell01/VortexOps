@@ -33,6 +33,8 @@ class Payout extends Model
         'tips_included'           => 'decimal:2',
         'burden_rate_applied'     => 'decimal:4',
         'calculated_payout'       => 'decimal:2',
+        'pwe_count'               => 'integer',
+        'label_count'             => 'integer',
     ];
 
     public function show(): BelongsTo

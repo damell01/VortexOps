@@ -45,9 +45,9 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                 ->visible(fn () => $this->record->status === 'submitted_to_adp')
                 ->requiresConfirmation()
                 ->action(function () {
-                    $this->record->update(['status' => 'paid']);
-                    $this->record->payouts()->update(['status' => 'paid']);
-                    Notification::make()->title('Pay run marked as paid.')->success()->send();
+                    app(PayoutService::class)->markBatchPaid($this->record);
+                    Notification::make()->title('Pay run marked as paid — streamer balances updated.')->success()->send();
+                    $this->refreshFormData(['status']);
                 }),
         ];
     }

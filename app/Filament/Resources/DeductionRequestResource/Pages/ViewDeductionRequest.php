@@ -20,6 +20,7 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -185,13 +186,15 @@ class ViewDeductionRequest extends EditRecord
                 ->modalDescription('This will execute inventory deductions for all approved lines via InventoryService. This action cannot be undone.')
                 ->action(function () use ($request) {
                     try {
-                        $this->persistLines($request);
+                        DB::transaction(function () use ($request) {
+                            $this->persistLines($request);
 
-                        if ($opsNotes = $this->data['ops_notes'] ?? null) {
-                            $request->update(['ops_notes' => $opsNotes]);
-                        }
+                            if ($opsNotes = $this->data['ops_notes'] ?? null) {
+                                $request->update(['ops_notes' => $opsNotes]);
+                            }
 
-                        app(DeductionApprovalService::class)->approve($request);
+                            app(DeductionApprovalService::class)->approve($request);
+                        });
 
                         Notification::make()
                             ->title('Deduction request approved and inventory deducted')
@@ -274,6 +277,6 @@ class ViewDeductionRequest extends EditRecord
             }
         }
 
-        $request->refresh();
+        $request->refresh()->load('lines.inventoryItem');
     }
 }

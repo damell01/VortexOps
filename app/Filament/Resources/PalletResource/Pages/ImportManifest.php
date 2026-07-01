@@ -32,6 +32,11 @@ class ImportManifest extends Page
 
     public ?string $parseError = null;
 
+    public bool $parseErrorIsTimeout = false;
+
+    private const PENDING_TIMEOUT_MINUTES    = 5;
+    private const PROCESSING_TIMEOUT_MINUTES = 10;
+
     /**
      * Lines shown in the verify stage — editable by the user before import.
      *
@@ -108,8 +113,25 @@ class ImportManifest extends Page
         }
 
         if ($task->status === 'failed') {
-            $this->parseError = $task->error_message ?? 'AI parsing failed. See notes below.';
-            $this->stage      = 'upload';
+            $this->parseError          = $task->error_message ?? 'AI parsing failed.';
+            $this->parseErrorIsTimeout = false;
+            $this->stage               = 'upload';
+            return;
+        }
+
+        if ($task->status === 'processing' &&
+            $task->started_at?->lt(now()->subMinutes(self::PROCESSING_TIMEOUT_MINUTES))) {
+            $this->parseError          = 'AI processing timed out after ' . self::PROCESSING_TIMEOUT_MINUTES . ' minutes. The AI worker container may have crashed.';
+            $this->parseErrorIsTimeout = true;
+            $this->stage               = 'upload';
+            return;
+        }
+
+        if ($task->status === 'pending' &&
+            $task->created_at->lt(now()->subMinutes(self::PENDING_TIMEOUT_MINUTES))) {
+            $this->parseError          = 'AI job was not picked up after ' . self::PENDING_TIMEOUT_MINUTES . ' minutes. The AI worker container may not be running.';
+            $this->parseErrorIsTimeout = true;
+            $this->stage               = 'upload';
         }
     }
 

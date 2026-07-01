@@ -56,10 +56,14 @@
                     <div class="rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300 space-y-1">
                         <div class="flex items-center gap-2 font-medium">
                             <x-heroicon-o-exclamation-circle class="h-4 w-4 flex-shrink-0" />
-                            AI parsing failed
+                            {{ $parseErrorIsTimeout ? 'AI worker timed out' : 'AI parsing failed' }}
                         </div>
                         <p class="text-xs">{{ $parseError }}</p>
-                        <p class="text-xs text-red-500">Make sure the <code class="font-mono bg-red-100 dark:bg-red-900 px-1 rounded">{{ config('services.ollama.vision_model') }}</code> model is pulled in Ollama: <code class="font-mono bg-red-100 dark:bg-red-900 px-1 rounded">ollama pull {{ config('services.ollama.vision_model') }}</code></p>
+                        @if ($parseErrorIsTimeout)
+                            <p class="text-xs text-red-500">Restart the worker: <code class="font-mono bg-red-100 dark:bg-red-900 px-1 rounded">docker compose up -d ai-worker</code></p>
+                        @else
+                            <p class="text-xs text-red-500">Make sure the <code class="font-mono bg-red-100 dark:bg-red-900 px-1 rounded">{{ config('services.ollama.vision_model') }}</code> model is pulled: <code class="font-mono bg-red-100 dark:bg-red-900 px-1 rounded">ollama pull {{ config('services.ollama.vision_model') }}</code></p>
+                        @endif
                     </div>
                 @endif
 

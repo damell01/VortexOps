@@ -105,6 +105,59 @@ class ImportManifestTest extends TestCase
         $this->assertEmpty($page->parsedLines);
     }
 
+    public function test_check_processing_returns_to_upload_on_failed_task_with_timeout_false(): void
+    {
+        $this->task->markFailed('Model not loaded');
+
+        $page = $this->makePage();
+        $page->checkProcessing();
+
+        $this->assertFalse($page->parseErrorIsTimeout);
+        $this->assertEquals('upload', $page->stage);
+    }
+
+    public function test_check_processing_detects_stuck_processing_job(): void
+    {
+        $this->task->markProcessing();
+        // Wind the clock back past the processing timeout
+        $this->task->update(['started_at' => now()->subMinutes(11)]);
+
+        $page = $this->makePage();
+        $page->checkProcessing();
+
+        $this->assertEquals('upload', $page->stage);
+        $this->assertTrue($page->parseErrorIsTimeout);
+        $this->assertStringContainsString('timed out', $page->parseError);
+    }
+
+    public function test_check_processing_does_not_timeout_recent_processing_job(): void
+    {
+        $this->task->markProcessing();
+        // Only 2 minutes in — not yet timed out
+        $this->task->update(['started_at' => now()->subMinutes(2)]);
+
+        $page = $this->makePage();
+        $page->checkProcessing();
+
+        $this->assertEquals('processing', $page->stage);
+        $this->assertNull($page->parseError);
+    }
+
+    public function test_check_processing_detects_pending_job_never_picked_up(): void
+    {
+        // created_at is managed by Eloquent timestamps — bypass via raw query
+        \Illuminate\Support\Facades\DB::table('ai_tasks')
+            ->where('id', $this->task->id)
+            ->update(['created_at' => now()->subMinutes(6)]);
+
+        $page = $this->makePage();
+        $page->checkProcessing();
+
+        $this->assertEquals('upload', $page->stage);
+        $this->assertTrue($page->parseErrorIsTimeout);
+        $this->assertStringContainsString('not picked up', $page->parseError);
+    }
+
     public function test_check_processing_does_nothing_without_task_id(): void
     {
         $page           = $this->makePage();

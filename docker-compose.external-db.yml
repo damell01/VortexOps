@@ -1,0 +1,57 @@
+# External MySQL override
+# Use when you have a managed/external MySQL instance (e.g. PlanetScale, RDS, DigitalOcean Managed DB).
+#
+# Set in .env.docker:
+#   DB_HOST=your-db-host.example.com
+#   DB_PORT=3306
+#   DB_DATABASE=vortexops
+#   DB_USERNAME=vortexops
+#   DB_PASSWORD=your-strong-password
+#
+# Start with:
+#   docker compose -f docker-compose.yml -f docker-compose.external-db.yml \
+#       up -d app worker scheduler ai-worker redis
+#
+# This overlay:
+#   - Removes depends_on mysql from all app services (they connect directly to external host)
+#   - Removes the mysql service so it never starts
+#   - Sets WAIT_FOR_DB=false since entrypoint wait-loop targets Docker-internal "mysql" hostname
+
+services:
+  app:
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      WAIT_FOR_DB: "false"
+
+  worker:
+    depends_on:
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_started
+    environment:
+      WAIT_FOR_DB: "false"
+
+  scheduler:
+    depends_on:
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_started
+    environment:
+      WAIT_FOR_DB: "false"
+
+  ai-worker:
+    depends_on:
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_started
+    environment:
+      WAIT_FOR_DB: "false"
+
+  mysql:
+    deploy:
+      replicas: 0

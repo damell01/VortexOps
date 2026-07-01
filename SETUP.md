@@ -266,47 +266,55 @@ docker compose exec app php artisan filament:optimize
 
 ### SSL with Nginx reverse proxy
 
-The app container listens on `127.0.0.1:8080`. Put Nginx in front for SSL:
+The app container listens on `127.0.0.1:8080`. The full Nginx config is at `deploy/nginx.conf` (TLS 1.2/1.3, HSTS, gzip, WebSocket support, large upload headers). See **`deploy/nginx-ssl.md`** for the complete step-by-step guide including Certbot auto-renewal.
 
+Quick version:
 ```bash
-apt-get install -y nginx certbot python3-certbot-nginx
+sudo apt-get install -y nginx certbot python3-certbot-nginx
 
-# Replace example.com with your actual domain
-certbot --nginx -d yourdomain.com
+export DOMAIN=ops.vortexbreaks.com
+sudo sed "s/YOUR_DOMAIN/${DOMAIN}/g" deploy/nginx.conf \
+    | sudo tee /etc/nginx/sites-available/vortexops
+sudo ln -sf /etc/nginx/sites-available/vortexops /etc/nginx/sites-enabled/vortexops
+sudo nginx -t && sudo systemctl reload nginx
+
+sudo certbot --nginx -d ${DOMAIN} --agree-tos --email dbellcreations@gmail.com --redirect
 ```
 
-Nginx config (`/etc/nginx/sites-available/vortexops`):
+After getting the cert, update `.env.docker`:
+```
+APP_URL=https://ops.vortexbreaks.com
+```
+Then `docker compose restart app worker scheduler ai-worker`.
 
-```nginx
-server {
-    listen 80;
-    server_name yourdomain.com;
-    return 301 https://$host$request_uri;
-}
+### Using an external MySQL database
 
-server {
-    listen 443 ssl;
-    server_name yourdomain.com;
+If you have a managed MySQL instance (DigitalOcean, PlanetScale, RDS, etc.) instead of the Docker-managed one:
 
-    ssl_certificate     /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
-
-    client_max_body_size 25M;   # allow packing slip photo uploads
-
-    location / {
-        proxy_pass         http://127.0.0.1:8080;
-        proxy_set_header   Host $host;
-        proxy_set_header   X-Real-IP $remote_addr;
-        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header   X-Forwarded-Proto $scheme;
-        proxy_read_timeout 120s;
-    }
-}
+**1. Set these in `/opt/vortexops/.env.docker`:**
+```
+DB_HOST=your-db-host.example.com
+DB_PORT=3306
+DB_DATABASE=vortexops
+DB_USERNAME=vortexops
+DB_PASSWORD=your-strong-password
+# Leave DB_ROOT_PASSWORD blank — only needed for the Docker MySQL container
 ```
 
+**2. Start without the mysql container, using the external-db override:**
 ```bash
-ln -s /etc/nginx/sites-available/vortexops /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
+docker compose -f docker-compose.yml -f docker-compose.external-db.yml \
+    --env-file .env.docker \
+    up -d app worker scheduler ai-worker redis
+```
+
+The `docker-compose.external-db.yml` overlay removes the `depends_on: mysql` health-check gates and disables the local MySQL container so it never starts.
+
+**3. Run migrations against your external DB:**
+```bash
+docker compose exec app php artisan migrate --force
+docker compose exec app php artisan db:seed --class=DefaultDataSeeder --force
+docker compose exec app php artisan db:seed --class=SuperAdminSeeder --force
 ```
 
 ---

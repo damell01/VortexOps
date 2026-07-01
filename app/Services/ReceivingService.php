@@ -255,21 +255,30 @@ class ReceivingService
     public function recalculateAverageCost(InventoryItem $item, float $incomingQty, float $incomingUnitCost): void
     {
         if ($incomingUnitCost <= 0) {
-            $item->increment('total_units_received', $incomingQty);
+            InventoryItem::where('id', $item->id)->increment('total_units_received', $incomingQty);
+            $item->total_units_received = (float) $item->total_units_received + $incomingQty;
             return;
         }
 
-        $existingQty  = (float) $item->total_units_received;
-        $existingAvg  = (float) $item->average_cost;
-        $totalQty     = $existingQty + $incomingQty;
+        // Lock the row so concurrent receipts (barcode scan + batch receive) don't race on WAC.
+        // This must be called from within an existing DB::transaction (receiveCaseBatch already provides one).
+        $fresh = InventoryItem::lockForUpdate()->findOrFail($item->id);
+
+        $existingQty = (float) $fresh->total_units_received;
+        $existingAvg = (float) $fresh->average_cost;
+        $totalQty    = $existingQty + $incomingQty;
 
         $newAvg = $totalQty > 0
             ? (($existingQty * $existingAvg) + ($incomingQty * $incomingUnitCost)) / $totalQty
             : $incomingUnitCost;
 
-        $item->update([
+        $fresh->update([
             'average_cost'         => round($newAvg, 4),
             'total_units_received' => $totalQty,
         ]);
+
+        // Sync in-memory model so callers that chain multiple lines see fresh values
+        $item->average_cost         = $fresh->average_cost;
+        $item->total_units_received = $fresh->total_units_received;
     }
 }

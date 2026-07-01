@@ -68,13 +68,12 @@ class ReceivePallet extends Page
             $case = app(ReceivingService::class)->receiveCaseByBarcode($barcode);
             $this->lastScannedResult = "✓ Received case {$barcode} — {$case->palletLine->inventoryItem?->name}";
             $this->lastScanSuccess   = true;
+            $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+            $this->refreshProgress();
         } catch (\RuntimeException $e) {
             $this->lastScannedResult = "✗ {$e->getMessage()}";
             $this->lastScanSuccess   = false;
         }
-
-        $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
-        $this->refreshProgress();
     }
 
     public function receiveLine(int $lineId): void

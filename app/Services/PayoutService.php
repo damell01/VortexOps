@@ -354,19 +354,33 @@ class PayoutService
             throw new \RuntimeException('Only draft batches can be finalized.');
         }
 
-        // Apply loan repayments — once per streamer, to their first payout in this batch
-        $this->applyLoanRepayments($batch);
+        DB::transaction(function () use ($batch) {
+            $this->applyLoanRepayments($batch);
 
-        $batch->recalculateTotal();
-        $batch->update([
-            'status'       => 'finalized',
-            'finalized_by' => Auth::id(),
-            'finalized_at' => now(),
-        ]);
+            $batch->recalculateTotal();
+            $batch->update([
+                'status'       => 'finalized',
+                'finalized_by' => Auth::id(),
+                'finalized_at' => now(),
+            ]);
 
-        $batch->payouts()->update(['status' => 'approved']);
+            $batch->payouts()->update(['status' => 'approved']);
 
-        $this->updateStreamerBalances($batch);
+            $this->updateStreamerBalances($batch);
+        });
+    }
+
+    public function markBatchPaid(WeeklyPayoutBatch $batch): void
+    {
+        DB::transaction(function () use ($batch) {
+            $batch->update(['status' => 'paid']);
+            $batch->payouts()->where('status', '!=', 'paid')->with('streamer')->get()
+                ->each(function (Payout $payout) {
+                    $payout->update(['status' => 'paid']);
+                    Streamer::where('id', $payout->streamer_id)
+                        ->increment('total_earnings_paid', (float) $payout->calculated_payout);
+                });
+        });
     }
 
     /**

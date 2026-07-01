@@ -277,6 +277,6 @@ class ViewDeductionRequest extends EditRecord
             }
         }
 
-        $request->refresh();
+        $request->refresh()->load('lines.inventoryItem');
     }
 }

@@ -130,6 +130,7 @@ class StreamerResource extends Resource
                     TextInput::make('package_rate')
                         ->numeric()
                         ->prefix('$')
+                        ->required(fn ($get) => in_array($get('payout_type'), ['package', 'flat_rate']))
                         ->visible(fn ($get) => in_array($get('payout_type'), ['package', 'flat_rate'])),
                     Textarea::make('custom_payout_formula')
                         ->label('Custom Formula')

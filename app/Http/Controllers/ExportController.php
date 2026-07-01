@@ -78,7 +78,7 @@ class ExportController extends Controller
                 $query->where('movement_type', $request->type);
             }
 
-            $query->lazy(500)->each(function (InventoryMovement $m) {
+            $query->limit(50000)->lazy(500)->each(function (InventoryMovement $m) {
                 $this->row([
                     $m->created_at->format('Y-m-d H:i'),
                     $m->item->name ?? '',

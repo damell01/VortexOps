@@ -66,7 +66,7 @@
                     <div>
                         <div class="text-gray-500">Inventory Value Impact</div>
                         <div class="font-medium">
-                            ${{ number_format((float) $movement->quantity * (float) ($movement->item?->unit_cost ?? 0), 2) }}
+                            ${{ number_format((float) $movement->quantity * (float) ($movement->item?->average_cost ?: ($movement->item?->unit_cost ?? 0)), 2) }}
                         </div>
                     </div>
                 </div>

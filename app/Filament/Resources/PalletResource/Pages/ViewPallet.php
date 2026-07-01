@@ -78,7 +78,9 @@ class ViewPallet extends ViewRecord
                         ->searchable(),
                 ])
                 ->action(function (array $data) {
-                    $line     = PalletLine::findOrFail($data['pallet_line_id']);
+                    $line     = PalletLine::where('id', $data['pallet_line_id'])
+                        ->where('pallet_id', $this->record->id)
+                        ->firstOrFail();
                     $item     = InventoryItem::findOrFail($data['inventory_item_id']);
                     $location = InventoryLocation::findOrFail($data['inventory_location_id']);
                     app(ReceivingService::class)->mapLine($line, $item, $location);

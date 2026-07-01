@@ -162,15 +162,15 @@ if [ -f "$INSTALL_DIR/docker-compose.yml" ]; then
     sleep 30
 
     echo "→ Running migrations…"
-    docker compose -f "$INSTALL_DIR/docker-compose.yml" exec -T app php artisan migrate --force
+    docker compose -f "$INSTALL_DIR/docker-compose.yml" --env-file "$INSTALL_DIR/.env.docker" exec -T app php artisan migrate --force
 
     echo "→ Seeding default data (roles, locations, admin user)…"
-    docker compose -f "$INSTALL_DIR/docker-compose.yml" exec -T app php artisan db:seed --class=DefaultDataSeeder --force
-    docker compose -f "$INSTALL_DIR/docker-compose.yml" exec -T app php artisan db:seed --class=SuperAdminSeeder --force
+    docker compose -f "$INSTALL_DIR/docker-compose.yml" --env-file "$INSTALL_DIR/.env.docker" exec -T app php artisan db:seed --class=DefaultDataSeeder --force
+    docker compose -f "$INSTALL_DIR/docker-compose.yml" --env-file "$INSTALL_DIR/.env.docker" exec -T app php artisan db:seed --class=SuperAdminSeeder --force
 
     echo "→ Warming caches…"
-    docker compose -f "$INSTALL_DIR/docker-compose.yml" exec -T app php artisan optimize
-    docker compose -f "$INSTALL_DIR/docker-compose.yml" exec -T app php artisan filament:optimize
+    docker compose -f "$INSTALL_DIR/docker-compose.yml" --env-file "$INSTALL_DIR/.env.docker" exec -T app php artisan optimize
+    docker compose -f "$INSTALL_DIR/docker-compose.yml" --env-file "$INSTALL_DIR/.env.docker" exec -T app php artisan filament:optimize
 fi
 
 echo ""

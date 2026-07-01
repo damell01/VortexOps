@@ -53,5 +53,6 @@ services:
       WAIT_FOR_DB: "false"
 
   mysql:
-    deploy:
-      replicas: 0
+    # profiles: prevents this service from starting unless explicitly requested.
+    # 'deploy: replicas: 0' is Swarm-only and is ignored in standalone Compose.
+    profiles: ["disabled"]

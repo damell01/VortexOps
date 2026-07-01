@@ -119,9 +119,18 @@ class ReceivePallet extends Page
                         ->searchable(),
                     Select::make('inventory_item_id')
                         ->label('Inventory Item')
-                        ->options(fn () => InventoryItem::where('is_active', true)->orderBy('name')->pluck('name', 'id')->toArray())
+                        ->getSearchResultsUsing(fn (string $search) => InventoryItem::where('is_active', true)
+                            ->where(fn ($q) => $q->where('name', 'like', "%{$search}%")
+                                ->orWhere('sku', 'like', "%{$search}%")
+                                ->orWhere('barcode', $search))
+                            ->orderBy('name')
+                            ->limit(30)
+                            ->pluck('name', 'id')
+                            ->toArray())
+                        ->getOptionLabelUsing(fn ($value) => InventoryItem::find($value)?->name)
                         ->required()
                         ->searchable()
+                        ->helperText('Type a name, SKU, or scan the product barcode.')
                         ->createOptionForm([
                             TextInput::make('name')->required(),
                             TextInput::make('sku')->maxLength(100),

@@ -94,6 +94,11 @@ class InventoryItemResource extends Resource
                         ->label('SKU')
                         ->unique(ignoreRecord: true)
                         ->maxLength(100),
+                    TextInput::make('barcode')
+                        ->label('Barcode')
+                        ->unique(ignoreRecord: true)
+                        ->maxLength(100)
+                        ->helperText('Scan or type the product barcode (UPC/EAN/QR).'),
                     TextInput::make('name')
                         ->required()
                         ->maxLength(255),
@@ -146,6 +151,12 @@ class InventoryItemResource extends Resource
                     ->searchable()
                     ->copyable()
                     ->placeholder('—'),
+                TextColumn::make('barcode')
+                    ->label('Barcode')
+                    ->searchable()
+                    ->copyable()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable(),

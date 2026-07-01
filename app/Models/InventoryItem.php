@@ -23,6 +23,7 @@ class InventoryItem extends Model
 
     protected $fillable = [
         'sku',
+        'barcode',
         'name',
         'category',
         'description',
@@ -65,6 +66,12 @@ class InventoryItem extends Model
     public function palletLines(): HasMany
     {
         return $this->hasMany(PalletLine::class);
+    }
+
+    public static function findByScan(string $code): ?self
+    {
+        return static::where('barcode', $code)->first()
+            ?? static::where('sku', $code)->first();
     }
 
     public function effectiveCost(): float

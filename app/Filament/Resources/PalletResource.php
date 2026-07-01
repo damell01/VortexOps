@@ -215,11 +215,12 @@ class PalletResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index'   => Pages\ListPallets::route('/'),
-            'create'  => Pages\CreatePallet::route('/create'),
-            'view'    => Pages\ViewPallet::route('/{record}'),
-            'edit'    => Pages\EditPallet::route('/{record}/edit'),
-            'receive' => Pages\ReceivePallet::route('/{record}/receive'),
+            'index'           => Pages\ListPallets::route('/'),
+            'create'          => Pages\CreatePallet::route('/create'),
+            'view'            => Pages\ViewPallet::route('/{record}'),
+            'edit'            => Pages\EditPallet::route('/{record}/edit'),
+            'receive'         => Pages\ReceivePallet::route('/{record}/receive'),
+            'import-manifest' => Pages\ImportManifest::route('/{record}/import-manifest'),
         ];
     }
 }

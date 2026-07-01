@@ -12,8 +12,8 @@ services:
       APP_DEBUG: "false"
       APP_URL: ${APP_URL:-http://localhost:8080}
       DB_CONNECTION: mysql
-      DB_HOST: mysql
-      DB_PORT: 3306
+      DB_HOST: ${DB_HOST:-mysql}
+      DB_PORT: ${DB_PORT:-3306}
       DB_DATABASE: ${DB_DATABASE:-vortexops}
       DB_USERNAME: ${DB_USERNAME:-vortexops}
       DB_PASSWORD: ${DB_PASSWORD:-change-me}
@@ -27,6 +27,7 @@ services:
       FILESYSTEM_DISK: public
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-moondream}
       RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
       WAIT_FOR_DB: "true"
     depends_on:
@@ -55,8 +56,8 @@ services:
       APP_DEBUG: "false"
       APP_URL: ${APP_URL:-http://localhost:8080}
       DB_CONNECTION: mysql
-      DB_HOST: mysql
-      DB_PORT: 3306
+      DB_HOST: ${DB_HOST:-mysql}
+      DB_PORT: ${DB_PORT:-3306}
       DB_DATABASE: ${DB_DATABASE:-vortexops}
       DB_USERNAME: ${DB_USERNAME:-vortexops}
       DB_PASSWORD: ${DB_PASSWORD:-change-me}
@@ -70,6 +71,7 @@ services:
       FILESYSTEM_DISK: public
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-moondream}
       RUN_MIGRATIONS: "false"
       WAIT_FOR_DB: "true"
     depends_on:
@@ -123,8 +125,8 @@ services:
       APP_DEBUG: "false"
       APP_URL: ${APP_URL:-http://localhost:8080}
       DB_CONNECTION: mysql
-      DB_HOST: mysql
-      DB_PORT: 3306
+      DB_HOST: ${DB_HOST:-mysql}
+      DB_PORT: ${DB_PORT:-3306}
       DB_DATABASE: ${DB_DATABASE:-vortexops}
       DB_USERNAME: ${DB_USERNAME:-vortexops}
       DB_PASSWORD: ${DB_PASSWORD:-change-me}
@@ -160,8 +162,8 @@ services:
       APP_DEBUG: "false"
       APP_URL: ${APP_URL:-http://localhost:8080}
       DB_CONNECTION: mysql
-      DB_HOST: mysql
-      DB_PORT: 3306
+      DB_HOST: ${DB_HOST:-mysql}
+      DB_PORT: ${DB_PORT:-3306}
       DB_DATABASE: ${DB_DATABASE:-vortexops}
       DB_USERNAME: ${DB_USERNAME:-vortexops}
       DB_PASSWORD: ${DB_PASSWORD:-change-me}
@@ -175,6 +177,7 @@ services:
       FILESYSTEM_DISK: public
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-moondream}
       RUN_MIGRATIONS: "false"
       WAIT_FOR_DB: "true"
     depends_on:

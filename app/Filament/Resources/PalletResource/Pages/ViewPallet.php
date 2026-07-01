@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\PalletResource\Pages;
 
 use App\Filament\Resources\PalletResource;
-use App\Models\InventoryCase;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\PalletLine;
@@ -11,7 +10,6 @@ use App\Services\ReceivingService;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -54,6 +52,13 @@ class ViewPallet extends ViewRecord
                 })
                 ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'receiving'])),
 
+            Action::make('upload_manifest')
+                ->label('Upload Manifest')
+                ->icon('heroicon-o-document-arrow-up')
+                ->color('violet')
+                ->url(fn () => PalletResource::getUrl('import-manifest', ['record' => $this->getRecord()]))
+                ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'receiving'])),
+
             Action::make('map_line')
                 ->label('Map Line to Item')
                 ->icon('heroicon-o-link')
@@ -68,9 +73,18 @@ class ViewPallet extends ViewRecord
                         ->searchable(),
                     Select::make('inventory_item_id')
                         ->label('Inventory Item')
-                        ->options(fn () => InventoryItem::where('is_active', true)->orderBy('name')->pluck('name', 'id')->toArray())
+                        ->getSearchResultsUsing(fn (string $search) => InventoryItem::where('is_active', true)
+                            ->where(fn ($q) => $q->where('name', 'like', "%{$search}%")
+                                ->orWhere('sku', 'like', "%{$search}%")
+                                ->orWhere('barcode', $search))
+                            ->orderBy('name')
+                            ->limit(30)
+                            ->pluck('name', 'id')
+                            ->toArray())
+                        ->getOptionLabelUsing(fn ($value) => InventoryItem::find($value)?->name)
                         ->required()
-                        ->searchable(),
+                        ->searchable()
+                        ->helperText('Type a name, SKU, or scan the product barcode.'),
                     Select::make('inventory_location_id')
                         ->label('Receive Into Location')
                         ->options(fn () => InventoryLocation::activeOptions())

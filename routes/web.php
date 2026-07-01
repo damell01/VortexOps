@@ -23,3 +23,5 @@ Route::middleware(['auth', 'web', 'throttle:6,1'])->prefix('admin/export')->name
     Route::get('stock-levels',    [ExportController::class, 'stockLevels'])->name('stock-levels');
     Route::get('movement-log',    [ExportController::class, 'movementLog'])->name('movement-log');
 });
+
+Route::middleware(['auth', 'web'])->get('/admin/manifest-template', [ExportController::class, 'manifestTemplate'])->name('manifest.template');

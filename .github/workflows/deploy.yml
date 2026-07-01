@@ -89,15 +89,18 @@ jobs:
             # Pull new image
             docker pull ${{ env.IMAGE }}:latest
 
-            # Restart services (zero-downtime: worker/scheduler restart first, then app)
-            docker compose pull
-            docker compose up -d --remove-orphans
+            # Restart services.
+            # --env-file is required so ${VAR} substitutions in docker-compose.yml
+            # resolve from .env.docker rather than falling back to hard-coded defaults,
+            # which would override env_file values (environment: takes precedence).
+            docker compose --env-file .env.docker pull
+            docker compose --env-file .env.docker up -d --remove-orphans
 
             # Run migrations inside the app container
-            docker compose exec -T app php artisan migrate --force
+            docker compose --env-file .env.docker exec -T app php artisan migrate --force
 
             # Optimize caches
-            docker compose exec -T app php artisan optimize
-            docker compose exec -T app php artisan filament:optimize
+            docker compose --env-file .env.docker exec -T app php artisan optimize
+            docker compose --env-file .env.docker exec -T app php artisan filament:optimize
 
             echo "Deployment complete — $(date -u)"

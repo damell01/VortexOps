@@ -94,6 +94,15 @@ class ExportController extends Controller
         });
     }
 
+    public function manifestTemplate(): StreamedResponse
+    {
+        return $this->streamCsv('pallet-manifest-template', function () {
+            $this->row(['description', 'sku', 'barcode', 'case_count', 'unit_cost', 'notes']);
+            $this->row(['2024 Topps Chrome Hobby Box', 'TOP-CHR-24', '012345678901', '10', '89.99', '']);
+            $this->row(['2024 Bowman Jumbo Case', 'BOW-JMB-24', '', '5', '249.00', 'Handle with care']);
+        });
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private mixed $handle;

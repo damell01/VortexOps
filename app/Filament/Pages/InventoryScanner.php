@@ -67,36 +67,7 @@ class InventoryScanner extends Page
             return;
         }
 
-        $item->load(['stock.location', 'movements' => fn ($q) => $q->with('toLocation')->latest()->limit(5)]);
-
-        $stockByLocation = $item->stock->map(fn ($s) => [
-            'location' => $s->location?->name ?? 'Unknown',
-            'qty'      => (float) $s->quantity,
-            'id'       => $s->id,
-            'location_id' => $s->inventory_location_id,
-        ])->values()->toArray();
-
-        $recentMovements = $item->movements->map(fn (InventoryMovement $m) => [
-            'type'     => $m->movement_type,
-            'qty'      => (float) $m->quantity,
-            'location' => $m->toLocation?->name ?? '—',
-            'date'     => $m->created_at?->diffForHumans(),
-            'reason'   => $m->reason,
-        ])->toArray();
-
-        $this->result = [
-            'id'          => $item->id,
-            'name'        => $item->name,
-            'sku'         => $item->sku,
-            'barcode'     => $item->barcode,
-            'category'    => $item->category,
-            'avg_cost'    => number_format((float) $item->average_cost, 2),
-            'total_qty'   => number_format($item->totalQuantity(), 0),
-            'is_low'      => $item->isLowStock(),
-            'reorder'     => $item->reorder_level,
-            'stock'       => $stockByLocation,
-            'movements'   => $recentMovements,
-        ];
+        $this->result = $this->buildResultFromItem($item);
     }
 
     public function openAdjust(): void
@@ -139,8 +110,42 @@ class InventoryScanner extends Page
 
         $this->adjustMode = false;
 
-        // Re-run scan to refresh result
-        $this->scanInput = $item->barcode ?? $item->sku ?? '';
-        $this->submitScan();
+        // Refresh directly by ID — avoids losing the result when item has no barcode/SKU
+        $item->refresh();
+        $this->result = $this->buildResultFromItem($item);
+    }
+
+    private function buildResultFromItem(InventoryItem $item): array
+    {
+        $item->load(['stock.location', 'movements' => fn ($q) => $q->with('toLocation')->latest()->limit(5)]);
+
+        $stockByLocation = $item->stock->map(fn ($s) => [
+            'location'    => $s->location?->name ?? 'Unknown',
+            'qty'         => (float) $s->quantity,
+            'id'          => $s->id,
+            'location_id' => $s->inventory_location_id,
+        ])->values()->toArray();
+
+        $recentMovements = $item->movements->map(fn (InventoryMovement $m) => [
+            'type'     => $m->movement_type,
+            'qty'      => (float) $m->quantity,
+            'location' => $m->toLocation?->name ?? '—',
+            'date'     => $m->created_at?->diffForHumans(),
+            'reason'   => $m->reason,
+        ])->toArray();
+
+        return [
+            'id'        => $item->id,
+            'name'      => $item->name,
+            'sku'       => $item->sku,
+            'barcode'   => $item->barcode,
+            'category'  => $item->category,
+            'avg_cost'  => number_format((float) $item->average_cost, 2),
+            'total_qty' => number_format($item->totalQuantity(), 0),
+            'is_low'    => $item->isLowStock(),
+            'reorder'   => $item->reorder_level,
+            'stock'     => $stockByLocation,
+            'movements' => $recentMovements,
+        ];
     }
 }

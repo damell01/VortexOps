@@ -130,8 +130,8 @@ class InventoryScanner extends Page
 
         InventoryMovement::create([
             'inventory_item_id' => $item->id,
-            'movement_type'     => $qty > 0 ? 'adjustment_in' : 'adjustment_out',
-            'quantity'          => abs($qty),
+            'movement_type'     => 'adjustment',
+            'quantity'          => $qty,
             'to_location_id'    => $location->id,
             'reason'            => $this->adjustReason ?: 'Manual scanner adjustment',
             'created_by'        => auth()->id(),

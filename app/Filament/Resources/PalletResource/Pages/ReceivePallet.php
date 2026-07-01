@@ -138,13 +138,19 @@ class ReceivePallet extends Page
                         ->searchable(),
                 ])
                 ->action(function (array $data) {
-                    $line     = PalletLine::findOrFail($data['pallet_line_id']);
-                    $item     = InventoryItem::findOrFail($data['inventory_item_id']);
-                    $location = InventoryLocation::findOrFail($data['inventory_location_id']);
-                    app(ReceivingService::class)->mapLine($line, $item, $location);
-                    Notification::make()->title('Line mapped')->success()->send();
-                    $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
-                    $this->refreshProgress();
+                    try {
+                        $line = PalletLine::where('id', $data['pallet_line_id'])
+                            ->where('pallet_id', $this->record->id)
+                            ->firstOrFail();
+                        $item     = InventoryItem::findOrFail($data['inventory_item_id']);
+                        $location = InventoryLocation::findOrFail($data['inventory_location_id']);
+                        app(ReceivingService::class)->mapLine($line, $item, $location);
+                        Notification::make()->title('Line mapped')->success()->send();
+                        $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+                        $this->refreshProgress();
+                    } catch (\Throwable $e) {
+                        Notification::make()->title('Could not map line')->body($e->getMessage())->danger()->send();
+                    }
                 }),
         ];
     }

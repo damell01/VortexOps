@@ -46,6 +46,8 @@ class Show extends Model
         'sales_reconciled'       => 'boolean',
         'raw_import_payload'     => 'array',
         'ai_streamer_suggestion' => 'array',
+        'units_sold'             => 'integer',
+        'show_duration'          => 'integer',
     ];
 
     public function getActivitylogOptions(): LogOptions

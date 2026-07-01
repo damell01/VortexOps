@@ -13,10 +13,12 @@ Route::get('/', function () {
 Route::get('/health', HealthController::class)->name('health');
 
 Route::middleware(['auth', 'web'])->prefix('admin')->name('admin.')->group(function () {
-    Route::post('feedback', [FeedbackController::class, 'store'])->name('feedback.store');
+    Route::post('feedback', [FeedbackController::class, 'store'])
+        ->middleware('throttle:10,1')
+        ->name('feedback.store');
 });
 
-Route::middleware(['auth', 'web'])->prefix('admin/export')->name('export.')->group(function () {
+Route::middleware(['auth', 'web', 'throttle:6,1'])->prefix('admin/export')->name('export.')->group(function () {
     Route::get('inventory-items', [ExportController::class, 'inventoryItems'])->name('inventory-items');
     Route::get('stock-levels',    [ExportController::class, 'stockLevels'])->name('stock-levels');
     Route::get('movement-log',    [ExportController::class, 'movementLog'])->name('movement-log');

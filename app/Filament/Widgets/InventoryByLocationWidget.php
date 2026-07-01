@@ -22,7 +22,7 @@ class InventoryByLocationWidget extends BaseWidget
                     ->select('inventory_locations.*')
                     ->selectRaw('COUNT(DISTINCT s.inventory_item_id) as sku_count')
                     ->selectRaw('COALESCE(SUM(s.quantity), 0) as total_units')
-                    ->selectRaw('COALESCE(SUM(s.quantity * i.unit_cost), 0) as stock_value')
+                    ->selectRaw('COALESCE(SUM(s.quantity * NULLIF(i.average_cost, 0)), SUM(s.quantity * i.unit_cost), 0) as stock_value')
                     ->leftJoin('inventory_stock as s', 's.inventory_location_id', '=', 'inventory_locations.id')
                     ->leftJoin('inventory_items as i', 'i.id', '=', 's.inventory_item_id')
                     ->groupBy('inventory_locations.id')

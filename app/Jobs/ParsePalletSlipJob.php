@@ -61,7 +61,20 @@ class ParsePalletSlipJob implements ShouldQueue
         }
 
         // Regular image — just base64-encode as-is
+        if (! file_exists($path)) {
+            throw new \RuntimeException("Uploaded file not found at path: {$path}. It may have been on a different server volume.");
+        }
         return [base64_encode(file_get_contents($path))];
+    }
+
+    public function failed(\Throwable $e): void
+    {
+        @unlink($this->storedPath);
+        Log::error('ParsePalletSlipJob timed out or failed fatally', [
+            'ai_task_id' => $this->aiTaskId,
+            'error'      => $e->getMessage(),
+        ]);
+        optional(AiTask::find($this->aiTaskId))->markFailed($e->getMessage());
     }
 
     /** @return list<string> base64 PNGs, one per page */
@@ -87,11 +100,12 @@ class ParsePalletSlipJob implements ShouldQueue
 
         // Fallback: pdftoppm (poppler-utils) — convert first page only
         $tmpPng = sys_get_temp_dir() . '/slip_' . uniqid() . '.png';
-        $cmd    = sprintf('pdftoppm -r 150 -png -f 1 -l 1 %s %s 2>/dev/null', escapeshellarg($pdfPath), escapeshellarg(rtrim($tmpPng, '.png')));
+        $prefix = substr($tmpPng, 0, -4); // strip .png suffix
+        $cmd    = sprintf('pdftoppm -r 150 -png -f 1 -l 1 %s %s 2>/dev/null', escapeshellarg($pdfPath), escapeshellarg($prefix));
         exec($cmd);
 
-        // pdftoppm appends -1.png
-        $generated = rtrim($tmpPng, '.png') . '-1.png';
+        // pdftoppm appends -1.png to the prefix
+        $generated = $prefix . '-1.png';
         if (file_exists($generated)) {
             $b64 = base64_encode(file_get_contents($generated));
             @unlink($generated);

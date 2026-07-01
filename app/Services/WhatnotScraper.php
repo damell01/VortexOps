@@ -35,18 +35,13 @@ class WhatnotScraper
             );
         }
 
-        $process = new Process(
-            [$this->nodeBin, $this->scriptPath],
-            null,
-            [
-                'WHATNOT_EMAIL'    => $email,
-                'WHATNOT_PASSWORD' => $password,
-                'WHATNOT_LIMIT'    => (string) $limit,
-                'WHATNOT_DEBUG'    => $debug ? '1' : '0',
-            ]
-        );
+        $process = $this->makeProcess([
+            'WHATNOT_EMAIL'    => $email,
+            'WHATNOT_PASSWORD' => $password,
+            'WHATNOT_LIMIT'    => (string) $limit,
+            'WHATNOT_DEBUG'    => $debug ? '1' : '0',
+        ]);
 
-        $process->setTimeout(180); // 3 min — login + page load can be slow
         $process->run();
 
         $stderr = trim($process->getErrorOutput());
@@ -83,6 +78,13 @@ class WhatnotScraper
         return is_array($data) ? $data : [];
     }
 
+    protected function makeProcess(array $env): Process
+    {
+        $process = new Process([$this->nodeBin, $this->scriptPath], null, $env);
+        $process->setTimeout(180);
+        return $process;
+    }
+
     /**
      * Fetch shows and upsert them into the shows table.
      * Returns counts: ['created' => n, 'updated' => n, 'skipped' => n].
@@ -109,11 +111,11 @@ class WhatnotScraper
             $query = Show::query()->where('import_source', 'auto_whatnot');
 
             if ($lookupTitle && $lookupDate) {
-                $query->where('title', $lookupTitle)->where('show_date', $lookupDate);
+                $query->where('title', $lookupTitle)->whereDate('show_date', $lookupDate);
             } elseif ($lookupTitle) {
                 $query->where('title', $lookupTitle);
             } elseif ($lookupDate) {
-                $query->where('show_date', $lookupDate);
+                $query->whereDate('show_date', $lookupDate);
             } else {
                 $skipped++;
                 continue;

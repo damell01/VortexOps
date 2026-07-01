@@ -116,9 +116,13 @@ class ReceivePallet extends Page
                             ->mapWithKeys(fn ($l) => [$l->id => "Line {$l->line_number}: {$l->description}"])
                             ->toArray())
                         ->required()
-                        ->searchable(),
+                        ->searchable()
+                        ->live(),
                     Select::make('inventory_item_id')
                         ->label('Inventory Item')
+                        ->options(fn ($get) => InventoryItem::suggestForDescription(
+                            \App\Models\PalletLine::find($get('pallet_line_id'))?->description ?? ''
+                        ))
                         ->getSearchResultsUsing(fn (string $search) => InventoryItem::where('is_active', true)
                             ->where(fn ($q) => $q->where('name', 'like', "%{$search}%")
                                 ->orWhere('sku', 'like', "%{$search}%")
@@ -130,7 +134,7 @@ class ReceivePallet extends Page
                         ->getOptionLabelUsing(fn ($value) => InventoryItem::find($value)?->name)
                         ->required()
                         ->searchable()
-                        ->helperText('Type a name, SKU, or scan the product barcode.')
+                        ->helperText('Suggestions based on previous show history. Type a name, SKU, or barcode to search all items.')
                         ->createOptionForm([
                             TextInput::make('name')->required(),
                             TextInput::make('sku')->maxLength(100),

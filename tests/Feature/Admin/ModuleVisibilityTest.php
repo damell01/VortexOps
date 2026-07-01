@@ -20,13 +20,22 @@ class ModuleVisibilityTest extends TestCase
 
     public function test_owner_check_returns_true_for_owner_email(): void
     {
-        $owner = User::factory()->create(['email' => 'dbellcreations@gmail.com']);
+        config(['app.owner_email' => 'owner@example.com']);
+        $owner = User::factory()->create(['email' => 'owner@example.com']);
         $this->assertTrue($owner->isOwner());
     }
 
     public function test_owner_check_returns_false_for_other_email(): void
     {
+        config(['app.owner_email' => 'owner@example.com']);
         $user = User::factory()->create(['email' => 'someone@else.com']);
+        $this->assertFalse($user->isOwner());
+    }
+
+    public function test_owner_check_returns_false_when_owner_email_not_configured(): void
+    {
+        config(['app.owner_email' => null]);
+        $user = User::factory()->create(['email' => 'anyone@example.com']);
         $this->assertFalse($user->isOwner());
     }
 

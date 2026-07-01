@@ -28,7 +28,7 @@ class NotifyShowPendingApproval implements ShouldQueue
                 return;
             }
 
-            $recipients = $router->getRecipients('show_ready');
+            $recipients = $router->getRecipients('show_pending_approval');
             $notifiedIds = $recipients->pluck('id')->flip();
 
             foreach ($recipients as $user) {

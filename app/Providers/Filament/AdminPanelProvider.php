@@ -37,6 +37,10 @@ class AdminPanelProvider extends PanelProvider
             $logoPath     = null;
         }
 
+        if (! preg_match('/^#[0-9a-fA-F]{3,8}$/', $primaryColor)) {
+            $primaryColor = '#7c3aed';
+        }
+
         $panel = $panel
             ->default()
             ->id('admin')
@@ -67,6 +71,8 @@ class AdminPanelProvider extends PanelProvider
         $isAuthenticatedAdminView = fn (): bool => auth()->check();
         $hasViteManifest = fn (): bool => file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot'));
 
+        $pwaIconsExist = fn (): bool => file_exists(public_path('icons/icon-192.png'));
+
         return $panel
             ->spa(hasPrefetching: true)
             ->databaseNotifications()
@@ -86,6 +92,26 @@ class AdminPanelProvider extends PanelProvider
                         : Blade::render("@vite(['resources/css/app.css'])")),
             )
             ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                function () use ($brandName, $primaryColor, $pwaIconsExist): string {
+                    $color  = htmlspecialchars($primaryColor, ENT_QUOTES);
+                    $bname  = htmlspecialchars($brandName, ENT_QUOTES);
+                    $icons  = $pwaIconsExist();
+                    $touch  = $icons ? '<link rel="apple-touch-icon" href="/icons/icon-180.png">' : '';
+                    $favicon = $icons ? '<link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-32.png">' : '';
+                    return implode('', [
+                        '<link rel="manifest" href="/manifest.json">',
+                        "<meta name=\"theme-color\" content=\"{$color}\">",
+                        '<meta name="mobile-web-app-capable" content="yes">',
+                        '<meta name="apple-mobile-web-app-capable" content="yes">',
+                        '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">',
+                        "<meta name=\"apple-mobile-web-app-title\" content=\"{$bname}\">",
+                        $touch,
+                        $favicon,
+                    ]);
+                },
+            )
+            ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn (): string => ! $isAuthenticatedAdminView()
                     ? ''
@@ -93,6 +119,19 @@ class AdminPanelProvider extends PanelProvider
                         "<x-tour-button />"
                         . "@livewire('feedback-widget')"
                     ),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): string => file_exists(public_path('sw.js')) ? <<<'HTML'
+                    <script>
+                    if ('serviceWorker' in navigator) {
+                        window.addEventListener('load', () => {
+                            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                                .catch(() => {});
+                        });
+                    }
+                    </script>
+                    HTML : '',
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

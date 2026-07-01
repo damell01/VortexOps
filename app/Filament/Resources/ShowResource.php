@@ -420,10 +420,11 @@ class ShowResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListShows::route('/'),
-            'create' => Pages\CreateShow::route('/create'),
-            'view' => Pages\ViewShow::route('/{record}'),
-            'edit' => Pages\EditShow::route('/{record}/edit'),
+            'index'     => Pages\ListShows::route('/'),
+            'create'    => Pages\CreateShow::route('/create'),
+            'view'      => Pages\ViewShow::route('/{record}'),
+            'edit'      => Pages\EditShow::route('/{record}/edit'),
+            'inventory' => Pages\ShowInventoryBreakdown::route('/{record}/inventory'),
         ];
     }
 }

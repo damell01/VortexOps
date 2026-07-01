@@ -96,7 +96,7 @@
 
         <div
             id="chat-messages"
-            class="flex max-h-[36rem] min-h-96 flex-col gap-4 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-950"
+            class="flex max-h-[55dvh] min-h-48 flex-col gap-4 overflow-y-auto rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-950 sm:max-h-[36rem] sm:min-h-96"
         >
             @forelse ($messages as $msg)
                 @if ($msg['role'] === 'user')
@@ -181,18 +181,19 @@
                 x-ref="question"
                 wire:model="question"
                 type="text"
-                placeholder="Ask Vortex Assistant about your inventory..."
+                placeholder="Ask about your inventory…"
                 autocomplete="off"
                 :disabled="loading"
-                class="flex-1 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-sm placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                class="flex-1 min-w-0 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-sm placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             />
             <button
                 type="submit"
                 :disabled="loading"
-                class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
+                class="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-primary-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 sm:px-4"
+                title="Send"
             >
                 <x-heroicon-o-paper-airplane class="h-4 w-4" />
-                Send
+                <span class="hidden sm:inline">Send</span>
             </button>
         </form>
     </div>

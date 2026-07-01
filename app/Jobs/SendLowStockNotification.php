@@ -7,6 +7,8 @@ use App\Services\NotificationRouter;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class SendLowStockNotification implements ShouldQueue
 {
@@ -32,5 +34,13 @@ class SendLowStockNotification implements ShouldQueue
             ->warning()
             ->icon('heroicon-o-exclamation-triangle')
             ->sendToDatabase($router->getRecipients('low_stock'));
+    }
+
+    public function failed(Throwable $e): void
+    {
+        Log::error('SendLowStockNotification failed', [
+            'item_id' => $this->itemId,
+            'error'   => $e->getMessage(),
+        ]);
     }
 }

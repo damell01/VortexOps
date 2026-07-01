@@ -124,11 +124,12 @@ class ParsePalletSlipJobTest extends TestCase
     {
         $missingPath = sys_get_temp_dir() . '/no_such_file_' . uniqid() . '.jpg';
 
-        Http::fake(['*' => Http::response($this->ollamaOk([]))]);
-
+        // No Http::fake() here: the job throws before any HTTP call is made
         $this->runJob($missingPath);
 
-        $this->assertEquals('failed', $this->task->refresh()->status);
+        $task = $this->task->refresh();
+        $this->assertEquals('failed', $task->status);
+        $this->assertStringContainsString('not found', $task->error_message);
     }
 
     // ── Temp file cleanup ─────────────────────────────────────────────────────

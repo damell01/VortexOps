@@ -125,6 +125,6 @@ return [
 
     'scraper_api_token' => env('SCRAPER_API_TOKEN'),
 
-    'owner_email' => env('APP_OWNER_EMAIL', 'dbellcreations@gmail.com'),
+    'owner_email' => env('APP_OWNER_EMAIL'),
 
 ];

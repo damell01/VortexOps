@@ -55,6 +55,7 @@ class InventoryService
         return DB::transaction(function () use ($item, $from, $to, $quantity, $reason) {
             $fromStock = InventoryStock::where('inventory_item_id', $item->id)
                 ->where('inventory_location_id', $from->id)
+                ->lockForUpdate()
                 ->first();
 
             if (! $fromStock || $fromStock->quantity < $quantity) {
@@ -137,6 +138,7 @@ class InventoryService
         return DB::transaction(function () use ($item, $from, $damagedLocation, $quantity, $reason) {
             $fromStock = InventoryStock::where('inventory_item_id', $item->id)
                 ->where('inventory_location_id', $from->id)
+                ->lockForUpdate()
                 ->first();
 
             if (! $fromStock || $fromStock->quantity < $quantity) {
@@ -184,6 +186,7 @@ class InventoryService
         return DB::transaction(function () use ($item, $from, $returnsLocation, $quantity, $reason) {
             $fromStock = InventoryStock::where('inventory_item_id', $item->id)
                 ->where('inventory_location_id', $from->id)
+                ->lockForUpdate()
                 ->first();
 
             if (! $fromStock || $fromStock->quantity < $quantity) {
@@ -224,6 +227,7 @@ class InventoryService
         return DB::transaction(function () use ($item, $location, $quantity, $reason, $referenceId) {
             $stock = InventoryStock::where('inventory_item_id', $item->id)
                 ->where('inventory_location_id', $location->id)
+                ->lockForUpdate()
                 ->first();
 
             if (! $stock || $stock->quantity < $quantity) {

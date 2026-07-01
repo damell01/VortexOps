@@ -13,13 +13,16 @@
 #       up -d app worker scheduler ai-worker redis
 #
 # This overlay:
-#   - Removes depends_on mysql from all app services (they connect directly to external host)
-#   - Removes the mysql service so it never starts
-#   - Sets WAIT_FOR_DB=false since entrypoint wait-loop targets Docker-internal "mysql" hostname
+#   - Marks mysql as an optional (required: false) dependency so app services start without it
+#   - Disables the bundled mysql service via profiles so it never starts
+#   - Sets WAIT_FOR_DB=false since the entrypoint wait-loop targets the Docker-internal "mysql" hostname
 
 services:
   app:
     depends_on:
+      mysql:
+        condition: service_started
+        required: false
       redis:
         condition: service_healthy
     environment:
@@ -27,6 +30,9 @@ services:
 
   worker:
     depends_on:
+      mysql:
+        condition: service_started
+        required: false
       redis:
         condition: service_healthy
       app:
@@ -36,6 +42,9 @@ services:
 
   scheduler:
     depends_on:
+      mysql:
+        condition: service_started
+        required: false
       redis:
         condition: service_healthy
       app:
@@ -45,6 +54,9 @@ services:
 
   ai-worker:
     depends_on:
+      mysql:
+        condition: service_started
+        required: false
       redis:
         condition: service_healthy
       app:
@@ -54,5 +66,4 @@ services:
 
   mysql:
     # profiles: prevents this service from starting unless explicitly requested.
-    # 'deploy: replicas: 0' is Swarm-only and is ignored in standalone Compose.
     profiles: ["disabled"]

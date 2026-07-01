@@ -74,6 +74,51 @@ class InventoryItem extends Model
             ?? static::where('sku', $code)->first();
     }
 
+    /**
+     * Suggest inventory items based on a description, using show deduction history.
+     *
+     * Queries DeductionRequestLine.raw_description for lines that contain the
+     * significant words from the given description and returns the most-frequently
+     * matched inventory items (ranked by how many show lines mention them).
+     *
+     * @return array<int, string>  id → name
+     */
+    public static function suggestForDescription(string $description, int $limit = 8): array
+    {
+        $words = collect(explode(' ', preg_replace('/[^a-zA-Z0-9\s]/', '', $description)))
+            ->map('strtolower')
+            ->filter(fn ($w) => strlen($w) >= 3)
+            ->unique()
+            ->values();
+
+        if ($words->isEmpty()) {
+            return [];
+        }
+
+        $ids = \App\Models\DeductionRequestLine::query()
+            ->selectRaw('inventory_item_id, COUNT(*) as freq')
+            ->whereNotNull('inventory_item_id')
+            ->where(function ($q) use ($words) {
+                foreach ($words as $word) {
+                    $q->orWhere('raw_description', 'like', "%{$word}%");
+                }
+            })
+            ->groupBy('inventory_item_id')
+            ->orderByDesc('freq')
+            ->limit($limit)
+            ->pluck('inventory_item_id');
+
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        return static::whereIn('id', $ids)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->pluck('name', 'id')
+            ->toArray();
+    }
+
     public function effectiveCost(): float
     {
         $avg = (float) $this->average_cost;

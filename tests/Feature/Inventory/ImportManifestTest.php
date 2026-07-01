@@ -109,7 +109,8 @@ class ImportManifestTest extends TestCase
     {
         $this->task->markFailed('Model not loaded');
 
-        $page = $this->makePage();
+        $page                    = $this->makePage();
+        $page->parseErrorIsTimeout = true; // prove checkProcessing() resets it on failure
         $page->checkProcessing();
 
         $this->assertFalse($page->parseErrorIsTimeout);

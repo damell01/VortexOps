@@ -122,7 +122,7 @@ ENVFILE
     echo "    nano $INSTALL_DIR/.env.docker"
     echo ""
     echo "  Required changes:"
-    echo "    APP_KEY        — generate with: docker run --rm php:8.3-cli php artisan key:generate --show"
+    echo "    APP_KEY        — generate with: docker run --rm php:8.3-cli php -r \"echo 'base64:'.base64_encode(random_bytes(32));\""
     echo "    APP_URL        — your actual domain (https://yourdomain.com)"
     echo "    APP_OWNER_EMAIL — your email for owner-only features"
     echo "    DB_PASSWORD    — strong random password"

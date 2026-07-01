@@ -86,7 +86,8 @@ class PayoutService
             case 'hourly':
                 $actualHours      = $hours > 0 ? $hours : 1;
                 $calculatedPayout = round((float) $streamer->hourly_rate * $actualHours, 2);
-                $calculationNotes = "Hourly rate \${$streamer->hourly_rate}/hr × {$actualHours}hrs";
+                $durationNote     = $hours > 0 ? "{$actualHours}hrs" : "1hr (show_duration missing)";
+                $calculationNotes = "Hourly rate \${$streamer->hourly_rate}/hr × {$durationNote}";
                 break;
 
             case 'flat_rate':

@@ -196,64 +196,122 @@
                     </div>
                 @endif
 
-                {{-- Editable lines table --}}
+                {{-- Editable lines — mobile: stacked cards, desktop: compact table --}}
                 <div class="space-y-2">
-                    {{-- Header --}}
-                    <div class="grid grid-cols-12 gap-2 px-1 text-[11px] font-medium uppercase text-gray-400">
-                        <div class="col-span-5">Description</div>
-                        <div class="col-span-2">Cases</div>
-                        <div class="col-span-2">Unit Cost</div>
-                        <div class="col-span-2">SKU</div>
-                        <div class="col-span-1"></div>
+
+                    {{-- Mobile card layout (hidden on sm+) --}}
+                    <div class="sm:hidden space-y-2">
+                        @foreach ($parsedLines as $i => $line)
+                            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3 space-y-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[11px] font-mono text-gray-400 flex-shrink-0">#{{ $i + 1 }}</span>
+                                    <input
+                                        wire:model="parsedLines.{{ $i }}.description"
+                                        type="text"
+                                        placeholder="Item description"
+                                        class="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 min-w-0 {{ trim($line['description']) === '' ? 'border-amber-300 dark:border-amber-600' : '' }}"
+                                    />
+                                    <button
+                                        wire:click="removeLine({{ $i }})"
+                                        type="button"
+                                        class="flex-shrink-0 text-gray-300 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 focus:outline-none"
+                                        title="Remove line"
+                                    >
+                                        <x-heroicon-o-x-mark class="h-4 w-4" />
+                                    </button>
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="block text-[10px] text-gray-400 mb-0.5 uppercase">Cases</label>
+                                        <input
+                                            wire:model="parsedLines.{{ $i }}.case_count"
+                                            type="number"
+                                            min="1"
+                                            placeholder="1"
+                                            class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-gray-400 mb-0.5 uppercase">Unit Cost</label>
+                                        <input
+                                            wire:model="parsedLines.{{ $i }}.unit_cost"
+                                            type="text"
+                                            placeholder="0.00"
+                                            class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] text-gray-400 mb-0.5 uppercase">SKU</label>
+                                        <input
+                                            wire:model="parsedLines.{{ $i }}.sku"
+                                            type="text"
+                                            placeholder="SKU"
+                                            class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
                     </div>
 
-                    @foreach ($parsedLines as $i => $line)
-                        <div class="grid grid-cols-12 gap-2 items-center">
-                            <div class="col-span-5">
-                                <input
-                                    wire:model="parsedLines.{{ $i }}.description"
-                                    type="text"
-                                    placeholder="Item description"
-                                    class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 {{ trim($line['description']) === '' ? 'border-amber-300 dark:border-amber-600' : '' }}"
-                                />
-                            </div>
-                            <div class="col-span-2">
-                                <input
-                                    wire:model="parsedLines.{{ $i }}.case_count"
-                                    type="number"
-                                    min="1"
-                                    placeholder="1"
-                                    class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                />
-                            </div>
-                            <div class="col-span-2">
-                                <input
-                                    wire:model="parsedLines.{{ $i }}.unit_cost"
-                                    type="text"
-                                    placeholder="0.00"
-                                    class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                />
-                            </div>
-                            <div class="col-span-2">
-                                <input
-                                    wire:model="parsedLines.{{ $i }}.sku"
-                                    type="text"
-                                    placeholder="SKU"
-                                    class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                />
-                            </div>
-                            <div class="col-span-1 flex justify-center">
-                                <button
-                                    wire:click="removeLine({{ $i }})"
-                                    type="button"
-                                    class="text-gray-300 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 focus:outline-none"
-                                    title="Remove line"
-                                >
-                                    <x-heroicon-o-x-mark class="h-4 w-4" />
-                                </button>
-                            </div>
+                    {{-- Desktop table layout (hidden on mobile) --}}
+                    <div class="hidden sm:block space-y-2">
+                        <div class="grid grid-cols-12 gap-2 px-1 text-[11px] font-medium uppercase text-gray-400">
+                            <div class="col-span-5">Description</div>
+                            <div class="col-span-2">Cases</div>
+                            <div class="col-span-2">Unit Cost</div>
+                            <div class="col-span-2">SKU</div>
+                            <div class="col-span-1"></div>
                         </div>
-                    @endforeach
+
+                        @foreach ($parsedLines as $i => $line)
+                            <div class="grid grid-cols-12 gap-2 items-center">
+                                <div class="col-span-5">
+                                    <input
+                                        wire:model="parsedLines.{{ $i }}.description"
+                                        type="text"
+                                        placeholder="Item description"
+                                        class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 {{ trim($line['description']) === '' ? 'border-amber-300 dark:border-amber-600' : '' }}"
+                                    />
+                                </div>
+                                <div class="col-span-2">
+                                    <input
+                                        wire:model="parsedLines.{{ $i }}.case_count"
+                                        type="number"
+                                        min="1"
+                                        placeholder="1"
+                                        class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                    />
+                                </div>
+                                <div class="col-span-2">
+                                    <input
+                                        wire:model="parsedLines.{{ $i }}.unit_cost"
+                                        type="text"
+                                        placeholder="0.00"
+                                        class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                    />
+                                </div>
+                                <div class="col-span-2">
+                                    <input
+                                        wire:model="parsedLines.{{ $i }}.sku"
+                                        type="text"
+                                        placeholder="SKU"
+                                        class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                    />
+                                </div>
+                                <div class="col-span-1 flex justify-center">
+                                    <button
+                                        wire:click="removeLine({{ $i }})"
+                                        type="button"
+                                        class="text-gray-300 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 focus:outline-none"
+                                        title="Remove line"
+                                    >
+                                        <x-heroicon-o-x-mark class="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
 
                     <button
                         wire:click="addLine"

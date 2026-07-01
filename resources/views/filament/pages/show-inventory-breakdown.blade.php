@@ -38,7 +38,7 @@
             </div>
         @else
             {{-- ── Summary Stats ────────────────────────────────────────────── --}}
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
                 <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-center">
                     <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $this->totalLines }}</p>
                     <p class="text-xs text-gray-500 mt-0.5">Line Items</p>
@@ -47,25 +47,39 @@
                     <p class="text-2xl font-bold text-green-700 dark:text-green-400">{{ $this->matched }}</p>
                     <p class="text-xs text-green-600 dark:text-green-500 mt-0.5">Matched to Inventory</p>
                 </div>
-                @if ($this->unmatched > 0)
-                    <div class="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 px-4 py-3 text-center">
-                        <p class="text-2xl font-bold text-amber-700 dark:text-amber-400">{{ $this->unmatched }}</p>
-                        <p class="text-xs text-amber-600 dark:text-amber-500 mt-0.5">Unmatched</p>
-                    </div>
-                @endif
+                <div class="rounded-xl border px-4 py-3 text-center
+                    {{ $this->unmatched > 0
+                        ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950'
+                        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900' }}">
+                    <p class="text-2xl font-bold {{ $this->unmatched > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-gray-900 dark:text-gray-100' }}">{{ $this->unmatched }}</p>
+                    <p class="text-xs mt-0.5 {{ $this->unmatched > 0 ? 'text-amber-600 dark:text-amber-500' : 'text-gray-500' }}">Unmatched</p>
+                </div>
                 <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 text-center">
-                    <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">${{ number_format($this->totalCogs, 2) }}</p>
+                    <p class="text-lg font-bold text-gray-900 dark:text-gray-100">${{ number_format($this->totalCogs, 2) }}</p>
                     <p class="text-xs text-gray-500 mt-0.5">Total COGS</p>
+                </div>
+                <div class="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-4 py-3 text-center">
+                    <p class="text-2xl font-bold text-blue-700 dark:text-blue-400">{{ number_format($this->totalDeducted) }}</p>
+                    <p class="text-xs text-blue-600 dark:text-blue-500 mt-0.5">Units Deducted</p>
                 </div>
                 <div class="rounded-xl border px-4 py-3 text-center
                     {{ $this->deductionStatus === 'processed'
                         ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950'
                         : 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950' }}">
+                    @php
+                        $drStatusLabel = match($this->deductionStatus) {
+                            'pending'   => 'Pending',
+                            'approved'  => 'Approved',
+                            'processed' => 'Processed',
+                            'rejected'  => 'Rejected',
+                            default     => ucfirst($this->deductionStatus ?? 'None'),
+                        };
+                    @endphp
                     <p class="text-sm font-bold mt-1
                         {{ $this->deductionStatus === 'processed'
                             ? 'text-green-700 dark:text-green-400'
                             : 'text-yellow-700 dark:text-yellow-400' }}">
-                        {{ ucfirst($this->deductionStatus ?? 'none') }}
+                        {{ $drStatusLabel }}
                     </p>
                     <p class="text-xs mt-0.5
                         {{ $this->deductionStatus === 'processed'
@@ -101,7 +115,17 @@
                                         <p class="text-xs text-amber-500">Unmatched — not in inventory catalogue</p>
                                     @endif
                                 </div>
-                                @include('filament.partials.confidence-badge', ['confidence' => $row['confidence']])
+                                @php
+                                    $mobileBadge = match($row['confidence']) {
+                                        'high'   => 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+                                        'medium' => 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
+                                        'low'    => 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+                                        default  => 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
+                                    };
+                                @endphp
+                                <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 {{ $mobileBadge }}">
+                                    {{ ucfirst($row['confidence'] ?? '—') }}
+                                </span>
                             </div>
                             <div class="grid grid-cols-3 gap-2 text-xs">
                                 <div>

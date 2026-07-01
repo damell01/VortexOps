@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\ShowResource\Pages;
 
 use App\Filament\Resources\ShowResource;
-use App\Models\DeductionRequest;
 use App\Models\InventoryMovement;
 use App\Models\Show;
 use Filament\Actions\Action;
@@ -17,15 +16,14 @@ class ShowInventoryBreakdown extends Page
 
     public Show $record;
 
-    /** @var array<int, array{...}> */
     public array $breakdown = [];
 
-    /** Summary totals */
     public int   $totalLines  = 0;
     public int   $matched     = 0;
     public int   $unmatched   = 0;
     public float $totalCogs   = 0.0;
     public float $totalDeducted = 0.0;
+    public float $totalQtyApproved = 0.0;
     public ?string $deductionStatus = null;
 
     public function getView(): string
@@ -47,6 +45,11 @@ class ShowInventoryBreakdown extends Page
 
     public function refresh(): void
     {
+        $this->record->load([
+            'latestDeductionRequest.lines.inventoryItem.stock',
+            'latestDeductionRequest.lines.location',
+        ]);
+
         $request = $this->record->latestDeductionRequest;
 
         if (! $request) {
@@ -54,15 +57,15 @@ class ShowInventoryBreakdown extends Page
             $this->totalLines       = 0;
             $this->matched          = 0;
             $this->unmatched        = 0;
-            $this->totalCogs        = 0.0;
-            $this->totalDeducted    = 0.0;
-            $this->deductionStatus  = null;
+            $this->totalCogs           = 0.0;
+            $this->totalDeducted       = 0.0;
+            $this->totalQtyApproved    = 0.0;
+            $this->deductionStatus     = null;
             return;
         }
 
         $this->deductionStatus = $request->status;
 
-        // Sum of deducted quantity per inventory item for this deduction request
         $deductedMap = InventoryMovement::where('reference_type', 'deduction_request')
             ->where('reference_id', $request->id)
             ->selectRaw('inventory_item_id, SUM(quantity) as total')
@@ -95,11 +98,12 @@ class ShowInventoryBreakdown extends Page
             ];
         })->toArray();
 
-        $this->totalLines    = count($this->breakdown);
-        $this->matched       = count(array_filter($this->breakdown, fn ($r) => $r['item_id'] !== null));
-        $this->unmatched     = $this->totalLines - $this->matched;
-        $this->totalCogs     = (float) $request->lines->sum('line_total');
-        $this->totalDeducted = (float) $deductedMap->sum();
+        $this->totalLines       = count($this->breakdown);
+        $this->matched          = count(array_filter($this->breakdown, fn ($r) => $r['item_id'] !== null));
+        $this->unmatched        = $this->totalLines - $this->matched;
+        $this->totalCogs        = (float) $request->lines->sum('line_total');
+        $this->totalDeducted    = (float) $deductedMap->sum();
+        $this->totalQtyApproved = (float) array_sum(array_column($this->breakdown, 'qty_approved'));
     }
 
     protected function getHeaderActions(): array

@@ -37,6 +37,10 @@ class AdminPanelProvider extends PanelProvider
             $logoPath     = null;
         }
 
+        if (! preg_match('/^#[0-9a-fA-F]{3,8}$/', $primaryColor)) {
+            $primaryColor = '#7c3aed';
+        }
+
         $panel = $panel
             ->default()
             ->id('admin')

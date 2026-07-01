@@ -101,6 +101,14 @@
                     </button>
                 </div>
 
+                @php
+                    $badgeColors = [
+                        'high'   => 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+                        'medium' => 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
+                        'low'    => 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+                    ];
+                @endphp
+
                 {{-- Mobile: card view --}}
                 <div class="divide-y divide-gray-100 dark:divide-gray-800 lg:hidden">
                     @foreach ($this->breakdown as $row)
@@ -115,15 +123,7 @@
                                         <p class="text-xs text-amber-500">Unmatched — not in inventory catalogue</p>
                                     @endif
                                 </div>
-                                @php
-                                    $mobileBadge = match($row['confidence']) {
-                                        'high'   => 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-                                        'medium' => 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
-                                        'low'    => 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
-                                        default  => 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
-                                    };
-                                @endphp
-                                <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 {{ $mobileBadge }}">
+                                <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 {{ $badgeColors[$row['confidence']] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
                                     {{ ucfirst($row['confidence'] ?? '—') }}
                                 </span>
                             </div>
@@ -191,15 +191,7 @@
                                         @endif
                                     </td>
                                     <td class="px-3 py-3 text-center">
-                                        @php
-                                            $badgeColor = match($row['confidence']) {
-                                                'high'   => 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-                                                'medium' => 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
-                                                'low'    => 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
-                                                default  => 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
-                                            };
-                                        @endphp
-                                        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium {{ $badgeColor }}">
+                                        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium {{ $badgeColors[$row['confidence']] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
                                             {{ ucfirst($row['confidence']) }}
                                         </span>
                                     </td>
@@ -253,7 +245,7 @@
                                     Totals — {{ $this->totalLines }} lines
                                 </td>
                                 <td class="px-3 py-3 text-right font-mono text-sm font-semibold text-gray-800 dark:text-gray-200">
-                                    {{ number_format(collect($this->breakdown)->sum('qty_approved')) }}
+                                    {{ number_format($this->totalQtyApproved) }}
                                 </td>
                                 <td class="px-3 py-3"></td>
                                 <td class="px-3 py-3 text-right font-mono text-sm font-semibold text-gray-800 dark:text-gray-200">

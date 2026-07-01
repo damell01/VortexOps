@@ -11,9 +11,9 @@
 </Files>
 
 # PWA icons: long cache (content-addressable)
-<FilesMatch "^icons/.*\.(png|svg)$">
+<LocationMatch "^/icons/.*\.(png|svg)$">
     Header set Cache-Control "public, max-age=31536000, immutable"
-</FilesMatch>
+</LocationMatch>
 
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>

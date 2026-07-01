@@ -13,9 +13,8 @@ const OFFLINE_URL = '/offline.html';
 // ── Install: precache the offline page ───────────────────────────────────────
 self.addEventListener('install', event => {
     event.waitUntil(
-        caches.open(CACHE).then(cache => cache.add(OFFLINE_URL))
+        caches.open(CACHE).then(cache => cache.add(OFFLINE_URL)).then(() => self.skipWaiting())
     );
-    self.skipWaiting();
 });
 
 // ── Activate: purge stale caches ─────────────────────────────────────────────
@@ -74,7 +73,7 @@ async function cacheFirst(req) {
         if (fresh.ok) cache.put(req, fresh.clone());
         return fresh;
     } catch {
-        return cached ?? new Response('Asset unavailable offline', { status: 503 });
+        return new Response('Asset unavailable offline', { status: 503 });
     }
 }
 

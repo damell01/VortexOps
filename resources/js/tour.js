@@ -13,6 +13,8 @@ function page() {
     if (p.includes('inventory-locations'))     return 'locations';
     if (p.includes('inventory-movements'))     return 'movements';
     if (p.includes('inventory-stock'))         return 'stock';
+    if (p.includes('pallets'))                  return 'pallets';
+    if (p.includes('vendors'))                  return 'vendors';
     if (p.includes('streamers'))               return 'streamers';
     if (p.includes('whatnot-channels'))        return 'channels';
     if (p.includes('app-settings'))            return 'settings';
@@ -381,6 +383,230 @@ const TOURS = {
                 description:
                     'Connects to a local Ollama instance — no data leaves your server.<br><br>'
                     + 'Toggle it on/off here. When enabled, a sparkles button appears on every page and loads context for what you\'re viewing. You can also use the dedicated AI Assistant page for full-screen chat.',
+                side: 'over',
+                align: 'center',
+            },
+        },
+    ],
+
+    movements: [
+        {
+            element: el('h1, .fi-header-heading'),
+            popover: {
+                title: '📋 Movement Log',
+                description:
+                    'Every stock change ever made — receives, deductions, transfers, adjustments, and damages — is recorded here permanently. Rows are never edited or deleted.',
+                side: 'bottom',
+                align: 'start',
+            },
+        },
+        {
+            element: el('table, .fi-ta'),
+            popover: {
+                title: 'Reading the Log',
+                description:
+                    '<b>Type</b> — what kind of operation caused this movement (receive, deduct, transfer, adjust, damage, return).<br>'
+                    + '<b>Δ Qty</b> — positive = stock added, negative = stock removed.<br>'
+                    + '<b>Reference</b> — links back to the Pallet, Show, or manual action that triggered the change.<br><br>'
+                    + 'Use the filters to narrow by item, location, type, or date range.',
+                side: 'top',
+                align: 'start',
+            },
+        },
+        {
+            popover: {
+                title: 'Export',
+                description:
+                    'Use <b>Admin → Export → Movement Log</b> to download the full history as a CSV. This is your audit trail for reconciliation and accounting.',
+                side: 'over',
+                align: 'center',
+            },
+        },
+    ],
+
+    stock: [
+        {
+            element: el('h1, .fi-header-heading'),
+            popover: {
+                title: '📊 Stock Levels',
+                description:
+                    'A read-only snapshot of current stock — every item × location combination showing the live quantity on hand.',
+                side: 'bottom',
+                align: 'start',
+            },
+        },
+        {
+            element: el('table, .fi-ta'),
+            popover: {
+                title: 'Zero-Quantity Rows',
+                description:
+                    'Rows with 0 quantity are shown so you can see every location an item has ever had stock in. Use the filter to hide zero rows if you only want active stock.',
+                side: 'top',
+                align: 'start',
+            },
+        },
+        {
+            popover: {
+                title: 'To Change Stock',
+                description:
+                    'Stock Levels is read-only. To add, transfer, or adjust stock go to <b>Inventory → Items</b>, open an item, and use the action buttons there. Every change is recorded in the Movement Log.',
+                side: 'over',
+                align: 'center',
+            },
+        },
+    ],
+
+    pallets: [
+        {
+            element: el('h1, .fi-header-heading'),
+            popover: {
+                title: '🚚 Pallets',
+                description:
+                    'A Pallet represents an inbound shipment from a vendor — one purchase order worth of inventory. The receiving workflow starts here.',
+                side: 'bottom',
+                align: 'start',
+            },
+        },
+        {
+            element: el('a[href*="/create"], button[class*="create"]'),
+            popover: {
+                title: 'Creating a Pallet',
+                description:
+                    'Click <b>New Pallet</b> and fill in the vendor and PO number. Then add <b>Pallet Lines</b> — one line per product you ordered, with the expected number of cases and the unit cost.',
+                side: 'bottom',
+                align: 'start',
+            },
+        },
+        {
+            popover: {
+                title: 'Receiving Workflow',
+                description:
+                    '<b>1. Map Lines</b> — link each manifest line to an Inventory Item and a destination Location.<br>'
+                    + '<b>2. Receive</b> — open the Receive page, scan barcodes one case at a time <i>or</i> click Receive All for a line.<br>'
+                    + '<b>3. Confirm</b> — once all lines are received, the pallet is marked Received and stock is credited automatically.<br><br>'
+                    + 'WAC (Weighted Average Cost) recalculates after every receive.',
+                side: 'over',
+                align: 'center',
+            },
+        },
+        {
+            element: el('table, .fi-ta'),
+            popover: {
+                title: 'Pallet Status',
+                description:
+                    '<b>Draft</b> — pallet created, lines still being set up.<br>'
+                    + '<b>In Progress</b> — some cases received but not all.<br>'
+                    + '<b>Received</b> — all lines fully received; inventory has been credited.',
+                side: 'top',
+                align: 'start',
+            },
+        },
+    ],
+
+    vendors: [
+        {
+            element: el('h1, .fi-header-heading'),
+            popover: {
+                title: '🏢 Vendors',
+                description:
+                    'Vendors are the suppliers you buy inventory from — DACW, Blowout Cards, etc. Each Pallet is linked to one vendor.',
+                side: 'bottom',
+                align: 'start',
+            },
+        },
+        {
+            element: el('table, .fi-ta'),
+            popover: {
+                title: 'Vendor Records',
+                description:
+                    'Each vendor stores a name, optional contact details, and a running count of pallets received. Open a vendor to see its full purchase history.',
+                side: 'top',
+                align: 'start',
+            },
+        },
+    ],
+
+    streamers: [
+        {
+            element: el('h1, .fi-header-heading'),
+            popover: {
+                title: '🎙 Streamers',
+                description:
+                    'Streamer profiles store everything needed to calculate and route their pay — payout type, rate fields, ADP employee ID, and which inventory location is theirs.',
+                side: 'bottom',
+                align: 'start',
+            },
+        },
+        {
+            element: el('table, .fi-ta'),
+            popover: {
+                title: 'Payout Types',
+                description:
+                    'Each streamer can have a different payout structure:<br>'
+                    + '<b>Profit Share</b> — % of net revenue.<br>'
+                    + '<b>Hourly</b> — rate × stream hours.<br>'
+                    + '<b>Package Rate</b> — flat per-show rate.<br>'
+                    + '<b>Flat Rate</b> — fixed amount regardless of show length.<br>'
+                    + '<b>Hybrid</b> — hourly base + profit share + tips.<br>'
+                    + '<b>Custom Formula</b> — expression string evaluated per show.',
+                side: 'top',
+                align: 'start',
+            },
+        },
+        {
+            popover: {
+                title: 'Channel Routing Rules',
+                description:
+                    'If a streamer goes live on a specific Whatnot channel, you can route their payout to a different bank label automatically. Set this in the <b>Channel Routing Rules</b> field on the streamer — a JSON array like <code>[{"channel":"MAIN","bank_label":"CHECKING"}]</code>.',
+                side: 'over',
+                align: 'center',
+            },
+        },
+    ],
+
+    channels: [
+        {
+            element: el('h1, .fi-header-heading'),
+            popover: {
+                title: '📡 Whatnot Channels',
+                description:
+                    'Whatnot channels are the storefronts you stream from. Add a channel here to enable the automatic scraper that imports show data after each stream.',
+                side: 'bottom',
+                align: 'start',
+            },
+        },
+        {
+            popover: {
+                title: 'Automatic Import',
+                description:
+                    'The scraper runs via <code>php artisan whatnot:import</code> (scheduled or triggered manually). It logs into your Whatnot account, visits each active channel, and creates Show records from recent streams.<br><br>'
+                    + 'Make sure <b>WHATNOT_EMAIL</b> and <b>WHATNOT_PASSWORD</b> are set in your environment.',
+                side: 'over',
+                align: 'center',
+            },
+        },
+    ],
+
+    ai: [
+        {
+            element: el('h1, .fi-header-heading'),
+            popover: {
+                title: '🤖 AI Assistant',
+                description:
+                    'Full-screen chat with your local Ollama model. No data leaves your server — it runs entirely on your VPS.',
+                side: 'bottom',
+                align: 'start',
+            },
+        },
+        {
+            popover: {
+                title: 'What to Ask',
+                description:
+                    'The assistant has context about VortexOps — inventory, shows, payouts — so you can ask things like:<br>'
+                    + '• "Which items are low on stock?"<br>'
+                    + '• "How do I set up a new streamer?"<br>'
+                    + '• "Explain the deduction approval workflow."<br><br>'
+                    + 'You can also get to it quickly via the ✨ button in the page header.',
                 side: 'over',
                 align: 'center',
             },

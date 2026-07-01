@@ -19,6 +19,12 @@ class ViewShow extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('inventory_breakdown')
+                ->label('Inventory Breakdown')
+                ->icon('heroicon-o-chart-bar-square')
+                ->color('gray')
+                ->url(fn () => ShowResource::getUrl('inventory', ['record' => $this->record])),
+
             Action::make('run_ai_mapping')
                 ->label('Run AI Mapping')
                 ->icon('heroicon-o-sparkles')

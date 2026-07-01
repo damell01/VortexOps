@@ -79,7 +79,9 @@ class ReceivePallet extends Page
 
     public function receiveLine(int $lineId): void
     {
-        $line = PalletLine::findOrFail($lineId);
+        $line = PalletLine::where('id', $lineId)
+            ->where('pallet_id', $this->record->id)
+            ->firstOrFail();
 
         try {
             $count = app(ReceivingService::class)->receiveAllCasesForLine($line);

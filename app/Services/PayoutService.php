@@ -90,7 +90,10 @@ class PayoutService
                 break;
 
             case 'flat_rate':
-                $calculatedPayout = (float) ($streamer->package_rate ?? 0);
+                if ($streamer->package_rate === null) {
+                    throw new \RuntimeException("Streamer #{$streamer->id} ({$streamer->name}) has payout_type=flat_rate but package_rate is not set.");
+                }
+                $calculatedPayout = (float) $streamer->package_rate;
                 $calculationNotes = "Flat rate \${$calculatedPayout}";
                 break;
 

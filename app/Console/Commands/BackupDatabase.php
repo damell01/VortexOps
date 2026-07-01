@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Storage;
 
 class BackupDatabase extends Command
 {
@@ -46,7 +45,7 @@ class BackupDatabase extends Command
         chmod($cnfFile, 0600);
 
         $cmd = sprintf(
-            'mysqldump --defaults-extra-file=%s -h %s -P %s -u %s %s | gzip > %s',
+            'set -o pipefail; mysqldump --defaults-extra-file=%s -h %s -P %s -u %s %s | gzip > %s',
             escapeshellarg($cnfFile),
             escapeshellarg($host),
             escapeshellarg($port),
@@ -57,7 +56,7 @@ class BackupDatabase extends Command
 
         $output = [];
         $exit   = 0;
-        exec($cmd . ' 2>&1', $output, $exit);
+        exec('/bin/bash -c ' . escapeshellarg($cmd) . ' 2>&1', $output, $exit);
 
         unlink($cnfFile);
 

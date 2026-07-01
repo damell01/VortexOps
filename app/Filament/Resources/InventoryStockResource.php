@@ -158,7 +158,7 @@ class InventoryStockResource extends Resource
                     ->money('USD'),
                 TextColumn::make('stock_value')
                     ->label('Stock Value')
-                    ->getStateUsing(fn ($record) => $record->quantity * ($record->item?->unit_cost ?? 0))
+                    ->getStateUsing(fn ($record) => $record->quantity * ($record->item?->average_cost ?? $record->item?->unit_cost ?? 0))
                     ->money('USD'),
                 TextColumn::make('updated_at')
                     ->dateTime('M j, Y g:i A')

@@ -43,7 +43,31 @@ apt-get update -qq
 apt-get install -y \
     php8.3 php8.3-cli php8.3-fpm php8.3-mysql php8.3-sqlite3 \
     php8.3-bcmath php8.3-exif php8.3-gd php8.3-intl php8.3-mbstring \
-    php8.3-pcntl php8.3-xml php8.3-zip php8.3-curl
+    php8.3-pcntl php8.3-xml php8.3-zip php8.3-curl php8.3-opcache
+
+# OPcache — validate timestamps every 60 s (safe for live-edit deploys; set
+# to 0 and reload Apache after each deploy for maximum speed on busy servers)
+cat > /etc/php/8.3/mods-available/vortexops.ini <<'PHPINIEOF'
+memory_limit = 256M
+upload_max_filesize = 64M
+post_max_size = 64M
+max_execution_time = 120
+realpath_cache_size = 4096K
+realpath_cache_ttl = 600
+
+opcache.enable = 1
+opcache.memory_consumption = 256
+opcache.interned_strings_buffer = 16
+opcache.max_accelerated_files = 20000
+opcache.validate_timestamps = 1
+opcache.revalidate_freq = 60
+opcache.save_comments = 1
+opcache.fast_shutdown = 1
+opcache.jit = tracing
+opcache.jit_buffer_size = 64M
+PHPINIEOF
+phpenmod -v 8.3 vortexops
+info "OPcache configured ✓"
 
 # ── Apache ────────────────────────────────────────────────────────────────────
 info "Installing Apache..."
@@ -116,26 +140,86 @@ systemctl reload apache2
 cat > /etc/nginx/sites-available/vortexops <<NGINXEOF
 server {
     listen 80;
+    listen [::]:80;
     server_name $DOMAIN;
     location /.well-known/acme-challenge/ { root /var/www/certbot; }
     location / { return 301 https://\$host\$request_uri; }
 }
 server {
     listen 443 ssl http2;
+    listen [::]:443 ssl http2;
     server_name $DOMAIN;
+
+    # Managed by Certbot
     ssl_certificate     /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    add_header Strict-Transport-Security "max-age=63072000" always;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+    add_header X-Frame-Options           SAMEORIGIN                            always;
+    add_header X-Content-Type-Options    nosniff                               always;
+    add_header Referrer-Policy           "no-referrer-when-downgrade"          always;
+
     client_max_body_size 64M;
-    location / {
+
+    # Serve static files from disk — skips Apache entirely for CSS/JS/images
+    root $APP_DIR/public;
+
+    # Gzip
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_min_length 256;
+    gzip_types text/plain text/css text/xml application/json application/javascript
+               application/xml+rss application/atom+xml image/svg+xml;
+
+    # Vite build assets — content-hashed, safe to cache for 1 year
+    location ^~ /build/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        access_log off;
+    }
+
+    # Laravel storage/public symlink
+    location ^~ /storage/ {
+        expires 7d;
+        add_header Cache-Control "public";
+        access_log off;
+    }
+
+    location = /health {
+        access_log off;
         proxy_pass http://127.0.0.1:8081;
         proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_read_timeout 120s;
     }
+
+    location / {
+        proxy_pass         http://127.0.0.1:8081;
+        proxy_http_version 1.1;
+        proxy_set_header   Host              \$host;
+        proxy_set_header   X-Real-IP         \$remote_addr;
+        proxy_set_header   X-Forwarded-For   \$proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto \$scheme;
+        proxy_set_header   X-Forwarded-Port  443;
+        proxy_set_header   Upgrade           \$http_upgrade;
+        proxy_set_header   Connection        "upgrade";
+        proxy_read_timeout  120s;
+        proxy_send_timeout  120s;
+        proxy_connect_timeout 10s;
+        proxy_buffering    on;
+        proxy_buffers      16 16k;
+        proxy_buffer_size  32k;
+    }
+
+    access_log /var/log/nginx/vortexops_access.log combined;
+    error_log  /var/log/nginx/vortexops_error.log  warn;
 }
 NGINXEOF
 
@@ -164,7 +248,7 @@ After=network.target mysql.service
 User=www-data
 Group=www-data
 WorkingDirectory=$APP_DIR
-ExecStart=/usr/bin/php artisan queue:work --sleep=3 --tries=3 --timeout=120 --max-time=3600
+ExecStart=/usr/bin/php artisan queue:work --sleep=3 --tries=3 --timeout=120 --max-jobs=500 --max-time=3600
 Restart=always
 RestartSec=5s
 StartLimitIntervalSec=60
@@ -241,6 +325,10 @@ echo "       php artisan filament:optimize"
 echo ""
 echo "  5. Fix permissions:"
 echo "       chown -R www-data:www-data $APP_DIR/storage $APP_DIR/bootstrap/cache"
+echo ""
+echo "  6. After each future code deploy (git pull), clear OPcache:"
+echo "       php artisan optimize"
+echo "       systemctl reload apache2"
 echo ""
 echo "  App live at: https://$DOMAIN"
 echo "  Worker:      systemctl status vortexops-worker"

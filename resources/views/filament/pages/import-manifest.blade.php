@@ -1,17 +1,17 @@
 <x-filament-panels::page>
     <div class="space-y-6 max-w-3xl">
 
-        {{-- ── Progress bar ────────────────────────────────────────────────── --}}
+        {{-- ── Progress stepper ────────────────────────────────────────────── --}}
         @php
-            $stages = ['upload' => 'Upload', 'mapping' => 'Map Columns', 'preview' => 'Preview', 'done' => 'Done'];
+            $stages = ['upload' => 'Upload', 'processing' => 'Reading', 'verify' => 'Verify', 'done' => 'Done'];
             $stageKeys = array_keys($stages);
             $currentIdx = array_search($stage, $stageKeys);
         @endphp
         <div class="flex items-center gap-0">
             @foreach ($stages as $key => $label)
                 @php
-                    $idx   = array_search($key, $stageKeys);
-                    $done  = $idx < $currentIdx;
+                    $idx    = array_search($key, $stageKeys);
+                    $done   = $idx < $currentIdx;
                     $active = $key === $stage;
                 @endphp
                 <div class="flex items-center {{ $loop->last ? '' : 'flex-1' }}">
@@ -41,8 +41,8 @@
                 <div>
                     <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Upload Packing Slip</h2>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Upload a CSV export of your vendor's packing slip. The first row should be the header.
-                        Column names don't matter — you'll map them to fields on the next screen.
+                        Take a photo of the packing slip that came with the pallet, or upload a PDF.
+                        AI will read it and extract every line item for you to verify before importing.
                     </p>
                     <p class="mt-2 text-xs text-gray-400">
                         Pallet: <span class="font-medium text-gray-700 dark:text-gray-300">{{ $this->record->reference ?? "#{$this->record->id}" }}</span>
@@ -52,80 +52,89 @@
                     </p>
                 </div>
 
-                <div class="border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl px-6 py-8 text-center">
-                    <x-heroicon-o-document-arrow-up class="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600" />
-                    <p class="mt-2 text-sm text-gray-500">Select a CSV file from your vendor</p>
-                    <label class="mt-4 inline-block cursor-pointer rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-violet-700">
-                        Choose CSV
-                        <input wire:model="manifestFile" type="file" accept=".csv,text/csv,text/plain" class="sr-only" />
-                    </label>
-                    <div wire:loading wire:target="manifestFile" class="mt-3 text-xs text-gray-400">Parsing headers…</div>
-                </div>
-
-                <div>
-                    <a href="{{ route('manifest.template') }}" class="text-sm text-violet-600 dark:text-violet-400 underline" target="_blank">
-                        Download example CSV template
-                    </a>
-                </div>
-            </div>
-        @endif
-
-        {{-- ═══════════════════════════════════════════════════════════════════
-             Stage 2 — Column Mapping
-        ═══════════════════════════════════════════════════════════════════ --}}
-        @if ($stage === 'mapping')
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-6 space-y-5">
-                <div>
-                    <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Map Your Columns</h2>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Tell us what each column in your CSV means. We've made our best guess — adjust anything that's wrong.
-                    </p>
-                </div>
-
-                @if ($mappingError)
-                    <div class="rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
-                        <x-heroicon-o-exclamation-circle class="h-4 w-4 flex-shrink-0" />
-                        {{ $mappingError }}
+                @if ($parseError)
+                    <div class="rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300 space-y-1">
+                        <div class="flex items-center gap-2 font-medium">
+                            <x-heroicon-o-exclamation-circle class="h-4 w-4 flex-shrink-0" />
+                            AI parsing failed
+                        </div>
+                        <p class="text-xs">{{ $parseError }}</p>
+                        <p class="text-xs text-red-500">Make sure the <code class="font-mono bg-red-100 dark:bg-red-900 px-1 rounded">{{ config('services.ollama.vision_model') }}</code> model is pulled in Ollama: <code class="font-mono bg-red-100 dark:bg-red-900 px-1 rounded">ollama pull {{ config('services.ollama.vision_model') }}</code></p>
                     </div>
                 @endif
 
-                <div class="space-y-3">
-                    @foreach ($headers as $header)
-                        <div class="flex items-center gap-4">
-                            <div class="w-48 flex-shrink-0">
-                                <span class="inline-block rounded bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-xs font-mono text-gray-700 dark:text-gray-300 truncate max-w-full">
-                                    {{ $header }}
-                                </span>
-                            </div>
-                            <x-heroicon-o-arrow-right class="h-4 w-4 text-gray-300 flex-shrink-0" />
-                            <select
-                                wire:model="columnMapping.{{ $header }}"
-                                class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                            >
-                                @foreach ($this->targetFieldOptions() as $value => $label)
-                                    <option value="{{ $value }}" {{ ($columnMapping[$header] ?? '') === $value ? 'selected' : '' }}>
-                                        {{ $label }}
-                                    </option>
-                                @endforeach
-                            </select>
+                <div
+                    x-data="{
+                        dragover: false,
+                        preview: null,
+                        isPdf: false,
+                        handleFile(file) {
+                            this.isPdf = file.type === 'application/pdf';
+                            if (!this.isPdf) {
+                                const reader = new FileReader();
+                                reader.onload = e => this.preview = e.target.result;
+                                reader.readAsDataURL(file);
+                            } else {
+                                this.preview = 'pdf';
+                            }
+                        }
+                    }"
+                    @dragover.prevent="dragover = true"
+                    @dragleave.prevent="dragover = false"
+                    @drop.prevent="dragover = false; if ($event.dataTransfer.files[0]) { handleFile($event.dataTransfer.files[0]); $refs.fileInput.files = $event.dataTransfer.files; $wire.upload('slipFile', $event.dataTransfer.files[0]) }"
+                    class="border-2 border-dashed rounded-xl px-6 py-8 text-center transition-colors"
+                    :class="dragover ? 'border-violet-500 bg-violet-50 dark:bg-violet-950' : 'border-gray-200 dark:border-gray-700'"
+                >
+                    {{-- Preview of selected image --}}
+                    <template x-if="preview && preview !== 'pdf'">
+                        <div class="mb-4">
+                            <img :src="preview" class="mx-auto max-h-48 rounded-lg shadow border border-gray-200 dark:border-gray-700 object-contain" />
                         </div>
-                    @endforeach
+                    </template>
+                    <template x-if="preview === 'pdf'">
+                        <div class="mb-4 flex flex-col items-center gap-2">
+                            <x-heroicon-o-document-text class="h-12 w-12 text-violet-400" />
+                            <span class="text-sm text-gray-600 dark:text-gray-400">PDF selected</span>
+                        </div>
+                    </template>
+                    <template x-if="!preview">
+                        <div class="mb-4">
+                            <x-heroicon-o-camera class="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600" />
+                        </div>
+                    </template>
+
+                    <p x-show="!preview" class="text-sm text-gray-500 dark:text-gray-400">
+                        Drag &amp; drop, or tap to select
+                    </p>
+                    <p x-show="!preview" class="mt-1 text-xs text-gray-400">
+                        Photo (JPG, PNG, WEBP) or PDF — max 20 MB
+                    </p>
+
+                    <label class="mt-4 inline-block cursor-pointer rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-violet-700">
+                        <span x-text="preview ? 'Change File' : 'Choose Photo or PDF'"></span>
+                        <input
+                            x-ref="fileInput"
+                            wire:model="slipFile"
+                            @change="if ($event.target.files[0]) handleFile($event.target.files[0])"
+                            type="file"
+                            accept="image/*,.pdf,application/pdf"
+                            capture="environment"
+                            class="sr-only"
+                        />
+                    </label>
+                    <div wire:loading wire:target="slipFile" class="mt-3 text-xs text-gray-400">Uploading…</div>
                 </div>
 
-                @if ($this->record->vendor_id)
-                    <label class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
-                        <input wire:model="saveMapping" type="checkbox" class="rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500" />
-                        Save this mapping for <span class="font-medium text-gray-800 dark:text-gray-200">{{ $this->record->vendor->name }}</span> — auto-apply next time
-                    </label>
-                @endif
-
-                <div class="flex items-center gap-3 pt-2">
+                <div class="flex items-center gap-3 pt-1">
                     <button
-                        wire:click="goToPreview"
+                        wire:click="parseSlip"
+                        wire:loading.attr="disabled"
+                        :disabled="{{ $slipFile ? 'false' : 'true' }}"
                         type="button"
-                        class="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                        class="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                        Preview Import
+                        <span wire:loading.remove wire:target="parseSlip">Read with AI</span>
+                        <span wire:loading wire:target="parseSlip">Sending to AI…</span>
                     </button>
                     <a
                         href="{{ \App\Filament\Resources\PalletResource::getUrl('view', ['record' => $this->record]) }}"
@@ -134,82 +143,140 @@
                         Cancel
                     </a>
                 </div>
+
+                <p class="text-xs text-gray-400">
+                    Need to enter lines manually?
+                    <a href="{{ \App\Filament\Resources\PalletResource::getUrl('edit', ['record' => $this->record]) }}" class="underline text-violet-500">Edit the pallet directly.</a>
+                </p>
             </div>
         @endif
 
         {{-- ═══════════════════════════════════════════════════════════════════
-             Stage 3 — Preview
+             Stage 2 — AI Processing (polls every 3 s)
         ═══════════════════════════════════════════════════════════════════ --}}
-        @if ($stage === 'preview')
-            @php
-                $matchCount   = collect($allRows)->filter(fn ($r) => ! empty($r['_matched']))->count();
-                $unmatchCount = count($allRows) - $matchCount;
-            @endphp
+        @if ($stage === 'processing')
+            <div wire:poll.3000ms="checkProcessing">
+                <div class="rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950 px-6 py-10 text-center space-y-4">
+                    <div class="flex justify-center">
+                        <svg class="animate-spin h-10 w-10 text-violet-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-base font-semibold text-violet-900 dark:text-violet-100">Reading your packing slip…</p>
+                        <p class="mt-1 text-sm text-violet-600 dark:text-violet-400">
+                            AI is extracting the line items. This usually takes 15–60 seconds.
+                        </p>
+                    </div>
+                    <p class="text-xs text-violet-400">Using model: {{ config('services.ollama.vision_model') }}</p>
+                </div>
+            </div>
+        @endif
 
+        {{-- ═══════════════════════════════════════════════════════════════════
+             Stage 3 — Verify & Edit
+        ═══════════════════════════════════════════════════════════════════ --}}
+        @if ($stage === 'verify')
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-6 space-y-5">
                 <div>
-                    <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Preview</h2>
+                    <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Verify Line Items</h2>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        {{ count($allRows) }} line(s) found.
-                        <span class="text-green-600 dark:text-green-400 font-medium">{{ $matchCount }} auto-matched</span> to existing inventory items.
-                        @if ($unmatchCount > 0)
-                            <span class="text-amber-600 dark:text-amber-400 font-medium">{{ $unmatchCount }} will need manual mapping</span> after import.
-                        @endif
+                        AI found <strong>{{ count($parsedLines) }}</strong> line item(s). Check everything looks right — edit, add, or remove lines before importing.
                     </p>
                 </div>
 
-                {{-- Preview table (first 5 rows) --}}
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left">
-                        <thead>
-                            <tr class="border-b border-gray-100 dark:border-gray-800">
-                                <th class="pb-2 pr-4 font-medium text-gray-500 text-xs uppercase">Description</th>
-                                <th class="pb-2 pr-4 font-medium text-gray-500 text-xs uppercase">Cases</th>
-                                <th class="pb-2 pr-4 font-medium text-gray-500 text-xs uppercase">Cost</th>
-                                <th class="pb-2 font-medium text-gray-500 text-xs uppercase">Matched Item</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-50 dark:divide-gray-800">
-                            @foreach ($previewRows as $row)
-                                <tr>
-                                    <td class="py-2 pr-4 text-gray-900 dark:text-gray-100 max-w-xs truncate">{{ $row['description'] ?? '—' }}</td>
-                                    <td class="py-2 pr-4 text-gray-600 dark:text-gray-400">{{ $row['case_count'] ?? '1' }}</td>
-                                    <td class="py-2 pr-4 text-gray-600 dark:text-gray-400">{{ isset($row['unit_cost']) && $row['unit_cost'] ? '$' . number_format((float) str_replace(['$',','], '', $row['unit_cost']), 2) : '—' }}</td>
-                                    <td class="py-2">
-                                        @if (! empty($row['_matched']))
-                                            <span class="inline-flex items-center gap-1 text-green-700 dark:text-green-300">
-                                                <x-heroicon-o-check-circle class="h-3.5 w-3.5" />
-                                                {{ $row['_matched'] }}
-                                            </span>
-                                        @else
-                                            <span class="text-amber-500 dark:text-amber-400 text-xs">Needs mapping</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                    @if (count($allRows) > 5)
-                        <p class="mt-2 text-xs text-gray-400">… and {{ count($allRows) - 5 }} more rows</p>
-                    @endif
+                @if (count($parsedLines) === 0)
+                    <div class="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+                        AI couldn't extract any lines from this image. The photo may be blurry or the format isn't recognised. Add lines manually below, or go back and try a clearer photo.
+                    </div>
+                @endif
+
+                {{-- Editable lines table --}}
+                <div class="space-y-2">
+                    {{-- Header --}}
+                    <div class="grid grid-cols-12 gap-2 px-1 text-[11px] font-medium uppercase text-gray-400">
+                        <div class="col-span-5">Description</div>
+                        <div class="col-span-2">Cases</div>
+                        <div class="col-span-2">Unit Cost</div>
+                        <div class="col-span-2">SKU</div>
+                        <div class="col-span-1"></div>
+                    </div>
+
+                    @foreach ($parsedLines as $i => $line)
+                        <div class="grid grid-cols-12 gap-2 items-center">
+                            <div class="col-span-5">
+                                <input
+                                    wire:model="parsedLines.{{ $i }}.description"
+                                    type="text"
+                                    placeholder="Item description"
+                                    class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 {{ trim($line['description']) === '' ? 'border-amber-300 dark:border-amber-600' : '' }}"
+                                />
+                            </div>
+                            <div class="col-span-2">
+                                <input
+                                    wire:model="parsedLines.{{ $i }}.case_count"
+                                    type="number"
+                                    min="1"
+                                    placeholder="1"
+                                    class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                />
+                            </div>
+                            <div class="col-span-2">
+                                <input
+                                    wire:model="parsedLines.{{ $i }}.unit_cost"
+                                    type="text"
+                                    placeholder="0.00"
+                                    class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                />
+                            </div>
+                            <div class="col-span-2">
+                                <input
+                                    wire:model="parsedLines.{{ $i }}.sku"
+                                    type="text"
+                                    placeholder="SKU"
+                                    class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                />
+                            </div>
+                            <div class="col-span-1 flex justify-center">
+                                <button
+                                    wire:click="removeLine({{ $i }})"
+                                    type="button"
+                                    class="text-gray-300 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 focus:outline-none"
+                                    title="Remove line"
+                                >
+                                    <x-heroicon-o-x-mark class="h-4 w-4" />
+                                </button>
+                            </div>
+                        </div>
+                    @endforeach
+
+                    <button
+                        wire:click="addLine"
+                        type="button"
+                        class="flex items-center gap-1.5 text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 mt-2"
+                    >
+                        <x-heroicon-o-plus class="h-4 w-4" />
+                        Add line
+                    </button>
                 </div>
 
-                <div class="flex items-center gap-3 pt-2">
+                <div class="flex items-center gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
                     <button
                         wire:click="import"
                         wire:loading.attr="disabled"
                         type="button"
-                        class="rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
+                        class="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
                     >
-                        <span wire:loading.remove wire:target="import">Import {{ count($allRows) }} Lines</span>
+                        <span wire:loading.remove wire:target="import">Import {{ count($parsedLines) }} Lines</span>
                         <span wire:loading wire:target="import">Importing…</span>
                     </button>
                     <button
-                        wire:click="$set('stage', 'mapping')"
+                        wire:click="$set('stage', 'upload')"
                         type="button"
                         class="rounded-lg border border-gray-200 dark:border-gray-700 px-5 py-2.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
                     >
-                        Back
+                        Try Again
                     </button>
                 </div>
             </div>
@@ -219,15 +286,15 @@
              Stage 4 — Done
         ═══════════════════════════════════════════════════════════════════ --}}
         @if ($stage === 'done')
-            <div class="rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 px-6 py-8 text-center space-y-4">
+            <div class="rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 px-6 py-10 text-center space-y-4">
                 <x-heroicon-o-check-circle class="h-12 w-12 mx-auto text-green-500" />
                 <div>
-                    <h2 class="text-lg font-semibold text-green-900 dark:text-green-100">Manifest Imported</h2>
+                    <h2 class="text-lg font-semibold text-green-900 dark:text-green-100">Imported</h2>
                     <p class="mt-1 text-sm text-green-700 dark:text-green-300">
-                        {{ $created }} line(s) created.
-                        {{ $matched }} auto-matched to existing inventory.
+                        {{ $created }} line(s) added to the pallet.
+                        {{ $matched }} auto-matched to existing inventory items.
                         @if ($unmatched > 0)
-                            <strong>{{ $unmatched }} line(s) need manual mapping</strong> — use the "Map Line to Item" action on the pallet.
+                            <br><strong>{{ $unmatched }} line(s) still need mapping</strong> — use the "Map Line to Item" button on the pallet.
                         @endif
                     </p>
                 </div>

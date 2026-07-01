@@ -36,8 +36,9 @@ return [
     ],
 
     'ollama' => [
-        'url'   => env('OLLAMA_BASE_URL', 'http://ollama:11434'),
-        'model' => env('OLLAMA_MODEL', 'llama3.2:3b'),
+        'url'          => env('OLLAMA_BASE_URL', 'http://ollama:11434'),
+        'model'        => env('OLLAMA_MODEL', 'llama3.2:3b'),
+        'vision_model' => env('OLLAMA_VISION_MODEL', 'moondream'),
     ],
 
 ];

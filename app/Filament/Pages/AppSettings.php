@@ -65,6 +65,8 @@ class AppSettings extends Page
     // ── Maintenance ──────────────────────────────────────────────────────────
 
     public string $lastCommandOutput = '';
+    public string $backupResult      = '';
+    public string $backupStatus      = ''; // 'success' | 'error' | ''
 
     // ── Notifications ────────────────────────────────────────────────────────
 
@@ -273,6 +275,28 @@ class AppSettings extends Page
         } catch (\Throwable $e) {
             $this->lastCommandOutput = $e->getMessage();
             Notification::make()->title('Optimize failed')->body($e->getMessage())->danger()->send();
+        }
+    }
+
+    public function runBackup(): void
+    {
+        $this->backupResult = '';
+        $this->backupStatus = '';
+
+        try {
+            $exitCode = Artisan::call('db:backup');
+            $output   = trim(Artisan::output());
+
+            $this->backupResult = $output ?: 'Backup complete.';
+            $this->backupStatus = $exitCode === 0 ? 'success' : 'error';
+
+            $exitCode === 0
+                ? Notification::make()->title('Backup complete')->body($this->backupResult)->success()->send()
+                : Notification::make()->title('Backup failed')->body($this->backupResult)->danger()->send();
+        } catch (\Throwable $e) {
+            $this->backupResult = $e->getMessage();
+            $this->backupStatus = 'error';
+            Notification::make()->title('Backup error')->body($e->getMessage())->danger()->send();
         }
     }
 

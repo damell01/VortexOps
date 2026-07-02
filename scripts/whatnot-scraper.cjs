@@ -38,12 +38,6 @@ const SELECTORS = {
   loginPasswordInput: 'input[type="password"]',
   loginSubmitBtn:     'button[type="submit"]',
 
-  // Role / channel switcher
-  // Whatnot shows a role selector for multi-channel accounts. These selectors
-  // try common patterns; update them if the switcher changes structure.
-  // The role switcher is typically accessible from the seller hub page.
-  roleSwitcherBtn:    '[data-testid="role-switcher"], [data-testid="channel-switcher"], button[aria-label*="switch" i], nav button[aria-haspopup="true"], header button[aria-haspopup="true"]',
-
   // Analytics page — tabs
   // Tab buttons use stable aria attributes — prefer these over class names.
   analyticsShowsTab:  'button[aria-controls="simple-tabpanel-1"], button#simple-tab-1',
@@ -193,94 +187,92 @@ async function performLogin(page, email, password) {
 }
 
 // ── Role / channel switcher ───────────────────────────────────────────────────
-// Whatnot seller accounts can have multiple channels (vortexcards, vortexcollects, etc.).
-// This function navigates to the seller hub and switches to the target channel by name.
-// If the target is already active, or the switcher isn't found, it continues silently.
+// Whatnot's navigation sidebar (the slide-out drawer) contains a "Switch Role"
+// item (an h4 with that text, class ogVNN, inside a div.eCoev). Clicking it
+// shows a list of the available channels. This function opens the sidebar,
+// clicks Switch Role, then clicks the target channel by name.
 //
-// If switching fails in production, run with WHATNOT_DEBUG=1 and check the screenshots
-// named "role-switch-*.png". Update SELECTORS.roleSwitcherBtn to match the actual HTML.
+// The sidebar is opened from a nav/header button (profile avatar or hamburger).
+// Run with WHATNOT_DEBUG=1 to capture screenshots if the switch doesn't work.
 
 async function switchToChannel(page, channelName) {
-  if (!channelName) return; // no switch needed — use default active channel
+  if (!channelName) return; // no switch needed — scrape the currently active channel
   log(`switching to channel: "${channelName}"`);
 
-  // Navigate to seller hub — the role switcher is most reliably found there
-  await page.goto(URLS.sellerHub, { waitUntil: 'domcontentloaded', timeout: 20000 });
-  await page.waitForTimeout(1500);
-  await debugShot(page, 'role-switch-01-seller-hub');
+  // Navigate to the Whatnot home — the top nav with the sidebar trigger is always present
+  await page.goto(URLS.home, { waitUntil: 'domcontentloaded', timeout: 20000 });
+  await page.waitForTimeout(2000);
+  await debugShot(page, 'role-switch-01-home');
 
-  // Strategy 1: The channel name is directly visible and clickable
-  // (some Whatnot layouts show a role panel/sidebar with the list of channels)
-  const directEl = await page.getByRole('button', { name: channelName, exact: false }).first().catch(() => null)
-    || await page.getByText(channelName, { exact: true }).first().catch(() => null);
+  // ── Step 1: Open the navigation sidebar ─────────────────────────────────────
+  // The sidebar is a slide-out drawer containing the "Switch Role" h4 item.
+  // It's opened by clicking the profile avatar (or menu button) in the top nav.
+  // "Switch Role" text exact match tells us the drawer is open.
 
-  if (directEl) {
-    const visible = await directEl.isVisible().catch(() => false);
-    if (visible) {
-      await directEl.click();
-      await page.waitForTimeout(2000);
-      await debugShot(page, 'role-switch-02-direct-click');
-      log(`switched to channel "${channelName}" via direct click`);
-      return;
-    }
-  }
+  const isSidebarOpen = () =>
+    page.getByText('Switch Role', { exact: true }).first().isVisible().catch(() => false);
 
-  // Strategy 2: Find the switcher trigger button (dropdown/menu) and open it
-  const triggerSels = SELECTORS.roleSwitcherBtn.split(', ');
-  let menuOpened = false;
+  if (!await isSidebarOpen()) {
+    // Try nav/header trigger buttons in priority order
+    const navTriggers = [
+      'button:has(img[alt="avatar"])',          // profile avatar inside a button
+      'nav button[aria-label*="profile" i]',    // aria-labelled profile button
+      'nav button[aria-label*="menu" i]',       // aria-labelled menu button
+      'header button[aria-label*="menu" i]',    // header menu button
+      '[aria-label="Open navigation drawer"]',
+      '[aria-label="Open menu"]',
+    ];
 
-  for (const sel of triggerSels) {
-    const trigger = await page.$(sel).catch(() => null);
-    if (trigger && await trigger.isVisible().catch(() => false)) {
+    for (const sel of navTriggers) {
+      const trigger = await page.$(sel).catch(() => null);
+      if (!trigger || !await trigger.isVisible().catch(() => false)) continue;
+
       await trigger.click();
-      await page.waitForTimeout(800);
-      await debugShot(page, 'role-switch-03-menu-open');
+      await page.waitForTimeout(1200);
 
-      // Look for the channel name inside any menu/dropdown that appeared
-      const menuItem = await page.getByText(channelName, { exact: false }).first().catch(() => null);
-      if (menuItem && await menuItem.isVisible().catch(() => false)) {
-        await menuItem.click();
-        await page.waitForTimeout(2000);
-        await debugShot(page, 'role-switch-04-switched');
-        log(`switched to channel "${channelName}" via switcher trigger`);
-        menuOpened = true;
-        return;
+      if (await isSidebarOpen()) {
+        log(`opened navigation sidebar via: ${sel}`);
+        break;
       }
 
-      // Didn't find the channel in this menu — close it and try next trigger
+      // Wrong thing opened — dismiss and try next
       await page.keyboard.press('Escape').catch(() => {});
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(400);
     }
   }
 
-  // Strategy 3: Look for any clickable nav/header element that mentions the channel
-  if (!menuOpened) {
-    const allBtns = await page.$$('header button, nav button, aside button').catch(() => []);
-    for (const btn of allBtns) {
-      const text = (await btn.textContent().catch(() => '')).trim();
-      if (!text || text.length > 60) continue; // skip long labels
-
-      await btn.click();
-      await page.waitForTimeout(500);
-
-      const channelEl = await page.getByText(channelName, { exact: false }).first().catch(() => null);
-      if (channelEl && await channelEl.isVisible().catch(() => false)) {
-        await channelEl.click();
-        await page.waitForTimeout(2000);
-        await debugShot(page, 'role-switch-04-switched');
-        log(`switched to channel "${channelName}" via nav button`);
-        return;
-      }
-
-      await page.keyboard.press('Escape').catch(() => {});
-      await page.waitForTimeout(200);
-    }
+  if (!await isSidebarOpen()) {
+    await debugShot(page, 'role-switch-failed-sidebar');
+    log(`WARNING: could not open the navigation sidebar to find "Switch Role".`);
+    log(`Run with WHATNOT_DEBUG=1, check role-switch-failed-sidebar.png, then update navTriggers above.`);
+    return; // continue on whatever channel is currently active
   }
 
-  // Could not switch — log a warning but don't fail.
-  // The scraper will continue on whichever channel is currently active.
-  log(`WARNING: could not switch to channel "${channelName}". Check role-switch-*.png screenshots.`);
-  log(`To fix: find the switcher element in the debug screenshots and update SELECTORS.roleSwitcherBtn.`);
+  await debugShot(page, 'role-switch-02-sidebar-open');
+
+  // ── Step 2: Click "Switch Role" ──────────────────────────────────────────────
+  // In the sidebar HTML, "Switch Role" is an h4 (class ogVNN) inside a
+  // div.eCoev with role="presentation". Clicking the text propagates to the div.
+  await page.getByText('Switch Role', { exact: true }).first().click();
+  await page.waitForTimeout(2000);
+  await debugShot(page, 'role-switch-03-role-list');
+
+  // ── Step 3: Click the target channel ─────────────────────────────────────────
+  // After clicking Switch Role, Whatnot shows the list of available channel roles.
+  // Find by the whatnot_username (e.g. "vortexcards", "vortexbreaks").
+  const target = page.getByText(channelName, { exact: false }).first();
+
+  if (!await target.isVisible().catch(() => false)) {
+    await debugShot(page, 'role-switch-failed-channel');
+    log(`WARNING: channel "${channelName}" not found in role list.`);
+    log(`Check role-switch-03-role-list.png to see the available options.`);
+    return;
+  }
+
+  await target.click();
+  await page.waitForTimeout(2500);
+  await debugShot(page, 'role-switch-04-done');
+  log(`switched to channel "${channelName}"`);
 }
 
 // ── Extract all metric cards from the current analytics page view ─────────────

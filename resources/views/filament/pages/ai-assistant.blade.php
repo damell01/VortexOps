@@ -69,6 +69,54 @@
 
         <div class="flex flex-wrap gap-2">
             <button
+                wire:click="runQuickAction('operations_briefing')"
+                :disabled="loading"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 transition hover:bg-violet-100 disabled:opacity-40 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900"
+            >
+                <x-heroicon-o-sparkles class="h-3.5 w-3.5" />
+                Operations Briefing
+            </button>
+            <button
+                wire:click="runQuickAction('shows_overview')"
+                :disabled="loading"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 transition hover:bg-sky-100 disabled:opacity-40 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-300 dark:hover:bg-sky-900"
+            >
+                <x-heroicon-o-video-camera class="h-3.5 w-3.5" />
+                Shows Overview
+            </button>
+            <button
+                wire:click="runQuickAction('revenue_summary')"
+                :disabled="loading"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-600 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
+            >
+                <x-heroicon-o-banknotes class="h-3.5 w-3.5" />
+                Revenue Summary
+            </button>
+            <button
+                wire:click="runQuickAction('streamer_summary')"
+                :disabled="loading"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-100 disabled:opacity-40 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900"
+            >
+                <x-heroicon-o-user-group class="h-3.5 w-3.5" />
+                Streamers
+            </button>
+            <button
+                wire:click="runQuickAction('payout_summary')"
+                :disabled="loading"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-100 disabled:opacity-40 dark:border-rose-600 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-900"
+            >
+                <x-heroicon-o-currency-dollar class="h-3.5 w-3.5" />
+                Payout Summary
+            </button>
+            <button
+                wire:click="runQuickAction('pallet_status')"
+                :disabled="loading"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 transition hover:bg-orange-100 disabled:opacity-40 dark:border-orange-600 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900"
+            >
+                <x-heroicon-o-archive-box class="h-3.5 w-3.5" />
+                Pallet Status
+            </button>
+            <button
                 wire:click="runQuickAction('inventory_analysis')"
                 :disabled="loading"
                 class="inline-flex items-center gap-1.5 rounded-lg border border-primary-300 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700 transition hover:bg-primary-100 disabled:opacity-40 dark:border-primary-600 dark:bg-primary-950 dark:text-primary-300 dark:hover:bg-primary-900"
@@ -136,7 +184,7 @@
                     <div class="rounded-full bg-violet-100 p-4 dark:bg-violet-900">
                         <x-heroicon-o-sparkles class="h-8 w-8 text-violet-500" />
                     </div>
-                    <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Ask anything about your inventory</p>
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-300">Ask anything about your operations</p>
                     <p class="text-xs text-gray-400">Try a quick action above or type your own question below.</p>
                 </div>
             @endforelse
@@ -181,7 +229,7 @@
                 x-ref="question"
                 wire:model="question"
                 type="text"
-                placeholder="Ask about your inventory…"
+                placeholder="Ask about your operations…"
                 autocomplete="off"
                 :disabled="loading"
                 class="flex-1 min-w-0 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-sm placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"

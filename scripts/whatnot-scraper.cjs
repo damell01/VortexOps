@@ -27,7 +27,31 @@
 
 'use strict';
 
-const { chromium } = require('/opt/node22/lib/node_modules/playwright');
+const { execSync } = require('child_process');
+
+function loadPlaywright() {
+  // 1. Try npm's global root (works on any system regardless of install prefix)
+  try {
+    const globalRoot = execSync('npm root -g', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    return require(globalRoot + '/playwright');
+  } catch {}
+  // 2. Common fixed paths (Docker image, Debian/Ubuntu system npm, Homebrew)
+  const candidates = [
+    '/opt/node22/lib/node_modules/playwright',
+    '/usr/lib/node_modules/playwright',
+    '/usr/local/lib/node_modules/playwright',
+    '/opt/homebrew/lib/node_modules/playwright',
+  ];
+  for (const p of candidates) {
+    try { return require(p); } catch {}
+  }
+  throw new Error(
+    'Playwright not found. Install it with:\n' +
+    '  npm install -g playwright && npx playwright install chromium --with-deps'
+  );
+}
+
+const { chromium } = loadPlaywright();
 
 // ── Selectors ────────────────────────────────────────────────────────────────
 // Analytics page selectors are based on the live Whatnot seller dashboard HTML

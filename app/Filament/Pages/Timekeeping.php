@@ -31,7 +31,8 @@ class Timekeeping extends Page
 
     public static function canAccess(): bool
     {
-        return (auth()->user()?->isAdmin() ?? false) && AdminModules::isEnabled('timekeeping');
+        $user = auth()->user();
+        return (($user?->isAdmin() || $user?->isOwner()) ?? false) && AdminModules::isEnabled('timekeeping');
     }
 
     public static function shouldRegisterNavigation(): bool

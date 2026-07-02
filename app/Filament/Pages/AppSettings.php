@@ -247,13 +247,12 @@ class AppSettings extends Page
         $this->whatnotImportStatus = '';
 
         try {
-            $channel = WhatnotChannel::where('status', 'active')->first();
-            $result  = app(WhatnotScraper::class)->importShows(
-                channel: $channel,
-                limit:   (int) config('vortex.whatnot.limit', 50),
+            $result = app(WhatnotScraper::class)->importAllEnabledChannels(
+                limit: (int) config('vortex.whatnot.limit', 50),
             );
 
-            $this->whatnotImportResult = "Import complete — {$result['created']} created, {$result['updated']} updated, {$result['skipped']} skipped.";
+            $channelNote = $result['channels'] > 1 ? " across {$result['channels']} channels" : '';
+            $this->whatnotImportResult = "Import complete — {$result['created']} created, {$result['updated']} updated, {$result['skipped']} skipped{$channelNote}.";
             $this->whatnotImportStatus = 'success';
 
             Notification::make()

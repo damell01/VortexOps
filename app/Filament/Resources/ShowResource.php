@@ -41,13 +41,12 @@ class ShowResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        // Deduction line detail is only needed on the view/edit page — loading it on
-        // the list query multiplies rows: N shows × M lines × 2 relations.
+        // latestDeductionRequest.lines and payouts.streamer are only needed on view/edit.
         return parent::getEloquentQuery()->with([
             'streamers',
             'channel',
             'latestDeductionRequest',
-            'payouts.streamer',
+            'payouts',
         ]);
     }
 

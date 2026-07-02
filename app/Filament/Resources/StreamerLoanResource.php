@@ -107,7 +107,8 @@ class StreamerLoanResource extends Resource
                 TextColumn::make('streamer.name')
                     ->label('Streamer')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->stackedOnMobile(),
 
                 TextColumn::make('label')
                     ->label('Label')
@@ -149,6 +150,7 @@ class StreamerLoanResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->striped()
+            ->paginated([10, 25, 50])
             ->filters([
                 SelectFilter::make('status')->options(StreamerLoan::statusLabels()),
                 SelectFilter::make('streamer_id')

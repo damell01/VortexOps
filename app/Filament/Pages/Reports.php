@@ -3,11 +3,10 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Models\Payout;
-use App\Models\Show;
-use App\Models\Streamer;
 use App\Support\AdminModules;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class Reports extends Page
 {
@@ -37,6 +36,7 @@ class Reports extends Page
     // ── Period ────────────────────────────────────────────────────────────────
 
     public string $period = '30';
+    public bool $showAllWeeks = false;
 
     public function getPeriodOptions(): array
     {
@@ -51,104 +51,182 @@ class Reports extends Page
     public function setPeriod(string $days): void
     {
         $this->period = $days;
+        $this->showAllWeeks = false;
+    }
+
+    public function toggleAllWeeks(): void
+    {
+        $this->showAllWeeks = ! $this->showAllWeeks;
+    }
+
+    // ── Cache key ────────────────────────────────────────────────────────────
+
+    private function cacheKey(string $section): string
+    {
+        return "reports_{$section}_{$this->period}_" . auth()->id();
     }
 
     // ── Revenue summary ───────────────────────────────────────────────────────
 
     public function getRevenueSummaryProperty(): array
     {
-        $since = now()->subDays((int) $this->period);
+        return Cache::remember($this->cacheKey('summary'), 60, function () {
+            $since = now()->subDays((int) $this->period);
 
-        $shows = Show::where('show_date', '>=', $since)
-            ->whereNotIn('status', ['cancelled'])
-            ->get();
+            $cur = DB::table('shows')
+                ->where('show_date', '>=', $since)
+                ->whereNotIn('status', ['cancelled'])
+                ->selectRaw('
+                    COUNT(*) as shows,
+                    COALESCE(SUM(gross_revenue), 0) as gross,
+                    COALESCE(SUM(whatnot_net), 0) as net,
+                    COALESCE(SUM(tips), 0) as tips,
+                    COALESCE(SUM(paper_sales_gross), 0) as paper,
+                    COALESCE(SUM(units_sold), 0) as units
+                ')
+                ->first();
 
-        return [
-            'gross'       => $shows->sum('gross_revenue'),
-            'net'         => $shows->sum('whatnot_net'),
-            'tips'        => $shows->sum('tips'),
-            'paper'       => $shows->sum('paper_sales_gross'),
-            'shows'       => $shows->count(),
-            'units'       => $shows->sum('units_sold'),
-        ];
+            $prev = DB::table('shows')
+                ->whereBetween('show_date', [
+                    now()->subDays((int) $this->period * 2),
+                    now()->subDays((int) $this->period),
+                ])
+                ->whereNotIn('status', ['cancelled'])
+                ->selectRaw('
+                    COUNT(*) as shows,
+                    COALESCE(SUM(gross_revenue), 0) as gross,
+                    COALESCE(SUM(whatnot_net), 0) as net
+                ')
+                ->first();
+
+            $trend = fn ($cur, $prev) => $prev > 0 ? round((($cur - $prev) / $prev) * 100, 1) : null;
+
+            return [
+                'gross'       => (float) ($cur->gross ?? 0),
+                'net'         => (float) ($cur->net ?? 0),
+                'tips'        => (float) ($cur->tips ?? 0),
+                'paper'       => (float) ($cur->paper ?? 0),
+                'shows'       => (int) ($cur->shows ?? 0),
+                'units'       => (int) ($cur->units ?? 0),
+                'trend_gross' => $trend($cur->gross ?? 0, $prev->gross ?? 0),
+                'trend_net'   => $trend($cur->net ?? 0, $prev->net ?? 0),
+                'trend_shows' => $trend($cur->shows ?? 0, $prev->shows ?? 0),
+            ];
+        });
     }
 
     // ── Revenue by channel ────────────────────────────────────────────────────
 
-    public function getRevenueByChannelProperty(): \Illuminate\Support\Collection
+    public function getRevenueByChannelProperty(): array
     {
-        $since = now()->subDays((int) $this->period);
+        return Cache::remember($this->cacheKey('channel'), 60, function () {
+            $since = now()->subDays((int) $this->period);
 
-        return Show::with('channel')
-            ->where('show_date', '>=', $since)
-            ->whereNotIn('status', ['cancelled'])
-            ->get()
-            ->groupBy(fn ($s) => $s->channel?->name ?? 'Unknown')
-            ->map(fn ($group, $channel) => [
-                'channel' => $channel,
-                'shows'   => $group->count(),
-                'gross'   => $group->sum('gross_revenue'),
-                'net'     => $group->sum('whatnot_net'),
-                'units'   => $group->sum('units_sold'),
-            ])
-            ->sortByDesc('gross')
-            ->values();
+            return DB::table('shows')
+                ->leftJoin('whatnot_channels', 'shows.whatnot_channel_id', '=', 'whatnot_channels.id')
+                ->where('shows.show_date', '>=', $since)
+                ->whereNotIn('shows.status', ['cancelled'])
+                ->selectRaw('
+                    COALESCE(whatnot_channels.name, "Unknown") as channel,
+                    COUNT(*) as shows,
+                    COALESCE(SUM(shows.gross_revenue), 0) as gross,
+                    COALESCE(SUM(shows.whatnot_net), 0) as net,
+                    COALESCE(SUM(shows.units_sold), 0) as units
+                ')
+                ->groupBy('whatnot_channels.id', 'whatnot_channels.name')
+                ->orderByDesc('gross')
+                ->get()
+                ->map(fn ($r) => (array) $r)
+                ->all();
+        });
     }
 
     // ── Revenue by week ───────────────────────────────────────────────────────
 
-    public function getRevenueByWeekProperty(): \Illuminate\Support\Collection
+    public function getRevenueByWeekProperty(): array
     {
-        $since = now()->subDays((int) $this->period);
+        return Cache::remember($this->cacheKey('week'), 60, function () {
+            $since = now()->subDays((int) $this->period);
 
-        return Show::where('show_date', '>=', $since)
-            ->whereNotIn('status', ['cancelled'])
-            ->get()
-            ->groupBy(fn ($s) => $s->show_date->startOfWeek()->format('Y-m-d'))
-            ->map(fn ($group, $week) => [
-                'week'  => \Illuminate\Support\Carbon::parse($week)->format('M j'),
-                'shows' => $group->count(),
-                'gross' => $group->sum('gross_revenue'),
-                'net'   => $group->sum('whatnot_net'),
-                'units' => $group->sum('units_sold'),
-            ])
-            ->sortBy('week')
-            ->values();
+            return DB::table('shows')
+                ->where('show_date', '>=', $since)
+                ->whereNotIn('status', ['cancelled'])
+                ->selectRaw("
+                    DATE_SUB(show_date, INTERVAL WEEKDAY(show_date) DAY) as week_start,
+                    COUNT(*) as shows,
+                    COALESCE(SUM(gross_revenue), 0) as gross,
+                    COALESCE(SUM(whatnot_net), 0) as net,
+                    COALESCE(SUM(units_sold), 0) as units
+                ")
+                ->groupByRaw('week_start')
+                ->orderBy('week_start')
+                ->get()
+                ->map(fn ($r) => [
+                    'week_start' => $r->week_start,
+                    'week'       => \Illuminate\Support\Carbon::parse($r->week_start)->format('M j'),
+                    'shows'      => (int) $r->shows,
+                    'gross'      => (float) $r->gross,
+                    'net'        => (float) $r->net,
+                    'units'      => (int) $r->units,
+                ])
+                ->all();
+        });
     }
 
     // ── Top streamers by payout ───────────────────────────────────────────────
 
-    public function getTopStreamersByPayoutProperty(): \Illuminate\Support\Collection
+    public function getTopStreamersByPayoutProperty(): array
     {
-        $since = now()->subDays((int) $this->period);
+        return Cache::remember($this->cacheKey('streamers'), 60, function () {
+            $since = now()->subDays((int) $this->period);
 
-        return Payout::with('streamer')
-            ->whereHas('show', fn ($q) => $q->where('show_date', '>=', $since))
-            ->get()
-            ->groupBy('streamer_id')
-            ->map(fn ($group) => [
-                'streamer' => $group->first()->streamer?->name ?? 'Unknown',
-                'shows'    => $group->pluck('show_id')->unique()->count(),
-                'total'    => $group->sum('calculated_payout'),
-                'avg'      => $group->avg('calculated_payout'),
-            ])
-            ->sortByDesc('total')
-            ->take(10)
-            ->values();
+            return DB::table('payouts')
+                ->join('shows', 'payouts.show_id', '=', 'shows.id')
+                ->join('streamers', 'payouts.streamer_id', '=', 'streamers.id')
+                ->where('shows.show_date', '>=', $since)
+                ->selectRaw('
+                    streamers.name as streamer,
+                    COUNT(DISTINCT payouts.show_id) as shows,
+                    COALESCE(SUM(payouts.calculated_payout), 0) as total,
+                    COALESCE(AVG(payouts.calculated_payout), 0) as avg
+                ')
+                ->groupBy('payouts.streamer_id', 'streamers.name')
+                ->orderByDesc('total')
+                ->limit(10)
+                ->get()
+                ->map(fn ($r) => (array) $r)
+                ->all();
+        });
     }
 
     // ── Payout summary by status ──────────────────────────────────────────────
 
     public function getPayoutStatusSummaryProperty(): array
     {
-        $since = now()->subDays((int) $this->period);
+        return Cache::remember($this->cacheKey('payout_status'), 60, function () {
+            $since = now()->subDays((int) $this->period);
 
-        $payouts = Payout::whereHas('show', fn ($q) => $q->where('show_date', '>=', $since))->get();
+            $rows = DB::table('payouts')
+                ->join('shows', 'payouts.show_id', '=', 'shows.id')
+                ->where('shows.show_date', '>=', $since)
+                ->selectRaw('
+                    payouts.status,
+                    COUNT(*) as cnt,
+                    COALESCE(SUM(payouts.calculated_payout), 0) as total
+                ')
+                ->groupBy('payouts.status')
+                ->pluck(null, 'status');
 
-        return [
-            'draft'    => ['count' => $payouts->where('status', 'draft')->count(),    'total' => $payouts->where('status', 'draft')->sum('calculated_payout')],
-            'approved' => ['count' => $payouts->where('status', 'approved')->count(), 'total' => $payouts->where('status', 'approved')->sum('calculated_payout')],
-            'paid'     => ['count' => $payouts->where('status', 'paid')->count(),     'total' => $payouts->where('status', 'paid')->sum('calculated_payout')],
-        ];
+            $get = fn ($key) => [
+                'count' => (int) ($rows[$key]->cnt ?? 0),
+                'total' => (float) ($rows[$key]->total ?? 0),
+            ];
+
+            return [
+                'draft'    => $get('draft'),
+                'approved' => $get('approved'),
+                'paid'     => $get('paid'),
+            ];
+        });
     }
 }

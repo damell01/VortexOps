@@ -166,7 +166,7 @@
                                 @if (isset($msg['success']) && ! $msg['success'])
                                     <span class="text-danger-600 dark:text-danger-400">{{ $msg['content'] }}</span>
                                 @else
-                                    <div class="whitespace-pre-wrap text-gray-800 dark:text-gray-200">{{ $msg['content'] }}</div>
+                                    <div class="prose prose-sm max-w-none dark:prose-invert text-gray-800 dark:text-gray-200">{!! \Illuminate\Support\Str::markdown($msg['content']) !!}</div>
                                 @endif
                             </div>
                             <div class="mt-1 flex items-center gap-2 text-xs text-gray-400">
@@ -231,9 +231,22 @@
                 type="text"
                 placeholder="Ask about your operations…"
                 autocomplete="off"
+                maxlength="2000"
                 :disabled="loading"
                 class="flex-1 min-w-0 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-sm placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             />
+            @if (count($messages) > 0)
+                <button
+                    type="button"
+                    wire:click="clearChat"
+                    :disabled="loading"
+                    class="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm font-medium text-gray-600 shadow-sm transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                    title="Clear chat"
+                >
+                    <x-heroicon-o-trash class="h-4 w-4" />
+                    <span class="hidden sm:inline">Clear</span>
+                </button>
+            @endif
             <button
                 type="submit"
                 :disabled="loading"

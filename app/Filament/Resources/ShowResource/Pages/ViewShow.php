@@ -17,6 +17,16 @@ class ViewShow extends ViewRecord
 {
     protected static string $resource = ShowResource::class;
 
+    protected function resolveRecord(int|string $key): \App\Models\Show
+    {
+        return \App\Models\Show::with([
+            'streamers',
+            'channel',
+            'payouts.streamer',
+            'latestDeductionRequest.lines.inventoryItem',
+        ])->findOrFail($key);
+    }
+
     protected function getHeaderActions(): array
     {
         return [

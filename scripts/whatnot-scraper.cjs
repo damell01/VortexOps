@@ -2,19 +2,22 @@
  * Whatnot Seller Dashboard Scraper
  *
  * Modes (WHATNOT_MODE env var):
- *   shows        (default) — scrape completed show list, output JSON array
+ *   analytics    (default) — scrape per-show analytics from the dashboard, newest first
  *   test         — verify credentials only, output {connected, email}
  *   show-orders  — scrape order/lot list for one show (requires WHATNOT_SHOW_URL)
+ *   shows        — legacy: scrape the /seller/shows list page (less data, kept as fallback)
  *
  * Called by app/Services/WhatnotScraper.php via Symfony Process.
  *
  * Env vars:
- *   WHATNOT_EMAIL       seller account email
- *   WHATNOT_PASSWORD    seller account password
- *   WHATNOT_LIMIT       max shows to return per run (default: 50)
- *   WHATNOT_MODE        shows | test | show-orders (default: shows)
- *   WHATNOT_SHOW_URL    required for show-orders mode
- *   WHATNOT_DEBUG       set to "1" to save debug screenshots to /tmp
+ *   WHATNOT_EMAIL        seller account email
+ *   WHATNOT_PASSWORD     seller account password
+ *   WHATNOT_LIMIT        max shows to return per run (default: 50)
+ *   WHATNOT_MODE         analytics | test | show-orders | shows (default: analytics)
+ *   WHATNOT_SHOW_URL     required for show-orders mode
+ *   WHATNOT_CHANNEL_NAME whatnot_username of the channel to switch to before scraping
+ *                        (leave blank to scrape the default/current active channel)
+ *   WHATNOT_DEBUG        set to "1" to save debug screenshots to /tmp
  *
  * Exit codes:
  *   0  success, JSON on stdout
@@ -27,47 +30,62 @@
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
 
 // ── Selectors ────────────────────────────────────────────────────────────────
-// Update these if Whatnot changes their markup.
+// Analytics page selectors are based on the live Whatnot seller dashboard HTML
+// (captured July 2026). Update if Whatnot changes their markup.
 const SELECTORS = {
   // Login page
   loginEmailInput:    'input[type="email"], input[name="email"], input[placeholder*="email" i]',
   loginPasswordInput: 'input[type="password"]',
   loginSubmitBtn:     'button[type="submit"]',
 
-  // Seller dashboard — shows list page
-  showRow:            '[data-testid="show-row"], .show-row, tr[data-show-id], [class*="ShowRow"], [class*="show-item"]',
-  showTitle:          '[data-testid="show-title"], .show-title, [class*="ShowTitle"], h3, h4',
-  showDate:           '[data-testid="show-date"], .show-date, time, [class*="ShowDate"]',
-  showDuration:       '[data-testid="show-duration"], [class*="duration"]',
-  showGross:          '[data-testid="gross-sales"], [class*="gross"], [class*="revenue"]',
-  showNet:            '[data-testid="net-payout"], [class*="payout"], [class*="net"]',
-  showTips:           '[data-testid="tips"], [class*="tip"]',
-  showUnits:          '[data-testid="units-sold"], [class*="units"]',
-  showStatus:         '[data-testid="show-status"], [class*="status"]',
+  // Role / channel switcher
+  // Whatnot shows a role selector for multi-channel accounts. These selectors
+  // try common patterns; update them if the switcher changes structure.
+  // The role switcher is typically accessible from the seller hub page.
+  roleSwitcherBtn:    '[data-testid="role-switcher"], [data-testid="channel-switcher"], button[aria-label*="switch" i], nav button[aria-haspopup="true"], header button[aria-haspopup="true"]',
 
-  // Show detail / order list page
-  // Update these selectors once you've inspected the seller show detail page.
+  // Analytics page — tabs
+  // Tab buttons use stable aria attributes — prefer these over class names.
+  analyticsShowsTab:  'button[aria-controls="simple-tabpanel-1"], button#simple-tab-1',
+
+  // Analytics page — show navigation (aria-label is stable across deploys)
+  showNavOlder:       'button[aria-label="See older show"]',
+  showNavNewer:       'button[aria-label="See newer show"]',
+
+  // Analytics page — show header
+  // Title uses an inline nowrap/ellipsis style; the max-width:90% distinguishes
+  // it from other large text on the page.
+  showTitle:          'div[style*="white-space: nowrap"][style*="text-overflow: ellipsis"][style*="max-width: 90%"]',
+
+  // Analytics page — metric cards
+  // Each card is 160px tall with border-radius: 16px.
+  // Within each card: name is font-size:16px bold, value is font-size:32px bold.
+  metricCard:         'div[style*="height: 160px"][style*="border-radius: 16px"]',
+
+  // Show orders page selectors (placeholder — update after inspecting show detail HTML)
   orderRow:           '[data-testid="order-row"], [class*="OrderRow"], [class*="order-item"], tr[data-order-id]',
-  orderBuyer:         '[data-testid="buyer-name"], [data-testid="buyer-username"], [class*="buyer"], [class*="Buyer"]',
-  orderItemName:      '[data-testid="item-name"], [data-testid="product-name"], [class*="ItemName"], [class*="item-title"]',
-  orderLotNumber:     '[data-testid="lot-number"], [class*="lot"], [class*="Lot"]',
-  orderQuantity:      '[data-testid="quantity"], [class*="qty"], [class*="Qty"]',
-  orderPrice:         '[data-testid="price"], [data-testid="sale-price"], [class*="price"], [class*="Price"]',
-  orderTotal:         '[data-testid="total"], [data-testid="order-total"], [class*="total"], [class*="Total"]',
-  orderStatus:        '[data-testid="order-status"], [class*="OrderStatus"], [class*="order-status"]',
+  orderBuyer:         '[data-testid="buyer-name"], [data-testid="buyer-username"], [class*="buyer"]',
+  orderItemName:      '[data-testid="item-name"], [data-testid="product-name"], [class*="ItemName"]',
+  orderLotNumber:     '[data-testid="lot-number"], [class*="lot"]',
+  orderQuantity:      '[data-testid="quantity"], [class*="qty"]',
+  orderPrice:         '[data-testid="price"], [data-testid="sale-price"], [class*="price"]',
+  orderTotal:         '[data-testid="total"], [data-testid="order-total"], [class*="total"]',
+  orderStatus:        '[data-testid="order-status"], [class*="OrderStatus"]',
 };
 
 const URLS = {
   home:       'https://www.whatnot.com',
   login:      'https://www.whatnot.com/signin',
+  analytics:  'https://www.whatnot.com/dashboard/analytics/overview',
   shows:      'https://www.whatnot.com/seller/shows',
   sellerHub:  'https://www.whatnot.com/seller',
 };
 
-const CHROMIUM_PATH = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
-const DEBUG         = process.env.WHATNOT_DEBUG === '1';
-const LIMIT         = parseInt(process.env.WHATNOT_LIMIT || '50', 10);
-const MODE          = process.env.WHATNOT_MODE || 'shows';
+const CHROMIUM_PATH  = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const DEBUG          = process.env.WHATNOT_DEBUG === '1';
+const LIMIT          = parseInt(process.env.WHATNOT_LIMIT || '50', 10);
+const MODE           = process.env.WHATNOT_MODE || 'analytics';
+const CHANNEL_NAME   = (process.env.WHATNOT_CHANNEL_NAME || '').trim();
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -83,7 +101,7 @@ async function debugShot(page, name) {
 }
 
 function parseMoney(str) {
-  if (!str) return null;
+  if (!str || str === 'N/A') return null;
   const cleaned = str.replace(/[^0-9.-]/g, '');
   const val = parseFloat(cleaned);
   return isNaN(val) ? null : val;
@@ -91,6 +109,7 @@ function parseMoney(str) {
 
 function parseDurationToMinutes(str) {
   if (!str) return null;
+  // "7h 0m", "0h 53m", "1h 30m", "90 min", "1:30:00"
   const hm = str.match(/(\d+)\s*h(?:r|our)?s?\s*(?:(\d+)\s*m)?/i);
   if (hm) return parseInt(hm[1]) * 60 + (parseInt(hm[2] || '0'));
   const minOnly = str.match(/(\d+)\s*m(?:in)?/i);
@@ -98,6 +117,22 @@ function parseDurationToMinutes(str) {
   const hms = str.match(/(\d+):(\d+):(\d+)/);
   if (hms) return parseInt(hms[1]) * 60 + parseInt(hms[2]);
   return null;
+}
+
+// Parse "7/1/2026, 7:42 PM CDT" → "2026-07-01"
+function parseDateString(str) {
+  if (!str) return null;
+  const m = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (!m) return null;
+  const [, mo, d, y] = m;
+  return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+}
+
+function parseInteger(str) {
+  if (!str || str === 'N/A') return null;
+  const cleaned = str.replace(/[^0-9]/g, '');
+  const val = parseInt(cleaned, 10);
+  return isNaN(val) ? null : val;
 }
 
 // ── Login helper (shared by all modes) ───────────────────────────────────────
@@ -112,7 +147,7 @@ async function performLogin(page, email, password) {
 
   if (!emailInput) {
     log('no email input found — may already be logged in');
-    return; // already authenticated
+    return;
   }
 
   await emailInput.click();
@@ -157,6 +192,147 @@ async function performLogin(page, email, password) {
   }
 }
 
+// ── Role / channel switcher ───────────────────────────────────────────────────
+// Whatnot seller accounts can have multiple channels (vortexcards, vortexcollects, etc.).
+// This function navigates to the seller hub and switches to the target channel by name.
+// If the target is already active, or the switcher isn't found, it continues silently.
+//
+// If switching fails in production, run with WHATNOT_DEBUG=1 and check the screenshots
+// named "role-switch-*.png". Update SELECTORS.roleSwitcherBtn to match the actual HTML.
+
+async function switchToChannel(page, channelName) {
+  if (!channelName) return; // no switch needed — use default active channel
+  log(`switching to channel: "${channelName}"`);
+
+  // Navigate to seller hub — the role switcher is most reliably found there
+  await page.goto(URLS.sellerHub, { waitUntil: 'domcontentloaded', timeout: 20000 });
+  await page.waitForTimeout(1500);
+  await debugShot(page, 'role-switch-01-seller-hub');
+
+  // Strategy 1: The channel name is directly visible and clickable
+  // (some Whatnot layouts show a role panel/sidebar with the list of channels)
+  const directEl = await page.getByRole('button', { name: channelName, exact: false }).first().catch(() => null)
+    || await page.getByText(channelName, { exact: true }).first().catch(() => null);
+
+  if (directEl) {
+    const visible = await directEl.isVisible().catch(() => false);
+    if (visible) {
+      await directEl.click();
+      await page.waitForTimeout(2000);
+      await debugShot(page, 'role-switch-02-direct-click');
+      log(`switched to channel "${channelName}" via direct click`);
+      return;
+    }
+  }
+
+  // Strategy 2: Find the switcher trigger button (dropdown/menu) and open it
+  const triggerSels = SELECTORS.roleSwitcherBtn.split(', ');
+  let menuOpened = false;
+
+  for (const sel of triggerSels) {
+    const trigger = await page.$(sel).catch(() => null);
+    if (trigger && await trigger.isVisible().catch(() => false)) {
+      await trigger.click();
+      await page.waitForTimeout(800);
+      await debugShot(page, 'role-switch-03-menu-open');
+
+      // Look for the channel name inside any menu/dropdown that appeared
+      const menuItem = await page.getByText(channelName, { exact: false }).first().catch(() => null);
+      if (menuItem && await menuItem.isVisible().catch(() => false)) {
+        await menuItem.click();
+        await page.waitForTimeout(2000);
+        await debugShot(page, 'role-switch-04-switched');
+        log(`switched to channel "${channelName}" via switcher trigger`);
+        menuOpened = true;
+        return;
+      }
+
+      // Didn't find the channel in this menu — close it and try next trigger
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(300);
+    }
+  }
+
+  // Strategy 3: Look for any clickable nav/header element that mentions the channel
+  if (!menuOpened) {
+    const allBtns = await page.$$('header button, nav button, aside button').catch(() => []);
+    for (const btn of allBtns) {
+      const text = (await btn.textContent().catch(() => '')).trim();
+      if (!text || text.length > 60) continue; // skip long labels
+
+      await btn.click();
+      await page.waitForTimeout(500);
+
+      const channelEl = await page.getByText(channelName, { exact: false }).first().catch(() => null);
+      if (channelEl && await channelEl.isVisible().catch(() => false)) {
+        await channelEl.click();
+        await page.waitForTimeout(2000);
+        await debugShot(page, 'role-switch-04-switched');
+        log(`switched to channel "${channelName}" via nav button`);
+        return;
+      }
+
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(200);
+    }
+  }
+
+  // Could not switch — log a warning but don't fail.
+  // The scraper will continue on whichever channel is currently active.
+  log(`WARNING: could not switch to channel "${channelName}". Check role-switch-*.png screenshots.`);
+  log(`To fix: find the switcher element in the debug screenshots and update SELECTORS.roleSwitcherBtn.`);
+}
+
+// ── Extract all metric cards from the current analytics page view ─────────────
+
+async function extractAnalyticsMetrics(page) {
+  return page.evaluate(({ SEL }) => {
+    // Find a div by checking its inline style for a substring
+    function styleIncludes(el, ...parts) {
+      const s = el.getAttribute('style') || '';
+      return parts.every(p => s.includes(p));
+    }
+
+    // Show title: the nowrap/ellipsis div with max-width: 90%
+    const titleEl = document.querySelector(SEL.showTitle);
+    const title = titleEl ? titleEl.textContent.trim() : null;
+
+    // Show date: find a div whose text content matches a date pattern (M/D/YYYY)
+    const dateEl = Array.from(document.querySelectorAll('div')).find(el => {
+      const s = el.getAttribute('style') || '';
+      return s.includes('font-size: 14px') && s.includes('font-weight: 600') &&
+             /\d{1,2}\/\d{1,2}\/\d{4}/.test(el.textContent);
+    });
+    const dateText = dateEl ? dateEl.textContent.trim() : null;
+
+    // All metric cards (height: 160px + border-radius: 16px)
+    const cards = Array.from(document.querySelectorAll('div')).filter(el =>
+      styleIncludes(el, 'height: 160px') && styleIncludes(el, 'border-radius: 16px')
+    );
+
+    const metrics = {};
+    for (const card of cards) {
+      // Metric name: first div with font-size: 16px and font-weight: 600
+      const nameEl = Array.from(card.querySelectorAll('div')).find(el =>
+        styleIncludes(el, 'font-size: 16px') && styleIncludes(el, 'font-weight: 600')
+      );
+      // Metric value: div with font-size: 32px
+      const valueEl = Array.from(card.querySelectorAll('div')).find(el =>
+        styleIncludes(el, 'font-size: 32px')
+      );
+      if (nameEl && valueEl) {
+        metrics[nameEl.textContent.trim()] = valueEl.textContent.trim();
+      }
+    }
+
+    // Check if older/newer show buttons are disabled
+    const olderBtn  = document.querySelector(SEL.showNavOlder);
+    const hasOlder  = olderBtn && !olderBtn.disabled;
+
+    return { title, dateText, metrics, hasOlder, cardCount: cards.length };
+  }, { SEL: SELECTORS });
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 (async () => {
@@ -184,29 +360,27 @@ async function performLogin(page, email, password) {
   try {
     await performLogin(page, email, password);
 
+    // Switch to the target channel before scraping (skipped for test mode)
+    if (MODE !== 'test' && CHANNEL_NAME) {
+      await switchToChannel(page, CHANNEL_NAME);
+    }
+
     // ── Mode: test ───────────────────────────────────────────────────────────
     if (MODE === 'test') {
-      // Navigate to seller hub to confirm seller access
       log('test mode — verifying seller access');
       await page.goto(URLS.sellerHub, { waitUntil: 'domcontentloaded', timeout: 20000 });
       await page.waitForTimeout(1500);
       await debugShot(page, '05-seller-hub');
 
       const currentUrl = page.url();
-      const isSeller   = currentUrl.includes('/seller') || currentUrl.includes('/creator');
+      const isSeller   = currentUrl.includes('/seller') || currentUrl.includes('/creator') || currentUrl.includes('/dashboard');
       const pageTitle  = await page.title();
 
       if (!isSeller) {
-        throw new Error(`Credentials valid but seller hub not accessible. Landed on: ${currentUrl}. Ensure this account has seller status on Whatnot.`);
+        throw new Error(`Credentials valid but seller hub not accessible. Landed on: ${currentUrl}.`);
       }
 
-      process.stdout.write(JSON.stringify({
-        connected:   true,
-        email:       email,
-        page_title:  pageTitle,
-        seller_url:  currentUrl,
-      }) + '\n');
-
+      process.stdout.write(JSON.stringify({ connected: true, email, page_title: pageTitle, seller_url: currentUrl }) + '\n');
       log('test complete — connected');
       process.exit(0);
     }
@@ -224,146 +398,168 @@ async function performLogin(page, email, password) {
       await page.waitForTimeout(2000);
       await debugShot(page, '05-show-detail');
 
-      // Try to find an orders tab or section
       const ordersTabSel = '[data-testid="orders-tab"], a[href*="orders"], button:has-text("Orders"), button:has-text("Sales")';
       const ordersTab = await page.$(ordersTabSel);
       if (ordersTab) {
-        log('clicking orders tab');
         await ordersTab.click();
         await page.waitForTimeout(1500);
         await debugShot(page, '06-orders-tab');
       }
 
-      // Wait for order rows
       await page.waitForSelector(SELECTORS.orderRow, { timeout: 15000 })
-        .catch(() => log('order row selector not matched — will attempt generic extraction'));
+        .catch(() => log('order row selector not matched'));
 
       const orders = await page.evaluate(({ SEL }) => {
         const rows = Array.from(document.querySelectorAll(SEL.orderRow));
-
         if (rows.length === 0) {
           return { fallback: true, html: document.body.innerHTML.substring(0, 8000) };
         }
-
         return rows.map((row, idx) => {
-          function text(sel) {
-            const el = row.querySelector(sel);
-            return el ? el.textContent.trim() : null;
-          }
-          function attr(sel, att) {
-            const el = row.querySelector(sel);
-            return el ? el.getAttribute(att) : null;
-          }
-
+          function text(sel) { const el = row.querySelector(sel); return el ? el.textContent.trim() : null; }
+          function attr(sel, att) { const el = row.querySelector(sel); return el ? el.getAttribute(att) : null; }
           return {
-            index:        idx,
-            buyer:        text(SEL.orderBuyer),
-            item_name:    text(SEL.orderItemName),
-            lot_number:   text(SEL.orderLotNumber),
-            quantity:     text(SEL.orderQuantity),
-            price:        text(SEL.orderPrice),
-            total:        text(SEL.orderTotal),
-            status:       text(SEL.orderStatus),
-            order_id:     attr('[data-order-id]', 'data-order-id') ||
-                          attr('[data-testid="order-id"]', 'data-testid'),
-            raw_text:     row.textContent.replace(/\s+/g, ' ').trim().substring(0, 300),
+            index:     idx,
+            buyer:     text(SEL.orderBuyer),
+            item_name: text(SEL.orderItemName),
+            lot_number: text(SEL.orderLotNumber),
+            quantity:  text(SEL.orderQuantity),
+            price:     text(SEL.orderPrice),
+            total:     text(SEL.orderTotal),
+            status:    text(SEL.orderStatus),
+            order_id:  attr('[data-order-id]', 'data-order-id'),
+            raw_text:  row.textContent.replace(/\s+/g, ' ').trim().substring(0, 300),
           };
         });
       }, { SEL: SELECTORS });
 
-      await debugShot(page, '07-orders-extracted');
-
       if (orders && orders.fallback) {
-        process.stderr.write('SELECTOR_MISS: Order row selector did not match any elements.\n');
+        process.stderr.write('SELECTOR_MISS: Order row selector did not match.\n');
         process.stderr.write('PAGE_SNAPSHOT: ' + orders.html + '\n');
         process.exit(2);
       }
 
       const normalized = (orders || []).map(o => ({
         order_id:    o.order_id || null,
-        buyer:       o.buyer    || null,
+        buyer:       o.buyer || null,
         item_name:   o.item_name || o.raw_text?.substring(0, 100) || null,
         lot_number:  o.lot_number ? parseInt(o.lot_number.replace(/\D/g, ''), 10) || null : null,
-        quantity:    o.quantity  ? parseInt(o.quantity.replace(/\D/g, ''),  10) || 1 : 1,
+        quantity:    o.quantity  ? parseInt(o.quantity.replace(/\D/g, ''), 10) || 1 : 1,
         unit_price:  parseMoney(o.price),
         total_price: parseMoney(o.total),
-        status:      o.status   || 'completed',
+        status:      o.status || 'completed',
       })).filter(o => o.buyer || o.item_name);
 
       process.stdout.write(JSON.stringify(normalized, null, 2) + '\n');
-      log(`done — returned ${normalized.length} orders`);
       process.exit(0);
     }
 
-    // ── Mode: shows (default) ────────────────────────────────────────────────
-    log('navigating to seller shows page');
-    await page.goto(URLS.shows, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    await page.waitForTimeout(2000);
-    await debugShot(page, '05-shows-page');
+    // ── Mode: analytics (default) ─────────────────────────────────────────────
+    if (MODE === 'analytics' || MODE === 'shows') {
+      const isAnalytics = MODE === 'analytics';
+      const targetUrl   = isAnalytics ? URLS.analytics : URLS.shows;
 
-    const currentUrl = page.url();
-    if (!currentUrl.includes('/seller') && !currentUrl.includes('/creator')) {
-      throw new Error(`Expected seller dashboard but landed on: ${currentUrl}. Ensure this Whatnot account is a registered seller.`);
-    }
+      log(`navigating to ${targetUrl}`);
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.waitForTimeout(2000);
+      await debugShot(page, '05-analytics-page');
 
-    log('extracting show data');
+      if (isAnalytics) {
+        // Click the "Shows" tab
+        const showsTab = await page.waitForSelector(SELECTORS.analyticsShowsTab, { timeout: 10000 })
+          .catch(() => null);
 
-    await page.waitForSelector(SELECTORS.showRow, { timeout: 15000 })
-      .catch(() => log('show row selector not matched — will attempt generic extraction'));
+        if (!showsTab) {
+          const html = await page.evaluate(() => document.body.innerHTML.substring(0, 5000));
+          process.stderr.write('SELECTOR_MISS: Analytics "Shows" tab not found.\n');
+          process.stderr.write('PAGE_SNAPSHOT: ' + html + '\n');
+          process.exit(2);
+        }
 
-    const shows = await page.evaluate(({ SEL, limit }) => {
-      const rows = Array.from(document.querySelectorAll(SEL.showRow)).slice(0, limit);
-
-      if (rows.length === 0) {
-        return { fallback: true, html: document.body.innerHTML.substring(0, 5000) };
+        // Only click if not already selected
+        const isSelected = await showsTab.evaluate(el => el.getAttribute('aria-selected') === 'true');
+        if (!isSelected) {
+          await showsTab.click();
+          await page.waitForTimeout(1500);
+        }
+        await debugShot(page, '06-shows-tab');
       }
 
-      return rows.map(row => {
-        function text(sel) {
-          const el = row.querySelector(sel);
-          return el ? el.textContent.trim() : null;
-        }
-        function attr(sel, att) {
-          const el = row.querySelector(sel);
-          return el ? el.getAttribute(att) : null;
+      const results = [];
+
+      for (let i = 0; i < LIMIT; i++) {
+        await page.waitForTimeout(800);
+        await debugShot(page, `07-show-${i}`);
+
+        const data = await extractAnalyticsMetrics(page);
+        log(`show ${i}: title="${data.title}" date="${data.dateText}" cards=${data.cardCount}`);
+
+        if (!data.title && data.cardCount === 0) {
+          log('no show data visible — stopping');
+          break;
         }
 
-        return {
-          title:     text(SEL.showTitle),
-          date:      attr('time', 'datetime') || text(SEL.showDate),
-          duration:  text(SEL.showDuration),
-          gross:     text(SEL.showGross),
-          net:       text(SEL.showNet),
-          tips:      text(SEL.showTips),
-          units:     text(SEL.showUnits),
-          status:    text(SEL.showStatus),
-          detailUrl: row.querySelector('a') ? row.querySelector('a').href : null,
+        const m = data.metrics;
+
+        // Map metric labels to normalized field names
+        // Labels vary slightly between shows ("Total Estimated Earnings" vs "Completed Earnings")
+        // so we check multiple possible label strings.
+        const get = (...labels) => {
+          for (const l of labels) { if (m[l] !== undefined) return m[l]; }
+          return null;
         };
-      });
-    }, { SEL: SELECTORS, limit: LIMIT });
 
-    await debugShot(page, '06-extracted');
+        results.push({
+          title:                   data.title,
+          show_date:               parseDateString(data.dateText),
+          show_date_raw:           data.dateText,
 
-    if (shows && shows.fallback) {
-      process.stderr.write('SELECTOR_MISS: Show row selector did not match any elements.\n');
-      process.stderr.write('PAGE_SNAPSHOT: ' + shows.html + '\n');
-      process.exit(2);
+          // Sales Metrics
+          gross_revenue:           parseMoney(get('Estimated Sales')),
+          whatnot_net:             parseMoney(get('Total Estimated Earnings')),
+          completed_earnings:      parseMoney(get('Completed Earnings')),
+          units_sold:              parseInteger(get('Orders')),
+          avg_order_value:         parseMoney(get('Average Order Value')),
+          giveaway_spend:          parseMoney(get('Giveaway Spend')),
+          giveaways_count:         parseInteger(get('Giveaways')),
+
+          // Stream Metrics
+          buyers_count:            parseInteger(get('Buyers')),
+          first_time_buyers:       parseInteger(get('First Time Buyers')),
+          returning_buyers:        parseInteger(get('Returning Buyers')),
+          shares_count:            parseInteger(get('Shares')),
+          show_duration:           parseDurationToMinutes(get('Show Duration')),
+          max_concurrent_viewers:  parseInteger(get('Max Concurrent Viewers')),
+          total_views:             parseInteger(get('Total Views')),
+          avg_order_rating:        parseMoney(get('Average Order Rating')),
+
+          // Raw metrics map for debugging
+          _raw_metrics: m,
+        });
+
+        if (!data.hasOlder) {
+          log('no older shows — reached end of history');
+          break;
+        }
+
+        // Navigate to the next older show
+        await page.click(SELECTORS.showNavOlder);
+        log(`navigated to older show (${i + 1} of ${LIMIT})`);
+      }
+
+      if (results.length === 0) {
+        const html = await page.evaluate(() => document.body.innerHTML.substring(0, 5000));
+        process.stderr.write('SELECTOR_MISS: No show data extracted from analytics page.\n');
+        process.stderr.write('PAGE_SNAPSHOT: ' + html + '\n');
+        process.exit(2);
+      }
+
+      process.stdout.write(JSON.stringify(results, null, 2) + '\n');
+      log(`done — returned ${results.length} shows`);
+      process.exit(0);
     }
 
-    const normalized = (shows || []).map(s => ({
-      title:         s.title  || null,
-      show_date:     s.date   ? s.date.substring(0, 10) : null,
-      show_duration: parseDurationToMinutes(s.duration),
-      gross_revenue: parseMoney(s.gross),
-      whatnot_net:   parseMoney(s.net),
-      tips:          parseMoney(s.tips),
-      units_sold:    s.units  ? parseInt(s.units.replace(/\D/g, ''), 10) || null : null,
-      status:        s.status || null,
-      detail_url:    s.detailUrl || null,
-    })).filter(s => s.title || s.show_date);
-
-    process.stdout.write(JSON.stringify(normalized, null, 2) + '\n');
-    log(`done — returned ${normalized.length} shows`);
+    process.stderr.write(`Unknown WHATNOT_MODE: ${MODE}\n`);
+    process.exit(1);
 
   } catch (err) {
     await debugShot(page, 'error');

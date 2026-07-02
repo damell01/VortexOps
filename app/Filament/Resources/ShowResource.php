@@ -211,6 +211,66 @@ class ShowResource extends Resource
                     ->columnSpanFull(),
             ]),
 
+            Section::make('Whatnot Analytics')
+                ->description('Populated automatically during import. Values can be corrected manually.')
+                ->collapsible()
+                ->collapsed()
+                ->columns(3)
+                ->schema([
+                    TextInput::make('completed_earnings')
+                        ->label('Completed Earnings')
+                        ->prefix('$')
+                        ->numeric()
+                        ->nullable(),
+                    TextInput::make('avg_order_value')
+                        ->label('Avg Order Value')
+                        ->prefix('$')
+                        ->numeric()
+                        ->nullable(),
+                    TextInput::make('giveaway_spend')
+                        ->label('Giveaway Spend')
+                        ->prefix('$')
+                        ->numeric()
+                        ->nullable(),
+                    TextInput::make('giveaways_count')
+                        ->label('Giveaways')
+                        ->numeric()
+                        ->nullable(),
+                    TextInput::make('buyers_count')
+                        ->label('Buyers')
+                        ->numeric()
+                        ->nullable(),
+                    TextInput::make('first_time_buyers')
+                        ->label('First-Time Buyers')
+                        ->numeric()
+                        ->nullable(),
+                    TextInput::make('returning_buyers')
+                        ->label('Returning Buyers')
+                        ->numeric()
+                        ->nullable(),
+                    TextInput::make('shares_count')
+                        ->label('Shares')
+                        ->numeric()
+                        ->nullable(),
+                    TextInput::make('max_concurrent_viewers')
+                        ->label('Peak Viewers')
+                        ->numeric()
+                        ->nullable(),
+                    TextInput::make('total_views')
+                        ->label('Total Views')
+                        ->numeric()
+                        ->nullable(),
+                    TextInput::make('avg_order_rating')
+                        ->label('Avg Rating')
+                        ->numeric()
+                        ->nullable(),
+                    TextInput::make('detail_url')
+                        ->label('Whatnot Show URL')
+                        ->url()
+                        ->nullable()
+                        ->columnSpanFull(),
+                ]),
+
             Section::make('Approval Summary')
                 ->visible(fn (?Show $record) => (bool) $record?->latestDeductionRequest)
                 ->schema([
@@ -399,6 +459,33 @@ class ShowResource extends Resource
                         'auto_whatnot' => 'info',
                         default => 'gray',
                     }),
+
+                TextColumn::make('buyers_count')
+                    ->label('Buyers')
+                    ->numeric()
+                    ->sortable()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('total_views')
+                    ->label('Views')
+                    ->numeric()
+                    ->sortable()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('avg_order_rating')
+                    ->label('Rating')
+                    ->numeric(decimalPlaces: 2)
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('detail_url')
+                    ->label('Source')
+                    ->formatStateUsing(fn ($state) => $state ? 'View ↗' : null)
+                    ->url(fn ($record) => $record->detail_url, shouldOpenInNewTab: true)
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('created_at')
                     ->dateTime('M j, Y g:i A')

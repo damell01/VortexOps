@@ -166,7 +166,7 @@
                                 @if (isset($msg['success']) && ! $msg['success'])
                                     <span class="text-danger-600 dark:text-danger-400">{{ $msg['content'] }}</span>
                                 @else
-                                    <div class="prose prose-sm max-w-none dark:prose-invert text-gray-800 dark:text-gray-200">{!! \Illuminate\Support\Str::markdown($msg['content']) !!}</div>
+                                    <div class="prose prose-sm max-w-none dark:prose-invert text-gray-800 dark:text-gray-200">{!! \Illuminate\Support\Str::markdown($msg['content'], ['html_input' => 'strip', 'allow_unsafe_links' => false]) !!}</div>
                                 @endif
                             </div>
                             <div class="mt-1 flex items-center gap-2 text-xs text-gray-400">

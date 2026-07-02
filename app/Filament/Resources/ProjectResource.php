@@ -2,11 +2,13 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\ProjectResource\Pages;
 use App\Filament\Resources\ProjectResource\RelationManagers\MilestonesRelationManager;
 use App\Filament\Resources\ProjectResource\RelationManagers\UpdatesRelationManager;
 use App\Models\Project;
 use App\Models\User;
+use App\Support\AdminModules;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -26,6 +28,9 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ProjectResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'projects';
     protected static ?string $model = Project::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -35,7 +40,7 @@ class ProjectResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Operations';
+        return AdminModules::navigationGroupFor('projects');
     }
 
     public static function getNavigationSort(): ?int

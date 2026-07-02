@@ -59,34 +59,39 @@ class WhatnotScraper
     }
 
     /**
-     * Run the scraper and return raw show data as an array.
+     * Run the analytics scraper and return raw show data for one channel.
      *
      * @throws \RuntimeException on login/nav failures
      */
-    public function fetchShows(int $limit = 50, bool $debug = false): array
+    public function fetchShows(int $limit = 50, bool $debug = false, ?string $channelUsername = null): array
     {
         [$email, $password] = $this->resolveCredentials();
 
-        $process = $this->makeProcess([
+        $env = [
             'WHATNOT_EMAIL'    => $email,
             'WHATNOT_PASSWORD' => $password,
-            'WHATNOT_MODE'     => 'shows',
+            'WHATNOT_MODE'     => 'analytics',
             'WHATNOT_LIMIT'    => (string) $limit,
             'WHATNOT_DEBUG'    => $debug ? '1' : '0',
-        ]);
+        ];
 
+        if ($channelUsername) {
+            $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
+        }
+
+        $process = $this->makeProcess($env);
         $process->run();
 
         $stderr = trim($process->getErrorOutput());
         $stdout = trim($process->getOutput());
 
         if ($stderr) {
-            Log::channel('stack')->warning('WhatnotScraper stderr', ['output' => $stderr]);
+            Log::channel('stack')->warning('WhatnotScraper stderr', ['output' => $stderr, 'channel' => $channelUsername]);
         }
 
         if ($process->getExitCode() === 2) {
             throw new \RuntimeException(
-                "Whatnot scraper: show row selectors didn't match the page. " .
+                "Whatnot scraper: analytics selectors didn't match the page. " .
                 "Set WHATNOT_DEBUG=1 and re-run to capture screenshots. " .
                 "Check logs for a PAGE_SNAPSHOT to update scripts/whatnot-scraper.cjs."
             );
@@ -239,12 +244,12 @@ class WhatnotScraper
     }
 
     /**
-     * Fetch shows and upsert them into the shows table.
+     * Fetch shows and upsert them into the shows table for one channel.
      * Returns counts: ['created' => n, 'updated' => n, 'skipped' => n].
      */
     public function importShows(?WhatnotChannel $channel = null, int $limit = 50, bool $debug = false): array
     {
-        $rows = $this->fetchShows($limit, $debug);
+        $rows = $this->fetchShows($limit, $debug, $channel?->whatnot_username);
 
         $created = 0;
         $updated = 0;
@@ -275,25 +280,39 @@ class WhatnotScraper
             $existing = $query->first();
 
             $payload = array_filter([
-                'whatnot_channel_id' => $channel?->id,
-                'title'              => $lookupTitle,
-                'show_date'          => $lookupDate,
-                'show_duration'      => $row['show_duration'] ?? null,
-                'gross_revenue'      => $row['gross_revenue'] ?? null,
-                'whatnot_net'        => $row['whatnot_net'] ?? null,
-                'tips'               => $row['tips'] ?? null,
-                'units_sold'         => $row['units_sold'] ?? null,
-                'detail_url'         => $row['detail_url'] ?? null,
-                'import_source'      => 'auto_whatnot',
+                'whatnot_channel_id'    => $channel?->id,
+                'title'                 => $lookupTitle,
+                'show_date'             => $lookupDate,
+                'show_duration'         => $row['show_duration'] ?? null,
+                'gross_revenue'         => $row['gross_revenue'] ?? null,
+                'whatnot_net'           => $row['whatnot_net'] ?? null,
+                'tips'                  => $row['tips'] ?? null,
+                'units_sold'            => $row['units_sold'] ?? null,
+                'detail_url'            => $row['detail_url'] ?? null,
+                'completed_earnings'    => $row['completed_earnings'] ?? null,
+                'avg_order_value'       => $row['avg_order_value'] ?? null,
+                'giveaway_spend'        => $row['giveaway_spend'] ?? null,
+                'giveaways_count'       => $row['giveaways_count'] ?? null,
+                'buyers_count'          => $row['buyers_count'] ?? null,
+                'first_time_buyers'     => $row['first_time_buyers'] ?? null,
+                'returning_buyers'      => $row['returning_buyers'] ?? null,
+                'shares_count'          => $row['shares_count'] ?? null,
+                'max_concurrent_viewers' => $row['max_concurrent_viewers'] ?? null,
+                'total_views'           => $row['total_views'] ?? null,
+                'avg_order_rating'      => $row['avg_order_rating'] ?? null,
+                'import_source'         => 'auto_whatnot',
             ], fn ($v) => $v !== null);
 
             if ($existing) {
-                $financial = array_intersect_key($payload, array_flip([
+                $updateFields = array_intersect_key($payload, array_flip([
                     'gross_revenue', 'whatnot_net', 'tips', 'units_sold', 'show_duration', 'detail_url',
+                    'completed_earnings', 'avg_order_value', 'giveaway_spend', 'giveaways_count',
+                    'buyers_count', 'first_time_buyers', 'returning_buyers', 'shares_count',
+                    'max_concurrent_viewers', 'total_views', 'avg_order_rating',
                 ]));
 
-                if (! empty($financial)) {
-                    $existing->update($financial);
+                if (! empty($updateFields)) {
+                    $existing->update($updateFields);
                     $updated++;
                 } else {
                     $skipped++;
@@ -304,9 +323,48 @@ class WhatnotScraper
             }
         }
 
-        Log::info('WhatnotScraper import complete', compact('created', 'updated', 'skipped'));
+        Log::info('WhatnotScraper import complete', [
+            'channel'  => $channel?->name,
+            'created'  => $created,
+            'updated'  => $updated,
+            'skipped'  => $skipped,
+        ]);
 
         return compact('created', 'updated', 'skipped');
+    }
+
+    /**
+     * Import shows from all channels that have include_in_import = true.
+     * Returns aggregated counts across all channels.
+     */
+    public function importAllEnabledChannels(int $limit = 50, bool $debug = false): array
+    {
+        $channels = WhatnotChannel::where('include_in_import', true)
+            ->where('status', 'active')
+            ->get();
+
+        if ($channels->isEmpty()) {
+            Log::warning('WhatnotScraper importAllEnabledChannels: no active channels with include_in_import=true');
+            return ['created' => 0, 'updated' => 0, 'skipped' => 0, 'channels' => 0];
+        }
+
+        $totals = ['created' => 0, 'updated' => 0, 'skipped' => 0];
+
+        foreach ($channels as $channel) {
+            Log::info("WhatnotScraper: importing channel \"{$channel->name}\" ({$channel->whatnot_username})");
+
+            try {
+                $result = $this->importShows($channel, $limit, $debug);
+                $totals['created'] += $result['created'];
+                $totals['updated'] += $result['updated'];
+                $totals['skipped'] += $result['skipped'];
+            } catch (\RuntimeException $e) {
+                Log::error("WhatnotScraper: channel \"{$channel->name}\" failed — {$e->getMessage()}");
+            }
+        }
+
+        $totals['channels'] = $channels->count();
+        return $totals;
     }
 
     private function resolveCredentials(): array

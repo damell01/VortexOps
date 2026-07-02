@@ -57,6 +57,11 @@ class AppSettings extends Page
     public string $show_import_mode                = 'manual';
     public string $show_ready_notification_email   = '';
 
+    // ── Whatnot connection test ──────────────────────────────────────────────
+
+    public string $whatnotTestResult = '';
+    public string $whatnotTestStatus = ''; // 'success' | 'error' | ''
+
     // ── Whatnot import ───────────────────────────────────────────────────────
 
     public string $whatnotImportResult = '';
@@ -206,6 +211,34 @@ class AppSettings extends Page
     public function getWhatnotConfiguredProperty(): bool
     {
         return ! empty(config('vortex.whatnot.email')) && ! empty(config('vortex.whatnot.password'));
+    }
+
+    public function testWhatnotConnection(): void
+    {
+        $this->whatnotTestResult = '';
+        $this->whatnotTestStatus = '';
+
+        try {
+            $result = app(WhatnotScraper::class)->testConnection();
+
+            $this->whatnotTestResult = "Connected as {$result['email']}. Seller dashboard accessible.";
+            $this->whatnotTestStatus = 'success';
+
+            Notification::make()
+                ->title('Whatnot connection OK')
+                ->body($this->whatnotTestResult)
+                ->success()
+                ->send();
+        } catch (\RuntimeException $e) {
+            $this->whatnotTestResult = $e->getMessage();
+            $this->whatnotTestStatus = 'error';
+
+            Notification::make()
+                ->title('Whatnot connection failed')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
     }
 
     public function importWhatnotShows(): void

@@ -70,6 +70,12 @@ class AdminModules
                 'group'       => 'AI',
                 'order'       => 60,
             ],
+            'timekeeping' => [
+                'label'       => 'Timekeeping',
+                'description' => 'Employee time tracking, shift logs, and labor cost reporting. (Owner only)',
+                'group'       => 'Operations',
+                'order'       => 42,
+            ],
         ];
     }
 

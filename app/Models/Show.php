@@ -30,6 +30,7 @@ class Show extends Model
         'sales_reconciled',
         'show_duration',
         'import_source',
+        'detail_url',
         'raw_import_payload',
         'ai_streamer_suggestion',
         'status',
@@ -90,6 +91,11 @@ class Show extends Model
     public function payouts(): HasMany
     {
         return $this->hasMany(Payout::class);
+    }
+
+    public function whatnotOrders(): HasMany
+    {
+        return $this->hasMany(WhatnotShowOrder::class);
     }
 
     public function createdBy(): BelongsTo

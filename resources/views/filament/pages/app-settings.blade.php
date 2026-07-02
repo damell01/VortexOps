@@ -308,6 +308,7 @@
                 </div>
             </div>
 
+            {{-- Credential status + test connection --}}
             <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     @if ($this->whatnotConfigured)
@@ -315,7 +316,9 @@
                             <x-heroicon-o-check-circle class="h-4 w-4" />
                             Credentials configured
                         </div>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Last import: run manually or via <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">php artisan whatnot:import</code></p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            Use <strong>Test Connection</strong> to verify login works, then <strong>Run Import</strong> to pull shows.
+                        </p>
                     @else
                         <div class="flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-400">
                             <x-heroicon-o-exclamation-triangle class="h-4 w-4" />
@@ -323,27 +326,65 @@
                         </div>
                     @endif
                 </div>
-                <button
-                    wire:click="importWhatnotShows"
-                    wire:loading.attr="disabled"
-                    wire:target="importWhatnotShows"
-                    @if (! $this->whatnotConfigured) disabled @endif
-                    type="button"
-                    class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950 px-3 py-2 text-sm font-medium text-indigo-700 dark:text-indigo-300 shadow-sm hover:bg-indigo-100 dark:hover:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                    <span wire:loading.remove wire:target="importWhatnotShows">
-                        <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
-                    </span>
-                    <span wire:loading wire:target="importWhatnotShows">
-                        <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                        </svg>
-                    </span>
-                    <span wire:loading.remove wire:target="importWhatnotShows">Run Import</span>
-                    <span wire:loading wire:target="importWhatnotShows">Importing…</span>
-                </button>
+                <div class="flex items-center gap-2 shrink-0">
+                    {{-- Test Connection --}}
+                    <button
+                        wire:click="testWhatnotConnection"
+                        wire:loading.attr="disabled"
+                        wire:target="testWhatnotConnection"
+                        @if (! $this->whatnotConfigured) disabled @endif
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        <span wire:loading.remove wire:target="testWhatnotConnection">
+                            <x-heroicon-o-signal class="h-4 w-4" />
+                        </span>
+                        <span wire:loading wire:target="testWhatnotConnection">
+                            <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                        </span>
+                        <span wire:loading.remove wire:target="testWhatnotConnection">Test Connection</span>
+                        <span wire:loading wire:target="testWhatnotConnection">Testing…</span>
+                    </button>
+
+                    {{-- Run Import --}}
+                    <button
+                        wire:click="importWhatnotShows"
+                        wire:loading.attr="disabled"
+                        wire:target="importWhatnotShows"
+                        @if (! $this->whatnotConfigured) disabled @endif
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-lg border border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-950 px-3 py-2 text-sm font-medium text-indigo-700 dark:text-indigo-300 shadow-sm hover:bg-indigo-100 dark:hover:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        <span wire:loading.remove wire:target="importWhatnotShows">
+                            <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
+                        </span>
+                        <span wire:loading wire:target="importWhatnotShows">
+                            <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                        </span>
+                        <span wire:loading.remove wire:target="importWhatnotShows">Run Import</span>
+                        <span wire:loading wire:target="importWhatnotShows">Importing…</span>
+                    </button>
+                </div>
             </div>
+
+            @if ($whatnotTestResult)
+                <div class="px-6 py-3 {{ $whatnotTestStatus === 'success' ? 'bg-emerald-50 dark:bg-emerald-950' : 'bg-red-50 dark:bg-red-950' }}">
+                    <div class="flex items-start gap-2">
+                        @if ($whatnotTestStatus === 'success')
+                            <x-heroicon-o-check-circle class="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+                        @else
+                            <x-heroicon-o-x-circle class="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 shrink-0" />
+                        @endif
+                        <p class="text-xs font-mono {{ $whatnotTestStatus === 'success' ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300' }} whitespace-pre-wrap">{{ $whatnotTestResult }}</p>
+                    </div>
+                </div>
+            @endif
 
             @if ($whatnotImportResult)
                 <div class="px-6 py-3 {{ $whatnotImportStatus === 'success' ? 'bg-emerald-50 dark:bg-emerald-950' : 'bg-red-50 dark:bg-red-950' }} rounded-b-xl">

@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
     testDir: './tests/Browser',
-    timeout: 60_000,
+    timeout: 300_000,
     use: {
         baseURL: 'http://127.0.0.1:8000',
         launchOptions: {

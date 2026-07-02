@@ -44,6 +44,12 @@ class AdminModules
                 'group'       => 'Operations',
                 'order'       => 40,
             ],
+            'reporting' => [
+                'label'       => 'Reports & Analytics',
+                'description' => 'Revenue, payout, and operational performance reports.',
+                'group'       => 'Reports',
+                'order'       => 45,
+            ],
             // Advanced modules — disabled by default in shell phase.
             // Super-admins can enable these from App Settings.
             'projects' => [
@@ -75,7 +81,7 @@ class AdminModules
      */
     public static function defaultEnabledSlugs(): array
     {
-        return ['streams', 'payouts', 'inventory', 'purchasing', 'operations'];
+        return ['streams', 'payouts', 'inventory', 'purchasing', 'operations', 'reporting'];
     }
 
     /**

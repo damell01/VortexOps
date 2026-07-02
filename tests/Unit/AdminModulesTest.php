@@ -27,7 +27,7 @@ class AdminModulesTest extends TestCase
     {
         $defs = AdminModules::definitions();
 
-        $expected = ['streams', 'payouts', 'inventory', 'purchasing', 'operations', 'projects', 'reviews', 'ai'];
+        $expected = ['streams', 'payouts', 'inventory', 'purchasing', 'operations', 'reporting', 'projects', 'reviews', 'ai'];
 
         foreach ($expected as $slug) {
             $this->assertArrayHasKey($slug, $defs, "Module '{$slug}' missing from definitions");

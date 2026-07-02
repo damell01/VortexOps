@@ -107,27 +107,46 @@ body {
 .fi-page-main { background-color: var(--vx-page-bg) !important; }
 
 /* ═══════════════════════════════════════════
-   SIDEBAR
+   SIDEBAR — always dark, like the screenshot
    ═══════════════════════════════════════════ */
 
+/* Hard-coded dark sidebar tokens (override light + dark mode vars) */
+:root {
+    --vxs-bg:         #111827;   /* dark navy */
+    --vxs-bg-header:  #0f1421;   /* slightly darker for header */
+    --vxs-border:     rgb(255 255 255 / .07);
+    --vxs-text:       rgb(255 255 255 / .55);     /* inactive items */
+    --vxs-text-hover: rgb(255 255 255 / .88);     /* hovered items */
+    --vxs-label:      rgb(255 255 255 / .25);     /* section labels */
+    --vxs-active-bg:  rgb(124 58 237 / .22);
+    --vxs-active-text:#c4b5fd;                    /* light violet */
+    --vxs-active-bar: #7c3aed;
+    --vxs-hover:      rgb(255 255 255 / .055);
+}
+
 .fi-sidebar {
-    background-color: var(--vx-sidebar-bg) !important;
-    border-right: 1px solid var(--vx-sidebar-border) !important;
+    background-color: var(--vxs-bg) !important;
+    border-right: 1px solid var(--vxs-border) !important;
+    background-image: none !important; /* cancel dot-grid set by dark mode rule */
 }
 
 .fi-sidebar-header {
-    border-bottom: 1px solid var(--vx-divider) !important;
+    background: linear-gradient(160deg, #141c2e 0%, #0f1421 100%) !important;
+    border-bottom: 1px solid var(--vxs-border) !important;
     padding: 0.9375rem 1rem 0.9375rem 1.125rem !important;
 }
 
 .fi-logo {
-    font-weight: 700 !important;
+    font-weight: 800 !important;
     font-size: 1.0625rem !important;
-    letter-spacing: -0.025em !important;
-    color: var(--vx-text-primary) !important;
+    letter-spacing: -0.03em !important;
+    background: linear-gradient(135deg, #fff 0%, #c4b5fd 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
 }
 
-.fi-sidebar-nav { padding: 0.5rem 0 !important; }
+.fi-sidebar-nav { padding: 0.625rem 0 !important; }
 .fi-sidebar-nav-groups { gap: 0.25rem !important; }
 .fi-sidebar-group-items { padding: 0.125rem 0 !important; }
 
@@ -137,8 +156,8 @@ body {
     font-weight: 600 !important;
     letter-spacing: 0.06em !important;
     text-transform: uppercase !important;
-    color: var(--vx-text-tertiary) !important;
-    padding: 0.625rem 0.875rem 0.375rem !important;
+    color: var(--vxs-label) !important;
+    padding: 0.75rem 0.875rem 0.25rem !important;
 }
 
 .fi-sidebar-group-collapse-btn,
@@ -147,7 +166,7 @@ body {
     font-weight: 600 !important;
     letter-spacing: 0.06em !important;
     text-transform: uppercase !important;
-    color: var(--vx-text-tertiary) !important;
+    color: var(--vxs-label) !important;
     padding: 0.5rem 0.875rem !important;
     border-radius: var(--vx-radius-sm) !important;
     transition: background-color var(--vx-transition), color var(--vx-transition) !important;
@@ -155,8 +174,8 @@ body {
 
 .fi-sidebar-group-collapse-btn:hover,
 .fi-sidebar-group-btn:hover {
-    background-color: var(--vx-row-hover) !important;
-    color: var(--vx-text-secondary) !important;
+    background-color: var(--vxs-hover) !important;
+    color: var(--vxs-text-hover) !important;
 }
 
 /* Nav items */
@@ -167,34 +186,43 @@ body {
     font-size: 0.8125rem !important;
     font-weight: 500 !important;
     letter-spacing: -0.005em !important;
-    color: var(--vx-text-secondary) !important;
-    transition: background-color var(--vx-transition), color var(--vx-transition) !important;
+    color: var(--vxs-text) !important;
+    transition: background-color var(--vx-transition), color var(--vx-transition), box-shadow var(--vx-transition) !important;
     min-height: unset !important;
 }
 
 .fi-sidebar-item-btn:hover {
-    background-color: var(--vx-row-hover) !important;
-    color: var(--vx-text-primary) !important;
+    background: linear-gradient(
+        90deg, rgb(255 255 255 / .06) 0%, transparent 100%
+    ) !important;
+    color: var(--vxs-text-hover) !important;
 }
 
 .fi-active .fi-sidebar-item-btn,
 [aria-current="page"].fi-sidebar-item-btn {
-    background-color: var(--vx-accent-subtle) !important;
-    color: var(--vx-accent-text) !important;
+    background: linear-gradient(
+        90deg, rgb(124 58 237 / .28) 0%, rgb(124 58 237 / .10) 100%
+    ) !important;
+    color: var(--vxs-active-text) !important;
     font-weight: 600 !important;
+    box-shadow: inset 2px 0 0 0 var(--vxs-active-bar) !important;
 }
 
-.fi-active .fi-sidebar-item-btn svg { color: var(--vx-accent-text) !important; opacity: 1 !important; }
+.fi-active .fi-sidebar-item-btn svg,
+[aria-current="page"].fi-sidebar-item-btn svg {
+    color: var(--vxs-active-text) !important;
+    opacity: 1 !important;
+}
 
 .fi-sidebar-item-btn svg {
     width: 1.0625rem !important;
     height: 1.0625rem !important;
-    opacity: 0.70 !important;
+    opacity: 0.55 !important;
     flex-shrink: 0 !important;
     transition: opacity var(--vx-transition) !important;
 }
 
-.fi-sidebar-item-btn:hover svg { opacity: 1 !important; }
+.fi-sidebar-item-btn:hover svg { opacity: 0.9 !important; }
 
 /* Sidebar badge */
 .fi-sidebar-item-badge-ctn .fi-badge {
@@ -205,11 +233,38 @@ body {
     min-width: 1.125rem !important;
     height: 1.125rem !important;
     line-height: 1 !important;
+    background-color: var(--vxs-active-bar) !important;
+    color: #fff !important;
 }
 
 .fi-sidebar-footer {
-    border-top: 1px solid var(--vx-divider) !important;
+    border-top: 1px solid var(--vxs-border) !important;
     padding: 0.5rem !important;
+    background-color: var(--vxs-bg-header) !important;
+}
+
+/* Account widget inside the always-dark sidebar */
+.fi-sidebar .fi-account-widget-user-name {
+    color: var(--vxs-text-hover) !important;
+}
+
+.fi-sidebar .fi-account-widget-user-avatar {
+    border: 2px solid rgb(124 58 237 / .5) !important;
+}
+
+.fi-sidebar .fi-account-widget-user-role,
+.fi-sidebar .fi-account-widget-user-email {
+    color: var(--vxs-text) !important;
+}
+
+/* Dropdown in sidebar footer */
+.fi-sidebar .fi-dropdown-trigger-btn {
+    color: var(--vxs-text) !important;
+}
+
+.fi-sidebar .fi-dropdown-trigger-btn:hover {
+    color: var(--vxs-text-hover) !important;
+    background-color: var(--vxs-hover) !important;
 }
 
 /* ═══════════════════════════════════════════
@@ -813,86 +868,7 @@ button:focus, a:focus, input:focus, select:focus, textarea:focus {
     animation: vx-fade-up 220ms var(--vx-ease) both;
 }
 
-/* ═══════════════════════════════════════════
-   ENHANCED SIDEBAR
-   ═══════════════════════════════════════════ */
-
-/* Gradient logo area */
-.fi-sidebar-header {
-    background: linear-gradient(
-        135deg,
-        var(--vx-sidebar-bg) 0%,
-        rgb(124 58 237 / .04) 100%
-    ) !important;
-}
-
-.dark .fi-sidebar-header {
-    background: linear-gradient(
-        135deg,
-        var(--vx-sidebar-bg) 0%,
-        rgb(139 92 246 / .06) 100%
-    ) !important;
-}
-
-/* Logo gradient text */
-.fi-logo {
-    background: linear-gradient(135deg, var(--vx-text-primary) 30%, var(--vx-accent-text)) !important;
-    -webkit-background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-    background-clip: text !important;
-}
-
-/* Active nav item — gradient + left strip */
-.fi-active .fi-sidebar-item-btn,
-[aria-current="page"].fi-sidebar-item-btn {
-    background: linear-gradient(
-        90deg,
-        rgb(124 58 237 / .14) 0%,
-        rgb(124 58 237 / .06) 100%
-    ) !important;
-    color: var(--vx-accent-text) !important;
-    font-weight: 600 !important;
-    position: relative !important;
-    box-shadow: inset 2px 0 0 0 var(--vx-accent-text) !important;
-}
-
-.dark .fi-active .fi-sidebar-item-btn,
-.dark [aria-current="page"].fi-sidebar-item-btn {
-    background: linear-gradient(
-        90deg,
-        rgb(139 92 246 / .18) 0%,
-        rgb(139 92 246 / .06) 100%
-    ) !important;
-}
-
-/* Nav item hover — slide in */
-.fi-sidebar-item-btn {
-    transition: background-color var(--vx-transition), color var(--vx-transition), box-shadow var(--vx-transition) !important;
-}
-
-.fi-sidebar-item-btn:hover:not([aria-current="page"]) {
-    background: linear-gradient(
-        90deg,
-        rgb(0 0 0 / .045) 0%,
-        transparent 100%
-    ) !important;
-    color: var(--vx-text-primary) !important;
-}
-
-.dark .fi-sidebar-item-btn:hover:not([aria-current="page"]) {
-    background: linear-gradient(
-        90deg,
-        rgb(255 255 255 / .05) 0%,
-        transparent 100%
-    ) !important;
-}
-
-/* Subtle dot-grid behind sidebar nav in dark mode */
-.dark .fi-sidebar {
-    background-image: radial-gradient(rgb(255 255 255 / .025) 1px, transparent 1px) !important;
-    background-size: 20px 20px !important;
-    background-color: var(--vx-sidebar-bg) !important;
-}
+/* ENHANCED SIDEBAR — already handled by the always-dark sidebar section above */
 
 /* ═══════════════════════════════════════════
    ENHANCED TOPBAR

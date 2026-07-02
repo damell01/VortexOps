@@ -66,6 +66,7 @@ class AppSettings extends Page
 
     public string $whatnotImportResult = '';
     public string $whatnotImportStatus = ''; // 'success' | 'error' | ''
+    public string $whatnotLastImport   = '';
 
     // ── Maintenance ──────────────────────────────────────────────────────────
 
@@ -93,6 +94,7 @@ class AppSettings extends Page
 
         $this->show_import_mode              = Setting::get('show_import_mode', 'manual');
         $this->show_ready_notification_email = Setting::get('show_ready_notification_email', '');
+        $this->whatnotLastImport             = Setting::get('whatnot_last_import_at', '');
 
         $this->notify_low_stock_mode        = Setting::get('notify_low_stock_mode', 'all');
         $this->notify_low_stock_users       = json_decode(Setting::get('notify_low_stock_users', '[]'), true) ?? [];
@@ -254,6 +256,9 @@ class AppSettings extends Page
             $channelNote = $result['channels'] > 1 ? " across {$result['channels']} channels" : '';
             $this->whatnotImportResult = "Import complete — {$result['created']} created, {$result['updated']} updated, {$result['skipped']} skipped{$channelNote}.";
             $this->whatnotImportStatus = 'success';
+
+            $this->whatnotLastImport = now()->toDateTimeString();
+            Setting::set('whatnot_last_import_at', $this->whatnotLastImport);
 
             Notification::make()
                 ->title('Whatnot import complete')

@@ -52,13 +52,25 @@ class WhatnotScraperTest extends TestCase
     private function showRow(array $overrides = []): array
     {
         return array_merge([
-            'title'         => 'Test Break Show',
-            'show_date'     => '2026-06-15',
-            'show_duration' => 90,
-            'gross_revenue' => 1500.00,
-            'whatnot_net'   => 1350.00,
-            'tips'          => 25.00,
-            'units_sold'    => 40,
+            'title'                  => 'Test Break Show',
+            'show_date'              => '2026-06-15',
+            'show_duration'          => 90,
+            'gross_revenue'          => 1500.00,
+            'whatnot_net'            => 1350.00,
+            'tips'                   => 25.00,
+            'units_sold'             => 40,
+            'completed_earnings'     => 1400.00,
+            'avg_order_value'        => 37.50,
+            'giveaway_spend'         => 50.00,
+            'giveaways_count'        => 3,
+            'buyers_count'           => 42,
+            'first_time_buyers'      => 10,
+            'returning_buyers'       => 32,
+            'shares_count'           => 15,
+            'max_concurrent_viewers' => 120,
+            'total_views'            => 500,
+            'avg_order_rating'       => 4.85,
+            'detail_url'             => 'https://www.whatnot.com/show/abc123',
         ], $overrides);
     }
 
@@ -250,5 +262,122 @@ class WhatnotScraperTest extends TestCase
         $counts = $scraper->importShows($this->channel);
 
         $this->assertEquals(['created' => 0, 'updated' => 0, 'skipped' => 0], $counts);
+    }
+
+    // ── Analytics fields ──────────────────────────────────────────────────────
+
+    public function test_import_persists_all_analytics_fields(): void
+    {
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow()]));
+        $scraper->importShows($this->channel);
+
+        $show = Show::first();
+        $this->assertEquals(1400.00,  (float) $show->completed_earnings);
+        $this->assertEquals(37.50,    (float) $show->avg_order_value);
+        $this->assertEquals(50.00,    (float) $show->giveaway_spend);
+        $this->assertEquals(3,        $show->giveaways_count);
+        $this->assertEquals(42,       $show->buyers_count);
+        $this->assertEquals(10,       $show->first_time_buyers);
+        $this->assertEquals(32,       $show->returning_buyers);
+        $this->assertEquals(15,       $show->shares_count);
+        $this->assertEquals(120,      $show->max_concurrent_viewers);
+        $this->assertEquals(500,      $show->total_views);
+        $this->assertEquals(4.85,     (float) $show->avg_order_rating);
+        $this->assertEquals('https://www.whatnot.com/show/abc123', $show->detail_url);
+    }
+
+    public function test_import_updates_analytics_fields_on_existing_show(): void
+    {
+        Show::create([
+            'title'          => 'Test Break Show',
+            'show_date'      => '2026-06-15',
+            'buyers_count'   => 10,
+            'total_views'    => 100,
+            'import_source'  => 'auto_whatnot',
+            'created_by'     => 1,
+        ]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow([
+            'buyers_count' => 55,
+            'total_views'  => 750,
+        ])]));
+        $scraper->importShows($this->channel);
+
+        $show = Show::first();
+        $this->assertEquals(55,  $show->buyers_count);
+        $this->assertEquals(750, $show->total_views);
+    }
+
+    // ── importAllEnabledChannels ──────────────────────────────────────────────
+
+    public function test_import_all_iterates_active_import_enabled_channels(): void
+    {
+        WhatnotChannel::create(['name' => 'Channel 2', 'status' => 'active', 'include_in_import' => true]);
+
+        $scraper = Mockery::mock(WhatnotScraper::class)->makePartial();
+        $scraper->expects('importShows')
+            ->twice()
+            ->andReturn(['created' => 1, 'updated' => 0, 'skipped' => 0]);
+
+        $result = $scraper->importAllEnabledChannels();
+
+        $this->assertEquals(2, $result['channels']);
+        $this->assertEquals(2, $result['created']);
+        $this->assertEquals(0, $result['updated']);
+    }
+
+    public function test_import_all_skips_channels_with_include_in_import_false(): void
+    {
+        WhatnotChannel::create(['name' => 'Excluded', 'status' => 'active', 'include_in_import' => false]);
+
+        $scraper = Mockery::mock(WhatnotScraper::class)->makePartial();
+        $scraper->expects('importShows')->once()->andReturn(['created' => 1, 'updated' => 0, 'skipped' => 0]);
+
+        $result = $scraper->importAllEnabledChannels();
+
+        $this->assertEquals(1, $result['channels']);
+    }
+
+    public function test_import_all_skips_inactive_channels(): void
+    {
+        WhatnotChannel::create(['name' => 'Inactive', 'status' => 'inactive', 'include_in_import' => true]);
+
+        $scraper = Mockery::mock(WhatnotScraper::class)->makePartial();
+        $scraper->expects('importShows')->once()->andReturn(['created' => 1, 'updated' => 0, 'skipped' => 0]);
+
+        $result = $scraper->importAllEnabledChannels();
+
+        $this->assertEquals(1, $result['channels']);
+    }
+
+    public function test_import_all_continues_after_single_channel_failure(): void
+    {
+        WhatnotChannel::create(['name' => 'Channel 2', 'status' => 'active', 'include_in_import' => true]);
+
+        $call    = 0;
+        $scraper = Mockery::mock(WhatnotScraper::class)->makePartial();
+        $scraper->expects('importShows')
+            ->twice()
+            ->andReturnUsing(function () use (&$call) {
+                $call++;
+                if ($call === 1) {
+                    return ['created' => 1, 'updated' => 0, 'skipped' => 0];
+                }
+                throw new \RuntimeException('Scraper failed for channel 2');
+            });
+
+        $result = $scraper->importAllEnabledChannels();
+
+        $this->assertEquals(2, $result['channels']);
+        $this->assertEquals(1, $result['created']);
+    }
+
+    public function test_import_all_returns_zero_when_no_channels_enabled(): void
+    {
+        $this->channel->update(['include_in_import' => false]);
+
+        $result = app(WhatnotScraper::class)->importAllEnabledChannels();
+
+        $this->assertEquals(['created' => 0, 'updated' => 0, 'skipped' => 0, 'channels' => 0], $result);
     }
 }

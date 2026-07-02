@@ -319,6 +319,11 @@
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                             Use <strong>Test Connection</strong> to verify login works, then <strong>Run Import</strong> to pull shows.
                         </p>
+                        @if ($whatnotLastImport)
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                                Last import: {{ \Illuminate\Support\Carbon::parse($whatnotLastImport)->diffForHumans() }}
+                            </p>
+                        @endif
                     @else
                         <div class="flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-400">
                             <x-heroicon-o-exclamation-triangle class="h-4 w-4" />

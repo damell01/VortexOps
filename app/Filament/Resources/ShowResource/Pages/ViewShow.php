@@ -6,6 +6,7 @@ use App\Filament\Resources\ShowResource;
 use App\Filament\Resources\DeductionRequestResource;
 use App\Jobs\RunShowAiMappingJob;
 use App\Models\AiTask;
+use App\Models\DeductionRequest;
 use App\Support\AdminModules;
 use Filament\Actions\EditAction;
 use Filament\Actions\Action;
@@ -60,6 +61,39 @@ class ViewShow extends ViewRecord
                 ->color('info')
                 ->visible(fn () => in_array($this->record->status, ['pending_approval', 'reconciled', 'closed']))
                 ->url(fn () => DeductionRequestResource::getUrl('index', ['tableFilters[show_id][value]' => $this->record->id])),
+
+            Action::make('raise_deduction')
+                ->label('Raise Deduction')
+                ->icon('heroicon-o-plus-circle')
+                ->color('warning')
+                ->visible(fn () => auth()->user()?->isAdmin()
+                    && ! in_array($this->record->status, ['cancelled', 'closed'])
+                    && ! $this->record->latestDeductionRequest
+                )
+                ->requiresConfirmation()
+                ->modalHeading('Raise a Manual Deduction Request')
+                ->modalDescription('This creates a blank deduction request for this show that you can fill in manually. Use this when AI mapping is not needed.')
+                ->action(function () {
+                    $dr = DeductionRequest::create([
+                        'show_id'     => $this->record->id,
+                        'streamer_id' => $this->record->streamers->first()?->id,
+                        'status'      => 'draft',
+                    ]);
+
+                    if ($this->record->status === 'pending_review') {
+                        $this->record->update(['status' => 'mapping']);
+                    }
+
+                    Notification::make()
+                        ->title('Deduction request created')
+                        ->body('Review the approval request and add line items.')
+                        ->success()
+                        ->send();
+
+                    $this->redirect(DeductionRequestResource::getUrl('index', [
+                        'tableFilters[show_id][value]' => $this->record->id,
+                    ]));
+                }),
 
             EditAction::make(),
         ];

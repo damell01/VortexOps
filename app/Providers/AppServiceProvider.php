@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\DeductionRequest;
+use App\Models\Payout;
+use App\Observers\DeductionRequestObserver;
+use App\Observers\PayoutObserver;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\ServiceProvider;
 
@@ -14,7 +18,9 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // Throw on lazy-loaded relationships in non-production so N+1 bugs are caught during development.
         Model::preventLazyLoading(! app()->isProduction());
+
+        Payout::observe(PayoutObserver::class);
+        DeductionRequest::observe(DeductionRequestObserver::class);
     }
 }

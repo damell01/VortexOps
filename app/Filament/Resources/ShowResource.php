@@ -288,6 +288,48 @@ class ShowResource extends Resource
                                 ->implode("\n");
                         }),
                 ]),
+
+            Section::make('P&L Summary')
+                ->visible(fn (?Show $record) => $record !== null)
+                ->columns(3)
+                ->schema([
+                    Placeholder::make('pl_gross')
+                        ->label('Gross Revenue')
+                        ->content(fn (?Show $record): string => '$' . number_format((float) ($record?->gross_revenue ?? 0), 2)),
+
+                    Placeholder::make('pl_net')
+                        ->label('Whatnot Net')
+                        ->content(fn (?Show $record): string => '$' . number_format((float) ($record?->whatnot_net ?? 0), 2)),
+
+                    Placeholder::make('pl_tips')
+                        ->label('Tips')
+                        ->content(fn (?Show $record): string => '$' . number_format((float) ($record?->tips ?? 0), 2)),
+
+                    Placeholder::make('pl_cogs')
+                        ->label('COGS (Deduction)')
+                        ->content(function (?Show $record): string {
+                            $cogs = $record?->latestDeductionRequest?->lines?->sum('line_total') ?? 0;
+                            return '$' . number_format((float) $cogs, 2);
+                        }),
+
+                    Placeholder::make('pl_payouts')
+                        ->label('Total Payouts')
+                        ->content(fn (?Show $record): string => '$' . number_format((float) ($record?->payouts?->sum('calculated_payout') ?? 0), 2)),
+
+                    Placeholder::make('pl_margin')
+                        ->label('Net (after COGS + Payouts)')
+                        ->content(function (?Show $record): string {
+                            $net      = (float) ($record?->whatnot_net ?? 0);
+                            $tips     = (float) ($record?->tips ?? 0);
+                            $cogs     = (float) ($record?->latestDeductionRequest?->lines?->sum('line_total') ?? 0);
+                            $payouts  = (float) ($record?->payouts?->sum('calculated_payout') ?? 0);
+                            $margin   = ($net + $tips) - $cogs - $payouts;
+                            $base     = $net + $tips;
+                            $pct      = $base > 0 ? round(($margin / $base) * 100, 1) : 0;
+                            $sign     = $margin >= 0 ? '+' : '';
+                            return '$' . number_format($margin, 2) . " ({$sign}{$pct}%)";
+                        }),
+                ]),
         ]);
     }
 

@@ -30,6 +30,18 @@ class Show extends Model
         'sales_reconciled',
         'show_duration',
         'import_source',
+        'detail_url',
+        'completed_earnings',
+        'avg_order_value',
+        'giveaway_spend',
+        'giveaways_count',
+        'buyers_count',
+        'first_time_buyers',
+        'returning_buyers',
+        'shares_count',
+        'max_concurrent_viewers',
+        'total_views',
+        'avg_order_rating',
         'raw_import_payload',
         'ai_streamer_suggestion',
         'status',
@@ -48,6 +60,17 @@ class Show extends Model
         'ai_streamer_suggestion' => 'array',
         'units_sold'             => 'integer',
         'show_duration'          => 'integer',
+        'completed_earnings'     => 'decimal:2',
+        'avg_order_value'        => 'decimal:2',
+        'giveaway_spend'         => 'decimal:2',
+        'avg_order_rating'       => 'decimal:2',
+        'giveaways_count'        => 'integer',
+        'buyers_count'           => 'integer',
+        'first_time_buyers'      => 'integer',
+        'returning_buyers'       => 'integer',
+        'shares_count'           => 'integer',
+        'max_concurrent_viewers' => 'integer',
+        'total_views'            => 'integer',
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -90,6 +113,11 @@ class Show extends Model
     public function payouts(): HasMany
     {
         return $this->hasMany(Payout::class);
+    }
+
+    public function whatnotOrders(): HasMany
+    {
+        return $this->hasMany(WhatnotShowOrder::class);
     }
 
     public function createdBy(): BelongsTo

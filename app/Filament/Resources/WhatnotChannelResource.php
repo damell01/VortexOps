@@ -9,6 +9,7 @@ use App\Support\AdminModules;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -17,6 +18,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -69,6 +71,11 @@ class WhatnotChannelResource extends Resource
                         ->required()
                         ->default('active'),
                 ]),
+                Toggle::make('include_in_import')
+                    ->label('Include in Show Import')
+                    ->helperText('When enabled, this channel will be scraped when running the Whatnot import.')
+                    ->default(true)
+                    ->columnSpanFull(),
                 Textarea::make('notes')
                     ->rows(3)
                     ->columnSpanFull(),
@@ -99,6 +106,13 @@ class WhatnotChannelResource extends Resource
                         'inactive' => 'danger',
                         default => 'gray',
                     }),
+                IconColumn::make('include_in_import')
+                    ->label('Import')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-arrow-down-tray')
+                    ->falseIcon('heroicon-o-no-symbol')
+                    ->trueColor('success')
+                    ->falseColor('gray'),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()

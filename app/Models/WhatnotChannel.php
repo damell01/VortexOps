@@ -15,7 +15,12 @@ class WhatnotChannel extends Model
         'whatnot_username',
         'channel_url',
         'status',
+        'include_in_import',
         'notes',
+    ];
+
+    protected $casts = [
+        'include_in_import' => 'boolean',
     ];
 
     public function getActivitylogOptions(): LogOptions

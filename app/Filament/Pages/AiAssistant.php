@@ -11,6 +11,7 @@ use App\Models\Streamer;
 use App\Models\WeeklyPayoutBatch;
 use App\Support\AdminModules;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class AiAssistant extends Page
@@ -214,6 +215,14 @@ PROMPT;
 
     /** @return array<string, string> */
     private function buildDataSnapshot(): array
+    {
+        return Cache::remember('ai_snapshot_' . auth()->id(), 300, function () {
+            return $this->fetchDataSnapshot();
+        });
+    }
+
+    /** @return array<string, string> */
+    private function fetchDataSnapshot(): array
     {
         $cutoff = now()->subDays(30);
 

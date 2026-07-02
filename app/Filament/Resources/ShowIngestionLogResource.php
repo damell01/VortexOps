@@ -88,7 +88,8 @@ class ShowIngestionLogResource extends Resource
                     ->label('Show')
                     ->placeholder('No show linked')
                     ->searchable()
-                    ->limit(40),
+                    ->limit(40)
+                    ->stackedOnMobile(),
 
                 TextColumn::make('source')
                     ->badge()
@@ -117,6 +118,7 @@ class ShowIngestionLogResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->striped()
+            ->paginated([15, 25, 50])
             ->filters([
                 SelectFilter::make('status')
                     ->options(ShowIngestionLog::statusLabels()),

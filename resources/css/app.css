@@ -829,7 +829,7 @@ textarea.fi-input { padding: 0.5rem 0.75rem !important; line-height: 1.5 !import
     border-radius: 3px !important;
 }
 
-button:focus, a:focus, input:focus, select:focus, textarea:focus {
+button:not(:focus-visible), a:not(:focus-visible), input:not(:focus-visible), select:not(:focus-visible), textarea:not(:focus-visible) {
     outline: none;
 }
 
@@ -871,16 +871,15 @@ button:focus, a:focus, input:focus, select:focus, textarea:focus {
 /* ENHANCED SIDEBAR — already handled by the always-dark sidebar section above */
 
 /* ═══════════════════════════════════════════
-   ENHANCED TOPBAR
+   REDUCED MOTION
    ═══════════════════════════════════════════ */
 
-.fi-topbar {
-    background-color: rgb(255 255 255 / .80) !important;
-}
-
-.dark .fi-topbar {
-    background-color: rgb(13 13 15 / .85) !important;
-    border-bottom-color: rgb(255 255 255 / .06) !important;
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }
 
 /* ═══════════════════════════════════════════
@@ -945,6 +944,12 @@ button:focus, a:focus, input:focus, select:focus, textarea:focus {
 }
 .fi-wi-stats-overview-stat:nth-child(6) .fi-wi-stats-overview-stat-content {
     border-top-color: #8b5cf6 !important;
+}
+.fi-wi-stats-overview-stat:nth-child(7) .fi-wi-stats-overview-stat-content {
+    border-top-color: #06b6d4 !important;
+}
+.fi-wi-stats-overview-stat:nth-child(8) .fi-wi-stats-overview-stat-content {
+    border-top-color: #ec4899 !important;
 }
 
 /* Stat card hover — deeper lift */

@@ -16,7 +16,8 @@ class NotifyDeductionApproved implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries = 1;
+    public int $tries   = 1;
+    public int $timeout = 30;
 
     public function __construct(public readonly int $deductionRequestId) {}
 

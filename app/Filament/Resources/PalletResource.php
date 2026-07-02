@@ -131,9 +131,15 @@ class PalletResource extends Resource
                                     ->minValue(0),
                                 Select::make('inventory_item_id')
                                     ->label('Map to Item')
-                                    ->options(fn () => InventoryItem::where('is_active', true)->orderBy('name')->pluck('name', 'id')->toArray())
                                     ->searchable()
-                                    ->placeholder('Map after save…'),
+                                    ->getSearchResultsUsing(fn (string $search) => InventoryItem::where('is_active', true)
+                                        ->where(fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('sku', 'like', "%{$search}%"))
+                                        ->orderBy('name')
+                                        ->limit(30)
+                                        ->pluck('name', 'id')
+                                        ->toArray())
+                                    ->getOptionLabelUsing(fn ($value) => InventoryItem::find($value)?->name ?? $value)
+                                    ->placeholder('Search by name or SKU…'),
                             ]),
                             Select::make('inventory_location_id')
                                 ->label('Receive Into Location')
@@ -202,14 +208,25 @@ class PalletResource extends Resource
                     ->color('success')
                     ->url(fn (Pallet $record) => static::getUrl('receive', ['record' => $record]))
                     ->visible(fn (Pallet $record) => in_array($record->status, ['pending', 'receiving'])),
-                ViewAction::make(),
-                EditAction::make(),
+                Action::make('import_manifest')
+                    ->label('Import Manifest')
+                    ->icon('heroicon-o-document-arrow-up')
+                    ->color('info')
+                    ->url(fn (Pallet $record) => static::getUrl('import-manifest', ['record' => $record]))
+                    ->visible(fn (Pallet $record) => in_array($record->status, ['pending', 'receiving'])),
+                ViewAction::make()->iconButton(),
+                EditAction::make()->iconButton(),
             ])
             ->bulkActions([
                 BulkActionGroup::make([DeleteBulkAction::make()]),
             ])
             ->defaultSort('received_date', 'desc')
-            ->striped();
+            ->striped()
+            ->stackedOnMobile()
+            ->deferLoading()
+            ->persistFiltersInSession()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25);
     }
 
     public static function getPages(): array

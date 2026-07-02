@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\FeedbackTicketResource\Pages;
 use App\Filament\Resources\FeedbackTicketResource\RelationManagers\CommentsRelationManager;
 use App\Models\FeedbackTicket;
 use App\Models\User;
+use App\Support\AdminModules;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -25,6 +27,9 @@ use Illuminate\Support\Facades\Cache;
 
 class FeedbackTicketResource extends Resource
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'operations';
     protected static ?string $model = FeedbackTicket::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -34,7 +39,7 @@ class FeedbackTicketResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Operations';
+        return AdminModules::navigationGroupFor('operations');
     }
 
     public static function getNavigationSort(): ?int

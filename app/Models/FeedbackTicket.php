@@ -28,7 +28,8 @@ class FeedbackTicket extends Model
     ];
 
     protected $casts = [
-        'resolved_at' => 'datetime',
+        'resolved_at'     => 'datetime',
+        'annotation_json' => 'array',
     ];
 
     public function submitter(): BelongsTo

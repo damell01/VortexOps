@@ -70,8 +70,7 @@ class InventoryItem extends Model
 
     public static function findByScan(string $code): ?self
     {
-        return static::where('barcode', $code)->first()
-            ?? static::where('sku', $code)->first();
+        return static::where('barcode', $code)->orWhere('sku', $code)->first();
     }
 
     /**

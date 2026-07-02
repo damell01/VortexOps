@@ -182,6 +182,8 @@ class ReceivingService
 
     /**
      * Receive an entire pallet at once (all mapped lines, all cases).
+     * All lines are processed inside a single outer transaction so a mid-pallet
+     * failure does not leave partial stock committed.
      *
      * @throws RuntimeException if any line is unmapped.
      */
@@ -195,30 +197,44 @@ class ReceivingService
             throw new RuntimeException("Lines {$lineNums} are not fully mapped. Map all lines before bulk-receiving the pallet.");
         }
 
-        $received = 0;
-        foreach ($pallet->lines as $line) {
-            $received += $this->receiveAllCasesForLine($line);
-        }
+        return DB::transaction(function () use ($pallet) {
+            $received = 0;
+            foreach ($pallet->lines as $line) {
+                $received += $this->receiveAllCasesForLine($line);
+            }
 
-        $pallet->update(['status' => 'received']);
+            $pallet->update(['status' => 'received']);
 
-        return ['cases_received' => $received, 'lines_processed' => $pallet->lines->count()];
+            return ['cases_received' => $received, 'lines_processed' => $pallet->lines->count()];
+        });
     }
 
     /**
-     * Generate the expected InventoryCase stubs for a pallet line.
-     * One case record per case_count.
+     * Generate the expected InventoryCase stubs for a pallet line using a single
+     * bulk insert instead of one INSERT per case.
      */
     public function generateExpectedCases(PalletLine $line): void
     {
         $existing = $line->cases()->count();
-        for ($i = $existing + 1; $i <= $line->case_count; $i++) {
-            InventoryCase::create([
+        $needed   = (int) $line->case_count - $existing;
+
+        if ($needed <= 0) {
+            return;
+        }
+
+        $now  = now()->toDateTimeString();
+        $rows = [];
+        for ($i = 0; $i < $needed; $i++) {
+            $rows[] = [
                 'pallet_line_id' => $line->id,
                 'barcode'        => null,
                 'status'         => 'expected',
-            ]);
+                'created_at'     => $now,
+                'updated_at'     => $now,
+            ];
         }
+
+        InventoryCase::insert($rows);
     }
 
     /**
@@ -255,7 +271,10 @@ class ReceivingService
     public function recalculateAverageCost(InventoryItem $item, float $incomingQty, float $incomingUnitCost): void
     {
         if ($incomingUnitCost <= 0) {
-            InventoryItem::where('id', $item->id)->increment('total_units_received', $incomingQty);
+            // Use atomic increment and sync the in-memory model from the return value
+            DB::table('inventory_items')
+                ->where('id', $item->id)
+                ->increment('total_units_received', $incomingQty);
             $item->total_units_received = (float) $item->total_units_received + $incomingQty;
             return;
         }

@@ -50,6 +50,9 @@ class ActiveStreamersWidget extends BaseWidget
                     ->toggleable(),
             ])
             ->recordUrl(fn ($record) => StreamerResource::getUrl('view', ['record' => $record]))
-            ->paginated(false);
+            ->paginated([10, 25, 50])
+            ->defaultPaginationPageOption(10)
+            ->emptyStateHeading('No active streamers')
+            ->emptyStateIcon('heroicon-o-user-group');
     }
 }

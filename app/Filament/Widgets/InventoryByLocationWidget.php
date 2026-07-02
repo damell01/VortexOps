@@ -57,6 +57,9 @@ class InventoryByLocationWidget extends BaseWidget
                     ->getStateUsing(fn ($record) => '$' . number_format($record->stock_value ?? 0, 2)),
             ])
             ->recordUrl(fn ($record) => InventoryLocationResource::getUrl('view', ['record' => $record]))
-            ->paginated(false);
+            ->paginated([10, 25, 50])
+            ->defaultPaginationPageOption(10)
+            ->emptyStateHeading('No active locations')
+            ->emptyStateIcon('heroicon-o-map-pin');
     }
 }

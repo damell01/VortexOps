@@ -1,0 +1,81 @@
+<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Vortex Breaks logo mark.
+    Two interlocked inverted rounded triangles.
+    Cream paths on transparent bg — renders on any dark surface.
+  -->
+  <defs>
+    <!--
+      Mask that lets the OUTER triangle draw everywhere EXCEPT the thin
+      horizontal strip where the inner top bar should appear in front.
+    -->
+    <mask id="outerMask">
+      <rect width="100" height="100" fill="white"/>
+      <!-- cut out inner-top-bar band (y 20..28) where it overlaps outer diagonals -->
+      <rect x="0" y="19.5" width="100" height="9" fill="black"/>
+    </mask>
+
+    <!--
+      Mask for the inner triangle: only draw the BOTTOM portion (below the
+      top bar) so it sits behind the outer triangle's sides below the crossing.
+      The top bar is redrawn separately on top.
+    -->
+    <mask id="innerBodyMask">
+      <rect width="100" height="100" fill="white"/>
+      <!-- hide the very top cap so we only keep the diagonals downward -->
+      <!-- nothing to cut; inner diagonals sit inside outer diagonals anyway -->
+    </mask>
+  </defs>
+
+  <!-- 1. Outer large rounded inverted triangle (behind the inner top bar) -->
+  <path
+    mask="url(#outerMask)"
+    d="M 23,15
+       L 77,15
+       Q 87,15  82.0,25
+       L 53.0,80
+       Q 50,87  47.0,80
+       L 18.0,25
+       Q 13,15  23,15
+       Z"
+    stroke="#f0ece6"
+    stroke-width="5.5"
+    stroke-linejoin="round"
+    fill="none"
+  />
+
+  <!-- 2. Inner rounded inverted triangle bottom diagonals -->
+  <!-- We draw the full inner path but it's visually behind the outer top cap -->
+  <path
+    d="M 30,24
+       L 70,24
+       Q 79,24  74.5,32
+       L 52.5,75
+       Q 50,81  47.5,75
+       L 25.5,32
+       Q 21,24  30,24
+       Z"
+    stroke="#f0ece6"
+    stroke-width="5"
+    stroke-linejoin="round"
+    fill="none"
+  />
+
+  <!-- 3. Redraw outer top bar on top (so outer top appears over inner corners) -->
+  <path
+    d="M 23,15 L 77,15"
+    stroke="#f0ece6"
+    stroke-width="5.5"
+    stroke-linecap="round"
+    fill="none"
+  />
+
+  <!-- 4. Redraw inner top bar on top of everything — the key interlocking element -->
+  <path
+    d="M 30,24 L 70,24"
+    stroke="#f0ece6"
+    stroke-width="5"
+    stroke-linecap="round"
+    fill="none"
+  />
+</svg>

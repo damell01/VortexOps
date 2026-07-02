@@ -66,6 +66,12 @@ class AdminPanelProvider extends PanelProvider
             $panel = $panel
                 ->brandLogo(asset('storage/' . $logoPath))
                 ->brandLogoHeight('2.75rem');
+        } elseif (file_exists(public_path('images/vb-logo-sidebar.svg'))) {
+            // Default to the built-in SVG logo when no custom logo is uploaded
+            $panel = $panel
+                ->brandLogo(asset('images/vb-logo-sidebar.svg'))
+                ->brandLogoHeight('2.75rem')
+                ->brandName('');   // text hidden — logo SVG already contains it
         }
 
         $isAuthenticatedAdminView = fn (): bool => auth()->check();

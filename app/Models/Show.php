@@ -115,7 +115,7 @@ class Show extends Model
         return $this->hasMany(Payout::class);
     }
 
-    public function whatnotOrders(): HasMany
+    public function orders(): HasMany
     {
         return $this->hasMany(WhatnotShowOrder::class);
     }
@@ -123,6 +123,84 @@ class Show extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Match the show title against active streamer names and auto-attach high-confidence matches.
+     * Stores results in ai_streamer_suggestion. Returns the suggestions array.
+     */
+    public function detectStreamers(): array
+    {
+        $title = strtolower($this->title ?? '');
+        if (empty($title)) {
+            return [];
+        }
+
+        $suggestions = [];
+
+        foreach (Streamer::where('status', 'active')->get(['id', 'name']) as $streamer) {
+            $lowerName = strtolower($streamer->name);
+
+            if (str_contains($title, $lowerName)) {
+                $suggestions[] = [
+                    'streamer_id'   => $streamer->id,
+                    'streamer_name' => $streamer->name,
+                    'confidence'    => 'high',
+                    'reason'        => "Name \"{$streamer->name}\" found in show title",
+                ];
+                continue;
+            }
+
+            // Check each word of the name (4+ chars to skip short words like "The", "a")
+            foreach (explode(' ', $lowerName) as $part) {
+                if (strlen($part) >= 4 && str_contains($title, $part)) {
+                    $suggestions[] = [
+                        'streamer_id'   => $streamer->id,
+                        'streamer_name' => $streamer->name,
+                        'confidence'    => 'medium',
+                        'reason'        => "Name part \"{$part}\" found in show title",
+                    ];
+                    break;
+                }
+            }
+        }
+
+        if (! empty($suggestions)) {
+            $this->update(['ai_streamer_suggestion' => $suggestions]);
+
+            // Auto-attach only when the show has no streamers yet
+            if ($this->streamers()->count() === 0) {
+                $first = true;
+                foreach ($suggestions as $s) {
+                    if ($s['confidence'] === 'high') {
+                        $this->streamers()->attach($s['streamer_id'], ['is_primary' => $first]);
+                        $first = false;
+                    }
+                }
+            }
+        }
+
+        return $suggestions;
+    }
+
+    /**
+     * Return the primary streamer's best inventory location for deduction line defaults.
+     * Prefers type=streamer_inventory, falls back to any active location owned by that streamer.
+     */
+    public function defaultInventoryLocation(): ?InventoryLocation
+    {
+        $streamer = $this->relationLoaded('streamers')
+            ? $this->streamers->first()
+            : $this->streamers()->first();
+
+        if (! $streamer) {
+            return null;
+        }
+
+        return InventoryLocation::where('streamer_id', $streamer->id)
+            ->where('status', 'active')
+            ->orderByRaw("CASE type WHEN 'streamer_inventory' THEN 0 ELSE 1 END")
+            ->first();
     }
 
     public static function statusLabels(): array

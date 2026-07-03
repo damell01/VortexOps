@@ -318,7 +318,8 @@ class WhatnotScraper
                     $skipped++;
                 }
             } else {
-                Show::create(array_merge($payload, ['status' => 'draft', 'created_by' => auth()->id() ?? 1]));
+                $show = Show::create(array_merge($payload, ['status' => 'draft', 'created_by' => auth()->id() ?? 1]));
+                $show->detectStreamers();
                 $created++;
             }
         }

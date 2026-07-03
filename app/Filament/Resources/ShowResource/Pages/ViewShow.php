@@ -75,6 +75,35 @@ class ViewShow extends ViewRecord
                 ->visible(fn () => in_array($this->record->status, ['pending_approval', 'reconciled', 'closed']))
                 ->url(fn () => DeductionRequestResource::getUrl('index', ['tableFilters[show_id][value]' => $this->record->id])),
 
+            Action::make('detect_streamer')
+                ->label(fn () => $this->record->streamers->isEmpty() ? 'Detect Streamer' : 'Re-detect Streamer')
+                ->icon('heroicon-o-user-circle')
+                ->color('gray')
+                ->visible(fn () => auth()->user()?->isAdmin()
+                    && ! in_array($this->record->status, ['cancelled', 'closed'])
+                )
+                ->action(function () {
+                    $suggestions = $this->record->detectStreamers();
+
+                    if (empty($suggestions)) {
+                        Notification::make()
+                            ->title('No streamer detected')
+                            ->body('No active streamer name was found in the show title. Assign one manually via Edit.')
+                            ->warning()
+                            ->send();
+                    } else {
+                        $names = collect($suggestions)->pluck('streamer_name')->join(', ');
+                        Notification::make()
+                            ->title('Streamer detected')
+                            ->body("Matched: {$names}. High-confidence matches have been attached to the show.")
+                            ->success()
+                            ->send();
+                    }
+
+                    $this->record->load('streamers');
+                    $this->refreshFormData(['streamers']);
+                }),
+
             Action::make('map_manually')
                 ->label('Map Items Manually')
                 ->icon('heroicon-o-pencil-square')
@@ -109,20 +138,23 @@ class ViewShow extends ViewRecord
                         ->map(fn ($d) => strtolower(trim($d)))
                         ->all();
 
+                    $defaultLocation = $show->defaultInventoryLocation();
+
                     $created = 0;
                     foreach ($show->orders->filter(fn ($o) => ! empty($o->item_name))->groupBy('item_name') as $itemName => $group) {
                         if (in_array(strtolower(trim($itemName)), $existingDescriptions)) {
                             continue;
                         }
                         DeductionRequestLine::create([
-                            'deduction_request_id' => $dr->id,
-                            'raw_description'      => $itemName,
-                            'quantity_suggested'   => $group->sum('quantity'),
-                            'quantity_approved'    => $group->sum('quantity'),
-                            'unit_cost_snapshot'   => 0,
-                            'line_total'           => 0,
-                            'ai_confidence'        => 'manual',
-                            'ops_overridden'       => false,
+                            'deduction_request_id'  => $dr->id,
+                            'raw_description'       => $itemName,
+                            'quantity_suggested'    => $group->sum('quantity'),
+                            'quantity_approved'     => $group->sum('quantity'),
+                            'unit_cost_snapshot'    => 0,
+                            'line_total'            => 0,
+                            'ai_confidence'         => 'manual',
+                            'inventory_location_id' => $defaultLocation?->id,
+                            'ops_overridden'        => false,
                         ]);
                         $created++;
                     }

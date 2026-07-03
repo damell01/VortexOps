@@ -41,7 +41,7 @@ class RunShowAiMappingJob implements ShouldQueue
         try {
             $lines   = $this->extractRawLines($show);
             $items   = InventoryItem::where('is_active', true)->orderBy('name')->get(['id', 'name', 'sku', 'category', 'average_cost', 'unit_cost']);
-            $mapped  = $this->mapLinesWithAi($lines, $items);
+            $mapped  = $this->mapLinesWithAi($lines, $items, $show->streamers->first()?->name);
             $summary = $this->persistMappings($show, $mapped);
 
             $show->update(['status' => 'pending_approval']);
@@ -116,9 +116,10 @@ class RunShowAiMappingJob implements ShouldQueue
         return $lines;
     }
 
-    private function mapLinesWithAi(array $lines, $items): array
+    private function mapLinesWithAi(array $lines, $items, ?string $streamerName = null): array
     {
         $itemList = $items->map(fn ($i) => "[{$i->id}] {$i->name}" . ($i->sku ? " (SKU: {$i->sku})" : '') . ($i->category ? " [{$i->category}]" : ''))->join("\n");
+        $context  = $streamerName ? "\nContext: This show was streamed by {$streamerName}." : '';
         $results  = [];
 
         foreach ($lines as $line) {
@@ -127,7 +128,7 @@ class RunShowAiMappingJob implements ShouldQueue
             }
 
             $prompt = <<<PROMPT
-You are matching a sold item description to an inventory catalogue for a sports card break business.
+You are matching a sold item description to an inventory catalogue for a sports card break business.{$context}
 
 Inventory items:
 {$itemList}
@@ -180,10 +181,13 @@ PROMPT;
         $notes    = [];
 
         return DB::transaction(function () use ($show, $mapped, &$created, &$skipped, &$mappedCount, &$notes) {
+            $defaultLocation = $show->defaultInventoryLocation();
+            $primaryStreamer  = $show->streamers->first();
+
             // Find or create a DeductionRequest for this show
             $dr = $show->deductionRequests()->firstOrCreate(
                 ['show_id' => $show->id, 'streamer_id' => null],
-                ['status' => 'draft']
+                ['status' => 'draft', 'streamer_id' => $primaryStreamer?->id]
             );
 
             foreach ($mapped as $line) {
@@ -205,16 +209,17 @@ PROMPT;
                     $qty      = (float) $line['quantity'];
 
                     DeductionRequestLine::create([
-                        'deduction_request_id' => $dr->id,
-                        'inventory_item_id'    => $line['matched_item_id'],
-                        'raw_description'      => $line['description'],
-                        'quantity_suggested'   => $qty,
-                        'quantity_approved'    => $qty,
-                        'unit_cost_snapshot'   => $unitCost,
-                        'line_total'           => round($qty * $unitCost, 2),
-                        'ai_confidence'        => $line['ai_confidence'],
-                        'ai_reason'            => $line['ai_reason'],
-                        'ops_overridden'       => false,
+                        'deduction_request_id'  => $dr->id,
+                        'inventory_item_id'     => $line['matched_item_id'],
+                        'inventory_location_id' => $defaultLocation?->id,
+                        'raw_description'       => $line['description'],
+                        'quantity_suggested'    => $qty,
+                        'quantity_approved'     => $qty,
+                        'unit_cost_snapshot'    => $unitCost,
+                        'line_total'            => round($qty * $unitCost, 2),
+                        'ai_confidence'         => $line['ai_confidence'],
+                        'ai_reason'             => $line['ai_reason'],
+                        'ops_overridden'        => false,
                     ]);
                     $created++;
                 }

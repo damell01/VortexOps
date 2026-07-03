@@ -32,7 +32,7 @@ class ViewDeductionRequest extends EditRecord
     {
         /** @var DeductionRequest $request */
         $request  = $this->record;
-        $show     = $request->show;
+        $show     = $request->show->loadMissing('orders');
         $editable = ! in_array($request->status, ['processed', 'rejected']);
 
         return $schema->components([
@@ -62,6 +62,46 @@ class ViewDeductionRequest extends EditRecord
                     Placeholder::make('streamer_name')
                         ->label('Streamer')
                         ->content($request->streamer->name ?? '—'),
+                ]),
+
+            Section::make('Items Sold')
+                ->description('Reference — imported from Whatnot. Use these to assign inventory items to each deduction line below.')
+                ->visible(fn () => $show->orders->isNotEmpty())
+                ->collapsible()
+                ->collapsed(fn () => $request->lines->isNotEmpty())
+                ->schema([
+                    Placeholder::make('orders_table')
+                        ->label('')
+                        ->content(function () use ($show): \Illuminate\Support\HtmlString {
+                            $rows = $show->orders
+                                ->sortBy('lot_number')
+                                ->map(fn ($o) =>
+                                    '<tr>' .
+                                    '<td style="padding:4px 10px;border-bottom:1px solid #eee">' . ($o->lot_number ?? '—') . '</td>' .
+                                    '<td style="padding:4px 10px;border-bottom:1px solid #eee">' . e($o->item_name ?? '—') . '</td>' .
+                                    '<td style="padding:4px 10px;border-bottom:1px solid #eee">' . e($o->buyer_display_name ?? $o->buyer_username ?? '—') . '</td>' .
+                                    '<td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right">' . $o->quantity . '</td>' .
+                                    '<td style="padding:4px 10px;border-bottom:1px solid #eee;text-align:right">$' . number_format((float) $o->unit_price, 2) . '</td>' .
+                                    '</tr>'
+                                )->join('');
+
+                            return new \Illuminate\Support\HtmlString('
+                                <div style="overflow-x:auto">
+                                <table style="width:100%;border-collapse:collapse;font-size:12px">
+                                    <thead>
+                                        <tr style="background:var(--color-primary-50,#f5f3ff)">
+                                            <th style="padding:5px 10px;text-align:left;font-weight:600">Lot</th>
+                                            <th style="padding:5px 10px;text-align:left;font-weight:600">Item</th>
+                                            <th style="padding:5px 10px;text-align:left;font-weight:600">Buyer</th>
+                                            <th style="padding:5px 10px;text-align:right;font-weight:600">Qty</th>
+                                            <th style="padding:5px 10px;text-align:right;font-weight:600">Sale Price</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>' . $rows . '</tbody>
+                                </table>
+                                </div>
+                            ');
+                        }),
                 ]),
 
             Section::make('AI Mapping Notes')

@@ -7,6 +7,7 @@ use App\Filament\Resources\DeductionRequestResource;
 use App\Jobs\RunShowAiMappingJob;
 use App\Models\AiTask;
 use App\Models\DeductionRequest;
+use App\Models\DeductionRequestLine;
 use App\Services\WhatnotScraper;
 use App\Support\AdminModules;
 use Filament\Actions\EditAction;
@@ -74,11 +75,72 @@ class ViewShow extends ViewRecord
                 ->visible(fn () => in_array($this->record->status, ['pending_approval', 'reconciled', 'closed']))
                 ->url(fn () => DeductionRequestResource::getUrl('index', ['tableFilters[show_id][value]' => $this->record->id])),
 
+            Action::make('map_manually')
+                ->label('Map Items Manually')
+                ->icon('heroicon-o-pencil-square')
+                ->color('info')
+                ->visible(fn () =>
+                    auth()->user()?->isAdmin()
+                    && $this->record->orders->isNotEmpty()
+                    && ! in_array($this->record->status, ['cancelled', 'closed'])
+                    && (
+                        ! $this->record->latestDeductionRequest
+                        || $this->record->latestDeductionRequest->status === 'draft'
+                    )
+                )
+                ->requiresConfirmation()
+                ->modalHeading('Map Sold Items to Inventory')
+                ->modalDescription('Creates deduction lines from the imported order items. You can then assign each item to an inventory item and location on the next screen.')
+                ->action(function () {
+                    $show = $this->record;
+
+                    $dr = $show->latestDeductionRequest ?? DeductionRequest::create([
+                        'show_id'     => $show->id,
+                        'streamer_id' => $show->streamers->first()?->id,
+                        'status'      => 'draft',
+                    ]);
+
+                    if (in_array($show->status, ['draft'])) {
+                        $show->update(['status' => 'pending_review']);
+                    }
+
+                    // Aggregate orders by item name and create a line per distinct item
+                    $existingDescriptions = $dr->lines->pluck('raw_description')
+                        ->map(fn ($d) => strtolower(trim($d)))
+                        ->all();
+
+                    $created = 0;
+                    foreach ($show->orders->filter(fn ($o) => ! empty($o->item_name))->groupBy('item_name') as $itemName => $group) {
+                        if (in_array(strtolower(trim($itemName)), $existingDescriptions)) {
+                            continue;
+                        }
+                        DeductionRequestLine::create([
+                            'deduction_request_id' => $dr->id,
+                            'raw_description'      => $itemName,
+                            'quantity_suggested'   => $group->sum('quantity'),
+                            'quantity_approved'    => $group->sum('quantity'),
+                            'unit_cost_snapshot'   => 0,
+                            'line_total'           => 0,
+                            'ai_confidence'        => 'manual',
+                            'ops_overridden'       => false,
+                        ]);
+                        $created++;
+                    }
+
+                    Notification::make()
+                        ->title("{$created} item line" . ($created !== 1 ? 's' : '') . ' added — assign inventory items below')
+                        ->success()
+                        ->send();
+
+                    $this->redirect(DeductionRequestResource::getUrl('view', ['record' => $dr->id]));
+                }),
+
             Action::make('raise_deduction')
                 ->label('Raise Deduction')
                 ->icon('heroicon-o-plus-circle')
                 ->color('warning')
                 ->visible(fn () => auth()->user()?->isAdmin()
+                    && $this->record->orders->isEmpty()
                     && ! in_array($this->record->status, ['cancelled', 'closed'])
                     && ! $this->record->latestDeductionRequest
                 )

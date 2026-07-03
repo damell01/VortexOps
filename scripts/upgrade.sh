@@ -108,12 +108,18 @@ else
   sudo -u www-data php artisan optimize
   ok "Caches warmed"
 
-  h1 "Restarting queue worker"
+  h1 "Restarting queue workers"
   if systemctl is-active --quiet vortexops-worker; then
     systemctl restart vortexops-worker
-    ok "Queue worker restarted"
+    ok "Default queue worker restarted"
   else
-    warn "vortexops-worker service not running — start it with: systemctl start vortexops-worker"
+    warn "vortexops-worker not running — start with: systemctl start vortexops-worker"
+  fi
+  if systemctl is-active --quiet vortexops-ai-worker; then
+    systemctl restart vortexops-ai-worker
+    ok "AI queue worker restarted"
+  else
+    warn "vortexops-ai-worker not running — start with: systemctl start vortexops-ai-worker"
   fi
 
   h1 "Taking app out of maintenance mode"

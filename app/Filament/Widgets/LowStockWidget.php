@@ -53,6 +53,7 @@ class LowStockWidget extends BaseWidget
             ->recordUrl(fn ($record) => InventoryItemResource::getUrl('view', ['record' => $record]))
             ->paginated([8, 25, 50])
             ->defaultPaginationPageOption(8)
+            ->deferLoading()
             ->emptyStateHeading('No low-stock items')
             ->emptyStateDescription('All stocked items are above their reorder levels.')
             ->emptyStateIcon('heroicon-o-check-circle');

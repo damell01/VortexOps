@@ -64,6 +64,7 @@ class RecentShowsWidget extends BaseWidget
                     ->numeric()
                     ->placeholder('—'),
             ])
+            ->deferLoading()
             ->recordUrl(fn ($record) => ShowResource::getUrl('view', ['record' => $record]))
             ->paginated(false);
     }

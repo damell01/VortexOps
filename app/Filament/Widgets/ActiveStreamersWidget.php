@@ -49,6 +49,7 @@ class ActiveStreamersWidget extends BaseWidget
                     ->placeholder('—')
                     ->toggleable(),
             ])
+            ->deferLoading()
             ->recordUrl(fn ($record) => StreamerResource::getUrl('view', ['record' => $record]))
             ->paginated([10, 25, 50])
             ->defaultPaginationPageOption(10)

@@ -188,7 +188,6 @@ class PayoutResource extends Resource
             ])
             ->striped()
             ->persistFiltersInSession()
-            ->stackedOnMobile()
             ->paginationPageOptions([10, 25, 50])
             ->defaultPaginationPageOption(25)
             ->deferLoading()

@@ -88,8 +88,7 @@ class ShowIngestionLogResource extends Resource
                     ->label('Show')
                     ->placeholder('No show linked')
                     ->searchable()
-                    ->limit(40)
-                    ->stackedOnMobile(),
+                    ->limit(40),
 
                 TextColumn::make('source')
                     ->badge()

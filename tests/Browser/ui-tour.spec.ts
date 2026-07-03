@@ -40,10 +40,17 @@ async function dismissTour(page: Page) {
 
 /** Navigate to a URL and verify no server error is returned. */
 async function goto(page: Page, path: string, label: string): Promise<boolean> {
+    // Only track the primary navigation response — ignore background fetches,
+    // prefetch requests, Livewire updates, and notification polling.
     let httpStatus = 200;
-    const handler = (response: { url: () => string; status: () => number }) => {
-        if (response.url().includes(path.replace(/\?.*/, ''))) {
+    let mainResponseHandled = false;
+    const handler = (response: { url: () => string; status: () => number; request: () => { resourceType: () => string } }) => {
+        const url = response.url();
+        const type = response.request().resourceType();
+        // Only consider document-type responses that match our path exactly
+        if (type === 'document' && url.includes(path.replace(/\?.*/, '')) && !mainResponseHandled) {
             httpStatus = response.status();
+            mainResponseHandled = true;
         }
     };
     page.on('response', handler);
@@ -51,7 +58,7 @@ async function goto(page: Page, path: string, label: string): Promise<boolean> {
     await page.waitForLoadState('networkidle');
     page.off('response', handler);
 
-    // DOM-level error detection
+    // DOM-level error detection (catches errors Filament renders as HTML)
     const bodyText = await page.textContent('body').catch(() => '');
     const title    = await page.title().catch(() => '');
     const hasDomError =
@@ -360,13 +367,32 @@ test('VortexOps UI tour — pages and interactions', async ({ page }) => {
     await goto(page, '/admin/whatnot-channels', 'Whatnot Channels');
     await snap(page, '42-whatnot-channels');
 
-    // ── 19. AI Assistant ──────────────────────────────────────────────────────
-    await goto(page, '/admin/ai-assistant', 'AI Assistant');
-    await snap(page, '43-ai-assistant');
-    // Click "Operations Briefing" quick action to show button states
-    const opsBriefBtn = page.locator('button:has-text("Operations Briefing")').first();
-    if (await opsBriefBtn.isVisible().catch(() => false)) {
-        await snap(page, '44-ai-assistant-buttons');
+    // ── 19. Vortex AI chat panel ──────────────────────────────────────────────
+    await goto(page, '/admin', 'Dashboard (AI chat panel)');
+    await page.waitForTimeout(800);
+
+    // Open the floating AI chat panel
+    const aiToggle = page.locator('button:has-text("Vortex AI")').first();
+    if (await aiToggle.isVisible().catch(() => false)) {
+        await snap(page, '43-ai-panel-closed');
+        await aiToggle.click();
+        await page.waitForTimeout(500);
+        await snap(page, '44-ai-panel-open');
+
+        // Type a message to show the input state
+        const aiInput = page.locator('input[placeholder*="Vortex AI"]').first();
+        if (await aiInput.isVisible().catch(() => false)) {
+            await aiInput.fill('How many shows are pending review?');
+            await page.waitForTimeout(300);
+            await snap(page, '44-ai-panel-typed');
+        }
+
+        // Close it for the next steps
+        await aiToggle.click();
+        await page.waitForTimeout(300);
+    } else {
+        // AI module may be disabled; still capture the page
+        await snap(page, '43-ai-panel-closed');
     }
 
     // ── 20. Users ─────────────────────────────────────────────────────────────

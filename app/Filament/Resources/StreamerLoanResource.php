@@ -107,8 +107,7 @@ class StreamerLoanResource extends Resource
                 TextColumn::make('streamer.name')
                     ->label('Streamer')
                     ->searchable()
-                    ->sortable()
-                    ->stackedOnMobile(),
+                    ->sortable(),
 
                 TextColumn::make('label')
                     ->label('Label')

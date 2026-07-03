@@ -1,3 +1,4 @@
+<div>
 @if($aiEnabled)
 <div
     x-data="{
@@ -149,3 +150,4 @@
 }
 </style>
 @endif
+</div>

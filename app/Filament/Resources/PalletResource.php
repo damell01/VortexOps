@@ -222,7 +222,6 @@ class PalletResource extends Resource
             ])
             ->defaultSort('received_date', 'desc')
             ->striped()
-            ->stackedOnMobile()
             ->deferLoading()
             ->persistFiltersInSession()
             ->paginationPageOptions([10, 25, 50])

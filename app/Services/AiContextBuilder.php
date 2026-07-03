@@ -19,9 +19,7 @@ class AiContextBuilder
         $page     = $this->pageContext($path);
 
         return implode("\n\n", array_filter([
-            "You are Vortex AI, the internal operations assistant for Vortex Breaks — a Whatnot sports card break business.",
-            "You have full read access to all business data and can answer questions about shows, streamers, inventory, payouts, and deductions.",
-            "Be concise, accurate, and practical. Use numbers from the data when relevant.",
+            "You are Vortex AI for Vortex Breaks (Whatnot sports card break business). Answer concisely using the data below. No disclaimers.",
             $business,
             $page,
         ]));

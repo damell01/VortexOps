@@ -72,7 +72,7 @@
             @forelse($messages as $msg)
                 <div style="display:flex;{{ $msg['role'] === 'user' ? 'justify-content:flex-end' : 'justify-content:flex-start' }}">
                     <div style="
-                        max-width:85%;padding:0.45rem 0.7rem;border-radius:0.6rem;font-size:0.78rem;line-height:1.45;
+                        max-width:85%;padding:0.45rem 0.7rem;border-radius:0.6rem;font-size:0.78rem;line-height:1.45;white-space:pre-wrap;word-break:break-word;
                         {{ $msg['role'] === 'user'
                             ? 'background:#7c3aed;color:#fff;border-bottom-right-radius:0.2rem'
                             : 'background:#f3f4f6;color:#111827;border-bottom-left-radius:0.2rem' }}
@@ -84,13 +84,29 @@
                 </p>
             @endforelse
 
+            {{-- Live streaming bubble --}}
             @if($thinking)
-                <div style="display:flex;justify-content:flex-start">
-                    <div style="background:#f3f4f6;border-radius:0.6rem;border-bottom-left-radius:0.2rem;padding:0.5rem 0.75rem;display:flex;gap:4px;align-items:center">
-                        <span style="width:6px;height:6px;background:#9ca3af;border-radius:9999px;animation:ai-bounce 1s infinite"></span>
-                        <span style="width:6px;height:6px;background:#9ca3af;border-radius:9999px;animation:ai-bounce 1s infinite .2s"></span>
-                        <span style="width:6px;height:6px;background:#9ca3af;border-radius:9999px;animation:ai-bounce 1s infinite .4s"></span>
+                <div
+                    x-data="{ started: false }"
+                    x-on:livewire-stream.window="started = true; $nextTick(() => { let el = document.getElementById('ai-messages'); if(el) el.scrollTop = el.scrollHeight; })"
+                    style="display:flex;justify-content:flex-start"
+                >
+                    {{-- Typing dots: shown until first chunk arrives --}}
+                    <div
+                        x-show="!started"
+                        style="background:#f3f4f6;border-radius:0.6rem;border-bottom-left-radius:0.2rem;padding:0.5rem 0.75rem;display:flex;gap:4px;align-items:center"
+                    >
+                        <span style="width:6px;height:6px;background:#9ca3af;border-radius:9999px;display:inline-block;animation:ai-bounce 1s infinite"></span>
+                        <span style="width:6px;height:6px;background:#9ca3af;border-radius:9999px;display:inline-block;animation:ai-bounce 1s infinite .2s"></span>
+                        <span style="width:6px;height:6px;background:#9ca3af;border-radius:9999px;display:inline-block;animation:ai-bounce 1s infinite .4s"></span>
                     </div>
+
+                    {{-- Streaming text: hidden until first chunk, then fills in --}}
+                    <div
+                        x-show="started"
+                        wire:stream="streamingResponse"
+                        style="max-width:85%;padding:0.45rem 0.7rem;border-radius:0.6rem;border-bottom-left-radius:0.2rem;font-size:0.78rem;line-height:1.45;white-space:pre-wrap;word-break:break-word;background:#f3f4f6;color:#111827"
+                    >{{ $streamingResponse }}</div>
                 </div>
             @endif
         </div>
@@ -103,9 +119,9 @@
             <input
                 wire:model="input"
                 type="text"
-                placeholder="Ask Vortex AI…"
+                placeholder="{{ $thinking ? 'Thinking…' : 'Ask Vortex AI…' }}"
                 autocomplete="off"
-                @disabled($thinking)
+                @if($thinking) disabled @endif
                 style="
                     flex:1;border:1px solid #d1d5db;border-radius:0.5rem;
                     padding:0.4rem 0.65rem;font-size:0.8rem;outline:none;
@@ -114,7 +130,7 @@
             >
             <button
                 type="submit"
-                @disabled($thinking)
+                @if($thinking) disabled @endif
                 style="
                     background:#7c3aed;color:#fff;border:none;border-radius:0.5rem;
                     padding:0.4rem 0.75rem;font-size:0.8rem;font-weight:600;

@@ -1278,3 +1278,452 @@ hr, .fi-section-header + *, .fi-ta-header-toolbar + * {
 .fi-account-widget-user-avatar:hover {
     border-color: var(--vx-accent-text) !important;
 }
+
+/* ═══════════════════════════════════════════
+   STAGGERED CARD ENTRANCES
+   ═══════════════════════════════════════════ */
+
+/* Stat cards cascade in with sequential delays */
+.fi-wi-stats-overview-stat {
+    animation: vx-fade-up 260ms var(--vx-ease) both;
+}
+.fi-wi-stats-overview-stat:nth-child(1) { animation-delay: 30ms; }
+.fi-wi-stats-overview-stat:nth-child(2) { animation-delay: 75ms; }
+.fi-wi-stats-overview-stat:nth-child(3) { animation-delay: 120ms; }
+.fi-wi-stats-overview-stat:nth-child(4) { animation-delay: 165ms; }
+.fi-wi-stats-overview-stat:nth-child(5) { animation-delay: 210ms; }
+.fi-wi-stats-overview-stat:nth-child(6) { animation-delay: 255ms; }
+.fi-wi-stats-overview-stat:nth-child(7) { animation-delay: 300ms; }
+.fi-wi-stats-overview-stat:nth-child(8) { animation-delay: 345ms; }
+
+/* Table-based widgets stagger vertically */
+.fi-wi-table {
+    animation: vx-fade-up 300ms var(--vx-ease) both;
+}
+.fi-wi-table:nth-child(1) { animation-delay: 60ms; }
+.fi-wi-table:nth-child(2) { animation-delay: 120ms; }
+.fi-wi-table:nth-child(3) { animation-delay: 180ms; }
+.fi-wi-table:nth-child(4) { animation-delay: 240ms; }
+.fi-wi-table:nth-child(5) { animation-delay: 300ms; }
+.fi-wi-table:nth-child(6) { animation-delay: 360ms; }
+
+/* ═══════════════════════════════════════════
+   SELECT INPUTS
+   ═══════════════════════════════════════════ */
+
+.fi-select-input {
+    font-size: 0.8125rem !important;
+    color: var(--vx-text-primary) !important;
+    background-color: var(--vx-input-bg) !important;
+    border-radius: var(--vx-radius-sm) !important;
+    padding: 0.4375rem 0.75rem !important;
+    line-height: 1.4 !important;
+    transition: border-color var(--vx-transition), box-shadow var(--vx-transition) !important;
+}
+
+/* Native select arrow */
+.fi-select-input:not([multiple]) {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.625rem center !important;
+    background-size: 0.8125rem !important;
+    padding-right: 2rem !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+}
+
+/* ═══════════════════════════════════════════
+   TOGGLE SWITCHES
+   ═══════════════════════════════════════════ */
+
+.fi-toggle-input:checked {
+    background-color: #7c3aed !important;
+    border-color: #7c3aed !important;
+}
+
+.dark .fi-toggle-input:checked {
+    background-color: #8b5cf6 !important;
+    border-color: #8b5cf6 !important;
+}
+
+/* ═══════════════════════════════════════════
+   SKELETON / LOADING STATE (deferred tables)
+   ═══════════════════════════════════════════ */
+
+@keyframes vx-skeleton-sweep {
+    0%   { background-position: -400% center; }
+    100% { background-position: 400% center; }
+}
+
+.fi-ta-skeleton-row td > div {
+    background: linear-gradient(
+        90deg,
+        var(--vx-row-stripe) 25%,
+        var(--vx-row-hover) 50%,
+        var(--vx-row-stripe) 75%
+    ) !important;
+    background-size: 400% 100% !important;
+    animation: vx-skeleton-sweep 1.5s ease-in-out infinite !important;
+    border-radius: var(--vx-radius-sm) !important;
+    opacity: 0.8 !important;
+}
+
+/* Livewire in-table loading overlay */
+[wire\:loading].fi-ta-table-main {
+    opacity: 0.55 !important;
+    transition: opacity 200ms var(--vx-ease) !important;
+}
+
+/* ═══════════════════════════════════════════
+   FILE UPLOAD ZONE
+   ═══════════════════════════════════════════ */
+
+.fi-fo-file-upload-dropzone {
+    border: 2px dashed var(--vx-input-border) !important;
+    border-radius: var(--vx-radius) !important;
+    background-color: var(--vx-row-stripe) !important;
+    transition: border-color var(--vx-transition), background-color var(--vx-transition) !important;
+    padding: 1.5rem !important;
+}
+
+.fi-fo-file-upload-dropzone:hover,
+.fi-fo-file-upload-dropzone:focus-within {
+    border-color: var(--vx-accent-border) !important;
+    background-color: var(--vx-accent-subtle) !important;
+}
+
+/* ═══════════════════════════════════════════
+   REPEATER ITEMS
+   ═══════════════════════════════════════════ */
+
+.fi-fo-repeater-item {
+    border: 1px solid var(--vx-card-border) !important;
+    border-radius: var(--vx-radius) !important;
+    background-color: var(--vx-row-stripe) !important;
+    transition: border-color var(--vx-transition), box-shadow var(--vx-transition) !important;
+}
+
+.fi-fo-repeater-item:hover {
+    border-color: var(--vx-accent-border) !important;
+    box-shadow: var(--vx-shadow-xs) !important;
+}
+
+.fi-fo-repeater-item-header {
+    border-bottom: 1px solid var(--vx-divider) !important;
+    padding: 0.625rem 0.875rem !important;
+    background: linear-gradient(
+        180deg,
+        rgb(0 0 0 / .015) 0%,
+        transparent 100%
+    ) !important;
+}
+
+.dark .fi-fo-repeater-item-header {
+    background: linear-gradient(
+        180deg,
+        rgb(255 255 255 / .02) 0%,
+        transparent 100%
+    ) !important;
+}
+
+/* ═══════════════════════════════════════════
+   INFOLIST ENTRY SEPARATORS (view pages)
+   ═══════════════════════════════════════════ */
+
+.fi-in-entry {
+    padding-top: 0.6875rem !important;
+    padding-bottom: 0.6875rem !important;
+    border-bottom: 1px solid var(--vx-divider) !important;
+}
+
+.fi-in-entry:last-child {
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+}
+
+.fi-in-entry:first-child {
+    padding-top: 0 !important;
+}
+
+/* ═══════════════════════════════════════════
+   TAGS / MULTI-SELECT PILLS
+   ═══════════════════════════════════════════ */
+
+.fi-fo-tags-input-option {
+    border-radius: 99px !important;
+    font-size: 0.6875rem !important;
+    font-weight: 600 !important;
+    background-color: var(--vx-accent-subtle) !important;
+    color: var(--vx-accent-text) !important;
+    border: 1px solid var(--vx-accent-border) !important;
+    padding: 0.125rem 0.5625rem !important;
+    line-height: 1.5 !important;
+    transition: background-color var(--vx-transition) !important;
+}
+
+.fi-fo-tags-input-option:hover {
+    background-color: var(--vx-accent-border) !important;
+}
+
+/* ═══════════════════════════════════════════
+   SECTION ASIDE
+   ═══════════════════════════════════════════ */
+
+.fi-section-aside {
+    background-color: var(--vx-row-stripe) !important;
+    border-left: 1px solid var(--vx-divider) !important;
+    padding: 1.25rem 1.25rem !important;
+    border-radius: 0 var(--vx-radius-lg) var(--vx-radius-lg) 0 !important;
+}
+
+/* ═══════════════════════════════════════════
+   BREADCRUMB SEPARATOR
+   ═══════════════════════════════════════════ */
+
+.fi-breadcrumbs-item-separator {
+    color: var(--vx-text-tertiary) !important;
+    opacity: 0.45 !important;
+}
+
+/* ═══════════════════════════════════════════
+   TABLE WIDGET HEADING ACCENT
+   ═══════════════════════════════════════════ */
+
+.fi-ta-header-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.fi-ta-header-heading::before {
+    content: '' !important;
+    display: inline-block !important;
+    width: 3px !important;
+    height: 0.9375em !important;
+    background: linear-gradient(180deg, #7c3aed 0%, #0ea5e9 100%) !important;
+    border-radius: 99px !important;
+    flex-shrink: 0 !important;
+    opacity: 0.8 !important;
+}
+
+/* ═══════════════════════════════════════════
+   STAT DESCRIPTION / CHART AREA POLISH
+   ═══════════════════════════════════════════ */
+
+.fi-wi-stats-overview-stat-description {
+    display: flex;
+    align-items: center;
+    gap: 0.3125rem;
+}
+
+/* Match chart line color to the card's top-border accent */
+.fi-wi-stats-overview-stat:nth-child(1) .fi-wi-stats-overview-stat-chart path { stroke: #7c3aed !important; }
+.fi-wi-stats-overview-stat:nth-child(2) .fi-wi-stats-overview-stat-chart path { stroke: #0ea5e9 !important; }
+.fi-wi-stats-overview-stat:nth-child(3) .fi-wi-stats-overview-stat-chart path { stroke: #10b981 !important; }
+.fi-wi-stats-overview-stat:nth-child(4) .fi-wi-stats-overview-stat-chart path { stroke: #f59e0b !important; }
+.fi-wi-stats-overview-stat:nth-child(5) .fi-wi-stats-overview-stat-chart path { stroke: #f43f5e !important; }
+.fi-wi-stats-overview-stat:nth-child(6) .fi-wi-stats-overview-stat-chart path { stroke: #8b5cf6 !important; }
+.fi-wi-stats-overview-stat:nth-child(7) .fi-wi-stats-overview-stat-chart path { stroke: #06b6d4 !important; }
+.fi-wi-stats-overview-stat:nth-child(8) .fi-wi-stats-overview-stat-chart path { stroke: #ec4899 !important; }
+
+/* ═══════════════════════════════════════════
+   FORM HINT TEXT
+   ═══════════════════════════════════════════ */
+
+.fi-fo-field-hint {
+    font-size: 0.75rem !important;
+    color: var(--vx-text-secondary) !important;
+    margin-top: 0.3125rem !important;
+    line-height: 1.4 !important;
+}
+
+/* ═══════════════════════════════════════════
+   LOADING TOPBAR INDICATOR
+   ═══════════════════════════════════════════ */
+
+@keyframes vx-loading-bar {
+    0%   { transform: translateX(-100%); }
+    50%  { transform: translateX(0%); }
+    100% { transform: translateX(100%); }
+}
+
+.fi-topbar {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 20 !important;
+}
+
+/* ═══════════════════════════════════════════
+   NOTIFICATION BADGE PULSE (topbar bell)
+   ═══════════════════════════════════════════ */
+
+.fi-topbar-notifications-btn .fi-badge {
+    background-color: #f43f5e !important;
+    font-size: 0.5625rem !important;
+    height: 1rem !important;
+    min-width: 1rem !important;
+    padding: 0 0.25rem !important;
+    line-height: 1rem !important;
+    animation: vx-pulse-glow 2s ease-in-out infinite !important;
+}
+
+/* ═══════════════════════════════════════════
+   LINK / TEXT BUTTONS
+   ═══════════════════════════════════════════ */
+
+.fi-btn-color-gray.fi-link,
+a.fi-link {
+    color: var(--vx-accent-text) !important;
+    text-underline-offset: 3px !important;
+}
+
+.fi-btn-color-gray.fi-link:hover,
+a.fi-link:hover {
+    opacity: 0.75 !important;
+}
+
+/* ═══════════════════════════════════════════
+   CHECKBOX STYLING
+   ═══════════════════════════════════════════ */
+
+.fi-checkbox-input {
+    accent-color: #7c3aed !important;
+    width: 1rem !important;
+    height: 1rem !important;
+    border-radius: 3px !important;
+    transition: box-shadow var(--vx-transition) !important;
+}
+
+.fi-checkbox-input:focus-visible {
+    box-shadow: 0 0 0 3px rgb(124 58 237 / .2) !important;
+}
+
+/* ═══════════════════════════════════════════
+   DATE / TIME PICKER PANEL
+   ═══════════════════════════════════════════ */
+
+.fi-fo-date-time-picker-calendar-container {
+    border-radius: var(--vx-radius) !important;
+    border: 1px solid var(--vx-card-border) !important;
+    box-shadow: var(--vx-shadow-md) !important;
+    background-color: var(--vx-card-bg) !important;
+    overflow: hidden !important;
+    animation: vx-fade-up 120ms var(--vx-ease) both !important;
+}
+
+/* ═══════════════════════════════════════════
+   COLOR SWATCH (color picker fields)
+   ═══════════════════════════════════════════ */
+
+.fi-color-picker-preview {
+    border-radius: var(--vx-radius-sm) !important;
+    border: 2px solid var(--vx-input-border) !important;
+    transition: border-color var(--vx-transition) !important;
+}
+
+/* ═══════════════════════════════════════════
+   GRID / COLUMNS FORM LAYOUT
+   ═══════════════════════════════════════════ */
+
+.fi-fo-component-ctn > .fi-section + .fi-section {
+    margin-top: 1rem !important;
+}
+
+/* ═══════════════════════════════════════════
+   DASHBOARD HEADER POLISH
+   ═══════════════════════════════════════════ */
+
+/* Dashboard page header gets a subtle highlight gradient */
+.fi-page .fi-header-ctn {
+    background: linear-gradient(
+        135deg,
+        var(--vx-card-bg) 0%,
+        transparent 100%
+    ) !important;
+    border-radius: var(--vx-radius-lg) !important;
+    border: 1px solid var(--vx-card-border) !important;
+    padding: 1.125rem 1.5rem !important;
+    margin-bottom: 0 !important;
+    box-shadow: var(--vx-shadow-xs) !important;
+}
+
+.dark .fi-page .fi-header-ctn {
+    background: linear-gradient(
+        135deg,
+        rgb(255 255 255 / .04) 0%,
+        transparent 100%
+    ) !important;
+}
+
+/* ═══════════════════════════════════════════
+   MOBILE SIDEBAR OVERLAY
+   ═══════════════════════════════════════════ */
+
+.fi-sidebar-overlay {
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    background-color: rgb(0 0 0 / .45) !important;
+    animation: vx-fade-in 200ms var(--vx-ease) both !important;
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE TABLE (stacked on mobile)
+   ═══════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+    .fi-ta-cell {
+        padding: 0.5rem 0.75rem !important;
+    }
+
+    .fi-ta-header-toolbar {
+        flex-wrap: wrap !important;
+        gap: 0.375rem !important;
+    }
+
+    .fi-page-content {
+        padding: 0.75rem 1rem !important;
+    }
+
+    .fi-wi-stats-overview {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+/* ═══════════════════════════════════════════
+   ACTION GROUP BUTTONS
+   ═══════════════════════════════════════════ */
+
+.fi-actions {
+    gap: 0.375rem !important;
+}
+
+.fi-ac-action-group-btn {
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.005em !important;
+}
+
+/* ═══════════════════════════════════════════
+   ICON COLUMN (boolean icons)
+   ═══════════════════════════════════════════ */
+
+.fi-ta-col-type-icon .fi-icon {
+    transition: transform var(--vx-transition) !important;
+}
+
+.fi-ta-record-content:hover .fi-ta-col-type-icon .fi-icon {
+    transform: scale(1.12) !important;
+}
+
+/* ═══════════════════════════════════════════
+   KEY-VALUE TABLE VIEW (striped infolist)
+   ═══════════════════════════════════════════ */
+
+.fi-in-section-content .fi-in-entry:nth-child(odd) {
+    background-color: var(--vx-row-stripe) !important;
+    border-radius: var(--vx-radius-sm) !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    margin-left: -0.5rem !important;
+    margin-right: -0.5rem !important;
+}

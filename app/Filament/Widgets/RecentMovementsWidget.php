@@ -54,6 +54,7 @@ class RecentMovementsWidget extends BaseWidget
                     ->label('By')
                     ->placeholder('System'),
             ])
+            ->deferLoading()
             ->paginated(false);
     }
 }

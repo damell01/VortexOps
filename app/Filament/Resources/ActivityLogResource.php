@@ -3,15 +3,14 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\ActivityLogResource\Pages;
+use App\Models\User;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Placeholder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
@@ -153,6 +152,24 @@ class ActivityLogResource extends Resource
                     ->sortable()
                     ->width('60px'),
 
+                TextColumn::make('log_name')
+                    ->label('Log')
+                    ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'auth'    => 'info',
+                        'user'    => 'warning',
+                        'payout'  => 'success',
+                        'pay_run' => 'success',
+                        default   => 'gray',
+                    })
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        'auth'    => 'Auth',
+                        'user'    => 'User',
+                        'payout'  => 'Payout',
+                        'pay_run' => 'Pay Run',
+                        default   => ucfirst($state ?? 'general'),
+                    }),
+
                 TextColumn::make('description')
                     ->badge()
                     ->color(fn (string $state): string => match (strtolower($state)) {
@@ -183,6 +200,16 @@ class ActivityLogResource extends Resource
                     ->sortable(),
             ])
             ->filters([
+                SelectFilter::make('log_name')
+                    ->label('Log')
+                    ->options([
+                        'auth'     => 'Auth (login/logout)',
+                        'user'     => 'Users',
+                        'payout'   => 'Payouts',
+                        'pay_run'  => 'Pay Runs',
+                        'default'  => 'General',
+                    ]),
+
                 SelectFilter::make('description')
                     ->label('Event')
                     ->options([
@@ -190,6 +217,10 @@ class ActivityLogResource extends Resource
                         'updated' => 'Updated',
                         'deleted' => 'Deleted',
                     ]),
+
+                SelectFilter::make('causer_id')
+                    ->label('User')
+                    ->options(fn () => User::orderBy('name')->pluck('name', 'id')),
 
                 SelectFilter::make('subject_type')
                     ->label('Model')

@@ -6,49 +6,161 @@ Built with **Laravel 13** + **Filament v5**. Phases 1–3 complete: inventory fo
 
 ---
 
+## Walkthrough Video
+
+Full end-to-end walkthrough at 1440 × 900 — every workflow, every page, every clickable action. Captured automatically by the Playwright tour.
+
+<video src="public/media/vortexops-walkthrough.mp4" controls width="100%"></video>
+
+> **Can't play inline?** [Download vortexops-walkthrough.mp4](public/media/vortexops-walkthrough.mp4)
+
+---
+
 ## Screenshots
 
+Auto-captured by the Playwright UI tour and stored in [`tests/Browser/screenshots/`](tests/Browser/screenshots/). Each row shows the **desktop** view (1440 × 900) alongside the **mobile** view (390 × 844). Regenerate any time with `npx playwright test`.
+
+---
+
+### Login
+
+| Desktop | Mobile |
+|---|---|
+| ![Login page](tests/Browser/screenshots/desktop/01-login-empty.png) | ![Login page](tests/Browser/screenshots/mobile/01-login-empty.png) |
+| ![Login filled](tests/Browser/screenshots/desktop/02-login-filled.png) | ![Login filled](tests/Browser/screenshots/mobile/02-login-filled.png) |
+
+---
+
 ### Dashboard
-![Dashboard](docs/screenshots/01-dashboard.png)
 
-### Shows — Operational Loop
-| Shows List | Show Detail |
+| Desktop | Mobile |
 |---|---|
-| ![Shows](docs/screenshots/02-shows-list.png) | ![Show Detail](docs/screenshots/05-show-view.png) |
+| ![Dashboard](tests/Browser/screenshots/desktop/03-dashboard.png) | ![Dashboard](tests/Browser/screenshots/mobile/03-dashboard.png) |
+| ![Stat card hover](tests/Browser/screenshots/desktop/04-dashboard-stat-hover.png) | ![Stat card hover](tests/Browser/screenshots/mobile/04-dashboard-stat-hover.png) |
+| ![Dark mode](tests/Browser/screenshots/desktop/05-dashboard-dark.png) | ![Dark mode](tests/Browser/screenshots/mobile/05-dashboard-dark.png) |
+| ![Dashboard full scroll](tests/Browser/screenshots/desktop/45-dashboard-final.png) | ![Dashboard full scroll](tests/Browser/screenshots/mobile/45-dashboard-final.png) |
 
-### Deduction Requests — AI-Assisted Review
-| Queue | Review & Approve |
+---
+
+### Inventory — Items
+
+| Desktop | Mobile |
 |---|---|
-| ![Deduction List](docs/screenshots/06-deduction-requests-list.png) | ![Review UI](docs/screenshots/07-deduction-request-review.png) |
+| ![Inventory items list](tests/Browser/screenshots/desktop/06-inventory-items-list.png) | ![Inventory items list](tests/Browser/screenshots/mobile/06-inventory-items-list.png) |
+| ![Inventory search](tests/Browser/screenshots/desktop/07-inventory-search.png) | ![Inventory search](tests/Browser/screenshots/mobile/07-inventory-search.png) |
 
-### Inventory
-| Items List | Action Menu | Add Stock |
-|---|---|---|
-| ![Items](docs/screenshots/08-inventory-items-list.png) | ![Actions](docs/screenshots/12-inventory-actions-dropdown.png) | ![Add Stock](docs/screenshots/13-add-stock-modal.png) |
+---
 
-| Stock Levels | Movement Log |
+### Inventory — Locations, Movements & Stock
+
+| Desktop | Mobile |
 |---|---|
-| ![Stock](docs/screenshots/19-stock-levels.png) | ![Movements](docs/screenshots/20-movement-log.png) |
+| ![Inventory locations](tests/Browser/screenshots/desktop/31-inventory-locations.png) | ![Inventory locations](tests/Browser/screenshots/mobile/31-inventory-locations.png) |
+| ![Inventory movements](tests/Browser/screenshots/desktop/32-inventory-movements.png) | ![Inventory movements](tests/Browser/screenshots/mobile/32-inventory-movements.png) |
+| ![Inventory stock](tests/Browser/screenshots/desktop/33-inventory-stock.png) | ![Inventory stock](tests/Browser/screenshots/mobile/33-inventory-stock.png) |
+
+---
+
+### Receiving — Pallets
+
+| Desktop | Mobile |
+|---|---|
+| ![Pallets list](tests/Browser/screenshots/desktop/10-pallets-list.png) | ![Pallets list](tests/Browser/screenshots/mobile/10-pallets-list.png) |
+
+---
+
+### Shows
+
+| Desktop | Mobile |
+|---|---|
+| ![Shows list](tests/Browser/screenshots/desktop/13-shows-list.png) | ![Shows list](tests/Browser/screenshots/mobile/13-shows-list.png) |
+| ![Create show form](tests/Browser/screenshots/desktop/17-show-create-form.png) | ![Create show form](tests/Browser/screenshots/mobile/17-show-create-form.png) |
+| ![Create show full page](tests/Browser/screenshots/desktop/18-show-create-form-full.png) | ![Create show full page](tests/Browser/screenshots/mobile/18-show-create-form-full.png) |
+| ![Show ingestion logs](tests/Browser/screenshots/desktop/27-show-ingestion-logs.png) | ![Show ingestion logs](tests/Browser/screenshots/mobile/27-show-ingestion-logs.png) |
+
+---
+
+### Deduction Requests
+
+| Desktop | Mobile |
+|---|---|
+| ![Deduction requests](tests/Browser/screenshots/desktop/19-deduction-requests.png) | ![Deduction requests](tests/Browser/screenshots/mobile/19-deduction-requests.png) |
+
+---
 
 ### Payouts & Pay Runs
-| Payouts | Weekly Pay Run |
-|---|---|
-| ![Payouts](docs/screenshots/21-payouts-list.png) | ![Pay Run](docs/screenshots/24-pay-run-view.png) |
 
-### Feedback System
-| Ticket List | Feedback Button |
+| Desktop | Mobile |
 |---|---|
-| ![Feedback Tickets](docs/screenshots/27-feedback-tickets-list.png) | ![Feedback Widget](docs/screenshots/28-feedback-widget-button.png) |
+| ![Payouts list](tests/Browser/screenshots/desktop/20-payouts-list.png) | ![Payouts list](tests/Browser/screenshots/mobile/20-payouts-list.png) |
+| ![Weekly pay runs](tests/Browser/screenshots/desktop/22-weekly-pay-runs.png) | ![Weekly pay runs](tests/Browser/screenshots/mobile/22-weekly-pay-runs.png) |
 
-### AI & Settings
-| AI Assistant | App Settings |
-|---|---|
-| ![AI](docs/screenshots/29-ai-assistant.png) | ![Settings](docs/screenshots/31-settings.png) |
+---
 
-### Admin
-| Users | Activity Log |
+### Streamers & Loans
+
+| Desktop | Mobile |
 |---|---|
-| ![Users](docs/screenshots/32-users-list.png) | ![Activity](docs/screenshots/33-activity-log.png) |
+| ![Streamers list](tests/Browser/screenshots/desktop/23-streamers-list.png) | ![Streamers list](tests/Browser/screenshots/mobile/23-streamers-list.png) |
+| ![Streamer loans](tests/Browser/screenshots/desktop/26-streamer-loans-list.png) | ![Streamer loans](tests/Browser/screenshots/mobile/26-streamer-loans-list.png) |
+
+---
+
+### Reports
+
+| Desktop | Mobile |
+|---|---|
+| ![Reports overview](tests/Browser/screenshots/desktop/28-reports.png) | ![Reports overview](tests/Browser/screenshots/mobile/28-reports.png) |
+| ![Reports full scroll](tests/Browser/screenshots/desktop/29-reports-full.png) | ![Reports full scroll](tests/Browser/screenshots/mobile/29-reports-full.png) |
+
+---
+
+### Vendors & Whatnot Channels
+
+| Desktop | Mobile |
+|---|---|
+| ![Vendors](tests/Browser/screenshots/desktop/34-vendors-list.png) | ![Vendors](tests/Browser/screenshots/mobile/34-vendors-list.png) |
+| ![Whatnot channels](tests/Browser/screenshots/desktop/35-whatnot-channels.png) | ![Whatnot channels](tests/Browser/screenshots/mobile/35-whatnot-channels.png) |
+
+---
+
+### AI Assistant Panel
+
+| Desktop | Mobile |
+|---|---|
+| ![AI chat panel](tests/Browser/screenshots/desktop/36-ai-panel-closed.png) | ![AI chat panel](tests/Browser/screenshots/mobile/36-ai-panel-closed.png) |
+
+---
+
+### Settings
+
+| Desktop | Mobile |
+|---|---|
+| ![Settings](tests/Browser/screenshots/desktop/41-settings.png) | ![Settings](tests/Browser/screenshots/mobile/41-settings.png) |
+| ![Settings full scroll](tests/Browser/screenshots/desktop/42-settings-full.png) | ![Settings full scroll](tests/Browser/screenshots/mobile/42-settings-full.png) |
+
+---
+
+### Admin — Users & Activity Log
+
+| Desktop | Mobile |
+|---|---|
+| ![Users](tests/Browser/screenshots/desktop/39-users-list.png) | ![Users](tests/Browser/screenshots/mobile/39-users-list.png) |
+| ![Activity log](tests/Browser/screenshots/desktop/40-activity-log.png) | ![Activity log](tests/Browser/screenshots/mobile/40-activity-log.png) |
+
+---
+
+### Desktop — Navigation & Global Search
+
+| User dropdown | Global search (⌘K) |
+|---|---|
+| ![Dropdown menu](tests/Browser/screenshots/desktop/43-dropdown-open.png) | ![Global search](tests/Browser/screenshots/desktop/44-global-search.png) |
+
+---
+
+### Mobile — Sidebar
+
+![Mobile sidebar open](tests/Browser/screenshots/mobile/43-sidebar-open.png)
 
 ---
 
@@ -97,11 +209,16 @@ To run the queue worker (required for AI mapping and low-stock notifications):
 php artisan queue:work
 ```
 
-To regenerate docs screenshots:
+To regenerate screenshots and the walkthrough video:
 
 ```bash
-php artisan serve --port=8765 &
-node screenshot.cjs
+php artisan serve --port=8000 &
+npx playwright test              # both desktop + mobile screenshots
+npx playwright test --project=desktop  # desktop only (also writes video.webm)
+# Convert to MP4:
+ffmpeg -y -i tests/Browser/output/*/video.webm \
+  -c:v libx264 -preset slow -crf 20 -movflags +faststart \
+  public/media/vortexops-walkthrough.mp4
 ```
 
 ## Deployment

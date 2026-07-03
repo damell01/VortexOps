@@ -23,6 +23,6 @@ class Dashboard extends BaseDashboard
 
     public function getSubheading(): string|\Illuminate\Contracts\Support\Htmlable|null
     {
-        return 'Here\'s an overview of Vortex Breaks operations for ' . now()->format('l, F j');
+        return 'Overview of Vortex Breaks operations · ' . now()->format('l, F j, Y');
     }
 }

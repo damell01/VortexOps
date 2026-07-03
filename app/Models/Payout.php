@@ -4,9 +4,22 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Spatie\Activitylog\Support\LogOptions;
+use Spatie\Activitylog\Models\Concerns\LogsActivity;
 
 class Payout extends Model
 {
+    use LogsActivity;
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly(['status', 'calculated_payout', 'weekly_payout_batch_id'])
+            ->logOnlyDirty()
+            ->dontLogEmptyChanges()
+            ->useLogName('payout');
+    }
+
     protected $fillable = [
         'show_id',
         'streamer_id',

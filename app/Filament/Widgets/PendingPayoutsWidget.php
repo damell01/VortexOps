@@ -53,6 +53,7 @@ class PendingPayoutsWidget extends BaseWidget
                     ->placeholder('—')
                     ->toggleable(),
             ])
+            ->deferLoading()
             ->emptyStateHeading('No pending payouts')
             ->emptyStateDescription('All draft payouts have been reviewed.')
             ->emptyStateIcon('heroicon-o-check-circle')

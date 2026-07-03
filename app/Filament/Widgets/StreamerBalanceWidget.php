@@ -61,6 +61,7 @@ class StreamerBalanceWidget extends BaseWidget
                     ->color(fn ($state) => $state > 0 ? 'warning' : 'success')
                     ->weight('bold'),
             ])
+            ->deferLoading()
             ->recordUrl(fn ($record) => StreamerResource::getUrl('view', ['record' => $record]))
             ->paginated(false);
     }

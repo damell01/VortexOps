@@ -107,6 +107,26 @@ class ViewShow extends ViewRecord
                     ]));
                 }),
 
+            Action::make('close_show')
+                ->label('Close Show')
+                ->icon('heroicon-o-lock-closed')
+                ->color('gray')
+                ->visible(fn () => $this->record->status === 'reconciled' && auth()->user()?->isAdmin())
+                ->requiresConfirmation()
+                ->modalHeading('Close this show?')
+                ->modalDescription('Closing marks the show as fully settled. This cannot be undone.')
+                ->action(fn () => $this->record->update(['status' => 'closed'])),
+
+            Action::make('cancel_show')
+                ->label('Cancel Show')
+                ->icon('heroicon-o-x-circle')
+                ->color('danger')
+                ->visible(fn () => ! in_array($this->record->status, ['closed', 'cancelled']) && auth()->user()?->isAdmin())
+                ->requiresConfirmation()
+                ->modalHeading('Cancel this show?')
+                ->modalDescription('Cancelling a show removes it from active reporting. Payouts linked to it will need to be voided manually.')
+                ->action(fn () => $this->record->update(['status' => 'cancelled'])),
+
             Action::make('import_items_sold')
                 ->label(function () {
                     $count = $this->record->orders->count();

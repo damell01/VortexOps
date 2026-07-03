@@ -40,6 +40,9 @@ class ShowResource extends Resource
 
     protected static ?string $model = Show::class;
 
+    // Streamers can access shows; row-level scoping in getEloquentQuery() limits what they see
+    protected static function passesModuleAccessCheck(): bool { return true; }
+
     public static function getEloquentQuery(): Builder
     {
         // latestDeductionRequest.lines and payouts.streamer are only needed on view/edit.

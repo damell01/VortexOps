@@ -2,10 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\PayoutsExport;
+use App\Exports\ShowsExport;
 use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\Payout;
+use App\Models\Show;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExportController extends Controller
@@ -92,6 +98,34 @@ class ExportController extends Controller
                 ]);
             });
         });
+    }
+
+    public function shows(): mixed
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+        $shows = Show::with(['channel'])->orderBy('show_date', 'desc')->get();
+        return Excel::download(new ShowsExport($shows), 'shows-' . now()->format('Y-m-d') . '.xlsx');
+    }
+
+    public function payouts(): mixed
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+        $payouts = Payout::with(['show', 'streamer'])->orderBy('created_at', 'desc')->get();
+        return Excel::download(new PayoutsExport($payouts), 'payouts-' . now()->format('Y-m-d') . '.xlsx');
+    }
+
+    public function payoutPdf(Payout $payout): mixed
+    {
+        $user = auth()->user();
+        if (! $user?->isAdmin()) {
+            $streamerId = $user?->streamer?->id;
+            abort_unless($streamerId && $payout->streamer_id === $streamerId, 403);
+        }
+        $payout->loadMissing(['show', 'streamer']);
+        $pdf = Pdf::loadView('pdf.payout-statement', compact('payout'));
+        $slug = str($payout->streamer?->name ?? 'payout')->slug();
+        $date = $payout->show?->show_date?->format('Y-m-d') ?? now()->format('Y-m-d');
+        return $pdf->download("payout-{$slug}-{$date}.pdf");
     }
 
     public function manifestTemplate(): StreamedResponse

@@ -33,7 +33,7 @@ class RunShowAiMappingJob implements ShouldQueue
     public function handle(): void
     {
         $task = AiTask::findOrFail($this->aiTaskId);
-        $show = Show::with(['streamers', 'deductionRequests.lines'])->findOrFail($this->showId);
+        $show = Show::with(['streamers', 'deductionRequests.lines', 'orders'])->findOrFail($this->showId);
 
         $task->markProcessing();
         $show->update(['status' => 'mapping']);
@@ -71,19 +71,33 @@ class RunShowAiMappingJob implements ShouldQueue
     {
         $lines = [];
 
-        // Use raw_import_payload if present (Whatnot import)
-        $payload = $show->raw_import_payload ?? [];
-        if (! empty($payload['items'])) {
-            foreach ($payload['items'] as $item) {
+        // Primary: WhatnotShowOrder records (imported via whatnot:import-orders)
+        // Aggregate by item name so each distinct product becomes one deduction line
+        if ($show->orders->isNotEmpty()) {
+            foreach ($show->orders->filter(fn ($o) => ! empty($o->item_name))->groupBy('item_name') as $itemName => $group) {
                 $lines[] = [
-                    'description' => $item['title'] ?? $item['name'] ?? $item['description'] ?? '',
-                    'quantity'    => (float) ($item['quantity'] ?? $item['qty'] ?? 1),
-                    'source'      => 'import',
+                    'description' => $itemName,
+                    'quantity'    => (float) $group->sum('quantity'),
+                    'source'      => 'whatnot_order',
                 ];
             }
         }
 
-        // Fall back to existing DeductionRequest lines that have raw_description but no inventory_item_id
+        // Secondary: raw_import_payload if orders table is empty
+        if (empty($lines)) {
+            $payload = $show->raw_import_payload ?? [];
+            if (! empty($payload['items'])) {
+                foreach ($payload['items'] as $item) {
+                    $lines[] = [
+                        'description' => $item['title'] ?? $item['name'] ?? $item['description'] ?? '',
+                        'quantity'    => (float) ($item['quantity'] ?? $item['qty'] ?? 1),
+                        'source'      => 'import',
+                    ];
+                }
+            }
+        }
+
+        // Tertiary: existing DeductionRequest lines without an inventory match
         if (empty($lines)) {
             foreach ($show->deductionRequests as $dr) {
                 foreach ($dr->lines->where('inventory_item_id', null) as $line) {

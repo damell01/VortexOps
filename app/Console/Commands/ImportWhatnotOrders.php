@@ -2,9 +2,14 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\RunShowAiMappingJob;
+use App\Models\AiTask;
 use App\Models\Show;
+use App\Models\User;
 use App\Services\WhatnotScraper;
+use App\Support\AdminModules;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 class ImportWhatnotOrders extends Command
 {
@@ -52,6 +57,10 @@ class ImportWhatnotOrders extends Command
                 $this->info("  ✓ {$result['created']} created, {$result['skipped']} skipped");
                 $totalCreated += $result['created'];
                 $totalSkipped += $result['skipped'];
+
+                if ($result['created'] > 0) {
+                    $this->advanceShowAndQueueMapping($show);
+                }
             } catch (\RuntimeException $e) {
                 $this->error("  ✗ {$e->getMessage()}");
 
@@ -65,5 +74,54 @@ class ImportWhatnotOrders extends Command
         $this->info("Done — {$totalCreated} orders created, {$totalSkipped} skipped across {$shows->count()} shows.");
 
         return self::SUCCESS;
+    }
+
+    private function advanceShowAndQueueMapping(Show $show): void
+    {
+        $show->refresh();
+
+        // Only advance shows still in draft — higher statuses mean work is already underway
+        if ($show->status !== 'draft') {
+            return;
+        }
+
+        $show->update(['status' => 'pending_review']);
+        $this->line("  → Transitioned to pending_review");
+
+        AdminModules::flushMemo();
+
+        if (! AdminModules::isEnabled('ai')) {
+            return;
+        }
+
+        // Guard against duplicate tasks if the scheduler fires twice in quick succession
+        $alreadyQueued = AiTask::where('taskable_type', Show::class)
+            ->where('taskable_id', $show->id)
+            ->whereIn('status', ['pending', 'processing'])
+            ->exists();
+
+        if ($alreadyQueued) {
+            return;
+        }
+
+        $owner = User::where('email', config('app.owner_email'))->first();
+
+        $task = AiTask::create([
+            'type'          => 'show_ai_mapping',
+            'status'        => 'pending',
+            'taskable_type' => Show::class,
+            'taskable_id'   => $show->id,
+            'triggered_by'  => $owner?->id,
+            'input'         => ['show_id' => $show->id, 'show_title' => $show->title],
+        ]);
+
+        RunShowAiMappingJob::dispatch($show->id, $task->id)->onQueue('ai');
+
+        $this->line("  → AI mapping queued (task #{$task->id})");
+
+        Log::info('ImportWhatnotOrders: AI mapping queued', [
+            'show_id'     => $show->id,
+            'ai_task_id'  => $task->id,
+        ]);
     }
 }

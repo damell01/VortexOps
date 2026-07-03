@@ -7,6 +7,7 @@ use App\Filament\Resources\DeductionRequestResource;
 use App\Jobs\RunShowAiMappingJob;
 use App\Models\AiTask;
 use App\Models\DeductionRequest;
+use App\Services\WhatnotScraper;
 use App\Support\AdminModules;
 use Filament\Actions\EditAction;
 use Filament\Actions\Action;
@@ -24,6 +25,7 @@ class ViewShow extends ViewRecord
             'channel',
             'payouts.streamer',
             'latestDeductionRequest.lines.inventoryItem',
+            'orders',
         ])->findOrFail($key);
     }
 
@@ -103,6 +105,40 @@ class ViewShow extends ViewRecord
                     $this->redirect(DeductionRequestResource::getUrl('index', [
                         'tableFilters[show_id][value]' => $this->record->id,
                     ]));
+                }),
+
+            Action::make('import_items_sold')
+                ->label(function () {
+                    $count = $this->record->orders->count();
+                    return $count > 0 ? "Items Sold ({$count})" : 'Import Items Sold';
+                })
+                ->icon('heroicon-o-shopping-cart')
+                ->color('gray')
+                ->visible(fn () => (bool) $this->record->detail_url)
+                ->requiresConfirmation()
+                ->modalHeading('Import Items Sold from Whatnot')
+                ->modalDescription('This scrapes the order list for this show from Whatnot and may take up to 60 seconds.')
+                ->action(function (): void {
+                    try {
+                        $result = app(WhatnotScraper::class)->importShowOrders($this->record);
+
+                        Notification::make()
+                            ->title('Import complete')
+                            ->body(
+                                "{$result['created']} new item" . ($result['created'] !== 1 ? 's' : '') . ' imported' .
+                                ($result['skipped'] ? ", {$result['skipped']} already on file" : '') . '.'
+                            )
+                            ->success()
+                            ->send();
+
+                        $this->record->load('orders');
+                    } catch (\RuntimeException $e) {
+                        Notification::make()
+                            ->title('Import failed')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
                 }),
 
             EditAction::make(),

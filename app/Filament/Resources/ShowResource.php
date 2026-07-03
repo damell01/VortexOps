@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\ShowResource\Pages;
+use App\Filament\Resources\ShowResource\RelationManagers\OrdersRelationManager;
 use App\Models\DeductionRequest;
 use App\Models\Show;
 use App\Models\Streamer;
@@ -543,6 +544,13 @@ class ShowResource extends Resource
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
             ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            OrdersRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

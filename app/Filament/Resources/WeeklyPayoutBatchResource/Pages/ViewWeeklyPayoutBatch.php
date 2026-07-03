@@ -3,10 +3,12 @@
 namespace App\Filament\Resources\WeeklyPayoutBatchResource\Pages;
 
 use App\Filament\Resources\WeeklyPayoutBatchResource;
+use App\Services\AdpExportService;
 use App\Services\PayoutService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ViewWeeklyPayoutBatch extends ViewRecord
 {
@@ -48,6 +50,28 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                     app(PayoutService::class)->markBatchPaid($this->record);
                     Notification::make()->title('Pay run marked as paid — streamer balances updated.')->success()->send();
                     $this->refreshFormData(['status']);
+                }),
+
+            Action::make('export_adp')
+                ->label('Export ADP CSV')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('gray')
+                ->visible(fn () => in_array($this->record->status, ['finalized', 'submitted_to_adp', 'paid']))
+                ->action(function (): StreamedResponse {
+                    $service  = app(AdpExportService::class);
+                    $csv      = $service->exportBatchCsv($this->record);
+                    $filename = $service->exportFilename($this->record);
+
+                    activity('pay_run')
+                        ->causedBy(auth()->user())
+                        ->performedOn($this->record)
+                        ->log('ADP CSV exported');
+
+                    return response()->streamDownload(
+                        fn () => print($csv),
+                        $filename,
+                        ['Content-Type' => 'text/csv'],
+                    );
                 }),
         ];
     }

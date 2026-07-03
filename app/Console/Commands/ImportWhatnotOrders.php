@@ -9,9 +9,10 @@ use Illuminate\Console\Command;
 class ImportWhatnotOrders extends Command
 {
     protected $signature = 'whatnot:import-orders
-                            {--show=  : Show ID to import orders for (omit for all shows with a detail_url)}
-                            {--recent : Only shows from the last 30 days}
-                            {--debug  : Save Playwright screenshots to /tmp for debugging selectors}';
+                            {--show=    : Show ID to import orders for (omit for all shows with a detail_url)}
+                            {--recent   : Only shows from the last 30 days}
+                            {--new-only : Only shows that have a detail_url but no orders imported yet}
+                            {--debug    : Save Playwright screenshots to /tmp for debugging selectors}';
 
     protected $description = 'Scrape order/lot data for completed Whatnot shows and store buyer + item details';
 
@@ -23,6 +24,10 @@ class ImportWhatnotOrders extends Command
 
         if ($showId = $this->option('show')) {
             $query->where('id', $showId);
+        }
+
+        if ($this->option('new-only')) {
+            $query->whereDoesntHave('orders');
         }
 
         if ($this->option('recent')) {

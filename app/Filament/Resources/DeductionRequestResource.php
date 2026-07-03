@@ -23,6 +23,9 @@ class DeductionRequestResource extends Resource
 
     protected static ?string $model = DeductionRequest::class;
 
+    // Streamers can access deduction requests for their shows
+    protected static function passesModuleAccessCheck(): bool { return true; }
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-clipboard-document-check';

@@ -124,6 +124,7 @@ class AdminPanelProvider extends PanelProvider
                     : Blade::render(
                         "<x-tour-button />"
                         . "@livewire('feedback-widget')"
+                        . "@livewire('ai-chat-panel')"
                     ),
             )
             ->renderHook(

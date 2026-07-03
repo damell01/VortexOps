@@ -13,6 +13,7 @@ trait HasModuleAccess
 
     protected static function passesModuleAccessCheck(): bool
     {
-        return true;
+        $user = auth()->user();
+        return ($user?->isAdmin() || $user?->isOwner()) ?? false;
     }
 }

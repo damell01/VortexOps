@@ -33,7 +33,7 @@ class RunShowAiMappingJob implements ShouldQueue
     public function handle(): void
     {
         $task = AiTask::findOrFail($this->aiTaskId);
-        $show = Show::with(['streamers', 'deductionRequests.lines'])->findOrFail($this->showId);
+        $show = Show::with(['streamers', 'deductionRequests.lines', 'orders'])->findOrFail($this->showId);
 
         $task->markProcessing();
         $show->update(['status' => 'mapping']);
@@ -41,7 +41,7 @@ class RunShowAiMappingJob implements ShouldQueue
         try {
             $lines   = $this->extractRawLines($show);
             $items   = InventoryItem::where('is_active', true)->orderBy('name')->get(['id', 'name', 'sku', 'category', 'average_cost', 'unit_cost']);
-            $mapped  = $this->mapLinesWithAi($lines, $items);
+            $mapped  = $this->mapLinesWithAi($lines, $items, $show->streamers->first()?->name);
             $summary = $this->persistMappings($show, $mapped);
 
             $show->update(['status' => 'pending_approval']);
@@ -71,19 +71,33 @@ class RunShowAiMappingJob implements ShouldQueue
     {
         $lines = [];
 
-        // Use raw_import_payload if present (Whatnot import)
-        $payload = $show->raw_import_payload ?? [];
-        if (! empty($payload['items'])) {
-            foreach ($payload['items'] as $item) {
+        // Primary: WhatnotShowOrder records (imported via whatnot:import-orders)
+        // Aggregate by item name so each distinct product becomes one deduction line
+        if ($show->orders->isNotEmpty()) {
+            foreach ($show->orders->filter(fn ($o) => ! empty($o->item_name))->groupBy('item_name') as $itemName => $group) {
                 $lines[] = [
-                    'description' => $item['title'] ?? $item['name'] ?? $item['description'] ?? '',
-                    'quantity'    => (float) ($item['quantity'] ?? $item['qty'] ?? 1),
-                    'source'      => 'import',
+                    'description' => $itemName,
+                    'quantity'    => (float) $group->sum('quantity'),
+                    'source'      => 'whatnot_order',
                 ];
             }
         }
 
-        // Fall back to existing DeductionRequest lines that have raw_description but no inventory_item_id
+        // Secondary: raw_import_payload if orders table is empty
+        if (empty($lines)) {
+            $payload = $show->raw_import_payload ?? [];
+            if (! empty($payload['items'])) {
+                foreach ($payload['items'] as $item) {
+                    $lines[] = [
+                        'description' => $item['title'] ?? $item['name'] ?? $item['description'] ?? '',
+                        'quantity'    => (float) ($item['quantity'] ?? $item['qty'] ?? 1),
+                        'source'      => 'import',
+                    ];
+                }
+            }
+        }
+
+        // Tertiary: existing DeductionRequest lines without an inventory match
         if (empty($lines)) {
             foreach ($show->deductionRequests as $dr) {
                 foreach ($dr->lines->where('inventory_item_id', null) as $line) {
@@ -102,9 +116,10 @@ class RunShowAiMappingJob implements ShouldQueue
         return $lines;
     }
 
-    private function mapLinesWithAi(array $lines, $items): array
+    private function mapLinesWithAi(array $lines, $items, ?string $streamerName = null): array
     {
         $itemList = $items->map(fn ($i) => "[{$i->id}] {$i->name}" . ($i->sku ? " (SKU: {$i->sku})" : '') . ($i->category ? " [{$i->category}]" : ''))->join("\n");
+        $context  = $streamerName ? "\nContext: This show was streamed by {$streamerName}." : '';
         $results  = [];
 
         foreach ($lines as $line) {
@@ -113,7 +128,7 @@ class RunShowAiMappingJob implements ShouldQueue
             }
 
             $prompt = <<<PROMPT
-You are matching a sold item description to an inventory catalogue for a sports card break business.
+You are matching a sold item description to an inventory catalogue for a sports card break business.{$context}
 
 Inventory items:
 {$itemList}
@@ -166,10 +181,13 @@ PROMPT;
         $notes    = [];
 
         return DB::transaction(function () use ($show, $mapped, &$created, &$skipped, &$mappedCount, &$notes) {
+            $defaultLocation = $show->defaultInventoryLocation();
+            $primaryStreamer  = $show->streamers->first();
+
             // Find or create a DeductionRequest for this show
             $dr = $show->deductionRequests()->firstOrCreate(
                 ['show_id' => $show->id, 'streamer_id' => null],
-                ['status' => 'draft']
+                ['status' => 'draft', 'streamer_id' => $primaryStreamer?->id]
             );
 
             foreach ($mapped as $line) {
@@ -191,16 +209,17 @@ PROMPT;
                     $qty      = (float) $line['quantity'];
 
                     DeductionRequestLine::create([
-                        'deduction_request_id' => $dr->id,
-                        'inventory_item_id'    => $line['matched_item_id'],
-                        'raw_description'      => $line['description'],
-                        'quantity_suggested'   => $qty,
-                        'quantity_approved'    => $qty,
-                        'unit_cost_snapshot'   => $unitCost,
-                        'line_total'           => round($qty * $unitCost, 2),
-                        'ai_confidence'        => $line['ai_confidence'],
-                        'ai_reason'            => $line['ai_reason'],
-                        'ops_overridden'       => false,
+                        'deduction_request_id'  => $dr->id,
+                        'inventory_item_id'     => $line['matched_item_id'],
+                        'inventory_location_id' => $defaultLocation?->id,
+                        'raw_description'       => $line['description'],
+                        'quantity_suggested'    => $qty,
+                        'quantity_approved'     => $qty,
+                        'unit_cost_snapshot'    => $unitCost,
+                        'line_total'            => round($qty * $unitCost, 2),
+                        'ai_confidence'         => $line['ai_confidence'],
+                        'ai_reason'             => $line['ai_reason'],
+                        'ops_overridden'        => false,
                     ]);
                     $created++;
                 }

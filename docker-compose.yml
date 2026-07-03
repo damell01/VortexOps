@@ -26,7 +26,7 @@ services:
       REDIS_CLIENT: phpredis
       FILESYSTEM_DISK: public
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
       OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-moondream}
       RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
       WAIT_FOR_DB: "true"
@@ -70,7 +70,7 @@ services:
       REDIS_CLIENT: phpredis
       FILESYSTEM_DISK: public
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
       OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-moondream}
       RUN_MIGRATIONS: "false"
       WAIT_FOR_DB: "true"
@@ -176,7 +176,7 @@ services:
       REDIS_CLIENT: phpredis
       FILESYSTEM_DISK: public
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.2:3b}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
       OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-moondream}
       RUN_MIGRATIONS: "false"
       WAIT_FOR_DB: "true"
@@ -195,6 +195,14 @@ services:
     image: ollama/ollama:latest
     profiles: ["ai"]
     restart: unless-stopped
+    # Auto-pull model on first start; OLLAMA_MODEL can override via .env.docker
+    entrypoint: >
+      sh -c "ollama serve &
+             sleep 3 &&
+             ollama pull $${OLLAMA_MODEL:-gemma2:2b} &&
+             wait"
+    environment:
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
     volumes:
       - ollama-data:/root/.ollama
 

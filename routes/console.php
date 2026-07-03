@@ -10,4 +10,5 @@ Artisan::command('inspire', function () {
 
 Schedule::command('db:backup')->dailyAt('02:00');
 Schedule::command('health:check --notify')->everyFifteenMinutes();
-Schedule::command('whatnot:import')->dailyAt('03:00');
+Schedule::command('whatnot:import')->cron('0,30 * * * *');
+Schedule::command('whatnot:import-orders --new-only')->cron('5,35 * * * *');

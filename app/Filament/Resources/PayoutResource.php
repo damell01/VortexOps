@@ -27,6 +27,9 @@ class PayoutResource extends Resource
 
     protected static ?string $model = Payout::class;
 
+    // Streamers can access their own payouts; row scoping handles filtering
+    protected static function passesModuleAccessCheck(): bool { return true; }
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-banknotes';

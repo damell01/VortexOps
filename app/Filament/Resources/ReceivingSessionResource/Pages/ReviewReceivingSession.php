@@ -4,8 +4,10 @@ namespace App\Filament\Resources\ReceivingSessionResource\Pages;
 
 use App\Filament\Resources\ReceivingSessionResource;
 use App\Models\InventoryLocation;
+use App\Models\InventoryStock;
 use App\Models\PalletLine;
 use App\Models\Product;
+use App\Models\ProductIdentity;
 use App\Models\ReceivingSession;
 use App\Services\ReceivingSessionService;
 use Filament\Actions\Action;
@@ -34,6 +36,7 @@ class ReviewReceivingSession extends Page
     // ── Computed (refreshed on every action) ───────────────────────────────────
     public array $grouped = [];   // ['auto' => [...], 'review' => [...], 'new' => [...]]
     public bool  $showAuto = false;
+    public bool  $showPreview = false;
 
     // ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -58,6 +61,125 @@ class ReviewReceivingSession extends Page
     public function getProductsProperty()
     {
         return Product::where('is_active', true)->orderBy('name')->get(['id', 'name', 'brand', 'year', 'set_name']);
+    }
+
+    /**
+     * Build receiving preview: what will happen when completeSession() is called.
+     */
+    public function getPreviewProperty(): array
+    {
+        $allLines = collect($this->grouped['auto'])
+            ->concat($this->grouped['review'])
+            ->concat($this->grouped['new']);
+
+        $newProducts   = 0;
+        $updateProducts = 0;
+        $lotsToCreate  = 0;
+        $totalCases    = 0;
+        $totalCost     = 0.0;
+        $warnings      = [];
+
+        $existingProductIds = [];
+
+        foreach ($allLines as $line) {
+            $cases    = (int) ($line['case_count'] ?? 0);
+            $cost     = (float) str_replace(',', '', $line['unit_cost'] ?? 0);
+            $prodId   = $line['matched_id'] ?? null;
+
+            if ($prodId) {
+                if (in_array($prodId, $existingProductIds)) {
+                    $updateProducts++;
+                } else {
+                    $existingProductIds[] = $prodId;
+                    $updateProducts++;
+                    $lotsToCreate++;
+                }
+                $totalCases += $cases;
+                $totalCost  += $cases * $cost;
+            } else {
+                $newProducts++;
+            }
+        }
+
+        // Low-confidence warning
+        $lowConf = collect($this->grouped['review'])->where('confidence', '<', 0.85)->count();
+        if ($lowConf > 0) {
+            $warnings[] = "{$lowConf} low confidence match(es)";
+        }
+
+        // Missing UPC warning
+        if ($newProducts > 0) {
+            $warnings[] = "{$newProducts} new product(s) without catalog entry";
+        }
+
+        $avgCost = $totalCases > 0 ? $totalCost / $totalCases : 0.0;
+
+        return [
+            'new_products'    => $newProducts,
+            'update_products' => $updateProducts,
+            'lots_to_create'  => $lotsToCreate,
+            'total_cases'     => $totalCases,
+            'total_cost'      => $totalCost,
+            'avg_cost'        => $avgCost,
+            'warnings'        => $warnings,
+        ];
+    }
+
+    /**
+     * Load rich product card data for all matched products in the session.
+     * Returns: [productId => ['stock' => [...], 'avg_cost' => float, 'aliases' => [...], 'last_received' => ?string, 'last_vendor' => ?string]]
+     */
+    public function getProductCardsProperty(): array
+    {
+        $ids = collect($this->grouped['review'])
+            ->concat($this->grouped['auto'])
+            ->pluck('matched_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
+
+        if (empty($ids)) {
+            return [];
+        }
+
+        $cards = [];
+
+        $stocks = InventoryStock::with('location')
+            ->whereIn('inventory_item_id', $ids)
+            ->where('quantity', '>', 0)
+            ->get()
+            ->groupBy('inventory_item_id');
+
+        $products = Product::whereIn('id', $ids)
+            ->with(['lots' => fn ($q) => $q->latest('received_at')->limit(1)])
+            ->get()
+            ->keyBy('id');
+
+        $aliases = ProductIdentity::whereIn('product_id', $ids)
+            ->where('type', ProductIdentity::TYPE_ALIAS)
+            ->orderByDesc('times_confirmed')
+            ->get()
+            ->groupBy('product_id');
+
+        foreach ($ids as $id) {
+            $product   = $products[$id] ?? null;
+            $lastLot   = $product?->lots->first();
+            $stockRows = $stocks[$id] ?? collect();
+
+            $cards[$id] = [
+                'stock'         => $stockRows->map(fn ($s) => [
+                    'location' => $s->location?->name ?? 'Unknown',
+                    'qty'      => (int) $s->quantity,
+                ])->values()->toArray(),
+                'total_stock'   => (int) $stockRows->sum('quantity'),
+                'avg_cost'      => number_format((float) ($product?->average_cost ?? 0), 2),
+                'last_received' => $lastLot?->received_at?->diffForHumans() ?? 'Never',
+                'aliases'       => ($aliases[$id] ?? collect())->pluck('value')->take(5)->toArray(),
+            ];
+        }
+
+        return $cards;
     }
 
     // ── Data refresh ──────────────────────────────────────────────────────────
@@ -99,6 +221,7 @@ class ReviewReceivingSession extends Page
             'confidence'       => (float) $line->match_confidence,
             'confidence_pct'   => round((float) $line->match_confidence * 100),
             'stage'            => $line->match_stage,
+            'reasons'          => $line->match_reasons ?? [],
             'location_id'      => $line->inventory_location_id,
             'case_count'       => $line->case_count,
             'unit_cost'        => number_format((float) $line->unit_cost, 2),
@@ -144,7 +267,7 @@ class ReviewReceivingSession extends Page
         app(ReceivingSessionService::class)->confirmLineMatch($line, $product, auth()->id());
 
         $this->panels[$lineId]['action'] = null;
-        $this->flashOk = "Accepted: {$product->name}";
+        $this->flashOk = "Accepted: {$product->name} — alias saved for next time";
         $this->refreshGrouped();
     }
 
@@ -175,7 +298,7 @@ class ReviewReceivingSession extends Page
         app(ReceivingSessionService::class)->confirmLineMatch($line, $product, auth()->id());
 
         unset($this->panels[$lineId]);
-        $this->flashOk = "Mapped to: {$product->name}";
+        $this->flashOk = "Mapped to: {$product->name} — alias saved, will auto-match next time";
         $this->refreshGrouped();
     }
 
@@ -215,7 +338,7 @@ class ReviewReceivingSession extends Page
         app(ReceivingSessionService::class)->confirmLineMatch($line, $product, auth()->id());
 
         unset($this->panels[$lineId]);
-        $this->flashOk = "Created & mapped: {$product->name}";
+        $this->flashOk = "Created & mapped: {$product->name} — added to catalog";
         $this->refreshGrouped();
     }
 

@@ -78,6 +78,61 @@
     @endif
 </div>
 
+{{-- ── Receiving Preview ─────────────────────────────────────────────────────── --}}
+@if($total > 0 && $record->status !== 'completed')
+<div>
+    <button wire:click="$toggle('showPreview')" type="button"
+        class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+        <x-heroicon-o-clipboard-document-list class="h-4 w-4" />
+        {{ $showPreview ? 'Hide preview' : 'Preview what will happen when completed' }}
+    </button>
+
+    @if($showPreview)
+    @php $preview = $this->preview; @endphp
+    <div class="mt-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-4 space-y-4">
+        <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Receiving Session #{{ $record->id }} — Preview</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div class="rounded-lg bg-blue-50 dark:bg-blue-950 p-3">
+                <p class="text-xl font-bold text-blue-700 dark:text-blue-300">{{ $preview['new_products'] }}</p>
+                <p class="text-xs text-blue-600 dark:text-blue-400">Products to Create</p>
+            </div>
+            <div class="rounded-lg bg-green-50 dark:bg-green-950 p-3">
+                <p class="text-xl font-bold text-green-700 dark:text-green-300">{{ $preview['update_products'] }}</p>
+                <p class="text-xs text-green-600 dark:text-green-400">Products to Update</p>
+            </div>
+            <div class="rounded-lg bg-purple-50 dark:bg-purple-950 p-3">
+                <p class="text-xl font-bold text-purple-700 dark:text-purple-300">{{ $preview['lots_to_create'] }}</p>
+                <p class="text-xs text-purple-600 dark:text-purple-400">Lots to Create</p>
+            </div>
+            <div class="rounded-lg bg-gray-50 dark:bg-gray-800 p-3">
+                <p class="text-xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($preview['total_cases']) }}</p>
+                <p class="text-xs text-gray-500">Cases Added</p>
+            </div>
+            <div class="rounded-lg bg-gray-50 dark:bg-gray-800 p-3">
+                <p class="text-xl font-bold text-gray-900 dark:text-gray-100">${{ number_format($preview['total_cost'], 2) }}</p>
+                <p class="text-xs text-gray-500">Total Cost</p>
+            </div>
+            <div class="rounded-lg bg-gray-50 dark:bg-gray-800 p-3">
+                <p class="text-xl font-bold text-gray-900 dark:text-gray-100">${{ number_format($preview['avg_cost'], 2) }}</p>
+                <p class="text-xs text-gray-500">Avg Cost/Case</p>
+            </div>
+        </div>
+        @if(! empty($preview['warnings']))
+        <div class="space-y-1">
+            <p class="text-xs font-medium text-amber-600 dark:text-amber-400">Warnings</p>
+            @foreach($preview['warnings'] as $warn)
+                <div class="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+                    <x-heroicon-o-exclamation-triangle class="h-3.5 w-3.5 flex-shrink-0" />
+                    {{ $warn }}
+                </div>
+            @endforeach
+        </div>
+        @endif
+    </div>
+    @endif
+</div>
+@endif
+
 {{-- ── Manual Line Import ───────────────────────────────────────────────────── --}}
 @if($record->status !== 'completed')
 <div>
@@ -131,19 +186,38 @@
     @if($showAuto)
         <div class="divide-y divide-gray-100 dark:divide-gray-800">
             @foreach($grouped['auto'] as $line)
-            <div class="px-5 py-3 flex items-center gap-4 text-sm">
-                <span class="text-gray-400 w-8 text-right flex-shrink-0">#{{ $line['line_number'] }}</span>
-                <div class="flex-1 min-w-0">
-                    <p class="font-medium text-gray-900 dark:text-gray-100 truncate">{{ $line['matched_name'] }}</p>
-                    @if($line['vendor_desc'] && $line['vendor_desc'] !== $line['matched_name'])
-                        <p class="text-xs text-gray-400 truncate">Vendor: "{{ $line['vendor_desc'] }}"</p>
-                    @endif
+            @php $card = $this->productCards[$line['matched_id']] ?? null; @endphp
+            <div class="px-5 py-3 space-y-2">
+                <div class="flex items-center gap-4 text-sm">
+                    <span class="text-gray-400 w-8 text-right flex-shrink-0">#{{ $line['line_number'] }}</span>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-gray-900 dark:text-gray-100 truncate">{{ $line['matched_name'] }}</p>
+                        @if($line['vendor_desc'] && $line['vendor_desc'] !== $line['matched_name'])
+                            <p class="text-xs text-gray-400 truncate">Vendor: "{{ $line['vendor_desc'] }}"</p>
+                        @endif
+                    </div>
+                    <span class="flex-shrink-0 inline-flex items-center rounded-full bg-green-100 dark:bg-green-900 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-300">
+                        {{ $line['confidence_pct'] }}%
+                    </span>
+                    <span class="flex-shrink-0 text-xs text-gray-400">{{ $line['case_count'] }} cases</span>
+                    <span class="flex-shrink-0 text-xs text-gray-400">${{ $line['unit_cost'] }}/ea</span>
                 </div>
-                <span class="flex-shrink-0 inline-flex items-center rounded-full bg-green-100 dark:bg-green-900 px-2 py-0.5 text-xs font-medium text-green-700 dark:text-green-300">
-                    {{ $line['confidence_pct'] }}%
-                </span>
-                <span class="flex-shrink-0 text-xs text-gray-400">{{ $line['case_count'] }} cases</span>
-                <span class="flex-shrink-0 text-xs text-gray-400">${{ $line['unit_cost'] }}/ea</span>
+                {{-- Reasons --}}
+                @if(! empty($line['reasons']))
+                <div class="ml-12 flex flex-wrap gap-1.5">
+                    @foreach($line['reasons'] as $reason)
+                        <span class="inline-flex items-center gap-1 text-xs text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-950 px-2 py-0.5 rounded-full">
+                            ✓ {{ $reason }}
+                        </span>
+                    @endforeach
+                </div>
+                @endif
+                {{-- Compact stock --}}
+                @if($card && $card['total_stock'] > 0)
+                <div class="ml-12 text-xs text-gray-400">
+                    Stock: {{ $card['total_stock'] }} units · Avg cost ${{ $card['avg_cost'] }} · Last received {{ $card['last_received'] }}
+                </div>
+                @endif
             </div>
             @endforeach
         </div>
@@ -165,7 +239,10 @@
     </div>
 
     @foreach($grouped['review'] as $line)
-    @php $panel = $panels[$line['id']] ?? []; @endphp
+    @php
+        $panel = $panels[$line['id']] ?? [];
+        $card  = $this->productCards[$line['matched_id']] ?? null;
+    @endphp
     <div class="rounded-xl border border-amber-200 dark:border-amber-800 bg-white dark:bg-gray-900 overflow-hidden">
         <div class="px-5 py-4">
             {{-- Line header --}}
@@ -182,14 +259,69 @@
                 </div>
             </div>
 
-            {{-- Suggested match --}}
+            {{-- Suggested match with rich card --}}
             @if($line['matched_name'])
-            <div class="mt-3 flex items-center gap-3 rounded-lg bg-amber-50 dark:bg-amber-950 px-4 py-3">
-                <x-heroicon-o-light-bulb class="h-4 w-4 text-amber-400 flex-shrink-0" />
-                <div class="flex-1 min-w-0">
-                    <p class="text-xs text-amber-600 dark:text-amber-400">Suggested match</p>
-                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $line['matched_name'] }}</p>
+            <div class="mt-3 rounded-lg bg-amber-50 dark:bg-amber-950 overflow-hidden">
+                <div class="flex items-start gap-3 px-4 py-3">
+                    <x-heroicon-o-light-bulb class="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div class="flex-1 min-w-0">
+                        <p class="text-xs text-amber-600 dark:text-amber-400">Suggested match</p>
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $line['matched_name'] }}</p>
+
+                        {{-- Match reasons --}}
+                        @if(! empty($line['reasons']))
+                        <div class="mt-2 flex flex-wrap gap-1.5">
+                            @foreach($line['reasons'] as $reason)
+                                <span class="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900 px-2 py-0.5 rounded-full">
+                                    ✓ {{ $reason }}
+                                </span>
+                            @endforeach
+                        </div>
+                        @endif
+                    </div>
                 </div>
+
+                {{-- Rich product card --}}
+                @if($card)
+                <div class="border-t border-amber-100 dark:border-amber-900 px-4 py-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div>
+                        <p class="text-gray-400 font-medium mb-1">Current Stock</p>
+                        @if(empty($card['stock']))
+                            <p class="text-gray-500">None in stock</p>
+                        @else
+                            @foreach($card['stock'] as $s)
+                                <div class="flex justify-between">
+                                    <span class="text-gray-500 truncate">{{ $s['location'] }}</span>
+                                    <span class="font-medium text-gray-900 dark:text-gray-100 ml-2">{{ $s['qty'] }}</span>
+                                </div>
+                            @endforeach
+                            <div class="flex justify-between border-t border-amber-100 dark:border-amber-900 mt-1 pt-1">
+                                <span class="font-medium text-gray-600 dark:text-gray-300">Total</span>
+                                <span class="font-bold text-gray-900 dark:text-gray-100">{{ $card['total_stock'] }}</span>
+                            </div>
+                        @endif
+                    </div>
+                    <div>
+                        <p class="text-gray-400 font-medium mb-1">Cost</p>
+                        <p class="font-medium text-gray-900 dark:text-gray-100">${{ $card['avg_cost'] }}</p>
+                        <p class="text-gray-400">avg cost</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-400 font-medium mb-1">Last Received</p>
+                        <p class="text-gray-700 dark:text-gray-300">{{ $card['last_received'] }}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-400 font-medium mb-1">Aliases</p>
+                        @if(empty($card['aliases']))
+                            <p class="text-gray-500">None</p>
+                        @else
+                            @foreach(array_slice($card['aliases'], 0, 3) as $alias)
+                                <p class="text-gray-600 dark:text-gray-400 truncate">{{ $alias }}</p>
+                            @endforeach
+                        @endif
+                    </div>
+                </div>
+                @endif
             </div>
             @endif
 
@@ -328,7 +460,6 @@
             </div>
             @endif
 
-            {{-- Reuse the same choose/create panels --}}
             @if(($panel['action'] ?? null) === 'choose')
             <div class="mt-3 space-y-3 border-t border-gray-100 dark:border-gray-800 pt-3">
                 <select wire:model="panels.{{ $line['id'] }}.selectedProductId"

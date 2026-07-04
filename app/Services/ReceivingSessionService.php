@@ -64,18 +64,21 @@ class ReceivingSessionService
                 $match = $this->matcher->match($description, $upc, $vendorId);
 
                 $palletLine = PalletLine::create([
-                    'pallet_id'           => $pallet->id,
+                    'pallet_id'            => $pallet->id,
                     'receiving_session_id' => $session->id,
-                    'line_number'         => $i + 1,
-                    'description'         => $match['product']?->name ?? $description,
-                    'vendor_description'  => $description,
-                    'inventory_item_id'   => $match['product']?->id,
-                    'product_identity_id' => $match['identity']?->id,
-                    'match_confidence'    => $match['confidence'],
-                    'match_stage'         => $match['stage'],
-                    'case_count'          => max(1, (int) ceil($qty)),
-                    'quantity_per_case'   => 1,
-                    'unit_cost'           => $unitCost,
+                    'line_number'          => $i + 1,
+                    'description'          => $match['product']?->name ?? $description,
+                    'vendor_description'   => $description,
+                    'inventory_item_id'    => $match['product']?->id,
+                    'product_identity_id'  => $match['identity']?->id,
+                    'match_confidence'     => $match['confidence'],
+                    'match_stage'          => $match['stage'],
+                    'match_reasons'        => $match['reasons'] ?? [],
+                    'matched_at'           => $match['product'] ? now() : null,
+                    'matched_by'           => null,
+                    'case_count'           => max(1, (int) ceil($qty)),
+                    'quantity_per_case'    => 1,
+                    'unit_cost'            => $unitCost,
                     'inventory_location_id' => null,
                 ]);
             }
@@ -114,6 +117,9 @@ class ReceivingSessionService
                 'product_identity_id' => $identity?->id,
                 'match_confidence'    => 1.0,
                 'match_stage'         => 'human',
+                'match_reasons'       => array_merge($line->match_reasons ?? [], ['Confirmed by reviewer']),
+                'matched_at'          => now(),
+                'matched_by'          => $confirmedByUserId,
             ]);
         });
 

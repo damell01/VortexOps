@@ -30,7 +30,7 @@ class ProductMatchingService
     // ── Match result ───────────────────────────────────────────────────────────
 
     /**
-     * @return array{product: ?Product, confidence: float, stage: string, candidates: array, identity: ?ProductIdentity}
+     * @return array{product: ?Product, confidence: float, stage: string, reasons: string[], candidates: array, identity: ?ProductIdentity}
      */
     public function match(string $description, ?string $upc = null, ?int $vendorId = null): array
     {
@@ -51,6 +51,7 @@ class ProductMatchingService
         if ($stage3['product']) {
             // Merge candidates from stage 2 and 3 for the review UI
             $stage3['candidates'] = array_merge($stage2['candidates'], $stage3['candidates']);
+            $stage3['reasons'] = array_merge($stage3['reasons'], $stage2['reasons']);
             return $stage3;
         }
 
@@ -59,6 +60,7 @@ class ProductMatchingService
             'product'    => null,
             'confidence' => 0.0,
             'stage'      => 'none',
+            'reasons'    => [],
             'candidates' => array_merge($stage2['candidates'], $stage3['candidates']),
             'identity'   => null,
         ];
@@ -80,7 +82,7 @@ class ProductMatchingService
                     ?->product;
 
             if ($byUpc) {
-                return $this->result($byUpc, 1.0, 'alias', null);
+                return $this->result($byUpc, 1.0, 'alias', null, [], ['UPC matched exactly']);
             }
         }
 
@@ -91,13 +93,18 @@ class ProductMatchingService
         if ($identity?->product) {
             $identity->increment('times_confirmed');
             $identity->update(['last_confirmed_at' => now()]);
-            return $this->result($identity->product, 1.0, 'alias', $identity);
+            $count   = $identity->times_confirmed;
+            $reasons = [
+                "Alias matched exactly",
+                "Learned from {$count} previous " . ($count === 1 ? 'shipment' : 'shipments'),
+            ];
+            return $this->result($identity->product, 1.0, 'alias', $identity, [], $reasons);
         }
 
         // Exact name match as fallback
         $exact = Product::whereRaw('LOWER(name) = ?', [$normalized])->first();
         if ($exact) {
-            return $this->result($exact, 1.0, 'alias', null);
+            return $this->result($exact, 1.0, 'alias', null, [], ['Exact product name match']);
         }
 
         return $this->emptyResult();
@@ -120,9 +127,9 @@ class ProductMatchingService
         $scores = [];
 
         foreach ($products as $product) {
-            $score = $this->scoreTokens($tokens, $product);
-            if ($score > 0.5) {
-                $scores[$product->id] = ['product' => $product, 'score' => $score];
+            $scored = $this->scoreTokensDetailed($tokens, $product);
+            if ($scored['score'] > 0.5) {
+                $scores[$product->id] = ['product' => $product, 'score' => $scored['score'], 'reasons' => $scored['reasons']];
             }
         }
 
@@ -139,17 +146,19 @@ class ProductMatchingService
         );
 
         if ($top['score'] >= 0.80) {
-            return $this->result($top['product'], round($top['score'], 4), 'fuzzy', null, $candidates);
+            return $this->result($top['product'], round($top['score'], 4), 'fuzzy', null, $candidates, $top['reasons']);
         }
 
         return $this->emptyResult('fuzzy', $candidates);
     }
 
     /**
-     * Score a product against tokenized query. Returns 0.0–1.0.
+     * Score a product against tokenized query with detailed reasons. Returns score + reasons.
      */
-    private function scoreTokens(array $tokens, Product $product): float
+    private function scoreTokensDetailed(array $tokens, Product $product): array
     {
+        $reasons = [];
+
         $productText = $this->embedding->normalizeText(implode(' ', array_filter([
             $product->name,
             $product->brand,
@@ -162,7 +171,7 @@ class ProductMatchingService
         $productTokens = $this->tokenize($productText);
 
         if (empty($productTokens)) {
-            return 0.0;
+            return ['score' => 0.0, 'reasons' => []];
         }
 
         // Token overlap score
@@ -173,17 +182,39 @@ class ProductMatchingService
         // Bonus: year exact match
         $yearBonus = 0.0;
         if ($product->year) {
-            $yearBonus = in_array((string) $product->year, $tokens) ? 0.1 : 0.0;
+            if (in_array((string) $product->year, $tokens)) {
+                $yearBonus = 0.1;
+                $reasons[] = "Year matched ({$product->year})";
+            }
         }
 
         // Bonus: brand token present
         $brandBonus = 0.0;
         if ($product->brand) {
             $brandTokens = $this->tokenize($product->brand);
-            $brandBonus  = ! empty(array_intersect($tokens, $brandTokens)) ? 0.05 : 0.0;
+            if (! empty(array_intersect($tokens, $brandTokens))) {
+                $brandBonus = 0.05;
+                $reasons[]  = "Brand matched ({$product->brand})";
+            }
         }
 
-        // Levenshtein bonus against product name
+        // Configuration bonus
+        if ($product->configuration) {
+            $configTokens = $this->tokenize($product->configuration);
+            if (! empty(array_intersect($tokens, $configTokens))) {
+                $reasons[] = "Configuration matched ({$product->configuration})";
+            }
+        }
+
+        // Sport bonus
+        if ($product->sport) {
+            $sportTokens = $this->tokenize($product->sport);
+            if (! empty(array_intersect($tokens, $sportTokens))) {
+                $reasons[] = "Sport matched ({$product->sport})";
+            }
+        }
+
+        // Name similarity
         $nameSimilarity = 0.0;
         similar_text(
             implode(' ', $tokens),
@@ -191,9 +222,18 @@ class ProductMatchingService
             $nameSimilarity
         );
         $nameSimilarity /= 100.0;
+        $reasons[] = sprintf('Name similarity: %.1f%%', $nameSimilarity * 100);
 
         $raw = ($jaccard * 0.5) + ($nameSimilarity * 0.35) + $yearBonus + $brandBonus;
-        return min(1.0, $raw);
+        return ['score' => min(1.0, $raw), 'reasons' => $reasons];
+    }
+
+    /**
+     * @deprecated Use scoreTokensDetailed instead
+     */
+    private function scoreTokens(array $tokens, Product $product): float
+    {
+        return $this->scoreTokensDetailed($tokens, $product)['score'];
     }
 
     // ── Stage 3: Embedding similarity ─────────────────────────────────────────
@@ -230,7 +270,8 @@ class ProductMatchingService
         $candidates = array_filter($candidates, fn ($c) => $c['product'] !== null);
 
         if ($topScore >= 0.80 && isset($products[$topId])) {
-            return $this->result($products[$topId], round($topScore, 4), 'embedding', null, array_values($candidates));
+            $reasons = [sprintf('Embedding similarity: %.1f%%', $topScore * 100)];
+            return $this->result($products[$topId], round($topScore, 4), 'embedding', null, array_values($candidates), $reasons);
         }
 
         return $this->emptyResult('embedding', array_values($candidates));
@@ -277,13 +318,13 @@ class ProductMatchingService
         )));
     }
 
-    private function result(Product $product, float $confidence, string $stage, ?ProductIdentity $identity, array $candidates = []): array
+    private function result(Product $product, float $confidence, string $stage, ?ProductIdentity $identity, array $candidates = [], array $reasons = []): array
     {
-        return compact('product', 'confidence', 'stage', 'identity', 'candidates');
+        return compact('product', 'confidence', 'stage', 'identity', 'candidates', 'reasons');
     }
 
     private function emptyResult(string $stage = 'none', array $candidates = []): array
     {
-        return ['product' => null, 'confidence' => 0.0, 'stage' => $stage, 'candidates' => $candidates, 'identity' => null];
+        return ['product' => null, 'confidence' => 0.0, 'stage' => $stage, 'reasons' => [], 'candidates' => $candidates, 'identity' => null];
     }
 }

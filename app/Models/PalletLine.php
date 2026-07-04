@@ -18,6 +18,9 @@ class PalletLine extends Model
         'inventory_item_id',
         'match_confidence',
         'match_stage',
+        'match_reasons',
+        'matched_at',
+        'matched_by',
         'product_identity_id',
         'case_count',
         'quantity_per_case',
@@ -29,6 +32,8 @@ class PalletLine extends Model
         'quantity_per_case' => 'decimal:2',
         'unit_cost'         => 'decimal:4',
         'match_confidence'  => 'float',
+        'match_reasons'     => 'array',
+        'matched_at'        => 'datetime',
     ];
 
     public function pallet(): BelongsTo

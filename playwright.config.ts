@@ -7,7 +7,7 @@ const CHROMIUM = {
 
 export default defineConfig({
     testDir: './tests/Browser',
-    timeout: 300_000,
+    timeout: 900_000,
     use: {
         baseURL: 'http://127.0.0.1:8000',
         launchOptions: CHROMIUM,

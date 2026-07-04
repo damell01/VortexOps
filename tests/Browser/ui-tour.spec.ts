@@ -69,7 +69,9 @@ async function goto(page: Page, path: string, label: string, errLog: string): Pr
     };
     page.on('response', handler);
     await page.goto(path);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    // networkidle can hang with Livewire polling — wait up to 10s then continue
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => {});
     page.off('response', handler);
 
     const bodyText = await page.textContent('body').catch(() => '');
@@ -88,14 +90,16 @@ async function goto(page: Page, path: string, label: string, errLog: string): Pr
 }
 
 async function snap(page: Page, info: TestInfo, name: string) {
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {});
     await dismissTour(page);
     await page.waitForTimeout(400);
     await page.screenshot({ path: `${ssDir(info)}/${name}.png`, fullPage: false });
 }
 
 async function scrollSnap(page: Page, info: TestInfo, name: string) {
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {});
     await dismissTour(page);
     await page.waitForTimeout(400);
     await page.screenshot({ path: `${ssDir(info)}/${name}.png`, fullPage: true });
@@ -423,10 +427,121 @@ test('VortexOps UI tour — pages and interactions', async ({ page }, testInfo) 
         await snap(page, testInfo, '43-sidebar-open');
     }
 
+    // ── 23. Receiving Sessions ────────────────────────────────────────────────
+    await goto(page, '/admin/receiving-sessions', 'Receiving Sessions list', errLog);
+    await snap(page, testInfo, '46-receiving-sessions-list');
+    await scrollSnap(page, testInfo, '47-receiving-sessions-list-full');
+
+    // Create form
+    await goto(page, '/admin/receiving-sessions/create', 'Receiving Session create', errLog);
+    await snap(page, testInfo, '48-receiving-session-create');
+    await page.goBack();
+    await page.waitForLoadState('networkidle');
+
+    // Review page — navigate to first session if one exists
+    const sessionRow = page.locator('tr.fi-ta-row, .fi-ta-row').first();
+    const sessionUrl = '/admin/receiving-sessions';
+    await goto(page, sessionUrl, 'Receiving Sessions for review nav', errLog);
+    if (await sessionRow.isVisible().catch(() => false)) {
+        await sessionRow.click();
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(800);
+        await snap(page, testInfo, '49-receiving-session-review');
+        await scrollSnap(page, testInfo, '50-receiving-session-review-full');
+        // Click "Preview what will happen" toggle
+        const previewBtn = page.locator('button:has-text("Preview")').first();
+        if (await previewBtn.isVisible().catch(() => false)) {
+            await previewBtn.click();
+            await page.waitForTimeout(400);
+            await snap(page, testInfo, '51-receiving-session-preview');
+        }
+        // Show auto section
+        const showBtn = page.locator('button:has-text("Show")').first();
+        if (await showBtn.isVisible().catch(() => false)) {
+            await showBtn.click();
+            await page.waitForTimeout(400);
+            await snap(page, testInfo, '52-receiving-session-auto-expanded');
+        }
+        await page.goBack();
+        await page.waitForLoadState('networkidle');
+    }
+
+    // ── 24. Product Detail Page (new tabbed view) ─────────────────────────────
+    await goto(page, '/admin/inventory-items', 'Inventory Items for detail', errLog);
+    const detailRow = page.locator('tr.fi-ta-row, .fi-ta-row').first();
+    if (await detailRow.isVisible().catch(() => false)) {
+        await detailRow.click();
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(800);
+        await snap(page, testInfo, '53-product-detail-overview');
+        // Click Lots tab
+        const lotsTab = page.locator('button:has-text("Lots")').first();
+        if (await lotsTab.isVisible().catch(() => false)) {
+            await lotsTab.click();
+            await page.waitForTimeout(400);
+            await snap(page, testInfo, '54-product-detail-lots');
+        }
+        // Click Aliases & AI tab
+        const aliasTab = page.locator('button:has-text("Aliases")').first();
+        if (await aliasTab.isVisible().catch(() => false)) {
+            await aliasTab.click();
+            await page.waitForTimeout(400);
+            await snap(page, testInfo, '55-product-detail-aliases');
+        }
+        // Click Receiving History tab
+        const receivingTab = page.locator('button:has-text("Receiving")').first();
+        if (await receivingTab.isVisible().catch(() => false)) {
+            await receivingTab.click();
+            await page.waitForTimeout(400);
+            await snap(page, testInfo, '56-product-detail-receiving');
+        }
+        await page.goBack();
+        await page.waitForLoadState('networkidle');
+    }
+
+    // ── 25. Catalog Intelligence (Product Health Dashboard) ───────────────────
+    await goto(page, '/admin/product-health-dashboard', 'Product Health Dashboard', errLog);
+    await snap(page, testInfo, '57-product-health-dashboard');
+    await scrollSnap(page, testInfo, '58-product-health-dashboard-full');
+
+    // ── 26. Receiving Analytics ───────────────────────────────────────────────
+    await goto(page, '/admin/receiving-analytics', 'Receiving Analytics', errLog);
+    await snap(page, testInfo, '59-receiving-analytics');
+    await scrollSnap(page, testInfo, '60-receiving-analytics-full');
+
+    // ── 27. Duplicate Detector ────────────────────────────────────────────────
+    await goto(page, '/admin/duplicate-product-detector', 'Duplicate Product Detector', errLog);
+    await snap(page, testInfo, '61-duplicate-detector-empty');
+    // Run the scan
+    const scanBtn = page.locator('button:has-text("Scan for Duplicates")').first();
+    if (await scanBtn.isVisible().catch(() => false)) {
+        await scanBtn.click();
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(2000);
+        await snap(page, testInfo, '62-duplicate-detector-results');
+        await scrollSnap(page, testInfo, '63-duplicate-detector-results-full');
+    }
+
+    // ── 28. Receiving Guide ───────────────────────────────────────────────────
+    await goto(page, '/admin/receiving-guide', 'Receiving Guide', errLog);
+    await snap(page, testInfo, '64-receiving-guide-workflow');
+    // Click through guide tabs
+    const guideTabLabels = ['AI Matching', 'Scanner Modes', 'Product Catalog'];
+    for (const label of guideTabLabels) {
+        const guideTab = page.locator(`button:has-text("${label}")`).first();
+        if (await guideTab.isVisible().catch(() => false)) {
+            await guideTab.click();
+            await page.waitForTimeout(400);
+            const slug = label.toLowerCase().replace(/\s+/g, '-');
+            await snap(page, testInfo, `65-receiving-guide-${slug}`);
+        }
+    }
+    await scrollSnap(page, testInfo, '66-receiving-guide-full');
+
     // ── 22. Final dashboard ────────────────────────────────────────────────────
     await goto(page, '/admin', 'Dashboard final', errLog);
     await page.waitForTimeout(800);
-    await scrollSnap(page, testInfo, '45-dashboard-final');
+    await scrollSnap(page, testInfo, '67-dashboard-final');
 
     // ── Report ────────────────────────────────────────────────────────────────
     const { readFileSync: readLog } = await import('fs');

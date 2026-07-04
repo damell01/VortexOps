@@ -44,6 +44,56 @@ class ReceivingService
     }
 
     /**
+     * Receive all expected cases for the pallet line whose item matches the
+     * given barcode or SKU. Used by the scanner's Receive Pallet mode.
+     *
+     * @throws RuntimeException if no matching line is found, line is unmapped,
+     *                          or all cases for that line are already received.
+     */
+    public function receiveLineByItemCode(Pallet $pallet, string $code): array
+    {
+        $pallet->load(['lines.inventoryItem', 'lines.cases']);
+
+        $code = strtolower(trim($code));
+
+        $line = $pallet->lines->first(function (PalletLine $line) use ($code) {
+            $item = $line->inventoryItem;
+            if (! $item) {
+                return false;
+            }
+            return ($item->barcode && strtolower($item->barcode) === $code)
+                || ($item->sku && strtolower($item->sku) === $code);
+        });
+
+        if (! $line) {
+            throw new RuntimeException("No line in this pallet matches \"{$code}\". Check the item's SKU or barcode.");
+        }
+
+        if (! $line->isFullyMapped()) {
+            throw new RuntimeException("Line #{$line->line_number} ({$line->inventoryItem?->name}) is not yet mapped to an item and location — map it in the pallet detail before scanning.");
+        }
+
+        $expectedCount = $line->cases->where('status', 'expected')->count();
+        if ($expectedCount === 0) {
+            // Check whether cases have ever been generated (may need stub generation)
+            $totalCases = (int) $line->case_count;
+            if ($totalCases > 0 && $line->cases->count() === 0) {
+                // No stubs generated yet — receiveAllCasesForLine will generate + receive them
+            } else {
+                throw new RuntimeException("All cases for {$line->inventoryItem?->name} (line #{$line->line_number}) are already received.");
+            }
+        }
+
+        $received = $this->receiveAllCasesForLine($line);
+
+        return [
+            'line_number'    => $line->line_number,
+            'item_name'      => $line->inventoryItem->name,
+            'cases_received' => $received,
+        ];
+    }
+
+    /**
      * Receive a single case by barcode. Looks up the case, marks it received,
      * updates stock, and recalculates average cost.
      *

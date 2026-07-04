@@ -197,17 +197,25 @@ class StreamerResource extends Resource
                         ->schema([
                             TextInput::make('channel')
                                 ->label('Channel Name')
-                                ->placeholder('Breaks')
+                                ->placeholder('e.g. Breaks')
                                 ->required()
                                 ->maxLength(100),
                             TextInput::make('bank_label')
                                 ->label('Bank / Account Label')
-                                ->placeholder('Chase Business Checking x1234')
+                                ->placeholder('e.g. Chase Business x1234')
                                 ->required()
                                 ->maxLength(255),
                         ])
                         ->columns(2)
+                        ->reorderable()
+                        ->cloneable()
                         ->addActionLabel('Add routing rule')
+                        ->itemLabel(fn (array $state): ?string =>
+                            ($state['channel'] ?? null)
+                                ? ($state['channel'] . ' → ' . ($state['bank_label'] ?? '?'))
+                                : null
+                        )
+                        ->collapsible()
                         ->columnSpanFull()
                         ->defaultItems(0),
                 ]),

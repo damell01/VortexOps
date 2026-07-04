@@ -28,7 +28,8 @@ class InventoryScanner extends Page
 
     public static function canAccess(): bool
     {
-        return (auth()->user()?->isAdmin() ?? false) && AdminModules::isEnabled('inventory');
+        $user = auth()->user();
+        return (($user?->isAdmin() || $user?->isOwner()) ?? false) && AdminModules::isEnabled('inventory');
     }
 
     public function getView(): string

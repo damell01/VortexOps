@@ -40,6 +40,8 @@ Auto-captured by the Playwright UI tour and stored in [`tests/Browser/screenshot
 | ![Dark mode](tests/Browser/screenshots/desktop/05-dashboard-dark.png) | ![Dark mode](tests/Browser/screenshots/mobile/05-dashboard-dark.png) |
 | ![Dashboard full scroll](tests/Browser/screenshots/desktop/45-dashboard-final.png) | ![Dashboard full scroll](tests/Browser/screenshots/mobile/45-dashboard-final.png) |
 
+The dashboard includes a **Shows Calendar Widget** — a full-width monthly calendar with colour-coded shows by status (draft/pending review/mapping/pending approval/reconciled/closed), month navigation, and a legend. Hovering a show chip displays the title inline.
+
 ---
 
 ### Inventory — Items
@@ -48,6 +50,23 @@ Auto-captured by the Playwright UI tour and stored in [`tests/Browser/screenshot
 |---|---|
 | ![Inventory items list](tests/Browser/screenshots/desktop/06-inventory-items-list.png) | ![Inventory items list](tests/Browser/screenshots/mobile/06-inventory-items-list.png) |
 | ![Inventory search](tests/Browser/screenshots/desktop/07-inventory-search.png) | ![Inventory search](tests/Browser/screenshots/mobile/07-inventory-search.png) |
+| ![Inventory item detail](tests/Browser/screenshots/desktop/08-inventory-item-detail.png) | ![Inventory item detail](tests/Browser/screenshots/mobile/08-inventory-item-detail.png) |
+| ![Inventory item detail full](tests/Browser/screenshots/desktop/09-inventory-item-detail-full.png) | ![Inventory item detail full](tests/Browser/screenshots/mobile/09-inventory-item-detail-full.png) |
+
+---
+
+### Inventory — Scanner
+
+The **Inventory Scanner** page (`/admin/inventory-scanner`) is purpose-built for warehouse use. Scan any barcode with a Bluetooth or USB scanner, or use the camera button on supported browsers (Chrome, Edge, Android) — it uses the native `BarcodeDetector` API with a ZXing WebAssembly polyfill for iOS Safari and Firefox.
+
+| Desktop | Mobile |
+|---|---|
+| ![Scanner empty](tests/Browser/screenshots/desktop/35b-inventory-scanner.png) | ![Scanner empty](tests/Browser/screenshots/mobile/35b-inventory-scanner.png) |
+| ![Scanner typed](tests/Browser/screenshots/desktop/35c-inventory-scanner-typed.png) | ![Scanner typed](tests/Browser/screenshots/mobile/35c-inventory-scanner-typed.png) |
+| ![Scanner result](tests/Browser/screenshots/desktop/35d-inventory-scanner-result.png) | ![Scanner result](tests/Browser/screenshots/mobile/35d-inventory-scanner-result.png) |
+| ![Scanner result full](tests/Browser/screenshots/desktop/35e-inventory-scanner-result-full.png) | ![Scanner result full](tests/Browser/screenshots/mobile/35e-inventory-scanner-result-full.png) |
+
+Look up any item by SKU or barcode. The result shows name, category, total units by location, average cost, reorder threshold with Low Stock badge, and last 10 movements. From the result, tap **Adjust Stock** to apply a quantity change (+/−) with an optional reason — the change is written as an `adjustment` movement immediately.
 
 ---
 
@@ -66,6 +85,8 @@ Auto-captured by the Playwright UI tour and stored in [`tests/Browser/screenshot
 | Desktop | Mobile |
 |---|---|
 | ![Pallets list](tests/Browser/screenshots/desktop/10-pallets-list.png) | ![Pallets list](tests/Browser/screenshots/mobile/10-pallets-list.png) |
+| ![Pallet detail](tests/Browser/screenshots/desktop/11-pallet-detail.png) | ![Pallet detail](tests/Browser/screenshots/mobile/11-pallet-detail.png) |
+| ![Pallet detail full](tests/Browser/screenshots/desktop/12-pallet-detail-full.png) | ![Pallet detail full](tests/Browser/screenshots/mobile/12-pallet-detail-full.png) |
 
 ---
 
@@ -74,9 +95,21 @@ Auto-captured by the Playwright UI tour and stored in [`tests/Browser/screenshot
 | Desktop | Mobile |
 |---|---|
 | ![Shows list](tests/Browser/screenshots/desktop/13-shows-list.png) | ![Shows list](tests/Browser/screenshots/mobile/13-shows-list.png) |
+| ![Show detail](tests/Browser/screenshots/desktop/14-show-detail.png) | ![Show detail](tests/Browser/screenshots/mobile/14-show-detail.png) |
+| ![Show detail full](tests/Browser/screenshots/desktop/15-show-detail-full.png) | ![Show detail full](tests/Browser/screenshots/mobile/15-show-detail-full.png) |
+| ![Show action modal](tests/Browser/screenshots/desktop/16-show-action-modal.png) | ![Show action modal](tests/Browser/screenshots/mobile/16-show-action-modal.png) |
 | ![Create show form](tests/Browser/screenshots/desktop/17-show-create-form.png) | ![Create show form](tests/Browser/screenshots/mobile/17-show-create-form.png) |
 | ![Create show full page](tests/Browser/screenshots/desktop/18-show-create-form-full.png) | ![Create show full page](tests/Browser/screenshots/mobile/18-show-create-form-full.png) |
 | ![Show ingestion logs](tests/Browser/screenshots/desktop/27-show-ingestion-logs.png) | ![Show ingestion logs](tests/Browser/screenshots/mobile/27-show-ingestion-logs.png) |
+
+#### Advanced Filters — Shows
+
+The Shows table supports a **QueryBuilder** panel with 7 constraint types. Combine rules with AND/OR logic, compare dates and revenue ranges, and filter by status, import source, or title keyword — all without leaving the table.
+
+| Desktop | Mobile |
+|---|---|
+| ![Filter panel open](tests/Browser/screenshots/desktop/13b-shows-filter-panel.png) | ![Filter panel open](tests/Browser/screenshots/mobile/13b-shows-filter-panel.png) |
+| ![Advanced filter rules](tests/Browser/screenshots/desktop/13c-shows-advanced-filter.png) | ![Advanced filter rules](tests/Browser/screenshots/mobile/13c-shows-advanced-filter.png) |
 
 ---
 
@@ -93,7 +126,17 @@ Auto-captured by the Playwright UI tour and stored in [`tests/Browser/screenshot
 | Desktop | Mobile |
 |---|---|
 | ![Payouts list](tests/Browser/screenshots/desktop/20-payouts-list.png) | ![Payouts list](tests/Browser/screenshots/mobile/20-payouts-list.png) |
+| ![Payout detail](tests/Browser/screenshots/desktop/21-payout-detail.png) | ![Payout detail](tests/Browser/screenshots/mobile/21-payout-detail.png) |
 | ![Weekly pay runs](tests/Browser/screenshots/desktop/22-weekly-pay-runs.png) | ![Weekly pay runs](tests/Browser/screenshots/mobile/22-weekly-pay-runs.png) |
+
+#### Payout Grouping & Summaries
+
+The Payouts table supports **three grouping modes** via the Group select: by Streamer, by Pay Week, or by Status. Groups are collapsible. The table also shows **column totals** — a Sum summary row at the bottom for Gross Revenue and Total Payouts across the current filtered view.
+
+| Desktop | Mobile |
+|---|---|
+| ![Group menu open](tests/Browser/screenshots/desktop/20b-payouts-group-menu.png) | ![Group menu open](tests/Browser/screenshots/mobile/20b-payouts-group-menu.png) |
+| ![Grouped by streamer](tests/Browser/screenshots/desktop/20c-payouts-grouped-by-streamer.png) | ![Grouped by streamer](tests/Browser/screenshots/mobile/20c-payouts-grouped-by-streamer.png) |
 
 ---
 
@@ -102,6 +145,8 @@ Auto-captured by the Playwright UI tour and stored in [`tests/Browser/screenshot
 | Desktop | Mobile |
 |---|---|
 | ![Streamers list](tests/Browser/screenshots/desktop/23-streamers-list.png) | ![Streamers list](tests/Browser/screenshots/mobile/23-streamers-list.png) |
+| ![Streamer detail](tests/Browser/screenshots/desktop/24-streamer-detail.png) | ![Streamer detail](tests/Browser/screenshots/mobile/24-streamer-detail.png) |
+| ![Streamer detail full](tests/Browser/screenshots/desktop/25-streamer-detail-full.png) | ![Streamer detail full](tests/Browser/screenshots/mobile/25-streamer-detail-full.png) |
 | ![Streamer loans](tests/Browser/screenshots/desktop/26-streamer-loans-list.png) | ![Streamer loans](tests/Browser/screenshots/mobile/26-streamer-loans-list.png) |
 
 ---
@@ -121,6 +166,20 @@ Auto-captured by the Playwright UI tour and stored in [`tests/Browser/screenshot
 |---|---|
 | ![Vendors](tests/Browser/screenshots/desktop/34-vendors-list.png) | ![Vendors](tests/Browser/screenshots/mobile/34-vendors-list.png) |
 | ![Whatnot channels](tests/Browser/screenshots/desktop/35-whatnot-channels.png) | ![Whatnot channels](tests/Browser/screenshots/mobile/35-whatnot-channels.png) |
+
+---
+
+### Log Viewer
+
+The **Log Viewer** page (`/admin/log-viewer`) gives admins a real-time window into the Laravel application log without touching the server.
+
+| Desktop | Mobile |
+|---|---|
+| ![Log viewer](tests/Browser/screenshots/desktop/35f-log-viewer.png) | ![Log viewer](tests/Browser/screenshots/mobile/35f-log-viewer.png) |
+| ![Log viewer full](tests/Browser/screenshots/desktop/35g-log-viewer-full.png) | ![Log viewer full](tests/Browser/screenshots/mobile/35g-log-viewer-full.png) |
+| ![Log viewer expanded entry](tests/Browser/screenshots/desktop/35h-log-viewer-expanded.png) | ![Log viewer expanded entry](tests/Browser/screenshots/mobile/35h-log-viewer-expanded.png) |
+
+Features: select which log file to view, filter by level (debug/info/warning/error/critical), search by keyword, paginate entries (25/50/100), and expand any entry to reveal the full stack trace. Counts per level are shown as pills in the header. A "Clear Log" action wipes the selected file (owner only).
 
 ---
 
@@ -236,11 +295,11 @@ Production deployment assets:
 | Group | Resources |
 |---|---|
 | **Streams** | Shows, Deduction Requests |
-| **Inventory** | Items, Locations, Stock Levels, Movement Log |
+| **Inventory** | Items, Locations, Stock Levels, Movement Log, **Inventory Scanner** |
 | **Payouts & Pay Runs** | Payouts, Pay Runs (Weekly Batches) |
 | **Operations** | Feedback Tickets |
 | **AI** | AI Assistant, AI Logs |
-| **Settings** | App Settings, Users, Activity Log |
+| **Settings** | App Settings, Users, Activity Log, **Log Viewer** |
 
 ---
 
@@ -467,25 +526,28 @@ app/
 ├── Filament/
 │   ├── Pages/
 │   │   ├── AppSettings.php              # branding, AI, notifications, maintenance actions
-│   │   └── AiAssistant.php             # full-screen AI chat page
+│   │   ├── AiAssistant.php             # full-screen AI chat page
+│   │   ├── InventoryScanner.php        # barcode/SKU lookup + quick stock adjustment
+│   │   └── LogViewer.php              # log file browser with level filter + search
 │   ├── Resources/
-│   │   ├── ShowResource.php            # show CRUD + AI mapping action
+│   │   ├── ShowResource.php            # show CRUD + AI mapping action + QueryBuilder filters
 │   │   ├── DeductionRequestResource/
 │   │   │   └── Pages/ViewDeductionRequest.php   # approval/reject UI
 │   │   ├── FeedbackTicketResource/
 │   │   │   └── Pages/ViewFeedbackTicket.php     # status lifecycle + admin notes
-│   │   ├── InventoryItemResource.php   # 5 stock operation modals
+│   │   ├── InventoryItemResource.php   # 5 stock operation modals + QueryBuilder filters
 │   │   ├── InventoryLocationResource.php
 │   │   ├── InventoryMovementResource.php        # read-only audit log
 │   │   ├── InventoryStockResource.php           # read-only stock view
-│   │   ├── PayoutResource.php
+│   │   ├── PayoutResource.php          # grouping (streamer/week/status) + summaries + QueryBuilder
 │   │   ├── WeeklyPayoutBatchResource.php
-│   │   ├── StreamerResource.php
+│   │   ├── StreamerResource.php        # channel routing repeater (reorderable, cloneable, collapsible)
 │   │   ├── WhatnotChannelResource.php
 │   │   ├── UserResource.php
 │   │   ├── ActivityLogResource.php              # Spatie activity log viewer
 │   │   └── AiLogResource.php
 │   └── Widgets/
+│       ├── ShowsCalendarWidget.php      # monthly calendar with colour-coded shows by status
 │       ├── InventoryOverviewWidget.php  # cached stat cards
 │       ├── LowStockWidget.php
 │       ├── RecentMovementsWidget.php
@@ -527,6 +589,7 @@ app/
 | **Phase 2** | Stream Tracking — show scheduling, status workflow, AI title parsing, show financials | ✅ Complete |
 | **Phase 3** | Reconciliation & Deduction — AI inventory mapping, deduction approval workflow, payout calculation engine, weekly pay runs | ✅ Complete |
 | **Phase 3.5** | Platform Polish — performance optimization, mobile-responsive tables, nav badges, filter caching, client feedback tooling | ✅ Complete |
+| **Phase 3.6** | Scanner & Ops Tools — barcode scanner page (BT/USB/camera), log viewer, shows calendar widget, QueryBuilder advanced filters, payout grouping, table summaries, streamer repeater enhancements | ✅ Complete |
 | **Phase 4** | Operational Reporting — P&L summaries, per-streamer profitability, COGS trends, show performance dashboards | Planned |
 | **Phase 5** | Automation & Expansion — Whatnot API integration, automated show ingestion, advanced analytics, webhook alerts | Planned |
 

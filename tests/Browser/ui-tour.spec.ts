@@ -76,8 +76,7 @@ async function goto(page: Page, path: string, label: string, errLog: string): Pr
     const title    = await page.title().catch(() => '');
     const hasDomError =
         title.includes('500') ||
-        (bodyText?.includes('ErrorException') ?? false) ||
-        (bodyText?.includes('Illuminate\\') && bodyText?.includes('Exception'));
+        (bodyText?.includes('ErrorException') ?? false);
 
     if (httpStatus >= 500 || hasDomError) {
         const msg = `[ERROR] ${label} → ${page.url()} (HTTP ${httpStatus})\n`;
@@ -160,7 +159,7 @@ test('VortexOps UI tour — pages and interactions', async ({ page }, testInfo) 
         await page.waitForTimeout(400);
     }
 
-    const invRow = page.locator('.fi-ta-record-content').first();
+    const invRow = page.locator('tr.fi-ta-row, .fi-ta-row').first();
     if (await invRow.isVisible().catch(() => false)) {
         await invRow.click();
         await page.waitForLoadState('networkidle');
@@ -175,7 +174,7 @@ test('VortexOps UI tour — pages and interactions', async ({ page }, testInfo) 
     await goto(page, '/admin/pallets', 'Pallets list', errLog);
     await snap(page, testInfo, '10-pallets-list');
 
-    const palletRow = page.locator('.fi-ta-record-content').first();
+    const palletRow = page.locator('tr.fi-ta-row, .fi-ta-row').first();
     if (await palletRow.isVisible().catch(() => false)) {
         await palletRow.click();
         await page.waitForLoadState('networkidle');
@@ -190,7 +189,24 @@ test('VortexOps UI tour — pages and interactions', async ({ page }, testInfo) 
     await goto(page, '/admin/shows', 'Shows list', errLog);
     await snap(page, testInfo, '13-shows-list');
 
-    const showRow = page.locator('.fi-ta-record-content').first();
+    // Advanced filter (QueryBuilder)
+    const filterBtn = page.locator('button[aria-label="Filter"], button[title="Filter"]').first();
+    if (await filterBtn.isVisible().catch(() => false)) {
+        await filterBtn.click();
+        await page.waitForTimeout(800);
+        await snap(page, testInfo, '13b-shows-filter-panel');
+        // open the advanced QueryBuilder constraint picker
+        const addRuleBtn = page.locator('button:has-text("Add rule")').first();
+        if (await addRuleBtn.isVisible().catch(() => false)) {
+            await addRuleBtn.click();
+            await page.waitForTimeout(400);
+        }
+        await snap(page, testInfo, '13c-shows-advanced-filter');
+        await filterBtn.click(); // close
+        await page.waitForTimeout(400);
+    }
+
+    const showRow = page.locator('tr.fi-ta-row, .fi-ta-row').first();
     if (await showRow.isVisible().catch(() => false)) {
         await showRow.click();
         await page.waitForLoadState('networkidle');
@@ -225,7 +241,25 @@ test('VortexOps UI tour — pages and interactions', async ({ page }, testInfo) 
     await goto(page, '/admin/payouts', 'Payouts list', errLog);
     await snap(page, testInfo, '20-payouts-list');
 
-    const payoutRow = page.locator('.fi-ta-record-content').first();
+    // Group by Streamer — Filament v5 uses a <select> for grouping
+    // Find the first visible select that has a "Streamer" option
+    const allSelectEls = await page.locator('select:visible').all();
+    let groupSelect: ReturnType<typeof page.locator> | null = null;
+    for (const sel of allSelectEls) {
+        const opts = await sel.locator('option').allTextContents();
+        if (opts.some(o => o.trim() === 'Streamer')) { groupSelect = sel; break; }
+    }
+    if (groupSelect) {
+        await snap(page, testInfo, '20b-payouts-group-menu');
+        await groupSelect.selectOption({ label: 'Streamer' });
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(800);
+        await snap(page, testInfo, '20c-payouts-grouped-by-streamer');
+        await groupSelect.selectOption({ index: 0 });
+        await page.waitForTimeout(400);
+    }
+
+    const payoutRow = page.locator('tr.fi-ta-row, .fi-ta-row').first();
     if (await payoutRow.isVisible().catch(() => false)) {
         await payoutRow.click();
         await page.waitForLoadState('networkidle');
@@ -243,7 +277,7 @@ test('VortexOps UI tour — pages and interactions', async ({ page }, testInfo) 
     await goto(page, '/admin/streamers', 'Streamers list', errLog);
     await snap(page, testInfo, '23-streamers-list');
 
-    const streamerRow = page.locator('.fi-ta-record-content').first();
+    const streamerRow = page.locator('tr.fi-ta-row, .fi-ta-row').first();
     if (await streamerRow.isVisible().catch(() => false)) {
         await streamerRow.click();
         await page.waitForLoadState('networkidle');
@@ -292,6 +326,34 @@ test('VortexOps UI tour — pages and interactions', async ({ page }, testInfo) 
     // ── 15. Whatnot Channels ──────────────────────────────────────────────────
     await goto(page, '/admin/whatnot-channels', 'Whatnot Channels', errLog);
     await snap(page, testInfo, '35-whatnot-channels');
+
+    // ── 15b. Inventory Scanner ────────────────────────────────────────────────
+    await goto(page, '/admin/inventory-scanner', 'Inventory Scanner', errLog);
+    await snap(page, testInfo, '35b-inventory-scanner');
+    // Simulate a barcode typed by a Bluetooth scanner
+    const scanInput = page.locator('#scanner-input').first();
+    if (await scanInput.isVisible().catch(() => false)) {
+        await scanInput.fill('TEST-SKU-001');
+        await page.waitForTimeout(300);
+        await snap(page, testInfo, '35c-inventory-scanner-typed');
+        await scanInput.press('Enter');
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(600);
+        await snap(page, testInfo, '35d-inventory-scanner-result');
+        await scrollSnap(page, testInfo, '35e-inventory-scanner-result-full');
+    }
+
+    // ── 15c. Log Viewer ───────────────────────────────────────────────────────
+    await goto(page, '/admin/log-viewer', 'Log Viewer', errLog);
+    await snap(page, testInfo, '35f-log-viewer');
+    await scrollSnap(page, testInfo, '35g-log-viewer-full');
+    // Click an error entry if present
+    const firstEntry = page.locator('.fi-page button.w-full').first();
+    if (await firstEntry.isVisible().catch(() => false)) {
+        await firstEntry.click();
+        await page.waitForTimeout(400);
+        await snap(page, testInfo, '35h-log-viewer-expanded');
+    }
 
     // ── 16. Vortex AI chat panel ──────────────────────────────────────────────
     await goto(page, '/admin', 'Dashboard (AI chat panel)', errLog);

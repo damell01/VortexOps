@@ -26,9 +26,16 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Actions\Action as TableAction;
+use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\QueryBuilder\Constraints\BooleanConstraint;
+use Filament\QueryBuilder\Constraints\NumberConstraint;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\QueryBuilder;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -181,7 +188,8 @@ class InventoryItemResource extends Resource
                     ->label('Total Qty')
                     ->numeric(decimalPlaces: 0)
                     ->default(0)
-                    ->sortable(),
+                    ->sortable()
+                    ->summarize(Sum::make()->label('Total Units')),
                 TextColumn::make('reorder_level')
                     ->label('Reorder At')
                     ->placeholder('—'),
@@ -198,7 +206,8 @@ class InventoryItemResource extends Resource
                     ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
                         ->distinct()
                         ->pluck('category', 'category')
-                        ->toArray())),
+                        ->toArray()))
+                    ->multiple(),
                 Filter::make('low_stock')
                     ->label('Low Stock Only')
                     ->query(fn (Builder $query) => $query
@@ -215,6 +224,21 @@ class InventoryItemResource extends Resource
                     ->label('Active Only')
                     ->query(fn (Builder $query) => $query->where('is_active', true))
                     ->default(),
+                QueryBuilder::make()
+                    ->label('Advanced Filters')
+                    ->constraintPickerColumns(2)
+                    ->constraints([
+                        TextConstraint::make('name')->label('Item Name'),
+                        TextConstraint::make('sku')->label('SKU'),
+                        TextConstraint::make('barcode')->label('Barcode'),
+                        SelectConstraint::make('category')
+                            ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
+                                ->distinct()->pluck('category', 'category')->toArray()))
+                            ->multiple(),
+                        NumberConstraint::make('average_cost')->label('Avg Cost ($)'),
+                        NumberConstraint::make('reorder_level')->label('Reorder Level'),
+                        BooleanConstraint::make('is_active')->label('Active'),
+                    ]),
             ])
             ->actions([
                 ViewAction::make(),
@@ -375,6 +399,7 @@ class InventoryItemResource extends Resource
             ])
             ->bulkActions([
                 BulkActionGroup::make([
+                    ExportBulkAction::make(),
                     DeleteBulkAction::make(),
                 ]),
             ])

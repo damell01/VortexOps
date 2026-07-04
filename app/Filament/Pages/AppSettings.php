@@ -36,7 +36,8 @@ class AppSettings extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        $user = auth()->user();
+        return ($user?->isAdmin() || $user?->isOwner()) ?? false;
     }
 
     public function getView(): string

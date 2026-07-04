@@ -45,10 +45,10 @@ class ActivityLogResource extends Resource
         return 'Activity Log';
     }
 
-    // Only admins can view the activity log
     public static function canAccess(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        $user = auth()->user();
+        return ($user?->isAdmin() || $user?->isOwner()) ?? false;
     }
 
     public static function getEloquentQuery(): Builder

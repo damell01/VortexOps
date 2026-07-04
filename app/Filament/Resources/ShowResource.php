@@ -11,8 +11,10 @@ use App\Models\Streamer;
 use App\Models\WhatnotChannel;
 use App\Support\AdminModules;
 use Filament\Actions\Action as TableAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
@@ -25,8 +27,13 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\NumberConstraint;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\QueryBuilder\Constraints\TextConstraint;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\QueryBuilder;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -422,7 +429,8 @@ class ShowResource extends Resource
                 TextColumn::make('gross_revenue')
                     ->label('Gross Revenue')
                     ->money('USD')
-                    ->default('—'),
+                    ->default('—')
+                    ->summarize(Sum::make()->money('USD')->label('Total Gross')),
 
                 TextColumn::make('units_sold')
                     ->label('Units')
@@ -504,26 +512,30 @@ class ShowResource extends Resource
             ->defaultSort('show_date', 'desc')
             ->filters([
                 SelectFilter::make('status')
-                    ->options(Show::statusLabels()),
+                    ->options(Show::statusLabels())
+                    ->multiple(),
 
                 SelectFilter::make('whatnot_channel_id')
                     ->label('Channel')
-                    ->relationship('channel', 'name'),
+                    ->relationship('channel', 'name')
+                    ->multiple(),
 
-                SelectFilter::make('import_source')
-                    ->label('Import Source')
-                    ->options(Show::importSourceLabels()),
-
-                Filter::make('show_date')
-                    ->form([
-                        DatePicker::make('from')->label('From Date'),
-                        DatePicker::make('until')->label('Until Date'),
-                    ])
-                    ->query(function (Builder $query, array $data): Builder {
-                        return $query
-                            ->when($data['from'], fn ($q, $date) => $q->whereDate('show_date', '>=', $date))
-                            ->when($data['until'], fn ($q, $date) => $q->whereDate('show_date', '<=', $date));
-                    }),
+                QueryBuilder::make()
+                    ->label('Advanced Filters')
+                    ->constraintPickerColumns(2)
+                    ->constraints([
+                        DateConstraint::make('show_date')->label('Show Date'),
+                        NumberConstraint::make('gross_revenue')->label('Gross Revenue ($)'),
+                        NumberConstraint::make('whatnot_net')->label('Whatnot Net ($)'),
+                        NumberConstraint::make('units_sold')->label('Units Sold'),
+                        SelectConstraint::make('status')
+                            ->options(Show::statusLabels())
+                            ->multiple(),
+                        SelectConstraint::make('import_source')
+                            ->label('Import Source')
+                            ->options(Show::importSourceLabels()),
+                        TextConstraint::make('title')->label('Show Title'),
+                    ]),
             ])
             ->actions([
                 TableAction::make('view_deduction')
@@ -545,6 +557,11 @@ class ShowResource extends Resource
 
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    ExportBulkAction::make(),
+                ]),
             ]);
     }
 

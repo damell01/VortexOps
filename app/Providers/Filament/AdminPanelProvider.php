@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Models\Setting;
+use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use App\Support\AdminModules;
 use App\Http\Middleware\RequireTwoFactorAuthentication;
 use Filament\Http\Middleware\Authenticate;
@@ -253,6 +254,9 @@ class AdminPanelProvider extends PanelProvider
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
+            ])
+            ->plugins([
+                FilamentShieldPlugin::make(),
             ])
             ->authMiddleware([
                 Authenticate::class,

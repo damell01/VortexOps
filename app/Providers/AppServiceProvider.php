@@ -13,6 +13,7 @@ use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -25,6 +26,14 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Model::preventLazyLoading(! app()->isProduction());
+
+        // Admins and the owner bypass all Shield-generated policy checks.
+        // super_admin gets the same treatment via filament-shield's gate intercept.
+        Gate::before(function ($user, $ability) {
+            if ($user->isAdmin() || $user->isOwner()) {
+                return true;
+            }
+        });
 
         Payout::observe(PayoutObserver::class);
         DeductionRequest::observe(DeductionRequestObserver::class);

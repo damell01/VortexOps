@@ -8,6 +8,7 @@
     "require": {
         "php": "^8.3",
         "barryvdh/laravel-dompdf": "^3.1",
+        "bezhansalleh/filament-shield": "^4.2",
         "filament/filament": "^5.6",
         "flowframe/laravel-trend": "^0.5.0",
         "intervention/image-laravel": "^4.0",
@@ -20,6 +21,7 @@
         "spatie/laravel-permission": "^7.4"
     },
     "require-dev": {
+        "barryvdh/laravel-debugbar": "^4.3",
         "fakerphp/faker": "^1.23",
         "laravel/pail": "^1.2.5",
         "laravel/pao": "^1.0.6",

@@ -11,8 +11,10 @@ use App\Models\Streamer;
 use App\Models\WhatnotChannel;
 use App\Support\AdminModules;
 use Filament\Actions\Action as TableAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
@@ -545,6 +547,11 @@ class ShowResource extends Resource
 
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    ExportBulkAction::make(),
+                ]),
             ]);
     }
 

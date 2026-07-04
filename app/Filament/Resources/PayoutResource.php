@@ -7,9 +7,11 @@ use App\Filament\Resources\PayoutResource\Pages;
 use App\Models\Payout;
 use App\Models\Streamer;
 use App\Support\AdminModules;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Placeholder;
 use Filament\Resources\Resource;
+use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -202,6 +204,11 @@ class PayoutResource extends Resource
             ])
             ->actions([
                 ViewAction::make()->iconButton(),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    ExportBulkAction::make(),
+                ]),
             ]);
     }
 

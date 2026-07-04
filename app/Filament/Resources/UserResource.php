@@ -53,10 +53,10 @@ class UserResource extends Resource
         return parent::getEloquentQuery()->with(['roles', 'streamer']);
     }
 
-    // Only admins can access user management
     public static function canAccess(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        $user = auth()->user();
+        return ($user?->isAdmin() || $user?->isOwner()) ?? false;
     }
 
     public static function form(Schema $schema): Schema

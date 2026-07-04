@@ -35,7 +35,8 @@ class AiAssistant extends Page
 
     public static function canAccess(): bool
     {
-        return (auth()->user()?->isAdmin() ?? false) && AdminModules::isEnabled('ai');
+        $user = auth()->user();
+        return (($user?->isAdmin() || $user?->isOwner()) ?? false) && AdminModules::isEnabled('ai');
     }
 
     public function getView(): string

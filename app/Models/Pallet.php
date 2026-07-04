@@ -16,6 +16,7 @@ class Pallet extends Model
 
     protected $fillable = [
         'vendor_id',
+        'receiving_session_id',
         'reference',
         'received_date',
         'status',
@@ -37,6 +38,11 @@ class Pallet extends Model
     public function vendor(): BelongsTo
     {
         return $this->belongsTo(Vendor::class);
+    }
+
+    public function receivingSession(): BelongsTo
+    {
+        return $this->belongsTo(ReceivingSession::class);
     }
 
     public function lines(): HasMany

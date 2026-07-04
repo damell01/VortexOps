@@ -13,6 +13,7 @@ class InventoryMovement extends Model
 
     protected $fillable = [
         'inventory_item_id',
+        'lot_id',
         'from_location_id',
         'to_location_id',
         'quantity',
@@ -34,7 +35,12 @@ class InventoryMovement extends Model
 
     public function item(): BelongsTo
     {
-        return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
+        return $this->belongsTo(Product::class, 'inventory_item_id');
+    }
+
+    public function lot(): BelongsTo
+    {
+        return $this->belongsTo(InventoryLot::class);
     }
 
     public function fromLocation(): BelongsTo

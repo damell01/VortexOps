@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\InventoryCase;
-use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
+use App\Models\Product;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\Pallet;
@@ -19,7 +19,7 @@ class ReceivingService
      * Map a pallet line to an existing inventory item (or create a new one).
      * Call this during the manifest review step before receiving cases.
      */
-    public function mapLine(PalletLine $line, InventoryItem $item, InventoryLocation $location): void
+    public function mapLine(PalletLine $line, Product $item, InventoryLocation $location): void
     {
         $line->update([
             'inventory_item_id'    => $item->id,
@@ -30,9 +30,9 @@ class ReceivingService
     /**
      * Create an InventoryItem on the fly and map it to a pallet line.
      */
-    public function createAndMapItem(PalletLine $line, array $itemData, InventoryLocation $location): InventoryItem
+    public function createAndMapItem(PalletLine $line, array $itemData, InventoryLocation $location): Product
     {
-        $item = InventoryItem::create(array_merge($itemData, [
+        $item = Product::create(array_merge($itemData, [
             'unit_cost'    => $line->unit_cost > 0 ? (float) $line->unit_cost : 0,
             'average_cost' => $line->unit_cost > 0 ? (float) $line->unit_cost : 0,
             'is_active'    => true,
@@ -290,7 +290,7 @@ class ReceivingService
     /**
      * Credit stock and recalculate weighted average cost.
      */
-    private function creditStock(InventoryItem $item, InventoryLocation $location, float $qty, float $unitCost, InventoryCase $case, PalletLine $line): void
+    private function creditStock(Product $item, InventoryLocation $location, float $qty, float $unitCost, InventoryCase $case, PalletLine $line): void
     {
         $stock = InventoryStock::firstOrCreate(
             ['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id],
@@ -318,11 +318,11 @@ class ReceivingService
      * Weighted average cost: (existing_qty * existing_avg + new_qty * new_cost) / total_qty
      * If unit_cost is 0, skip the cost update (free samples, etc.).
      */
-    public function recalculateAverageCost(InventoryItem $item, float $incomingQty, float $incomingUnitCost): void
+    public function recalculateAverageCost(Product $item, float $incomingQty, float $incomingUnitCost): void
     {
         if ($incomingUnitCost <= 0) {
             // Use atomic increment and sync the in-memory model from the return value
-            DB::table('inventory_items')
+            DB::table('products')
                 ->where('id', $item->id)
                 ->increment('total_units_received', $incomingQty);
             $item->total_units_received = (float) $item->total_units_received + $incomingQty;
@@ -331,7 +331,7 @@ class ReceivingService
 
         // Lock the row so concurrent receipts (barcode scan + batch receive) don't race on WAC.
         // This must be called from within an existing DB::transaction (receiveCaseBatch already provides one).
-        $fresh = InventoryItem::lockForUpdate()->findOrFail($item->id);
+        $fresh = Product::lockForUpdate()->findOrFail($item->id);
 
         $existingQty = (float) $fresh->total_units_received;
         $existingAvg = (float) $fresh->average_cost;

@@ -30,7 +30,7 @@ class InventoryStock extends Model
 
     public function item(): BelongsTo
     {
-        return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
+        return $this->belongsTo(Product::class, 'inventory_item_id');
     }
 
     public function location(): BelongsTo

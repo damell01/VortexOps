@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Models\Setting;
 use App\Support\AdminModules;
+use App\Http\Middleware\RequireTwoFactorAuthentication;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -255,6 +256,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
+                RequireTwoFactorAuthentication::class,
             ]);
     }
 }

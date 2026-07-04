@@ -11,9 +11,11 @@
         "filament/filament": "^5.6",
         "flowframe/laravel-trend": "^0.5.0",
         "intervention/image-laravel": "^4.0",
+        "laravel/fortify": "^1.36",
         "laravel/framework": "^13.8",
         "laravel/tinker": "^3.0",
         "maatwebsite/excel": "^3.1",
+        "pragmarx/google2fa": "^9.0",
         "spatie/laravel-activitylog": "^5.0",
         "spatie/laravel-permission": "^7.4"
     },

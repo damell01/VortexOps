@@ -220,17 +220,19 @@
 
     </div>
 
-    {{-- Camera scanning via BarcodeDetector Web API --}}
-    @push('scripts')
-    <script>
-    (function () {
+    {{-- Camera scanning — native BarcodeDetector (Chrome/Edge/Android) + ZXing polyfill (iOS/Firefox) --}}
+    @if(file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
+        @vite('resources/js/barcode-scanner.js')
+    @endif
+    <script type="module">
+    (async function () {
+        // BarcodeDetector is either native or polyfilled by barcode-scanner.js
         if (!('BarcodeDetector' in window)) return;
 
         const btn       = document.getElementById('camera-scan-btn');
         const container = document.getElementById('camera-container');
         const video     = document.getElementById('camera-video');
         const stopBtn   = document.getElementById('camera-stop-btn');
-        const input     = document.getElementById('scanner-input');
 
         if (!btn) return;
         btn.classList.remove('hidden');
@@ -247,10 +249,10 @@
                 await video.play();
                 container.classList.remove('hidden');
                 btn.classList.add('hidden');
-                detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code', 'data_matrix', 'itf'] });
+                detector = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code', 'data_matrix', 'itf'] });
                 scanning = true;
                 detectLoop();
-            } catch (e) {
+            } catch {
                 alert('Camera access denied or unavailable.');
             }
         });
@@ -273,14 +275,12 @@
                 if (barcodes.length > 0) {
                     const code = barcodes[0].rawValue;
                     stopCamera();
-                    // Inject value into Livewire and trigger scan
                     @this.set('scanInput', code).then(() => @this.call('submitScan'));
                     return;
                 }
-            } catch (_) {}
+            } catch { /* continue */ }
             rafHandle = requestAnimationFrame(detectLoop);
         }
     })();
     </script>
-    @endpush
 </x-filament-panels::page>

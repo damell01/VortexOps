@@ -15,8 +15,14 @@ use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\QueryBuilder\Constraints\DateConstraint;
+use Filament\QueryBuilder\Constraints\NumberConstraint;
+use Filament\QueryBuilder\Constraints\SelectConstraint;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\QueryBuilder;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
@@ -149,7 +155,8 @@ class PayoutResource extends Resource
 
                 TextColumn::make('gross_show_revenue')
                     ->label('Gross Revenue')
-                    ->money('USD'),
+                    ->money('USD')
+                    ->summarize(Sum::make()->money('USD')->label('Total Gross')),
 
                 TextColumn::make('owner_fee_deducted')
                     ->label('Owner Fee')
@@ -168,7 +175,8 @@ class PayoutResource extends Resource
                 TextColumn::make('calculated_payout')
                     ->label('Payout')
                     ->money('USD')
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->summarize(Sum::make()->money('USD')->label('Total Payouts')),
 
                 TextColumn::make('batch.week_start')
                     ->label('Pay Week')
@@ -194,13 +202,42 @@ class PayoutResource extends Resource
             ->defaultPaginationPageOption(25)
             ->deferLoading()
             ->defaultSort('created_at', 'desc')
+            ->groups([
+                Group::make('streamer.name')
+                    ->label('Streamer')
+                    ->collapsible(),
+                Group::make('batch.week_start')
+                    ->label('Pay Week')
+                    ->collapsible()
+                    ->getTitleFromRecordUsing(fn ($record) => $record->batch?->week_start?->format('M j, Y') ?? 'Unbatched'),
+                Group::make('status')
+                    ->label('Status')
+                    ->collapsible()
+                    ->getTitleFromRecordUsing(fn ($record) => Payout::statusLabels()[$record->status] ?? $record->status),
+            ])
             ->filters([
                 SelectFilter::make('status')
-                    ->options(Payout::statusLabels()),
+                    ->options(Payout::statusLabels())
+                    ->multiple(),
                 SelectFilter::make('streamer_id')
                     ->label('Streamer')
                     ->options(fn () => Cache::remember('filter:streamers', 300, fn () => Streamer::pluck('name', 'id')->toArray()))
+                    ->multiple()
                     ->visible(fn () => auth()->user()?->isAdmin()),
+                QueryBuilder::make()
+                    ->label('Advanced Filters')
+                    ->constraintPickerColumns(2)
+                    ->constraints([
+                        DateConstraint::make('created_at')->label('Date Created'),
+                        NumberConstraint::make('calculated_payout')->label('Payout Amount ($)'),
+                        NumberConstraint::make('gross_show_revenue')->label('Gross Revenue ($)'),
+                        SelectConstraint::make('status')
+                            ->options(Payout::statusLabels())
+                            ->multiple(),
+                        SelectConstraint::make('payout_type')
+                            ->label('Payout Type')
+                            ->options(Streamer::payoutTypeLabels()),
+                    ]),
             ])
             ->actions([
                 ViewAction::make()->iconButton(),

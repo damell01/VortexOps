@@ -182,6 +182,20 @@ class WhatnotScraper
         $created = 0;
         $skipped = 0;
 
+        // Pre-load all existing order IDs and fallback keys in two queries instead of one per row
+        $existingOrderIds = WhatnotShowOrder::where('show_id', $show->id)
+            ->whereNotNull('whatnot_order_id')
+            ->pluck('whatnot_order_id')
+            ->flip()
+            ->toArray();
+
+        $existingFallbackKeys = WhatnotShowOrder::where('show_id', $show->id)
+            ->whereNull('whatnot_order_id')
+            ->get(['buyer_username', 'item_name', 'lot_number'])
+            ->map(fn ($r) => "{$r->buyer_username}|{$r->item_name}|{$r->lot_number}")
+            ->flip()
+            ->toArray();
+
         foreach ($rows as $row) {
             if (empty($row['buyer']) && empty($row['item_name'])) {
                 $skipped++;
@@ -191,17 +205,10 @@ class WhatnotScraper
             $orderId = $row['order_id'] ?? null;
 
             if ($orderId) {
-                // Dedup by external order ID — safest when available
-                $existing = WhatnotShowOrder::where('show_id', $show->id)
-                    ->where('whatnot_order_id', $orderId)
-                    ->exists();
+                $existing = isset($existingOrderIds[$orderId]);
             } else {
-                // Fallback dedup: buyer + item + lot within same show
-                $existing = WhatnotShowOrder::where('show_id', $show->id)
-                    ->where('buyer_username', $row['buyer'])
-                    ->where('item_name', $row['item_name'])
-                    ->where('lot_number', $row['lot_number'] ?? null)
-                    ->exists();
+                $key      = ($row['buyer'] ?? '') . '|' . ($row['item_name'] ?? '') . '|' . ($row['lot_number'] ?? '');
+                $existing = isset($existingFallbackKeys[$key]);
             }
 
             if ($existing) {

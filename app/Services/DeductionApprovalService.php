@@ -18,7 +18,20 @@ class DeductionApprovalService
 
     public function approve(DeductionRequest $request): void
     {
-        DB::transaction(function () use ($request) {
+        // Bulk-load relations before entering the transaction to avoid N+1 queries under lock
+        $request->loadMissing('lines');
+        $lineItemIds    = $request->lines->pluck('inventory_item_id')->filter()->unique()->values();
+        $lineLocationIds = $request->lines->pluck('inventory_location_id')->filter()->unique()->values();
+        $itemsById      = InventoryItem::whereIn('id', $lineItemIds)->get()->keyBy('id');
+        $locationsById  = InventoryLocation::whereIn('id', $lineLocationIds)->get()->keyBy('id');
+
+        DB::transaction(function () use ($request, $itemsById, $locationsById) {
+            // Re-fetch with row lock to prevent double-approval from concurrent clicks
+            $locked = DeductionRequest::lockForUpdate()->findOrFail($request->id);
+            if (in_array($locked->status, ['processed', 'rejected'])) {
+                return;
+            }
+
             $userId = Auth::id();
             $now    = now();
 
@@ -27,8 +40,10 @@ class DeductionApprovalService
                     continue;
                 }
 
-                $item     = InventoryItem::findOrFail($line->inventory_item_id);
-                $location = InventoryLocation::findOrFail($line->inventory_location_id);
+                $item     = $itemsById->get($line->inventory_item_id)
+                    ?? InventoryItem::findOrFail($line->inventory_item_id);
+                $location = $locationsById->get($line->inventory_location_id)
+                    ?? InventoryLocation::findOrFail($line->inventory_location_id);
 
                 $this->inventory->deductStock(
                     item:        $item,

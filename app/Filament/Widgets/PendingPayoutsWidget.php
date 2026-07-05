@@ -17,7 +17,7 @@ class PendingPayoutsWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return AdminModules::isEnabled('payouts');
+        return auth()->user()?->isAdmin() && AdminModules::isEnabled('payouts');
     }
 
     public function table(Table $table): Table

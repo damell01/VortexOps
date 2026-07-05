@@ -15,6 +15,11 @@ class ActiveStreamersWidget extends BaseWidget
     protected static ?string $heading = 'Active Streamers';
     protected int | string | array $columnSpan = 'full';
 
+    public static function canView(): bool
+    {
+        return auth()->user()?->isAdmin();
+    }
+
     public function table(Table $table): Table
     {
         return $table

@@ -62,14 +62,17 @@ class ReceivingAnalytics extends Page
         ];
     }
 
-    public function getSessionsByMonthProperty(): array
+    private function monthFormatExpr(): string
     {
-        $fmt = DB::getDriverName() === 'sqlite'
+        return DB::getDriverName() === 'sqlite'
             ? "strftime('%Y-%m', created_at) as month"
             : "DATE_FORMAT(created_at, '%Y-%m') as month";
+    }
 
+    public function getSessionsByMonthProperty(): array
+    {
         return ReceivingSession::selectRaw(
-                "$fmt,
+                $this->monthFormatExpr() . ",
                  COUNT(*) as count,
                  SUM(total_lines) as lines,
                  AVG(CASE WHEN total_lines > 0 THEN auto_matched_count / total_lines * 100 ELSE 0 END) as auto_pct"
@@ -126,11 +129,7 @@ class ReceivingAnalytics extends Page
 
     public function getAliasesLearnedByMonthProperty(): array
     {
-        $fmt = DB::getDriverName() === 'sqlite'
-            ? "strftime('%Y-%m', created_at) as month"
-            : "DATE_FORMAT(created_at, '%Y-%m') as month";
-
-        return ProductIdentity::selectRaw("$fmt, COUNT(*) as cnt")
+        return ProductIdentity::selectRaw($this->monthFormatExpr() . ", COUNT(*) as cnt")
             ->groupBy('month')
             ->orderByDesc('month')
             ->limit(12)

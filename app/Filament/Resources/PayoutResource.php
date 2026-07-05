@@ -7,9 +7,11 @@ use App\Filament\Resources\PayoutResource\Pages;
 use App\Models\Payout;
 use App\Models\Streamer;
 use App\Support\AdminModules;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Placeholder;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 use Filament\Schemas\Components\Grid;
@@ -56,6 +58,25 @@ class PayoutResource extends Resource
     public static function canCreate(): bool
     {
         return false;
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['streamer.name', 'show.title'];
+    }
+
+    public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        return 'Payout — ' . ($record->streamer?->name ?? 'Unknown');
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return [
+            'Show'   => $record->show?->title ?? '—',
+            'Amount' => '$' . number_format((float) $record->calculated_payout, 2),
+            'Status' => Payout::statusLabels()[$record->status] ?? $record->status,
+        ];
     }
 
     public static function form(Schema $schema): Schema
@@ -244,6 +265,25 @@ class PayoutResource extends Resource
             ])
             ->bulkActions([
                 BulkActionGroup::make([
+                    BulkAction::make('approve')
+                        ->label('Approve Selected')
+                        ->icon('heroicon-o-check-badge')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
+                            $count = 0;
+                            foreach ($records as $payout) {
+                                if ($payout->status === 'draft') {
+                                    $payout->update(['status' => 'approved']);
+                                    $count++;
+                                }
+                            }
+                            Notification::make()
+                                ->title("{$count} payout(s) approved")
+                                ->success()
+                                ->send();
+                        })
+                        ->visible(fn () => auth()->user()?->isAdmin()),
                     ExportBulkAction::make(),
                 ]),
             ]);

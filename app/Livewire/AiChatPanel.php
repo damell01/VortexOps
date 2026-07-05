@@ -68,8 +68,8 @@ class AiChatPanel extends Component
 
     private function streamOllama(string $systemPrompt): string
     {
-        $baseUrl = config('services.ollama.url', env('OLLAMA_BASE_URL', 'http://ollama:11434'));
-        $model   = config('services.ollama.model', env('OLLAMA_MODEL', 'llama3.2:3b'));
+        $baseUrl = config('services.ollama.url');
+        $model   = config('services.ollama.model');
 
         // Keep last 10 turns (user+assistant pairs) to cap prompt size
         $history = array_slice($this->messages, -10);

@@ -16,8 +16,15 @@ class InventoryOverviewWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        [$totalQty, $totalItems, $lowStockCount, $activeLocations, $activeStreamers] =
+        [$totalQty, $totalItems, $lowStockCount, $activeLocations, $activeStreamers, $inventoryValue] =
             Cache::remember('widget:inventory_overview', 300, function () {
+                $inventoryValue = \Illuminate\Support\Facades\DB::table('inventory_stock')
+                    ->join('products', 'inventory_stock.inventory_item_id', '=', 'products.id')
+                    ->whereNotNull('products.average_cost')
+                    ->where('products.average_cost', '>', 0)
+                    ->selectRaw('SUM(inventory_stock.quantity * products.average_cost) as total_value')
+                    ->value('total_value') ?? 0;
+
                 return [
                     InventoryStock::sum('quantity'),
                     InventoryItem::where('is_active', true)->count(),
@@ -25,12 +32,13 @@ class InventoryOverviewWidget extends BaseWidget
                         ->where('is_active', true)
                         ->whereExists(fn ($q) => $q->selectRaw('1')
                             ->from('inventory_stock')
-                            ->whereColumn('inventory_stock.inventory_item_id', 'inventory_items.id')
+                            ->whereColumn('inventory_stock.inventory_item_id', 'products.id')
                             ->groupBy('inventory_stock.inventory_item_id')
-                            ->havingRaw('SUM(quantity) <= inventory_items.reorder_level'))
+                            ->havingRaw('SUM(quantity) <= products.reorder_level'))
                         ->count(),
                     InventoryLocation::where('status', 'active')->count(),
                     Streamer::where('status', 'active')->count(),
+                    (float) $inventoryValue,
                 ];
             });
 
@@ -54,6 +62,11 @@ class InventoryOverviewWidget extends BaseWidget
                 ->description("{$activeStreamers} active streamer(s)")
                 ->icon('heroicon-o-map-pin')
                 ->color('info'),
+
+            Stat::make('Inventory Value (WAC)', '$' . number_format($inventoryValue, 2))
+                ->description('Total value at weighted average cost')
+                ->icon('heroicon-o-currency-dollar')
+                ->color('warning'),
         ];
     }
 }

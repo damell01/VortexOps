@@ -21,7 +21,7 @@
 
     <div class="space-y-6">
 
-        {{-- Period selector --}}
+        {{-- Period selector + date range + export --}}
         <div class="flex flex-wrap items-center gap-2">
             <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Period:</span>
             @foreach ($this->getPeriodOptions() as $days => $label)
@@ -35,6 +35,41 @@
                     {{ $label }}
                 </button>
             @endforeach
+
+            <span class="text-gray-300 dark:text-gray-600 mx-1">|</span>
+
+            {{-- Custom date range --}}
+            <div class="flex items-center gap-1.5">
+                <input
+                    type="date"
+                    wire:model="dateFrom"
+                    class="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 focus:ring-primary-500 focus:border-primary-500"
+                />
+                <span class="text-xs text-gray-400">to</span>
+                <input
+                    type="date"
+                    wire:model="dateTo"
+                    class="rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 focus:ring-primary-500 focus:border-primary-500"
+                />
+                <button
+                    wire:click="applyCustomRange"
+                    class="rounded-lg px-3 py-1.5 text-xs font-medium transition {{ $period === 'custom' ? 'bg-primary-600 text-white shadow-sm' : 'bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700' }}"
+                >
+                    Apply
+                </button>
+            </div>
+
+            <span class="flex-1"></span>
+
+            {{-- CSV export --}}
+            <a
+                wire:click.prevent="exportCsv"
+                href="#"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition"
+            >
+                <x-heroicon-o-arrow-down-tray class="h-3.5 w-3.5" />
+                Export CSV
+            </a>
         </div>
 
         {{-- Revenue KPI tiles --}}

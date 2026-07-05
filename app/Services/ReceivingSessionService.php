@@ -45,6 +45,10 @@ class ReceivingSessionService
      */
     public function importLines(ReceivingSession $session, Pallet $pallet, array $lines): void
     {
+        if ($session->isComplete()) {
+            return;
+        }
+
         $session->update(['status' => ReceivingSession::STATUS_PARSING]);
 
         DB::transaction(function () use ($session, $pallet, $lines) {
@@ -96,6 +100,8 @@ class ReceivingSessionService
      */
     public function confirmLineMatch(PalletLine $line, Product $product, int $confirmedByUserId): void
     {
+        $line->loadMissing(['pallet', 'receivingSession']);
+
         DB::transaction(function () use ($line, $product, $confirmedByUserId) {
             $vendorId = $line->pallet?->vendor_id;
 
@@ -134,14 +140,18 @@ class ReceivingSessionService
      */
     public function completeSession(ReceivingSession $session): array
     {
-        $session->update(['status' => ReceivingSession::STATUS_REVIEWING]);
+        if ($session->isComplete()) {
+            return ['cases_received' => 0, 'lots_created' => 0, 'lines_skipped' => 0];
+        }
 
         $totalCases = 0;
         $lotsCreated = 0;
         $skipped = 0;
 
         DB::transaction(function () use ($session, &$totalCases, &$lotsCreated, &$skipped) {
-            foreach ($session->palletLines()->with(['pallet', 'product'])->get() as $line) {
+            $session->update(['status' => ReceivingSession::STATUS_REVIEWING]);
+
+            foreach ($session->palletLines()->with(['pallet', 'product', 'lot'])->get() as $line) {
                 if (! $line->inventory_item_id || ! $line->inventory_location_id) {
                     $skipped++;
                     continue;

@@ -30,7 +30,7 @@ class NotifyDeductionApproved implements ShouldQueue
                 return;
             }
 
-            foreach ($router->getRecipients('show_pending_approval') as $user) {
+            foreach ($router->getRecipients('deduction_approved') as $user) {
                 $user->notify(new DeductionApprovedNotification($dr));
             }
         } catch (\Exception $e) {

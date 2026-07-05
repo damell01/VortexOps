@@ -75,7 +75,8 @@
                             $label = $show->whatnotChannel?->name ?? ($show->title ?? 'Show');
                             $rev   = $show->gross_revenue ? '$' . number_format($show->gross_revenue, 0) : '';
                         @endphp
-                        <div
+                        <a
+                            href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $show->id]) }}"
                             x-data
                             x-tooltip.raw="{{ e($label) }}{{ $rev ? ' · ' . $rev : '' }}"
                             class="group mb-0.5 flex items-center gap-1 rounded px-1 py-0.5 text-[11px] cursor-pointer
@@ -86,7 +87,7 @@
                             @if ($rev)
                                 <span class="ml-auto text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold flex-shrink-0">{{ $rev }}</span>
                             @endif
-                        </div>
+                        </a>
                     @endforeach
                 @endif
             </div>

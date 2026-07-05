@@ -15,7 +15,7 @@ class ShowsKpiWidget extends BaseWidget
 
     public static function canView(): bool
     {
-        return AdminModules::isEnabled('streams');
+        return auth()->user()?->isAdmin() && AdminModules::isEnabled('streams');
     }
 
     protected function getStats(): array

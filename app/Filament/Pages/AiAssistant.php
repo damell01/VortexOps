@@ -462,11 +462,11 @@ PROMPT;
 
     private function baseUrl(): string
     {
-        return rtrim(env('OLLAMA_BASE_URL', 'http://ollama:11434'), '/');
+        return rtrim(config('services.ollama.url', 'http://ollama:11434'), '/');
     }
 
     private function model(): string
     {
-        return env('OLLAMA_MODEL', 'llama3.2:3b');
+        return config('services.ollama.model', 'llama3.2:3b');
     }
 }

@@ -39,10 +39,10 @@ class ShowImportController extends Controller
             'sales.*.sold_at'        => 'nullable|date',
             'financials'                          => 'nullable|array',
             'financials.gross_sales'              => 'nullable|numeric',
-            'financials.platform_fee_pct'         => 'nullable|numeric',
+            'financials.platform_fee_pct'         => 'nullable|numeric|min:0|max:100',
             'financials.shipping_collected'       => 'nullable|numeric',
             'financials.tips_collected'           => 'nullable|numeric',
-            'financials.owner_platform_fee_pct'   => 'nullable|numeric',
+            'financials.owner_platform_fee_pct'   => 'nullable|numeric|min:0|max:100',
         ]);
 
         try {

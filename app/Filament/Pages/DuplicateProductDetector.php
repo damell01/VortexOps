@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\DeductionRequestLine;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
@@ -12,6 +13,7 @@ use App\Support\AdminModules;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class DuplicateProductDetector extends Page
 {
@@ -112,33 +114,56 @@ class DuplicateProductDetector extends Page
             return;
         }
 
-        DB::transaction(function () use ($keep, $drop) {
-            // Reassign related records
-            PalletLine::where('inventory_item_id', $drop->id)->update(['inventory_item_id' => $keep->id]);
-            InventoryLot::where('product_id', $drop->id)->update(['product_id' => $keep->id]);
-            InventoryStock::where('inventory_item_id', $drop->id)->update(['inventory_item_id' => $keep->id]);
-            InventoryMovement::where('inventory_item_id', $drop->id)->update(['inventory_item_id' => $keep->id]);
-            ProductIdentity::where('product_id', $drop->id)->update(['product_id' => $keep->id]);
+        try {
+            DB::transaction(function () use ($keep, $drop) {
+                PalletLine::where('inventory_item_id', $drop->id)->update(['inventory_item_id' => $keep->id]);
+                InventoryLot::where('product_id', $drop->id)->update(['product_id' => $keep->id]);
+                InventoryMovement::where('inventory_item_id', $drop->id)->update(['inventory_item_id' => $keep->id]);
+                ProductIdentity::where('product_id', $drop->id)->update(['product_id' => $keep->id]);
+                DeductionRequestLine::where('inventory_item_id', $drop->id)->update(['inventory_item_id' => $keep->id]);
 
-            // Merge totals
-            $keep->increment('total_units_received', (float) $drop->total_units_received);
+                // Consolidate stock rows: add drop quantities into keep rows at matching locations,
+                // then delete the drop rows to avoid violating the UNIQUE(inventory_item_id, location) constraint.
+                foreach (InventoryStock::where('inventory_item_id', $drop->id)->get() as $dropStock) {
+                    $keepStock = InventoryStock::where('inventory_item_id', $keep->id)
+                        ->where('inventory_location_id', $dropStock->inventory_location_id)
+                        ->first();
 
-            // Recalculate WAC
-            $stockQty  = InventoryStock::where('inventory_item_id', $keep->id)->sum('quantity');
-            $lotValue  = InventoryLot::where('product_id', $keep->id)
-                ->where('status', 'active')
-                ->selectRaw('SUM(remaining_quantity * unit_cost) as val, SUM(remaining_quantity) as qty')
-                ->first();
+                    if ($keepStock) {
+                        $keepStock->increment('quantity', $dropStock->quantity);
+                        $dropStock->delete();
+                    } else {
+                        $dropStock->update(['inventory_item_id' => $keep->id]);
+                    }
+                }
 
-            if ($lotValue && $lotValue->qty > 0) {
-                $keep->update(['average_cost' => $lotValue->val / $lotValue->qty]);
-            }
+                // Merge totals
+                $keep->increment('total_units_received', (float) $drop->total_units_received);
 
-            // Soft-delete the duplicate
-            $drop->delete();
-        });
+                // Recalculate WAC
+                $lotValue = InventoryLot::where('product_id', $keep->id)
+                    ->where('status', 'active')
+                    ->selectRaw('SUM(remaining_quantity * unit_cost) as val, SUM(remaining_quantity) as qty')
+                    ->first();
 
-        $this->pairs = array_values(array_filter($this->pairs, fn ($p) => $p['product_a']['id'] !== $dropId && $p['product_b']['id'] !== $dropId));
+                if ($lotValue && $lotValue->qty > 0) {
+                    $keep->update(['average_cost' => $lotValue->val / $lotValue->qty]);
+                }
+
+                $drop->delete();
+            });
+        } catch (\Throwable $e) {
+            Log::error('Product merge failed', [
+                'keep_id' => $keepId,
+                'drop_id' => $dropId,
+                'error'   => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+            $this->flashError = 'Merge failed: ' . $e->getMessage();
+            return;
+        }
+
+        $this->pairs   = array_values(array_filter($this->pairs, fn ($p) => $p['product_a']['id'] !== $dropId && $p['product_b']['id'] !== $dropId));
         $this->flashOk = 'Merged "' . $drop->name . '" into "' . $keep->name . '".';
     }
 
@@ -181,9 +206,10 @@ class DuplicateProductDetector extends Page
             $weights += 0.10;
         }
 
-        // UPC exact match (strong signal)
+        // UPC exact match (strong signal — counted in both score and weights)
         if ($a->upc && $b->upc && $a->upc === $b->upc) {
-            $score += 0.30;
+            $score   += 0.30;
+            $weights += 0.30;
         }
 
         // Sport match

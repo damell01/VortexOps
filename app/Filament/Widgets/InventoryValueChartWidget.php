@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Filament\Widgets;
+
+use App\Models\InventoryMovement;
+use App\Support\AdminModules;
+use Filament\Widgets\ChartWidget;
+use Flowframe\Trend\Trend;
+
+class InventoryValueChartWidget extends ChartWidget
+{
+    protected static ?int $sort = 7;
+    protected string $color     = 'warning';
+    protected ?string $maxHeight = '280px';
+    protected int | string | array $columnSpan = 'full';
+
+    public static function canView(): bool
+    {
+        return auth()->user()?->isAdmin() && AdminModules::isEnabled('inventory');
+    }
+
+    public function getHeading(): string
+    {
+        return 'Inventory Movement Value — Last 12 Weeks';
+    }
+
+    protected function getFilters(): ?array
+    {
+        return [
+            'in'  => 'Stock In',
+            'out' => 'Stock Out',
+        ];
+    }
+
+    protected function getData(): array
+    {
+        $type = $this->filter ?? 'in';
+        $direction = $type === 'in' ? 'in' : 'out';
+
+        $trend = Trend::query(
+            InventoryMovement::query()->where('movement_type', $direction)
+        )
+            ->between(now()->subWeeks(11)->startOfWeek(), now()->endOfWeek())
+            ->perWeek()
+            ->sum('quantity');
+
+        $color = $direction === 'in' ? '#f59e0b' : '#ef4444';
+
+        return [
+            'datasets' => [
+                [
+                    'label'           => $direction === 'in' ? 'Units Received' : 'Units Deducted',
+                    'data'            => $trend->pluck('aggregate')->toArray(),
+                    'borderColor'     => $color,
+                    'backgroundColor' => $color . '20',
+                    'fill'            => true,
+                    'tension'         => 0.4,
+                ],
+            ],
+            'labels' => $trend->map(fn ($t) => \Illuminate\Support\Carbon::parse($t->date)->format('M j'))->toArray(),
+        ];
+    }
+
+    protected function getType(): string
+    {
+        return 'line';
+    }
+}

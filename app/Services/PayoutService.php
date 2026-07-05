@@ -178,7 +178,7 @@ class PayoutService
 
         return [
             'payout_type'          => $streamer->payout_type,
-            'gross_show_revenue'   => $netRevenue,
+            'gross_show_revenue'   => $grossRevenue,
             'owner_fee_deducted'   => $ownerFeeDeducted,
             'tips_included'        => $streamer->include_tips ? $tipShare : 0,
             'pwe_count'            => $pweCount > 0 ? $pweCount : null,

@@ -254,7 +254,7 @@ class ReviewReceivingSession extends Page
      */
     public function acceptLine(int $lineId): void
     {
-        $line = PalletLine::find($lineId);
+        $line = $this->record->palletLines()->find($lineId);
         if (! $line?->inventory_item_id) {
             return;
         }
@@ -284,7 +284,7 @@ class ReviewReceivingSession extends Page
             return;
         }
 
-        $line    = PalletLine::find($lineId);
+        $line    = $this->record->palletLines()->find($lineId);
         $product = Product::find($productId);
 
         if (! $line || ! $product) {
@@ -315,7 +315,7 @@ class ReviewReceivingSession extends Page
             return;
         }
 
-        $line = PalletLine::find($lineId);
+        $line = $this->record->palletLines()->find($lineId);
         if (! $line) {
             return;
         }
@@ -347,7 +347,7 @@ class ReviewReceivingSession extends Page
      */
     public function setLocation(int $lineId, int $locationId): void
     {
-        PalletLine::where('id', $lineId)->update(['inventory_location_id' => $locationId]);
+        $this->record->palletLines()->where('id', $lineId)->update(['inventory_location_id' => $locationId]);
         $this->refreshGrouped();
     }
 

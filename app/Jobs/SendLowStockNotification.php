@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Models\InventoryItem;
+use App\Models\Product;
 use App\Services\NotificationRouter;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -20,7 +20,7 @@ class SendLowStockNotification implements ShouldQueue
 
     public function handle(NotificationRouter $router): void
     {
-        $item = InventoryItem::with('stock')->find($this->itemId);
+        $item = Product::with('stock')->find($this->itemId);
 
         if (! $item || ! $item->isLowStock()) {
             return;

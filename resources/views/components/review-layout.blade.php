@@ -127,7 +127,7 @@
                 @if ($breadcrumb)
                     <div class="hidden min-w-0 items-center gap-2 text-sm text-slate-400 md:flex">
                         <span>/</span>
-                        <div class="truncate">{!! $breadcrumb !!}</div>
+                        <div class="truncate">{{ $breadcrumb }}</div>
                     </div>
                 @endif
             </div>

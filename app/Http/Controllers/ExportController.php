@@ -18,6 +18,8 @@ class ExportController extends Controller
 {
     public function inventoryItems(): StreamedResponse
     {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
         return $this->streamCsv('inventory-items', function () {
             $this->row(['SKU', 'Name', 'Category', 'List Cost', 'Avg Cost', 'Units Received', 'Reorder Level', 'Total Qty', 'Active', 'Notes']);
 
@@ -44,6 +46,8 @@ class ExportController extends Controller
 
     public function stockLevels(): StreamedResponse
     {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
         return $this->streamCsv('stock-levels', function () {
             $this->row(['Item', 'SKU', 'Category', 'Location', 'Location Type', 'Quantity', 'Avg Cost', 'Stock Value']);
 
@@ -72,6 +76,8 @@ class ExportController extends Controller
 
     public function movementLog(Request $request): StreamedResponse
     {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
         return $this->streamCsv('movement-log', function () use ($request) {
             $this->row(['Date', 'Item', 'SKU', 'Type', 'Quantity', 'From Location', 'To Location', 'Reason', 'Created By']);
 

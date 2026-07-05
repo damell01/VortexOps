@@ -26,11 +26,20 @@ class FeedbackController extends Controller
         $screenshotPath = null;
 
         if ($request->screenshot && str_starts_with($request->screenshot, 'data:image/')) {
-            $data     = substr($request->screenshot, strpos($request->screenshot, ',') + 1);
-            $filename = 'feedback/screenshot_' . uniqid('', true) . '.png';
-            Storage::disk('public')->makeDirectory('feedback');
-            Storage::disk('public')->put($filename, base64_decode($data));
-            $screenshotPath = $filename;
+            $commaPos = strpos($request->screenshot, ',');
+            $data     = $commaPos !== false ? substr($request->screenshot, $commaPos + 1) : '';
+            $bytes    = base64_decode($data, strict: true);
+
+            if ($bytes !== false && in_array(
+                finfo_buffer(finfo_open(FILEINFO_MIME_TYPE), $bytes),
+                ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
+                true
+            )) {
+                $filename = 'feedback/screenshot_' . uniqid('', true) . '.png';
+                Storage::disk('public')->makeDirectory('feedback');
+                Storage::disk('public')->put($filename, $bytes);
+                $screenshotPath = $filename;
+            }
         }
 
         $user = auth()->user();

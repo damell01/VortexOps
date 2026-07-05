@@ -186,7 +186,7 @@ PROMPT;
 
             // Find or create a DeductionRequest for this show
             $dr = $show->deductionRequests()->firstOrCreate(
-                ['show_id' => $show->id, 'streamer_id' => null],
+                ['show_id' => $show->id],
                 ['status' => 'draft', 'streamer_id' => $primaryStreamer?->id]
             );
 

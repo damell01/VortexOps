@@ -9,11 +9,12 @@ use Illuminate\Database\Eloquent\Collection;
 class NotificationRouter
 {
     private const DEFAULTS = [
-        'low_stock'            => 'all',
-        'damaged'              => 'all',
-        'show_ready'           => 'admins',
-        'show_reconciled'      => 'admins',
+        'low_stock'             => 'all',
+        'damaged'               => 'all',
+        'show_ready'            => 'admins',
+        'show_reconciled'       => 'admins',
         'show_pending_approval' => 'admins',
+        'deduction_approved'    => 'admins',
     ];
 
     /**

@@ -33,7 +33,8 @@ class PayoutResource extends Resource
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'payouts';
+    protected static string $moduleSlug  = 'payouts';
+    protected static string $featureSlug = 'payouts';
 
     protected static ?string $model = Payout::class;
 

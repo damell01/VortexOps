@@ -19,7 +19,8 @@ class DeductionRequestResource extends Resource
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'streams';
+    protected static string $moduleSlug  = 'streams';
+    protected static string $featureSlug = 'deduction_requests';
 
     protected static ?string $model = DeductionRequest::class;
 

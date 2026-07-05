@@ -10,7 +10,8 @@ class ReceivingGuide extends Page
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'purchasing';
+    protected static string $moduleSlug  = 'purchasing';
+    protected static string $featureSlug = 'receiving_guide';
     protected static ?string $title = 'Receiving Guide';
     protected static ?string $navigationLabel = 'How It Works';
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-academic-cap';

@@ -20,7 +20,8 @@ class DuplicateProductDetector extends Page
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'purchasing';
+    protected static string $moduleSlug  = 'purchasing';
+    protected static string $featureSlug = 'duplicate_detector';
     protected static ?string $title = 'Duplicate Detector';
     protected static ?string $navigationLabel = 'Duplicate Detector';
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-duplicate';

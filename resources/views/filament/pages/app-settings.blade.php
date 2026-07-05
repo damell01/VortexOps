@@ -117,32 +117,68 @@
                         <x-heroicon-o-squares-2x2 class="h-5 w-5 text-slate-600 dark:text-slate-300" />
                     </div>
                     <div>
-                        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Workspace Modules</h2>
-                        <p class="text-xs text-gray-500 dark:text-gray-400">Choose which major admin sections stay visible inside the app.</p>
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Workspace Modules &amp; Features</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Toggle entire modules on/off, then fine-tune which individual pages are visible within each one.</p>
                     </div>
                 </div>
             </div>
 
             <div class="px-6 py-4 space-y-3">
                 @foreach ($this->availableModules as $slug => $module)
-                    <label class="flex items-start gap-3 rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-3 cursor-pointer hover:border-violet-300 dark:hover:border-violet-700 transition-colors">
-                        <input
-                            type="checkbox"
-                            wire:model.live="enabled_modules"
-                            value="{{ $slug }}"
-                            class="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500 focus:ring-offset-0 bg-white dark:bg-gray-900"
-                        />
-                        <div class="min-w-0">
-                            <div class="flex items-center gap-2 flex-wrap">
-                                <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $module['label'] }}</span>
-                                <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">{{ $module['group'] }}</span>
+                    @php
+                        $moduleEnabled = in_array($slug, $enabled_modules);
+                        $features      = \App\Support\AdminModules::featuresForModule($slug);
+                        uasort($features, fn($a, $b) => $a['order'] <=> $b['order']);
+                    @endphp
+
+                    <div class="rounded-xl border {{ $moduleEnabled ? 'border-violet-200 dark:border-violet-800' : 'border-gray-200 dark:border-gray-700' }} overflow-hidden transition-colors">
+
+                        {{-- Module header row --}}
+                        <label class="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                            <input
+                                type="checkbox"
+                                wire:model.live="enabled_modules"
+                                value="{{ $slug }}"
+                                class="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500 focus:ring-offset-0 bg-white dark:bg-gray-900"
+                            />
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $module['label'] }}</span>
+                                    <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[11px] font-medium text-gray-500 dark:text-gray-400">{{ $module['group'] }}</span>
+                                    @if (! $moduleEnabled)
+                                        <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-[11px] font-medium text-gray-400 dark:text-gray-500">hidden</span>
+                                    @endif
+                                </div>
+                                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $module['description'] }}</p>
                             </div>
-                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $module['description'] }}</p>
-                        </div>
-                    </label>
+                        </label>
+
+                        {{-- Feature rows (shown when module has features) --}}
+                        @if (count($features))
+                            <div class="{{ $moduleEnabled ? '' : 'opacity-40 pointer-events-none' }} border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 px-4 py-2 space-y-1">
+                                <p class="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Pages &amp; features</p>
+                                @foreach ($features as $featureSlug => $feature)
+                                    <label class="flex items-start gap-2.5 py-1 cursor-pointer group">
+                                        <input
+                                            type="checkbox"
+                                            wire:model.live="enabled_features"
+                                            value="{{ $featureSlug }}"
+                                            {{ ! $moduleEnabled ? 'disabled' : '' }}
+                                            class="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-violet-500 focus:ring-violet-500 focus:ring-offset-0 bg-white dark:bg-gray-900"
+                                        />
+                                        <div class="min-w-0">
+                                            <span class="text-sm text-gray-800 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white">{{ $feature['label'] }}</span>
+                                            <p class="text-xs text-gray-400 dark:text-gray-500">{{ $feature['description'] }}</p>
+                                        </div>
+                                    </label>
+                                @endforeach
+                            </div>
+                        @endif
+
+                    </div>
                 @endforeach
 
-                <p class="text-xs text-gray-400">Hidden modules disappear from navigation and their admin pages stop being accessible until you re-enable them.</p>
+                <p class="text-xs text-gray-400 pt-1">Disabled modules and features disappear from navigation and their routes become inaccessible until re-enabled. Changes apply on the next page load after saving.</p>
             </div>
         </div>
         @endif

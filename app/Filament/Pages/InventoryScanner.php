@@ -17,7 +17,8 @@ class InventoryScanner extends Page
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'inventory';
+    protected static string $moduleSlug  = 'inventory';
+    protected static string $featureSlug = 'inventory_scanner';
     protected static ?string $title = 'Inventory Scanner';
 
     public static function getNavigationGroup(): string|\UnitEnum|null

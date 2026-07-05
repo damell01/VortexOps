@@ -85,7 +85,8 @@ class AppSettings extends Page
     public array  $notify_show_ready_users     = [];
     public string $notify_show_reconciled_mode  = 'admins';
     public array  $notify_show_reconciled_users = [];
-    public array  $enabled_modules = [];
+    public array  $enabled_modules  = [];
+    public array  $enabled_features = [];
 
     public function mount(): void
     {
@@ -105,7 +106,8 @@ class AppSettings extends Page
         $this->notify_show_ready_users      = json_decode(Setting::get('notify_show_ready_users', '[]'), true) ?? [];
         $this->notify_show_reconciled_mode  = Setting::get('notify_show_reconciled_mode', 'admins');
         $this->notify_show_reconciled_users = json_decode(Setting::get('notify_show_reconciled_users', '[]'), true) ?? [];
-        $this->enabled_modules              = AdminModules::enabledSlugs();
+        $this->enabled_modules  = AdminModules::enabledSlugs();
+        $this->enabled_features = AdminModules::enabledFeatures();
     }
 
     public function getAllUsersProperty(): \Illuminate\Support\Collection
@@ -167,6 +169,8 @@ class AppSettings extends Page
         if ($isOwner) {
             $rules['enabled_modules']    = 'required|array|min:1';
             $rules['enabled_modules.*']  = 'in:' . implode(',', array_keys(AdminModules::definitions()));
+            $rules['enabled_features']   = 'nullable|array';
+            $rules['enabled_features.*'] = 'in:' . implode(',', array_keys(AdminModules::featureDefinitions()));
         }
 
         $this->validate($rules);
@@ -192,7 +196,11 @@ class AppSettings extends Page
         Setting::set('notify_show_reconciled_mode',   $this->notify_show_reconciled_mode);
         Setting::set('notify_show_reconciled_users',  json_encode($this->notify_show_reconciled_users));
         if ($isOwner) {
-            Setting::set('enabled_admin_modules', json_encode(AdminModules::normalizeEnabledSlugs($this->enabled_modules)));
+            Setting::set('enabled_admin_modules',  json_encode(AdminModules::normalizeEnabledSlugs($this->enabled_modules)));
+            Setting::set('enabled_admin_features', json_encode(array_values(array_intersect(
+                array_keys(AdminModules::featureDefinitions()),
+                $this->enabled_features
+            ))));
             AdminModules::flushMemo();
         }
 

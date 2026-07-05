@@ -19,7 +19,8 @@ class AiAssistant extends Page
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'ai';
+    protected static string $moduleSlug  = 'ai';
+    protected static string $featureSlug = 'ai_assistant';
     protected static ?string $title = 'AI Assistant';
 
     public static function getNavigationGroup(): string|\UnitEnum|null

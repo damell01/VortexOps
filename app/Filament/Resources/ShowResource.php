@@ -43,7 +43,8 @@ class ShowResource extends Resource
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'streams';
+    protected static string $moduleSlug  = 'streams';
+    protected static string $featureSlug = 'shows';
 
     protected static ?string $model = Show::class;
 

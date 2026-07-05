@@ -25,7 +25,8 @@ class ReceivingSessionResource extends Resource
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'purchasing';
+    protected static string $moduleSlug  = 'purchasing';
+    protected static string $featureSlug = 'receiving_sessions';
 
     protected static ?string $model = ReceivingSession::class;
 

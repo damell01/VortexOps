@@ -29,7 +29,8 @@ class FeedbackTicketResource extends Resource
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'operations';
+    protected static string $moduleSlug  = 'operations';
+    protected static string $featureSlug = 'feedback_tickets';
     protected static ?string $model = FeedbackTicket::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null

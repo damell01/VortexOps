@@ -30,7 +30,8 @@ class StreamerResource extends Resource
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'operations';
+    protected static string $moduleSlug  = 'operations';
+    protected static string $featureSlug = 'streamers';
 
     protected static ?string $model = Streamer::class;
 

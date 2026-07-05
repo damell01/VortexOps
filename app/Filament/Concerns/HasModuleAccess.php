@@ -8,12 +8,24 @@ trait HasModuleAccess
 {
     public static function canAccess(): bool
     {
-        return AdminModules::isEnabled(static::$moduleSlug) && static::passesModuleAccessCheck();
+        if (! AdminModules::isEnabled(static::$moduleSlug)) {
+            return false;
+        }
+        if (isset(static::$featureSlug) && ! AdminModules::isFeatureEnabled(static::$featureSlug)) {
+            return false;
+        }
+        return static::passesModuleAccessCheck();
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return AdminModules::isEnabled(static::$moduleSlug);
+        if (! AdminModules::isEnabled(static::$moduleSlug)) {
+            return false;
+        }
+        if (isset(static::$featureSlug) && ! AdminModules::isFeatureEnabled(static::$featureSlug)) {
+            return false;
+        }
+        return true;
     }
 
     protected static function passesModuleAccessCheck(): bool

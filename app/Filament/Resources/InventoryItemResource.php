@@ -45,7 +45,8 @@ class InventoryItemResource extends Resource
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'inventory';
+    protected static string $moduleSlug  = 'inventory';
+    protected static string $featureSlug = 'inventory_items';
 
     protected static ?string $model = InventoryItem::class;
 

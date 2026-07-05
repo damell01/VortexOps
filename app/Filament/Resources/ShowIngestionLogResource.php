@@ -21,7 +21,8 @@ class ShowIngestionLogResource extends Resource
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'streams';
+    protected static string $moduleSlug  = 'streams';
+    protected static string $featureSlug = 'show_ingestion_logs';
     protected static ?string $model = ShowIngestionLog::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-arrow-down-tray'; }

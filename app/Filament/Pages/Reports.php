@@ -15,7 +15,8 @@ class Reports extends Page
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'reporting';
+    protected static string $moduleSlug  = 'reporting';
+    protected static string $featureSlug = 'reports';
     protected static ?string $title = 'Reports & Analytics';
 
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-chart-bar'; }

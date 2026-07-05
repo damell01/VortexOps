@@ -26,7 +26,8 @@ class WeeklyPayoutBatchResource extends Resource
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'payouts';
+    protected static string $moduleSlug  = 'payouts';
+    protected static string $featureSlug = 'weekly_pay_runs';
 
     protected static ?string $model = WeeklyPayoutBatch::class;
 

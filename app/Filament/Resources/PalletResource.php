@@ -35,7 +35,8 @@ class PalletResource extends Resource
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'purchasing';
+    protected static string $moduleSlug  = 'purchasing';
+    protected static string $featureSlug = 'pallets';
 
     protected static ?string $model = Pallet::class;
 

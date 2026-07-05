@@ -22,7 +22,8 @@ class InventoryMovementResource extends Resource
 {
     use HasModuleAccess;
 
-    protected static string $moduleSlug = 'inventory';
+    protected static string $moduleSlug  = 'inventory';
+    protected static string $featureSlug = 'inventory_movements';
 
     protected static ?string $model = InventoryMovement::class;
 

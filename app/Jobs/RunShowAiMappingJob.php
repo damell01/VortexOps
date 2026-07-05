@@ -156,8 +156,8 @@ PROMPT;
 
     private function callOllama(string $prompt): string
     {
-        $baseUrl = config('services.ollama.url', env('OLLAMA_BASE_URL', 'http://ollama:11434'));
-        $model   = config('services.ollama.model', env('OLLAMA_MODEL', 'llama3.2:3b'));
+        $baseUrl = config('services.ollama.url');
+        $model   = config('services.ollama.model');
 
         $response = Http::timeout(60)->post("{$baseUrl}/api/generate", [
             'model'  => $model,
@@ -180,7 +180,11 @@ PROMPT;
         $mappedCount = 0;
         $notes    = [];
 
-        return DB::transaction(function () use ($show, $mapped, &$created, &$skipped, &$mappedCount, &$notes) {
+        // Bulk-load all matched items before entering the transaction to avoid N+1 under lock
+        $matchedItemIds = collect($mapped)->pluck('matched_item_id')->filter()->unique()->values()->toArray();
+        $itemsById      = InventoryItem::whereIn('id', $matchedItemIds)->get()->keyBy('id');
+
+        return DB::transaction(function () use ($show, $mapped, $itemsById, &$created, &$skipped, &$mappedCount, &$notes) {
             $defaultLocation = $show->defaultInventoryLocation();
             $primaryStreamer  = $show->streamers->first();
 
@@ -204,7 +208,7 @@ PROMPT;
                         'ai_reason'         => $line['ai_reason'],
                     ]);
                 } else {
-                    $item     = $line['matched_item_id'] ? InventoryItem::find($line['matched_item_id']) : null;
+                    $item     = $line['matched_item_id'] ? ($itemsById->get($line['matched_item_id']) ?? InventoryItem::find($line['matched_item_id'])) : null;
                     $unitCost = $item ? (float) ($item->average_cost ?: $item->unit_cost) : 0;
                     $qty      = (float) $line['quantity'];
 

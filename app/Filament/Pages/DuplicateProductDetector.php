@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\DeductionRequestLine;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
@@ -12,6 +13,7 @@ use App\Support\AdminModules;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class DuplicateProductDetector extends Page
 {
@@ -118,6 +120,7 @@ class DuplicateProductDetector extends Page
                 InventoryLot::where('product_id', $drop->id)->update(['product_id' => $keep->id]);
                 InventoryMovement::where('inventory_item_id', $drop->id)->update(['inventory_item_id' => $keep->id]);
                 ProductIdentity::where('product_id', $drop->id)->update(['product_id' => $keep->id]);
+                DeductionRequestLine::where('inventory_item_id', $drop->id)->update(['inventory_item_id' => $keep->id]);
 
                 // Consolidate stock rows: add drop quantities into keep rows at matching locations,
                 // then delete the drop rows to avoid violating the UNIQUE(inventory_item_id, location) constraint.
@@ -150,6 +153,12 @@ class DuplicateProductDetector extends Page
                 $drop->delete();
             });
         } catch (\Throwable $e) {
+            Log::error('Product merge failed', [
+                'keep_id' => $keepId,
+                'drop_id' => $dropId,
+                'error'   => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
             $this->flashError = 'Merge failed: ' . $e->getMessage();
             return;
         }

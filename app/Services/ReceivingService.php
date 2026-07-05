@@ -292,10 +292,17 @@ class ReceivingService
      */
     private function creditStock(Product $item, InventoryLocation $location, float $qty, float $unitCost, InventoryCase $case, PalletLine $line): void
     {
-        $stock = InventoryStock::firstOrCreate(
-            ['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id],
-            ['quantity' => 0]
-        );
+        try {
+            $stock = InventoryStock::firstOrCreate(
+                ['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id],
+                ['quantity' => 0]
+            );
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Concurrent receive beat us to the INSERT; re-fetch the now-existing row
+            $stock = InventoryStock::where('inventory_item_id', $item->id)
+                ->where('inventory_location_id', $location->id)
+                ->firstOrFail();
+        }
 
         $stock->increment('quantity', $qty);
 

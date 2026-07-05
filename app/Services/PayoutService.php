@@ -9,6 +9,7 @@ use App\Models\WeeklyPayoutBatch;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class PayoutService
 {
@@ -27,10 +28,10 @@ class PayoutService
             ->get()
             ->keyBy('streamer_id');
 
-        foreach ($streamers as $streamer) {
+        foreach ($streamers as $index => $streamer) {
             $existing = $existingPayouts->get($streamer->id);
 
-            $result = $this->computeStreamerPayout($streamer, $show, $streamers->count());
+            $result = $this->computeStreamerPayout($streamer, $show, $streamers->count(), $index === 0);
 
             $payout = $existing
                 ? $existing->fill($result)
@@ -46,13 +47,17 @@ class PayoutService
         return $payouts;
     }
 
-    private function computeStreamerPayout(Streamer $streamer, Show $show, int $streamerCount): array
+    private function computeStreamerPayout(Streamer $streamer, Show $show, int $streamerCount, bool $isPrimary = false): array
     {
         $netRevenue    = (float) $show->whatnot_net;
         $grossRevenue  = (float) $show->gross_revenue;
         $tips          = (float) $show->tips;
         $streamerShare = $streamerCount > 1 ? $netRevenue / $streamerCount : $netRevenue;
         $tipShare      = $streamerCount > 0 ? round($tips / $streamerCount, 2) : 0;
+        // Give any sub-cent rounding remainder to the primary streamer (e.g. $10 ÷ 3 = $3.33×3 = $9.99; primary gets $3.34)
+        if ($isPrimary && $streamerCount > 1 && $tips > 0) {
+            $tipShare = round($tips - round($tips / $streamerCount, 2) * ($streamerCount - 1), 2);
+        }
 
         $calculatedPayout = 0;
         $calculationNotes = '';
@@ -84,7 +89,13 @@ class PayoutService
                 break;
 
             case 'hourly':
-                $actualHours      = $hours > 0 ? $hours : 1;
+                $actualHours = $hours > 0 ? $hours : 1;
+                if ($hours <= 0) {
+                    Log::warning('PayoutService: show_duration is 0 or missing; defaulting to 1 hour for hourly streamer', [
+                        'show_id'     => $show->id,
+                        'streamer_id' => $streamer->id,
+                    ]);
+                }
                 $calculatedPayout = round((float) $streamer->hourly_rate * $actualHours, 2);
                 $durationNote     = $hours > 0 ? "{$actualHours}hrs" : "1hr (show_duration missing)";
                 $calculationNotes = "Hourly rate \${$streamer->hourly_rate}/hr × {$durationNote}";
@@ -351,11 +362,12 @@ class PayoutService
 
     public function finalizeBatch(WeeklyPayoutBatch $batch): void
     {
-        if ($batch->status !== 'draft') {
-            throw new \RuntimeException('Only draft batches can be finalized.');
-        }
-
         DB::transaction(function () use ($batch) {
+            $locked = WeeklyPayoutBatch::lockForUpdate()->findOrFail($batch->id);
+            if ($locked->status !== 'draft') {
+                throw new \RuntimeException('Only draft batches can be finalized.');
+            }
+
             $this->applyLoanRepayments($batch);
 
             $batch->recalculateTotal();
@@ -374,6 +386,11 @@ class PayoutService
     public function markBatchPaid(WeeklyPayoutBatch $batch): void
     {
         DB::transaction(function () use ($batch) {
+            $locked = WeeklyPayoutBatch::lockForUpdate()->findOrFail($batch->id);
+            if ($locked->status === 'paid') {
+                return;
+            }
+
             $batch->update(['status' => 'paid']);
             $batch->payouts()->where('status', '!=', 'paid')->with('streamer')->get()
                 ->each(function (Payout $payout) {

@@ -14,24 +14,43 @@ class DefaultDataSeeder extends Seeder
 {
     public function run(): void
     {
-        $adminRole    = Role::firstOrCreate(['name' => 'admin',    'guard_name' => 'web']);
-        $streamerRole = Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
+        $adminRole      = Role::firstOrCreate(['name' => 'admin',       'guard_name' => 'web']);
+        $superAdminRole = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
 
+        // Default admin account (dev/demo use — change password in production)
         $admin = User::firstOrCreate(
             ['email' => 'admin@vortexbreaks.com'],
             [
-                'name' => 'VortexOps Admin',
-                'password' => Hash::make('password'),
+                'name'              => 'VortexOps Admin',
+                'password'          => Hash::make('password'),
                 'email_verified_at' => now(),
             ]
         );
         $admin->syncRoles([$adminRole]);
 
+        // Owner account — driven by APP_OWNER_EMAIL so it's always correct in production
+        $ownerEmail = config('app.owner_email');
+        if ($ownerEmail && $ownerEmail !== 'admin@vortexbreaks.com') {
+            $owner = User::firstOrCreate(
+                ['email' => $ownerEmail],
+                [
+                    'name'              => 'Owner',
+                    'password'          => Hash::make(\Illuminate\Support\Str::random(32)),
+                    'email_verified_at' => now(),
+                ]
+            );
+            $owner->syncRoles([$superAdminRole]);
+
+            $this->command->info("  Owner account: {$ownerEmail} (super_admin role)");
+            $this->command->warn('  ⚠  Set the owner password via the password-reset link or php artisan tinker.');
+        }
+
         $locations = [
-            ['name' => 'Main Storage', 'type' => 'main_storage'],
+            ['name' => 'Main Storage',       'type' => 'main_storage'],
             ['name' => 'Returned Inventory', 'type' => 'returned'],
-            ['name' => 'Damaged Inventory', 'type' => 'damaged'],
-            ['name' => 'Fulfillment Area', 'type' => 'fulfillment'],
+            ['name' => 'Damaged Inventory',  'type' => 'damaged'],
+            ['name' => 'Fulfillment Area',   'type' => 'fulfillment'],
         ];
 
         foreach ($locations as $loc) {
@@ -48,7 +67,7 @@ class DefaultDataSeeder extends Seeder
 
         Setting::firstOrCreate(
             ['key' => 'enabled_admin_modules'],
-            ['value' => json_encode(['streams', 'payouts', 'inventory', 'purchasing', 'operations'])]
+            ['value' => json_encode(['streams', 'payouts', 'inventory', 'purchasing', 'operations', 'reporting'])]
         );
     }
 }

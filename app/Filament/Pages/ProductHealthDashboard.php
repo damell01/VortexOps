@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Models\Product;
 use App\Models\ProductIdentity;
 use App\Models\ReceivingSession;
@@ -11,6 +12,9 @@ use Illuminate\Support\Facades\DB;
 
 class ProductHealthDashboard extends Page
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'purchasing';
     protected static ?string $title = 'Catalog Intelligence';
     protected static ?string $navigationLabel = 'Catalog Intelligence';
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar-square';
@@ -19,12 +23,6 @@ class ProductHealthDashboard extends Page
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
         return AdminModules::navigationGroupFor('purchasing');
-    }
-
-    public static function canAccess(): bool
-    {
-        $user = auth()->user();
-        return ($user?->isAdmin() || $user?->isOwner()) && AdminModules::isEnabled('purchasing');
     }
 
     public function getView(): string

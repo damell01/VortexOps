@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Models\DeductionRequestLine;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
@@ -17,6 +18,9 @@ use Illuminate\Support\Facades\Log;
 
 class DuplicateProductDetector extends Page
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'purchasing';
     protected static ?string $title = 'Duplicate Detector';
     protected static ?string $navigationLabel = 'Duplicate Detector';
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-duplicate';
@@ -25,12 +29,6 @@ class DuplicateProductDetector extends Page
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
         return AdminModules::navigationGroupFor('purchasing');
-    }
-
-    public static function canAccess(): bool
-    {
-        $user = auth()->user();
-        return ($user?->isAdmin() || $user?->isOwner()) && AdminModules::isEnabled('purchasing');
     }
 
     public function getView(): string

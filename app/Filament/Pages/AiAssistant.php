@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
 use App\Models\Pallet;
@@ -16,6 +17,9 @@ use Illuminate\Support\Facades\Http;
 
 class AiAssistant extends Page
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'ai';
     protected static ?string $title = 'AI Assistant';
 
     public static function getNavigationGroup(): string|\UnitEnum|null
@@ -31,12 +35,6 @@ class AiAssistant extends Page
     public static function getNavigationSort(): ?int
     {
         return 1;
-    }
-
-    public static function canAccess(): bool
-    {
-        $user = auth()->user();
-        return (($user?->isAdmin() || $user?->isOwner()) ?? false) && AdminModules::isEnabled('ai');
     }
 
     public function getView(): string

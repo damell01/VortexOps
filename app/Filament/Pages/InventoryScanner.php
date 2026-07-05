@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
@@ -14,6 +15,9 @@ use RuntimeException;
 
 class InventoryScanner extends Page
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'inventory';
     protected static ?string $title = 'Inventory Scanner';
 
     public static function getNavigationGroup(): string|\UnitEnum|null
@@ -29,12 +33,6 @@ class InventoryScanner extends Page
     public static function getNavigationSort(): ?int
     {
         return 99;
-    }
-
-    public static function canAccess(): bool
-    {
-        $user = auth()->user();
-        return (($user?->isAdmin() || $user?->isOwner()) ?? false) && AdminModules::isEnabled('inventory');
     }
 
     public function getView(): string

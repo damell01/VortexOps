@@ -11,6 +11,11 @@ trait HasModuleAccess
         return AdminModules::isEnabled(static::$moduleSlug) && static::passesModuleAccessCheck();
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return AdminModules::isEnabled(static::$moduleSlug);
+    }
+
     protected static function passesModuleAccessCheck(): bool
     {
         $user = auth()->user();

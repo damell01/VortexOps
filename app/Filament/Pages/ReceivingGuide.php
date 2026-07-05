@@ -2,11 +2,15 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Support\AdminModules;
 use Filament\Pages\Page;
 
 class ReceivingGuide extends Page
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'purchasing';
     protected static ?string $title = 'Receiving Guide';
     protected static ?string $navigationLabel = 'How It Works';
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-academic-cap';
@@ -15,12 +19,6 @@ class ReceivingGuide extends Page
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
         return AdminModules::navigationGroupFor('purchasing');
-    }
-
-    public static function canAccess(): bool
-    {
-        $user = auth()->user();
-        return ($user?->isAdmin() || $user?->isOwner()) && AdminModules::isEnabled('purchasing');
     }
 
     public function getView(): string

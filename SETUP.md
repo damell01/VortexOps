@@ -24,12 +24,13 @@ Everything you need: local dev, production VPS from scratch, CI/CD, SSL, AI, and
 3. [GitHub CI/CD secrets](#3-github-cicd-secrets)
 4. [SSL with Nginx](#4-ssl-with-nginx)
 5. [AI models (Ollama)](#5-ai-models-ollama)
-6. [Whatnot scraper](#6-whatnot-scraper)
-7. [Environment variables reference](#7-environment-variables-reference)
-8. [Common commands](#8-common-commands)
-9. [Default accounts](#9-default-accounts)
-10. [Updating the app](#10-updating-the-app)
-11. [Troubleshooting](#11-troubleshooting)
+6. [Module system — showing and hiding features](#6-module-system--showing-and-hiding-features)
+7. [Whatnot scraper](#7-whatnot-scraper)
+8. [Environment variables reference](#8-environment-variables-reference)
+9. [Common commands](#9-common-commands)
+10. [Default accounts](#10-default-accounts)
+11. [Updating the app](#11-updating-the-app)
+12. [Troubleshooting](#12-troubleshooting)
 
 ---
 
@@ -339,7 +340,75 @@ Just don't use `--profile ai`. The `ai-worker` service always runs but simply wo
 
 ---
 
-## 6. Whatnot scraper
+## 6. Module system — showing and hiding features
+
+Every feature area is a toggleable module. Disabling a module removes it from navigation **and** blocks its routes — no half-visible pages.
+
+### Toggle modules in the UI
+
+Log in as the owner account (`APP_OWNER_EMAIL`), go to **Settings**, and scroll to the **Modules** section. Flip the toggles and click Save. Changes take effect on the next page load.
+
+> Only the owner account can see the module toggles. Admins see the Settings page but not the module section.
+
+### Available modules
+
+| Module slug | What it controls |
+|---|---|
+| `streams` | Shows, Deduction Requests, Show Ingestion Logs |
+| `payouts` | Payouts, Weekly Pay Runs |
+| `inventory` | Inventory Items, Locations, Stock Levels, Movement Log, Scanner |
+| `purchasing` | Vendors, Pallets, Receiving Sessions, Receiving Analytics, Catalog Intelligence, Duplicate Detector, Receiving Guide |
+| `operations` | Streamers, Streamer Loans, Whatnot Channels, Feedback Tickets |
+| `reporting` | Reports & Analytics page |
+| `ai` | AI Assistant page |
+| `timekeeping` | Timekeeping page |
+| `projects` | Project Workspace (advanced) |
+| `reviews` | Review & Feedback Portal (advanced) |
+
+Default enabled on a fresh install: `streams`, `payouts`, `inventory`, `purchasing`, `operations`, `reporting`.
+
+### Toggle modules from artisan (scripted)
+
+```bash
+docker compose exec app php artisan tinker
+
+# Enable a module:
+>>> App\Models\Setting::set('enabled_admin_modules', json_encode([
+...     'streams', 'payouts', 'inventory', 'purchasing', 'operations', 'reporting', 'ai'
+... ]));
+
+# Check what's enabled:
+>>> App\Support\AdminModules::enabledSlugs();
+```
+
+### How modules are enforced in code
+
+Every Resource and Page declares which module it belongs to:
+
+```php
+// In a Resource:
+use App\Filament\Concerns\HasModuleAccess;
+
+class ShowResource extends Resource
+{
+    use HasModuleAccess;
+    protected static string $moduleSlug = 'streams';
+    // canAccess() and shouldRegisterNavigation() are handled by the trait
+}
+
+// In a Page:
+class Reports extends Page
+{
+    use HasModuleAccess;
+    protected static string $moduleSlug = 'reporting';
+}
+```
+
+The `HasModuleAccess` trait provides `canAccess()` (blocks route access) and `shouldRegisterNavigation()` (hides nav item). Both gates are required — some Filament versions only respect one.
+
+---
+
+## 7. Whatnot scraper
 
 The Whatnot scraper imports your show history from the Whatnot seller dashboard using Playwright (browser automation). It runs as a Node.js script **inside the app container** — Node.js and Chromium are baked into the Docker image.
 
@@ -378,7 +447,7 @@ The scheduler runs `whatnot:import` automatically via the `scheduler` Docker ser
 
 ---
 
-## 7. Environment variables reference
+## 8. Environment variables reference
 
 ### Core app
 
@@ -453,7 +522,7 @@ The scheduler runs `whatnot:import` automatically via the `scheduler` Docker ser
 
 ---
 
-## 8. Common commands
+## 9. Common commands
 
 ### Docker (from `/opt/vortexops`)
 
@@ -543,23 +612,42 @@ php artisan test --parallel
 
 ---
 
-## 9. Default accounts
+## 10. Default accounts
 
 Created by `php artisan db:seed` (seeders: `DefaultDataSeeder` + `SuperAdminSeeder`):
 
-| Role | Email | Password | Access |
+| Account | Email | Password | Role |
 |---|---|---|---|
-| Admin | `admin@vortexbreaks.com` | `password` | Full admin access |
-| Super Admin | `dev@vortexbreaks.com` | `devpassword` | Everything + role assignment |
+| Owner | from `APP_OWNER_EMAIL` | random (see below) | `super_admin` |
+| Admin (demo) | `admin@vortexbreaks.com` | `password` | `admin` |
+| Super Admin (dev) | `dev@vortexbreaks.com` | `devpassword` | `super_admin` |
 
-> **Change these passwords immediately in production.** Via Settings → Users, or:
-> ```bash
-> docker compose exec app php artisan tinker
-> # In tinker:
-> App\Models\User::where('email', 'admin@vortexbreaks.com')
->     ->first()
->     ->update(['password' => bcrypt('your-new-password')]);
-> ```
+### Owner account
+
+The `DefaultDataSeeder` automatically creates an account for whatever email you set in `APP_OWNER_EMAIL`. It gets the `super_admin` role and therefore:
+- Can access all admin pages
+- Sees the **Module Toggles** section in Settings (hidden from regular admins)
+- Is identified as the owner in all owner-gated UI elements
+
+The owner account is created with a **random password** (unusable until reset). Set it immediately after the first seed:
+
+```bash
+# Use the built-in password reset (easiest):
+# Visit /admin/login → "Forgot password" → enter APP_OWNER_EMAIL
+
+# Or set it directly via artisan:
+docker compose exec app php artisan tinker
+>>> App\Models\User::where('email', 'dbellcreations@gmail.com')->first()
+...     ->update(['password' => bcrypt('your-strong-password')]);
+```
+
+### Change the demo account passwords
+
+```bash
+docker compose exec app php artisan tinker
+>>> App\Models\User::where('email', 'admin@vortexbreaks.com')->first()
+...     ->update(['password' => bcrypt('your-new-password')]);
+```
 
 Demo data from seeder:
 - 3 streamers with different payout types
@@ -569,7 +657,7 @@ Demo data from seeder:
 
 ---
 
-## 10. Updating the app
+## 11. Updating the app
 
 ### Normal workflow (after CI/CD is set up)
 
@@ -604,7 +692,7 @@ docker compose exec app php artisan up
 
 ---
 
-## 11. Troubleshooting
+## 12. Troubleshooting
 
 ### App won't start / shows a 500 error
 

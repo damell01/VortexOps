@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\HasModuleAccess;
 use App\Models\TimeEntry;
 use App\Models\User;
 use App\Support\AdminModules;
@@ -13,6 +14,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class Timekeeping extends Page
 {
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'timekeeping';
     protected static ?string $title = 'Timekeeping';
 
     public static function getNavigationGroup(): string|\UnitEnum|null
@@ -28,17 +32,6 @@ class Timekeeping extends Page
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-clock';
-    }
-
-    public static function canAccess(): bool
-    {
-        $user = auth()->user();
-        return (($user?->isAdmin() || $user?->isOwner()) ?? false) && AdminModules::isEnabled('timekeeping');
-    }
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return AdminModules::isEnabled('timekeeping');
     }
 
     public function getView(): string

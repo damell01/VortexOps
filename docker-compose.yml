@@ -3,7 +3,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: vortexops:local
+    # APP_IMAGE defaults to vortexops:local for local builds.
+    # On the VPS set APP_IMAGE=ghcr.io/damell01/vortexops:latest in .env.docker
+    # so docker compose pull/up fetch from GHCR without needing source code.
+    image: ${APP_IMAGE:-vortexops:local}
     restart: unless-stopped
     env_file:
       - .env.docker
@@ -28,6 +31,7 @@ services:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
       OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-moondream}
+      PLAYWRIGHT_BROWSERS_PATH: /opt/pw-browsers
       RUN_MIGRATIONS: ${RUN_MIGRATIONS:-true}
       WAIT_FOR_DB: "true"
     depends_on:
@@ -47,7 +51,7 @@ services:
       start_period: 60s
 
   worker:
-    image: vortexops:local
+    image: ${APP_IMAGE:-vortexops:local}
     restart: unless-stopped
     env_file:
       - .env.docker
@@ -72,6 +76,7 @@ services:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
       OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-moondream}
+      PLAYWRIGHT_BROWSERS_PATH: /opt/pw-browsers
       RUN_MIGRATIONS: "false"
       WAIT_FOR_DB: "true"
     depends_on:
@@ -80,7 +85,7 @@ services:
       redis:
         condition: service_healthy
       app:
-        condition: service_started
+        condition: service_healthy
     command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--timeout=120", "--max-jobs=500", "--max-time=3600"]
     volumes:
       - app-storage:/var/www/html/storage
@@ -93,9 +98,9 @@ services:
       MYSQL_DATABASE: ${DB_DATABASE:-vortexops}
       MYSQL_USER: ${DB_USERNAME:-vortexops}
       MYSQL_PASSWORD: ${DB_PASSWORD:-change-me}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpass}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-change-me-root}
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_ROOT_PASSWORD:-rootpass}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_ROOT_PASSWORD:-change-me-root}"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -116,7 +121,7 @@ services:
       - redis-data:/data
 
   scheduler:
-    image: vortexops:local
+    image: ${APP_IMAGE:-vortexops:local}
     restart: unless-stopped
     env_file:
       - .env.docker
@@ -146,14 +151,14 @@ services:
       redis:
         condition: service_healthy
       app:
-        condition: service_started
+        condition: service_healthy
     command: >
       sh -c "while true; do php artisan schedule:run --no-interaction; sleep 60; done"
     volumes:
       - app-storage:/var/www/html/storage
 
   ai-worker:
-    image: vortexops:local
+    image: ${APP_IMAGE:-vortexops:local}
     restart: unless-stopped
     env_file:
       - .env.docker
@@ -178,6 +183,7 @@ services:
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
       OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-moondream}
+      PLAYWRIGHT_BROWSERS_PATH: /opt/pw-browsers
       RUN_MIGRATIONS: "false"
       WAIT_FOR_DB: "true"
     depends_on:
@@ -186,7 +192,7 @@ services:
       redis:
         condition: service_healthy
       app:
-        condition: service_started
+        condition: service_healthy
     command: ["php", "artisan", "queue:work", "--queue=ai", "--sleep=5", "--tries=1", "--timeout=300"]
     volumes:
       - app-storage:/var/www/html/storage
@@ -195,14 +201,17 @@ services:
     image: ollama/ollama:latest
     profiles: ["ai"]
     restart: unless-stopped
-    # Auto-pull model on first start; OLLAMA_MODEL can override via .env.docker
+    # Auto-pull both the text model and the vision model on first start.
+    # Both are needed: OLLAMA_MODEL for general AI, OLLAMA_VISION_MODEL for packing slip scanning.
     entrypoint: >
       sh -c "ollama serve &
-             sleep 3 &&
+             sleep 5 &&
              ollama pull $${OLLAMA_MODEL:-gemma2:2b} &&
+             ollama pull $${OLLAMA_VISION_MODEL:-moondream} &&
              wait"
     environment:
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma2:2b}
+      OLLAMA_VISION_MODEL: ${OLLAMA_VISION_MODEL:-moondream}
     volumes:
       - ollama-data:/root/.ollama
 

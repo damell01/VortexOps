@@ -49,6 +49,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && sed -ri "s!/var/www/html!${APACHE_DOCUMENT_ROOT}!g" /etc/apache2/sites-available/*.conf /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf \
     && rm -rf /var/lib/apt/lists/*
 
+# Node.js 22 + Playwright + Chromium — required for the Whatnot scraper
+# PLAYWRIGHT_BROWSERS_PATH is baked in so the scraper finds Chromium without
+# needing the env var set at runtime (it's also set in docker-compose.yml).
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && npm install -g playwright@1.50.1 \
+    && npx playwright install chromium --with-deps \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY --from=vendor /app/vendor ./vendor
 COPY . .

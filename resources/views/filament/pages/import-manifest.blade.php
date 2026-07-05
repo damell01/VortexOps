@@ -255,8 +255,14 @@
                     </div>
 
                     {{-- Desktop table layout (hidden on mobile) --}}
-                    <div class="hidden sm:block space-y-2">
-                        <div class="grid grid-cols-12 gap-2 px-1 text-[11px] font-medium uppercase text-gray-400">
+                    @php
+                        $totalCases = collect($parsedLines)->sum(fn ($l) => (int) ($l['case_count'] ?? 0));
+                        $totalCost  = collect($parsedLines)->sum(fn ($l) => (float) ($l['unit_cost'] ?? 0) * (int) ($l['case_count'] ?? 0));
+                    @endphp
+                    <div class="hidden sm:block rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                        {{-- Header --}}
+                        <div class="grid grid-cols-12 gap-2 px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700
+                                    text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                             <div class="col-span-5">Description</div>
                             <div class="col-span-2">Cases</div>
                             <div class="col-span-2">Unit Cost</div>
@@ -265,13 +271,17 @@
                         </div>
 
                         @foreach ($parsedLines as $i => $line)
-                            <div class="grid grid-cols-12 gap-2 items-center">
+                            <div class="grid grid-cols-12 gap-2 items-center px-4 py-2.5
+                                        border-b border-gray-100 dark:border-gray-800 last:border-b-0
+                                        {{ $i % 2 === 1 ? 'bg-gray-50/60 dark:bg-gray-800/30' : '' }}
+                                        hover:bg-violet-50/40 dark:hover:bg-violet-900/10 transition-colors">
                                 <div class="col-span-5">
                                     <input
                                         wire:model="parsedLines.{{ $i }}.description"
                                         type="text"
                                         placeholder="Item description"
-                                        class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 {{ trim($line['description']) === '' ? 'border-amber-300 dark:border-amber-600' : '' }}"
+                                        class="w-full rounded-lg border bg-white dark:bg-gray-900 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500
+                                            {{ trim($line['description']) === '' ? 'border-amber-300 dark:border-amber-600' : 'border-gray-200 dark:border-gray-700' }}"
                                     />
                                 </div>
                                 <div class="col-span-2">
@@ -280,7 +290,7 @@
                                         type="number"
                                         min="1"
                                         placeholder="1"
-                                        class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                        class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                                     />
                                 </div>
                                 <div class="col-span-2">
@@ -288,7 +298,7 @@
                                         wire:model="parsedLines.{{ $i }}.unit_cost"
                                         type="text"
                                         placeholder="0.00"
-                                        class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                        class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                                     />
                                 </div>
                                 <div class="col-span-2">
@@ -311,6 +321,23 @@
                                 </div>
                             </div>
                         @endforeach
+
+                        {{-- Totals footer --}}
+                        @if (count($parsedLines) > 0)
+                            <div class="grid grid-cols-12 gap-2 items-center px-4 py-2.5
+                                        bg-gray-50 dark:bg-gray-800 border-t-2 border-gray-200 dark:border-gray-700">
+                                <div class="col-span-5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                    {{ count($parsedLines) }} line{{ count($parsedLines) !== 1 ? 's' : '' }}
+                                </div>
+                                <div class="col-span-2 text-sm font-bold tabular-nums text-gray-800 dark:text-gray-200">
+                                    {{ $totalCases }}
+                                </div>
+                                <div class="col-span-2 text-sm font-bold tabular-nums text-gray-800 dark:text-gray-200">
+                                    ${{ number_format($totalCost, 2) }}
+                                </div>
+                                <div class="col-span-3"></div>
+                            </div>
+                        @endif
                     </div>
 
                     <button

@@ -1,6 +1,6 @@
 # VortexOps — Setup & Operations Guide
 
-Everything you need to get VortexOps running — from a fresh laptop or a fresh VPS.
+Everything you need: local dev, production VPS from scratch, CI/CD, SSL, AI, and ongoing operations.
 
 ---
 
@@ -8,128 +8,389 @@ Everything you need to get VortexOps running — from a fresh laptop or a fresh 
 
 | What | Command |
 |---|---|
-| Local dev (one command) | `composer setup && composer dev` |
+| Local dev (one command) | `composer install && cp .env.example .env && php artisan key:generate && php artisan migrate --seed && php artisan serve` |
 | Run tests | `php artisan test` |
-| Docker (production-like) | `docker compose up -d` |
 | VPS first-time setup | `sudo bash deploy/vps-first-time.sh` |
-| Deploy (automatic) | Push to `main` branch |
+| Nginx + SSL setup | `sudo bash deploy/vps-setup.sh` |
+| Deploy (automatic after setup) | Push to `main` branch |
+| Pull latest on VPS manually | `cd /opt/vortexops && docker compose pull && docker compose up -d --remove-orphans` |
 
 ---
 
 ## Table of contents
 
-1. [Requirements](#1-requirements)
-2. [Local development](#2-local-development)
-3. [Environment variables reference](#3-environment-variables-reference)
-4. [Production deployment (Docker on VPS)](#4-production-deployment-docker-on-vps)
+1. [Local development](#1-local-development)
+2. [Production VPS setup — full walkthrough](#2-production-vps-setup--full-walkthrough)
+3. [GitHub CI/CD secrets](#3-github-cicd-secrets)
+4. [SSL with Nginx](#4-ssl-with-nginx)
 5. [AI models (Ollama)](#5-ai-models-ollama)
-6. [GitHub CI/CD secrets](#6-github-cicd-secrets)
-7. [Barcode scanners](#7-barcode-scanners)
-8. [Whatnot scraper](#8-whatnot-scraper)
-9. [Common commands](#9-common-commands)
-10. [Default accounts](#10-default-accounts)
-11. [Updating the app](#11-updating-the-app)
-12. [Troubleshooting](#12-troubleshooting)
+6. [Whatnot scraper](#6-whatnot-scraper)
+7. [Environment variables reference](#7-environment-variables-reference)
+8. [Common commands](#8-common-commands)
+9. [Default accounts](#9-default-accounts)
+10. [Updating the app](#10-updating-the-app)
+11. [Troubleshooting](#11-troubleshooting)
 
 ---
 
-## 1. Requirements
+## 1. Local development
 
-### Local development
+### Requirements
 
-| Requirement | Version | Notes |
-|---|---|---|
-| PHP | 8.3+ | With extensions: bcmath, exif, gd, intl, pcntl, pdo_mysql, pdo_sqlite, zip, redis |
-| Composer | 2.x | `brew install composer` or https://getcomposer.org |
-| Node.js | 22.x | `brew install node` or https://nodejs.org |
-| MySQL | 8.4 (or SQLite for dev) | SQLite works out of the box — no install needed |
-| Redis | 7.x | `brew install redis` — needed for cache + session in production |
-| Ollama | Latest | https://ollama.com — needed only for AI features |
-
-### Production (Docker)
-
-| Requirement | Notes |
+| Requirement | Version |
 |---|---|
-| Ubuntu 22.04 or 24.04 VPS | 8 GB RAM minimum (16 GB recommended for 7B AI models) |
-| Docker 24+ | Installed by `deploy/vps-first-time.sh` |
-| Docker Compose v2 | Included with modern Docker |
-| Open ports | 80 (HTTP), 443 (HTTPS), 22 (SSH) |
+| PHP | 8.3+ with bcmath, exif, gd, intl, pcntl, pdo_mysql, pdo_sqlite, zip, redis |
+| Composer | 2.x |
+| Node.js | 22.x |
+| MySQL | 8.4 (or SQLite — works out of the box for dev) |
+| Redis | 7.x (for cache/session; optional for dev) |
 
----
-
-## 2. Local development
-
-### One-command setup
+### Setup
 
 ```bash
 git clone git@github.com:damell01/VortexOps.git
 cd VortexOps
-composer setup
-```
 
-`composer setup` runs: `composer install` → copy `.env` → generate app key → migrate → `npm install` → `npm run build`.
-
-### Start everything
-
-```bash
-composer dev
-```
-
-This starts 4 processes concurrently (requires the `concurrently` npm package, installed by `npm install`):
-
-| Process | What it does |
-|---|---|
-| `php artisan serve` | App at http://localhost:8000 |
-| `php artisan queue:listen --tries=1` | Queue worker (AI jobs, notifications) |
-| `php artisan pail` | Real-time log tail |
-| `npm run dev` | Vite hot-reload |
-
-### Manual setup (step by step)
-
-```bash
-# 1. Clone
-git clone git@github.com:damell01/VortexOps.git && cd VortexOps
-
-# 2. PHP dependencies
 composer install
-
-# 3. Environment
 cp .env.example .env
 php artisan key:generate
+php artisan migrate --seed    # uses SQLite by default — no MySQL needed
 
-# 4. Database (SQLite by default — no MySQL needed for dev)
-php artisan migrate --seed
-
-# 5. Frontend assets
 npm install
-npm run build          # or: npm run dev (for hot-reload)
+npm run build                 # or: npm run dev (Vite hot-reload)
+```
 
-# 6. Start the app
+### Start the app
+
+```bash
+# Terminal 1 — app server
 php artisan serve
 
-# 7. Queue worker (separate terminal — needed for AI jobs and notifications)
+# Terminal 2 — queue worker (needed for AI jobs and notifications)
 php artisan queue:work --sleep=3 --tries=3 --timeout=120
 
-# 8. Scheduler (optional — runs cron jobs locally)
-php artisan schedule:work
+# Terminal 3 — optional: log tail
+php artisan pail
 ```
 
 Open http://localhost:8000/admin
 
+Default credentials: `admin@vortexbreaks.com` / `password`
+
 ---
 
-## 3. Environment variables reference
+## 2. Production VPS setup — full walkthrough
+
+### What you need before starting
+
+- A VPS running **Ubuntu 22.04 or 24.04** (minimum 4 GB RAM; 8 GB recommended for AI models)
+- A domain name with an **A record pointed to your VPS IP**
+- SSH access to the VPS as root or a sudo user
+- This repository on GitHub (already the case)
+
+### Overview of the full setup flow
+
+```
+① SSH into VPS
+② Run vps-first-time.sh  →  Docker + app + database + migrations
+③ Run vps-setup.sh       →  Nginx + SSL certificate
+④ Add GitHub Secrets     →  Enables auto-deploy on every push to main
+⑤ Push to main           →  First CI/CD build → live update
+```
+
+---
+
+### Step 1 — SSH into your VPS
+
+```bash
+ssh root@YOUR_VPS_IP
+```
+
+---
+
+### Step 2 — Run the first-time setup script
+
+This script handles: Docker install, `/opt/vortexops/` directory, `.env.docker` file, firewall, image pull, and first migrations.
+
+**Option A — clone the repo on the VPS (recommended for first-time):**
+
+```bash
+git clone https://github.com/damell01/VortexOps.git /tmp/vortexops
+sudo bash /tmp/vortexops/deploy/vps-first-time.sh
+rm -rf /tmp/vortexops   # clean up — the VPS only needs /opt/vortexops after this
+```
+
+**Option B — download the script directly (if the repo is already public on main):**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/damell01/VortexOps/main/deploy/vps-first-time.sh \
+    | sudo bash
+```
+
+**What the script does:**
+1. Installs Docker Engine + Docker Compose
+2. Creates `/opt/vortexops/`
+3. Creates `/opt/vortexops/.env.docker` from a template and pauses so you can fill it in
+4. Configures the UFW firewall (allows SSH, HTTP, HTTPS)
+5. Generates `APP_KEY` automatically if you left it blank
+6. Pulls the Docker image from GHCR and starts all services
+7. Runs `php artisan migrate --force` and seeds default data
+8. Warms all caches
+
+**During the script, edit `.env.docker` when prompted:**
+
+```bash
+nano /opt/vortexops/.env.docker
+```
+
+Required values to change:
+
+| Variable | What to set |
+|---|---|
+| `APP_KEY` | Leave blank — the script generates it automatically |
+| `APP_URL` | `https://yourdomain.com` |
+| `APP_OWNER_EMAIL` | Your email (owner-only features gate on this) |
+| `DB_PASSWORD` | A strong random password |
+| `DB_ROOT_PASSWORD` | A different strong random password |
+| `WHATNOT_EMAIL` | Your Whatnot seller account email |
+| `WHATNOT_PASSWORD` | Your Whatnot account password |
+| `SCRAPER_API_TOKEN` | Any random string — used for internal API auth |
+
+Everything else has sensible defaults.
+
+**After the script finishes**, the app is running at `http://YOUR_VPS_IP:8080` — not HTTPS yet. That's next.
+
+---
+
+### Step 3 — Nginx + SSL
+
+Run the interactive SSL setup script. It asks for your domain, email, and deploy user, then installs Nginx and gets a Let's Encrypt certificate:
+
+```bash
+# Still on the VPS as root:
+sudo bash /tmp/vortexops/deploy/vps-setup.sh
+# (or clone the repo again if you deleted /tmp/vortexops)
+```
+
+It will prompt:
+- Your domain (e.g. `ops.vortexbreaks.com`)
+- Email for Let's Encrypt expiry alerts
+- Deploy user (usually `ubuntu` or `root`)
+
+After it completes, the app is live at **`https://yourdomain.com`**.
+
+Then update `.env.docker` with the HTTPS URL and restart:
+
+```bash
+sed -i 's|APP_URL=.*|APP_URL=https://yourdomain.com|' /opt/vortexops/.env.docker
+cd /opt/vortexops
+docker compose restart app worker scheduler ai-worker
+docker compose exec app php artisan optimize
+```
+
+> **Manual SSL setup?** See `deploy/nginx-ssl.md` for a detailed step-by-step without the script.
+
+---
+
+### Step 4 — GitHub Secrets (enables auto-deploy)
+
+Add these in **GitHub → your repo → Settings → Secrets and variables → Actions**:
+
+| Secret | Value | How to get it |
+|---|---|---|
+| `GHCR_PAT` | GitHub Personal Access Token | GitHub → Settings → Developer settings → Personal access tokens (classic) → New. Enable scopes: `write:packages`, `read:packages`, `delete:packages` |
+| `VPS_HOST` | Your VPS IP or domain | From your VPS provider |
+| `VPS_USER` | SSH username | `root` on most fresh VPS setups |
+| `VPS_SSH_KEY` | Private SSH key content | See below |
+
+**Generating an SSH deploy key:**
+
+```bash
+# On your local machine:
+ssh-keygen -t ed25519 -C "vortexops-deploy" -f ~/.ssh/vortexops_deploy
+
+# Add the public key to your VPS:
+ssh-copy-id -i ~/.ssh/vortexops_deploy.pub root@YOUR_VPS_IP
+
+# Copy the private key content into GitHub as VPS_SSH_KEY:
+cat ~/.ssh/vortexops_deploy
+```
+
+---
+
+### Step 5 — Push to main and verify CI/CD
+
+```bash
+# On your local machine:
+git push origin main
+```
+
+Go to **GitHub → Actions** and watch the deploy run. It takes 3–5 minutes. When it's green:
+
+1. Visit `https://yourdomain.com/admin` — app should be live
+2. Log in with `admin@vortexbreaks.com` / `password`
+3. **Immediately change the default passwords** (Settings → Users)
+
+From this point on, every push to `main` automatically builds, pushes the Docker image to GHCR, and redeploys to your VPS.
+
+---
+
+### What lives where on the VPS
+
+```
+/opt/vortexops/
+├── docker-compose.yml    ← pushed here automatically by CI/CD on every deploy
+├── .env.docker           ← created once manually; never overwritten by CI/CD
+```
+
+The Docker image comes from `ghcr.io/damell01/vortexops:latest` (GHCR). The VPS never needs the source code.
+
+---
+
+## 3. GitHub CI/CD secrets
+
+See [Step 4 above](#step-4--github-secrets-enables-auto-deploy) for the setup steps.
+
+### How CI/CD works
+
+| Event | What happens |
+|---|---|
+| Push to any branch | PHPUnit tests run (SQLite in-memory, ~30 sec) |
+| Push to `main` | Tests → Docker image built → pushed to GHCR → `docker-compose.yml` copied to VPS → `docker compose pull && up -d` → `migrate --force` → caches warmed |
+| Manual dispatch | Same as push to `main` (trigger from GitHub Actions tab) |
+
+---
+
+## 4. SSL with Nginx
+
+The automated path is `deploy/vps-setup.sh` (see Step 3 above). For manual control, see `deploy/nginx-ssl.md`.
+
+### SSL auto-renewal
+
+Let's Encrypt certs expire after 90 days. Certbot installs a systemd timer that renews automatically every 60 days.
+
+```bash
+# Confirm the renewal timer is active:
+sudo systemctl status certbot.timer
+
+# Test a dry-run renewal:
+sudo certbot renew --dry-run
+```
+
+### Check the Nginx config
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+---
+
+## 5. AI models (Ollama)
+
+VortexOps uses Ollama to run AI locally — no data sent to external APIs. Ollama is **optional**; the rest of the app works without it.
+
+### Enable Ollama (Docker)
+
+```bash
+cd /opt/vortexops
+docker compose --profile ai up -d ollama
+```
+
+The Ollama container auto-pulls both models on first start (configured in `docker-compose.yml`). You can also pull manually:
+
+```bash
+# Text model — AI chat + show title parsing + inventory mapping
+docker compose exec ollama ollama pull llama3.2:3b
+
+# Vision model — reads packing slip photos and PDFs
+docker compose exec ollama ollama pull moondream
+```
+
+### Check what's installed
+
+```bash
+docker compose exec ollama ollama list
+```
+
+### Test Ollama is reachable from the app
+
+```bash
+docker compose exec app curl -s http://ollama:11434/api/tags
+```
+
+Or go to **Settings → AI Assistant** in the app and click "Test Ollama".
+
+### RAM requirements
+
+| Setup | RAM needed |
+|---|---|
+| App stack only (no AI) | ~700 MB |
+| + `llama3.2:3b` (text AI) | +2 GB → ~2.7 GB total |
+| + `moondream` (vision, packing slips) | +1.5 GB → ~4.2 GB total |
+| + `llava:7b` (better vision quality) | +4.5 GB → ~7.2 GB total |
+
+**8 GB VPS**: run `llama3.2:3b` + `moondream` comfortably.
+**16 GB VPS**: run `llama3.2:3b` + `llava:7b` for best packing-slip quality.
+
+### Disable Ollama
+
+Just don't use `--profile ai`. The `ai-worker` service always runs but simply won't process AI jobs if Ollama isn't available — no errors in the main app.
+
+---
+
+## 6. Whatnot scraper
+
+The Whatnot scraper imports your show history from the Whatnot seller dashboard using Playwright (browser automation). It runs as a Node.js script **inside the app container** — Node.js and Chromium are baked into the Docker image.
+
+### Configuration
+
+Set these in `/opt/vortexops/.env.docker`:
+
+```env
+WHATNOT_EMAIL=your-seller@email.com
+WHATNOT_PASSWORD=yourpassword
+WHATNOT_LIMIT=50
+```
+
+### Running the scraper
+
+```bash
+# Import the last 50 shows (or WHATNOT_LIMIT):
+docker compose exec app php artisan whatnot:import
+
+# Import more:
+docker compose exec app php artisan whatnot:import --limit=100
+
+# Debug mode (saves screenshots to /tmp for troubleshooting):
+docker compose exec app php artisan whatnot:import --debug
+```
+
+The scheduler runs `whatnot:import` automatically via the `scheduler` Docker service.
+
+### Exit codes
+
+| Code | Meaning | Fix |
+|---|---|---|
+| 0 | Success | — |
+| 1 | Login failed or navigation error | Check `WHATNOT_EMAIL` / `WHATNOT_PASSWORD` |
+| 2 | Selector miss — Whatnot UI changed | Update `SELECTORS` object at the top of `scripts/whatnot-scraper.cjs` |
+
+---
+
+## 7. Environment variables reference
 
 ### Core app
 
 | Variable | Default | Description |
 |---|---|---|
 | `APP_NAME` | `VortexOps` | App name shown in UI |
-| `APP_KEY` | *(generated)* | Laravel encryption key — generate with `php artisan key:generate` |
+| `APP_KEY` | *(generated)* | Laravel encryption key |
 | `APP_URL` | `http://localhost` | Full URL including scheme — used in emails and redirects |
-| `APP_OWNER_EMAIL` | `dbellcreations@gmail.com` | Email for owner-only features (module toggles, balance widgets) |
+| `APP_OWNER_EMAIL` | `dbellcreations@gmail.com` | Owner email — gates module toggles and balance widgets |
 | `APP_ENV` | `local` | `local` for dev, `production` for VPS |
-| `APP_DEBUG` | `true` | Set to `false` in production |
+| `APP_DEBUG` | `true` | Always `false` in production |
+| `APP_IMAGE` | `vortexops:local` | Docker image to use — set to `ghcr.io/damell01/vortexops:latest` on VPS |
 
 ### Database
 
@@ -140,17 +401,17 @@ Open http://localhost:8000/admin
 | `DB_PORT` | `3306` | MySQL port |
 | `DB_DATABASE` | `vortexops` | Database name |
 | `DB_USERNAME` | `vortexops` | Database user |
-| `DB_PASSWORD` | `change-me` | **Change this in production** |
-| `DB_ROOT_PASSWORD` | `rootpass` | MySQL root password (Docker only) — **Change this** |
+| `DB_PASSWORD` | *(required)* | **Change this** — strong random password |
+| `DB_ROOT_PASSWORD` | *(required)* | MySQL root password (Docker only) — **different from DB_PASSWORD** |
 
 ### Queue, cache, sessions
 
 | Variable | Default | Description |
 |---|---|---|
-| `QUEUE_CONNECTION` | `database` | Always use `database` — jobs stored in MySQL |
-| `CACHE_STORE` | `redis` (prod) / `database` (dev) | Redis strongly recommended in production |
-| `SESSION_DRIVER` | `redis` (prod) / `database` (dev) | Redis strongly recommended in production |
-| `REDIS_HOST` | `redis` (Docker) / `127.0.0.1` (local) | Redis server |
+| `QUEUE_CONNECTION` | `database` | Always `database` — jobs stored in MySQL |
+| `CACHE_STORE` | `redis` | Redis required in production |
+| `SESSION_DRIVER` | `redis` | Redis required in production |
+| `REDIS_HOST` | `redis` (Docker) | Redis server hostname |
 | `REDIS_PORT` | `6379` | Redis port |
 | `REDIS_PASSWORD` | *(empty)* | Redis password if set |
 
@@ -158,16 +419,10 @@ Open http://localhost:8000/admin
 
 | Variable | Default | Description |
 |---|---|---|
-| `OLLAMA_BASE_URL` | `http://ollama:11434` (Docker) | Ollama server URL |
+| `OLLAMA_BASE_URL` | `http://ollama:11434` | Ollama server URL |
 | `OLLAMA_MODEL` | `llama3.2:3b` | Text model for AI chat and show mapping |
-| `OLLAMA_VISION_MODEL` | `moondream` | Vision model for reading packing slip photos/PDFs |
-| `OLLAMA_TIMEOUT` | `60` | HTTP timeout in seconds for Ollama requests |
-
-> **Model guide:**
-> - `llama3.2:3b` — 2 GB — text AI chat + show mapping. Works on 8 GB RAM.
-> - `moondream` — 1.5 GB — reads packing slip photos (required for manifest import).
-> - `llava:7b` — 4.5 GB — higher-quality packing slip reading. Needs 8–16 GB free RAM.
-> - Both can run simultaneously on 8 GB RAM (`llama3.2:3b` + `moondream` ≈ 3.5 GB).
+| `OLLAMA_VISION_MODEL` | `moondream` | Vision model for packing slip photos/PDFs |
+| `OLLAMA_TIMEOUT` | `60` | HTTP timeout in seconds |
 
 ### Whatnot scraper
 
@@ -175,442 +430,57 @@ Open http://localhost:8000/admin
 |---|---|---|
 | `WHATNOT_EMAIL` | *(required)* | Seller account email |
 | `WHATNOT_PASSWORD` | *(required)* | Seller account password |
-| `WHATNOT_IMPORT_LIMIT` | `50` | Max shows to fetch per run |
-| `SCRAPER_API_TOKEN` | *(required)* | Secret token for the scraper webhook endpoint — any random string |
+| `WHATNOT_LIMIT` | `50` | Max shows to fetch per run |
+| `SCRAPER_API_TOKEN` | *(required)* | Secret token for scraper webhook — any random string |
 
 ### Mail
 
 | Variable | Default | Description |
 |---|---|---|
-| `MAIL_MAILER` | `log` | `log` (dev), `smtp`, `postmark`, `resend`, or `ses` |
+| `MAIL_MAILER` | `log` | `log` for dev; `smtp`, `postmark`, or `ses` for production |
 | `MAIL_HOST` | `127.0.0.1` | SMTP host |
 | `MAIL_PORT` | `2525` | SMTP port |
 | `MAIL_USERNAME` | *(empty)* | SMTP username |
 | `MAIL_PASSWORD` | *(empty)* | SMTP password |
 | `MAIL_FROM_ADDRESS` | `hello@example.com` | Sender address |
-| `MAIL_FROM_NAME` | `VortexOps` | Sender name |
 
 ### Docker-only
 
 | Variable | Default | Description |
 |---|---|---|
 | `RUN_MIGRATIONS` | `true` (app) / `false` (workers) | Auto-run `migrate --force` on container start |
-| `WAIT_FOR_DB` | `true` | Wait for MySQL health before starting |
+| `WAIT_FOR_DB` | `true` | Wait for MySQL to be healthy before starting |
 
 ---
 
-## 4. Production deployment (Docker on VPS)
+## 8. Common commands
 
-### First-time VPS setup
-
-SSH into your VPS, then run the setup script:
+### Docker (from `/opt/vortexops`)
 
 ```bash
-# Download and run (as root or sudo user)
-curl -fsSL https://raw.githubusercontent.com/damell01/VortexOps/main/deploy/vps-first-time.sh | sudo bash
-
-# — OR — clone the repo and run locally:
-sudo bash deploy/vps-first-time.sh
-```
-
-The script:
-1. Installs Docker + Docker Compose
-2. Creates `/opt/vortexops/`
-3. Creates `.env.docker` from template (you fill in your values)
-4. Configures the firewall (UFW)
-5. Pulls the Docker image and starts all services
-6. Runs migrations and seeds default data
-
-### Manual first-time setup
-
-```bash
-# 1. Install Docker
-curl -fsSL https://get.docker.com | sh
-usermod -aG docker $USER   # log out and back in after this
-
-# 2. Create app directory
-mkdir -p /opt/vortexops
-cd /opt/vortexops
-
-# 3. Create .env.docker (copy from repo and edit)
-cp /path/to/repo/.env.docker.example .env.docker
-nano .env.docker
-# Required changes:
-#   APP_KEY         — see below
-#   APP_URL         — https://yourdomain.com
-#   APP_OWNER_EMAIL — your email
-#   DB_PASSWORD     — strong password
-#   DB_ROOT_PASSWORD — strong password (different)
-#   SCRAPER_API_TOKEN — any random string
-
-# 4. Generate APP_KEY
-docker run --rm php:8.3-cli php -r "echo 'base64:'.base64_encode(random_bytes(32));"
-# paste the output into .env.docker as APP_KEY=
-
-# 5. docker-compose.yml is pushed by CI/CD automatically after first deploy.
-# For manual first-time start, copy it here:
-cp /path/to/repo/docker-compose.yml .
-
-# 6. Start services
-docker compose up -d
-
-# 7. Wait ~30s for MySQL, then migrate and seed
-docker compose exec app php artisan migrate --force
-docker compose exec app php artisan db:seed --class=DefaultDataSeeder --force
-docker compose exec app php artisan db:seed --class=SuperAdminSeeder --force
-
-# 8. Warm caches
-docker compose exec app php artisan optimize
-docker compose exec app php artisan filament:optimize
-```
-
-### SSL with Nginx reverse proxy
-
-The app container listens on `127.0.0.1:8080`. The full Nginx config is at `deploy/nginx.conf` (TLS 1.2/1.3, HSTS, gzip, WebSocket support, large upload headers). See **`deploy/nginx-ssl.md`** for the complete step-by-step guide including Certbot auto-renewal.
-
-Quick version:
-```bash
-sudo apt-get install -y nginx certbot python3-certbot-nginx
-
-export DOMAIN=ops.vortexbreaks.com
-sudo sed "s/YOUR_DOMAIN/${DOMAIN}/g" deploy/nginx.conf \
-    | sudo tee /etc/nginx/sites-available/vortexops
-sudo ln -sf /etc/nginx/sites-available/vortexops /etc/nginx/sites-enabled/vortexops
-sudo nginx -t && sudo systemctl reload nginx
-
-sudo certbot --nginx -d ${DOMAIN} --agree-tos --email dbellcreations@gmail.com --redirect
-```
-
-After getting the cert, update `.env.docker`:
-```
-APP_URL=https://ops.vortexbreaks.com
-```
-Then `docker compose restart app worker scheduler ai-worker`.
-
-### Using an external MySQL database
-
-If you have a managed MySQL instance (DigitalOcean, PlanetScale, RDS, etc.) instead of the Docker-managed one:
-
-**1. Set these in `/opt/vortexops/.env.docker`:**
-```
-DB_HOST=your-db-host.example.com
-DB_PORT=3306
-DB_DATABASE=vortexops
-DB_USERNAME=vortexops
-DB_PASSWORD=your-strong-password
-# Leave DB_ROOT_PASSWORD blank — only needed for the Docker MySQL container
-```
-
-**2. Start without the mysql container, using the external-db override:**
-```bash
-docker compose -f docker-compose.yml -f docker-compose.external-db.yml \
-    --env-file .env.docker \
-    up -d app worker scheduler ai-worker redis
-```
-
-The `docker-compose.external-db.yml` overlay removes the `depends_on: mysql` health-check gates and disables the local MySQL container so it never starts.
-
-**3. Run migrations against your external DB:**
-```bash
-docker compose exec app php artisan migrate --force
-docker compose exec app php artisan db:seed --class=DefaultDataSeeder --force
-docker compose exec app php artisan db:seed --class=SuperAdminSeeder --force
-```
-
----
-
-## 5. AI models (Ollama)
-
-VortexOps uses Ollama to run AI locally — no data sent to external APIs.
-
-### Start Ollama (Docker)
-
-Ollama is an optional Docker profile. Enable it once and it stays running:
-
-```bash
-cd /opt/vortexops
-docker compose --profile ai up -d ollama
-```
-
-### Pull models (one-time per model)
-
-```bash
-# Text model — AI chat + show mapping
-docker compose exec ollama ollama pull llama3.2:3b
-
-# Vision model — reads packing slip photos and PDFs
-docker compose exec ollama ollama pull moondream
-
-# Optional: higher-quality vision (needs ~4.5 GB free RAM, ~9 GB total with text model)
-docker compose exec ollama ollama pull llava:7b
-```
-
-### Check which models are installed
-
-```bash
-docker compose exec ollama ollama list
-```
-
-### Test Ollama is working
-
-```bash
-# From inside the app container:
-docker compose exec app curl -s http://ollama:11434/api/tags | python3 -m json.tool
-```
-
-Or go to **Settings → AI Assistant** in the app and click "Test Ollama".
-
-### Local dev (without Docker)
-
-```bash
-# Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Start it
-ollama serve
-
-# Pull models
-ollama pull llama3.2:3b
-ollama pull moondream
-```
-
-Then set in `.env`:
-```
-OLLAMA_BASE_URL=http://localhost:11434
-```
-
-### RAM requirements
-
-| Setup | RAM needed |
-|---|---|
-| App stack only (no AI) | ~700 MB |
-| + llama3.2:3b (text) | +2 GB → ~2.7 GB total |
-| + moondream (vision) | +1.5 GB → ~4.2 GB total |
-| + llava:7b (vision, better quality) | +4.5 GB → ~7.2 GB total |
-
-**8 GB VPS**: run `llama3.2:3b` + `moondream` comfortably.  
-**16 GB VPS**: run `llama3.2:3b` + `llava:7b` for best quality.
-
----
-
-## 6. GitHub CI/CD secrets
-
-Add these in **GitHub → Settings → Secrets and variables → Actions**:
-
-| Secret | What it is | How to get it |
-|---|---|---|
-| `GHCR_PAT` | GitHub Personal Access Token | GitHub → Settings → Developer settings → PATs (classic) → New. Scopes: `write:packages`, `read:packages`, `delete:packages` |
-| `VPS_HOST` | VPS IP address or hostname | Your Hostinger VPS IP |
-| `VPS_USER` | SSH username | Usually `root` on Hostinger |
-| `VPS_SSH_KEY` | Private SSH key | Run `ssh-keygen -t ed25519 -C "vortexops-deploy"`, then copy the private key content. Add the public key to `~/.ssh/authorized_keys` on the VPS. |
-
-### How CI/CD works
-
-| Event | What happens |
-|---|---|
-| Push to any branch | PHPUnit tests run (SQLite in-memory, ~2 sec) |
-| Push to `main` | Tests run → Docker image built and pushed to GHCR → `docker-compose.yml` copied to VPS → `docker compose pull && up -d` → migrations run → caches warmed |
-| Manual dispatch | Same as push to `main` |
-
-No manual deploys needed after this is set up — just push to `main`.
-
----
-
-## 7. Barcode scanners
-
-The app works with any scanner that acts as a keyboard (all common scanners do).
-
-### How it works
-
-Scanners type the barcode number and press Enter. The Receive Pallet page and Inventory Scanner page both have an autofocus input that captures this automatically — no drivers or special setup needed.
-
-### Recommended hardware
-
-| Type | Model | Price range | Notes |
-|---|---|---|---|
-| USB wired (basic) | Inateck BCST-70, Tera 1D/2D | $25–$50 | Plug-and-play on any computer |
-| Bluetooth (desk use) | Honeywell Voyager 1602g | $80–$120 | Pairs to phone/tablet/PC |
-| Bluetooth ring | Tera Ring Scanner | $50–$80 | Hands-free for warehouse use |
-| Android mobile computer | Zebra TC21, Honeywell CT45 | $400–$600 | Full Android + built-in scanner — best warehouse option |
-| Phone camera | Built-in (Chrome/Android/Edge) | Free | Tap the camera icon on the scanner pages — uses BarcodeDetector Web API |
-
-### Phone camera scanning
-
-Tap the camera icon on the **Inventory Scanner** or **Receive Pallet** pages. Works in:
-- Chrome on Android ✓
-- Chrome on desktop (Windows/Mac) ✓  
-- Edge on Windows ✓
-- Safari on iPhone ✗ (not supported — use a Bluetooth scanner instead)
-
----
-
-## 8. Whatnot scraper
-
-The Whatnot scraper imports your show history from the Whatnot seller dashboard using Playwright (browser automation).
-
-### Requirements
-
-The scraper runs as a Node.js script that needs Playwright + Chromium. In Docker, this requires adding them to the image or running the scraper outside Docker.
-
-**Option A — run scraper from host machine (simplest):**
-
-```bash
-# On your local machine or VPS (outside Docker):
-npm install -g playwright
-npx playwright install chromium
-
-# Set in .env:
-WHATNOT_EMAIL=your@email.com
-WHATNOT_PASSWORD=yourpassword
-
-# Run manually:
-php artisan whatnot:import
-```
-
-**Option B — scheduled import via artisan command:**
-
-```bash
-# Import last 50 shows:
-php artisan whatnot:import
-
-# Import specific limit:
-php artisan whatnot:import --limit=100
-
-# Debug mode (saves screenshots to /tmp):
-php artisan whatnot:import --debug
-```
-
-The scheduler runs `whatnot:import` automatically. Make sure the scheduler service is running (it is, via Docker's `scheduler` service).
-
-### Exit codes
-
-| Code | Meaning |
-|---|---|
-| 0 | Success — JSON output on stdout |
-| 1 | Login failed or navigation error |
-| 2 | Selector miss — Whatnot UI changed, update `SELECTORS` in `scripts/whatnot-scraper.cjs` |
-
----
-
-## 9. Common commands
-
-### Tests
-
-```bash
-# Run all tests (fast — uses SQLite in-memory)
-php artisan test
-
-# Run a specific test file or filter
-php artisan test --filter ReceivingService
-php artisan test tests/Feature/PayoutServiceTest.php
-
-# Run in parallel
-php artisan test --parallel
-```
-
-### Queue
-
-```bash
-# Start the main worker
-php artisan queue:work --sleep=3 --tries=3 --timeout=120
-
-# Start the AI worker (separate — never blocks the main queue)
-php artisan queue:work --queue=ai --sleep=5 --tries=1 --timeout=300
-
-# Check failed jobs
-php artisan queue:failed
-
-# Retry a failed job
-php artisan queue:retry <id>
-
-# Retry all failed jobs
-php artisan queue:retry all
-
-# Clear failed jobs
-php artisan queue:flush
-
-# Monitor queues in real-time
-php artisan queue:monitor default:10,ai:5
-```
-
-### Cache and optimization
-
-```bash
-# Clear everything
-php artisan optimize:clear
-
-# Rebuild all caches (do this after deploy)
-php artisan optimize
-php artisan filament:optimize
-
-# Clear just the config/route/view caches
-php artisan config:clear
-php artisan route:clear
-php artisan view:clear
-```
-
-### Database
-
-```bash
-# Run new migrations
-php artisan migrate
-
-# Rollback last batch
-php artisan migrate:rollback
-
-# Fresh database + seed (DESTROYS all data)
-php artisan migrate:fresh --seed
-
-# Just seed (without wiping)
-php artisan db:seed --class=DefaultDataSeeder
-
-# Backup database (runs daily at 2am via scheduler)
-php artisan db:backup
-```
-
-### Maintenance
-
-```bash
-# Enable maintenance mode
-php artisan down --retry=60 --message="Updating VortexOps…"
-
-# Disable maintenance mode
-php artisan up
-
-# View live logs
-php artisan pail
-
-# Tail specific log file
-tail -f storage/logs/laravel.log
-```
-
-### Docker commands
-
-```bash
-cd /opt/vortexops
-
-# View running containers
+# View all running containers and their health
 docker compose ps
 
 # View logs (all services)
 docker compose logs -f
 
-# View logs (specific service)
+# View logs for a specific service
 docker compose logs -f app
 docker compose logs -f ai-worker
-
-# Restart a service
-docker compose restart app
-docker compose restart ai-worker
 
 # Shell into the app container
 docker compose exec app bash
 
-# Run artisan inside Docker
-docker compose exec app php artisan migrate
+# Run artisan commands inside Docker
+docker compose exec app php artisan about
+docker compose exec app php artisan migrate:status
 docker compose exec app php artisan queue:failed
 
-# Pull latest image and redeploy (also done automatically by CI/CD)
+# Restart a specific service
+docker compose restart app
+docker compose restart worker ai-worker
+
+# Pull latest image and redeploy
 docker compose pull
 docker compose up -d --remove-orphans
 docker compose exec app php artisan migrate --force
@@ -618,25 +488,80 @@ docker compose exec app php artisan optimize
 docker compose exec app php artisan filament:optimize
 ```
 
+### Queue
+
+```bash
+# Check failed jobs
+docker compose exec app php artisan queue:failed
+
+# Retry a specific failed job
+docker compose exec app php artisan queue:retry <id>
+
+# Retry all failed jobs
+docker compose exec app php artisan queue:retry all
+
+# Clear all failed jobs
+docker compose exec app php artisan queue:flush
+```
+
+### Cache
+
+```bash
+# Clear all caches
+docker compose exec app php artisan optimize:clear
+
+# Rebuild all caches (after deploy)
+docker compose exec app php artisan optimize
+docker compose exec app php artisan filament:optimize
+```
+
+### Database
+
+```bash
+# Run new migrations
+docker compose exec app php artisan migrate --force
+
+# Check migration status
+docker compose exec app php artisan migrate:status
+
+# Manual DB backup
+docker compose exec app php artisan db:backup
+```
+
+### Tests (local)
+
+```bash
+# Run all tests — uses SQLite in-memory, very fast
+php artisan test
+
+# Filter to a specific test
+php artisan test --filter ReceivingService
+
+# Run in parallel
+php artisan test --parallel
+```
+
 ---
 
-## 10. Default accounts
+## 9. Default accounts
 
-Created by `php artisan db:seed` (or `DefaultDataSeeder` + `SuperAdminSeeder`):
+Created by `php artisan db:seed` (seeders: `DefaultDataSeeder` + `SuperAdminSeeder`):
 
 | Role | Email | Password | Access |
 |---|---|---|---|
 | Admin | `admin@vortexbreaks.com` | `password` | Full admin access |
-| Super Admin (dev) | `dev@vortexbreaks.com` | `devpassword` | Everything + role assignment |
+| Super Admin | `dev@vortexbreaks.com` | `devpassword` | Everything + role assignment |
 
-> **Change these passwords immediately** in production via Settings → Users, or:
+> **Change these passwords immediately in production.** Via Settings → Users, or:
 > ```bash
-> php artisan tinker
+> docker compose exec app php artisan tinker
 > # In tinker:
-> App\Models\User::where('email', 'admin@vortexbreaks.com')->first()->update(['password' => bcrypt('your-new-password')]);
+> App\Models\User::where('email', 'admin@vortexbreaks.com')
+>     ->first()
+>     ->update(['password' => bcrypt('your-new-password')]);
 > ```
 
-Demo data created by seeder:
+Demo data from seeder:
 - 3 streamers with different payout types
 - 8 inventory items with stock across all locations
 - 3 shows at different workflow stages (reconciled / pending approval / draft)
@@ -644,9 +569,9 @@ Demo data created by seeder:
 
 ---
 
-## 11. Updating the app
+## 10. Updating the app
 
-### Via GitHub (normal workflow)
+### Normal workflow (after CI/CD is set up)
 
 Just push to `main`:
 
@@ -654,59 +579,70 @@ Just push to `main`:
 git push origin main
 ```
 
-CI/CD handles everything: tests → build → push image → deploy to VPS → migrate → optimize.
-
-Takes ~3–4 minutes from push to live.
+CI/CD handles everything: tests → build image → push to GHCR → update VPS → migrate → optimize. Takes 3–5 minutes.
 
 ### Manual update on VPS
 
 ```bash
 cd /opt/vortexops
-
-# Pull new image
 docker compose pull
-
-# Restart with new image (zero-downtime: workers restart first)
 docker compose up -d --remove-orphans
-
-# Run any new migrations
 docker compose exec app php artisan migrate --force
-
-# Rebuild caches
 docker compose exec app php artisan optimize
 docker compose exec app php artisan filament:optimize
 ```
 
----
-
-## 12. Troubleshooting
-
-### App won't start / white screen
+### Maintenance mode
 
 ```bash
-# Check logs
+# Put app into maintenance mode (visitors see a friendly message)
+docker compose exec app php artisan down --retry=60
+
+# Bring it back up
+docker compose exec app php artisan up
+```
+
+---
+
+## 11. Troubleshooting
+
+### App won't start / shows a 500 error
+
+```bash
 docker compose logs app
-# or locally:
-tail -f storage/logs/laravel.log
+docker compose exec app php artisan about
 ```
 
 Common causes:
-- `APP_KEY` not set — run `php artisan key:generate`
-- Missing `.env` file — run `cp .env.example .env`
-- Storage not writable — run `chmod -R 775 storage bootstrap/cache`
+- `APP_KEY` not set — the setup script generates it; if blank, run: `docker compose exec app php artisan key:generate --show` and add the result to `.env.docker`, then restart
+- `.env.docker` missing or incorrect — check `/opt/vortexops/.env.docker` exists
+- Storage not writable — entrypoint handles this; if needed: `docker compose exec app chmod -R 775 storage bootstrap/cache`
+
+### 502 Bad Gateway
+
+The Nginx proxy can't reach the app container on port 8080.
+
+```bash
+# Is the app container running and healthy?
+docker compose ps
+
+# Is it listening on 8080?
+curl -I http://127.0.0.1:8080/health
+```
+
+If not healthy, check: `docker compose logs app`
 
 ### Queue jobs not running
 
 ```bash
-# Check queue worker is up
+# Is the worker up?
 docker compose ps worker
 
-# Check for failed jobs
+# Are there failed jobs?
 docker compose exec app php artisan queue:failed
 
-# Restart worker
-docker compose restart worker
-docker compose restart ai-worker
+# Restart workers
+docker compose restart worker ai-worker
 ```
 
 ### Ollama not working
@@ -715,53 +651,67 @@ docker compose restart ai-worker
 # Is Ollama running?
 docker compose ps ollama
 
-# Check Ollama is reachable from the app container
+# Test it from the app container
 docker compose exec app curl -s http://ollama:11434/api/tags
 
-# Is the model pulled?
+# Are the models pulled?
 docker compose exec ollama ollama list
 
-# Pull missing model
+# Pull missing models
 docker compose exec ollama ollama pull llama3.2:3b
 docker compose exec ollama ollama pull moondream
 ```
 
 ### Packing slip AI not working
 
-The vision model must be pulled separately from the text model:
+The vision model must be pulled separately:
 
 ```bash
 docker compose exec ollama ollama pull moondream
 ```
 
-If Imagick isn't available for PDF → image conversion, the app falls back to `pdftoppm` (poppler-utils), which is installed in the Docker image. If you see "PDF conversion requires Imagick or poppler-utils", rebuild the Docker image with the latest Dockerfile.
+### Whatnot scraper failing
+
+```bash
+# Run with debug mode to capture screenshots of where it fails
+docker compose exec app php artisan whatnot:import --debug
+
+# Exit code 1 = wrong credentials — check WHATNOT_EMAIL / WHATNOT_PASSWORD in .env.docker
+# Exit code 2 = Whatnot UI changed — update SELECTORS in scripts/whatnot-scraper.cjs
+```
+
+### Barcode scanner not being picked up
+
+- The input field must have focus — click it once before scanning
+- Bluetooth scanners need to be paired in OS settings first; then they act as a keyboard
+- Phone camera scanning (Chrome/Android, Edge): tap the camera icon on the scanner or receive-pallet pages
+
+### Storage link missing (uploaded images not displaying)
+
+```bash
+docker compose exec app php artisan storage:link
+```
+
+The entrypoint script runs this automatically on container start, so this is only needed if something went wrong.
 
 ### Migrations fail
 
 ```bash
-# Check which migrations have run
+# Check which migrations have and haven't run
 docker compose exec app php artisan migrate:status
 
-# Force run (skips safety checks)
+# Force run
 docker compose exec app php artisan migrate --force
 ```
 
-### Barcode scanner not working
-
-- Make sure the barcode input field on the page has focus (click it once)
-- Test: type anything and press Enter — same action as a scanner
-- On mobile: tap the input field to focus, then scan
-- USB scanner: plug in, no setup needed
-- Bluetooth scanner: pair in OS settings first, then it works as a keyboard
-
-### Storage link missing (images not displaying)
+### SSL certificate not renewing
 
 ```bash
-php artisan storage:link
-# or in Docker:
-docker compose exec app php artisan storage:link
+sudo systemctl status certbot.timer
+sudo certbot renew --dry-run
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
 ---
 
-*Last updated: 2026-07-01*
+*Last updated: 2026-07-05*

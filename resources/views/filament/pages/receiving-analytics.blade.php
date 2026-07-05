@@ -38,22 +38,22 @@
     </div>
     <div class="overflow-x-auto">
     <table class="w-full text-sm">
-        <thead class="bg-gray-50 dark:bg-gray-800">
+        <thead class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <tr>
-                <th class="px-5 py-3 text-left font-medium text-gray-500">Month</th>
-                <th class="px-5 py-3 text-right font-medium text-gray-500">Sessions</th>
-                <th class="px-5 py-3 text-right font-medium text-gray-500">Lines</th>
-                <th class="px-5 py-3 text-right font-medium text-gray-500">Auto-Match %</th>
-                <th class="px-5 py-3 text-left font-medium text-gray-500">Quality</th>
+                <th class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Month</th>
+                <th class="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Sessions</th>
+                <th class="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Lines</th>
+                <th class="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Auto-Match %</th>
+                <th class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Quality</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-            @foreach($this->sessionsByMonth as $row)
-            <tr>
-                <td class="px-5 py-3 font-medium text-gray-900 dark:text-gray-100">{{ $row['month'] }}</td>
-                <td class="px-5 py-3 text-right text-gray-700 dark:text-gray-300">{{ $row['sessions'] }}</td>
-                <td class="px-5 py-3 text-right text-gray-700 dark:text-gray-300">{{ number_format($row['lines']) }}</td>
-                <td class="px-5 py-3 text-right font-bold {{ $row['auto_pct'] >= 90 ? 'text-green-600 dark:text-green-400' : ($row['auto_pct'] >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500') }}">
+            @foreach($this->sessionsByMonth as $i => $row)
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $i % 2 === 1 ? 'bg-gray-50/50 dark:bg-gray-800/20' : '' }}">
+                <td class="px-5 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">{{ $row['month'] }}</td>
+                <td class="px-5 py-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{{ $row['sessions'] }}</td>
+                <td class="px-5 py-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($row['lines']) }}</td>
+                <td class="px-5 py-3 text-right tabular-nums font-bold {{ $row['auto_pct'] >= 90 ? 'text-green-600 dark:text-green-400' : ($row['auto_pct'] >= 70 ? 'text-amber-600 dark:text-amber-400' : 'text-red-500') }}">
                     {{ $row['auto_pct'] }}%
                 </td>
                 <td class="px-5 py-3">
@@ -151,19 +151,19 @@
     </div>
     <div class="overflow-x-auto">
     <table class="w-full text-sm">
-        <thead class="bg-gray-50 dark:bg-gray-800">
+        <thead class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <tr>
-                <th class="px-5 py-3 text-left font-medium text-gray-500">Month</th>
-                <th class="px-5 py-3 text-right font-medium text-gray-500">Aliases Added</th>
-                <th class="px-5 py-3 text-left font-medium text-gray-500">Growth</th>
+                <th class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Month</th>
+                <th class="px-5 py-2.5 text-right text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Aliases Added</th>
+                <th class="px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Growth</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
             @php $maxAliases = max(array_column($this->aliasesLearnedByMonth, 'aliases') ?: [1]); @endphp
-            @foreach($this->aliasesLearnedByMonth as $row)
-            <tr>
-                <td class="px-5 py-3 text-gray-700 dark:text-gray-300">{{ $row['month'] }}</td>
-                <td class="px-5 py-3 text-right font-bold text-purple-600 dark:text-purple-400">{{ $row['aliases'] }}</td>
+            @foreach($this->aliasesLearnedByMonth as $i => $row)
+            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $i % 2 === 1 ? 'bg-gray-50/50 dark:bg-gray-800/20' : '' }}">
+                <td class="px-5 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ $row['month'] }}</td>
+                <td class="px-5 py-3 text-right tabular-nums font-bold text-purple-600 dark:text-purple-400">{{ $row['aliases'] }}</td>
                 <td class="px-5 py-3">
                     <div class="w-32 h-2 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
                         <div class="h-full rounded-full bg-purple-500" style="width: {{ $maxAliases > 0 ? round($row['aliases'] / $maxAliases * 100) : 0 }}%"></div>

@@ -99,7 +99,9 @@ const URLS = {
   sellerHub:  'https://www.whatnot.com/seller',
 };
 
-const CHROMIUM_PATH  = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+// Resolve Chromium binary: env override → Playwright's own lookup → hardcoded fallback
+const CHROMIUM_PATH = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+    || (() => { try { return chromium.executablePath(); } catch { return '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'; } })();
 const DEBUG          = process.env.WHATNOT_DEBUG === '1';
 const LIMIT          = parseInt(process.env.WHATNOT_LIMIT || '50', 10);
 const MODE           = process.env.WHATNOT_MODE || 'analytics';

@@ -172,8 +172,8 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                            @foreach ($this->breakdown as $row)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                            @foreach ($this->breakdown as $i => $row)
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $i % 2 === 1 ? 'bg-gray-50/50 dark:bg-gray-800/20' : '' }}">
                                     <td class="px-4 py-3 text-gray-700 dark:text-gray-300 text-xs max-w-[180px]">
                                         <span class="truncate block" title="{{ $row['raw_description'] }}">{{ $row['raw_description'] }}</span>
                                     </td>
@@ -195,7 +195,7 @@
                                             {{ ucfirst($row['confidence']) }}
                                         </span>
                                     </td>
-                                    <td class="px-3 py-3 text-right font-mono text-sm text-gray-800 dark:text-gray-200">
+                                    <td class="px-3 py-3 text-right font-mono tabular-nums text-sm text-gray-800 dark:text-gray-200">
                                         {{ number_format($row['qty_approved']) }}
                                     </td>
                                     <td class="px-3 py-3 text-right font-mono text-sm">

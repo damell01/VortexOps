@@ -22,7 +22,7 @@
     <div class="space-y-6">
 
         {{-- Period selector + date range + export --}}
-        <div class="flex flex-wrap items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2 gap-y-2">
             <span class="text-sm font-medium text-gray-500 dark:text-gray-400">Period:</span>
             @foreach ($this->getPeriodOptions() as $days => $label)
                 <button
@@ -225,13 +225,13 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                        @forelse ($this->revenueByChannel as $row)
-                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                        @forelse ($this->revenueByChannel as $i => $row)
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $i % 2 === 1 ? 'bg-gray-50/50 dark:bg-gray-800/20' : '' }}">
                                 <td class="px-5 py-3 font-medium text-gray-900 dark:text-white">{{ $row['channel'] }}</td>
-                                <td class="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{{ number_format($row['shows']) }}</td>
-                                <td class="px-5 py-3 text-right text-gray-600 dark:text-gray-300">{{ number_format($row['units']) }}</td>
-                                <td class="px-5 py-3 text-right font-medium text-gray-900 dark:text-white">${{ number_format($row['gross'], 2) }}</td>
-                                <td class="px-5 py-3 text-right text-emerald-600 dark:text-emerald-400">${{ number_format($row['net'], 2) }}</td>
+                                <td class="px-5 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ number_format($row['shows']) }}</td>
+                                <td class="px-5 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ number_format($row['units']) }}</td>
+                                <td class="px-5 py-3 text-right tabular-nums font-medium text-gray-900 dark:text-white">${{ number_format($row['gross'], 2) }}</td>
+                                <td class="px-5 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">${{ number_format($row['net'], 2) }}</td>
                             </tr>
                         @empty
                             <tr><td colspan="5" class="px-5 py-8 text-center text-gray-400">No shows in this period</td></tr>
@@ -272,12 +272,12 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                            @forelse ($weekDisplay as $row)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ $row['week'] }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ $row['shows'] }}</td>
-                                    <td class="px-4 py-3 text-right font-medium text-gray-900 dark:text-white">${{ number_format($row['gross'], 0) }}</td>
-                                    <td class="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">${{ number_format($row['net'], 0) }}</td>
+                            @forelse ($weekDisplay as $i => $row)
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $i % 2 === 1 ? 'bg-gray-50/50 dark:bg-gray-800/20' : '' }}">
+                                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-white whitespace-nowrap">{{ $row['week'] }}</td>
+                                    <td class="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ $row['shows'] }}</td>
+                                    <td class="px-4 py-3 text-right tabular-nums font-medium text-gray-900 dark:text-white">${{ number_format($row['gross'], 0) }}</td>
+                                    <td class="px-4 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">${{ number_format($row['net'], 0) }}</td>
                                 </tr>
                             @empty
                                 <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">No data</td></tr>
@@ -304,14 +304,14 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                             @forelse ($this->topStreamersByPayout as $i => $row)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $i % 2 === 1 ? 'bg-gray-50/50 dark:bg-gray-800/20' : '' }}">
                                     <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">
                                         <span class="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[10px] font-bold text-gray-500 dark:bg-gray-700 dark:text-gray-400">{{ $i + 1 }}</span>
                                         {{ $row['streamer'] }}
                                     </td>
-                                    <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">{{ $row['shows'] }}</td>
-                                    <td class="px-4 py-3 text-right font-semibold text-violet-600 dark:text-violet-400">${{ number_format($row['total'], 2) }}</td>
-                                    <td class="px-4 py-3 text-right text-gray-600 dark:text-gray-300">${{ number_format($row['avg'], 2) }}</td>
+                                    <td class="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ $row['shows'] }}</td>
+                                    <td class="px-4 py-3 text-right tabular-nums font-semibold text-violet-600 dark:text-violet-400">${{ number_format($row['total'], 2) }}</td>
+                                    <td class="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">${{ number_format($row['avg'], 2) }}</td>
                                 </tr>
                             @empty
                                 <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">No payouts in this period</td></tr>

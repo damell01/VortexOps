@@ -25,9 +25,9 @@ class LowStockWidget extends BaseWidget
                     ->whereExists(function ($query) {
                         $query->selectRaw('1')
                             ->from('inventory_stock')
-                            ->whereColumn('inventory_stock.inventory_item_id', 'inventory_items.id')
+                            ->whereColumn('inventory_stock.inventory_item_id', 'products.id')
                             ->groupBy('inventory_stock.inventory_item_id')
-                            ->havingRaw('SUM(quantity) <= inventory_items.reorder_level');
+                            ->havingRaw('SUM(quantity) <= products.reorder_level');
                     })
             )
             ->columns([

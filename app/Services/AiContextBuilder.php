@@ -32,8 +32,8 @@ class AiContextBuilder
             $active     = Show::whereNotIn('status', ['closed', 'cancelled'])->count();
             $streamers  = Streamer::where('status', 'active')->count();
             $items      = InventoryItem::where('is_active', true)->count();
-            $stockValue = InventoryStock::join('inventory_items', 'inventory_items.id', '=', 'inventory_stock.inventory_item_id')
-                ->selectRaw('SUM(inventory_stock.quantity * inventory_items.average_cost) as total')
+            $stockValue = InventoryStock::join('products', 'products.id', '=', 'inventory_stock.inventory_item_id')
+                ->selectRaw('SUM(inventory_stock.quantity * products.average_cost) as total')
                 ->value('total') ?? 0;
 
             $recentShows = Show::whereNotIn('status', ['cancelled'])

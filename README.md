@@ -282,11 +282,27 @@ ffmpeg -y -i tests/Browser/output/*/video.webm \
 
 ## Deployment
 
-Production deployment assets:
+**Full setup guide (local dev → production VPS → CI/CD → SSL → AI): [SETUP.md](SETUP.md)**
 
+### VPS quick-start summary
+
+```
+① SSH into a fresh Ubuntu 22.04/24.04 VPS
+② Clone repo and run: sudo bash deploy/vps-first-time.sh
+   → installs Docker, creates /opt/vortexops, starts app + database
+③ Run: sudo bash deploy/vps-setup.sh
+   → installs Nginx, gets Let's Encrypt SSL cert
+④ Add 4 GitHub Secrets (GHCR_PAT, VPS_HOST, VPS_USER, VPS_SSH_KEY)
+⑤ Push to main — CI/CD takes it from there on every push
+```
+
+Production files:
 - Docker image: `Dockerfile` + `docker-compose.yml`
-- Production env: `.env.production.example`
-- Ubuntu VPS installer: `deploy/install-vps.sh`
+- Env template: `.env.docker.example`
+- VPS setup scripts: `deploy/vps-first-time.sh`, `deploy/vps-setup.sh`
+- Nginx config: `deploy/nginx.conf`
+- SSL guide: `deploy/nginx-ssl.md`
+- CI/CD: `.github/workflows/deploy.yml`
 
 ---
 

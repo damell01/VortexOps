@@ -52,9 +52,9 @@ class ExportController extends Controller
             $this->row(['Item', 'SKU', 'Category', 'Location', 'Location Type', 'Quantity', 'Avg Cost', 'Stock Value']);
 
             InventoryStock::with(['item', 'location'])
-                ->join('inventory_items', 'inventory_stocks.inventory_item_id', '=', 'inventory_items.id')
+                ->join('products', 'inventory_stocks.inventory_item_id', '=', 'products.id')
                 ->join('inventory_locations', 'inventory_stocks.inventory_location_id', '=', 'inventory_locations.id')
-                ->orderBy('inventory_items.name')
+                ->orderBy('products.name')
                 ->orderBy('inventory_locations.name')
                 ->select('inventory_stocks.*')
                 ->lazy(500)

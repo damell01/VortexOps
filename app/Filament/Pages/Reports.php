@@ -218,22 +218,28 @@ class Reports extends Page
     public function getRevenueByWeekProperty(): array
     {
         return Cache::remember($this->cacheKey('week'), 60, function () {
+            $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+
+            $weekExpr = $isSqlite
+                ? "date(show_date, '-' || ((strftime('%w', show_date) + 6) % 7) || ' days')"
+                : 'DATE_SUB(show_date, INTERVAL WEEKDAY(show_date) DAY)';
+
             return DB::table('shows')
                 ->whereBetween('show_date', [$this->periodStart(), $this->periodEnd()])
                 ->whereNotIn('status', ['cancelled'])
                 ->selectRaw("
-                    DATE_SUB(show_date, INTERVAL WEEKDAY(show_date) DAY) as week_start,
+                    {$weekExpr} as week_start,
                     COUNT(*) as shows,
                     COALESCE(SUM(gross_revenue), 0) as gross,
                     COALESCE(SUM(whatnot_net), 0) as net,
                     COALESCE(SUM(units_sold), 0) as units
                 ")
-                ->groupByRaw('week_start')
+                ->groupByRaw($weekExpr)
                 ->orderBy('week_start')
                 ->get()
                 ->map(fn ($r) => [
                     'week_start' => $r->week_start,
-                    'week'       => \Illuminate\Support\Carbon::parse($r->week_start)->format('M j'),
+                    'week'       => Carbon::parse($r->week_start)->format('M j'),
                     'shows'      => (int) $r->shows,
                     'gross'      => (float) $r->gross,
                     'net'        => (float) $r->net,

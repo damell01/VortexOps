@@ -3,10 +3,13 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Models\Show;
 use App\Support\AdminModules;
 use Filament\Pages\Page;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class Reports extends Page
 {
@@ -35,8 +38,16 @@ class Reports extends Page
 
     // ── Period ────────────────────────────────────────────────────────────────
 
-    public string $period = '30';
+    public string $period    = '30';
+    public string $dateFrom  = '';
+    public string $dateTo    = '';
     public bool $showAllWeeks = false;
+
+    public function mount(): void
+    {
+        $this->dateFrom = now()->subDays(30)->toDateString();
+        $this->dateTo   = now()->toDateString();
+    }
 
     public function getPeriodOptions(): array
     {
@@ -50,7 +61,15 @@ class Reports extends Page
 
     public function setPeriod(string $days): void
     {
-        $this->period = $days;
+        $this->period    = $days;
+        $this->dateFrom  = now()->subDays((int) $days)->toDateString();
+        $this->dateTo    = now()->toDateString();
+        $this->showAllWeeks = false;
+    }
+
+    public function applyCustomRange(): void
+    {
+        $this->period = 'custom';
         $this->showAllWeeks = false;
     }
 
@@ -63,7 +82,60 @@ class Reports extends Page
 
     private function cacheKey(string $section): string
     {
-        return "reports_{$section}_{$this->period}_" . auth()->id();
+        $key = $this->period === 'custom' ? "{$this->dateFrom}_{$this->dateTo}" : $this->period;
+        return "reports_{$section}_{$key}_" . auth()->id();
+    }
+
+    private function periodStart(): Carbon
+    {
+        if ($this->period === 'custom' && $this->dateFrom) {
+            return Carbon::parse($this->dateFrom)->startOfDay();
+        }
+        return now()->subDays((int) $this->period)->startOfDay();
+    }
+
+    private function periodEnd(): Carbon
+    {
+        if ($this->period === 'custom' && $this->dateTo) {
+            return Carbon::parse($this->dateTo)->endOfDay();
+        }
+        return now()->endOfDay();
+    }
+
+    // ── CSV Export ────────────────────────────────────────────────────────────
+
+    public function exportCsv(): StreamedResponse
+    {
+        $start = $this->periodStart();
+        $end   = $this->periodEnd();
+
+        $shows = Show::query()
+            ->with(['whatnotChannel:id,name', 'streamers:id,name'])
+            ->whereBetween('show_date', [$start, $end])
+            ->whereNotIn('status', ['cancelled'])
+            ->orderBy('show_date')
+            ->get(['id', 'title', 'show_date', 'gross_revenue', 'whatnot_net', 'tips', 'units_sold', 'status', 'whatnot_channel_id']);
+
+        $filename = 'shows-report-' . $start->format('Y-m-d') . '-to-' . $end->format('Y-m-d') . '.csv';
+
+        return response()->streamDownload(function () use ($shows) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Date', 'Title', 'Channel', 'Streamers', 'Status', 'Gross Revenue', 'Whatnot Net', 'Tips', 'Units Sold']);
+            foreach ($shows as $show) {
+                fputcsv($out, [
+                    $show->show_date?->format('Y-m-d'),
+                    $show->title,
+                    $show->whatnotChannel?->name ?? '',
+                    $show->streamers->pluck('name')->join(', '),
+                    $show->status,
+                    number_format((float) $show->gross_revenue, 2),
+                    number_format((float) $show->whatnot_net, 2),
+                    number_format((float) $show->tips, 2),
+                    $show->units_sold,
+                ]);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
     }
 
     // ── Revenue summary ───────────────────────────────────────────────────────
@@ -71,10 +143,12 @@ class Reports extends Page
     public function getRevenueSummaryProperty(): array
     {
         return Cache::remember($this->cacheKey('summary'), 60, function () {
-            $since = now()->subDays((int) $this->period);
+            $start = $this->periodStart();
+            $end   = $this->periodEnd();
+            $span  = $start->diffInDays($end) ?: 1;
 
             $cur = DB::table('shows')
-                ->where('show_date', '>=', $since)
+                ->whereBetween('show_date', [$start, $end])
                 ->whereNotIn('status', ['cancelled'])
                 ->selectRaw('
                     COUNT(*) as shows,
@@ -88,8 +162,8 @@ class Reports extends Page
 
             $prev = DB::table('shows')
                 ->whereBetween('show_date', [
-                    now()->subDays((int) $this->period * 2),
-                    now()->subDays((int) $this->period),
+                    $start->copy()->subDays($span),
+                    $start->copy()->subDay(),
                 ])
                 ->whereNotIn('status', ['cancelled'])
                 ->selectRaw('
@@ -120,11 +194,9 @@ class Reports extends Page
     public function getRevenueByChannelProperty(): array
     {
         return Cache::remember($this->cacheKey('channel'), 60, function () {
-            $since = now()->subDays((int) $this->period);
-
             return DB::table('shows')
                 ->leftJoin('whatnot_channels', 'shows.whatnot_channel_id', '=', 'whatnot_channels.id')
-                ->where('shows.show_date', '>=', $since)
+                ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])
                 ->whereNotIn('shows.status', ['cancelled'])
                 ->selectRaw('
                     COALESCE(whatnot_channels.name, "Unknown") as channel,
@@ -146,10 +218,8 @@ class Reports extends Page
     public function getRevenueByWeekProperty(): array
     {
         return Cache::remember($this->cacheKey('week'), 60, function () {
-            $since = now()->subDays((int) $this->period);
-
             return DB::table('shows')
-                ->where('show_date', '>=', $since)
+                ->whereBetween('show_date', [$this->periodStart(), $this->periodEnd()])
                 ->whereNotIn('status', ['cancelled'])
                 ->selectRaw("
                     DATE_SUB(show_date, INTERVAL WEEKDAY(show_date) DAY) as week_start,
@@ -178,12 +248,10 @@ class Reports extends Page
     public function getTopStreamersByPayoutProperty(): array
     {
         return Cache::remember($this->cacheKey('streamers'), 60, function () {
-            $since = now()->subDays((int) $this->period);
-
             return DB::table('payouts')
                 ->join('shows', 'payouts.show_id', '=', 'shows.id')
                 ->join('streamers', 'payouts.streamer_id', '=', 'streamers.id')
-                ->where('shows.show_date', '>=', $since)
+                ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])
                 ->selectRaw('
                     streamers.name as streamer,
                     COUNT(DISTINCT payouts.show_id) as shows,
@@ -204,11 +272,9 @@ class Reports extends Page
     public function getPayoutStatusSummaryProperty(): array
     {
         return Cache::remember($this->cacheKey('payout_status'), 60, function () {
-            $since = now()->subDays((int) $this->period);
-
             $rows = DB::table('payouts')
                 ->join('shows', 'payouts.show_id', '=', 'shows.id')
-                ->where('shows.show_date', '>=', $since)
+                ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])
                 ->selectRaw('
                     payouts.status,
                     COUNT(*) as cnt,

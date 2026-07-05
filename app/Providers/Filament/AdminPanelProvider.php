@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Models\Setting;
+use Awcodes\QuickCreate\QuickCreatePlugin;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use App\Support\AdminModules;
 use App\Http\Middleware\RequireTwoFactorAuthentication;
@@ -257,6 +258,13 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->plugins([
                 FilamentShieldPlugin::make(),
+                QuickCreatePlugin::make()
+                    ->excludes([
+                        \App\Filament\Resources\PayoutResource::class,
+                        \App\Filament\Resources\WeeklyPayoutBatchResource::class,
+                        \App\Filament\Resources\ActivityLogResource::class,
+                    ])
+                    ->hidden(fn () => ! (auth()->user()?->isAdmin())),
             ])
             ->authMiddleware([
                 Authenticate::class,

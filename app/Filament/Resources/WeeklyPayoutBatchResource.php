@@ -73,6 +73,25 @@ class WeeklyPayoutBatchResource extends Resource
         return auth()->user()?->isAdmin() ?? false;
     }
 
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['week_start', 'status', 'notes'];
+    }
+
+    public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        return 'Pay Run — ' . $record->week_start?->format('M j, Y');
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return [
+            'Week End' => $record->week_end?->format('M j, Y') ?? '—',
+            'Total'    => '$' . number_format((float) $record->total_payout, 2),
+            'Status'   => WeeklyPayoutBatch::statusLabels()[$record->status] ?? $record->status,
+        ];
+    }
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()->with('finalizedBy');

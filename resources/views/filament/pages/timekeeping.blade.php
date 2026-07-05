@@ -146,9 +146,19 @@
 
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">History</h2>
-                @if ($entries->total() > 0)
-                    <span class="text-xs text-gray-400">{{ number_format($entries->total()) }} entries</span>
-                @endif
+                <div class="flex items-center gap-3">
+                    @if ($entries->total() > 0)
+                        <span class="text-xs text-gray-400">{{ number_format($entries->total()) }} entries</span>
+                    @endif
+                    <a
+                        wire:click.prevent="exportCsv"
+                        href="#"
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition"
+                    >
+                        <x-heroicon-o-arrow-down-tray class="h-3 w-3" />
+                        Export CSV
+                    </a>
+                </div>
             </div>
 
             @if ($entries->isEmpty())

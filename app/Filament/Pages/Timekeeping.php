@@ -9,6 +9,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class Timekeeping extends Page
 {
@@ -176,5 +177,36 @@ class Timekeeping extends Page
         if ($this->page > 1) {
             $this->page--;
         }
+    }
+
+    public function exportCsv(): StreamedResponse
+    {
+        $query = TimeEntry::with('user')
+            ->whereNotNull('clocked_out_at')
+            ->orderByDesc('clocked_in_at');
+
+        if (! auth()->user()?->isOwner()) {
+            $query->where('user_id', auth()->id());
+        }
+
+        $entries = $query->get();
+
+        return response()->streamDownload(function () use ($entries) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['User', 'Date', 'Clocked In', 'Clocked Out', 'Duration (minutes)', 'Hours', 'Notes']);
+            foreach ($entries as $entry) {
+                $minutes = (int) $entry->clocked_in_at->diffInMinutes($entry->clocked_out_at);
+                fputcsv($out, [
+                    $entry->user?->name ?? 'Unknown',
+                    $entry->clocked_in_at->format('Y-m-d'),
+                    $entry->clocked_in_at->format('Y-m-d H:i:s'),
+                    $entry->clocked_out_at->format('Y-m-d H:i:s'),
+                    $minutes,
+                    round($minutes / 60, 2),
+                    $entry->notes ?? '',
+                ]);
+            }
+            fclose($out);
+        }, 'time-entries-' . now()->format('Y-m-d') . '.csv', ['Content-Type' => 'text/csv']);
     }
 }

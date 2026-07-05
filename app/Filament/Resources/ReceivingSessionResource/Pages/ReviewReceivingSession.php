@@ -359,8 +359,14 @@ class ReviewReceivingSession extends Page
         $service = app(ReceivingSessionService::class);
         $count   = 0;
 
+        $ids   = array_column($this->grouped['auto'], 'id');
+        $lines = PalletLine::with(['product', 'pallet', 'receivingSession'])
+            ->whereIn('id', $ids)
+            ->get()
+            ->keyBy('id');
+
         foreach ($this->grouped['auto'] as $entry) {
-            $line    = PalletLine::find($entry['id']);
+            $line    = $lines[$entry['id']] ?? null;
             $product = $line?->product;
             if ($line && $product) {
                 $service->confirmLineMatch($line, $product, auth()->id());
@@ -397,7 +403,7 @@ class ReviewReceivingSession extends Page
         $lines = [];
         foreach (explode("\n", $raw) as $row) {
             $parts = array_map('trim', explode('|', $row));
-            if (empty($parts[0])) {
+            if ($parts[0] === '') {
                 continue;
             }
             $lines[] = [
@@ -422,6 +428,11 @@ class ReviewReceivingSession extends Page
 
     public function completeSession(): void
     {
+        if ($this->record->isComplete()) {
+            $this->flashError = 'This session has already been completed.';
+            return;
+        }
+
         $pendingReview = count($this->grouped['review']);
         $pendingNew    = count($this->grouped['new']);
 

@@ -228,14 +228,6 @@ class ProductMatchingService
         return ['score' => min(1.0, $raw), 'reasons' => $reasons];
     }
 
-    /**
-     * @deprecated Use scoreTokensDetailed instead
-     */
-    private function scoreTokens(array $tokens, Product $product): float
-    {
-        return $this->scoreTokensDetailed($tokens, $product)['score'];
-    }
-
     // ── Stage 3: Embedding similarity ─────────────────────────────────────────
 
     private function embeddingMatch(string $description, ?string $upc): array
@@ -261,7 +253,7 @@ class ProductMatchingService
         $topScore = $ranked[$topId];
 
         $productIds = array_keys($ranked);
-        $products   = Product::whereIn('id', $productIds)->get()->keyBy('id');
+        $products   = Product::whereIn('id', $productIds)->where('is_active', true)->get()->keyBy('id');
 
         $candidates = array_map(fn ($id, $score) => [
             'product'    => $products[$id] ?? null,

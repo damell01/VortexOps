@@ -40,7 +40,7 @@ class ImportManifest extends Page
     /**
      * Lines shown in the verify stage — editable by the user before import.
      *
-     * @var list<array{description:string, case_count:int|string, unit_cost:string, sku:string, barcode:string}>
+     * @var list<array{description:string, case_count:int|string, unit_cost:string, sku:string, barcode:string, matched_item_id:int|null, matched_item_name:string|null, create_new_item:bool}>
      */
     public array $parsedLines = [];
 
@@ -101,13 +101,19 @@ class ImportManifest extends Page
 
         if ($task->status === 'completed') {
             $raw = $task->output['lines'] ?? [];
-            $this->parsedLines = array_map(fn ($l) => [
-                'description' => $l['description'] ?? '',
-                'case_count'  => (string) ($l['case_count'] ?? 1),
-                'unit_cost'   => $l['unit_cost'] !== null ? number_format((float) $l['unit_cost'], 2, '.', '') : '',
-                'sku'         => $l['sku'] ?? '',
-                'barcode'     => $l['barcode'] ?? '',
-            ], $raw);
+            $this->parsedLines = array_map(function ($l) {
+                $item = $this->findMatchingItem($l['barcode'] ?? null, $l['sku'] ?? null, $l['description'] ?? null);
+                return [
+                    'description'       => $l['description'] ?? '',
+                    'case_count'        => (string) ($l['case_count'] ?? 1),
+                    'unit_cost'         => $l['unit_cost'] !== null ? number_format((float) $l['unit_cost'], 2, '.', '') : '',
+                    'sku'               => $l['sku'] ?? '',
+                    'barcode'           => $l['barcode'] ?? '',
+                    'matched_item_id'   => $item?->id,
+                    'matched_item_name' => $item?->name,
+                    'create_new_item'   => false,
+                ];
+            }, $raw);
             $this->stage = 'verify';
             return;
         }
@@ -140,7 +146,24 @@ class ImportManifest extends Page
 
     public function addLine(): void
     {
-        $this->parsedLines[] = ['description' => '', 'case_count' => '1', 'unit_cost' => '', 'sku' => '', 'barcode' => ''];
+        $this->parsedLines[] = [
+            'description' => '', 'case_count' => '1', 'unit_cost' => '', 'sku' => '', 'barcode' => '',
+            'matched_item_id' => null, 'matched_item_name' => null, 'create_new_item' => false,
+        ];
+    }
+
+    private function findMatchingItem(?string $barcode, ?string $sku, ?string $description): ?InventoryItem
+    {
+        if ($barcode && $item = InventoryItem::where('barcode', trim($barcode))->first()) {
+            return $item;
+        }
+        if ($sku && $item = InventoryItem::where('sku', trim($sku))->first()) {
+            return $item;
+        }
+        if ($description && $item = InventoryItem::where('name', trim($description))->first()) {
+            return $item;
+        }
+        return null;
     }
 
     public function removeLine(int $idx): void
@@ -165,18 +188,21 @@ class ImportManifest extends Page
                     continue;
                 }
 
-                $item = null;
-                if (! empty($row['barcode'])) {
-                    $item = InventoryItem::where('barcode', trim($row['barcode']))->first();
-                }
-                if (! $item && ! empty($row['sku'])) {
-                    $item = InventoryItem::where('sku', trim($row['sku']))->first();
-                }
-                if (! $item) {
-                    $item = InventoryItem::where('name', $description)->first();
-                }
-
                 $unitCost = (float) str_replace(['$', ','], '', $row['unit_cost'] ?? '0');
+
+                // Re-check match (user may have edited description/sku/barcode)
+                $item = $this->findMatchingItem($row['barcode'] ?? null, $row['sku'] ?? null, $description);
+
+                // If still unmatched and user wants to create a new item
+                if (! $item && ! empty($row['create_new_item'])) {
+                    $item = InventoryItem::create([
+                        'name'      => $description,
+                        'sku'       => ($row['sku'] ?? '') ?: null,
+                        'barcode'   => ($row['barcode'] ?? '') ?: null,
+                        'unit_cost' => $unitCost > 0 ? $unitCost : 0,
+                        'is_active' => true,
+                    ]);
+                }
 
                 PalletLine::create([
                     'pallet_id'         => $pallet->id,

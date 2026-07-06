@@ -250,75 +250,136 @@
                                         />
                                     </div>
                                 </div>
+
+                                {{-- Match status (mobile) --}}
+                                @if (!empty($line['matched_item_id']))
+                                    <div class="flex items-center gap-1.5 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 px-2.5 py-1.5">
+                                        <x-heroicon-o-check-circle class="h-3.5 w-3.5 flex-shrink-0 text-green-600 dark:text-green-400" />
+                                        <span class="text-xs font-medium text-green-700 dark:text-green-300 truncate">Matched: {{ $line['matched_item_name'] }}</span>
+                                    </div>
+                                @else
+                                    <div class="space-y-1.5">
+                                        <div class="flex items-center gap-1.5 rounded-md bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5">
+                                            <x-heroicon-o-question-mark-circle class="h-3.5 w-3.5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                                            <span class="text-xs font-medium text-amber-700 dark:text-amber-300">No inventory match</span>
+                                        </div>
+                                        <label class="flex items-center gap-2 px-2.5 py-1 cursor-pointer">
+                                            <input
+                                                wire:model="parsedLines.{{ $i }}.create_new_item"
+                                                type="checkbox"
+                                                class="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500"
+                                            />
+                                            <span class="text-xs text-gray-600 dark:text-gray-400">Create new inventory item</span>
+                                        </label>
+                                    </div>
+                                @endif
                             </div>
                         @endforeach
                     </div>
 
                     {{-- Desktop table layout (hidden on mobile) --}}
                     @php
-                        $totalCases = collect($parsedLines)->sum(fn ($l) => (int) ($l['case_count'] ?? 0));
-                        $totalCost  = collect($parsedLines)->sum(fn ($l) => (float) ($l['unit_cost'] ?? 0) * (int) ($l['case_count'] ?? 0));
+                        $totalCases   = collect($parsedLines)->sum(fn ($l) => (int) ($l['case_count'] ?? 0));
+                        $totalCost    = collect($parsedLines)->sum(fn ($l) => (float) ($l['unit_cost'] ?? 0) * (int) ($l['case_count'] ?? 0));
+                        $matchedCount = collect($parsedLines)->filter(fn ($l) => !empty($l['matched_item_id']))->count();
                     @endphp
                     <div class="hidden sm:block rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                         {{-- Header --}}
                         <div class="grid grid-cols-12 gap-2 px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700
                                     text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                            <div class="col-span-5">Description</div>
-                            <div class="col-span-2">Cases</div>
+                            <div class="col-span-4">Description</div>
+                            <div class="col-span-1">Cases</div>
                             <div class="col-span-2">Unit Cost</div>
                             <div class="col-span-2">SKU</div>
+                            <div class="col-span-2">Inventory Match</div>
                             <div class="col-span-1"></div>
                         </div>
 
                         @foreach ($parsedLines as $i => $line)
-                            <div class="grid grid-cols-12 gap-2 items-center px-4 py-2.5
-                                        border-b border-gray-100 dark:border-gray-800 last:border-b-0
+                            <div class="border-b border-gray-100 dark:border-gray-800 last:border-b-0
                                         {{ $i % 2 === 1 ? 'bg-gray-50/60 dark:bg-gray-800/30' : '' }}
                                         hover:bg-violet-50/40 dark:hover:bg-violet-900/10 transition-colors">
-                                <div class="col-span-5">
-                                    <input
-                                        wire:model="parsedLines.{{ $i }}.description"
-                                        type="text"
-                                        placeholder="Item description"
-                                        class="w-full rounded-lg border bg-white dark:bg-gray-900 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500
-                                            {{ trim($line['description']) === '' ? 'border-amber-300 dark:border-amber-600' : 'border-gray-200 dark:border-gray-700' }}"
-                                    />
+
+                                {{-- Input row --}}
+                                <div class="grid grid-cols-12 gap-2 items-center px-4 pt-2.5 pb-1.5">
+                                    <div class="col-span-4">
+                                        <input
+                                            wire:model="parsedLines.{{ $i }}.description"
+                                            type="text"
+                                            placeholder="Item description"
+                                            class="w-full rounded-lg border bg-white dark:bg-gray-900 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500
+                                                {{ trim($line['description']) === '' ? 'border-amber-300 dark:border-amber-600' : 'border-gray-200 dark:border-gray-700' }}"
+                                        />
+                                    </div>
+                                    <div class="col-span-1">
+                                        <input
+                                            wire:model="parsedLines.{{ $i }}.case_count"
+                                            type="number"
+                                            min="1"
+                                            placeholder="1"
+                                            class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm font-mono tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                        />
+                                    </div>
+                                    <div class="col-span-2">
+                                        <input
+                                            wire:model="parsedLines.{{ $i }}.unit_cost"
+                                            type="text"
+                                            placeholder="0.00"
+                                            class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                        />
+                                    </div>
+                                    <div class="col-span-2">
+                                        <input
+                                            wire:model="parsedLines.{{ $i }}.sku"
+                                            type="text"
+                                            placeholder="SKU"
+                                            class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                                        />
+                                    </div>
+                                    <div class="col-span-2 flex items-center">
+                                        @if (!empty($line['matched_item_id']))
+                                            <span class="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900 px-2 py-0.5 text-[11px] font-medium text-green-700 dark:text-green-300 max-w-full">
+                                                <x-heroicon-o-check-circle class="h-3 w-3 flex-shrink-0" />
+                                                <span class="truncate">{{ $line['matched_item_name'] }}</span>
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                                                <x-heroicon-o-question-mark-circle class="h-3 w-3 flex-shrink-0" />
+                                                No match
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <div class="col-span-1 flex justify-center">
+                                        <button
+                                            wire:click="removeLine({{ $i }})"
+                                            type="button"
+                                            class="text-gray-300 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 focus:outline-none"
+                                            title="Remove line"
+                                        >
+                                            <x-heroicon-o-x-mark class="h-4 w-4" />
+                                        </button>
+                                    </div>
                                 </div>
-                                <div class="col-span-2">
-                                    <input
-                                        wire:model="parsedLines.{{ $i }}.case_count"
-                                        type="number"
-                                        min="1"
-                                        placeholder="1"
-                                        class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                    />
-                                </div>
-                                <div class="col-span-2">
-                                    <input
-                                        wire:model="parsedLines.{{ $i }}.unit_cost"
-                                        type="text"
-                                        placeholder="0.00"
-                                        class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                    />
-                                </div>
-                                <div class="col-span-2">
-                                    <input
-                                        wire:model="parsedLines.{{ $i }}.sku"
-                                        type="text"
-                                        placeholder="SKU"
-                                        class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                    />
-                                </div>
-                                <div class="col-span-1 flex justify-center">
-                                    <button
-                                        wire:click="removeLine({{ $i }})"
-                                        type="button"
-                                        class="text-gray-300 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 focus:outline-none"
-                                        title="Remove line"
-                                    >
-                                        <x-heroicon-o-x-mark class="h-4 w-4" />
-                                    </button>
-                                </div>
+
+                                {{-- Create new item checkbox (only for unmatched lines) --}}
+                                @if (empty($line['matched_item_id']))
+                                    <div class="grid grid-cols-12 gap-2 px-4 pb-2">
+                                        <div class="col-span-9"></div>
+                                        <div class="col-span-2">
+                                            <label class="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    wire:model="parsedLines.{{ $i }}.create_new_item"
+                                                    type="checkbox"
+                                                    class="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500"
+                                                />
+                                                <span class="text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap">Create new item</span>
+                                            </label>
+                                        </div>
+                                        <div class="col-span-1"></div>
+                                    </div>
+                                @else
+                                    <div class="pb-1.5"></div>
+                                @endif
                             </div>
                         @endforeach
 
@@ -326,16 +387,19 @@
                         @if (count($parsedLines) > 0)
                             <div class="grid grid-cols-12 gap-2 items-center px-4 py-2.5
                                         bg-gray-50 dark:bg-gray-800 border-t-2 border-gray-200 dark:border-gray-700">
-                                <div class="col-span-5 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                                <div class="col-span-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                                     {{ count($parsedLines) }} line{{ count($parsedLines) !== 1 ? 's' : '' }}
                                 </div>
-                                <div class="col-span-2 text-sm font-bold tabular-nums text-gray-800 dark:text-gray-200">
+                                <div class="col-span-1 text-sm font-bold tabular-nums text-gray-800 dark:text-gray-200">
                                     {{ $totalCases }}
                                 </div>
                                 <div class="col-span-2 text-sm font-bold tabular-nums text-gray-800 dark:text-gray-200">
                                     ${{ number_format($totalCost, 2) }}
                                 </div>
-                                <div class="col-span-3"></div>
+                                <div class="col-span-2"></div>
+                                <div class="col-span-3 text-xs text-gray-400 text-right">
+                                    {{ $matchedCount }}/{{ count($parsedLines) }} matched
+                                </div>
                             </div>
                         @endif
                     </div>

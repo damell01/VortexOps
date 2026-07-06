@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\WeeklyPayoutBatchResource\Pages;
+use App\Filament\Resources\WeeklyPayoutBatchResource\RelationManagers;
 use App\Models\WeeklyPayoutBatch;
 use App\Services\PayoutService;
 use App\Support\AdminModules;
@@ -174,6 +175,13 @@ class WeeklyPayoutBatchResource extends Resource
             ->actions([
                 ViewAction::make()->iconButton(),
             ]);
+    }
+
+    public static function getRelationManagers(): array
+    {
+        return [
+            RelationManagers\PayoutsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

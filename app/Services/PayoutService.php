@@ -360,6 +360,59 @@ class PayoutService
         });
     }
 
+    /**
+     * Create a manual pay run for specific streamers.
+     *
+     * For each streamer, existing draft show-based payouts in the date range are
+     * attached first. If none exist, a $0 manual placeholder payout is created so
+     * the amount can be set on the view page.
+     *
+     * @param array<int> $streamerIds
+     */
+    public function createManualBatch(string $weekStart, array $streamerIds, ?string $notes = null): WeeklyPayoutBatch
+    {
+        $start = Carbon::parse($weekStart)->startOfWeek(Carbon::MONDAY);
+        $end   = $start->copy()->endOfWeek(Carbon::SUNDAY);
+
+        return DB::transaction(function () use ($start, $end, $streamerIds, $notes) {
+            $batch = WeeklyPayoutBatch::create([
+                'week_start' => $start->toDateString(),
+                'week_end'   => $end->toDateString(),
+                'status'     => 'draft',
+                'notes'      => $notes,
+                'created_by' => Auth::id(),
+            ]);
+
+            foreach ($streamerIds as $streamerId) {
+                $attached = Payout::where('streamer_id', $streamerId)
+                    ->whereNull('weekly_payout_batch_id')
+                    ->where('status', 'draft')
+                    ->whereHas('show', fn ($q) => $q->whereBetween('show_date', [$start, $end]))
+                    ->update(['weekly_payout_batch_id' => $batch->id]);
+
+                if ($attached === 0) {
+                    $streamer = Streamer::find($streamerId);
+                    if ($streamer) {
+                        Payout::create([
+                            'streamer_id'            => $streamerId,
+                            'weekly_payout_batch_id' => $batch->id,
+                            'payout_type'            => $streamer->payout_type ?? 'flat_rate',
+                            'calculated_payout'      => 0,
+                            'gross_show_revenue'     => 0,
+                            'owner_fee_deducted'     => 0,
+                            'tips_included'          => 0,
+                            'calculation_notes'      => 'Manual entry',
+                            'status'                 => 'draft',
+                        ]);
+                    }
+                }
+            }
+
+            $batch->recalculateTotal();
+            return $batch;
+        });
+    }
+
     public function finalizeBatch(WeeklyPayoutBatch $batch): void
     {
         DB::transaction(function () use ($batch) {

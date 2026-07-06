@@ -6,6 +6,8 @@ use App\Filament\Resources\WeeklyPayoutBatchResource;
 use App\Services\AdpExportService;
 use App\Services\PayoutService;
 use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -17,6 +19,13 @@ class ViewWeeklyPayoutBatch extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            EditAction::make()
+                ->label('Edit Details')
+                ->visible(fn () => $this->record->status === 'draft'),
+
+            DeleteAction::make()
+                ->visible(fn () => $this->record->status === 'draft'),
+
             Action::make('finalize')
                 ->label('Finalize Pay Run')
                 ->icon('heroicon-o-lock-closed')

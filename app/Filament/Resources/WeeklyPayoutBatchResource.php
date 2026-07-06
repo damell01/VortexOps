@@ -174,6 +174,10 @@ class WeeklyPayoutBatchResource extends Resource
             ])
             ->actions([
                 ViewAction::make()->iconButton(),
+                \Filament\Actions\EditAction::make()->iconButton()
+                    ->visible(fn ($record) => $record->status === 'draft'),
+                \Filament\Actions\DeleteAction::make()->iconButton()
+                    ->visible(fn ($record) => $record->status === 'draft'),
             ]);
     }
 
@@ -190,6 +194,7 @@ class WeeklyPayoutBatchResource extends Resource
             'index'  => Pages\ListWeeklyPayoutBatches::route('/'),
             'create' => Pages\CreateWeeklyPayoutBatch::route('/create'),
             'view'   => Pages\ViewWeeklyPayoutBatch::route('/{record}'),
+            'edit'   => Pages\EditWeeklyPayoutBatch::route('/{record}/edit'),
         ];
     }
 }

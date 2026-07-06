@@ -67,7 +67,7 @@
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex flex-wrap items-center gap-4">
                 <div class="flex-1 min-w-0">
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Manifest Lines</h2>
-                    <p class="text-xs text-gray-400 mt-0.5">Use "Receive All" to bulk-receive cases on a line without scanning.</p>
+                    <p class="text-xs text-gray-400 mt-0.5">Use "Receive All" to mark all boxes on a line as received without scanning.</p>
                 </div>
                 @if ($totalExpected > 0)
                     <div class="flex items-center gap-3 shrink-0">
@@ -75,7 +75,7 @@
                             <p class="text-sm font-bold {{ $allDone ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100' }} tabular-nums">
                                 {{ $totalReceived }}/{{ $totalExpected }}
                             </p>
-                            <p class="text-[11px] text-gray-400">cases received</p>
+                            <p class="text-[11px] text-gray-400">boxes received</p>
                         </div>
                         <div class="w-24 bg-gray-100 dark:bg-gray-700 rounded-full h-2">
                             <div class="h-2 rounded-full {{ $allDone ? 'bg-green-500' : 'bg-violet-500' }} transition-all"
@@ -209,7 +209,7 @@
                         complete
                     </span>
                     <span class="text-sm font-bold {{ $allDone ? 'text-green-600 dark:text-green-400' : 'text-gray-800 dark:text-gray-100' }} tabular-nums">
-                        {{ $totalReceived }} / {{ $totalExpected }} cases
+                        {{ $totalReceived }} / {{ $totalExpected }} boxes
                     </span>
                 </div>
             @endif

@@ -112,18 +112,20 @@ class PalletResource extends Resource
                                     ->maxLength(255)
                                     ->columnSpan(5),
                                 TextInput::make('case_count')
-                                    ->label('# Cases')
+                                    ->label('Boxes / Cases Received')
                                     ->numeric()
                                     ->default(1)
                                     ->minValue(1)
                                     ->required()
+                                    ->helperText('How many boxes of this SKU on the pallet.')
                                     ->columnSpan(2),
                                 TextInput::make('quantity_per_case')
-                                    ->label('Units / Case')
+                                    ->label('Units per Box')
                                     ->numeric()
                                     ->default(1)
                                     ->minValue(0.01)
                                     ->required()
+                                    ->helperText('Leave as 1 if selling sealed boxes.')
                                     ->columnSpan(2),
                                 TextInput::make('unit_cost')
                                     ->label('Unit Cost ($)')

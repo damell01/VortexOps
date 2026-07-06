@@ -258,6 +258,31 @@ WantedBy=multi-user.target
 SVCEOF
 fi
 
+# ── Systemd: AI queue worker ──────────────────────────────────────────────────
+info "Installing AI queue worker service..."
+if [[ -f "$SCRIPT_DIR/vortexops-ai-worker.service" ]]; then
+    sed "s|APP_DIR|$APP_DIR|g" "$SCRIPT_DIR/vortexops-ai-worker.service" \
+        > /etc/systemd/system/vortexops-ai-worker.service
+else
+    cat > /etc/systemd/system/vortexops-ai-worker.service <<SVCEOF
+[Unit]
+Description=VortexOps AI Queue Worker (packing slip / Ollama jobs)
+After=network.target mysql.service
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=$APP_DIR
+ExecStart=/usr/bin/php artisan queue:work --queue=ai --sleep=5 --tries=1 --timeout=300
+Restart=always
+RestartSec=10s
+StartLimitIntervalSec=120
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+fi
+
 # ── Systemd: scheduler ────────────────────────────────────────────────────────
 info "Installing scheduler service + timer..."
 cat > /etc/systemd/system/vortexops-scheduler.service <<SVCEOF
@@ -287,7 +312,7 @@ WantedBy=timers.target
 SVCEOF
 
 systemctl daemon-reload
-systemctl enable --now vortexops-worker vortexops-scheduler.timer
+systemctl enable --now vortexops-worker vortexops-ai-worker vortexops-scheduler.timer
 
 # ── UFW ───────────────────────────────────────────────────────────────────────
 if command -v ufw &>/dev/null; then
@@ -332,5 +357,6 @@ echo "       systemctl reload apache2"
 echo ""
 echo "  App live at: https://$DOMAIN"
 echo "  Worker:      systemctl status vortexops-worker"
+echo "  AI Worker:   systemctl status vortexops-ai-worker"
 echo "  Scheduler:   systemctl status vortexops-scheduler.timer"
 echo ""

@@ -1,0 +1,15 @@
+[Unit]
+Description=VortexOps AI Queue Worker (packing slip / Ollama jobs)
+After=network.target mysql.service
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=APP_DIR
+ExecStart=/usr/bin/php artisan queue:work --queue=ai --sleep=5 --tries=1 --timeout=300
+Restart=always
+RestartSec=10s
+StartLimitIntervalSec=120
+
+[Install]
+WantedBy=multi-user.target

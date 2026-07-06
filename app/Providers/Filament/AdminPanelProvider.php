@@ -129,6 +129,7 @@ class AdminPanelProvider extends PanelProvider
                     : Blade::render(
                         "@livewire('feedback-widget')"
                         . "@livewire('ai-chat-panel')"
+                        . "@include('filament.components.camera-barcode-scanner')"
                     ),
             )
             ->renderHook(

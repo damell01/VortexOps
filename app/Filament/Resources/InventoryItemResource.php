@@ -106,7 +106,13 @@ class InventoryItemResource extends Resource
                         ->label('Barcode')
                         ->unique(ignoreRecord: true)
                         ->maxLength(100)
-                        ->helperText('Scan or type the product barcode (UPC/EAN/QR).'),
+                        ->helperText('Bluetooth scanner types directly here. Tap 📷 to use camera.')
+                        ->suffixAction(
+                            \Filament\Actions\Action::make('scan_camera')
+                                ->icon('heroicon-o-camera')
+                                ->tooltip('Scan with camera')
+                                ->alpineClickHandler("\$dispatch('open-camera-scanner')")
+                        ),
                     TextInput::make('name')
                         ->required()
                         ->maxLength(255),

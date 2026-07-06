@@ -34,28 +34,33 @@ class RevenueChartWidget extends ChartWidget
 
     protected function getData(): array
     {
-        if (($this->filter ?? 'weeks') === 'months') {
-            $trend = Trend::query(
-                Show::query()->whereNotIn('status', ['cancelled'])
-            )
-                ->between(now()->subMonths(11)->startOfMonth(), now()->endOfMonth())
-                ->perMonth()
-                ->dateColumn('show_date')
-                ->sum('gross_revenue');
+        try {
+            if (($this->filter ?? 'weeks') === 'months') {
+                $trend = Trend::query(
+                    Show::query()->whereNotIn('status', ['cancelled'])
+                )
+                    ->between(now()->subMonths(11)->startOfMonth(), now()->endOfMonth())
+                    ->perMonth()
+                    ->dateColumn('show_date')
+                    ->sum('gross_revenue');
 
-            $labels = $trend->map(fn ($t) => \Illuminate\Support\Carbon::parse($t->date)->format('M Y'))->toArray();
-            $values = $trend->pluck('aggregate')->toArray();
-        } else {
-            $trend = Trend::query(
-                Show::query()->whereNotIn('status', ['cancelled'])
-            )
-                ->between(now()->subWeeks(11)->startOfWeek(), now()->endOfWeek())
-                ->perWeek()
-                ->dateColumn('show_date')
-                ->sum('gross_revenue');
+                $labels = $trend->map(fn ($t) => \Illuminate\Support\Carbon::parse($t->date)->format('M Y'))->toArray();
+                $values = $trend->pluck('aggregate')->toArray();
+            } else {
+                $trend = Trend::query(
+                    Show::query()->whereNotIn('status', ['cancelled'])
+                )
+                    ->between(now()->subWeeks(11)->startOfWeek(), now()->endOfWeek())
+                    ->perWeek()
+                    ->dateColumn('show_date')
+                    ->sum('gross_revenue');
 
-            $labels = $trend->map(fn ($t) => \Illuminate\Support\Carbon::parse($t->date)->format('M j'))->toArray();
-            $values = $trend->pluck('aggregate')->toArray();
+                $labels = $trend->map(fn ($t) => \Illuminate\Support\Carbon::parse($t->date)->format('M j'))->toArray();
+                $values = $trend->pluck('aggregate')->toArray();
+            }
+        } catch (\Throwable) {
+            $labels = [];
+            $values = [];
         }
 
         return [

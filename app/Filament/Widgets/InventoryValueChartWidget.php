@@ -48,12 +48,21 @@ class InventoryValueChartWidget extends ChartWidget
             'adjustment'     => 'Units Adjusted',
         ];
 
-        $trend = Trend::query(
-            InventoryMovement::query()->where('movement_type', $type)
-        )
-            ->between(now()->subWeeks(11)->startOfWeek(), now()->endOfWeek())
-            ->perWeek()
-            ->sum('quantity');
+        try {
+            $trend = Trend::query(
+                InventoryMovement::query()->where('movement_type', $type)
+            )
+                ->between(now()->subWeeks(11)->startOfWeek(), now()->endOfWeek())
+                ->perWeek()
+                ->dateColumn('created_at')
+                ->sum('quantity');
+
+            $data   = $trend->pluck('aggregate')->toArray();
+            $labels = $trend->map(fn ($t) => \Illuminate\Support\Carbon::parse($t->date)->format('M j'))->toArray();
+        } catch (\Throwable) {
+            $data   = [];
+            $labels = [];
+        }
 
         $color = $colorMap[$type] ?? '#f59e0b';
 
@@ -61,14 +70,14 @@ class InventoryValueChartWidget extends ChartWidget
             'datasets' => [
                 [
                     'label'           => $labelMap[$type] ?? 'Units',
-                    'data'            => $trend->pluck('aggregate')->toArray(),
+                    'data'            => $data,
                     'borderColor'     => $color,
                     'backgroundColor' => $color . '20',
                     'fill'            => true,
                     'tension'         => 0.4,
                 ],
             ],
-            'labels' => $trend->map(fn ($t) => \Illuminate\Support\Carbon::parse($t->date)->format('M j'))->toArray(),
+            'labels' => $labels,
         ];
     }
 

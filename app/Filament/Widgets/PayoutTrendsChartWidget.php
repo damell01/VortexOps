@@ -26,25 +26,34 @@ class PayoutTrendsChartWidget extends ChartWidget
 
     protected function getData(): array
     {
-        $trend = Trend::query(
-            Payout::query()->whereIn('status', ['approved', 'paid'])
-        )
-            ->between(now()->subWeeks(11)->startOfWeek(), now()->endOfWeek())
-            ->perWeek()
-            ->sum('calculated_payout');
+        try {
+            $trend = Trend::query(
+                Payout::query()->whereIn('status', ['approved', 'paid'])
+            )
+                ->between(now()->subWeeks(11)->startOfWeek(), now()->endOfWeek())
+                ->perWeek()
+                ->dateColumn('created_at')
+                ->sum('calculated_payout');
+
+            $data   = $trend->pluck('aggregate')->toArray();
+            $labels = $trend->map(fn ($t) => \Illuminate\Support\Carbon::parse($t->date)->format('M j'))->toArray();
+        } catch (\Throwable) {
+            $data   = [];
+            $labels = [];
+        }
 
         return [
             'datasets' => [
                 [
                     'label'           => 'Payouts',
-                    'data'            => $trend->pluck('aggregate')->toArray(),
+                    'data'            => $data,
                     'borderColor'     => '#3b82f6',
                     'backgroundColor' => '#3b82f620',
                     'fill'            => true,
                     'tension'         => 0.4,
                 ],
             ],
-            'labels' => $trend->map(fn ($t) => \Illuminate\Support\Carbon::parse($t->date)->format('M j'))->toArray(),
+            'labels' => $labels,
         ];
     }
 

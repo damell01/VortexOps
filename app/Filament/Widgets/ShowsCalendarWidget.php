@@ -39,15 +39,19 @@ class ShowsCalendarWidget extends Widget
 
     public function getShowsProperty(): \Illuminate\Support\Collection
     {
-        $start = Carbon::create($this->year, $this->month, 1)->startOfMonth();
-        $end   = $start->copy()->endOfMonth();
+        try {
+            $start = Carbon::create($this->year, $this->month, 1)->startOfMonth();
+            $end   = $start->copy()->endOfMonth();
 
-        return Show::query()
-            ->with('whatnotChannel:id,name')
-            ->whereBetween('show_date', [$start, $end])
-            ->whereNotIn('status', ['cancelled'])
-            ->get(['id', 'show_date', 'status', 'gross_revenue', 'whatnot_channel_id', 'title'])
-            ->groupBy(fn ($s) => $s->show_date->format('Y-m-d'));
+            return Show::query()
+                ->with('whatnotChannel:id,name')
+                ->whereBetween('show_date', [$start, $end])
+                ->whereNotIn('status', ['cancelled'])
+                ->get(['id', 'show_date', 'status', 'gross_revenue', 'whatnot_channel_id', 'title'])
+                ->groupBy(fn ($s) => $s->show_date->format('Y-m-d'));
+        } catch (\Throwable) {
+            return collect();
+        }
     }
 
     public function getCalendarDaysProperty(): array

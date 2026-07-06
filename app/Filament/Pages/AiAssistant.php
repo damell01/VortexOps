@@ -10,6 +10,7 @@ use App\Models\Payout;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WeeklyPayoutBatch;
+use App\Models\Setting;
 use App\Support\AdminModules;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Cache;
@@ -461,11 +462,13 @@ PROMPT;
 
     private function baseUrl(): string
     {
-        return rtrim(config('services.ollama.url', 'http://ollama:11434'), '/');
+        $fromDb = Setting::get('ollama_base_url');
+        return rtrim($fromDb ?: config('services.ollama.url', 'http://ollama:11434'), '/');
     }
 
     private function model(): string
     {
-        return config('services.ollama.model', 'llama3.2:3b');
+        $fromDb = Setting::get('ollama_model');
+        return $fromDb ?: config('services.ollama.model', 'llama3.2:3b');
     }
 }

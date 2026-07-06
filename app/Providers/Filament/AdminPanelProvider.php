@@ -127,8 +127,7 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => ! $isAuthenticatedAdminView()
                     ? ''
                     : Blade::render(
-                        "<x-tour-button />"
-                        . "@livewire('feedback-widget')"
+                        "@livewire('feedback-widget')"
                         . "@livewire('ai-chat-panel')"
                     ),
             )

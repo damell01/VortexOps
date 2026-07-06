@@ -69,6 +69,13 @@ class AppSettings extends Page
     public string $whatnotImportStatus = ''; // 'success' | 'error' | ''
     public string $whatnotLastImport   = '';
 
+    // ── AI / Ollama ──────────────────────────────────────────────────────────
+
+    public string $ollama_base_url   = '';
+    public string $ollama_model      = '';
+    public string $ollamaTestResult  = '';
+    public string $ollamaTestStatus  = ''; // 'success' | 'error' | ''
+
     // ── Maintenance ──────────────────────────────────────────────────────────
 
     public string $lastCommandOutput = '';
@@ -108,6 +115,9 @@ class AppSettings extends Page
         $this->notify_show_reconciled_users = json_decode(Setting::get('notify_show_reconciled_users', '[]'), true) ?? [];
         $this->enabled_modules  = AdminModules::enabledSlugs();
         $this->enabled_features = AdminModules::enabledFeatures();
+
+        $this->ollama_base_url = Setting::get('ollama_base_url', config('services.ollama.url', 'http://localhost:11434'));
+        $this->ollama_model    = Setting::get('ollama_model',    config('services.ollama.model', 'llama3.2:3b'));
     }
 
     public function getAllUsersProperty(): \Illuminate\Support\Collection
@@ -195,6 +205,9 @@ class AppSettings extends Page
         Setting::set('notify_show_ready_users',       json_encode($this->notify_show_ready_users));
         Setting::set('notify_show_reconciled_mode',   $this->notify_show_reconciled_mode);
         Setting::set('notify_show_reconciled_users',  json_encode($this->notify_show_reconciled_users));
+
+        Setting::set('ollama_base_url', rtrim(trim($this->ollama_base_url), '/') ?: 'http://localhost:11434');
+        Setting::set('ollama_model',    trim($this->ollama_model) ?: 'llama3.2:3b');
         if ($isOwner) {
             Setting::set('enabled_admin_modules',  json_encode(AdminModules::normalizeEnabledSlugs($this->enabled_modules)));
             Setting::set('enabled_admin_features', json_encode(array_values(array_intersect(
@@ -247,6 +260,50 @@ class AppSettings extends Page
             Notification::make()
                 ->title('Whatnot connection failed')
                 ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function testOllamaConnection(): void
+    {
+        $this->ollamaTestResult = '';
+        $this->ollamaTestStatus = '';
+
+        $url = rtrim(trim($this->ollama_base_url) ?: 'http://localhost:11434', '/');
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout(5)->get("{$url}/api/tags");
+
+            if (! $response->successful()) {
+                throw new \RuntimeException("HTTP {$response->status()}: {$response->body()}");
+            }
+
+            $models = collect($response->json('models', []))
+                ->pluck('name')
+                ->filter()
+                ->values()
+                ->toArray();
+
+            if (empty($models)) {
+                $this->ollamaTestResult = 'Connected — no models found. Pull a model with: ollama pull llama3.2';
+            } else {
+                $this->ollamaTestResult = 'Connected. Available models: ' . implode(', ', $models);
+            }
+            $this->ollamaTestStatus = 'success';
+
+            Notification::make()
+                ->title('Ollama connected')
+                ->body($this->ollamaTestResult)
+                ->success()
+                ->send();
+        } catch (\Throwable $e) {
+            $this->ollamaTestResult = 'Connection failed: ' . $e->getMessage();
+            $this->ollamaTestStatus = 'error';
+
+            Notification::make()
+                ->title('Ollama connection failed')
+                ->body($this->ollamaTestResult)
                 ->danger()
                 ->send();
         }

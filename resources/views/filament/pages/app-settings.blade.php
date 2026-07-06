@@ -598,6 +598,70 @@
 
         </div>
 
+        {{-- AI / Ollama --}}
+        <div class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
+                <x-heroicon-o-sparkles class="h-5 w-5 text-primary-500" />
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">AI / Ollama Connection</h2>
+            </div>
+
+            <div class="px-6 py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Ollama Base URL</label>
+                    <input
+                        wire:model.blur="ollama_base_url"
+                        type="url"
+                        placeholder="http://localhost:11434"
+                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">URL of your Ollama server (default: http://localhost:11434)</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Model Name</label>
+                    <input
+                        wire:model.blur="ollama_model"
+                        type="text"
+                        placeholder="llama3.2:3b"
+                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Model to use for chat (e.g. llama3.2, mistral, qwen2.5)</p>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Test Connection</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Verify Ollama is reachable and list available models.</p>
+                </div>
+                <button
+                    wire:click="testOllamaConnection"
+                    wire:loading.attr="disabled"
+                    wire:target="testOllamaConnection"
+                    type="button"
+                    class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950 px-3 py-2 text-sm font-medium text-violet-700 dark:text-violet-300 shadow-sm hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                    <span wire:loading.remove wire:target="testOllamaConnection">
+                        <x-heroicon-o-signal class="h-4 w-4" />
+                    </span>
+                    <span wire:loading wire:target="testOllamaConnection">
+                        <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    </span>
+                    <span wire:loading.remove wire:target="testOllamaConnection">Test Connection</span>
+                    <span wire:loading wire:target="testOllamaConnection">Testing…</span>
+                </button>
+            </div>
+
+            @if ($ollamaTestResult)
+                <div class="px-6 py-3 rounded-b-xl {{ $ollamaTestStatus === 'success' ? 'bg-emerald-50 dark:bg-emerald-950' : 'bg-red-50 dark:bg-red-950' }}">
+                    <p class="text-xs {{ $ollamaTestStatus === 'success' ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300' }}">
+                        {{ $ollamaTestResult }}
+                    </p>
+                </div>
+            @endif
+        </div>
+
         {{-- Validation errors --}}
         @if ($errors->any())
             <div class="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 px-4 py-3">

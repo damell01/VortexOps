@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('shows', 'detail_url')) {
+            return;
+        }
+
         Schema::table('shows', function (Blueprint $table) {
             $table->string('detail_url')->nullable()->after('import_source');
         });

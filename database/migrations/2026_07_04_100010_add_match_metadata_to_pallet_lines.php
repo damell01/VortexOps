@@ -9,10 +9,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('pallet_lines', function (Blueprint $table) {
-            $table->json('match_reasons')->nullable()->after('match_stage');
-            $table->timestamp('matched_at')->nullable()->after('match_reasons');
-            $table->foreignId('matched_by')->nullable()->after('matched_at')
-                ->constrained('users')->nullOnDelete();
+            if (! Schema::hasColumn('pallet_lines', 'match_reasons'))
+                $table->json('match_reasons')->nullable()->after('match_stage');
+            if (! Schema::hasColumn('pallet_lines', 'matched_at'))
+                $table->timestamp('matched_at')->nullable()->after('match_reasons');
+            if (! Schema::hasColumn('pallet_lines', 'matched_by'))
+                $table->foreignId('matched_by')->nullable()->after('matched_at')
+                    ->constrained('users')->nullOnDelete();
         });
     }
 

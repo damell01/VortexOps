@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('inventory_movements', 'lot_id')) {
+            return;
+        }
+
         Schema::table('inventory_movements', function (Blueprint $table) {
             $table->foreignId('lot_id')->nullable()->after('inventory_item_id')
                 ->constrained('inventory_lots')->nullOnDelete();

@@ -8,10 +8,8 @@ return new class extends Migration
 {
     public function up(): void
     {
+        try { Schema::table('inventory_movements', fn (Blueprint $t) => $t->dropForeign(['inventory_item_id'])); } catch (\Throwable) {}
         Schema::table('inventory_movements', function (Blueprint $table) {
-            $table->dropForeign(['inventory_item_id']);
-            // Re-point FK at the renamed table (inventory_items → products) and use RESTRICT
-            // to prevent deleting products that have financial movement history.
             $table->foreign('inventory_item_id')
                 ->references('id')->on('products')
                 ->restrictOnDelete();
@@ -20,8 +18,8 @@ return new class extends Migration
 
     public function down(): void
     {
+        try { Schema::table('inventory_movements', fn (Blueprint $t) => $t->dropForeign(['inventory_item_id'])); } catch (\Throwable) {}
         Schema::table('inventory_movements', function (Blueprint $table) {
-            $table->dropForeign(['inventory_item_id']);
             $table->foreign('inventory_item_id')
                 ->references('id')->on('inventory_items')
                 ->cascadeOnDelete();

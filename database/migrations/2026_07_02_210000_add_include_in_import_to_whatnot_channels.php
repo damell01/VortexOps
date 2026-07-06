@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('whatnot_channels', 'include_in_import')) {
+            return;
+        }
+
         Schema::table('whatnot_channels', function (Blueprint $table) {
             $table->boolean('include_in_import')->default(true)->after('status');
         });

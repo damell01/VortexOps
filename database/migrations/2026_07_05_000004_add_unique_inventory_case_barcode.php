@@ -8,18 +8,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('inventory_cases', function (Blueprint $table) {
-            // Drop the plain index first, then replace with unique (NULLs are allowed by SQL standard)
-            $table->dropIndex('inventory_cases_barcode_index');
-            $table->unique('barcode');
-        });
+        try { Schema::table('inventory_cases', fn (Blueprint $t) => $t->dropIndex('inventory_cases_barcode_index')); } catch (\Throwable) {}
+        try { Schema::table('inventory_cases', fn (Blueprint $t) => $t->dropUnique(['barcode'])); } catch (\Throwable) {}
+        Schema::table('inventory_cases', fn (Blueprint $t) => $t->unique('barcode'));
     }
 
     public function down(): void
     {
-        Schema::table('inventory_cases', function (Blueprint $table) {
-            $table->dropUnique(['barcode']);
-            $table->index('barcode');
-        });
+        try { Schema::table('inventory_cases', fn (Blueprint $t) => $t->dropUnique(['barcode'])); } catch (\Throwable) {}
+        Schema::table('inventory_cases', fn (Blueprint $t) => $t->index('barcode'));
     }
 };

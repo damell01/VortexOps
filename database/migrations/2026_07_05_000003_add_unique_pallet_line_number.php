@@ -8,15 +8,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('pallet_lines', function (Blueprint $table) {
-            $table->unique(['pallet_id', 'line_number'], 'pallet_lines_pallet_id_line_number_unique');
-        });
+        try { Schema::table('pallet_lines', fn (Blueprint $t) => $t->dropUnique('pallet_lines_pallet_id_line_number_unique')); } catch (\Throwable) {}
+        Schema::table('pallet_lines', fn (Blueprint $t) => $t->unique(['pallet_id', 'line_number'], 'pallet_lines_pallet_id_line_number_unique'));
     }
 
     public function down(): void
     {
-        Schema::table('pallet_lines', function (Blueprint $table) {
-            $table->dropUnique('pallet_lines_pallet_id_line_number_unique');
-        });
+        try { Schema::table('pallet_lines', fn (Blueprint $t) => $t->dropUnique('pallet_lines_pallet_id_line_number_unique')); } catch (\Throwable) {}
     }
 };

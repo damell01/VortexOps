@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('inventory_items', 'barcode')) {
+            return;
+        }
+
         Schema::table('inventory_items', function (Blueprint $table) {
             $table->string('barcode')->nullable()->unique()->after('sku');
         });

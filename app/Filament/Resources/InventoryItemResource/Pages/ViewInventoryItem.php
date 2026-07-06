@@ -8,9 +8,9 @@ use App\Models\InventoryLocation;
 use App\Models\ProductIdentity;
 use App\Services\InventoryService;
 use Filament\Actions\Action;
-use Filament\Schemas\Components\Select;
-use Filament\Schemas\Components\Textarea;
-use Filament\Schemas\Components\TextInput;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 

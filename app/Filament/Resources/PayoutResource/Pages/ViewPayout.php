@@ -10,7 +10,10 @@ class ViewPayout extends ViewRecord
 {
     protected static string $resource = PayoutResource::class;
 
-    protected string $view = 'filament.resources.payout-resource.pages.view-payout';
+    public function getView(): string
+    {
+        return 'filament.resources.payout-resource.pages.view-payout';
+    }
 
     protected function getHeaderActions(): array
     {

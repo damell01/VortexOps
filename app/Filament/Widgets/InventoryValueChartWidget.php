@@ -27,29 +27,40 @@ class InventoryValueChartWidget extends ChartWidget
     protected function getFilters(): ?array
     {
         return [
-            'in'  => 'Stock In',
-            'out' => 'Stock Out',
+            'opening'        => 'Openings / Received',
+            'sale_deduction' => 'Sales Deductions',
+            'adjustment'     => 'Adjustments',
         ];
     }
 
     protected function getData(): array
     {
-        $type = $this->filter ?? 'in';
-        $direction = $type === 'in' ? 'in' : 'out';
+        $type = $this->filter ?? 'opening';
+
+        $colorMap = [
+            'opening'        => '#f59e0b',
+            'sale_deduction' => '#ef4444',
+            'adjustment'     => '#8b5cf6',
+        ];
+        $labelMap = [
+            'opening'        => 'Units Received',
+            'sale_deduction' => 'Units Deducted (Sales)',
+            'adjustment'     => 'Units Adjusted',
+        ];
 
         $trend = Trend::query(
-            InventoryMovement::query()->where('movement_type', $direction)
+            InventoryMovement::query()->where('movement_type', $type)
         )
             ->between(now()->subWeeks(11)->startOfWeek(), now()->endOfWeek())
             ->perWeek()
             ->sum('quantity');
 
-        $color = $direction === 'in' ? '#f59e0b' : '#ef4444';
+        $color = $colorMap[$type] ?? '#f59e0b';
 
         return [
             'datasets' => [
                 [
-                    'label'           => $direction === 'in' ? 'Units Received' : 'Units Deducted',
+                    'label'           => $labelMap[$type] ?? 'Units',
                     'data'            => $trend->pluck('aggregate')->toArray(),
                     'borderColor'     => $color,
                     'backgroundColor' => $color . '20',

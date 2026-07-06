@@ -67,7 +67,7 @@ class InventoryItemResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return 'Items';
+        return 'All Inventory';
     }
 
     public static function getEloquentQuery(): Builder

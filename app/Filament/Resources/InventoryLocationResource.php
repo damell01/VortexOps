@@ -60,7 +60,7 @@ class InventoryLocationResource extends Resource
 
     public static function getNavigationSort(): ?int
     {
-        return 2;
+        return 6;
     }
 
     public static function getGloballySearchableAttributes(): array

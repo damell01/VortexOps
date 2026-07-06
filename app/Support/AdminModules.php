@@ -51,18 +51,6 @@ class AdminModules
                 'group'       => 'Reports',
                 'order'       => 45,
             ],
-            'projects' => [
-                'label'       => 'Project Workspace',
-                'description' => 'Project hub, milestones, approvals, and status updates. (Advanced)',
-                'group'       => 'Project Delivery',
-                'order'       => 50,
-            ],
-            'reviews' => [
-                'label'       => 'Review & Feedback Portal',
-                'description' => 'Client review portal, review sessions, and annotated review items. (Advanced)',
-                'group'       => 'Project Delivery',
-                'order'       => 55,
-            ],
             'ai' => [
                 'label'       => 'AI Assistant',
                 'description' => 'Vortex AI assistant and AI activity logs. Requires Ollama. (Advanced)',
@@ -191,21 +179,7 @@ class AdminModules
      */
     public static function normalizeEnabledSlugs(array $slugs): array
     {
-        $normalized = [];
-
-        foreach ($slugs as $slug) {
-            if ($slug === 'project_hub') {
-                $normalized[] = 'projects';
-                $normalized[] = 'reviews';
-                continue;
-            }
-            $normalized[] = $slug;
-        }
-
-        if (in_array('reviews', $normalized, true) && ! in_array('projects', $normalized, true)) {
-            $normalized[] = 'projects';
-        }
-
+        $normalized = $slugs;
         $valid = array_keys(static::definitions());
 
         return array_values(array_unique(array_intersect($valid, $normalized)));

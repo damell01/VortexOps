@@ -42,7 +42,7 @@ class VendorResource extends Resource
 
     public static function getNavigationSort(): ?int
     {
-        return 1;
+        return 10;
     }
 
     public static function getGloballySearchableAttributes(): array

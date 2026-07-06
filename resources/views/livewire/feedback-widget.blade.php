@@ -263,7 +263,14 @@
 </div>
 
 @once
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+<script>
+(function() {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    s.onerror = function() { window.html2canvas = null; };
+    document.head.appendChild(s);
+})();
+</script>
 @endonce
 
 <script>
@@ -312,15 +319,20 @@ function feedbackWidget() {
         screenshotDataUrl: null,
 
         async openWidget() {
-            this.step = 'capturing';
             this.open = true;
+
+            if (typeof html2canvas !== 'function') {
+                this.screenshotDataUrl = null;
+                this.step = 'form';
+                return;
+            }
+
+            this.step = 'capturing';
             await this.$nextTick();
 
-            const btn = document.getElementById('feedback-trigger-btn');
             const root = document.getElementById('feedback-widget-root');
 
             try {
-                // Hide widget during capture
                 if (root) root.style.display = 'none';
                 await new Promise(r => setTimeout(r, 80));
 

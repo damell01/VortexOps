@@ -27,7 +27,7 @@ class AdminModulesTest extends TestCase
     {
         $defs = AdminModules::definitions();
 
-        $expected = ['streams', 'payouts', 'inventory', 'purchasing', 'operations', 'reporting', 'projects', 'reviews', 'ai', 'timekeeping'];
+        $expected = ['streams', 'payouts', 'inventory', 'purchasing', 'operations', 'reporting', 'ai', 'timekeeping'];
 
         foreach ($expected as $slug) {
             $this->assertArrayHasKey($slug, $defs, "Module '{$slug}' missing from definitions");
@@ -48,32 +48,19 @@ class AdminModulesTest extends TestCase
 
     public function test_default_enabled_slugs_excludes_advanced_modules(): void
     {
-        $defaults  = AdminModules::defaultEnabledSlugs();
-        $advanced  = ['projects', 'reviews', 'ai'];
+        $defaults = AdminModules::defaultEnabledSlugs();
 
-        foreach ($advanced as $slug) {
-            $this->assertNotContains($slug, $defaults, "Advanced module '{$slug}' should not be a default");
-        }
-
-        // purchasing is a core operational module and must be enabled by default
+        $this->assertNotContains('ai', $defaults, "Advanced module 'ai' should not be a default");
         $this->assertContains('purchasing', $defaults, "Core module 'purchasing' must be a default");
     }
 
-    public function test_normalize_expands_project_hub_alias(): void
+    public function test_normalize_filters_out_removed_modules(): void
     {
-        $result = AdminModules::normalizeEnabledSlugs(['project_hub']);
+        $result = AdminModules::normalizeEnabledSlugs(['streams', 'projects', 'reviews']);
 
-        $this->assertContains('projects', $result);
-        $this->assertContains('reviews', $result);
-        $this->assertNotContains('project_hub', $result);
-    }
-
-    public function test_normalize_adds_projects_when_reviews_enabled_without_projects(): void
-    {
-        $result = AdminModules::normalizeEnabledSlugs(['streams', 'reviews']);
-
-        $this->assertContains('reviews', $result);
-        $this->assertContains('projects', $result, 'projects must be auto-added when reviews is enabled');
+        $this->assertContains('streams', $result);
+        $this->assertNotContains('projects', $result, 'projects module has been removed');
+        $this->assertNotContains('reviews', $result, 'reviews module has been removed');
     }
 
     public function test_normalize_filters_out_unknown_slugs(): void

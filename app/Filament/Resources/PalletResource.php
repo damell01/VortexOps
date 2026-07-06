@@ -52,7 +52,7 @@ class PalletResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return 'Pallets';
+        return 'Receive Inventory';
     }
 
     public static function getNavigationSort(): ?int

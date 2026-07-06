@@ -44,7 +44,7 @@ class InventoryStockResource extends Resource
 
     public static function getNavigationSort(): ?int
     {
-        return 3;
+        return 4;
     }
 
     public static function getNavigationLabel(): string

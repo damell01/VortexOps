@@ -31,9 +31,14 @@ class InventoryScanner extends Page
         return 'heroicon-o-qr-code';
     }
 
+    public static function getNavigationLabel(): string
+    {
+        return 'Scan Inventory';
+    }
+
     public static function getNavigationSort(): ?int
     {
-        return 99;
+        return 3;
     }
 
     public function getView(): string

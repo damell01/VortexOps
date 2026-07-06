@@ -664,10 +664,3 @@ window.vortexTour = {
     },
 };
 
-// Auto-start on very first visit
-document.addEventListener('DOMContentLoaded', () => {
-    if (!localStorage.getItem(STORAGE_KEY) && page() === 'dashboard') {
-        // Small delay so Filament widgets finish rendering
-        setTimeout(() => startTour('dashboard'), 800);
-    }
-});

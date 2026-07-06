@@ -99,39 +99,41 @@ class PalletResource extends Resource
                     Repeater::make('lines')
                         ->relationship('lines')
                         ->schema([
-                            Grid::make(3)->schema([
+                            Grid::make(12)->schema([
                                 TextInput::make('line_number')
                                     ->label('Line #')
                                     ->numeric()
                                     ->default(1)
-                                    ->required(),
+                                    ->required()
+                                    ->columnSpan(1),
                                 TextInput::make('description')
                                     ->label('Description / Product Name')
                                     ->required()
                                     ->maxLength(255)
-                                    ->columnSpan(2),
-                            ]),
-                            Grid::make(4)->schema([
+                                    ->columnSpan(5),
                                 TextInput::make('case_count')
                                     ->label('# Cases')
                                     ->numeric()
                                     ->default(1)
                                     ->minValue(1)
-                                    ->required(),
+                                    ->required()
+                                    ->columnSpan(2),
                                 TextInput::make('quantity_per_case')
                                     ->label('Units / Case')
                                     ->numeric()
                                     ->default(1)
                                     ->minValue(0.01)
-                                    ->required(),
+                                    ->required()
+                                    ->columnSpan(2),
                                 TextInput::make('unit_cost')
                                     ->label('Unit Cost ($)')
                                     ->numeric()
                                     ->prefix('$')
                                     ->default(0)
-                                    ->minValue(0),
+                                    ->minValue(0)
+                                    ->columnSpan(2),
                                 Select::make('inventory_item_id')
-                                    ->label('Map to Item')
+                                    ->label('Map to Inventory Item')
                                     ->searchable()
                                     ->getSearchResultsUsing(fn (string $search) => InventoryItem::where('is_active', true)
                                         ->where(fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('sku', 'like', "%{$search}%"))
@@ -140,13 +142,15 @@ class PalletResource extends Resource
                                         ->pluck('name', 'id')
                                         ->toArray())
                                     ->getOptionLabelUsing(fn ($value) => InventoryItem::find($value)?->name ?? $value)
-                                    ->placeholder('Search by name or SKU…'),
+                                    ->placeholder('Search by name or SKU…')
+                                    ->columnSpan(8),
+                                Select::make('inventory_location_id')
+                                    ->label('Receive Into Location')
+                                    ->options(fn () => InventoryLocation::activeOptions())
+                                    ->searchable()
+                                    ->placeholder('Select destination…')
+                                    ->columnSpan(4),
                             ]),
-                            Select::make('inventory_location_id')
-                                ->label('Receive Into Location')
-                                ->options(fn () => InventoryLocation::activeOptions())
-                                ->searchable()
-                                ->placeholder('Select destination…'),
                         ])
                         ->orderColumn('line_number')
                         ->addActionLabel('Add Line')

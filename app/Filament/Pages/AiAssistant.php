@@ -463,7 +463,7 @@ PROMPT;
     private function baseUrl(): string
     {
         $fromDb = Setting::get('ollama_base_url');
-        return rtrim($fromDb ?: config('services.ollama.url', 'http://ollama:11434'), '/');
+        return rtrim($fromDb ?: config('services.ollama.url', 'http://localhost:11434'), '/');
     }
 
     private function model(): string

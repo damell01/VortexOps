@@ -1,26 +1,26 @@
 <x-filament-panels::page>
     <div
         x-data="{
-            loading: @entangle('isLoading'),
+            pending: false,
             pendingMessage: '',
             pendingElapsed: 0,
             pendingTimer: null,
             beginPending(message) {
+                this.pending = true;
                 this.pendingMessage = message;
                 this.pendingElapsed = 0;
                 clearInterval(this.pendingTimer);
-                this.pendingTimer = setInterval(() => {
-                    this.pendingElapsed += 1;
-                }, 1000);
+                this.pendingTimer = setInterval(() => { this.pendingElapsed += 1; }, 1000);
             },
             clearPending() {
+                this.pending = false;
                 this.pendingMessage = '';
                 this.pendingElapsed = 0;
                 clearInterval(this.pendingTimer);
                 this.pendingTimer = null;
             },
         }"
-        x-effect="if (!loading && pendingMessage) clearPending()"
+        x-on:livewire:commit.document="clearPending()"
         x-on:scroll-to-bottom.window="$nextTick(() => {
             const el = document.getElementById('chat-messages');
             if (el) el.scrollTop = el.scrollHeight;
@@ -63,6 +63,7 @@
             @elseif (! $ollamaOnline)
                 <div class="text-xs text-gray-500 dark:text-gray-400">
                     Run <code class="rounded bg-gray-100 px-1 font-mono dark:bg-gray-800">ollama serve</code> to enable AI features.
+                    Set the URL in Settings → Ollama Base URL (bare-metal: <code class="rounded bg-gray-100 px-1 font-mono dark:bg-gray-800">http://127.0.0.1:11434</code>).
                 </div>
             @endif
         </div>
@@ -70,7 +71,8 @@
         <div class="flex flex-wrap gap-2">
             <button
                 wire:click="runQuickAction('operations_briefing')"
-                :disabled="loading"
+                x-on:click="beginPending('Operations Briefing')"
+                :disabled="pending"
                 class="inline-flex items-center gap-1.5 rounded-lg border border-violet-300 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 transition hover:bg-violet-100 disabled:opacity-40 dark:border-violet-600 dark:bg-violet-950 dark:text-violet-300 dark:hover:bg-violet-900"
             >
                 <x-heroicon-o-sparkles class="h-3.5 w-3.5" />
@@ -78,7 +80,8 @@
             </button>
             <button
                 wire:click="runQuickAction('shows_overview')"
-                :disabled="loading"
+                x-on:click="beginPending('Shows Overview')"
+                :disabled="pending"
                 class="inline-flex items-center gap-1.5 rounded-lg border border-sky-300 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-700 transition hover:bg-sky-100 disabled:opacity-40 dark:border-sky-600 dark:bg-sky-950 dark:text-sky-300 dark:hover:bg-sky-900"
             >
                 <x-heroicon-o-video-camera class="h-3.5 w-3.5" />
@@ -86,7 +89,8 @@
             </button>
             <button
                 wire:click="runQuickAction('revenue_summary')"
-                :disabled="loading"
+                x-on:click="beginPending('Revenue Summary')"
+                :disabled="pending"
                 class="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-600 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900"
             >
                 <x-heroicon-o-banknotes class="h-3.5 w-3.5" />
@@ -94,7 +98,8 @@
             </button>
             <button
                 wire:click="runQuickAction('streamer_summary')"
-                :disabled="loading"
+                x-on:click="beginPending('Streamer Summary')"
+                :disabled="pending"
                 class="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-100 disabled:opacity-40 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900"
             >
                 <x-heroicon-o-user-group class="h-3.5 w-3.5" />
@@ -102,7 +107,8 @@
             </button>
             <button
                 wire:click="runQuickAction('payout_summary')"
-                :disabled="loading"
+                x-on:click="beginPending('Payout Summary')"
+                :disabled="pending"
                 class="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-700 transition hover:bg-rose-100 disabled:opacity-40 dark:border-rose-600 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-900"
             >
                 <x-heroicon-o-currency-dollar class="h-3.5 w-3.5" />
@@ -110,7 +116,8 @@
             </button>
             <button
                 wire:click="runQuickAction('pallet_status')"
-                :disabled="loading"
+                x-on:click="beginPending('Pallet Status')"
+                :disabled="pending"
                 class="inline-flex items-center gap-1.5 rounded-lg border border-orange-300 bg-orange-50 px-3 py-1.5 text-xs font-medium text-orange-700 transition hover:bg-orange-100 disabled:opacity-40 dark:border-orange-600 dark:bg-orange-950 dark:text-orange-300 dark:hover:bg-orange-900"
             >
                 <x-heroicon-o-archive-box class="h-3.5 w-3.5" />
@@ -118,7 +125,8 @@
             </button>
             <button
                 wire:click="runQuickAction('inventory_analysis')"
-                :disabled="loading"
+                x-on:click="beginPending('Inventory Health Analysis')"
+                :disabled="pending"
                 class="inline-flex items-center gap-1.5 rounded-lg border border-primary-300 bg-primary-50 px-3 py-1.5 text-xs font-medium text-primary-700 transition hover:bg-primary-100 disabled:opacity-40 dark:border-primary-600 dark:bg-primary-950 dark:text-primary-300 dark:hover:bg-primary-900"
             >
                 <x-heroicon-o-chart-bar-square class="h-3.5 w-3.5" />
@@ -126,7 +134,8 @@
             </button>
             <button
                 wire:click="runQuickAction('reorder_suggestions')"
-                :disabled="loading"
+                x-on:click="beginPending('Reorder Suggestions')"
+                :disabled="pending"
                 class="inline-flex items-center gap-1.5 rounded-lg border border-warning-300 bg-warning-50 px-3 py-1.5 text-xs font-medium text-warning-700 transition hover:bg-warning-100 disabled:opacity-40 dark:border-warning-600 dark:bg-warning-950 dark:text-warning-300 dark:hover:bg-warning-900"
             >
                 <x-heroicon-o-shopping-cart class="h-3.5 w-3.5" />
@@ -134,7 +143,8 @@
             </button>
             <button
                 wire:click="runQuickAction('movement_analysis')"
-                :disabled="loading"
+                x-on:click="beginPending('Movement Analysis')"
+                :disabled="pending"
                 class="inline-flex items-center gap-1.5 rounded-lg border border-info-300 bg-info-50 px-3 py-1.5 text-xs font-medium text-info-700 transition hover:bg-info-100 disabled:opacity-40 dark:border-info-600 dark:bg-info-950 dark:text-info-300 dark:hover:bg-info-900"
             >
                 <x-heroicon-o-arrow-trending-up class="h-3.5 w-3.5" />
@@ -180,7 +190,7 @@
                     </div>
                 @endif
             @empty
-                <div class="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
+                <div x-show="!pending" class="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
                     <div class="rounded-full bg-violet-100 p-4 dark:bg-violet-900">
                         <x-heroicon-o-sparkles class="h-8 w-8 text-violet-500" />
                     </div>
@@ -189,7 +199,7 @@
                 </div>
             @endforelse
 
-            <template x-if="pendingMessage">
+            <template x-if="pending && pendingMessage">
                 <div class="space-y-4">
                     <div class="flex justify-end">
                         <div class="max-w-2xl">
@@ -232,14 +242,14 @@
                 placeholder="Ask about your operations…"
                 autocomplete="off"
                 maxlength="2000"
-                :disabled="loading"
+                :disabled="pending"
                 class="flex-1 min-w-0 rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 shadow-sm placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
             />
             @if (count($messages) > 0)
                 <button
                     type="button"
                     wire:click="clearChat"
-                    :disabled="loading"
+                    :disabled="pending"
                     class="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm font-medium text-gray-600 shadow-sm transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                     title="Clear chat"
                 >
@@ -249,7 +259,7 @@
             @endif
             <button
                 type="submit"
-                :disabled="loading"
+                :disabled="pending"
                 class="inline-flex flex-shrink-0 items-center gap-2 rounded-lg bg-primary-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 sm:px-4"
                 title="Send"
             >

@@ -20,10 +20,13 @@ return new class extends Migration
 
         // inventory_cases: replace separate pallet_line_id index with a composite
         // (pallet_line_id, status) so `WHERE pallet_line_id=? AND status='expected'`
-        // uses one index instead of two, cutting receiving query time significantly
+        // uses one index instead of two, cutting receiving query time significantly.
+        // Must drop FK before dropping its supporting index on MySQL, then re-add.
         Schema::table('inventory_cases', function (Blueprint $table) {
+            $table->dropForeign(['pallet_line_id']);
             $table->dropIndex(['pallet_line_id']);
             $table->index(['pallet_line_id', 'status'], 'icases_line_status_idx');
+            $table->foreign('pallet_line_id')->references('id')->on('pallet_lines')->cascadeOnDelete();
         });
 
         // inventory_movements: reference lookup (audit trail by source record)
@@ -43,8 +46,10 @@ return new class extends Migration
         });
 
         Schema::table('inventory_cases', function (Blueprint $table) {
+            $table->dropForeign(['pallet_line_id']);
             $table->dropIndex('icases_line_status_idx');
             $table->index('pallet_line_id');
+            $table->foreign('pallet_line_id')->references('id')->on('pallet_lines')->cascadeOnDelete();
         });
 
         Schema::table('inventory_movements', function (Blueprint $table) {

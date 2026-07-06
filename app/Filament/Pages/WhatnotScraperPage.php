@@ -65,16 +65,15 @@ class WhatnotScraperPage extends Page
         return Show::with('channel')
             ->orderByDesc('show_date')
             ->limit(15)
-            ->get(['id', 'title', 'show_date', 'gross_revenue', 'units_sold', 'status', 'whatnot_show_id'])
+            ->get(['id', 'title', 'show_date', 'gross_revenue', 'units_sold', 'status', 'whatnot_channel_id'])
             ->map(fn ($s) => [
-                'id'           => $s->id,
-                'title'        => $s->title,
-                'date'         => $s->show_date?->format('M j, Y'),
-                'gross'        => number_format((float) $s->gross_revenue, 2),
-                'units'        => $s->units_sold ?? 0,
-                'status'       => $s->status,
-                'channel'      => $s->channel?->name ?? '—',
-                'whatnot_id'   => $s->whatnot_show_id,
+                'id'      => $s->id,
+                'title'   => $s->title,
+                'date'    => $s->show_date?->format('M j, Y'),
+                'gross'   => number_format((float) $s->gross_revenue, 2),
+                'units'   => $s->units_sold ?? 0,
+                'status'  => $s->status,
+                'channel' => $s->channel?->name ?? '—',
             ])
             ->toArray();
     }

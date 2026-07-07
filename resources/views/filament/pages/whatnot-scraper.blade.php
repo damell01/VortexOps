@@ -107,6 +107,43 @@
         </div>
     </div>
 
+    {{-- ── Fetch Show URLs ──────────────────────────────────────────────────── --}}
+    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 space-y-3">
+        <div>
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Fetch Show URLs</h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Scrapes your Whatnot seller shows list to backfill the detail URL on imported shows.
+                Required before "Import Items Sold" becomes available on each show.
+            </p>
+        </div>
+
+        @if ($urlResult)
+            <div class="rounded-lg px-3 py-2 text-xs font-medium {{ $urlStatus === 'success' ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300' }}">
+                {{ $urlResult }}
+            </div>
+        @endif
+
+        <button
+            wire:click="fetchShowUrls"
+            wire:loading.attr="disabled"
+            type="button"
+            :disabled="{{ $this->configured ? 'false' : 'true' }}"
+            class="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:opacity-40"
+        >
+            <span wire:loading.remove wire:target="fetchShowUrls">
+                <x-heroicon-o-link class="h-4 w-4" />
+            </span>
+            <span wire:loading wire:target="fetchShowUrls">
+                <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+            </span>
+            <span wire:loading.remove wire:target="fetchShowUrls">Fetch Show URLs</span>
+            <span wire:loading wire:target="fetchShowUrls">Fetching (20–60s)…</span>
+        </button>
+    </div>
+
     {{-- ── Channels ─────────────────────────────────────────────────────────── --}}
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
         <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">

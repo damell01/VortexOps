@@ -80,15 +80,15 @@ const SELECTORS = {
   // Within each card: name is font-size:16px bold, value is font-size:32px bold.
   metricCard:         'div[style*="height: 160px"][style*="border-radius: 16px"]',
 
-  // Show orders page selectors (placeholder — update after inspecting show detail HTML)
-  orderRow:           '[data-testid="order-row"], [class*="OrderRow"], [class*="order-item"], tr[data-order-id]',
-  orderBuyer:         '[data-testid="buyer-name"], [data-testid="buyer-username"], [class*="buyer"]',
-  orderItemName:      '[data-testid="item-name"], [data-testid="product-name"], [class*="ItemName"]',
-  orderLotNumber:     '[data-testid="lot-number"], [class*="lot"]',
-  orderQuantity:      '[data-testid="quantity"], [class*="qty"]',
-  orderPrice:         '[data-testid="price"], [data-testid="sale-price"], [class*="price"]',
-  orderTotal:         '[data-testid="total"], [data-testid="order-total"], [class*="total"]',
-  orderStatus:        '[data-testid="order-status"], [class*="OrderStatus"]',
+  // Seller shows list page (/seller/shows)
+  // Show cards on the seller dashboard list — try multiple patterns
+  showCard:         '[data-testid="show-card"], [class*="ShowCard"], [class*="show-card"]',
+  showCardLink:     'a[href*="/live/"], a[href*="/show/"]',
+
+  // Show orders page — Whatnot uses dynamic CSS class names so we target
+  // structural patterns instead of class names. Update if layout changes.
+  // "Lots" tab on seller show page
+  lotsTab:          'button:has-text("Lots"), [role="tab"]:has-text("Lots"), button:has-text("Orders"), [role="tab"]:has-text("Orders"), button:has-text("Sales"), [role="tab"]:has-text("Sales")',
 };
 
 const URLS = {
@@ -385,7 +385,18 @@ async function extractAnalyticsMetrics(page) {
     const olderBtn  = document.querySelector(SEL.showNavOlder);
     const hasOlder  = olderBtn && !olderBtn.disabled;
 
-    return { title, dateText, metrics, hasOlder, cardCount: cards.length };
+    // Try to find the show's public/seller URL from any anchor on the page.
+    // Whatnot show URLs contain "/live/" followed by a channel username and ID.
+    const allAnchors = Array.from(document.querySelectorAll('a[href]'));
+    const showLink = allAnchors.find(a => {
+      const h = a.getAttribute('href') || '';
+      return /\/live\/[^/]+\/[^/]+/.test(h) || /\/show\/\d+/.test(h);
+    });
+    const detailUrl = showLink
+      ? (showLink.href.startsWith('http') ? showLink.href : 'https://www.whatnot.com' + showLink.getAttribute('href'))
+      : null;
+
+    return { title, dateText, metrics, hasOlder, cardCount: cards.length, detailUrl };
   }, { SEL: SELECTORS });
 }
 
@@ -451,61 +462,259 @@ async function extractAnalyticsMetrics(page) {
 
       log(`navigating to show detail: ${showUrl}`);
       await page.goto(showUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await page.waitForTimeout(2000);
-      await debugShot(page, '05-show-detail');
+      await page.waitForTimeout(2500);
+      await debugShot(page, 'orders-01-show-page');
 
-      const ordersTabSel = '[data-testid="orders-tab"], a[href*="orders"], button:has-text("Orders"), button:has-text("Sales")';
-      const ordersTab = await page.$(ordersTabSel);
-      if (ordersTab) {
-        await ordersTab.click();
-        await page.waitForTimeout(1500);
-        await debugShot(page, '06-orders-tab');
+      // ── Step 1: Try to find and click a Lots / Orders / Sales tab ───────────
+      const tabCandidates = [
+        'button:has-text("Lots")',
+        '[role="tab"]:has-text("Lots")',
+        'button:has-text("Orders")',
+        '[role="tab"]:has-text("Orders")',
+        'button:has-text("Sales")',
+        '[role="tab"]:has-text("Sales")',
+        'button:has-text("Sold")',
+        '[role="tab"]:has-text("Sold")',
+        'a:has-text("Lots")',
+        'a:has-text("Orders")',
+      ];
+
+      for (const sel of tabCandidates) {
+        const tab = await page.$(sel).catch(() => null);
+        if (!tab) continue;
+        const visible = await tab.isVisible().catch(() => false);
+        if (!visible) continue;
+        const selected = await tab.evaluate(el => el.getAttribute('aria-selected')).catch(() => null);
+        if (selected === 'true') { log(`tab already selected: ${sel}`); break; }
+        await tab.click();
+        await page.waitForTimeout(1800);
+        log(`clicked tab: ${sel}`);
+        await debugShot(page, 'orders-02-tab-clicked');
+        break;
       }
 
-      await page.waitForSelector(SELECTORS.orderRow, { timeout: 15000 })
-        .catch(() => log('order row selector not matched'));
+      // ── Step 2: Wait for order-like content to appear ────────────────────────
+      // Whatnot uses dynamic class names; look for structural signals instead.
+      // "Lot #" text or "$" price values appearing in a repeated pattern is the signal.
+      await page.waitForTimeout(1000);
 
-      const orders = await page.evaluate(({ SEL }) => {
-        const rows = Array.from(document.querySelectorAll(SEL.orderRow));
-        if (rows.length === 0) {
-          return { fallback: true, html: document.body.innerHTML.substring(0, 8000) };
+      // ── Step 3: Extract order data from the page ─────────────────────────────
+      const orders = await page.evaluate(() => {
+        // Helper: find the closest ancestor container shared by a set of text nodes.
+        // We look for a repeating structure: elements containing both a dollar amount
+        // and a lot or order identifier.
+
+        const bodyText = document.body.innerText || '';
+
+        // --- Strategy A: rows containing "Lot #N" patterns ---
+        // Whatnot typically shows lots as "Lot #1", "Lot #2" etc.
+        // Find all elements whose text matches this pattern, then walk up to find
+        // a container that also has price info.
+        function findParentWithText(el, maxLevels = 6) {
+          let node = el;
+          for (let i = 0; i < maxLevels; i++) {
+            node = node.parentElement;
+            if (!node) break;
+            if (node.tagName === 'TR' || node.tagName === 'LI' || node.tagName === 'ARTICLE') return node;
+            const s = node.getAttribute('style') || '';
+            // A container element is likely a card/row if it has flex/grid and a fixed height
+            if ((s.includes('display: flex') || s.includes('display:flex')) && s.match(/height:\s*(4|5|6|7|8)\d/)) return node;
+          }
+          return el.parentElement?.parentElement || el;
         }
-        return rows.map((row, idx) => {
-          function text(sel) { const el = row.querySelector(sel); return el ? el.textContent.trim() : null; }
-          function attr(sel, att) { const el = row.querySelector(sel); return el ? el.getAttribute(att) : null; }
+
+        const results = [];
+        const seen = new Set();
+
+        // Find all text nodes containing "Lot #" pattern
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        let textNode;
+        while ((textNode = walker.nextNode())) {
+          const text = textNode.textContent || '';
+          const lotMatch = text.match(/Lot\s*#?\s*(\d+)/i);
+          if (!lotMatch) continue;
+
+          const el = textNode.parentElement;
+          if (!el) continue;
+          const container = findParentWithText(el);
+          if (!container || seen.has(container)) continue;
+          seen.add(container);
+
+          const containerText = container.innerText || container.textContent || '';
+          const lines = containerText.split('\n').map(l => l.trim()).filter(Boolean);
+
+          // Extract lot number
+          const lotNum = parseInt(lotMatch[1], 10);
+
+          // Extract price(s): dollar amounts in the container
+          const prices = [...containerText.matchAll(/\$[\d,]+\.?\d*/g)]
+            .map(m => parseFloat(m[0].replace(/[^0-9.]/g, '')))
+            .filter(v => !isNaN(v) && v > 0);
+
+          // Extract buyer: look for "@username" patterns
+          const buyerMatch = containerText.match(/@([\w.]+)/);
+          const buyer = buyerMatch ? buyerMatch[1] : null;
+
+          // Look for "Sold" / "Completed" / "Refunded" status text
+          const statusMatch = containerText.match(/\b(sold|completed|refunded|cancelled|pending|shipped)\b/i);
+          const status = statusMatch ? statusMatch[1].toLowerCase() : 'completed';
+
+          // Item name: longest non-price, non-buyer, non-status line
+          const itemName = lines
+            .filter(l => !l.startsWith('@') && !l.startsWith('$') && !l.startsWith('Lot') && !/^(sold|completed|refunded|cancelled|pending|shipped|view)$/i.test(l) && l.length > 3)
+            .sort((a, b) => b.length - a.length)[0] || null;
+
+          results.push({
+            lot_number: lotNum,
+            buyer,
+            item_name:  itemName,
+            unit_price: prices.length > 0 ? prices[prices.length - 1] : null,
+            total_price: prices.length > 1 ? prices.reduce((a, b) => a + b, 0) : (prices[0] || null),
+            status,
+            raw_text: containerText.replace(/\s+/g, ' ').trim().substring(0, 400),
+          });
+        }
+
+        // --- Strategy B: table rows if Strategy A found nothing ---
+        if (results.length === 0) {
+          const rows = Array.from(document.querySelectorAll('tr, [role="row"]'));
+          for (const row of rows) {
+            if (seen.has(row)) continue;
+            const text = row.innerText || row.textContent || '';
+            if (text.length < 5) continue;
+            const prices = [...text.matchAll(/\$[\d,]+\.?\d*/g)]
+              .map(m => parseFloat(m[0].replace(/[^0-9.]/g, '')))
+              .filter(v => !isNaN(v) && v > 0);
+            if (prices.length === 0) continue;
+            seen.add(row);
+            const lotMatch = text.match(/(?:Lot\s*#?\s*|#)(\d+)/i);
+            const buyerMatch = text.match(/@([\w.]+)/);
+            results.push({
+              lot_number: lotMatch ? parseInt(lotMatch[1], 10) : null,
+              buyer: buyerMatch ? buyerMatch[1] : null,
+              item_name: null,
+              unit_price: prices[prices.length - 1] || null,
+              total_price: prices[0] || null,
+              status: 'completed',
+              raw_text: text.replace(/\s+/g, ' ').trim().substring(0, 400),
+            });
+          }
+        }
+
+        // Capture page snapshot if both strategies find nothing
+        if (results.length === 0) {
           return {
-            index:     idx,
-            buyer:     text(SEL.orderBuyer),
-            item_name: text(SEL.orderItemName),
-            lot_number: text(SEL.orderLotNumber),
-            quantity:  text(SEL.orderQuantity),
-            price:     text(SEL.orderPrice),
-            total:     text(SEL.orderTotal),
-            status:    text(SEL.orderStatus),
-            order_id:  attr('[data-order-id]', 'data-order-id'),
-            raw_text:  row.textContent.replace(/\s+/g, ' ').trim().substring(0, 300),
+            fallback: true,
+            html: document.body.innerHTML.substring(0, 12000),
+            text: document.body.innerText.substring(0, 4000),
           };
-        });
-      }, { SEL: SELECTORS });
+        }
+
+        return results;
+      });
 
       if (orders && orders.fallback) {
-        process.stderr.write('SELECTOR_MISS: Order row selector did not match.\n');
-        process.stderr.write('PAGE_SNAPSHOT: ' + orders.html + '\n');
+        process.stderr.write('SELECTOR_MISS: Could not find order/lot rows on the show page.\n');
+        process.stderr.write('PAGE_TEXT_SAMPLE: ' + (orders.text || '') + '\n');
+        if (DEBUG) process.stderr.write('PAGE_HTML: ' + (orders.html || '') + '\n');
         process.exit(2);
       }
 
-      const normalized = (orders || []).map(o => ({
-        order_id:    o.order_id || null,
-        buyer:       o.buyer || null,
-        item_name:   o.item_name || o.raw_text?.substring(0, 100) || null,
-        lot_number:  o.lot_number ? parseInt(o.lot_number.replace(/\D/g, ''), 10) || null : null,
-        quantity:    o.quantity  ? parseInt(o.quantity.replace(/\D/g, ''), 10) || 1 : 1,
-        unit_price:  parseMoney(o.price),
-        total_price: parseMoney(o.total),
-        status:      o.status || 'completed',
-      })).filter(o => o.buyer || o.item_name);
+      const normalized = (orders || [])
+        .filter(o => o.lot_number || o.buyer || o.item_name)
+        .map(o => ({
+          order_id:    null,
+          buyer:       o.buyer || null,
+          item_name:   o.item_name || null,
+          lot_number:  o.lot_number || null,
+          quantity:    1,
+          unit_price:  o.unit_price,
+          total_price: o.total_price,
+          status:      o.status || 'completed',
+          raw_text:    o.raw_text || null,
+        }));
+
+      if (normalized.length === 0) {
+        process.stderr.write('SELECTOR_MISS: Orders array was empty after normalization.\n');
+        process.exit(2);
+      }
 
       process.stdout.write(JSON.stringify(normalized, null, 2) + '\n');
+      log(`show-orders: returned ${normalized.length} orders`);
+      process.exit(0);
+    }
+
+    // ── Mode: seller-shows ────────────────────────────────────────────────────
+    // Scrapes /seller/shows to capture show URLs for each past show.
+    // Returns [{title, show_date, detail_url}].
+    if (MODE === 'seller-shows') {
+      log('navigating to seller shows list');
+      await page.goto(URLS.shows, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.waitForTimeout(2500);
+      await debugShot(page, 'seller-shows-01-list');
+
+      // Scroll to load more shows
+      for (let i = 0; i < 5; i++) {
+        await page.evaluate(() => window.scrollBy(0, window.innerHeight));
+        await page.waitForTimeout(600);
+      }
+      await debugShot(page, 'seller-shows-02-scrolled');
+
+      const shows = await page.evaluate(() => {
+        const results = [];
+        const seen = new Set();
+
+        // Find all links that look like show detail pages
+        const anchors = Array.from(document.querySelectorAll('a[href]'));
+        for (const a of anchors) {
+          const href = a.getAttribute('href') || '';
+          // Show URLs: /live/<username>/<id> or /show/<id> or /seller/shows/<id>
+          if (!(/\/live\/[^/]+\/[^/]+/.test(href) || /\/show\/[\w-]+/.test(href) || /\/seller\/shows\/[\w-]+/.test(href))) continue;
+          const fullUrl = href.startsWith('http') ? href : 'https://www.whatnot.com' + href;
+          if (seen.has(fullUrl)) continue;
+          seen.add(fullUrl);
+
+          // Walk up from the anchor to find its container
+          let container = a;
+          for (let i = 0; i < 6; i++) {
+            container = container.parentElement;
+            if (!container) break;
+            const t = container.innerText || container.textContent || '';
+            if (t.length > 20) break;
+          }
+
+          const containerText = container ? (container.innerText || container.textContent || '') : a.textContent || '';
+          const dateMatch = containerText.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+          let showDate = null;
+          if (dateMatch) {
+            const [, m, d, y] = dateMatch;
+            const year = y.length === 2 ? '20' + y : y;
+            showDate = `${year}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+          }
+
+          // Title: the anchor text or longest non-date, non-price line in container
+          const anchorText = (a.textContent || '').trim();
+          const title = anchorText.length > 3 ? anchorText : (
+            (containerText.split('\n').map(l => l.trim()).filter(l => l.length > 5 && !/^\$/.test(l) && !/^\d{1,2}\//.test(l))[0]) || null
+          );
+
+          results.push({ title, show_date: showDate, detail_url: fullUrl });
+        }
+
+        return results.length > 0 ? results : {
+          fallback: true,
+          text: document.body.innerText.substring(0, 3000),
+        };
+      });
+
+      if (shows && shows.fallback) {
+        process.stderr.write('SELECTOR_MISS: No show links found on /seller/shows.\n');
+        process.stderr.write('PAGE_TEXT: ' + (shows.text || '') + '\n');
+        process.exit(2);
+      }
+
+      process.stdout.write(JSON.stringify(shows, null, 2) + '\n');
+      log(`seller-shows: returned ${shows.length} show URLs`);
       process.exit(0);
     }
 
@@ -568,6 +777,7 @@ async function extractAnalyticsMetrics(page) {
           title:                   data.title,
           show_date:               parseDateString(data.dateText),
           show_date_raw:           data.dateText,
+          detail_url:              data.detailUrl || null,
 
           // Sales Metrics
           gross_revenue:           parseMoney(get('Estimated Sales')),

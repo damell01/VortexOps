@@ -116,6 +116,95 @@ class WhatnotScraper
     }
 
     /**
+     * Scrape /seller/shows to collect detail URLs for past shows.
+     * Returns [{title, show_date, detail_url}].
+     *
+     * @throws \RuntimeException
+     */
+    public function fetchSellerShowUrls(bool $debug = false): array
+    {
+        [$email, $password] = $this->resolveCredentials();
+
+        $process = $this->makeProcess([
+            'WHATNOT_EMAIL'    => $email,
+            'WHATNOT_PASSWORD' => $password,
+            'WHATNOT_MODE'     => 'seller-shows',
+            'WHATNOT_DEBUG'    => $debug ? '1' : '0',
+        ], timeout: 120);
+
+        $process->run();
+
+        $stderr = trim($process->getErrorOutput());
+        $stdout = trim($process->getOutput());
+
+        if ($stderr) {
+            Log::channel('stack')->warning('WhatnotScraper seller-shows stderr', ['output' => $stderr]);
+        }
+
+        if ($process->getExitCode() === 2) {
+            throw new \RuntimeException(
+                "Could not find show links on /seller/shows. " .
+                "Run with WHATNOT_DEBUG=1 to capture screenshots and update the selector in scripts/whatnot-scraper.cjs."
+            );
+        }
+
+        if (! $process->isSuccessful()) {
+            throw new \RuntimeException("Seller-shows scraper failed: " . ($stderr ?: "exit code {$process->getExitCode()}"));
+        }
+
+        $data = json_decode($stdout, true);
+        return is_array($data) ? $data : [];
+    }
+
+    /**
+     * Scrape /seller/shows and backfill detail_url on existing Show records.
+     * Matches by title + show_date. Returns ['updated' => n, 'unmatched' => n].
+     */
+    public function importDetailUrls(bool $debug = false): array
+    {
+        $rows    = $this->fetchSellerShowUrls($debug);
+        $updated = 0;
+        $unmatched = 0;
+
+        foreach ($rows as $row) {
+            if (empty($row['detail_url'])) {
+                continue;
+            }
+
+            $title    = isset($row['title']) ? trim($row['title']) : null;
+            $date     = $row['show_date'] ?? null;
+
+            $query = Show::query()->whereNull('detail_url');
+
+            if ($title && $date) {
+                $query->where(function ($q) use ($title, $date) {
+                    $q->where(fn ($q2) => $q2->where('title', $title)->whereDate('show_date', $date))
+                      ->orWhere(fn ($q2) => $q2->whereDate('show_date', $date));
+                });
+            } elseif ($date) {
+                $query->whereDate('show_date', $date);
+            } elseif ($title) {
+                $query->where('title', $title);
+            } else {
+                $unmatched++;
+                continue;
+            }
+
+            $show = $query->orderByRaw($title ? "title = ? DESC" : "id DESC", $title ? [$title] : [])->first();
+
+            if ($show) {
+                $show->update(['detail_url' => $row['detail_url']]);
+                $updated++;
+                Log::info('WhatnotScraper: backfilled detail_url', ['show_id' => $show->id, 'url' => $row['detail_url']]);
+            } else {
+                $unmatched++;
+            }
+        }
+
+        return compact('updated', 'unmatched');
+    }
+
+    /**
      * Scrape the order/lot list for a specific show detail URL.
      *
      * @throws \RuntimeException on scraper failures or selector misses

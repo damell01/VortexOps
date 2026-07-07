@@ -43,10 +43,12 @@ class WhatnotScraperPage extends Page
 
     // ── State ─────────────────────────────────────────────────────────────────
 
-    public string $testResult  = '';
-    public string $testStatus  = '';
+    public string $testResult   = '';
+    public string $testStatus   = '';
     public string $importResult = '';
     public string $importStatus = '';
+    public string $urlResult    = '';
+    public string $urlStatus    = '';
 
     // ── Computed ──────────────────────────────────────────────────────────────
 
@@ -125,6 +127,30 @@ class WhatnotScraperPage extends Page
             $this->importStatus = 'error';
 
             Notification::make()->title('Import failed')->body($e->getMessage())->danger()->send();
+        }
+    }
+
+    /**
+     * Scrape /seller/shows to backfill detail_url on existing shows so order
+     * import becomes available on each show's page.
+     */
+    public function fetchShowUrls(): void
+    {
+        $this->urlResult = '';
+        $this->urlStatus = '';
+
+        try {
+            $result = app(WhatnotScraper::class)->importDetailUrls();
+
+            $this->urlResult = "Done — {$result['updated']} show URL(s) saved, {$result['unmatched']} could not be matched to an existing show.";
+            $this->urlStatus = 'success';
+
+            Notification::make()->title('Show URLs updated')->body($this->urlResult)->success()->send();
+        } catch (\Throwable $e) {
+            $this->urlResult = $e->getMessage();
+            $this->urlStatus = 'error';
+
+            Notification::make()->title('URL fetch failed')->body($e->getMessage())->danger()->send();
         }
     }
 }

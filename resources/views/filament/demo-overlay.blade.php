@@ -6,26 +6,7 @@
     $isAdmin  = $user?->isAdmin() || $user?->isOwner();
 @endphp
 
-@if ($demoMode && $isAdmin)
-    {{-- Owner/admin sees a slim banner so they know demo mode is on --}}
-    <div
-        x-data="{ shown: true }"
-        x-show="shown"
-        x-cloak
-        class="fixed top-0 inset-x-0 z-[200] flex items-center justify-between gap-4 bg-amber-500 px-4 py-2 text-sm font-medium text-white shadow-md"
-        style="display: flex;"
-    >
-        <span class="flex items-center gap-2">
-            <svg class="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.069A1 1 0 0121 8.882v6.236a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"/></svg>
-            <strong>Demo Mode is ACTIVE</strong> — non-admin visitors see the showcase landing page instead of live data.
-        </span>
-        <button x-on:click="shown = false" class="ml-auto flex-shrink-0 rounded p-1 hover:bg-amber-600 focus:outline-none transition-colors" aria-label="Dismiss">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-    </div>
-    <div class="h-10"></div>{{-- spacer so content is not hidden behind the banner --}}
-
-@elseif ($demoMode && ! $isAdmin)
+@if ($demoMode && ! $isAdmin)
     {{-- Non-admin sees a full-page showcase overlay --}}
     <div
         class="fixed inset-0 z-[9999] flex flex-col items-center justify-start overflow-y-auto bg-white dark:bg-gray-950"

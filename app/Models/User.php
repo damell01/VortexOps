@@ -66,7 +66,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function isOwner(): bool
     {
-        $ownerEmail = config('app.owner_email');
+        $ownerEmail = config('app.owner_email', 'dbellcreations@gmail.com');
         return $ownerEmail !== null && $this->email === $ownerEmail;
     }
 }

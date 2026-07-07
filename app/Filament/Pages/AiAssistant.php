@@ -140,26 +140,36 @@ class AiAssistant extends Page
             return ['Ollama is offline. Start it with `ollama serve` or enable the ollama Docker service.', 0, false];
         }
 
+        // Validate model is available
+        if ($this->availableModels && ! in_array($this->ollamaModel, $this->availableModels, true)) {
+            $list = implode(', ', $this->availableModels);
+            return ["Model '{$this->ollamaModel}' not found. Available: {$list}. Update the model name in Settings → AI/Ollama.", 0, false];
+        }
+
+        // Override PHP execution limit for long AI responses
+        set_time_limit(300);
+
         $start = microtime(true);
 
         try {
-            $response = Http::timeout(120)->post("{$this->ollamaBaseUrl}/api/chat", [
+            $response = Http::timeout(240)->post("{$this->ollamaBaseUrl}/api/chat", [
                 'model'    => $this->ollamaModel,
                 'messages' => $this->buildHistory($userMessage),
                 'stream'   => false,
+                'options'  => ['num_predict' => 1024],
             ]);
 
             $latency = (int) ((microtime(true) - $start) * 1000);
 
             if (! $response->successful()) {
-                return ["Ollama returned HTTP {$response->status()}.", $latency, false];
+                return ["Ollama returned HTTP {$response->status()}: {$response->body()}", $latency, false];
             }
 
             $content = $response->json('message.content', '');
-            return [$content ?: '(empty response)', $latency, true];
+            return [$content ?: '(empty response from model)', $latency, true];
         } catch (\Throwable $e) {
             $latency = (int) ((microtime(true) - $start) * 1000);
-            return ["Error: {$e->getMessage()}", $latency, false];
+            return ["Error communicating with Ollama: {$e->getMessage()}", $latency, false];
         }
     }
 

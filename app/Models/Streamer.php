@@ -93,6 +93,11 @@ class Streamer extends Model
         return $this->hasMany(StreamerLoan::class);
     }
 
+    public function streamerLogEntries(): HasMany
+    {
+        return $this->hasMany(StreamerLogEntry::class);
+    }
+
     public function outstandingBalance(): float
     {
         return max(0, (float) $this->total_earnings_due - (float) $this->total_earnings_paid);

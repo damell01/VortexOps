@@ -51,7 +51,7 @@ class StreamerLogResource extends Resource
     {
         $user = auth()->user();
         return FeatureFlagService::enabled('streamer_log')
-            && ($user?->isAdmin() || $user?->isOwner());
+            && ($user?->isAdmin() || $user?->isOwner() || $user?->isStreamer());
     }
 
     public static function shouldRegisterNavigation(): bool
@@ -228,7 +228,8 @@ class StreamerLogResource extends Resource
                     ->label('Approve')
                     ->icon('heroicon-o-check-badge')
                     ->color('success')
-                    ->visible(fn (StreamerLogEntry $record) => $record->status === 'streamer_reviewed')
+                    ->visible(fn (StreamerLogEntry $record) => $record->status === 'streamer_reviewed'
+                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
                     ->requiresConfirmation()
                     ->action(function (StreamerLogEntry $record): void {
                         $record->status = 'admin_approved';
@@ -242,6 +243,7 @@ class StreamerLogResource extends Resource
                             ->send();
                     }),
                 EditAction::make()
+                    ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner())
                     ->after(function (StreamerLogEntry $record): void {
                         // Auto-fill gross_revenue from show if not set
                         if (! $record->gross_revenue && $record->show) {
@@ -277,7 +279,19 @@ class StreamerLogResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['show', 'streamer']);
+        $query = parent::getEloquentQuery()->with(['show', 'streamer']);
+
+        $user = auth()->user();
+        if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
+            $streamerId = $user->streamer?->id;
+            if ($streamerId) {
+                $query->where('streamer_id', $streamerId);
+            } else {
+                $query->whereRaw('1 = 0'); // no linked streamer record — show nothing
+            }
+        }
+
+        return $query;
     }
 
     public static function getPages(): array

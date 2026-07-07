@@ -149,7 +149,8 @@ class AppSettings extends Page
 
     public function getCanSeeModuleTogglesProperty(): bool
     {
-        return auth()->user()?->isOwner() ?? false;
+        $user = auth()->user();
+        return ($user?->isOwner() || $user?->isSuperAdmin()) ?? false;
     }
 
     protected function getHeaderActions(): array

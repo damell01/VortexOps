@@ -1,0 +1,233 @@
+<?php
+
+namespace App\Filament\Resources;
+
+use App\Filament\Resources\LedgerResource\Pages;
+use App\Models\LedgerEntry;
+use App\Models\Streamer;
+use App\Services\FeatureFlagService;
+use App\Services\LedgerService;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Tables\Actions\Action;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+
+class LedgerResource extends Resource
+{
+    protected static ?string $model = LedgerEntry::class;
+
+    protected static ?string $navigationLabel = 'Finance Ledger';
+
+    public static function getNavigationIcon(): string|\BackedEnum|null
+    {
+        return 'heroicon-o-banknotes';
+    }
+
+    public static function getNavigationGroup(): string|\UnitEnum|null
+    {
+        return 'Finance';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 5;
+    }
+
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+        return FeatureFlagService::enabled('ledger')
+            && ($user?->isAdmin() || $user?->isOwner());
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return static::canAccess();
+    }
+
+    public static function canCreate(): bool   { return false; }
+    public static function canEdit($r): bool   { return false; }
+    public static function canDelete($r): bool { return false; }
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema->components([
+            Section::make()->schema([
+                Select::make('type')
+                    ->options(LedgerEntry::typeLabels())
+                    ->required(),
+                Select::make('direction')
+                    ->options(LedgerEntry::directionLabels())
+                    ->required(),
+                TextInput::make('amount')
+                    ->numeric()
+                    ->prefix('$')
+                    ->required(),
+                TextInput::make('description')
+                    ->maxLength(500)
+                    ->required(),
+                DatePicker::make('transaction_date')
+                    ->default(now()->toDateString())
+                    ->required(),
+                Select::make('streamer_id')
+                    ->label('Streamer')
+                    ->options(Streamer::orderBy('name')->pluck('name', 'id'))
+                    ->nullable()
+                    ->searchable(),
+                Textarea::make('notes')
+                    ->rows(2)
+                    ->columnSpanFull(),
+            ])->columns(2),
+        ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->columns([
+                TextColumn::make('transaction_date')
+                    ->date()
+                    ->sortable()
+                    ->label('Date'),
+                TextColumn::make('type')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => LedgerEntry::typeLabels()[$state] ?? $state)
+                    ->color(fn ($state) => match ($state) {
+                        'deposit'            => 'success',
+                        'payout'             => 'info',
+                        'loan_repayment'     => 'warning',
+                        'shipping_surcharge' => 'warning',
+                        'adjustment'         => 'gray',
+                        'owner_fee'          => 'purple',
+                        'streamer_fee'       => 'violet',
+                        'tips'               => 'teal',
+                        'wholesale_payment'  => 'indigo',
+                        'rebate'             => 'pink',
+                        'collects_transfer'  => 'cyan',
+                        default              => 'gray',
+                    }),
+                TextColumn::make('direction')
+                    ->badge()
+                    ->color(fn ($state) => $state === 'credit' ? 'success' : 'danger'),
+                TextColumn::make('description')
+                    ->wrap()
+                    ->limit(60),
+                TextColumn::make('streamer.name')
+                    ->label('Streamer')
+                    ->toggleable(),
+                TextColumn::make('amount')
+                    ->formatStateUsing(fn ($state, LedgerEntry $record) =>
+                        '$' . number_format((float) $state, 2)
+                    )
+                    ->color(fn (LedgerEntry $record) => $record->direction === 'credit' ? 'success' : 'danger'),
+                TextColumn::make('balance_after')
+                    ->label('Balance')
+                    ->fontFamily('mono')
+                    ->formatStateUsing(fn ($state) => '$' . number_format((float) $state, 2)),
+                TextColumn::make('notes')
+                    ->limit(40)
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->defaultSort('transaction_date', 'desc')
+            ->filters([
+                SelectFilter::make('type')
+                    ->options(LedgerEntry::typeLabels()),
+                SelectFilter::make('direction')
+                    ->options(LedgerEntry::directionLabels()),
+                SelectFilter::make('streamer_id')
+                    ->label('Streamer')
+                    ->options(Streamer::orderBy('name')->pluck('name', 'id'))
+                    ->searchable(),
+                Filter::make('transaction_date')
+                    ->form([
+                        DatePicker::make('from')->label('From'),
+                        DatePicker::make('until')->label('Until'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when($data['from'],  fn ($q) => $q->where('transaction_date', '>=', $data['from']))
+                            ->when($data['until'], fn ($q) => $q->where('transaction_date', '<=', $data['until']));
+                    }),
+            ])
+            ->headerActions([
+                \Filament\Tables\Actions\Action::make('new_entry')
+                    ->label('New Entry')
+                    ->icon('heroicon-o-plus')
+                    ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner())
+                    ->form([
+                        Select::make('type')
+                            ->options(LedgerEntry::typeLabels())
+                            ->required(),
+                        Select::make('direction')
+                            ->options(LedgerEntry::directionLabels())
+                            ->required(),
+                        TextInput::make('amount')
+                            ->numeric()
+                            ->prefix('$')
+                            ->required(),
+                        TextInput::make('description')
+                            ->maxLength(500)
+                            ->required(),
+                        DatePicker::make('transaction_date')
+                            ->default(now()->toDateString())
+                            ->required(),
+                        Select::make('streamer_id')
+                            ->label('Streamer (optional)')
+                            ->options(Streamer::orderBy('name')->pluck('name', 'id'))
+                            ->nullable()
+                            ->searchable(),
+                        Textarea::make('notes')
+                            ->rows(2)
+                            ->columnSpanFull(),
+                    ])
+                    ->action(function (array $data) {
+                        app(LedgerService::class)->record($data);
+                        Notification::make()->title('Ledger entry created')->success()->send();
+                    }),
+            ])
+            ->actions([
+                Action::make('void')
+                    ->label('Void')
+                    ->icon('heroicon-o-x-mark')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->action(function (LedgerEntry $record) {
+                        $offsetDirection = $record->direction === 'credit' ? 'debit' : 'credit';
+                        app(LedgerService::class)->record([
+                            'type'             => $record->type,
+                            'direction'        => $offsetDirection,
+                            'amount'           => (float) $record->amount,
+                            'description'      => 'Voided: ' . $record->description,
+                            'reference_type'   => LedgerEntry::class,
+                            'reference_id'     => $record->id,
+                            'streamer_id'      => $record->streamer_id,
+                            'show_id'          => $record->show_id,
+                            'transaction_date' => now()->toDateString(),
+                        ]);
+                        Notification::make()->title('Entry voided')->success()->send();
+                    }),
+            ])
+            ->striped()
+            ->deferLoading()
+            ->persistFiltersInSession()
+            ->paginationPageOptions([25, 50, 100])
+            ->defaultPaginationPageOption(25);
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListLedgerEntries::route('/'),
+        ];
+    }
+}

@@ -37,6 +37,7 @@ class Payout extends Model
         'calculated_payout',
         'calculation_notes',
         'status',
+        'shipping_surcharge_deducted',
     ];
 
     protected $casts = [

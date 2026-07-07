@@ -127,4 +127,6 @@ return [
 
     'owner_email' => env('APP_OWNER_EMAIL'),
 
+    'developer_email' => env('DEVELOPER_EMAIL'),
+
 ];

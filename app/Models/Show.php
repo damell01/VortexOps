@@ -47,6 +47,8 @@ class Show extends Model
         'status',
         'notes',
         'created_by',
+        'shipping_surcharge_count',
+        'shipping_surcharge_total',
     ];
 
     protected $casts = [
@@ -70,7 +72,9 @@ class Show extends Model
         'returning_buyers'       => 'integer',
         'shares_count'           => 'integer',
         'max_concurrent_viewers' => 'integer',
-        'total_views'            => 'integer',
+        'total_views'              => 'integer',
+        'shipping_surcharge_count' => 'integer',
+        'shipping_surcharge_total' => 'decimal:2',
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -123,6 +127,16 @@ class Show extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function shippingSurcharges(): HasMany
+    {
+        return $this->hasMany(ShippingSurcharge::class);
+    }
+
+    public function streamerLogEntry(): HasOne
+    {
+        return $this->hasOne(StreamerLogEntry::class);
     }
 
     /**

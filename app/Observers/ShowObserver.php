@@ -19,8 +19,10 @@ class ShowObserver
 
             if ($primaryStreamer && ! StreamerLogEntry::where('show_id', $show->id)->exists()) {
                 StreamerLogEntry::create([
-                    'show_id'     => $show->id,
-                    'streamer_id' => $primaryStreamer->id,
+                    'show_id'       => $show->id,
+                    'streamer_id'   => $primaryStreamer->id,
+                    'status'        => 'pending',
+                    'gross_revenue' => $show->gross_revenue,
                 ]);
             }
         }

@@ -10,6 +10,7 @@ class StreamerLogEntry extends Model
     protected $fillable = [
         'show_id',
         'streamer_id',
+        'status',
         'hard_copy',
         'hours_streamed',
         'number_of_shipments',
@@ -22,8 +23,11 @@ class StreamerLogEntry extends Model
         'total_due',
         'total_paid',
         'business_net_rev',
+        'gross_revenue',
+        'product_cost',
         'reviewed_by',
         'reviewed_at',
+        'streamer_reviewed_at',
         'notes',
     ];
 
@@ -38,10 +42,30 @@ class StreamerLogEntry extends Model
         'total_due'                    => 'decimal:2',
         'total_paid'                   => 'decimal:2',
         'business_net_rev'             => 'decimal:2',
+        'gross_revenue'                => 'decimal:2',
+        'product_cost'                 => 'decimal:2',
         'number_of_shipments'          => 'integer',
         'number_of_packages_over_500'  => 'integer',
         'reviewed_at'                  => 'datetime',
+        'streamer_reviewed_at'         => 'datetime',
     ];
+
+    public static function statusLabels(): array
+    {
+        return [
+            'pending'           => 'Pending',
+            'streamer_reviewed' => 'Streamer Reviewed',
+            'admin_approved'    => 'Admin Approved',
+        ];
+    }
+
+    public function profitShareAmount(): float
+    {
+        $gross   = (float) ($this->gross_revenue ?? $this->show?->gross_revenue ?? 0);
+        $cost    = (float) ($this->product_cost ?? 0);
+        $psPct   = (float) ($this->streamer?->payout_percentage ?? 0);
+        return round(max(0, $gross - $cost) * ($psPct / 100), 2);
+    }
 
     public function show(): BelongsTo
     {

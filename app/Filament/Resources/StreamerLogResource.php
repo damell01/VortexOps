@@ -65,7 +65,7 @@ class StreamerLogResource extends Resource
             Section::make('Show Info')->schema([
                 Grid::make(2)->schema([
                     Toggle::make('hard_copy')
-                        ->label('Hard Copy'),
+                        ->label('Hard Copy (physical log filed)'),
                     TextInput::make('hours_streamed')
                         ->label('Hours Streamed')
                         ->numeric()
@@ -75,12 +75,35 @@ class StreamerLogResource extends Resource
                         ->integer(),
                     TextInput::make('number_of_packages_over_500')
                         ->label('Packages Over $500')
+                        ->helperText('Triggers shipping surcharge')
                         ->integer(),
+                ]),
+            ]),
+
+            Section::make('Revenue & Product Cost')->schema([
+                Grid::make(2)->schema([
+                    TextInput::make('gross_revenue')
+                        ->label('Gross Revenue')
+                        ->numeric()
+                        ->prefix('$')
+                        ->helperText('Auto-filled from show — override if needed'),
+                    TextInput::make('product_cost')
+                        ->label('Product Cost Total')
+                        ->numeric()
+                        ->prefix('$')
+                        ->helperText('Total wholesale cost of products sold (from calculations sheet)'),
                 ]),
             ]),
 
             Section::make('Pay Breakdown')->schema([
                 Grid::make(2)->schema([
+                    TextInput::make('profit_share_amount')
+                        ->label('Profit Share Amount')
+                        ->numeric()
+                        ->prefix('$')
+                        ->helperText('(Gross − Product Cost) × PS%'),
+                    Toggle::make('profit_share_paid')
+                        ->label('Profit Share Paid'),
                     TextInput::make('pwe_pay')
                         ->label('PWE Pay')
                         ->numeric()
@@ -89,12 +112,6 @@ class StreamerLogResource extends Resource
                         ->label('Hourly Pay')
                         ->numeric()
                         ->prefix('$'),
-                    TextInput::make('profit_share_amount')
-                        ->label('Profit Share Amount')
-                        ->numeric()
-                        ->prefix('$'),
-                    Toggle::make('profit_share_paid')
-                        ->label('Profit Share Paid'),
                     TextInput::make('tips_paid')
                         ->label('Tips Paid')
                         ->numeric()
@@ -137,40 +154,42 @@ class StreamerLogResource extends Resource
                 TextColumn::make('streamer.name')
                     ->label('Streamer')
                     ->searchable(),
-                IconColumn::make('hard_copy')
-                    ->label('Hard Copy')
-                    ->boolean()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('number_of_shipments')
-                    ->label('Shipments')
-                    ->numeric(),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => StreamerLogEntry::statusLabels()[$state] ?? $state)
+                    ->color(fn ($state) => match ($state) {
+                        'pending'           => 'gray',
+                        'streamer_reviewed' => 'warning',
+                        'admin_approved'    => 'success',
+                        default             => 'gray',
+                    }),
                 TextColumn::make('hours_streamed')
                     ->label('Hours')
                     ->numeric(),
+                TextColumn::make('number_of_shipments')
+                    ->label('Shipments')
+                    ->numeric(),
+                TextColumn::make('gross_revenue')
+                    ->label('Gross Rev')
+                    ->money('USD')
+                    ->toggleable(),
+                TextColumn::make('product_cost')
+                    ->label('Product Cost')
+                    ->money('USD')
+                    ->toggleable(),
+                TextColumn::make('profit_share_amount')
+                    ->label('Profit Share')
+                    ->money('USD'),
                 TextColumn::make('total_due')
                     ->label('Total Due')
                     ->money('USD'),
                 TextColumn::make('total_paid')
                     ->label('Total Paid')
                     ->money('USD'),
-                TextColumn::make('reviewed_at')
-                    ->label('Reviewed')
-                    ->badge()
-                    ->formatStateUsing(fn ($state) => $state ? 'Reviewed' : 'Pending')
-                    ->color(fn ($state) => $state ? 'success' : 'warning'),
             ])
             ->filters([
-                SelectFilter::make('reviewed')
-                    ->options(['yes' => 'Reviewed', 'no' => 'Pending'])
-                    ->query(function (Builder $query, array $data): Builder {
-                        if (($data['value'] ?? null) === 'yes') {
-                            return $query->whereNotNull('reviewed_at');
-                        }
-                        if (($data['value'] ?? null) === 'no') {
-                            return $query->whereNull('reviewed_at');
-                        }
-                        return $query;
-                    }),
+                SelectFilter::make('status')
+                    ->options(StreamerLogEntry::statusLabels()),
                 SelectFilter::make('streamer_id')
                     ->label('Streamer')
                     ->options(Streamer::orderBy('name')->pluck('name', 'id'))
@@ -187,24 +206,55 @@ class StreamerLogResource extends Resource
                     }),
             ])
             ->actions([
-                Action::make('mark_reviewed')
-                    ->label('Mark Reviewed')
+                Action::make('streamer_review')
+                    ->label('Streamer Reviewed')
+                    ->icon('heroicon-o-pencil-square')
+                    ->color('warning')
+                    ->visible(fn (StreamerLogEntry $record) => $record->status === 'pending')
+                    ->requiresConfirmation()
+                    ->modalHeading('Mark as Reviewed by Streamer')
+                    ->modalDescription('Confirm the streamer has reviewed and signed off on this log entry.')
+                    ->action(function (StreamerLogEntry $record): void {
+                        $record->status = 'streamer_reviewed';
+                        $record->streamer_reviewed_at = now();
+                        $record->save();
+
+                        Notification::make()
+                            ->title('Log marked as reviewed by streamer')
+                            ->success()
+                            ->send();
+                    }),
+                Action::make('admin_approve')
+                    ->label('Approve')
                     ->icon('heroicon-o-check-badge')
                     ->color('success')
-                    ->visible(fn (StreamerLogEntry $record) => $record->reviewed_at === null)
+                    ->visible(fn (StreamerLogEntry $record) => $record->status === 'streamer_reviewed')
+                    ->requiresConfirmation()
                     ->action(function (StreamerLogEntry $record): void {
+                        $record->status = 'admin_approved';
                         $record->reviewed_by = auth()->id();
                         $record->reviewed_at = now();
                         $record->save();
 
                         Notification::make()
-                            ->title('Log entry marked as reviewed')
+                            ->title('Log entry approved')
                             ->success()
                             ->send();
                     }),
                 EditAction::make()
                     ->after(function (StreamerLogEntry $record): void {
-                        // If packages over 500 were set and show has a primary streamer, create/update surcharge
+                        // Auto-fill gross_revenue from show if not set
+                        if (! $record->gross_revenue && $record->show) {
+                            $record->gross_revenue = $record->show->gross_revenue;
+                        }
+
+                        // Recalculate profit share if we have cost data
+                        if ($record->gross_revenue && $record->product_cost !== null) {
+                            $record->profit_share_amount = $record->profitShareAmount();
+                        }
+                        $record->save();
+
+                        // Auto-create shipping surcharge if packages over 500 are set
                         if (
                             ($record->number_of_packages_over_500 ?? 0) > 0
                             && $record->show

@@ -219,6 +219,7 @@
                 <p class="text-xs text-gray-400 pt-1">Disabled modules and features disappear from navigation and their routes become inaccessible until re-enabled. Changes apply on the next page load after saving.</p>
             </div>
         </div>
+        @endif
         @if ($this->canSeeModuleToggles && count($this->navItemsForEditor))
         {{-- ── Navigation Visibility Editor ────────────────────────────────── --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">

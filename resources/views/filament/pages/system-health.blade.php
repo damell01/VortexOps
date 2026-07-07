@@ -227,5 +227,56 @@
     </div>
 
     <p class="text-xs text-gray-400 text-right">Auto-refreshes every 30 s</p>
+
+    {{-- ── Danger Zone — Clear Demo Data ──────────────────────────────────── --}}
+    @if (auth()->user()?->isOwner())
+    <div
+        x-data="{ confirming: false }"
+        class="rounded-xl border border-red-200 dark:border-red-800 bg-white dark:bg-gray-900 px-5 py-4 space-y-3"
+    >
+        <div>
+            <h3 class="text-sm font-semibold text-red-700 dark:text-red-400">Danger Zone</h3>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                Remove all seed / demo data — shows, payouts, pallets, inventory, streamers, vendors, and more.
+                <strong>This cannot be undone.</strong> Your user account, settings, and Whatnot channels are kept.
+            </p>
+        </div>
+
+        <div x-show="!confirming">
+            <button
+                x-on:click="confirming = true"
+                type="button"
+                class="inline-flex items-center gap-2 rounded-lg border border-red-300 dark:border-red-700 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 focus:outline-none"
+            >
+                <x-heroicon-o-trash class="h-4 w-4" />
+                Clear All Demo Data
+            </button>
+        </div>
+
+        <div x-show="confirming" class="rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 px-4 py-3 space-y-3">
+            <p class="text-sm font-semibold text-red-800 dark:text-red-200">Are you sure? This will permanently delete all operational data.</p>
+            <div class="flex items-center gap-3">
+                <button
+                    wire:click="clearSeedData"
+                    wire:loading.attr="disabled"
+                    x-on:livewire:commit.document="confirming = false"
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none disabled:opacity-50"
+                >
+                    <span wire:loading.remove wire:target="clearSeedData">Yes, delete everything</span>
+                    <span wire:loading wire:target="clearSeedData">Deleting…</span>
+                </button>
+                <button
+                    x-on:click="confirming = false"
+                    type="button"
+                    class="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+                >
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
 </div>
 </x-filament-panels::page>

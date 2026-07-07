@@ -168,6 +168,58 @@ class SystemHealth extends Page
         }
     }
 
+    public function clearSeedData(): void
+    {
+        if (! auth()->user()?->isOwner()) {
+            Notification::make()->title('Not authorized')->danger()->send();
+            return;
+        }
+
+        try {
+            DB::transaction(function () {
+                // Operational data — order respects FK constraints
+                DB::table('inventory_cases')->delete();
+                DB::table('receiving_sessions')->delete();
+                DB::table('pallet_lines')->delete();
+                DB::table('pallets')->delete();
+                DB::table('inventory_movements')->delete();
+                DB::table('inventory_stock')->delete();
+                DB::table('inventory_lots')->delete();
+                DB::table('inventory_locations')->delete();
+                DB::table('product_identities')->delete();
+                DB::table('products')->delete();
+                DB::table('deduction_request_lines')->delete();
+                DB::table('deduction_requests')->delete();
+                DB::table('show_streamer')->delete();
+                DB::table('show_ingestion_logs')->delete();
+                DB::table('whatnot_show_orders')->delete();
+                DB::table('payouts')->delete();
+                DB::table('weekly_payout_batches')->delete();
+                DB::table('shows')->delete();
+                DB::table('streamer_loans')->delete();
+                DB::table('streamers')->delete();
+                DB::table('vendors')->delete();
+                DB::table('time_entries')->delete();
+                DB::table('project_milestones')->delete();
+                DB::table('project_updates')->delete();
+                DB::table('projects')->delete();
+                DB::table('ai_tasks')->delete();
+                DB::table('activity_log')->delete();
+                DB::table('feedback_ticket_comments')->delete();
+                DB::table('feedback_tickets')->delete();
+                // Keep: users, settings, whatnot_channels, roles/permissions, cache, jobs
+            });
+
+            Notification::make()
+                ->title('Demo data cleared')
+                ->body('All seed/sample data has been removed. Real data entry can begin.')
+                ->success()
+                ->send();
+        } catch (\Throwable $e) {
+            Notification::make()->title('Error: ' . $e->getMessage())->danger()->send();
+        }
+    }
+
     private function humanBytes(float $bytes): string
     {
         foreach (['B', 'KB', 'MB', 'GB', 'TB'] as $unit) {

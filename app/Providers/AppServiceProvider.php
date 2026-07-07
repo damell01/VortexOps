@@ -9,6 +9,7 @@ use App\Models\Show;
 use App\Observers\DeductionRequestObserver;
 use App\Observers\PayoutObserver;
 use App\Observers\ShowObserver;
+use Filament\Support\Facades\FilamentView;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
@@ -40,6 +41,11 @@ class AppServiceProvider extends ServiceProvider
         Payout::observe(PayoutObserver::class);
         DeductionRequest::observe(DeductionRequestObserver::class);
         Show::observe(ShowObserver::class);
+
+        FilamentView::registerRenderHook(
+            'panels::body.start',
+            fn (): \Illuminate\Contracts\View\View => view('filament.demo-overlay'),
+        );
 
         $listener = new LogAuthActivity();
         Event::listen(Login::class,         [$listener, 'handleLogin']);

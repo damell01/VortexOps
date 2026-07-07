@@ -110,6 +110,34 @@
         </div>
 
         @if ($this->canSeeModuleToggles)
+
+        {{-- Demo / Showcase Mode --}}
+        <div class="rounded-xl border {{ $demo_mode ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900' }} px-6 py-4">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <div class="rounded-lg bg-amber-100 dark:bg-amber-900/50 p-2">
+                        <x-heroicon-o-presentation-chart-bar class="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Demo / Showcase Mode</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            When on, non-admin visitors see a "Welcome to VortexOps" landing with blurred module previews — great for showing the platform to prospects without exposing real data.
+                        </p>
+                    </div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                    <input type="checkbox" wire:model.live="demo_mode" class="sr-only peer" value="1">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-amber-500 dark:peer-focus:ring-amber-600 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-amber-500"></div>
+                </label>
+            </div>
+            @if($demo_mode)
+                <div class="mt-3 flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+                    <x-heroicon-o-eye class="h-4 w-4" />
+                    Demo mode is ACTIVE — non-admin users see the showcase landing page.
+                </div>
+            @endif
+        </div>
+
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
             <div class="px-6 py-4">
                 <div class="flex items-center gap-3">

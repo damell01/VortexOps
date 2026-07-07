@@ -81,6 +81,10 @@ class AppSettings extends Page
     public string $ollamaTestResult  = '';
     public string $ollamaTestStatus  = ''; // 'success' | 'error' | ''
 
+    // ── Demo / Showcase Mode ─────────────────────────────────────────────────
+
+    public bool $demo_mode = false;
+
     // ── Maintenance ──────────────────────────────────────────────────────────
 
     public string $lastCommandOutput = '';
@@ -120,6 +124,8 @@ class AppSettings extends Page
         $this->notify_show_reconciled_users = json_decode(Setting::get('notify_show_reconciled_users', '[]'), true) ?? [];
         $this->enabled_modules  = AdminModules::enabledSlugs();
         $this->enabled_features = AdminModules::enabledFeatures();
+
+        $this->demo_mode = (bool) Setting::get('demo_mode', false);
 
         $this->shipping_surcharge_rate      = Setting::get('shipping_surcharge_rate', '4.00');
         $this->shipping_surcharge_threshold = Setting::get('shipping_surcharge_threshold', '500.00');
@@ -227,6 +233,7 @@ class AppSettings extends Page
                 array_keys(AdminModules::featureDefinitions()),
                 $this->enabled_features
             ))));
+            Setting::set('demo_mode', $this->demo_mode ? '1' : '0');
             AdminModules::flushMemo();
         }
 

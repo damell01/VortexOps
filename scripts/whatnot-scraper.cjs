@@ -99,10 +99,30 @@ const URLS = {
   sellerHub:  'https://www.whatnot.com/seller',
 };
 
-// Resolve Chromium binary: env override → Playwright's own lookup (validated) → path search
+// Resolve Chromium binary.
+// Priority: env override → build-time marker file → Playwright API → directory scan → system bins
 const CHROMIUM_PATH = (() => {
   const fs = require('fs');
 
+  // 1. Explicit env override (highest priority, covers dev/CI overrides)
+  if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+    return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+  }
+
+  // 2. Marker file written by the Dockerfile at build time — revision-independent
+  const markerFile = `${process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers'}/.chromium-path`;
+  try {
+    const p = fs.readFileSync(markerFile, 'utf8').trim();
+    if (p && fs.existsSync(p)) return p;
+  } catch {}
+
+  // 3. Playwright's own API — works when PLAYWRIGHT_BROWSERS_PATH is set correctly
+  try {
+    const p = chromium.executablePath();
+    if (p && fs.existsSync(p)) return p;
+  } catch {}
+
+  // 4. Scan PLAYWRIGHT_BROWSERS_PATH and common user cache dirs
   function findInDir(base) {
     if (!fs.existsSync(base)) return null;
     let dirs;
@@ -116,46 +136,26 @@ const CHROMIUM_PATH = (() => {
     return null;
   }
 
-  // 1. Explicit env override — trust it even if file doesn't exist yet
-  if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
-    return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
-  }
-
-  // 2. Playwright's own executablePath() — only use if the file actually exists
-  try {
-    const p = chromium.executablePath();
-    if (p && fs.existsSync(p)) return p;
-  } catch {}
-
-  // 3. PLAYWRIGHT_BROWSERS_PATH — Docker/CI bakes this as /opt/pw-browsers
-  //    Playwright installs directly there: /opt/pw-browsers/chromium-<rev>/...
-  const pwBrowsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
-  if (pwBrowsersPath) {
-    const found = findInDir(pwBrowsersPath);
-    if (found) return found;
-  }
-
-  // 4. Search common user-level cache roots
-  const homes = [
-    process.env.HOME,
-    '/root',
-    '/var/www',
-    '/home/www-data',
+  const searchRoots = [
+    process.env.PLAYWRIGHT_BROWSERS_PATH,
+    ...[process.env.HOME, '/root', '/var/www', '/home/www-data']
+      .filter(Boolean)
+      .map(h => `${h}/.cache/ms-playwright`),
   ].filter(Boolean);
 
-  for (const home of homes) {
-    const found = findInDir(`${home}/.cache/ms-playwright`);
+  for (const root of searchRoots) {
+    const found = findInDir(root);
     if (found) return found;
   }
 
-  // 5. System-wide fallback roots (apt chromium, snap, flatpak)
+  // 5. System chromium (apt / snap)
   for (const bin of ['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome']) {
     if (fs.existsSync(bin)) return bin;
   }
 
   process.stderr.write(
-    '[whatnot-scraper] ERROR: Chromium not found. Set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH or ' +
-    'run: PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers npx playwright install chromium\n'
+    '[whatnot-scraper] ERROR: Chromium not found. Rebuild the Docker image or set ' +
+    'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH to the full path of the chrome binary.\n'
   );
   process.exit(2);
 })();

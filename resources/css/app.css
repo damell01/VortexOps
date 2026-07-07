@@ -115,9 +115,9 @@ body {
     --vxs-bg:         #111827;   /* dark navy */
     --vxs-bg-header:  #0f1421;   /* slightly darker for header */
     --vxs-border:     rgb(255 255 255 / .07);
-    --vxs-text:       rgb(255 255 255 / .55);     /* inactive items */
-    --vxs-text-hover: rgb(255 255 255 / .88);     /* hovered items */
-    --vxs-label:      rgb(255 255 255 / .25);     /* section labels */
+    --vxs-text:       rgb(255 255 255 / .90);     /* inactive items */
+    --vxs-text-hover: rgb(255 255 255 / 1);       /* hovered items */
+    --vxs-label:      rgb(255 255 255 / .55);     /* section labels */
     --vxs-active-bg:  rgb(124 58 237 / .22);
     --vxs-active-text:#c4b5fd;                    /* light violet */
     --vxs-active-bar: #7c3aed;

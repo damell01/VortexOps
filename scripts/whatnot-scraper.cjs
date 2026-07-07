@@ -103,6 +103,19 @@ const URLS = {
 const CHROMIUM_PATH = (() => {
   const fs = require('fs');
 
+  function findInDir(base) {
+    if (!fs.existsSync(base)) return null;
+    let dirs;
+    try { dirs = fs.readdirSync(base).filter(d => d.startsWith('chromium-')).sort().reverse(); } catch { return null; }
+    for (const dir of dirs) {
+      for (const bin of ['chrome-linux64/chrome', 'chrome-linux/chrome', 'chrome']) {
+        const full = `${base}/${dir}/${bin}`;
+        if (fs.existsSync(full)) return full;
+      }
+    }
+    return null;
+  }
+
   // 1. Explicit env override — trust it even if file doesn't exist yet
   if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
     return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
@@ -114,7 +127,15 @@ const CHROMIUM_PATH = (() => {
     if (p && fs.existsSync(p)) return p;
   } catch {}
 
-  // 3. Search common installation roots (covers: root-installed, www-data, Docker, snap, system)
+  // 3. PLAYWRIGHT_BROWSERS_PATH — Docker/CI bakes this as /opt/pw-browsers
+  //    Playwright installs directly there: /opt/pw-browsers/chromium-<rev>/...
+  const pwBrowsersPath = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (pwBrowsersPath) {
+    const found = findInDir(pwBrowsersPath);
+    if (found) return found;
+  }
+
+  // 4. Search common user-level cache roots
   const homes = [
     process.env.HOME,
     '/root',
@@ -122,23 +143,21 @@ const CHROMIUM_PATH = (() => {
     '/home/www-data',
   ].filter(Boolean);
 
-  // Playwright stores browsers as: <home>/.cache/ms-playwright/chromium-<rev>/chrome-linux64/chrome
   for (const home of homes) {
-    const base = `${home}/.cache/ms-playwright`;
-    if (!fs.existsSync(base)) continue;
-    // find the newest chromium-* revision directory
-    let dirs;
-    try { dirs = fs.readdirSync(base).filter(d => d.startsWith('chromium-')).sort().reverse(); } catch { continue; }
-    for (const dir of dirs) {
-      for (const bin of ['chrome-linux64/chrome', 'chrome-linux/chrome', 'chrome']) {
-        const full = `${base}/${dir}/${bin}`;
-        if (fs.existsSync(full)) return full;
-      }
-    }
+    const found = findInDir(`${home}/.cache/ms-playwright`);
+    if (found) return found;
   }
 
-  // 4. Last resort: hardcoded Docker/CI path
-  return '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+  // 5. System-wide fallback roots (apt chromium, snap, flatpak)
+  for (const bin of ['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome']) {
+    if (fs.existsSync(bin)) return bin;
+  }
+
+  process.stderr.write(
+    '[whatnot-scraper] ERROR: Chromium not found. Set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH or ' +
+    'run: PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers npx playwright install chromium\n'
+  );
+  process.exit(2);
 })();
 const DEBUG          = process.env.WHATNOT_DEBUG === '1';
 const LIMIT          = parseInt(process.env.WHATNOT_LIMIT || '50', 10);

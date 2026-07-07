@@ -99,9 +99,47 @@ const URLS = {
   sellerHub:  'https://www.whatnot.com/seller',
 };
 
-// Resolve Chromium binary: env override → Playwright's own lookup → hardcoded fallback
-const CHROMIUM_PATH = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
-    || (() => { try { return chromium.executablePath(); } catch { return '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'; } })();
+// Resolve Chromium binary: env override → Playwright's own lookup (validated) → path search
+const CHROMIUM_PATH = (() => {
+  const fs = require('fs');
+
+  // 1. Explicit env override — trust it even if file doesn't exist yet
+  if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
+    return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+  }
+
+  // 2. Playwright's own executablePath() — only use if the file actually exists
+  try {
+    const p = chromium.executablePath();
+    if (p && fs.existsSync(p)) return p;
+  } catch {}
+
+  // 3. Search common installation roots (covers: root-installed, www-data, Docker, snap, system)
+  const homes = [
+    process.env.HOME,
+    '/root',
+    '/var/www',
+    '/home/www-data',
+  ].filter(Boolean);
+
+  // Playwright stores browsers as: <home>/.cache/ms-playwright/chromium-<rev>/chrome-linux64/chrome
+  for (const home of homes) {
+    const base = `${home}/.cache/ms-playwright`;
+    if (!fs.existsSync(base)) continue;
+    // find the newest chromium-* revision directory
+    let dirs;
+    try { dirs = fs.readdirSync(base).filter(d => d.startsWith('chromium-')).sort().reverse(); } catch { continue; }
+    for (const dir of dirs) {
+      for (const bin of ['chrome-linux64/chrome', 'chrome-linux/chrome', 'chrome']) {
+        const full = `${base}/${dir}/${bin}`;
+        if (fs.existsSync(full)) return full;
+      }
+    }
+  }
+
+  // 4. Last resort: hardcoded Docker/CI path
+  return '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+})();
 const DEBUG          = process.env.WHATNOT_DEBUG === '1';
 const LIMIT          = parseInt(process.env.WHATNOT_LIMIT || '50', 10);
 const MODE           = process.env.WHATNOT_MODE || 'analytics';

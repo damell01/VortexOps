@@ -59,8 +59,7 @@ class CreateShow extends CreateRecord
                         TextInput::make('show_duration')
                             ->label('Duration (minutes)')
                             ->numeric()
-                            ->nullable()
-                            ->helperText('Leave blank to calculate from start/end times'),
+                            ->nullable(),
 
                         TimePicker::make('start_time')
                             ->label('Start Time')
@@ -76,97 +75,62 @@ class CreateShow extends CreateRecord
                 ->icon('heroicon-o-users')
                 ->description('Who streamed this show')
                 ->schema([
-                    $isStreamerOnly && $streamerRecord
-                        ? Select::make('streamers')
-                            ->label('Streamers')
-                            ->multiple()
-                            ->relationship('streamers', 'name')
-                            ->default([$streamerRecord->id])
-                            ->disabled()
-                            ->dehydrated()
-                            ->helperText("You ({$streamerRecord->name}) are automatically assigned.")
-                        : Select::make('streamers')
-                            ->label('Streamers')
-                            ->multiple()
-                            ->options(Streamer::where('status', 'active')->orderBy('name')->pluck('name', 'id'))
-                            ->relationship('streamers', 'name')
-                            ->preload()
-                            ->searchable()
-                            ->default($streamerRecord ? [$streamerRecord->id] : [])
-                            ->helperText('Select one or more streamers for this show'),
+                    Select::make('streamers')
+                        ->label('Streamers')
+                        ->multiple()
+                        ->options(Streamer::where('status', 'active')->orderBy('name')->pluck('name', 'id'))
+                        ->relationship('streamers', 'name')
+                        ->preload()
+                        ->searchable()
+                        ->default($streamerRecord ? [$streamerRecord->id] : [])
+                        ->disabled($isStreamerOnly && (bool) $streamerRecord)
+                        ->dehydrated()
+                        ->helperText(
+                            $isStreamerOnly && $streamerRecord
+                                ? "You ({$streamerRecord->name}) are automatically assigned."
+                                : 'Select one or more streamers for this show'
+                        ),
                 ]),
 
             Step::make('Items Sold')
                 ->icon('heroicon-o-shopping-cart')
-                ->description('Inventory and custom items sold during the show')
+                ->description('Inventory items sold during the show')
                 ->schema([
-                    Section::make('Inventory Items')
-                        ->description('Products pulled from your inventory')
-                        ->collapsible()
+                    Repeater::make('inventory_items')
+                        ->label('Inventory Items')
                         ->schema([
-                            Repeater::make('inventory_items')
-                                ->label(false)
-                                ->schema([
-                                    Grid::make(4)->schema([
-                                        Select::make('product_id')
-                                            ->label('Product')
-                                            ->options(Product::where('status', 'active')->orderBy('name')->pluck('name', 'id'))
-                                            ->searchable()
-                                            ->required()
-                                            ->columnSpan(2),
+                            Grid::make(4)->schema([
+                                Select::make('product_id')
+                                    ->label('Product')
+                                    ->options(Product::where('status', 'active')->orderBy('name')->pluck('name', 'id'))
+                                    ->searchable()
+                                    ->required()
+                                    ->columnSpan(2),
 
-                                        Select::make('inventory_location_id')
-                                            ->label('Location')
-                                            ->options(InventoryLocation::activeOptions())
-                                            ->searchable()
-                                            ->nullable(),
+                                Select::make('inventory_location_id')
+                                    ->label('Location')
+                                    ->options(InventoryLocation::activeOptions())
+                                    ->searchable()
+                                    ->nullable(),
 
-                                        TextInput::make('quantity')
-                                            ->label('Qty')
-                                            ->numeric()
-                                            ->default(1)
-                                            ->minValue(1)
-                                            ->required(),
+                                TextInput::make('quantity')
+                                    ->label('Qty')
+                                    ->numeric()
+                                    ->default(1)
+                                    ->minValue(1)
+                                    ->required(),
 
-                                        TextInput::make('unit_cost')
-                                            ->label('Unit Cost')
-                                            ->numeric()
-                                            ->prefix('$')
-                                            ->nullable(),
-                                    ]),
-                                ])
-                                ->addActionLabel('Add inventory item')
-                                ->defaultItems(0)
-                                ->reorderable(false)
-                                ->columnSpanFull(),
-                        ]),
-
-                    Section::make('Non-Inventory Items')
-                        ->description('Custom or consignment items not tracked in inventory')
-                        ->collapsible()
-                        ->schema([
-                            Repeater::make('custom_items')
-                                ->label(false)
-                                ->schema([
-                                    Grid::make(3)->schema([
-                                        TextInput::make('description')
-                                            ->label('Description')
-                                            ->required()
-                                            ->placeholder('e.g. Consignment lot, Event passes')
-                                            ->columnSpan(2),
-
-                                        TextInput::make('amount')
-                                            ->label('Amount ($)')
-                                            ->numeric()
-                                            ->prefix('$')
-                                            ->nullable(),
-                                    ]),
-                                ])
-                                ->addActionLabel('Add custom item')
-                                ->defaultItems(0)
-                                ->reorderable(false)
-                                ->columnSpanFull(),
-                        ]),
+                                TextInput::make('unit_cost')
+                                    ->label('Unit Cost')
+                                    ->numeric()
+                                    ->prefix('$')
+                                    ->nullable(),
+                            ]),
+                        ])
+                        ->addActionLabel('Add item')
+                        ->defaultItems(0)
+                        ->reorderable(false)
+                        ->columnSpanFull(),
 
                     TextInput::make('units_sold')
                         ->label('Total Units Sold')
@@ -178,7 +142,7 @@ class CreateShow extends CreateRecord
 
             Step::make('Financials')
                 ->icon('heroicon-o-currency-dollar')
-                ->description('Revenue and payout details')
+                ->description('Revenue details')
                 ->schema([
                     Grid::make(3)->schema([
                         TextInput::make('gross_revenue')
@@ -215,8 +179,7 @@ class CreateShow extends CreateRecord
         $data['status']        = 'pending_review';
         $data['created_by']    = auth()->id();
 
-        // Remove wizard-only fields that don't belong on the Show model
-        unset($data['inventory_items'], $data['custom_items']);
+        unset($data['inventory_items']);
 
         return $data;
     }
@@ -227,11 +190,8 @@ class CreateShow extends CreateRecord
 
         NotifyShowReady::dispatch($show->id);
 
-        $formData      = $this->data;
-        $inventoryRows = $formData['inventory_items'] ?? [];
-        $customRows    = $formData['custom_items']    ?? [];
+        $inventoryRows = $this->data['inventory_items'] ?? [];
 
-        // Create a DeductionRequest for inventory items
         if (! empty($inventoryRows)) {
             $request = DeductionRequest::create([
                 'show_id' => $show->id,
@@ -243,26 +203,13 @@ class CreateShow extends CreateRecord
                     continue;
                 }
                 DeductionRequestLine::create([
-                    'deduction_request_id' => $request->id,
-                    'inventory_item_id'    => $row['product_id'],
-                    'inventory_location_id'=> $row['inventory_location_id'] ?? null,
-                    'quantity_suggested'   => $row['quantity'] ?? 1,
-                    'quantity_approved'    => $row['quantity'] ?? 1,
-                    'unit_cost_snapshot'   => $row['unit_cost'] ?? 0,
+                    'deduction_request_id'  => $request->id,
+                    'inventory_item_id'     => $row['product_id'],
+                    'inventory_location_id' => $row['inventory_location_id'] ?? null,
+                    'quantity_suggested'    => $row['quantity'] ?? 1,
+                    'quantity_approved'     => $row['quantity'] ?? 1,
+                    'unit_cost_snapshot'    => $row['unit_cost'] ?? 0,
                 ]);
-            }
-        }
-
-        // Append custom/non-inventory items to notes
-        if (! empty($customRows)) {
-            $lines = collect($customRows)
-                ->filter(fn ($r) => ! empty($r['description']))
-                ->map(fn ($r) => '- ' . $r['description'] . (isset($r['amount']) && $r['amount'] ? ' ($' . number_format((float)$r['amount'], 2) . ')' : ''))
-                ->implode("\n");
-
-            if ($lines) {
-                $existing = $show->notes ? $show->notes . "\n\n" : '';
-                $show->update(['notes' => $existing . "Non-inventory items sold:\n" . $lines]);
             }
         }
     }

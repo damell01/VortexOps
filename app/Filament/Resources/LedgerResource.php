@@ -35,12 +35,12 @@ class LedgerResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Finance';
+        return 'Reports';
     }
 
     public static function getNavigationSort(): ?int
     {
-        return 5;
+        return 30;
     }
 
     public static function canAccess(): bool

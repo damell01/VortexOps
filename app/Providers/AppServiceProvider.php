@@ -5,8 +5,10 @@ namespace App\Providers;
 use App\Listeners\LogAuthActivity;
 use App\Models\DeductionRequest;
 use App\Models\Payout;
+use App\Models\Show;
 use App\Observers\DeductionRequestObserver;
 use App\Observers\PayoutObserver;
+use App\Observers\ShowObserver;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
@@ -37,6 +39,7 @@ class AppServiceProvider extends ServiceProvider
 
         Payout::observe(PayoutObserver::class);
         DeductionRequest::observe(DeductionRequestObserver::class);
+        Show::observe(ShowObserver::class);
 
         $listener = new LogAuthActivity();
         Event::listen(Login::class,         [$listener, 'handleLogin']);

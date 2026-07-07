@@ -662,6 +662,40 @@
             @endif
         </div>
 
+        {{-- ── Shipping Surcharge ──────────────────────────────────────────── --}}
+        <div class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
+                <x-heroicon-o-truck class="h-5 w-5 text-amber-500" />
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Shipping Surcharge</h2>
+            </div>
+
+            <div class="px-6 py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Rate per Package ($)</label>
+                    <input
+                        wire:model.blur="shipping_surcharge_rate"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="4.00"
+                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Charge per package over the threshold (default $4.00)</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Threshold Amount ($)</label>
+                    <input
+                        wire:model.blur="shipping_surcharge_threshold"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="500.00"
+                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Package value threshold that triggers the surcharge (default $500.00)</p>
+                </div>
+            </div>
+        </div>
+
         {{-- Validation errors --}}
         @if ($errors->any())
             <div class="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 px-4 py-3">

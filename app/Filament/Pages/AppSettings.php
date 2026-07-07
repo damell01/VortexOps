@@ -69,6 +69,11 @@ class AppSettings extends Page
     public string $whatnotImportStatus = ''; // 'success' | 'error' | ''
     public string $whatnotLastImport   = '';
 
+    // ── Shipping Surcharge ───────────────────────────────────────────────────
+
+    public string $shipping_surcharge_rate      = '4.00';
+    public string $shipping_surcharge_threshold = '500.00';
+
     // ── AI / Ollama ──────────────────────────────────────────────────────────
 
     public string $ollama_base_url   = '';
@@ -115,6 +120,9 @@ class AppSettings extends Page
         $this->notify_show_reconciled_users = json_decode(Setting::get('notify_show_reconciled_users', '[]'), true) ?? [];
         $this->enabled_modules  = AdminModules::enabledSlugs();
         $this->enabled_features = AdminModules::enabledFeatures();
+
+        $this->shipping_surcharge_rate      = Setting::get('shipping_surcharge_rate', '4.00');
+        $this->shipping_surcharge_threshold = Setting::get('shipping_surcharge_threshold', '500.00');
 
         $this->ollama_base_url = Setting::get('ollama_base_url', config('services.ollama.url', 'http://localhost:11434'));
         $this->ollama_model    = Setting::get('ollama_model',    config('services.ollama.model', 'llama3.2:3b'));
@@ -174,6 +182,8 @@ class AppSettings extends Page
             'notify_show_reconciled_mode'      => 'required|in:all,admins,custom',
             'notify_show_reconciled_users'     => 'nullable|array',
             'notify_show_reconciled_users.*'   => 'integer|exists:users,id',
+            'shipping_surcharge_rate'          => 'required|numeric|min:0',
+            'shipping_surcharge_threshold'     => 'required|numeric|min:0',
         ];
 
         if ($isOwner) {
@@ -205,6 +215,9 @@ class AppSettings extends Page
         Setting::set('notify_show_ready_users',       json_encode($this->notify_show_ready_users));
         Setting::set('notify_show_reconciled_mode',   $this->notify_show_reconciled_mode);
         Setting::set('notify_show_reconciled_users',  json_encode($this->notify_show_reconciled_users));
+
+        Setting::set('shipping_surcharge_rate',      $this->shipping_surcharge_rate);
+        Setting::set('shipping_surcharge_threshold', $this->shipping_surcharge_threshold);
 
         Setting::set('ollama_base_url', rtrim(trim($this->ollama_base_url), '/') ?: 'http://localhost:11434');
         Setting::set('ollama_model',    trim($this->ollama_model) ?: 'llama3.2:3b');

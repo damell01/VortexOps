@@ -25,9 +25,12 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use App\Filament\Concerns\HasAdminNavVisibility;
 
 class StreamerLogResource extends Resource
 {
+    use HasAdminNavVisibility;
+
     protected static ?string $model = StreamerLogEntry::class;
 
     protected static ?string $navigationLabel = 'Streamer Log';

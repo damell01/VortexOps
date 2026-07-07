@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Models\Setting;
 use App\Models\Show;
 use App\Models\WhatnotChannel;
@@ -13,7 +14,7 @@ use Filament\Pages\Page;
 
 class WhatnotScraperPage extends Page
 {
-    use HasModuleAccess;
+    use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'streams';
     protected static string $featureSlug = 'show_ingestion_logs';

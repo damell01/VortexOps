@@ -9,9 +9,12 @@ use App\Models\StreamerLogEntry;
 use App\Services\FeatureFlagService;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
+use App\Filament\Concerns\HasAdminNavVisibility;
 
 class StreamerAnalytics extends Page
 {
+    use HasAdminNavVisibility;
+
     protected static ?string $title = 'Streamer Analytics';
 
     public static function getNavigationGroup(): string|\UnitEnum|null

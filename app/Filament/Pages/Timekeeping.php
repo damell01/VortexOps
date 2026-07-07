@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Models\TimeEntry;
 use App\Models\User;
 use App\Support\AdminModules;
@@ -14,7 +15,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class Timekeeping extends Page
 {
-    use HasModuleAccess;
+    use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'timekeeping';
     protected static string $featureSlug = 'timekeeping_page';

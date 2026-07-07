@@ -7,9 +7,12 @@ use App\Models\Show;
 use App\Models\Streamer;
 use App\Services\FeatureFlagService;
 use Filament\Pages\Page;
+use App\Filament\Concerns\HasAdminNavVisibility;
 
 class ProfitSharePacket extends Page
 {
+    use HasAdminNavVisibility;
+
     protected static ?string $title = 'Profit Share Packet';
 
     public static function getNavigationGroup(): string|\UnitEnum|null

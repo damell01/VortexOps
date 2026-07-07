@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\PayoutResource\Pages;
 use App\Models\Payout;
 use App\Models\Streamer;
@@ -31,7 +32,7 @@ use Illuminate\Support\Facades\Cache;
 
 class PayoutResource extends Resource
 {
-    use HasModuleAccess;
+    use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'payouts';
     protected static string $featureSlug = 'payouts';

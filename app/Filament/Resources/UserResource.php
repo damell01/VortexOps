@@ -18,9 +18,12 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
+use App\Filament\Concerns\HasAdminNavVisibility;
 
 class UserResource extends Resource
 {
+    use HasAdminNavVisibility;
+
     protected static ?string $model = User::class;
 
     public static function getNavigationGroup(): string|\UnitEnum|null

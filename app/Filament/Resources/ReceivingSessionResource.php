@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\ReceivingSessionResource\Pages;
 use App\Models\ReceivingSession;
 use App\Models\Vendor;
@@ -23,7 +24,7 @@ use Filament\Forms\Components\TextInput;
 
 class ReceivingSessionResource extends Resource
 {
-    use HasModuleAccess;
+    use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'purchasing';
     protected static string $featureSlug = 'receiving_sessions';

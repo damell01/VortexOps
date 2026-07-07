@@ -15,9 +15,12 @@ use Filament\Forms\Components\Placeholder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
 use Spatie\Activitylog\Models\Activity;
+use App\Filament\Concerns\HasAdminNavVisibility;
 
 class ActivityLogResource extends Resource
 {
+    use HasAdminNavVisibility;
+
     protected static ?string $model = Activity::class;
 
     public static function getNavigationGroup(): string|\UnitEnum|null

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\WhatnotChannel;
 use App\Services\WhatnotScraper;
 use App\Support\AdminModules;
+use App\Support\NavVisibility;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -103,6 +104,7 @@ class AppSettings extends Page
     public array  $notify_show_reconciled_users = [];
     public array  $enabled_modules  = [];
     public array  $enabled_features = [];
+    public array  $hidden_nav_items = [];
 
     public function mount(): void
     {
@@ -124,6 +126,7 @@ class AppSettings extends Page
         $this->notify_show_reconciled_users = json_decode(Setting::get('notify_show_reconciled_users', '[]'), true) ?? [];
         $this->enabled_modules  = AdminModules::enabledSlugs();
         $this->enabled_features = AdminModules::enabledFeatures();
+        $this->hidden_nav_items = NavVisibility::hiddenForAdmins();
 
         $this->demo_mode = (bool) Setting::get('demo_mode', false);
 
@@ -151,6 +154,53 @@ class AppSettings extends Page
     {
         $user = auth()->user();
         return ($user?->isOwner() || $user?->isSuperAdmin()) ?? false;
+    }
+
+    /**
+     * Returns all nav-controllable items grouped by navigation group for the
+     * nav-visibility editor.
+     * @return array<string, array<array{class: string, label: string, icon: string|null}>>
+     */
+    public function getNavItemsForEditorProperty(): array
+    {
+        $panel = \Filament\Facades\Filament::getCurrentPanel();
+        if (! $panel) {
+            return [];
+        }
+
+        $grouped = [];
+
+        $components = array_merge(
+            $panel->getResources(),
+            $panel->getPages(),
+        );
+
+        foreach ($components as $class) {
+            // Only list classes that actually use our visibility trait
+            if (! in_array(\App\Filament\Concerns\HasAdminNavVisibility::class, class_uses_recursive($class))) {
+                continue;
+            }
+
+            try {
+                $label   = method_exists($class, 'getNavigationLabel') ? $class::getNavigationLabel() : class_basename($class);
+                $groupRaw = method_exists($class, 'getNavigationGroup') ? $class::getNavigationGroup() : null;
+                $group   = $groupRaw instanceof \UnitEnum ? ($groupRaw->value ?? $groupRaw->name) : ($groupRaw ?? 'Other');
+                $iconRaw = method_exists($class, 'getNavigationIcon') ? $class::getNavigationIcon() : null;
+                $icon    = $iconRaw instanceof \BackedEnum ? $iconRaw->value : (is_string($iconRaw) ? $iconRaw : null);
+
+                $grouped[$group][] = [
+                    'class' => $class,
+                    'label' => (string) $label,
+                    'icon'  => $icon,
+                ];
+            } catch (\Throwable) {
+                // Skip any class that errors on static call
+            }
+        }
+
+        ksort($grouped);
+
+        return $grouped;
     }
 
     protected function getHeaderActions(): array
@@ -239,6 +289,8 @@ class AppSettings extends Page
                 $this->enabled_features
             ))));
             AdminModules::flushMemo();
+
+            NavVisibility::setHiddenForAdmins($this->hidden_nav_items);
         }
 
         Notification::make()

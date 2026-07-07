@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\InventoryMovementResource\Pages;
 use App\Models\InventoryMovement;
 use App\Support\AdminModules;
@@ -20,7 +21,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class InventoryMovementResource extends Resource
 {
-    use HasModuleAccess;
+    use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'inventory';
     protected static string $featureSlug = 'inventory_movements';

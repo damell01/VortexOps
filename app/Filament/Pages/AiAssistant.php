@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Models\InventoryItem;
 use App\Models\InventoryMovement;
 use App\Models\Pallet;
@@ -18,7 +19,7 @@ use Illuminate\Support\Facades\Http;
 
 class AiAssistant extends Page
 {
-    use HasModuleAccess;
+    use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'ai';
     protected static string $featureSlug = 'ai_assistant';

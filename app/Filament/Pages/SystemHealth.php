@@ -8,9 +8,12 @@ use Filament\Pages\Page;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use App\Filament\Concerns\HasAdminNavVisibility;
 
 class SystemHealth extends Page
 {
+    use HasAdminNavVisibility;
+
     protected static ?string $title = 'System Health';
 
     public static function getNavigationGroup(): string|\UnitEnum|null

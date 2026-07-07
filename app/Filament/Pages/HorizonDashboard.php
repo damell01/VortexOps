@@ -3,9 +3,12 @@
 namespace App\Filament\Pages;
 
 use Filament\Pages\Page;
+use App\Filament\Concerns\HasAdminNavVisibility;
 
 class HorizonDashboard extends Page
 {
+    use HasAdminNavVisibility;
+
     protected static ?string $title = 'Queue Monitor';
     protected static ?string $navigationLabel = 'Queue Monitor';
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-circle-stack';

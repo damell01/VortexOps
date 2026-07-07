@@ -124,10 +124,21 @@
                         </p>
                     </div>
                 </div>
-                <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
-                    <input type="checkbox" wire:model.live="demo_mode" class="sr-only peer" value="1">
-                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-amber-500 dark:peer-focus:ring-amber-600 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-amber-500"></div>
-                </label>
+                <div x-data class="flex-shrink-0">
+                    <button
+                        type="button"
+                        role="switch"
+                        :aria-checked="$wire.demo_mode.toString()"
+                        @click="$wire.demo_mode = !$wire.demo_mode"
+                        class="relative inline-flex h-6 w-11 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                        :class="$wire.demo_mode ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'"
+                    >
+                        <span
+                            class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition duration-200 ease-in-out"
+                            :class="$wire.demo_mode ? 'translate-x-5' : 'translate-x-0'"
+                        ></span>
+                    </button>
+                </div>
             </div>
             @if($demo_mode)
                 <div class="mt-3 flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400">
@@ -206,6 +217,53 @@
                 @endforeach
 
                 <p class="text-xs text-gray-400 pt-1">Disabled modules and features disappear from navigation and their routes become inaccessible until re-enabled. Changes apply on the next page load after saving.</p>
+            </div>
+        </div>
+        @if ($this->canSeeModuleToggles && count($this->navItemsForEditor))
+        {{-- ── Navigation Visibility Editor ────────────────────────────────── --}}
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+            <div class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                    <div class="rounded-lg bg-violet-100 dark:bg-violet-900/40 p-2">
+                        <x-heroicon-o-bars-3 class="h-5 w-5 text-violet-600 dark:text-violet-400" />
+                    </div>
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Navigation Visibility</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">Control which sidebar links are visible to <strong>admin users</strong>. You (the owner) always see everything.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 space-y-4">
+                @foreach ($this->navItemsForEditor as $group => $items)
+                    <div>
+                        <p class="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">{{ $group }}</p>
+                        <div class="space-y-1">
+                            @foreach ($items as $item)
+                                <label class="flex items-center gap-3 py-1.5 cursor-pointer group">
+                                    <input
+                                        type="checkbox"
+                                        wire:model.live="hidden_nav_items"
+                                        value="{{ $item['class'] }}"
+                                        class="rounded border-gray-300 dark:border-gray-600 text-rose-500 focus:ring-rose-500 focus:ring-offset-0 bg-white dark:bg-gray-900"
+                                    />
+                                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                                        @if ($item['icon'])
+                                            <x-dynamic-component :component="$item['icon']" class="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                                        @endif
+                                        <span class="text-sm text-gray-800 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white truncate">
+                                            {{ $item['label'] }}
+                                        </span>
+                                    </div>
+                                    @if (in_array($item['class'], $hidden_nav_items))
+                                        <span class="text-[11px] text-rose-500 dark:text-rose-400 font-medium">hidden from admins</span>
+                                    @endif
+                                </label>
+                            @endforeach
+                        </div>
+                    </div>
+                @endforeach
+                <p class="text-xs text-gray-400 pt-1">Checked items are <strong>hidden</strong> from admin nav. Changes apply after saving.</p>
             </div>
         </div>
         @endif

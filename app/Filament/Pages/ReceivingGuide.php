@@ -3,12 +3,13 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Support\AdminModules;
 use Filament\Pages\Page;
 
 class ReceivingGuide extends Page
 {
-    use HasModuleAccess;
+    use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'purchasing';
     protected static string $featureSlug = 'receiving_guide';

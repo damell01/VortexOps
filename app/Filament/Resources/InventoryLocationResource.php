@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\InventoryLocationResource\Pages;
 use App\Models\InventoryLocation;
 use App\Support\AdminModules;
@@ -24,7 +25,7 @@ use Filament\Tables\Table;
 
 class InventoryLocationResource extends Resource
 {
-    use HasModuleAccess;
+    use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'inventory';
     protected static string $featureSlug = 'inventory_locations';

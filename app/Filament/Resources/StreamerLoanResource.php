@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\StreamerLoanResource\Pages;
 use App\Models\StreamerLoan;
 use App\Support\AdminModules;
@@ -22,7 +23,7 @@ use Filament\Tables\Table;
 
 class StreamerLoanResource extends Resource
 {
-    use HasModuleAccess;
+    use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'operations';
     protected static string $featureSlug = 'streamer_loans';

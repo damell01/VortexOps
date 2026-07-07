@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\ShowIngestionLogResource\Pages;
 use App\Models\ShowIngestionLog;
 use App\Support\AdminModules;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ShowIngestionLogResource extends Resource
 {
-    use HasModuleAccess;
+    use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'streams';
     protected static string $featureSlug = 'show_ingestion_logs';

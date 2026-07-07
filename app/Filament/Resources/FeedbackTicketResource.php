@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\FeedbackTicketResource\Pages;
 use App\Filament\Resources\FeedbackTicketResource\RelationManagers\CommentsRelationManager;
 use App\Models\FeedbackTicket;
@@ -27,7 +28,7 @@ use Illuminate\Support\Facades\Cache;
 
 class FeedbackTicketResource extends Resource
 {
-    use HasModuleAccess;
+    use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'operations';
     protected static string $featureSlug = 'feedback_tickets';

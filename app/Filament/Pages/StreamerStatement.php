@@ -9,9 +9,12 @@ use App\Models\Streamer;
 use App\Models\StreamerLoan;
 use App\Services\FeatureFlagService;
 use Filament\Pages\Page;
+use App\Filament\Concerns\HasAdminNavVisibility;
 
 class StreamerStatement extends Page
 {
+    use HasAdminNavVisibility;
+
     protected static ?string $title = 'Streamer Statement';
 
     public static function getNavigationGroup(): string|\UnitEnum|null

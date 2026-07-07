@@ -6,9 +6,12 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\File;
+use App\Filament\Concerns\HasAdminNavVisibility;
 
 class LogViewer extends Page
 {
+    use HasAdminNavVisibility;
+
     protected static ?int $navigationSort = 95;
 
     protected static ?string $title = 'Log Viewer';

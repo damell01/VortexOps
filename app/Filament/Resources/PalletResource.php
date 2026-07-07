@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\PalletResource\Pages;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
@@ -33,7 +34,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 class PalletResource extends Resource
 {
-    use HasModuleAccess;
+    use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'purchasing';
     protected static string $featureSlug = 'pallets';

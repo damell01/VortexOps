@@ -15,9 +15,12 @@ use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use App\Filament\Concerns\HasAdminNavVisibility;
 
 class FeatureFlagResource extends Resource
 {
+    use HasAdminNavVisibility;
+
     protected static ?string $model = FeatureFlag::class;
 
     protected static ?string $navigationLabel = 'Feature Flags';

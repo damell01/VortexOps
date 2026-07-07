@@ -21,9 +21,12 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use App\Filament\Concerns\HasAdminNavVisibility;
 
 class LedgerResource extends Resource
 {
+    use HasAdminNavVisibility;
+
     protected static ?string $model = LedgerEntry::class;
 
     protected static ?string $navigationLabel = 'Finance Ledger';

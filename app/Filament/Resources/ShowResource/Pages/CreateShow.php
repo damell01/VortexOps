@@ -105,7 +105,20 @@ class CreateShow extends CreateRecord
                                     ->options(Product::where('is_active', true)->orderBy('name')->pluck('name', 'id'))
                                     ->searchable()
                                     ->required()
-                                    ->columnSpan(2),
+                                    ->columnSpan(2)
+                                    ->live()
+                                    ->afterStateUpdated(function (?int $state, \Filament\Forms\Set $set) {
+                                        if (! $state) {
+                                            return;
+                                        }
+                                        $product = Product::find($state);
+                                        if ($product) {
+                                            $cost = $product->effectiveCost();
+                                            if ($cost > 0) {
+                                                $set('unit_cost', number_format($cost, 2, '.', ''));
+                                            }
+                                        }
+                                    }),
 
                                 Select::make('inventory_location_id')
                                     ->label('Location')

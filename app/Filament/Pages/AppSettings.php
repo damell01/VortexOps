@@ -227,13 +227,14 @@ class AppSettings extends Page
 
         Setting::set('ollama_base_url', rtrim(trim($this->ollama_base_url), '/') ?: 'http://localhost:11434');
         Setting::set('ollama_model',    trim($this->ollama_model) ?: 'llama3.2:3b');
+        Setting::set('demo_mode', $this->demo_mode ? '1' : '0');
+
         if ($isOwner) {
             Setting::set('enabled_admin_modules',  json_encode(AdminModules::normalizeEnabledSlugs($this->enabled_modules)));
             Setting::set('enabled_admin_features', json_encode(array_values(array_intersect(
                 array_keys(AdminModules::featureDefinitions()),
                 $this->enabled_features
             ))));
-            Setting::set('demo_mode', $this->demo_mode ? '1' : '0');
             AdminModules::flushMemo();
         }
 

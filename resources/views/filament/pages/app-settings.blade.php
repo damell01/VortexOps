@@ -109,9 +109,7 @@
 
         </div>
 
-        @if ($this->canSeeModuleToggles)
-
-        {{-- Demo / Showcase Mode --}}
+        {{-- Demo / Showcase Mode (visible to all admins) --}}
         <div class="rounded-xl border {{ $demo_mode ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900' }} px-6 py-4">
             <div class="flex items-center justify-between gap-4">
                 <div class="flex items-center gap-3">

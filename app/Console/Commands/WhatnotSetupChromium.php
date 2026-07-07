@@ -12,54 +12,70 @@ class WhatnotSetupChromium extends Command
 
     public function handle(): int
     {
-        $browsersPath = env('PLAYWRIGHT_BROWSERS_PATH', '/opt/pw-browsers');
+        // Ask Playwright itself where the binary is (works regardless of install location)
+        $path = $this->askPlaywright();
 
-        // Ask Playwright itself where the binary is
-        $result = shell_exec("node -e \"const {chromium}=require('playwright-core'); process.stdout.write(chromium.executablePath());\" 2>/dev/null");
-        $path = $result ? trim($result) : null;
-
-        if ($path && file_exists($path)) {
-            $this->writeMarker($browsersPath, $path);
-            return self::SUCCESS;
+        // Fall back: scan common install roots
+        if (! $path) {
+            $path = $this->scan();
         }
 
-        // Fall back: scan the browsers directory for any chromium-* revision
-        $path = $this->scanForChromium($browsersPath);
-        if ($path) {
-            $this->writeMarker($browsersPath, $path);
-            return self::SUCCESS;
+        if (! $path) {
+            $this->error('Chromium not found. Run: npx playwright install chromium --with-deps');
+            $this->line('Then re-run: php artisan whatnot:setup-chromium');
+            return self::FAILURE;
         }
 
-        $this->error("Chromium not found under {$browsersPath}.");
-        $this->line("Run:  PLAYWRIGHT_BROWSERS_PATH={$browsersPath} npx playwright install chromium --with-deps");
-        $this->line("Then: php artisan whatnot:setup-chromium");
-        return self::FAILURE;
-    }
-
-    private function scanForChromium(string $base): ?string
-    {
-        if (! is_dir($base)) {
-            return null;
-        }
-        $dirs = array_filter(scandir($base), fn ($d) => str_starts_with($d, 'chromium-'));
-        rsort($dirs);
-        foreach ($dirs as $dir) {
-            foreach (['chrome-linux64/chrome', 'chrome-linux/chrome', 'chrome'] as $bin) {
-                $full = "{$base}/{$dir}/{$bin}";
-                if (file_exists($full)) {
-                    return $full;
-                }
-            }
-        }
-        return null;
-    }
-
-    private function writeMarker(string $browsersPath, string $path): void
-    {
-        $marker = "{$browsersPath}/.chromium-path";
+        // Write to storage/ (always writable) so the scraper can read it
+        $marker = storage_path('chromium-path.txt');
         file_put_contents($marker, $path);
         $this->info("Chromium found: {$path}");
         $this->info("Marker written: {$marker}");
-        $this->line("The Whatnot scraper will now always use this path.");
+        $this->line('The Whatnot scraper will now always use this path.');
+        return self::SUCCESS;
+    }
+
+    private function askPlaywright(): ?string
+    {
+        $result = shell_exec("node -e \"try{const {chromium}=require('playwright-core');process.stdout.write(chromium.executablePath());}catch(e){}\" 2>/dev/null");
+        $p = $result ? trim($result) : null;
+        return ($p && file_exists($p)) ? $p : null;
+    }
+
+    private function scan(): ?string
+    {
+        $roots = array_filter([
+            env('PLAYWRIGHT_BROWSERS_PATH'),
+            '/opt/pw-browsers',
+            posix_getpwuid(posix_getuid())['dir'] . '/.cache/ms-playwright',
+            '/root/.cache/ms-playwright',
+            '/var/www/.cache/ms-playwright',
+            '/home/www-data/.cache/ms-playwright',
+        ]);
+
+        foreach ($roots as $base) {
+            if (! is_dir($base)) {
+                continue;
+            }
+            $dirs = array_filter(scandir($base), fn ($d) => str_starts_with($d, 'chromium-'));
+            rsort($dirs);
+            foreach ($dirs as $dir) {
+                foreach (['chrome-linux64/chrome', 'chrome-linux/chrome', 'chrome'] as $bin) {
+                    $full = "{$base}/{$dir}/{$bin}";
+                    if (file_exists($full)) {
+                        return $full;
+                    }
+                }
+            }
+        }
+
+        // Also try system chromium
+        foreach (['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome'] as $bin) {
+            if (file_exists($bin)) {
+                return $bin;
+            }
+        }
+
+        return null;
     }
 }

@@ -109,12 +109,17 @@ const CHROMIUM_PATH = (() => {
     return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
   }
 
-  // 2. Marker file written by the Dockerfile at build time — revision-independent
-  const markerFile = `${process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers'}/.chromium-path`;
-  try {
-    const p = fs.readFileSync(markerFile, 'utf8').trim();
-    if (p && fs.existsSync(p)) return p;
-  } catch {}
+  // 2. Marker files written by `php artisan whatnot:setup-chromium` or Docker build
+  const markerFiles = [
+    `${__dirname}/../storage/chromium-path.txt`,                              // bare VPS (artisan)
+    `${process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers'}/.chromium-path`, // Docker
+  ];
+  for (const markerFile of markerFiles) {
+    try {
+      const p = fs.readFileSync(markerFile, 'utf8').trim();
+      if (p && fs.existsSync(p)) return p;
+    } catch {}
+  }
 
   // 3. Playwright's own API — works when PLAYWRIGHT_BROWSERS_PATH is set correctly
   try {
@@ -154,8 +159,9 @@ const CHROMIUM_PATH = (() => {
   }
 
   process.stderr.write(
-    '[whatnot-scraper] ERROR: Chromium not found. Rebuild the Docker image or set ' +
-    'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH to the full path of the chrome binary.\n'
+    '[whatnot-scraper] ERROR: Chromium not found.\n' +
+    '  VPS:    php artisan whatnot:setup-chromium\n' +
+    '  Manual: PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/path/to/chrome node scripts/whatnot-scraper.cjs\n'
   );
   process.exit(2);
 })();

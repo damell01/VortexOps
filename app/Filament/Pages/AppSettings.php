@@ -227,7 +227,9 @@ class AppSettings extends Page
 
         Setting::set('ollama_base_url', rtrim(trim($this->ollama_base_url), '/') ?: 'http://localhost:11434');
         Setting::set('ollama_model',    trim($this->ollama_model) ?: 'llama3.2:3b');
-        Setting::set('demo_mode', $this->demo_mode ? '1' : '0');
+        if (auth()->user()?->isSuperAdmin() || auth()->user()?->isOwner()) {
+            Setting::set('demo_mode', $this->demo_mode ? '1' : '0');
+        }
 
         if ($isOwner) {
             Setting::set('enabled_admin_modules',  json_encode(AdminModules::normalizeEnabledSlugs($this->enabled_modules)));

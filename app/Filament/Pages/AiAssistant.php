@@ -26,7 +26,7 @@ class AiAssistant extends Page
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return 'Reports';
+        return 'AI';
     }
 
     public static function getNavigationIcon(): string|\BackedEnum|null

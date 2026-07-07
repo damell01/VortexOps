@@ -102,7 +102,17 @@ class InventoryItemResource extends Resource
                     TextInput::make('sku')
                         ->label('SKU')
                         ->unique(ignoreRecord: true)
-                        ->maxLength(100),
+                        ->maxLength(100)
+                        ->default(fn () => 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4)))
+                        ->helperText('Auto-generated — edit to customize')
+                        ->suffixAction(
+                            \Filament\Actions\Action::make('regenerate_sku')
+                                ->icon('heroicon-o-arrow-path')
+                                ->tooltip('Generate new SKU')
+                                ->action(function (\Filament\Forms\Set $set) {
+                                    $set('sku', 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4)));
+                                })
+                        ),
                     TextInput::make('barcode')
                         ->label('Barcode')
                         ->unique(ignoreRecord: true)

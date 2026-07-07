@@ -229,7 +229,7 @@
     <p class="text-xs text-gray-400 text-right">Auto-refreshes every 30 s</p>
 
     {{-- ── Danger Zone — Clear Demo Data ──────────────────────────────────── --}}
-    @if (auth()->user()?->isOwner())
+    @if (auth()->user()?->isAdmin() || auth()->user()?->isOwner())
     <div
         x-data="{ confirming: false }"
         class="rounded-xl border border-red-200 dark:border-red-800 bg-white dark:bg-gray-900 px-5 py-4 space-y-3"

@@ -245,6 +245,11 @@ class WhatnotScraper
 
     protected function makeProcess(array $env, int $timeout = 180): Process
     {
+        // Pass PLAYWRIGHT_BROWSERS_PATH if set in env, so www-data finds the right chromium
+        if ($path = env('PLAYWRIGHT_BROWSERS_PATH')) {
+            $env['PLAYWRIGHT_BROWSERS_PATH'] = $path;
+        }
+
         $process = new Process([$this->nodeBin, $this->scriptPath], null, $env);
         $process->setTimeout($timeout);
         return $process;

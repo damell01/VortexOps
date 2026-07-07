@@ -102,7 +102,7 @@ class CreateShow extends CreateRecord
                             Grid::make(4)->schema([
                                 Select::make('product_id')
                                     ->label('Product')
-                                    ->options(Product::where('status', 'active')->orderBy('name')->pluck('name', 'id'))
+                                    ->options(Product::where('is_active', true)->orderBy('name')->pluck('name', 'id'))
                                     ->searchable()
                                     ->required()
                                     ->columnSpan(2),

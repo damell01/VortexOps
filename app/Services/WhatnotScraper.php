@@ -524,7 +524,8 @@ class WhatnotScraper
             $env['WHATNOT_CHANNEL_NAME'] = $channel->whatnot_username;
         }
 
-        $process = $this->makeProcess($env, timeout: 120);
+        // Visiting ~20 pages at ~10s each = allow up to 5 minutes
+        $process = $this->makeProcess($env, timeout: 300);
         $process->run();
 
         $stderr = trim($process->getErrorOutput());

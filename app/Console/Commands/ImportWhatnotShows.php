@@ -33,17 +33,38 @@ class ImportWhatnotShows extends Command
             $this->info('Running discover mode — navigating to /seller/shows and capturing API endpoints…');
             try {
                 $json = app(WhatnotScraper::class)->runDiscover(channel: $channel, debug: true);
+
+                $summary = $json['summary'] ?? [];
                 $this->line('');
-                $this->info("Page landed on: " . ($json['page_url'] ?? '?'));
-                $this->info("Intercepted {$json['endpoint_count']} API endpoint(s):\n");
-                foreach ($json['api_endpoints'] ?? [] as $i => $ep) {
-                    $this->line("  [" . ($i + 1) . "] " . $ep['url']);
+                $this->info('── Discover Summary ──────────────────────────────────');
+                $this->line("  Nav links found:      " . ($summary['nav_links_found'] ?? '?'));
+                $this->line("  Pages visited:        " . ($summary['pages_visited'] ?? '?'));
+                $this->line("  Unique API endpoints: " . ($summary['unique_api_endpoints'] ?? '?'));
+                $this->line("  Total API calls:      " . ($summary['total_api_calls'] ?? '?'));
+                $this->line('');
+
+                $this->info('── Nav Links ─────────────────────────────────────────');
+                foreach ($json['nav_links'] ?? [] as $link) {
+                    $this->line("  " . str_pad($link['label'] ?? '', 30) . " → " . $link['href']);
+                }
+                $this->line('');
+
+                $this->info('── Unique API Endpoints ──────────────────────────────');
+                foreach ($json['unique_endpoints'] ?? [] as $i => $ep) {
+                    $method = $ep['method'] ?? 'GET';
+                    $this->line("  [" . str_pad((string)($i + 1), 3) . "] {$method} " . $ep['url']);
                     if (!empty($ep['keys'])) {
-                        $this->line("      Keys: " . implode(', ', $ep['keys']));
+                        $this->line("         Keys: " . implode(', ', array_slice($ep['keys'], 0, 10)));
                     }
-                    $this->line("      Preview: " . substr($ep['preview'] ?? '', 0, 120));
+                    $this->line("         Page: " . ($ep['from_page'] ?? ''));
                     $this->line('');
                 }
+
+                // Also write the raw JSON to a file for full review
+                $outFile = storage_path('logs/whatnot-discover-' . date('Y-m-d-His') . '.json');
+                file_put_contents($outFile, json_encode($json, JSON_PRETTY_PRINT));
+                $this->info("Full JSON saved to: {$outFile}");
+
             } catch (\RuntimeException $e) {
                 $this->error($e->getMessage());
             }

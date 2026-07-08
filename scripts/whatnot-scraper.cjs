@@ -1239,44 +1239,153 @@ function normalizeApiShow(s) {
     }
 
     // ── Mode: discover ───────────────────────────────────────────────────────
-    // Navigates to /seller/shows and dumps every JSON endpoint Whatnot calls.
-    // Run once with WHATNOT_MODE=discover to find the internal REST API paths,
-    // then hard-code those in a future fetch-based sync instead of DOM scraping.
+    // Crawls every nav link found in the Seller Hub, capturing all JSON API
+    // calls each page makes. Output lets you build targeted REST calls instead
+    // of scraping HTML.
     //
-    // Usage: WHATNOT_MODE=discover WHATNOT_DEBUG=1 php artisan whatnot:import
-    // Output: JSON with { page_url, api_endpoints: [{url, status_code, keys, preview}] }
+    // Usage:  WHATNOT_MODE=discover php artisan whatnot:import --discover
+    // Output: JSON with { nav_links, pages: [{ url, nav_label, api_endpoints }] }
     if (MODE === 'discover') {
-      log('discover: navigating to /seller/shows');
-      await page.goto(URLS.shows, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await page.waitForLoadState('networkidle', { timeout: 12000 }).catch(() => {});
-      await page.waitForTimeout(2000);
-      await debugShot(page, 'discover-01-initial');
-
-      // Scroll down to trigger lazy-load requests
-      for (let i = 0; i < 4; i++) {
-        await page.evaluate(() => window.scrollBy(0, window.innerHeight));
-        await page.waitForTimeout(800);
+      // Helper: snapshot and summarise all NEW API calls captured since last call
+      let lastCaptureIdx = 0;
+      function drainCaptures() {
+        const fresh = capturedApiResponses.slice(lastCaptureIdx);
+        lastCaptureIdx = capturedApiResponses.length;
+        return fresh.map(r => {
+          const body = r.body;
+          const topKeys = typeof body === 'object' && body !== null
+            ? Object.keys(Array.isArray(body) ? (body[0] || {}) : body).slice(0, 20)
+            : [];
+          // Determine HTTP method from URL (POST for graphql, GET otherwise)
+          const method = r.url.includes('/graphql') || r.url.includes('graphql') ? 'POST' : 'GET';
+          return {
+            method,
+            url:     r.url,
+            keys:    topKeys,
+            preview: JSON.stringify(body).substring(0, 800),
+          };
+        });
       }
-      await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
-      await debugShot(page, 'discover-02-scrolled');
 
-      const endpoints = capturedApiResponses.map(r => {
-        const body   = r.body;
-        const topKeys = typeof body === 'object' && body !== null
-          ? Object.keys(Array.isArray(body) ? (body[0] || {}) : body).slice(0, 15)
-          : [];
-        const preview = JSON.stringify(body).substring(0, 600);
-        return { url: r.url, keys: topKeys, preview };
+      // Helper: visit a page, wait for API calls to settle, scroll once, drain
+      async function visitAndCapture(url, label, shotSuffix) {
+        info(`discover: visiting [${label}] ${url}`);
+        try {
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+          await page.waitForTimeout(1500);
+          if (shotSuffix) await debugShot(page, `discover-${shotSuffix}`);
+
+          // Scroll to trigger lazy-load API calls
+          for (let i = 0; i < 3; i++) {
+            await page.evaluate(() => window.scrollBy(0, window.innerHeight));
+            await page.waitForTimeout(600);
+          }
+          await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
+          await page.waitForTimeout(500);
+        } catch (e) {
+          info(`discover: error visiting ${url}: ${e.message}`);
+        }
+        return drainCaptures();
+      }
+
+      // ── Step 1: land on Seller Hub home, grab all nav links ──────────────
+      log('discover: landing on Seller Hub home to collect nav links');
+      await page.goto(URLS.sellerHub, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+      await page.waitForTimeout(2000);
+      await debugShot(page, 'discover-00-seller-hub');
+      drainCaptures(); // discard hub-home API calls — we'll capture them properly below
+
+      // Extract every link in the seller hub sidebar / nav
+      const navLinks = await page.evaluate(() => {
+        const seen  = new Set();
+        const links = [];
+        const allAs = Array.from(document.querySelectorAll('a[href], nav a, [role="navigation"] a, aside a'));
+        for (const a of allAs) {
+          const href  = (a.getAttribute('href') || '').trim();
+          const label = (a.innerText || a.textContent || '').trim().replace(/\s+/g, ' ');
+          // Keep only internal Whatnot seller/dashboard paths
+          if (!href || href === '#' || href.startsWith('http') && !href.includes('whatnot.com')) continue;
+          const full = href.startsWith('http') ? href : 'https://www.whatnot.com' + href;
+          // Only seller hub or dashboard pages
+          if (!/whatnot\.com\/(seller|dashboard|creator)/.test(full)) continue;
+          if (seen.has(full)) continue;
+          seen.add(full);
+          links.push({ href: full, label: label.substring(0, 60) || '(no label)' });
+        }
+        return links;
       });
 
+      info(`discover: found ${navLinks.length} nav links on Seller Hub`);
+
+      // ── Step 2: also seed with known hub pages that may not be in nav ─────
+      const seedPages = [
+        { href: 'https://www.whatnot.com/seller',                       label: 'Seller Hub Home' },
+        { href: 'https://www.whatnot.com/seller/shows',                 label: 'Shows List' },
+        { href: 'https://www.whatnot.com/seller/orders',                label: 'Orders' },
+        { href: 'https://www.whatnot.com/seller/payouts',               label: 'Payouts' },
+        { href: 'https://www.whatnot.com/seller/analytics',             label: 'Analytics' },
+        { href: 'https://www.whatnot.com/seller/inventory',             label: 'Inventory' },
+        { href: 'https://www.whatnot.com/seller/listings',              label: 'Listings' },
+        { href: 'https://www.whatnot.com/seller/shipping',              label: 'Shipping' },
+        { href: 'https://www.whatnot.com/seller/buyers',                label: 'Buyers' },
+        { href: 'https://www.whatnot.com/seller/marketing',             label: 'Marketing' },
+        { href: 'https://www.whatnot.com/dashboard/analytics/overview', label: 'Dashboard Analytics' },
+        { href: 'https://www.whatnot.com/dashboard/shows',              label: 'Dashboard Shows' },
+        { href: 'https://www.whatnot.com/dashboard/orders',             label: 'Dashboard Orders' },
+      ];
+
+      // Merge nav links + seeds, deduplicate by href
+      const allSeenHrefs = new Set(navLinks.map(l => l.href));
+      for (const s of seedPages) {
+        if (!allSeenHrefs.has(s.href)) {
+          navLinks.push(s);
+          allSeenHrefs.add(s.href);
+        }
+      }
+
+      // ── Step 3: visit each page and capture its API calls ─────────────────
+      const pageResults = [];
+      let shotIdx = 1;
+
+      for (const link of navLinks) {
+        const apis = await visitAndCapture(link.href, link.label, `page-${String(shotIdx).padStart(2,'0')}`);
+        shotIdx++;
+        pageResults.push({
+          url:           link.href,
+          nav_label:     link.label,
+          landed_url:    page.url(),
+          api_count:     apis.length,
+          api_endpoints: apis,
+        });
+        info(`  → ${apis.length} API endpoint(s) captured`);
+      }
+
+      // ── Step 4: output ───────────────────────────────────────────────────
+      const allEndpoints = pageResults.flatMap(p => p.api_endpoints.map(e => ({ ...e, from_page: p.url })));
+      // Deduplicate by URL for the summary
+      const uniqueEndpoints = [];
+      const seenUrls = new Set();
+      for (const e of allEndpoints) {
+        const key = e.method + ':' + e.url;
+        if (!seenUrls.has(key)) { seenUrls.add(key); uniqueEndpoints.push(e); }
+      }
+
       const result = {
-        page_url:      page.url(),
-        endpoint_count: endpoints.length,
-        api_endpoints:  endpoints,
+        summary: {
+          nav_links_found:       navLinks.length,
+          pages_visited:         pageResults.length,
+          unique_api_endpoints:  uniqueEndpoints.length,
+          total_api_calls:       allEndpoints.length,
+        },
+        nav_links:        navLinks,
+        unique_endpoints: uniqueEndpoints,
+        pages:            pageResults,
       };
 
       process.stdout.write(JSON.stringify(result, null, 2) + '\n');
-      log(`discover: intercepted ${endpoints.length} JSON endpoints`);
+      log(`discover complete: ${pageResults.length} pages, ${uniqueEndpoints.length} unique endpoints`);
       process.exit(0);
     }
 

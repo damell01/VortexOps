@@ -6,7 +6,7 @@
     $isAdmin  = $user?->isAdmin() || $user?->isOwner();
 @endphp
 
-@if ($demoMode && ! $isAdmin)
+@if ($demoMode && $user && ! $isAdmin)
     {{-- Non-admin sees a full-page showcase overlay --}}
     <div
         class="fixed inset-0 z-[9999] flex flex-col items-center justify-start overflow-y-auto bg-white dark:bg-gray-950"

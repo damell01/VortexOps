@@ -134,6 +134,25 @@ class ExportController extends Controller
         return $pdf->download("payout-{$slug}-{$date}.pdf");
     }
 
+    public function showPlPdf(Show $show): mixed
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
+        $show->loadMissing([
+            'streamers',
+            'channel',
+            'payouts.streamer',
+            'latestDeductionRequest.lines.inventoryItem',
+            'latestDeductionRequest.lines.location',
+        ]);
+
+        $pdf  = Pdf::loadView('pdf.show-pl', compact('show'))->setPaper('a4', 'portrait');
+        $slug = str($show->title ?? 'show-' . $show->id)->slug();
+        $date = $show->show_date?->format('Y-m-d') ?? now()->format('Y-m-d');
+
+        return $pdf->download("show-pl-{$slug}-{$date}.pdf");
+    }
+
     public function manifestTemplate(): StreamedResponse
     {
         return $this->streamCsv('pallet-manifest-template', function () {

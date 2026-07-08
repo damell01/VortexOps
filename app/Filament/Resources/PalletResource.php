@@ -31,6 +31,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 
 class PalletResource extends Resource
 {
@@ -59,6 +60,19 @@ class PalletResource extends Resource
     public static function getNavigationSort(): ?int
     {
         return 2;
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = Cache::remember('nav_badge:pallets_active', 60, fn () =>
+            Pallet::whereIn('status', ['pending', 'receiving'])->count()
+        );
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'warning';
     }
 
     public static function getEloquentQuery(): Builder

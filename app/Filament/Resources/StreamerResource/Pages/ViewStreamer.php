@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\StreamerResource\Pages;
 
 use App\Filament\Resources\StreamerResource;
+use App\Filament\Widgets\StreamerEarningsChartWidget;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
@@ -128,6 +129,13 @@ class ViewStreamer extends ViewRecord
                 }),
 
             EditAction::make(),
+        ];
+    }
+
+    protected function getFooterWidgets(): array
+    {
+        return [
+            StreamerEarningsChartWidget::class,
         ];
     }
 }

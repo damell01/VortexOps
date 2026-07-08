@@ -77,10 +77,11 @@ class AppSettings extends Page
 
     // ── AI / Ollama ──────────────────────────────────────────────────────────
 
-    public string $ollama_base_url   = '';
-    public string $ollama_model      = '';
-    public string $ollamaTestResult  = '';
-    public string $ollamaTestStatus  = ''; // 'success' | 'error' | ''
+    public string $ollama_base_url         = '';
+    public string $ollama_model            = '';
+    public bool   $ai_auto_queue_on_import = false;
+    public string $ollamaTestResult        = '';
+    public string $ollamaTestStatus        = ''; // 'success' | 'error' | ''
 
     // ── Demo / Showcase Mode ─────────────────────────────────────────────────
 
@@ -133,8 +134,9 @@ class AppSettings extends Page
         $this->shipping_surcharge_rate      = Setting::get('shipping_surcharge_rate', '4.00');
         $this->shipping_surcharge_threshold = Setting::get('shipping_surcharge_threshold', '500.00');
 
-        $this->ollama_base_url = Setting::get('ollama_base_url', config('services.ollama.url', 'http://localhost:11434'));
-        $this->ollama_model    = Setting::get('ollama_model',    config('services.ollama.model', 'llama3.2:3b'));
+        $this->ollama_base_url         = Setting::get('ollama_base_url', config('services.ollama.url', 'http://localhost:11434'));
+        $this->ollama_model            = Setting::get('ollama_model',    config('services.ollama.model', 'llama3.2:3b'));
+        $this->ai_auto_queue_on_import = (bool) Setting::get('ai_auto_queue_on_import', false);
     }
 
     public function getAllUsersProperty(): \Illuminate\Support\Collection
@@ -276,8 +278,9 @@ class AppSettings extends Page
         Setting::set('shipping_surcharge_rate',      $this->shipping_surcharge_rate);
         Setting::set('shipping_surcharge_threshold', $this->shipping_surcharge_threshold);
 
-        Setting::set('ollama_base_url', rtrim(trim($this->ollama_base_url), '/') ?: 'http://localhost:11434');
-        Setting::set('ollama_model',    trim($this->ollama_model) ?: 'llama3.2:3b');
+        Setting::set('ollama_base_url',          rtrim(trim($this->ollama_base_url), '/') ?: 'http://localhost:11434');
+        Setting::set('ollama_model',             trim($this->ollama_model) ?: 'llama3.2:3b');
+        Setting::set('ai_auto_queue_on_import',  $this->ai_auto_queue_on_import ? '1' : '0');
         if (auth()->user()?->isSuperAdmin() || auth()->user()?->isOwner()) {
             Setting::set('demo_mode', $this->demo_mode ? '1' : '0');
         }

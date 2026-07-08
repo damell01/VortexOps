@@ -5,6 +5,7 @@ namespace App\Filament\Resources\ShowResource\Pages;
 use App\Filament\Resources\ShowResource;
 use App\Jobs\RunShowAiMappingJob;
 use App\Models\AiTask;
+use App\Models\Setting;
 use App\Models\Show;
 use App\Services\WhatnotScraper;
 use App\Support\AdminModules;
@@ -35,6 +36,8 @@ class ListShows extends ListRecords
                 ->modalSubmitActionLabel('Run Import')
                 ->action(function () {
                     try {
+                        $importedAt = now();
+
                         $result = app(WhatnotScraper::class)->importAllEnabledChannels(
                             limit: (int) config('vortex.whatnot.limit', 50),
                         );
@@ -46,6 +49,39 @@ class ListShows extends ListRecords
                             ->body("{$result['created']} created, {$result['updated']} updated, {$result['skipped']} skipped{$channelNote}.")
                             ->success()
                             ->send();
+
+                        if ($result['created'] > 0
+                            && Setting::get('ai_auto_queue_on_import', false)
+                            && AdminModules::isEnabled('ai')
+                        ) {
+                            $newShows = Show::where('import_source', 'auto_whatnot')
+                                ->where('status', 'draft')
+                                ->where('created_at', '>=', $importedAt)
+                                ->get();
+
+                            $queued = 0;
+                            foreach ($newShows as $show) {
+                                $show->update(['status' => 'pending_review']);
+                                $task = AiTask::create([
+                                    'type'          => 'show_ai_mapping',
+                                    'status'        => 'pending',
+                                    'taskable_type' => Show::class,
+                                    'taskable_id'   => $show->id,
+                                    'triggered_by'  => auth()->id(),
+                                    'input'         => ['show_id' => $show->id, 'show_title' => $show->title],
+                                ]);
+                                RunShowAiMappingJob::dispatch($show->id, $task->id)->onQueue('ai');
+                                $queued++;
+                            }
+
+                            if ($queued > 0) {
+                                Notification::make()
+                                    ->title("Auto-queued {$queued} show" . ($queued === 1 ? '' : 's') . ' for AI mapping')
+                                    ->body('You will receive a notification for each show when mapping completes.')
+                                    ->info()
+                                    ->send();
+                            }
+                        }
                     } catch (\RuntimeException $e) {
                         Notification::make()
                             ->title('Whatnot import failed')

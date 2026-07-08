@@ -62,6 +62,13 @@ class ViewShow extends ViewRecord
                     }
                 }),
 
+            Action::make('export_pdf')
+                ->label('Export P&L PDF')
+                ->icon('heroicon-o-document-arrow-down')
+                ->color('gray')
+                ->url(fn () => route('export.show-pl-pdf', ['show' => $this->record->id]))
+                ->openUrlInNewTab(),
+
             Action::make('inventory_breakdown')
                 ->label('Inventory Breakdown')
                 ->icon('heroicon-o-chart-bar-square')

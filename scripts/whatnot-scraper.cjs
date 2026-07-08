@@ -457,7 +457,13 @@ async function extractAnalyticsMetrics(page) {
   const browser = await chromium.launch({
     executablePath: CHROMIUM_PATH,
     headless:       true,
-    args:           ['--no-sandbox', '--disable-dev-shm-usage'],
+    args: [
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-crash-reporter',  // prevents crashpad handler from spawning (avoids --database SIGTRAP)
+      '--disable-gpu',
+      '--single-process',
+    ],
   });
 
   const context = await browser.newContext({

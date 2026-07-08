@@ -43,7 +43,7 @@
                 wire:click="testConnection"
                 wire:loading.attr="disabled"
                 type="button"
-                :disabled="{{ $this->configured ? 'false' : 'true' }}"
+                @disabled(!$this->configured)
                 class="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:opacity-40"
             >
                 <span wire:loading.remove wire:target="testConnection">
@@ -85,7 +85,7 @@
                 wire:click="runImport"
                 wire:loading.attr="disabled"
                 type="button"
-                :disabled="{{ $this->configured ? 'false' : 'true' }}"
+                @disabled(!$this->configured)
                 class="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-40"
             >
                 <span wire:loading.remove wire:target="runImport">
@@ -127,7 +127,7 @@
             wire:click="fetchShowUrls"
             wire:loading.attr="disabled"
             type="button"
-            :disabled="{{ $this->configured ? 'false' : 'true' }}"
+            @disabled(!$this->configured)
             class="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 disabled:opacity-40"
         >
             <span wire:loading.remove wire:target="fetchShowUrls">

@@ -117,12 +117,18 @@ class WhatnotScraperPage extends Page
                 limit: (int) config('vortex.whatnot.limit', 50),
             );
 
-            $this->importResult = "Import complete — {$result['created']} created, {$result['updated']} updated, {$result['skipped']} skipped.";
-            $this->importStatus = 'success';
+            $summary = "Import complete — {$result['created']} created, {$result['updated']} updated, {$result['skipped']} skipped.";
 
-            Setting::set('whatnot_last_import_at', now()->toISOString());
-
-            Notification::make()->title('Import complete')->body($this->importResult)->success()->send();
+            if (! empty($result['errors'])) {
+                $this->importResult = $summary . ' Errors: ' . implode(' | ', $result['errors']);
+                $this->importStatus = 'error';
+                Notification::make()->title('Import finished with errors')->body($this->importResult)->warning()->send();
+            } else {
+                $this->importResult = $summary;
+                $this->importStatus = 'success';
+                Setting::set('whatnot_last_import_at', now()->toISOString());
+                Notification::make()->title('Import complete')->body($this->importResult)->success()->send();
+            }
         } catch (\Throwable $e) {
             $this->importResult = $e->getMessage();
             $this->importStatus = 'error';

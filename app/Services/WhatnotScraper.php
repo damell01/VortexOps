@@ -474,7 +474,7 @@ class WhatnotScraper
             return ['created' => 0, 'updated' => 0, 'skipped' => 0, 'channels' => 0];
         }
 
-        $totals = ['created' => 0, 'updated' => 0, 'skipped' => 0];
+        $totals = ['created' => 0, 'updated' => 0, 'skipped' => 0, 'errors' => []];
 
         foreach ($channels as $channel) {
             Log::info("WhatnotScraper: importing channel \"{$channel->name}\" ({$channel->whatnot_username})");
@@ -486,6 +486,7 @@ class WhatnotScraper
                 $totals['skipped'] += $result['skipped'];
             } catch (\RuntimeException $e) {
                 Log::error("WhatnotScraper: channel \"{$channel->name}\" failed — {$e->getMessage()}");
+                $totals['errors'][] = "Channel \"{$channel->name}\": {$e->getMessage()}";
             }
         }
 

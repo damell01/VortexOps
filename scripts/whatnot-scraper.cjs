@@ -63,8 +63,8 @@ const SELECTORS = {
   loginSubmitBtn:     'button[type="submit"]',
 
   // Analytics page — tabs
-  // Tab buttons use stable aria attributes — prefer these over class names.
-  analyticsShowsTab:  'button[aria-controls="simple-tabpanel-1"], button#simple-tab-1',
+  // Text-based selectors are tried first in the scraper loop; these are the CSS fallbacks.
+  analyticsShowsTab:  'button[aria-controls="simple-tabpanel-1"], button#simple-tab-1, [role="tab"][data-value="shows"], [role="tab"][data-index="1"]',
 
   // Analytics page — show navigation (aria-label is stable across deploys)
   showNavOlder:       'button[aria-label="See older show"]',
@@ -392,24 +392,48 @@ async function extractAnalyticsMetrics(page) {
       return parts.every(p => s.includes(p));
     }
 
-    // Show title: the nowrap/ellipsis div with max-width: 90%
-    const titleEl = document.querySelector(SEL.showTitle);
+    // ── Show title ────────────────────────────────────────────────────────────
+    // Primary: nowrap/ellipsis div with max-width: 90% (original approach)
+    let titleEl = document.querySelector(SEL.showTitle);
+    // Fallback A: any div/h1-h4 with a large font-size that has meaningful text
+    if (!titleEl) {
+      titleEl = Array.from(document.querySelectorAll('h1, h2, h3, h4')).find(el =>
+        el.textContent.trim().length > 4
+      );
+    }
+    // Fallback B: any element styled as a large heading
+    if (!titleEl) {
+      titleEl = Array.from(document.querySelectorAll('div, span')).find(el => {
+        const s = el.getAttribute('style') || '';
+        const fs = parseInt((s.match(/font-size:\s*(\d+)px/) || [])[1] || '0', 10);
+        return fs >= 20 && el.textContent.trim().length > 4 && el.childElementCount <= 2;
+      });
+    }
     const title = titleEl ? titleEl.textContent.trim() : null;
 
-    // Show date: find a div whose text content matches a date pattern (M/D/YYYY)
-    const dateEl = Array.from(document.querySelectorAll('div')).find(el => {
+    // ── Show date ─────────────────────────────────────────────────────────────
+    // Primary: div with font-size:14px + font-weight:600 containing a date
+    let dateEl = Array.from(document.querySelectorAll('div')).find(el => {
       const s = el.getAttribute('style') || '';
       return s.includes('font-size: 14px') && s.includes('font-weight: 600') &&
              /\d{1,2}\/\d{1,2}\/\d{4}/.test(el.textContent);
     });
+    // Fallback: any leaf element containing a date pattern
+    if (!dateEl) {
+      dateEl = Array.from(document.querySelectorAll('div, span, p, time')).find(el =>
+        el.childElementCount === 0 && /\d{1,2}\/\d{1,2}\/\d{4}/.test(el.textContent)
+      );
+    }
     const dateText = dateEl ? dateEl.textContent.trim() : null;
 
-    // All metric cards (height: 160px + border-radius: 16px)
-    const cards = Array.from(document.querySelectorAll('div')).filter(el =>
+    // ── Metric cards ──────────────────────────────────────────────────────────
+    // Primary: height:160px + border-radius:16px (original approach)
+    let cards = Array.from(document.querySelectorAll('div')).filter(el =>
       styleIncludes(el, 'height: 160px') && styleIncludes(el, 'border-radius: 16px')
     );
 
     const metrics = {};
+
     for (const card of cards) {
       // Metric name: first div with font-size: 16px and font-weight: 600
       const nameEl = Array.from(card.querySelectorAll('div')).find(el =>
@@ -421,6 +445,45 @@ async function extractAnalyticsMetrics(page) {
       );
       if (nameEl && valueEl) {
         metrics[nameEl.textContent.trim()] = valueEl.textContent.trim();
+      }
+    }
+
+    // Fallback: scan for known metric labels paired with a value sibling/child.
+    // Whatnot sometimes changes card dimensions but metric label text stays stable.
+    if (Object.keys(metrics).length === 0) {
+      const knownLabels = [
+        'Estimated Sales', 'Total Estimated Earnings', 'Completed Earnings',
+        'Net Revenue', 'Gross Revenue', 'Revenue',
+        'Orders', 'Average Order Value', 'AOV',
+        'Giveaway Spend', 'Giveaways',
+        'Buyers', 'First Time Buyers', 'New Buyers', 'Returning Buyers',
+        'Shares', 'Likes', 'Views', 'Followers Gained',
+        'Show Duration', 'Duration', 'Watch Time',
+      ];
+
+      const allLeaves = Array.from(document.querySelectorAll('*')).filter(
+        el => el.childElementCount === 0 && el.textContent.trim().length > 0
+      );
+
+      for (const label of knownLabels) {
+        const labelEl = allLeaves.find(el => el.textContent.trim() === label);
+        if (!labelEl) continue;
+
+        // Look for a value in the same card container (up to 5 levels up)
+        let container = labelEl;
+        for (let i = 0; i < 5; i++) {
+          container = container.parentElement;
+          if (!container) break;
+          const valueEl = Array.from(container.querySelectorAll('*')).find(el =>
+            el !== labelEl &&
+            el.childElementCount === 0 &&
+            /^\$?[\d,.]+(%|k|m|h|min)?$/i.test(el.textContent.trim())
+          );
+          if (valueEl) {
+            metrics[label] = valueEl.textContent.trim();
+            break;
+          }
+        }
       }
     }
 
@@ -782,22 +845,46 @@ async function extractAnalyticsMetrics(page) {
       await debugShot(page, '05-analytics-page');
 
       if (isAnalytics) {
-        // Click the "Shows" tab
-        const showsTab = await page.waitForSelector(SELECTORS.analyticsShowsTab, { timeout: 10000 })
-          .catch(() => null);
+        // Click the "Shows" tab — try progressively broader selectors.
+        // Text-based matching is most stable across UI rebuilds.
+        let showsTab = null;
+
+        const tabCandidates = [
+          // Text-based (Playwright extension — most stable)
+          '[role="tab"]:has-text("Shows")',
+          'button:has-text("Shows")',
+          '[role="tab"]:has-text("Past Shows")',
+          'button:has-text("Past Shows")',
+          // Historic attribute-based (MUI tab IDs)
+          'button[aria-controls="simple-tabpanel-1"]',
+          'button#simple-tab-1',
+          '[role="tab"][data-value="shows"]',
+          '[role="tab"][data-index="1"]',
+        ];
+
+        for (const sel of tabCandidates) {
+          const el = await page.$(sel).catch(() => null);
+          if (!el) continue;
+          if (!await el.isVisible().catch(() => false)) continue;
+          showsTab = el;
+          log(`found Shows tab via: ${sel}`);
+          break;
+        }
 
         if (!showsTab) {
-          const html = await page.evaluate(() => document.body.innerHTML.substring(0, 5000));
+          const html = await page.evaluate(() => document.body.innerHTML.substring(0, 8000));
           process.stderr.write('SELECTOR_MISS: Analytics "Shows" tab not found.\n');
           process.stderr.write('PAGE_SNAPSHOT: ' + html + '\n');
           process.exit(2);
         }
 
         // Only click if not already selected
-        const isSelected = await showsTab.evaluate(el => el.getAttribute('aria-selected') === 'true');
+        const isSelected = await showsTab.evaluate(el =>
+          el.getAttribute('aria-selected') === 'true' || el.getAttribute('aria-current') === 'true'
+        ).catch(() => false);
         if (!isSelected) {
           await showsTab.click();
-          await page.waitForTimeout(1500);
+          await page.waitForTimeout(1800);
         }
         await debugShot(page, '06-shows-tab');
       }

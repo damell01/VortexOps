@@ -431,6 +431,28 @@ class AppSettings extends Page
         }
     }
 
+    public function clearDemoData(): void
+    {
+        if (! (auth()->user()?->isOwner())) {
+            Notification::make()->title('Access denied')->danger()->send();
+            return;
+        }
+
+        try {
+            Artisan::call('demo:clear', ['--force' => true]);
+            $output = trim(Artisan::output());
+            $this->lastCommandOutput = $output ?: 'Demo data cleared.';
+            Notification::make()
+                ->title('Demo data cleared')
+                ->body('All shows, inventory, pallets, and payouts have been removed.')
+                ->success()
+                ->send();
+        } catch (\Throwable $e) {
+            $this->lastCommandOutput = $e->getMessage();
+            Notification::make()->title('Clear failed')->body($e->getMessage())->danger()->send();
+        }
+    }
+
     public function runMigrations(): void
     {
         try {

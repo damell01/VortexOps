@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Jobs\NotifyShowPendingReview;
 use App\Models\Show;
 use App\Models\StreamerLogEntry;
 
@@ -9,6 +10,10 @@ class ShowObserver
 {
     public function updated(Show $show): void
     {
+        if ($show->isDirty('status') && $show->status === 'pending_review') {
+            NotifyShowPendingReview::dispatch($show->id);
+        }
+
         // When a show transitions to 'reconciled', auto-create a blank StreamerLogEntry
         // for the primary streamer if one does not already exist.
         if (

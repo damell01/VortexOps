@@ -180,16 +180,27 @@ class ViewDeductionRequest extends EditRecord
                                 </tr>";
                             })->join('');
 
-                            $totalCogs = '$' . number_format((float) $lines->sum('line_total'), 2);
-                            $matched   = $lines->whereNotNull('inventory_item_id')->count();
-                            $total     = $lines->count();
-                            $unmatched = $total - $matched;
-                            $unmatchedNote = $unmatched > 0
-                                ? "<span style=\"color:#dc2626;font-weight:600\">{$unmatched} unmatched</span> · "
-                                : '';
+                            $totalCogs   = '$' . number_format((float) $lines->sum('line_total'), 2);
+                            $matched     = $lines->whereNotNull('inventory_item_id')->count();
+                            $total       = $lines->count();
+                            $unmatched   = $total - $matched;
+                            $highCount   = $lines->where('ai_confidence', 'high')->count();
+                            $medCount    = $lines->where('ai_confidence', 'medium')->count();
+                            $lowCount    = $lines->where('ai_confidence', 'low')->count();
+                            $manualCount = $lines->where('ai_confidence', 'manual')->count();
+
+                            $confBadges = '';
+                            if ($highCount)   $confBadges .= "<span style=\"display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:9999px;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;font-size:10px;font-weight:700\">High&nbsp;{$highCount}</span> ";
+                            if ($medCount)    $confBadges .= "<span style=\"display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:9999px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;font-size:10px;font-weight:700\">Medium&nbsp;{$medCount}</span> ";
+                            if ($lowCount)    $confBadges .= "<span style=\"display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;font-size:10px;font-weight:700\">Low&nbsp;{$lowCount}</span> ";
+                            if ($manualCount) $confBadges .= "<span style=\"display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:9999px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;font-size:10px;font-weight:700\">Manual&nbsp;{$manualCount}</span> ";
+                            if ($unmatched)   $confBadges .= "<span style=\"display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;font-size:10px;font-weight:700\">⚠ Unmatched&nbsp;{$unmatched}</span> ";
 
                             return new HtmlString("
-                                <div style=\"margin-bottom:12px;font-size:11px;color:#6b7280\">{$unmatchedNote}{$matched}/{$total} matched · Total COGS: <strong style=\"color:#111827\">{$totalCogs}</strong></div>
+                                <div style=\"margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px\">
+                                    {$confBadges}
+                                    <span style=\"margin-left:auto;font-size:11px;color:#6b7280\">{$matched}/{$total} matched · Total COGS: <strong style=\"color:#111827\">{$totalCogs}</strong></span>
+                                </div>
                                 <div style=\"overflow-x:auto;border:1px solid #e5e7eb;border-radius:8px\">
                                 <table style=\"width:100%;border-collapse:collapse\">
                                     <thead>

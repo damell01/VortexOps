@@ -8,6 +8,7 @@ use App\Jobs\RunShowAiMappingJob;
 use App\Models\AiTask;
 use App\Models\DeductionRequest;
 use App\Models\DeductionRequestLine;
+use App\Services\PayoutService;
 use App\Services\WhatnotScraper;
 use App\Support\AdminModules;
 use Filament\Actions\EditAction;
@@ -33,6 +34,34 @@ class ViewShow extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('calculate_payout')
+                ->label('Calculate Payout')
+                ->icon('heroicon-o-calculator')
+                ->color('success')
+                ->visible(fn () => auth()->user()?->isAdmin() && $this->record->streamers->isNotEmpty())
+                ->requiresConfirmation()
+                ->modalHeading('Calculate Payout')
+                ->modalDescription('Computes and saves payout records for all streamers on this show based on their configured payout type and the show revenue data.')
+                ->action(function (): void {
+                    try {
+                        $payouts = app(PayoutService::class)->calculateForShow($this->record);
+                        $count   = count($payouts);
+                        Notification::make()
+                            ->title('Payout calculated')
+                            ->body("{$count} " . ($count === 1 ? 'streamer payout' : 'streamer payouts') . ' computed and saved.')
+                            ->success()
+                            ->send();
+                        $this->record->load('payouts.streamer');
+                        $this->refreshFormData(['payouts']);
+                    } catch (\RuntimeException $e) {
+                        Notification::make()
+                            ->title('Payout calculation failed')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->send();
+                    }
+                }),
+
             Action::make('inventory_breakdown')
                 ->label('Inventory Breakdown')
                 ->icon('heroicon-o-chart-bar-square')

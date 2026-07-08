@@ -541,7 +541,19 @@ async function extractAnalyticsMetrics(page) {
     process.exit(1);
   }
 
-  const browser = await chromium.launch({
+  // ── Persistent browser profile ───────────────────────────────────────────────
+  // launchPersistentContext stores cookies, localStorage, and service-worker
+  // caches between runs. After the initial session is established, goto(/signin)
+  // redirects straight to the dashboard and performLogin returns early — the
+  // login page (and its bot detection) is never hit again.
+  const USER_DATA_DIR = (() => {
+    if (process.env.WHATNOT_USER_DATA_DIR) return process.env.WHATNOT_USER_DATA_DIR;
+    return require('path').join(__dirname, '../storage/whatnot-browser-profile');
+  })();
+  require('fs').mkdirSync(USER_DATA_DIR, { recursive: true });
+  info('browser profile dir:', USER_DATA_DIR);
+
+  const context = await chromium.launchPersistentContext(USER_DATA_DIR, {
     executablePath: CHROMIUM_PATH,
     headless:       true,
     env: { ...process.env, HOME: '/tmp' },
@@ -551,18 +563,19 @@ async function extractAnalyticsMetrics(page) {
       '--disable-crash-reporter',
       '--crash-dumps-dir=/tmp',
       '--disable-gpu',
-      // Do NOT use --single-process — it's a detectable automation signal.
-      // Removed: '--single-process'
     ],
-  });
-
-  const context = await browser.newContext({
-    // Use a realistic Chrome UA without "HeadlessChrome" in the string.
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    // Realistic Chrome/Windows UA — no "HeadlessChrome" in the string
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
     viewport:  { width: 1280, height: 900 },
-    // Realistic locale / timezone
     locale:    'en-US',
     timezoneId: 'America/Chicago',
+    // Client Hints headers must match the UA — inconsistency is a detection signal
+    extraHTTPHeaders: {
+      'sec-ch-ua':          '"Chromium";v="128", "Google Chrome";v="128", "Not-A.Brand";v="99"',
+      'sec-ch-ua-mobile':   '?0',
+      'sec-ch-ua-platform': '"Windows"',
+      'Accept-Language':    'en-US,en;q=0.9',
+    },
   });
 
   // Mask automation signals that trigger bot detection on sites like Whatnot.
@@ -1145,6 +1158,6 @@ async function extractAnalyticsMetrics(page) {
     process.stderr.write('Error: ' + err.message + '\n');
     process.exit(1);
   } finally {
-    await browser.close();
+    await context.close();
   }
 })();

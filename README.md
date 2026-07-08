@@ -446,45 +446,156 @@ Admins can assign tickets, add internal notes, and view the annotated screenshot
 
 ---
 
-## AI (Ollama)
+## AI Engine (Ollama)
 
-All AI runs locally via Ollama. No data leaves the server.
-
-### AI services
-
-| Service | What it does |
-|---|---|
-| `AiTitleParserService` | Parses a show title to suggest which streamer hosted it. Called by `ParseShowTitle` job. |
-| `AiInventoryMapperService` | Given a show's title, units sold, and available inventory catalogue, returns a JSON mapping of which items were likely sold. Called by `MapShowInventory` job. |
-| `OllamaService` | HTTP client wrapper. `chat()`, `json()`, `isAvailable()`, `availableModels()`. All calls are logged to `ai_logs`. |
-
-### Queue jobs
-
-| Job | Triggered by | On failure |
-|---|---|---|
-| `ParseShowTitle` | Show created with a non-null title | Logs error; show stays `pending_review` |
-| `MapShowInventory` | "Run AI Mapping" action on show | Logs error; show returns to `pending_review` |
-| `NotifyShowReady` | Show created | Sends database notification to all admins |
-| `NotifyShowReconciled` | Deduction approved | Sends database notification to all admins |
-| `SendLowStockNotification` | Any stock operation that drops below reorder level | Sends warning notification (queued, after commit) |
-
-### AI floating panel
-
-A sparkles button sits in the bottom-right corner of every admin page. Clicking it opens a chat panel that automatically loads context for the current page (inventory item, location, streamer, or dashboard overview).
-
-### Settings
+All AI runs locally via Ollama — no data leaves the server. Three distinct AI systems share the same Ollama instance and `OllamaClient` HTTP abstraction.
 
 ```
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.2
-OLLAMA_TIMEOUT=60
 ```
 
 Or configure via **Settings → AI Assistant**. Use the "Test Ollama" button to verify connectivity.
 
 ```bash
 ollama serve
-ollama pull llama3.2
+ollama pull llama3.2          # chat + LLM mapping
+ollama pull nomic-embed-text  # embeddings (Stage 3 of mapping pipeline)
+```
+
+---
+
+### 1. AI Chatbot
+
+The chatbot is a floating sparkles panel (`AiChatPanel` Livewire component) that appears on every admin page. It streams responses token-by-token via Ollama's `/api/chat` endpoint.
+
+**What makes it context-aware:**
+
+- **Skill detection** — `SkillRegistry` inspects the current page URL and injects a domain-specific expert persona into every system prompt. Browse `/admin/shows` and the AI acts as a show operations assistant. Browse `/admin/pallets` and it acts as a receiving assistant. Supported domains: `inventory`, `shows`, `finance`, `operations`, `receiving`, `reporting`, `general`.
+
+- **Live business snapshot** — `ContextBuilder::buildBusinessSummary()` runs a handful of DB queries (show counts by status, active streamers, stock value, pending deductions/payouts, last 5 shows) and injects the results into every system prompt. Cached 60 seconds so rapid messages don't hammer the database.
+
+- **Page-level context** — `ContextBuilder::buildPageContext()` pattern-matches the URL for a specific record ID (e.g. `/admin/shows/42`) and queries that record's live data — show P&L, DR lines, payout breakdown, pallet lines, streamer balance, etc. If you're on a show page and ask "what's the margin?", the numbers are already in context.
+
+- **Conversation history** — the last 10 turns are stored in the PHP session and sent with every request. Conversation persists across page navigation within the same browser session.
+
+**Config:** `num_ctx: 4096`. Non-streaming path (`complete()`) uses `num_predict: 1024` for single-shot queries.
+
+---
+
+### 2. Show AI Mapping Pipeline (4 Stages)
+
+The mapping engine reads raw Whatnot order lines (e.g. `"2023 Topps Chrome #145 Julio Rodriguez Auto PSA 9"`) and finds the matching `InventoryItem` in your catalogue. It short-circuits as soon as confidence reaches ≥ 0.95 — expensive stages are skipped when earlier stages are confident enough.
+
+**Entry point:** `RunShowAiMappingJob` — queued on the `ai` queue, 5-minute timeout, 1 attempt.
+
+**Job flow:**
+1. Sets show status → `mapping`
+2. Extracts raw order lines from the show's `raw_import_payload`
+3. Runs each line through `MappingEngine::match()`
+4. Persists a `DeductionRequest` + `DeductionRequestLine` records with match stage and confidence stored per line
+5. Sets show status → `pending_approval`
+6. Sends a Filament notification to whoever triggered the job
+
+**The 4 stages (inside `MappingEngine` + `ProductMatchingService`):**
+
+| Stage | Method | Speed | How it works |
+|---|---|---|---|
+| **1 — Alias** | `aliasMatch()` | ~0 ms | Looks up an exact learned alias in `ProductIdentity`. Vendor-scoped first, then global. Confidence = 1.0. |
+| **2 — Fuzzy** | `fuzzyMatch()` | ~5–20 ms | Jaccard similarity (token intersection ÷ union) plus field bonuses for card number, year, and brand matches. |
+| **3 — Embedding** | `embeddingMatch()` | ~10–50 ms | Converts both texts to float vectors via Ollama's `nomic-embed-text` model, then measures cosine similarity. Catches semantic matches that fuzzy misses. |
+| **4 — LLM** | `llmMatch()` | ~500 ms–5 s | Builds a catalogue of up to 20 candidate items (top Stage 1–3 hits + embedding-similar + random pool), sends a structured JSON prompt to Ollama, maps the returned confidence label (high → 0.88 / medium → 0.75 / low → 0.60). |
+
+**Auto-learning:** When Stage 4 returns high confidence (≥ 0.88), `MappingEngine::confirmMatch()` saves the description → `InventoryItem` mapping as a `ProductIdentity` alias. The next time that exact description appears, it hits Stage 1 instantly with zero AI cost.
+
+**Confidence thresholds:**
+
+| Score | Outcome |
+|---|---|
+| 1.0 | Exact alias — auto-accepted |
+| ≥ 0.95 | Pipeline stops, auto-accepted |
+| ≥ 0.80 | Matched but flagged for ops review |
+| < 0.80 | Unmatched — ops must assign manually |
+
+**Triggering mapping:**
+- Manually via the "Run AI Mapping" action on a show's detail page
+- In bulk via "Map All Pending Review" on the Shows list
+- Automatically after a Whatnot import when **Auto-Queue AI Mapping on Import** is enabled in Settings
+
+---
+
+### 3. Packing Slip / Manifest Image Parser
+
+When creating a pallet, ops can upload a vendor packing slip (PDF, PNG, JPG, WEBP) instead of entering lines manually. The file is parsed by a vision AI model and the extracted lines are shown for review before import.
+
+**Full flow:**
+
+```
+Upload file (ImportManifest page)
+    │
+    ▼
+ParsePalletSlipJob dispatched → ai queue, 5 min timeout
+    │
+    ▼
+PalletSlipParser::parse()
+    │
+    ├── PDF? → convert pages to PNG via Imagick (preferred) or pdftoppm fallback
+    │
+    └── Image → base64 encode
+    │
+    ▼
+OllamaClient::vision() — sends image + structured prompt to Ollama vision model (moondream)
+    │
+    ▼
+Model returns JSON:
+{"lines":[{"description":"...","case_count":1,"unit_cost":89.99,"sku":"ABC123","barcode":"012345678901"}]}
+    │
+    ▼
+PalletSlipParser normalises lines (strips $, coerces types, fills missing fields with null)
+    │
+    ▼
+AiTask marked completed, output stored
+    │
+    ▼
+ImportManifest page polls every 3 s via checkProcessing()
+    │
+    ▼
+On completion: each extracted line runs through MappingEngine::match() (Stages 1–3, LLM skipped)
+    │
+    ▼
+Verify stage — ops sees extracted lines with AI-matched inventory items pre-filled
+    │   ├── Edit description, case count, unit cost, SKU, barcode
+    │   ├── Override matched item from a dropdown
+    │   ├── Toggle "Create new inventory item" for unmatched lines
+    │   └── Remove unwanted lines / add manual lines
+    │
+    ▼
+import() — wraps everything in a DB transaction
+    ├── Uses AI-matched item ID if present
+    ├── Falls back to exact barcode/SKU/name DB lookup
+    ├── Creates new InventoryItem if "create new" was checked
+    └── Creates PalletLine records for each row
+```
+
+**PDF conversion:** Tries the `Imagick` PHP extension first (renders at 150 DPI, flattens alpha). Falls back to `pdftoppm` (poppler-utils) for environments where Imagick isn't available. Throws if neither is present.
+
+**Vision model:** Uses Ollama's `moondream` model by default (or the vision-capable model configured in Settings). The prompt instructs the model to return **only** valid JSON — no markdown, no explanation. The parser has three fallback JSON extraction strategies: direct decode → regex `{"lines":[...]}` extract → bare array extract. Parse failures are logged as warnings and return an empty line set rather than crashing.
+
+**Timeout handling:** If the `ai` queue worker isn't running, the job stays `pending`. After 5 minutes the UI surfaces a timeout message with a prompt to check the worker. Processing timeout (job picked up but stalled) is 10 minutes.
+
+---
+
+### AI infrastructure shared across all three systems
+
+| Class | Role |
+|---|---|
+| `OllamaClient` | Single HTTP client for all Ollama calls: `generate()`, `chat()`, `chatStream()`, `embed()`, `vision()`, `listModels()`, `isOnline()`. Reads URL and model from Settings at runtime with env fallback. |
+| `AiTask` | Polymorphic model tracking every AI job: type, status (`pending → processing → completed / failed`), input, output, error message, triggered by, started/completed timestamps. |
+| `MappingResult` | Value object returned by `MappingEngine::match()`: product, stage, confidence, raw score. |
+
+**Queue:** All AI jobs run on the dedicated `ai` queue. Recommended worker:
+```bash
+php artisan queue:work --queue=ai,default --sleep=3 --tries=1 --timeout=330
 ```
 
 ---

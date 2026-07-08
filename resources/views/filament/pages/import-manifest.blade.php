@@ -170,7 +170,7 @@
                     <div>
                         <p class="text-base font-semibold text-violet-900 dark:text-violet-100">Reading your packing slip…</p>
                         <p class="mt-1 text-sm text-violet-600 dark:text-violet-400">
-                            AI is extracting the line items. This usually takes 15–60 seconds.
+                            AI is reading the slip and matching each line to inventory. This usually takes 30–90 seconds.
                         </p>
                     </div>
                     <p class="text-xs text-violet-400">Using model: {{ config('services.ollama.vision_model') }}</p>
@@ -252,10 +252,23 @@
                                 </div>
 
                                 {{-- Match status (mobile) --}}
+                                @php $conf = $line['match_confidence'] ?? ''; $stg = $line['match_stage'] ?? ''; @endphp
                                 @if (!empty($line['matched_item_id']))
-                                    <div class="flex items-center gap-1.5 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 px-2.5 py-1.5">
-                                        <x-heroicon-o-check-circle class="h-3.5 w-3.5 flex-shrink-0 text-green-600 dark:text-green-400" />
-                                        <span class="text-xs font-medium text-green-700 dark:text-green-300 truncate">Matched: {{ $line['matched_item_name'] }}</span>
+                                    <div class="flex flex-col gap-1">
+                                        <div class="flex items-center gap-1.5 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 px-2.5 py-1.5">
+                                            <x-heroicon-o-check-circle class="h-3.5 w-3.5 flex-shrink-0 text-green-600 dark:text-green-400" />
+                                            <span class="text-xs font-medium text-green-700 dark:text-green-300 truncate">{{ $line['matched_item_name'] }}</span>
+                                        </div>
+                                        @if ($conf || $stg)
+                                            <div class="flex items-center gap-1 px-0.5">
+                                                @if ($conf)
+                                                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium {{ $conf === 'high' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : ($conf === 'medium' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500') }}">{{ ucfirst($conf) }}</span>
+                                                @endif
+                                                @if ($stg)
+                                                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300">{{ $stg }}</span>
+                                                @endif
+                                            </div>
+                                        @endif
                                     </div>
                                 @else
                                     <div class="space-y-1.5">
@@ -336,12 +349,23 @@
                                             class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                                         />
                                     </div>
-                                    <div class="col-span-2 flex items-center">
+                                    <div class="col-span-2 flex flex-col gap-0.5">
+                                        @php $conf = $line['match_confidence'] ?? ''; $stg = $line['match_stage'] ?? ''; @endphp
                                         @if (!empty($line['matched_item_id']))
                                             <span class="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900 px-2 py-0.5 text-[11px] font-medium text-green-700 dark:text-green-300 max-w-full">
                                                 <x-heroicon-o-check-circle class="h-3 w-3 flex-shrink-0" />
                                                 <span class="truncate">{{ $line['matched_item_name'] }}</span>
                                             </span>
+                                            @if ($conf || $stg)
+                                                <div class="flex items-center gap-1">
+                                                    @if ($conf)
+                                                        <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium {{ $conf === 'high' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : ($conf === 'medium' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500') }}">{{ ucfirst($conf) }}</span>
+                                                    @endif
+                                                    @if ($stg)
+                                                        <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300">{{ $stg }}</span>
+                                                    @endif
+                                                </div>
+                                            @endif
                                         @else
                                             <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
                                                 <x-heroicon-o-question-mark-circle class="h-3 w-3 flex-shrink-0" />

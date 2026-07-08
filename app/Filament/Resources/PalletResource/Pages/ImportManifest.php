@@ -8,7 +8,7 @@ use App\Models\AiTask;
 use App\Models\InventoryItem;
 use App\Models\Pallet;
 use App\Models\PalletLine;
-use App\Models\Setting;
+use App\Services\AI\Mapping\MappingEngine;
 use Filament\Resources\Pages\Page;
 use Illuminate\Support\Facades\DB;
 use Livewire\WithFileUploads;
@@ -40,7 +40,7 @@ class ImportManifest extends Page
     /**
      * Lines shown in the verify stage — editable by the user before import.
      *
-     * @var list<array{description:string, case_count:int|string, unit_cost:string, sku:string, barcode:string, matched_item_id:int|null, matched_item_name:string|null, create_new_item:bool}>
+     * @var list<array{description:string, case_count:int|string, unit_cost:string, sku:string, barcode:string, matched_item_id:int|null, matched_item_name:string|null, match_confidence:string, match_stage:string, create_new_item:bool}>
      */
     public array $parsedLines = [];
 
@@ -100,17 +100,27 @@ class ImportManifest extends Page
         }
 
         if ($task->status === 'completed') {
-            $raw = $task->output['lines'] ?? [];
-            $this->parsedLines = array_map(function ($l) {
-                $item = $this->findMatchingItem($l['barcode'] ?? null, $l['sku'] ?? null, $l['description'] ?? null);
+            $raw    = $task->output['lines'] ?? [];
+            $engine = app(MappingEngine::class);
+
+            $this->parsedLines = array_map(function ($l) use ($engine) {
+                $description = $l['description'] ?? '';
+                $barcode     = $l['barcode'] ?? null;
+                $sku         = $l['sku'] ?? null;
+
+                // Run full 4-stage matching pipeline
+                $matchResult = $this->matchLine($engine, $description, $barcode, $sku);
+
                 return [
-                    'description'       => $l['description'] ?? '',
+                    'description'       => $description,
                     'case_count'        => (string) ($l['case_count'] ?? 1),
                     'unit_cost'         => $l['unit_cost'] !== null ? number_format((float) $l['unit_cost'], 2, '.', '') : '',
-                    'sku'               => $l['sku'] ?? '',
-                    'barcode'           => $l['barcode'] ?? '',
-                    'matched_item_id'   => $item?->id,
-                    'matched_item_name' => $item?->name,
+                    'sku'               => $sku ?? '',
+                    'barcode'           => $barcode ?? '',
+                    'matched_item_id'   => $matchResult['id'],
+                    'matched_item_name' => $matchResult['name'],
+                    'match_confidence'  => $matchResult['confidence'],
+                    'match_stage'       => $matchResult['stage'],
                     'create_new_item'   => false,
                 ];
             }, $raw);
@@ -148,11 +158,41 @@ class ImportManifest extends Page
     {
         $this->parsedLines[] = [
             'description' => '', 'case_count' => '1', 'unit_cost' => '', 'sku' => '', 'barcode' => '',
-            'matched_item_id' => null, 'matched_item_name' => null, 'create_new_item' => false,
+            'matched_item_id' => null, 'matched_item_name' => null,
+            'match_confidence' => '', 'match_stage' => '', 'create_new_item' => false,
         ];
     }
 
-    private function findMatchingItem(?string $barcode, ?string $sku, ?string $description): ?InventoryItem
+    /**
+     * Run 4-stage matching pipeline. Returns {id, name, confidence, stage} or nulls.
+     */
+    private function matchLine(MappingEngine $engine, string $description, ?string $barcode, ?string $sku): array
+    {
+        $empty = ['id' => null, 'name' => null, 'confidence' => '', 'stage' => ''];
+
+        if ($description === '') {
+            return $empty;
+        }
+
+        try {
+            $result = $engine->match($description, $barcode);
+
+            if ($result->matched()) {
+                return [
+                    'id'         => $result->product->id,
+                    'name'       => $result->product->name,
+                    'confidence' => $result->confidenceLabel(),
+                    'stage'      => $result->stage,
+                ];
+            }
+        } catch (\Throwable) {
+        }
+
+        return $empty;
+    }
+
+    /** Fast DB-only match for import fallback (no AI). */
+    private function quickItemLookup(?string $barcode, ?string $sku, string $description): ?InventoryItem
     {
         if ($barcode && $item = InventoryItem::where('barcode', trim($barcode))->first()) {
             return $item;
@@ -190,8 +230,10 @@ class ImportManifest extends Page
 
                 $unitCost = (float) str_replace(['$', ','], '', $row['unit_cost'] ?? '0');
 
-                // Re-check match (user may have edited description/sku/barcode)
-                $item = $this->findMatchingItem($row['barcode'] ?? null, $row['sku'] ?? null, $description);
+                // Use the AI-matched ID from verify stage, or fall back to a fast DB lookup
+                $item = ($row['matched_item_id'] ?? null)
+                    ? InventoryItem::find($row['matched_item_id'])
+                    : $this->quickItemLookup($row['barcode'] ?? null, $row['sku'] ?? null, $description);
 
                 // If still unmatched and user wants to create a new item
                 if (! $item && ! empty($row['create_new_item'])) {

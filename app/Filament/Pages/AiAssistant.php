@@ -11,11 +11,10 @@ use App\Models\Payout;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WeeklyPayoutBatch;
-use App\Models\Setting;
+use App\Services\AI\Chat\ChatService;
+use App\Services\AI\OllamaClient;
 use App\Support\AdminModules;
 use Filament\Pages\Page;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 
 class AiAssistant extends Page
 {
@@ -62,8 +61,9 @@ class AiAssistant extends Page
 
     public function mount(): void
     {
-        $this->ollamaBaseUrl = $this->baseUrl();
-        $this->ollamaModel   = $this->model();
+        $ollama = app(OllamaClient::class);
+        $this->ollamaBaseUrl = $ollama->getBaseUrl();
+        $this->ollamaModel   = $ollama->getDefaultModel();
         $this->checkOllama();
     }
 
@@ -124,15 +124,9 @@ class AiAssistant extends Page
 
     private function checkOllama(): void
     {
-        try {
-            $response = Http::timeout(3)->get("{$this->ollamaBaseUrl}/api/tags");
-            if ($response->successful()) {
-                $this->ollamaOnline    = true;
-                $this->availableModels = collect($response->json('models', []))->pluck('name')->all();
-            }
-        } catch (\Throwable) {
-            $this->ollamaOnline = false;
-        }
+        $ollama = app(OllamaClient::class);
+        $this->ollamaOnline    = $ollama->isOnline();
+        $this->availableModels = $this->ollamaOnline ? $ollama->listModels() : [];
     }
 
     private function chat(string $userMessage): array
@@ -141,171 +135,22 @@ class AiAssistant extends Page
             return ['Ollama is offline. Start it with `ollama serve` or enable the ollama Docker service.', 0, false];
         }
 
-        // Validate model is available
         if ($this->availableModels && ! in_array($this->ollamaModel, $this->availableModels, true)) {
             $list = implode(', ', $this->availableModels);
             return ["Model '{$this->ollamaModel}' not found. Available: {$list}. Update the model name in Settings → AI/Ollama.", 0, false];
         }
 
-        // Override PHP execution limit for long AI responses
         set_time_limit(300);
 
-        $start = microtime(true);
+        $history = array_map(fn ($m) => ['role' => $m['role'], 'content' => $m['content']], $this->messages);
 
-        try {
-            $response = Http::timeout(240)->post("{$this->ollamaBaseUrl}/api/chat", [
-                'model'    => $this->ollamaModel,
-                'messages' => $this->buildHistory($userMessage),
-                'stream'   => false,
-                'options'  => ['num_predict' => 1024],
-            ]);
+        $result = app(ChatService::class)->complete(
+            path: request()->path(),
+            history: $history,
+            userMessage: $userMessage,
+        );
 
-            $latency = (int) ((microtime(true) - $start) * 1000);
-
-            if (! $response->successful()) {
-                return ["Ollama returned HTTP {$response->status()}: {$response->body()}", $latency, false];
-            }
-
-            $content = $response->json('message.content', '');
-            return [$content ?: '(empty response from model)', $latency, true];
-        } catch (\Throwable $e) {
-            $latency = (int) ((microtime(true) - $start) * 1000);
-            return ["Error communicating with Ollama: {$e->getMessage()}", $latency, false];
-        }
-    }
-
-    /** @return array<int, array{role:string, content:string}> */
-    private function buildHistory(string $userMessage): array
-    {
-        $history = [['role' => 'system', 'content' => $this->systemPrompt()]];
-
-        foreach ($this->messages as $msg) {
-            $history[] = ['role' => $msg['role'], 'content' => $msg['content']];
-        }
-
-        $history[] = ['role' => 'user', 'content' => $userMessage];
-        return $history;
-    }
-
-    private function systemPrompt(): string
-    {
-        $snapshot = $this->buildDataSnapshot();
-
-        return <<<PROMPT
-You are Vortex Assistant, an operations AI for Vortex Breaks — a Whatnot sports card break business.
-You have access to real-time data from the operations platform. Use the snapshot below to answer questions accurately.
-Be concise, practical, and specific. Use dollar amounts and counts directly from the data.
-
-=== LIVE DATA SNAPSHOT (as of {$snapshot['as_of']}) ===
-
-SHOWS (last 30 days):
-{$snapshot['shows']}
-
-REVENUE (last 30 days):
-{$snapshot['revenue']}
-
-STREAMERS:
-{$snapshot['streamers']}
-
-PAYOUTS:
-{$snapshot['payouts']}
-
-INVENTORY:
-{$snapshot['inventory']}
-
-PALLETS / RECEIVING:
-{$snapshot['pallets']}
-
-=== END SNAPSHOT ===
-
-When asked about shows, streamers, payouts, inventory, or receiving — answer from the snapshot above.
-If data isn't in the snapshot and you can't calculate it, say so and point to the relevant section in the app.
-PROMPT;
-    }
-
-    // ── Live data snapshot ────────────────────────────────────────────────────
-
-    /** @return array<string, string> */
-    private function buildDataSnapshot(): array
-    {
-        return Cache::remember('ai_snapshot_' . auth()->id(), 300, function () {
-            return $this->fetchDataSnapshot();
-        });
-    }
-
-    /** @return array<string, string> */
-    private function fetchDataSnapshot(): array
-    {
-        $cutoff = now()->subDays(30);
-
-        // Shows
-        $shows        = Show::where('show_date', '>=', $cutoff)->orderByDesc('show_date')->get();
-        $showStatuses = $shows->groupBy('status')->map->count();
-        $showLines    = $shows->take(10)->map(fn ($s) =>
-            "  {$s->show_date->format('M j')}: {$s->title} | gross=\${$s->gross_revenue} units={$s->units_sold} status={$s->status}"
-        )->join("\n");
-
-        $showsSummary = "Total: {$shows->count()} shows | "
-            . $showStatuses->map(fn ($c, $k) => "{$k}={$c}")->join(', ')
-            . "\nRecent:\n" . ($showLines ?: '  (none)');
-
-        // Revenue
-        $totalGross   = $shows->sum('gross_revenue');
-        $totalNet     = $shows->sum('whatnot_net');
-        $totalTips    = $shows->sum('tips');
-        $totalUnits   = $shows->sum('units_sold');
-        $avgGross     = $shows->count() ? round($totalGross / $shows->count(), 2) : 0;
-
-        $revenueSummary = "Gross revenue: \${$totalGross} | Whatnot net: \${$totalNet} | Tips: \${$totalTips}\n"
-            . "Units sold: {$totalUnits} | Shows: {$shows->count()} | Avg gross/show: \${$avgGross}";
-
-        // Streamers
-        $streamers     = Streamer::where('status', 'active')->get(['id', 'name', 'payout_type', 'total_earnings_due', 'total_earnings_paid']);
-        $streamerLines = $streamers->map(fn ($s) => "  {$s->name} ({$s->payout_type}) | due=\${$s->total_earnings_due} paid=\${$s->total_earnings_paid}")->join("\n");
-        $streamerSummary = "Active streamers: {$streamers->count()}\n" . ($streamerLines ?: '  (none)');
-
-        // Payouts
-        $pendingPayouts   = Payout::where('status', 'pending')->count();
-        $approvedPayouts  = Payout::where('status', 'approved')->sum('calculated_payout');
-        $recentBatch      = WeeklyPayoutBatch::latest('week_start')->first();
-        $batchLine        = $recentBatch
-            ? "Latest batch: {$recentBatch->week_start->format('M j')}–{$recentBatch->week_end->format('M j')} | total=\${$recentBatch->total_payout} status={$recentBatch->status}"
-            : 'No batches yet';
-
-        $payoutSummary = "Pending payouts: {$pendingPayouts} | Approved (unpaid): \${$approvedPayouts}\n{$batchLine}";
-
-        // Inventory
-        $itemCount    = InventoryItem::where('is_active', true)->count();
-        $lowStock     = InventoryItem::with('stock')
-            ->where('is_active', true)
-            ->whereNotNull('reorder_level')
-            ->get()
-            ->filter(fn ($i) => $i->stock->sum('quantity') <= $i->reorder_level);
-        $totalValue   = InventoryItem::with('stock')
-            ->where('is_active', true)
-            ->get()
-            ->sum(fn ($i) => $i->stock->sum('quantity') * $i->average_cost);
-
-        $lowStockLines = $lowStock->take(5)->map(fn ($i) => "  {$i->name}: qty={$i->stock->sum('quantity')} reorder={$i->reorder_level}")->join("\n");
-        $inventorySummary = "Active items: {$itemCount} | Est. total value: \$" . number_format($totalValue, 2)
-            . "\nLow stock ({$lowStock->count()} items):\n" . ($lowStockLines ?: '  (none)');
-
-        // Pallets
-        $palletsByStatus = Pallet::selectRaw('status, COUNT(*) as cnt')->groupBy('status')->pluck('cnt', 'status');
-        $pendingPallets  = Pallet::where('status', 'pending')->with('vendor')->latest()->take(5)->get();
-        $palletLines     = $pendingPallets->map(fn ($p) => "  {$p->reference} ({$p->vendor?->name})")->join("\n");
-        $palletSummary   = $palletsByStatus->map(fn ($c, $k) => "{$k}={$c}")->join(', ')
-            . "\nPending:\n" . ($palletLines ?: '  (none)');
-
-        return [
-            'as_of'      => now()->format('Y-m-d H:i'),
-            'shows'      => $showsSummary,
-            'revenue'    => $revenueSummary,
-            'streamers'  => $streamerSummary,
-            'payouts'    => $payoutSummary,
-            'inventory'  => $inventorySummary,
-            'pallets'    => $palletSummary,
-        ];
+        return [$result['content'], $result['latency_ms'], $result['success']];
     }
 
     // ── Quick-action prompts ──────────────────────────────────────────────────
@@ -469,17 +314,4 @@ PROMPT;
         return "Here are my inventory movements for the last 30 days:\n{$summary}\n\nWhat patterns do you see? Anything to flag?";
     }
 
-    // ── Config ────────────────────────────────────────────────────────────────
-
-    private function baseUrl(): string
-    {
-        $fromDb = Setting::get('ollama_base_url');
-        return rtrim($fromDb ?: config('services.ollama.url', 'http://localhost:11434'), '/');
-    }
-
-    private function model(): string
-    {
-        $fromDb = Setting::get('ollama_model');
-        return $fromDb ?: config('services.ollama.model', 'llama3.2:3b');
-    }
 }

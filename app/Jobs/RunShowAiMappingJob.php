@@ -9,13 +9,13 @@ use App\Models\InventoryItem;
 use App\Models\Show;
 use App\Models\User;
 use App\Notifications\AiTaskCompletedNotification;
+use App\Services\AI\Mapping\MappingEngine;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class RunShowAiMappingJob implements ShouldQueue
@@ -30,7 +30,7 @@ class RunShowAiMappingJob implements ShouldQueue
         private readonly int $aiTaskId,
     ) {}
 
-    public function handle(): void
+    public function handle(MappingEngine $engine): void
     {
         $task = AiTask::findOrFail($this->aiTaskId);
         $show = Show::with(['streamers', 'deductionRequests.lines', 'orders'])->findOrFail($this->showId);
@@ -40,8 +40,7 @@ class RunShowAiMappingJob implements ShouldQueue
 
         try {
             $lines   = $this->extractRawLines($show);
-            $items   = InventoryItem::where('is_active', true)->orderBy('name')->get(['id', 'name', 'sku', 'category', 'average_cost', 'unit_cost']);
-            $mapped  = $this->mapLinesWithAi($lines, $items, $show->streamers->first()?->name);
+            $mapped  = $this->mapLines($lines, $engine);
             $summary = $this->persistMappings($show, $mapped);
 
             $show->update(['status' => 'pending_approval']);
@@ -71,8 +70,7 @@ class RunShowAiMappingJob implements ShouldQueue
     {
         $lines = [];
 
-        // Primary: WhatnotShowOrder records (imported via whatnot:import-orders)
-        // Aggregate by item name so each distinct product becomes one deduction line
+        // Primary: WhatnotShowOrder records
         if ($show->orders->isNotEmpty()) {
             foreach ($show->orders->filter(fn ($o) => ! empty($o->item_name))->groupBy('item_name') as $itemName => $group) {
                 $lines[] = [
@@ -97,7 +95,7 @@ class RunShowAiMappingJob implements ShouldQueue
             }
         }
 
-        // Tertiary: existing DeductionRequest lines without an inventory match
+        // Tertiary: existing DeductionRequest lines without a match
         if (empty($lines)) {
             foreach ($show->deductionRequests as $dr) {
                 foreach ($dr->lines->where('inventory_item_id', null) as $line) {
@@ -116,71 +114,45 @@ class RunShowAiMappingJob implements ShouldQueue
         return $lines;
     }
 
-    private function mapLinesWithAi(array $lines, $items, ?string $streamerName = null): array
+    private function mapLines(array $lines, MappingEngine $engine): array
     {
-        $itemList = $items->map(fn ($i) => "[{$i->id}] {$i->name}" . ($i->sku ? " (SKU: {$i->sku})" : '') . ($i->category ? " [{$i->category}]" : ''))->join("\n");
-        $context  = $streamerName ? "\nContext: This show was streamed by {$streamerName}." : '';
-        $results  = [];
+        $results = [];
 
         foreach ($lines as $line) {
             if (empty($line['description'])) {
                 continue;
             }
 
-            $prompt = <<<PROMPT
-You are matching a sold item description to an inventory catalogue for a sports card break business.{$context}
+            try {
+                $result = $engine->match($line['description']);
 
-Inventory items:
-{$itemList}
-
-Sold item: "{$line['description']}"
-
-Reply with JSON only, no explanation:
-{"item_id": <integer or null>, "confidence": "high|medium|low", "reason": "<one sentence>"}
-
-If no match is reasonable, set item_id to null.
-PROMPT;
-
-            $result = $this->callOllama($prompt);
-            $json   = json_decode($result, true);
-
-            $results[] = array_merge($line, [
-                'matched_item_id' => $json['item_id'] ?? null,
-                'ai_confidence'   => $json['confidence'] ?? 'low',
-                'ai_reason'       => $json['reason'] ?? '',
-            ]);
+                $results[] = array_merge($line, [
+                    'matched_item_id'  => $result->product?->id,
+                    'ai_confidence'    => $result->confidenceLabel(),
+                    'ai_reason'        => implode('; ', array_slice($result->reasons, 0, 2)),
+                    'confidence_score' => $result->confidence,
+                    'stage'            => $result->stage,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning("MappingEngine failed for '{$line['description']}': {$e->getMessage()}");
+                $results[] = array_merge($line, [
+                    'matched_item_id' => null,
+                    'ai_confidence'   => 'low',
+                    'ai_reason'       => 'Matching error: ' . $e->getMessage(),
+                ]);
+            }
         }
 
         return $results;
     }
 
-    private function callOllama(string $prompt): string
-    {
-        $baseUrl = config('services.ollama.url');
-        $model   = config('services.ollama.model');
-
-        $response = Http::timeout(60)->post("{$baseUrl}/api/generate", [
-            'model'  => $model,
-            'prompt' => $prompt,
-            'stream' => false,
-            'format' => 'json',
-        ]);
-
-        if (! $response->successful()) {
-            throw new \RuntimeException("Ollama API error: {$response->status()}");
-        }
-
-        return $response->json('response', '{}');
-    }
-
     private function persistMappings(Show $show, array $mapped): array
     {
-        $created  = 0;
-        $skipped  = 0;
+        $created     = 0;
+        $skipped     = 0;
         $mappedCount = 0;
-        $notes    = [];
+        $notes       = [];
 
-        // Bulk-load all matched items before entering the transaction to avoid N+1 under lock
         $matchedItemIds = collect($mapped)->pluck('matched_item_id')->filter()->unique()->values()->toArray();
         $itemsById      = InventoryItem::whereIn('id', $matchedItemIds)->get()->keyBy('id');
 
@@ -188,7 +160,6 @@ PROMPT;
             $defaultLocation = $show->defaultInventoryLocation();
             $primaryStreamer  = $show->streamers->first();
 
-            // Find or create a DeductionRequest for this show
             $dr = $show->deductionRequests()->firstOrCreate(
                 ['show_id' => $show->id],
                 ['status' => 'draft', 'streamer_id' => $primaryStreamer?->id]
@@ -200,7 +171,6 @@ PROMPT;
                     continue;
                 }
 
-                // If this came from an existing line, update it
                 if (! empty($line['line_id'])) {
                     DeductionRequestLine::where('id', $line['line_id'])->update([
                         'inventory_item_id' => $line['matched_item_id'],
@@ -230,20 +200,20 @@ PROMPT;
 
                 if ($line['matched_item_id']) {
                     $mappedCount++;
-                    $notes[] = "[{$line['ai_confidence']}] {$line['description']}";
+                    $stage = isset($line['stage']) ? "[{$line['stage']}]" : '';
+                    $notes[] = "[{$line['ai_confidence']}]{$stage} {$line['description']}";
                 } else {
                     $skipped++;
                     $notes[] = "[unmatched] {$line['description']}";
                 }
             }
 
-            $dr->update(['ai_mapping_notes' => implode("\n", $notes)]);
-            $dr->update(['status' => 'pending']);
+            $dr->update(['ai_mapping_notes' => implode("\n", $notes), 'status' => 'pending']);
 
             return [
-                'lines_created'  => $created,
-                'lines_mapped'   => $mappedCount,
-                'lines_skipped'  => $skipped,
+                'lines_created'        => $created,
+                'lines_mapped'         => $mappedCount,
+                'lines_skipped'        => $skipped,
                 'deduction_request_id' => $dr->id,
             ];
         });
@@ -255,7 +225,6 @@ PROMPT;
         if (! $userId) {
             return;
         }
-        $user = User::find($userId);
-        $user?->notify(new AiTaskCompletedNotification($task));
+        User::find($userId)?->notify(new AiTaskCompletedNotification($task));
     }
 }

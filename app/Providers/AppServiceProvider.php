@@ -9,6 +9,12 @@ use App\Models\Show;
 use App\Observers\DeductionRequestObserver;
 use App\Observers\PayoutObserver;
 use App\Observers\ShowObserver;
+use App\Services\AI\OllamaClient;
+use App\Services\AI\Chat\ChatService;
+use App\Services\AI\Chat\ContextBuilder;
+use App\Services\AI\Mapping\MappingEngine;
+use App\Services\EmbeddingService;
+use App\Services\ProductMatchingService;
 use Filament\Support\Facades\FilamentView;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
@@ -23,7 +29,25 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->singleton(OllamaClient::class, fn () => OllamaClient::fromSettings());
+
+        $this->app->singleton(EmbeddingService::class, fn ($app) => new EmbeddingService(
+            $app->make(OllamaClient::class),
+        ));
+
+        $this->app->singleton(ProductMatchingService::class, fn ($app) => new ProductMatchingService(
+            $app->make(EmbeddingService::class),
+        ));
+
+        $this->app->singleton(MappingEngine::class, fn ($app) => new MappingEngine(
+            $app->make(ProductMatchingService::class),
+            $app->make(OllamaClient::class),
+        ));
+
+        $this->app->singleton(ChatService::class, fn ($app) => new ChatService(
+            $app->make(OllamaClient::class),
+            $app->make(ContextBuilder::class),
+        ));
     }
 
     public function boot(): void

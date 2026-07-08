@@ -2,24 +2,19 @@
 
 namespace App\Services;
 
+use App\Services\AI\OllamaClient;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Wraps the Ollama /api/embeddings endpoint.
- * Runs entirely locally — no external API calls.
+ * Delegates HTTP calls to OllamaClient so all Ollama traffic goes through one abstraction.
  */
 class EmbeddingService
 {
-    private string $baseUrl;
-    private string $model;
-
-    public function __construct()
-    {
-        $this->baseUrl = rtrim(config('services.ollama.url', 'http://localhost:11434'), '/');
-        $this->model   = config('services.ollama.embedding_model', 'nomic-embed-text');
-    }
+    public function __construct(
+        private readonly OllamaClient $ollama,
+    ) {}
 
     /**
      * Generate an embedding vector for the given text.
@@ -29,22 +24,7 @@ class EmbeddingService
      */
     public function embed(string $text): ?array
     {
-        $text = $this->normalizeText($text);
-
-        try {
-            $response = Http::timeout(10)->post("{$this->baseUrl}/api/embeddings", [
-                'model'  => $this->model,
-                'prompt' => $text,
-            ]);
-
-            if ($response->successful()) {
-                return $response->json('embedding');
-            }
-        } catch (\Throwable $e) {
-            Log::warning("EmbeddingService: Ollama unavailable — {$e->getMessage()}");
-        }
-
-        return null;
+        return $this->ollama->embed($this->normalizeText($text));
     }
 
     /**
@@ -74,8 +54,7 @@ class EmbeddingService
     }
 
     /**
-     * Find the product IDs with the highest cosine similarity to the query,
-     * using pre-loaded embeddings from the cache.
+     * Find the product IDs with the highest cosine similarity to the query.
      *
      * @param  float[]             $queryEmbedding
      * @param  array<int, float[]> $catalog   product_id → embedding
@@ -128,11 +107,6 @@ class EmbeddingService
 
     public function isAvailable(): bool
     {
-        try {
-            $response = Http::timeout(3)->get("{$this->baseUrl}/api/tags");
-            return $response->successful();
-        } catch (\Throwable) {
-            return false;
-        }
+        return $this->ollama->isOnline();
     }
 }

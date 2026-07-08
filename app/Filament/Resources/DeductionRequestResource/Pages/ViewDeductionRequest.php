@@ -123,12 +123,97 @@ class ViewDeductionRequest extends EditRecord
 
             Section::make('Deduction Lines')
                 ->schema([
+                    Placeholder::make('lines_summary_table')
+                        ->label('')
+                        ->columnSpanFull()
+                        ->content(function () use ($request): HtmlString {
+                            $lines = $request->lines->load('inventoryItem');
+                            if ($lines->isEmpty()) {
+                                return new HtmlString('<p style="color:#9ca3af;font-size:13px">No lines yet.</p>');
+                            }
+
+                            $stageBadge = function (?string $stage): string {
+                                $map = [
+                                    'alias'     => ['Alias',     '#d1fae5','#065f46','#6ee7b7'],
+                                    'fuzzy'     => ['Fuzzy',     '#dbeafe','#1e40af','#93c5fd'],
+                                    'embedding' => ['Embedding', '#ede9fe','#5b21b6','#c4b5fd'],
+                                    'llm'       => ['LLM',       '#fef3c7','#92400e','#fcd34d'],
+                                ];
+                                if (! $stage || ! isset($map[$stage])) {
+                                    return '<span style="color:#9ca3af;font-size:11px">—</span>';
+                                }
+                                [$label, $bg, $color, $border] = $map[$stage];
+                                return "<span style=\"display:inline-flex;align-items:center;padding:1px 8px;border-radius:9999px;background:{$bg};color:{$color};border:1px solid {$border};font-size:10px;font-weight:700;letter-spacing:0.04em\">{$label}</span>";
+                            };
+
+                            $confColor = fn (?string $c): string => match ($c) {
+                                'high'   => '#059669',
+                                'medium' => '#d97706',
+                                'low'    => '#dc2626',
+                                default  => '#6b7280',
+                            };
+
+                            $rows = $lines->map(function (DeductionRequestLine $line) use ($stageBadge, $confColor): string {
+                                $desc     = e($line->raw_description ?? '—');
+                                $item     = e($line->inventoryItem?->name ?? '');
+                                $itemCell = $item
+                                    ? "<span style=\"font-weight:600;color:#111827\">{$item}</span>"
+                                    : '<span style="color:#dc2626;font-weight:600">⚠ Unmatched</span>';
+                                $stage  = $stageBadge($line->match_stage);
+                                $conf   = ucfirst($line->ai_confidence ?? '—');
+                                $cColor = $confColor($line->ai_confidence);
+                                $qty    = number_format((float) $line->quantity_approved, 0);
+                                $cost   = '$' . number_format((float) $line->unit_cost_snapshot, 2);
+                                $total  = '$' . number_format((float) $line->line_total, 2);
+                                $rowBg  = $line->inventoryItem ? '' : 'background:#fff7f7;';
+
+                                return "<tr style=\"{$rowBg}border-bottom:1px solid #f3f4f6\">
+                                    <td style=\"padding:6px 10px;font-size:12px;color:#374151;max-width:220px;word-break:break-word\">{$desc}</td>
+                                    <td style=\"padding:6px 10px;font-size:12px\">{$itemCell}</td>
+                                    <td style=\"padding:6px 10px\">{$stage}</td>
+                                    <td style=\"padding:6px 10px;font-size:11px;color:{$cColor};font-weight:600\">{$conf}</td>
+                                    <td style=\"padding:6px 10px;font-size:12px;text-align:right;color:#374151\">{$qty}</td>
+                                    <td style=\"padding:6px 10px;font-size:12px;text-align:right;color:#374151\">{$cost}</td>
+                                    <td style=\"padding:6px 10px;font-size:12px;text-align:right;font-weight:600;color:#111827\">{$total}</td>
+                                </tr>";
+                            })->join('');
+
+                            $totalCogs = '$' . number_format((float) $lines->sum('line_total'), 2);
+                            $matched   = $lines->whereNotNull('inventory_item_id')->count();
+                            $total     = $lines->count();
+                            $unmatched = $total - $matched;
+                            $unmatchedNote = $unmatched > 0
+                                ? "<span style=\"color:#dc2626;font-weight:600\">{$unmatched} unmatched</span> · "
+                                : '';
+
+                            return new HtmlString("
+                                <div style=\"margin-bottom:12px;font-size:11px;color:#6b7280\">{$unmatchedNote}{$matched}/{$total} matched · Total COGS: <strong style=\"color:#111827\">{$totalCogs}</strong></div>
+                                <div style=\"overflow-x:auto;border:1px solid #e5e7eb;border-radius:8px\">
+                                <table style=\"width:100%;border-collapse:collapse\">
+                                    <thead>
+                                        <tr style=\"background:#f9fafb\">
+                                            <th style=\"padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em\">Raw Description</th>
+                                            <th style=\"padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em\">Matched Item</th>
+                                            <th style=\"padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em\">Stage</th>
+                                            <th style=\"padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em\">Conf.</th>
+                                            <th style=\"padding:6px 10px;text-align:right;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em\">Qty</th>
+                                            <th style=\"padding:6px 10px;text-align:right;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em\">Unit Cost</th>
+                                            <th style=\"padding:6px 10px;text-align:right;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em\">Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>{$rows}</tbody>
+                                </table>
+                                </div>
+                            ");
+                        }),
+
                     Repeater::make('lines_data')
                         ->label('')
                         ->default(function () use ($request) {
-                            return $request->lines->map(fn (DeductionRequestLine $line) => [
+                            return $request->lines->load('inventoryItem')->map(fn (DeductionRequestLine $line) => [
                                 'id'                    => $line->id,
                                 'inventory_item_id'     => $line->inventory_item_id,
+                                'inventory_item_name'   => $line->inventoryItem?->name,
                                 'inventory_location_id' => $line->inventory_location_id,
                                 'raw_description'       => $line->raw_description,
                                 'ai_confidence'         => $line->ai_confidence,
@@ -213,6 +298,16 @@ class ViewDeductionRequest extends EditRecord
                                 ->disabled()
                                 ->columnSpanFull(),
                         ])
+                        ->itemLabel(function (array $state): string {
+                            $desc = $state['raw_description'] ?? '?';
+                            $item = $state['inventory_item_name'] ?? null;
+                            $stage = $state['match_stage'] ? " [{$state['match_stage']}]" : '';
+                            return $item
+                                ? "{$desc} → {$item}{$stage}"
+                                : "⚠ {$desc} — Unmatched";
+                        })
+                        ->collapsible()
+                        ->collapsed()
                         ->addable($editable)
                         ->deletable($editable)
                         ->reorderable(false)

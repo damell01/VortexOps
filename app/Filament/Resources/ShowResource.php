@@ -312,19 +312,49 @@ class ShowResource extends Resource
                         }),
                     Placeholder::make('mapped_items')
                         ->label('Mapped Items')
-                        ->content(function (?Show $record): string {
+                        ->columnSpanFull()
+                        ->content(function (?Show $record): \Illuminate\Support\HtmlString {
                             $request = $record?->latestDeductionRequest;
-
                             if (! $request || $request->lines->isEmpty()) {
-                                return 'No mapped items yet.';
+                                return new \Illuminate\Support\HtmlString('<span style="color:#9ca3af;font-size:13px">No mapped items yet.</span>');
                             }
-
-                            return $request->lines->map(function ($line) {
-                                $item = $line->inventoryItem?->name ?? 'Unknown item';
-                                $location = $line->location?->name ?? 'Unknown location';
-
-                                return "{$item} x {$line->quantity_approved} from {$location}";
-                            })->implode("\n");
+                            $lines = $request->lines->load('inventoryItem', 'location');
+                            $stageBadge = function (?string $stage): string {
+                                $map = [
+                                    'alias'     => ['Alias',     '#d1fae5','#065f46','#6ee7b7'],
+                                    'fuzzy'     => ['Fuzzy',     '#dbeafe','#1e40af','#93c5fd'],
+                                    'embedding' => ['Embedding', '#ede9fe','#5b21b6','#c4b5fd'],
+                                    'llm'       => ['LLM',       '#fef3c7','#92400e','#fcd34d'],
+                                ];
+                                if (! $stage || ! isset($map[$stage])) {
+                                    return '<span style="color:#9ca3af;font-size:10px">—</span>';
+                                }
+                                [$label, $bg, $color, $border] = $map[$stage];
+                                return "<span style=\"display:inline-flex;padding:1px 7px;border-radius:9999px;background:{$bg};color:{$color};border:1px solid {$border};font-size:10px;font-weight:700\">{$label}</span>";
+                            };
+                            $rows = $lines->map(fn ($line) =>
+                                '<tr style="border-bottom:1px solid #f3f4f6">' .
+                                '<td style="padding:5px 10px;font-size:12px;color:#374151">' . e($line->inventoryItem?->name ?? '—') . '</td>' .
+                                '<td style="padding:5px 10px">' . $stageBadge($line->match_stage ?? null) . '</td>' .
+                                '<td style="padding:5px 10px;font-size:12px;text-align:right;color:#374151">' . number_format((float)$line->quantity_approved, 0) . '</td>' .
+                                '<td style="padding:5px 10px;font-size:12px;color:#6b7280">' . e($line->location?->name ?? '—') . '</td>' .
+                                '<td style="padding:5px 10px;font-size:12px;text-align:right;font-weight:600;color:#111827">$' . number_format((float)$line->line_total, 2) . '</td>' .
+                                '</tr>'
+                            )->join('');
+                            return new \Illuminate\Support\HtmlString("
+                                <div style=\"overflow-x:auto;border:1px solid #e5e7eb;border-radius:8px\">
+                                <table style=\"width:100%;border-collapse:collapse\">
+                                    <thead><tr style=\"background:#f9fafb\">
+                                        <th style=\"padding:5px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase\">Item</th>
+                                        <th style=\"padding:5px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase\">Stage</th>
+                                        <th style=\"padding:5px 10px;text-align:right;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase\">Qty</th>
+                                        <th style=\"padding:5px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase\">Location</th>
+                                        <th style=\"padding:5px 10px;text-align:right;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase\">COGS</th>
+                                    </tr></thead>
+                                    <tbody>{$rows}</tbody>
+                                </table>
+                                </div>
+                            ");
                         }),
                     Placeholder::make('mapped_line_count')
                         ->label('Mapped Lines')
@@ -363,43 +393,50 @@ class ShowResource extends Resource
 
             Section::make('P&L Summary')
                 ->visible(fn (?Show $record) => $record !== null)
-                ->columns(3)
                 ->schema([
-                    Placeholder::make('pl_gross')
-                        ->label('Gross Revenue')
-                        ->content(fn (?Show $record): string => '$' . number_format((float) ($record?->gross_revenue ?? 0), 2)),
+                    Placeholder::make('pl_card')
+                        ->label('')
+                        ->columnSpanFull()
+                        ->content(function (?Show $record): \Illuminate\Support\HtmlString {
+                            $gross   = (float) ($record?->gross_revenue ?? 0);
+                            $net     = (float) ($record?->whatnot_net ?? 0);
+                            $tips    = (float) ($record?->tips ?? 0);
+                            $cogs    = (float) ($record?->latestDeductionRequest?->lines?->sum('line_total') ?? 0);
+                            $payouts = (float) ($record?->payouts?->sum('calculated_payout') ?? 0);
+                            $margin  = ($net + $tips) - $cogs - $payouts;
+                            $base    = $net + $tips;
+                            $pct     = $base > 0 ? round(($margin / $base) * 100, 1) : 0;
+                            $sign    = $margin >= 0 ? '+' : '';
 
-                    Placeholder::make('pl_net')
-                        ->label('Whatnot Net')
-                        ->content(fn (?Show $record): string => '$' . number_format((float) ($record?->whatnot_net ?? 0), 2)),
+                            $f  = fn (float $v): string => '$' . number_format($v, 2);
+                            $marginColor  = $margin >= 0 ? '#059669' : '#dc2626';
+                            $marginBg     = $margin >= 0 ? '#f0fdf4' : '#fef2f2';
+                            $marginBorder = $margin >= 0 ? '#bbf7d0' : '#fecaca';
 
-                    Placeholder::make('pl_tips')
-                        ->label('Tips')
-                        ->content(fn (?Show $record): string => '$' . number_format((float) ($record?->tips ?? 0), 2)),
+                            $cell = fn (string $label, string $value, string $color = '#111827', string $subColor = '#6b7280'): string =>
+                                "<div style=\"padding:14px 18px\">
+                                    <div style=\"font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px\">{$label}</div>
+                                    <div style=\"font-size:18px;font-weight:700;color:{$color}\">{$value}</div>
+                                </div>";
 
-                    Placeholder::make('pl_cogs')
-                        ->label('COGS (Deduction)')
-                        ->content(function (?Show $record): string {
-                            $cogs = $record?->latestDeductionRequest?->lines?->sum('line_total') ?? 0;
-                            return '$' . number_format((float) $cogs, 2);
-                        }),
-
-                    Placeholder::make('pl_payouts')
-                        ->label('Total Payouts')
-                        ->content(fn (?Show $record): string => '$' . number_format((float) ($record?->payouts?->sum('calculated_payout') ?? 0), 2)),
-
-                    Placeholder::make('pl_margin')
-                        ->label('Net (after COGS + Payouts)')
-                        ->content(function (?Show $record): string {
-                            $net      = (float) ($record?->whatnot_net ?? 0);
-                            $tips     = (float) ($record?->tips ?? 0);
-                            $cogs     = (float) ($record?->latestDeductionRequest?->lines?->sum('line_total') ?? 0);
-                            $payouts  = (float) ($record?->payouts?->sum('calculated_payout') ?? 0);
-                            $margin   = ($net + $tips) - $cogs - $payouts;
-                            $base     = $net + $tips;
-                            $pct      = $base > 0 ? round(($margin / $base) * 100, 1) : 0;
-                            $sign     = $margin >= 0 ? '+' : '';
-                            return '$' . number_format($margin, 2) . " ({$sign}{$pct}%)";
+                            return new \Illuminate\Support\HtmlString("
+                                <div style=\"border:1px solid #e5e7eb;border-radius:10px;overflow:hidden\">
+                                    <div style=\"display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #e5e7eb\">
+                                        {$cell('Gross Revenue', $f($gross))}
+                                        <div style=\"border-left:1px solid #e5e7eb\">{$cell('Whatnot Net', $f($net))}</div>
+                                        <div style=\"border-left:1px solid #e5e7eb\">{$cell('Tips', $f($tips), '#059669')}</div>
+                                    </div>
+                                    <div style=\"display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #e5e7eb;background:#fafafa\">
+                                        {$cell('COGS', $f($cogs), '#dc2626')}
+                                        <div style=\"border-left:1px solid #e5e7eb\">{$cell('Payouts', $f($payouts), '#d97706')}</div>
+                                        <div style=\"border-left:1px solid #e5e7eb;padding:14px 18px\">
+                                            <div style=\"font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px\">Net Margin</div>
+                                            <div style=\"font-size:20px;font-weight:800;color:{$marginColor}\">{$f($margin)}</div>
+                                            <div style=\"font-size:12px;font-weight:600;color:{$marginColor};margin-top:2px\">{$sign}{$pct}%</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ");
                         }),
                 ]),
         ]);

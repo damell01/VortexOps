@@ -530,6 +530,92 @@ async function extractAnalyticsMetrics(page) {
   }, { SEL: SELECTORS });
 }
 
+// ── API interception helpers ──────────────────────────────────────────────────
+// When Whatnot's React SPA loads the analytics page it makes API/GraphQL calls
+// to fetch show data. Intercepting those responses gives us clean, structured
+// JSON — no DOM scraping, no selector maintenance.
+
+function scoreShowObject(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return 0;
+  const keys = Object.keys(obj).map(k => k.toLowerCase());
+  let score = 0;
+  if (keys.some(k => /\btitle\b|show_title|show_name/.test(k)))     score += 3;
+  if (keys.some(k => /\bdate\b|started_at|created_at|show_date/.test(k))) score += 2;
+  if (keys.some(k => /revenue|sales|gross|earnings|estimated/.test(k)))   score += 3;
+  if (keys.some(k => /\borders\b|units_sold|buyers/.test(k)))        score += 2;
+  if (keys.some(k => /\bviews\b|viewers|watch/.test(k)))             score += 1;
+  if (keys.some(k => /\bduration\b/.test(k)))                        score += 1;
+  return score;
+}
+
+function findShowsInJson(obj, url, depth = 0) {
+  if (depth > 7) return null;
+  if (Array.isArray(obj) && obj.length > 0 && typeof obj[0] === 'object') {
+    const s = scoreShowObject(obj[0]);
+    if (s >= 4) return { array: obj, score: s, url };
+  }
+  if (typeof obj === 'object' && obj !== null && !Array.isArray(obj)) {
+    let best = null;
+    for (const val of Object.values(obj)) {
+      const found = findShowsInJson(val, url, depth + 1);
+      if (found && (!best || found.score > best.score)) best = found;
+    }
+    return best;
+  }
+  return null;
+}
+
+function extractShowsFromCapture(captured) {
+  let best = null;
+  for (const { url, body } of captured) {
+    const found = findShowsInJson(body, url);
+    if (found && (!best || found.score > best.score)) best = found;
+  }
+  if (best) {
+    info('API intercept: data found in', best.url.replace('https://www.whatnot.com', ''));
+    info('API intercept:', best.array.length, 'records, score=' + best.score);
+    info('API intercept: first record keys:', Object.keys(best.array[0]).join(', '));
+  }
+  return best ? best.array : null;
+}
+
+function normalizeApiShow(s) {
+  const find = (...names) => {
+    for (const n of names) {
+      const lc = n.toLowerCase();
+      const entry = Object.entries(s).find(([k]) => k.toLowerCase() === lc);
+      if (entry && entry[1] !== null && entry[1] !== '') return entry[1];
+    }
+    return null;
+  };
+
+  const rawDate = String(find('date', 'show_date', 'started_at', 'created_at', 'scheduled_at') || '');
+  const showDate = rawDate.includes('T') ? rawDate.substring(0, 10) : parseDateString(rawDate);
+
+  return {
+    title:                  find('title', 'show_title', 'name', 'show_name') || null,
+    show_date:              showDate,
+    show_date_raw:          rawDate || null,
+    detail_url:             find('url', 'detail_url', 'show_url', 'link') || null,
+    gross_revenue:          parseMoney(String(find('gross_revenue', 'gross', 'revenue', 'sales', 'estimated_sales', 'total_sales') || '')),
+    whatnot_net:            parseMoney(String(find('net_revenue', 'net', 'earnings', 'total_estimated_earnings', 'estimated_earnings') || '')),
+    completed_earnings:     parseMoney(String(find('completed_earnings', 'completed_revenue') || '')),
+    units_sold:             parseInteger(String(find('units_sold', 'orders', 'total_orders', 'order_count') || '')),
+    avg_order_value:        parseMoney(String(find('avg_order_value', 'aov', 'average_order_value') || '')),
+    giveaway_spend:         parseMoney(String(find('giveaway_spend', 'giveaways_spend') || '')),
+    giveaways_count:        parseInteger(String(find('giveaways', 'giveaway_count', 'giveaways_count') || '')),
+    buyers_count:           parseInteger(String(find('buyers', 'buyer_count', 'unique_buyers') || '')),
+    first_time_buyers:      parseInteger(String(find('first_time_buyers', 'new_buyers', 'first_buyers') || '')),
+    returning_buyers:       parseInteger(String(find('returning_buyers', 'repeat_buyers') || '')),
+    shares_count:           parseInteger(String(find('shares', 'share_count', 'shares_count') || '')),
+    show_duration:          parseDurationToMinutes(String(find('duration', 'show_duration', 'duration_minutes') || '')),
+    max_concurrent_viewers: parseInteger(String(find('max_concurrent_viewers', 'peak_viewers', 'max_viewers') || '')),
+    total_views:            parseInteger(String(find('total_views', 'views', 'view_count', 'total_viewers') || '')),
+    _raw_metrics:           {},
+    _api_source:            true,
+  };
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 (async () => {
@@ -629,6 +715,25 @@ async function extractAnalyticsMetrics(page) {
   });
 
   const page = await context.newPage();
+
+  // Capture every JSON response from whatnot.com during this session.
+  // Analytics and GraphQL endpoints will appear here; extractShowsFromCapture()
+  // searches them for show data before falling back to DOM scraping.
+  const capturedApiResponses = [];
+  page.on('response', async (response) => {
+    try {
+      const url = response.url();
+      if (!url.includes('whatnot.com')) return;
+      if (response.status() < 200 || response.status() >= 300) return;
+      const ct = response.headers()['content-type'] || '';
+      if (!ct.includes('application/json') && !ct.includes('graphql')) return;
+      const text = await response.text().catch(() => '');
+      if (text.length < 50) return;
+      const body = JSON.parse(text);
+      capturedApiResponses.push({ url, body });
+      log('API captured:', url.replace('https://www.whatnot.com', '').substring(0, 100));
+    } catch {}
+  });
 
   try {
     await performLogin(page, email, password);
@@ -1075,6 +1180,32 @@ async function extractAnalyticsMetrics(page) {
         await debugShot(page, '06-shows-tab');
       }
 
+      // ── Try API interception first ───────────────────────────────────────────
+      // Give the SPA a moment to complete its data-fetch after tab activation.
+      await page.waitForTimeout(800);
+      const apiShows = extractShowsFromCapture(capturedApiResponses);
+
+      if (apiShows && apiShows.length > 0) {
+        const normalized = apiShows.slice(0, LIMIT).map(normalizeApiShow)
+          .filter(r => r.title || r.show_date || r.gross_revenue !== null);
+
+        if (normalized.length > 0) {
+          process.stdout.write(JSON.stringify(normalized, null, 2) + '\n');
+          info(`API intercept: returned ${normalized.length} shows — no DOM scraping needed`);
+          process.exit(0);
+        }
+        info('API intercept found array but normalization yielded nothing — falling back to DOM scraping');
+      } else {
+        if (capturedApiResponses.length > 0) {
+          info('captured', capturedApiResponses.length, 'API response(s) but none matched show data:',
+            capturedApiResponses.map(r => r.url.replace('https://www.whatnot.com', '')).join(' | '));
+        } else {
+          info('no API responses captured — Whatnot may be using non-JSON transport');
+        }
+        info('falling back to DOM scraping');
+      }
+
+      // ── DOM scraping fallback ────────────────────────────────────────────────
       const results = [];
 
       for (let i = 0; i < LIMIT; i++) {

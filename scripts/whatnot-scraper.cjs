@@ -133,6 +133,12 @@ const CHROMIUM_PATH = (() => {
   // 4. Scan PLAYWRIGHT_BROWSERS_PATH and common user cache dirs
   function findInDir(base) {
     if (!fs.existsSync(base)) return null;
+    // Check direct paths first — Playwright may install without a version subdirectory
+    // (e.g. PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers → binary at base/chrome-linux/chrome)
+    for (const bin of ['chrome-linux64/chrome', 'chrome-linux/chrome', 'chrome']) {
+      const full = `${base}/${bin}`;
+      if (fs.existsSync(full)) return full;
+    }
     let dirs;
     try { dirs = fs.readdirSync(base).filter(d => d.startsWith('chromium-')).sort().reverse(); } catch { return null; }
     for (const dir of dirs) {

@@ -116,6 +116,15 @@ class WhatnotSetupChromium extends Command
             return null;
         }
 
+        // Some Playwright installs place the binary directly under the base dir
+        // (e.g. PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers → base/chrome-linux/chrome)
+        foreach (['chrome-linux64/chrome', 'chrome-linux/chrome', 'chrome'] as $bin) {
+            $full = "{$base}/{$bin}";
+            if (file_exists($full)) {
+                return $full;
+            }
+        }
+
         $dirs = array_filter(scandir($base) ?: [], fn ($d) => str_starts_with($d, 'chromium-'));
         rsort($dirs);
 

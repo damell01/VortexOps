@@ -249,12 +249,37 @@ async function performLogin(page, email, password) {
   await page.goto(URLS.login, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await debugShot(page, '01-login-page');
 
+  // Wait for React to render at least some content before checking for the form
+  await page.waitForFunction(
+    () => (document.body.innerText || '').trim().length > 30,
+    { timeout: 10000 }
+  ).catch(() => {});
+
+  const currentUrl = page.url();
+  info('performLogin: URL after goto:', currentUrl);
+
+  // Already past the login page (session cookie still valid)
+  if (!currentUrl.includes('signin') && !currentUrl.includes('login') && !currentUrl.includes('/auth')) {
+    info('performLogin: already logged in, redirected to', currentUrl);
+    return;
+  }
+
   const emailInput = await page.waitForSelector(SELECTORS.loginEmailInput, { timeout: 15000 })
     .catch(() => null);
 
   if (!emailInput) {
-    log('no email input found — may already be logged in');
-    return;
+    const bodyText = await page.evaluate(() => (document.body.innerText || '').trim()).catch(() => '');
+    info('performLogin: login form not found — URL:', currentUrl, '| body chars:', bodyText.length);
+    if (bodyText.length < 100) {
+      info('performLogin: body nearly empty — bot-detection is likely blocking the login page');
+      throw new Error(
+        'Whatnot login page rendered empty (bot detection active). ' +
+        'Body length: ' + bodyText.length + '. ' +
+        'Run with WHATNOT_DEBUG=1 (php artisan whatnot:import --debug) to capture screenshots for inspection.'
+      );
+    }
+    info('performLogin: body preview:', bodyText.substring(0, 300));
+    throw new Error('Login form not found on ' + currentUrl + '. Page may have changed. Body: ' + bodyText.substring(0, 200));
   }
 
   await emailInput.click();
@@ -543,9 +568,12 @@ async function extractAnalyticsMetrics(page) {
   // Mask automation signals that trigger bot detection on sites like Whatnot.
   // navigator.webdriver = true is the primary signal headless Chrome sets.
   await context.addInitScript(() => {
+    // Core: webdriver flag
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+
     // Chrome-specific object that headless Chrome doesn't set by default
     if (!window.chrome) window.chrome = { runtime: {} };
+
     // Realistic plugin list
     Object.defineProperty(navigator, 'plugins', {
       get: () => {
@@ -556,7 +584,35 @@ async function extractAnalyticsMetrics(page) {
         return arr;
       },
     });
+
     Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
+
+    // Screen dimensions matching the viewport (headless can leave these at 0)
+    try {
+      Object.defineProperty(screen, 'availWidth',  { get: () => 1280 });
+      Object.defineProperty(screen, 'availHeight', { get: () => 900 });
+    } catch (_) {}
+
+    // Permissions API — headless denies notifications, real browsers default to "default"
+    try {
+      const origQuery = window.navigator.permissions.query.bind(window.navigator.permissions);
+      window.navigator.permissions.query = (params) => {
+        if (params && params.name === 'notifications') {
+          return Promise.resolve({ state: 'default', onchange: null });
+        }
+        return origQuery(params);
+      };
+    } catch (_) {}
+
+    // WebGL — headless reports "SwiftShader" which is detectable
+    try {
+      const getParam = WebGLRenderingContext.prototype.getParameter;
+      WebGLRenderingContext.prototype.getParameter = function (parameter) {
+        if (parameter === 37446) return 'Intel Inc.';   // UNMASKED_VENDOR_WEBGL
+        if (parameter === 37445) return 'Intel Iris OpenGL Engine'; // UNMASKED_RENDERER_WEBGL
+        return getParam.call(this, parameter);
+      };
+    } catch (_) {}
   });
 
   const page = await context.newPage();

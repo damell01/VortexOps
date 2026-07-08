@@ -9,6 +9,8 @@ class WhatnotShowOrder extends Model
 {
     protected $fillable = [
         'show_id',
+        'whatnot_buyer_id',
+        'inventory_item_id',
         'whatnot_order_id',
         'whatnot_show_url',
         'buyer_username',
@@ -19,23 +21,43 @@ class WhatnotShowOrder extends Model
         'quantity',
         'unit_price',
         'total_price',
+        'shipping_amount',
+        'tax_amount',
+        'fees_amount',
+        'net_amount',
         'status',
+        'tracking_number',
+        'shipping_status',
         'show_date',
         'raw_data',
     ];
 
     protected $casts = [
-        'show_date' => 'date',
-        'raw_data'  => 'array',
-        'quantity'  => 'integer',
-        'unit_price'  => 'decimal:2',
-        'total_price' => 'decimal:2',
-        'lot_number'  => 'integer',
+        'show_date'       => 'date',
+        'raw_data'        => 'array',
+        'quantity'        => 'integer',
+        'unit_price'      => 'decimal:2',
+        'total_price'     => 'decimal:2',
+        'shipping_amount' => 'decimal:2',
+        'tax_amount'      => 'decimal:2',
+        'fees_amount'     => 'decimal:2',
+        'net_amount'      => 'decimal:2',
+        'lot_number'      => 'integer',
     ];
 
     public function show(): BelongsTo
     {
         return $this->belongsTo(Show::class);
+    }
+
+    public function buyer(): BelongsTo
+    {
+        return $this->belongsTo(WhatnotBuyer::class, 'whatnot_buyer_id');
+    }
+
+    public function inventoryItem(): BelongsTo
+    {
+        return $this->belongsTo(InventoryItem::class);
     }
 
     public static function statusLabels(): array

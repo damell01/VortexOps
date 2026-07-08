@@ -79,6 +79,9 @@ class AdminModules
             'shows'               => ['label' => 'Shows',               'description' => 'Show list, creation, and the full show workflow.',     'module' => 'streams',    'order' => 10],
             'deduction_requests'  => ['label' => 'Deduction Requests',  'description' => 'AI deduction approval and inventory write-off flow.',   'module' => 'streams',    'order' => 20],
             'show_ingestion_logs' => ['label' => 'Ingestion Logs',      'description' => 'Whatnot import history and error logs.',               'module' => 'streams',    'order' => 30],
+            'whatnot_sync'        => ['label' => 'Whatnot Sync',        'description' => 'Sync dashboard: pull shows, orders, and buyers from Whatnot.', 'module' => 'streams', 'order' => 35],
+            'whatnot_buyers'      => ['label' => 'Buyers',              'description' => 'Buyer profiles aggregated from Whatnot order history.',        'module' => 'streams', 'order' => 36],
+            'whatnot_sync_history'=> ['label' => 'Sync History',        'description' => 'Log of all Whatnot sync runs with per-resource counters.',     'module' => 'streams', 'order' => 37],
 
             // ── Payouts ──────────────────────────────────────────────────────────
             'payouts'             => ['label' => 'Payouts',             'description' => 'Individual payout records and calculations.',          'module' => 'payouts',    'order' => 10],

@@ -33,6 +33,16 @@ class WhatnotChannel extends Model
         return $this->hasMany(Show::class);
     }
 
+    public function syncs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(WhatnotSync::class);
+    }
+
+    public function latestSync(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(WhatnotSync::class)->latestOfMany('started_at');
+    }
+
     public static function statusLabels(): array
     {
         return [

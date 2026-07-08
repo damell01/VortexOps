@@ -14,3 +14,4 @@ Schedule::command('db:backup')->dailyAt('02:00');
 Schedule::command('health:check --notify')->everyFifteenMinutes();
 Schedule::command('whatnot:import')->cron('0,30 * * * *');
 Schedule::command('whatnot:import-orders --new-only')->cron('5,35 * * * *');
+Schedule::command('whatnot:sync')->hourly()->name('whatnot-sync-hourly')->withoutOverlapping(10);

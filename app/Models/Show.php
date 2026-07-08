@@ -16,6 +16,8 @@ class Show extends Model
 
     protected $fillable = [
         'whatnot_channel_id',
+        'whatnot_show_id',
+        'cover_image_url',
         'title',
         'show_date',
         'start_time',
@@ -23,6 +25,9 @@ class Show extends Model
         'units_sold',
         'gross_revenue',
         'whatnot_net',
+        'whatnot_fees',
+        'whatnot_payout_amount',
+        'last_synced_at',
         'tips',
         'paper_sales_gross',
         'paper_sales_units',
@@ -55,6 +60,9 @@ class Show extends Model
         'show_date'              => 'date',
         'gross_revenue'          => 'decimal:2',
         'whatnot_net'            => 'decimal:2',
+        'whatnot_fees'           => 'decimal:2',
+        'whatnot_payout_amount'  => 'decimal:2',
+        'last_synced_at'         => 'datetime',
         'tips'                   => 'decimal:2',
         'paper_sales_gross'      => 'decimal:2',
         'sales_reconciled'       => 'boolean',

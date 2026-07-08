@@ -52,15 +52,27 @@ class ShowResource extends Resource
     // Streamers can access shows; row-level scoping in getEloquentQuery() limits what they see
     protected static function passesModuleAccessCheck(): bool { return true; }
 
+    public static function canCreate(): bool    { return auth()->user()?->isAdmin() ?? false; }
+    public static function canEdit($r): bool    { return auth()->user()?->isAdmin() ?? false; }
+    public static function canDelete($r): bool  { return auth()->user()?->isAdmin() ?? false; }
+    public static function canDeleteAny(): bool { return auth()->user()?->isAdmin() ?? false; }
+
     public static function getEloquentQuery(): Builder
     {
-        // latestDeductionRequest.lines and payouts.streamer are only needed on view/edit.
-        return parent::getEloquentQuery()->with([
+        $query = parent::getEloquentQuery()->with([
             'streamers',
             'channel',
             'latestDeductionRequest',
             'payouts',
         ]);
+
+        $user = auth()->user();
+        if ($user && $user->isStreamer() && ! $user->isAdmin()) {
+            $streamerId = $user->streamer?->id ?? 0;
+            $query->whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamerId));
+        }
+
+        return $query;
     }
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -380,7 +392,21 @@ class ShowResource extends Resource
                                 return 'No payouts have been calculated yet.';
                             }
 
-                            return $record->payouts
+                            $user = auth()->user();
+                            $payouts = $record->payouts;
+
+                            if ($user && $user->isStreamer() && ! $user->isAdmin()) {
+                                $myStreamerId = $user->streamer?->id;
+                                $payouts = $payouts->filter(
+                                    fn ($p) => $p->streamer_id === $myStreamerId
+                                );
+                            }
+
+                            if ($payouts->isEmpty()) {
+                                return 'No payouts have been calculated yet.';
+                            }
+
+                            return $payouts
                                 ->map(function ($payout) {
                                     $streamer = $payout->streamer?->name ?? 'Unknown streamer';
                                     $type = Streamer::payoutTypeLabels()[$payout->payout_type] ?? $payout->payout_type;

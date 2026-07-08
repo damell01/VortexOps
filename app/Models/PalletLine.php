@@ -36,6 +36,17 @@ class PalletLine extends Model
         'matched_at'        => 'datetime',
     ];
 
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function (self $line) {
+            if ($line->line_number === null && $line->pallet_id) {
+                $line->line_number = (static::where('pallet_id', $line->pallet_id)->max('line_number') ?? 0) + 1;
+            }
+        });
+    }
+
     public function pallet(): BelongsTo
     {
         return $this->belongsTo(Pallet::class);

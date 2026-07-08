@@ -101,35 +101,28 @@ class PalletResource extends Resource
                         ->relationship('lines')
                         ->schema([
                             Grid::make(12)->schema([
-                                TextInput::make('line_number')
-                                    ->label('Line #')
-                                    ->numeric()
-                                    ->default(1)
-                                    ->required()
-                                    ->columnSpan(1),
                                 TextInput::make('description')
                                     ->label('Description / Product Name')
                                     ->required()
                                     ->maxLength(255)
-                                    ->columnSpan(5),
+                                    ->columnSpan(6),
                                 TextInput::make('case_count')
-                                    ->label('Boxes / Cases Received')
+                                    ->label('Cases')
                                     ->numeric()
                                     ->default(1)
                                     ->minValue(1)
                                     ->required()
-                                    ->helperText('How many boxes of this SKU on the pallet.')
                                     ->columnSpan(2),
                                 TextInput::make('quantity_per_case')
-                                    ->label('Units per Box')
+                                    ->label('Units / Box')
                                     ->numeric()
                                     ->default(1)
                                     ->minValue(0.01)
                                     ->required()
-                                    ->helperText('Leave as 1 if selling sealed boxes.')
+                                    ->helperText('1 if selling sealed boxes')
                                     ->columnSpan(2),
                                 TextInput::make('unit_cost')
-                                    ->label('Unit Cost ($)')
+                                    ->label('Unit Cost')
                                     ->numeric()
                                     ->prefix('$')
                                     ->default(0)

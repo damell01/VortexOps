@@ -18,6 +18,14 @@ class CreatePallet extends CreateRecord
 
     protected function getRedirectUrl(): string
     {
-        return $this->getResource()::getUrl('view', ['record' => $this->getRecord()]);
+        $record = $this->getRecord();
+
+        // When no lines were added manually, land on Import Manifest so the user
+        // can upload a packing slip right away rather than viewing an empty pallet.
+        if ($record->lines()->doesntExist()) {
+            return $this->getResource()::getUrl('import-manifest', ['record' => $record]);
+        }
+
+        return $this->getResource()::getUrl('view', ['record' => $record]);
     }
 }

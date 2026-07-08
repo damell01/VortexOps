@@ -841,7 +841,10 @@ async function extractAnalyticsMetrics(page) {
 
       log(`navigating to ${targetUrl}`);
       await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      await page.waitForTimeout(2000);
+      // Wait for the React app to hydrate — domcontentloaded fires before JS renders the tabs.
+      await page.waitForTimeout(3500);
+      // Also wait for network to quiet down (JS bundles / data fetches)
+      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
       await debugShot(page, '05-analytics-page');
 
       if (isAnalytics) {
@@ -855,6 +858,10 @@ async function extractAnalyticsMetrics(page) {
           'button:has-text("Shows")',
           '[role="tab"]:has-text("Past Shows")',
           'button:has-text("Past Shows")',
+          '[role="tab"]:has-text("Stream")',
+          'button:has-text("Stream")',
+          '[role="tab"]:has-text("History")',
+          'button:has-text("History")',
           // Historic attribute-based (MUI tab IDs)
           'button[aria-controls="simple-tabpanel-1"]',
           'button#simple-tab-1',
@@ -872,9 +879,24 @@ async function extractAnalyticsMetrics(page) {
         }
 
         if (!showsTab) {
-          const html = await page.evaluate(() => document.body.innerHTML.substring(0, 8000));
+          // Dump human-readable diagnostics so the selector can be identified
+          // without needing to view PNG screenshots.
+          const diag = await page.evaluate(() => {
+            const tabs = Array.from(document.querySelectorAll('[role="tab"], nav a, [role="tablist"] *'))
+              .map(el => `<${el.tagName.toLowerCase()} role="${el.getAttribute('role') || ''}" aria-selected="${el.getAttribute('aria-selected') || ''}">${(el.textContent || '').trim().substring(0, 60)}</${el.tagName.toLowerCase()}>`)
+              .join('\n');
+            const buttons = Array.from(document.querySelectorAll('button'))
+              .slice(0, 30)
+              .map(el => `<button aria-label="${el.getAttribute('aria-label') || ''}">${(el.textContent || '').trim().substring(0, 60)}</button>`)
+              .join('\n');
+            const bodyText = (document.body.innerText || '').substring(0, 2000);
+            return { url: location.href, tabs, buttons, bodyText };
+          });
           process.stderr.write('SELECTOR_MISS: Analytics "Shows" tab not found.\n');
-          process.stderr.write('PAGE_SNAPSHOT: ' + html + '\n');
+          process.stderr.write('CURRENT_URL: ' + diag.url + '\n');
+          process.stderr.write('TAB_ELEMENTS:\n' + diag.tabs + '\n');
+          process.stderr.write('BUTTON_ELEMENTS:\n' + diag.buttons + '\n');
+          process.stderr.write('PAGE_TEXT:\n' + diag.bodyText + '\n');
           process.exit(2);
         }
 

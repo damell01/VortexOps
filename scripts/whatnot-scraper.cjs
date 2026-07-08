@@ -571,14 +571,16 @@ async function extractShowsListFromDom(page) {
     const addedUrls = new Set();
 
     // Find every anchor that looks like a show detail link.
-    // Whatnot show URL patterns: /live/<user>/<id>, /show/<id>, /seller/shows/<id>, /dashboard/shows/<id>
+    // The lookahead (?=[?#]|$) requires the ID to be the final path segment —
+    // sub-page links like /seller/shows/<id>/analytics would otherwise match
+    // and return "Analytics" as the show title.
+    // Whatnot show URL patterns: /live/<user>/<id>, /show/<id>, /seller/shows/<id>
     const anchors = Array.from(document.querySelectorAll('a[href]'));
     for (const a of anchors) {
       const href = a.getAttribute('href') || '';
-      if (!(/\/live\/[^/]+\/[^/]+/.test(href) ||
-            /\/show\/[\w-]+/.test(href) ||
-            /\/seller\/shows\/[\w-]+/.test(href) ||
-            /\/dashboard\/shows\/[\w-]+/.test(href))) continue;
+      if (!(/\/live\/[^/]+\/[^/?#\s]+(?=[?#]|$)/.test(href) ||
+            /\/show\/[\w-]+(?=[?#]|$)/.test(href) ||
+            /\/seller\/shows\/[\w-]+(?=[?#]|$)/.test(href))) continue;
       const fullUrl = href.startsWith('http') ? href : 'https://www.whatnot.com' + href;
       if (addedUrls.has(fullUrl)) continue;
       addedUrls.add(fullUrl);

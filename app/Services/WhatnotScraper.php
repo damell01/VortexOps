@@ -444,6 +444,11 @@ class WhatnotScraper
                     $skipped++;
                 }
             } else {
+                // show_date is NOT NULL with no default — skip creation rather than crash
+                if (! $lookupDate) {
+                    $skipped++;
+                    continue;
+                }
                 $show = Show::create(array_merge($payload, ['status' => 'draft', 'created_by' => auth()->id() ?? 1]));
                 $show->detectStreamers();
                 $created++;

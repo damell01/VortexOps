@@ -57,10 +57,10 @@ const { chromium } = loadPlaywright();
 // Analytics page selectors are based on the live Whatnot seller dashboard HTML
 // (captured July 2026). Update if Whatnot changes their markup.
 const SELECTORS = {
-  // Login page
-  loginEmailInput:    'input[type="email"], input[name="email"], input[placeholder*="email" i]',
-  loginPasswordInput: 'input[type="password"]',
-  loginSubmitBtn:     'button[type="submit"]',
+  // Login page — selectors from live HTML (July 2026)
+  loginEmailInput:    '#input-login-email, [data-testid="input-login-email"], input[name="identifier"]',
+  loginPasswordInput: '#input-login-password, [data-testid="input-login-password"], input[type="password"]',
+  loginSubmitBtn:     '[data-testid="button-login-submit"], button[type="submit"]',
 
   // Analytics page — tabs
   // Text-based selectors are tried first in the scraper loop; these are the CSS fallbacks.
@@ -93,7 +93,7 @@ const SELECTORS = {
 
 const URLS = {
   home:       'https://www.whatnot.com',
-  login:      'https://www.whatnot.com/signin',
+  login:      'https://www.whatnot.com/login',
   analytics:  'https://www.whatnot.com/dashboard/analytics/overview',
   dashboard:  'https://www.whatnot.com/dashboard',
   shows:      'https://www.whatnot.com/seller/shows',
@@ -258,8 +258,8 @@ async function performLogin(page, email, password) {
   const currentUrl = page.url();
   info('performLogin: URL after goto:', currentUrl);
 
-  // Already past the login page (session cookie still valid)
-  if (!currentUrl.includes('signin') && !currentUrl.includes('login') && !currentUrl.includes('/auth')) {
+  // Already past the login page (session cookie still valid) — goto(/login) redirected away
+  if (!currentUrl.includes('/login') && !currentUrl.includes('/signin') && !currentUrl.includes('/auth')) {
     info('performLogin: already logged in, redirected to', currentUrl);
     return;
   }

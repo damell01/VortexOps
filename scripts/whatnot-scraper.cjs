@@ -520,22 +520,44 @@ async function extractAnalyticsMetrics(page) {
   const browser = await chromium.launch({
     executablePath: CHROMIUM_PATH,
     headless:       true,
-    // HOME may be /var/www when running as www-data; Chrome can't create .local there.
-    // Setting HOME=/tmp lets Chrome write its profile and give crashpad a valid --database path.
     env: { ...process.env, HOME: '/tmp' },
     args: [
       '--no-sandbox',
       '--disable-dev-shm-usage',
       '--disable-crash-reporter',
-      '--crash-dumps-dir=/tmp',   // explicit crashpad database path — avoids SIGTRAP when HOME is unwritable
+      '--crash-dumps-dir=/tmp',
       '--disable-gpu',
-      '--single-process',
+      // Do NOT use --single-process — it's a detectable automation signal.
+      // Removed: '--single-process'
     ],
   });
 
   const context = await browser.newContext({
+    // Use a realistic Chrome UA without "HeadlessChrome" in the string.
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     viewport:  { width: 1280, height: 900 },
+    // Realistic locale / timezone
+    locale:    'en-US',
+    timezoneId: 'America/Chicago',
+  });
+
+  // Mask automation signals that trigger bot detection on sites like Whatnot.
+  // navigator.webdriver = true is the primary signal headless Chrome sets.
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    // Chrome-specific object that headless Chrome doesn't set by default
+    if (!window.chrome) window.chrome = { runtime: {} };
+    // Realistic plugin list
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => {
+        const arr = [{ name: 'Chrome PDF Plugin' }, { name: 'Chrome PDF Viewer' }, { name: 'Native Client' }];
+        arr.item = i => arr[i];
+        arr.namedItem = n => arr.find(p => p.name === n) || null;
+        arr.refresh = () => {};
+        return arr;
+      },
+    });
+    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
   });
 
   const page = await context.newPage();
@@ -918,6 +940,7 @@ async function extractAnalyticsMetrics(page) {
           '[role="tab"][data-index="1"]',
         ];
 
+        // Search the main frame first
         for (const sel of tabCandidates) {
           const el = await page.$(sel).catch(() => null);
           if (!el) continue;
@@ -925,6 +948,22 @@ async function extractAnalyticsMetrics(page) {
           showsTab = el;
           log(`found Shows tab via: ${sel}`);
           break;
+        }
+
+        // If not in main frame, check child frames (some dashboards use iframes)
+        if (!showsTab) {
+          for (const frame of page.frames()) {
+            if (frame === page.mainFrame()) continue;
+            for (const sel of tabCandidates) {
+              const el = await frame.$(sel).catch(() => null);
+              if (!el) continue;
+              if (!await el.isVisible().catch(() => false)) continue;
+              showsTab = el;
+              log(`found Shows tab in iframe (${frame.url()}) via: ${sel}`);
+              break;
+            }
+            if (showsTab) break;
+          }
         }
 
         if (!showsTab) {

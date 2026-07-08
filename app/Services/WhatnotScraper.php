@@ -90,17 +90,9 @@ class WhatnotScraper
         }
 
         if ($process->getExitCode() === 2) {
-            // Include the diagnostic lines (CURRENT_URL, TAB_ELEMENTS, PAGE_TEXT) so
-            // they appear directly in the artisan/UI output rather than only in the log.
-            $diagLines = array_filter(
-                explode("\n", $stderr),
-                fn ($l) => str_starts_with($l, 'SELECTOR_MISS') ||
-                           str_starts_with($l, 'CURRENT_URL') ||
-                           str_starts_with($l, 'TAB_ELEMENTS') ||
-                           str_starts_with($l, 'BUTTON_ELEMENTS') ||
-                           str_starts_with($l, 'PAGE_TEXT')
-            );
-            $diag = implode("\n", array_slice(array_values($diagLines), 0, 60));
+            // Pass all non-empty stderr lines through so diagnostics are visible in artisan/UI.
+            $diagLines = array_filter(explode("\n", $stderr), fn ($l) => trim($l) !== '');
+            $diag      = implode("\n", array_slice(array_values($diagLines), 0, 80));
             throw new \RuntimeException(
                 "Whatnot scraper: page selectors didn't match.\n" . $diag
             );

@@ -339,6 +339,24 @@ class WhatnotScraper
             $env['PLAYWRIGHT_BROWSERS_PATH'] = $path;
         }
 
+        // Pass the Chromium path from the marker file as an env var so the Node process
+        // skips the fs.existsSync check (which fails when the binary lives under /root/).
+        // Precedence: explicit .env var > marker file written by artisan whatnot:setup-chromium
+        if (! isset($env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'])) {
+            $explicit = env('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH');
+            if ($explicit) {
+                $env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'] = $explicit;
+            } else {
+                $marker = storage_path('chromium-path.txt');
+                if (file_exists($marker)) {
+                    $markerPath = trim(file_get_contents($marker));
+                    if ($markerPath) {
+                        $env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'] = $markerPath;
+                    }
+                }
+            }
+        }
+
         $process = new Process([$this->nodeBin, $this->scriptPath], null, $env);
         $process->setTimeout($timeout);
         return $process;

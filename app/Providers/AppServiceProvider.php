@@ -42,6 +42,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(MappingEngine::class, fn ($app) => new MappingEngine(
             $app->make(ProductMatchingService::class),
             $app->make(OllamaClient::class),
+            $app->make(EmbeddingService::class),
         ));
 
         $this->app->singleton(ChatService::class, fn ($app) => new ChatService(

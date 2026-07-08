@@ -40,7 +40,7 @@ class RunShowAiMappingJob implements ShouldQueue
 
         try {
             $lines   = $this->extractRawLines($show);
-            $mapped  = $this->mapLines($lines, $engine);
+            $mapped  = $this->mapLines($lines, $engine, $task->triggered_by);
             $summary = $this->persistMappings($show, $mapped);
 
             $show->update(['status' => 'pending_approval']);
@@ -114,7 +114,7 @@ class RunShowAiMappingJob implements ShouldQueue
         return $lines;
     }
 
-    private function mapLines(array $lines, MappingEngine $engine): array
+    private function mapLines(array $lines, MappingEngine $engine, ?int $userId): array
     {
         $results = [];
 
@@ -125,6 +125,16 @@ class RunShowAiMappingJob implements ShouldQueue
 
             try {
                 $result = $engine->match($line['description']);
+
+                // Auto-learn high-confidence LLM matches so future identical descriptions
+                // resolve instantly in Stage 1 without hitting the LLM again
+                if ($result->stage === 'llm' && $result->product && $result->confidence >= 0.88 && $userId) {
+                    try {
+                        $engine->confirmMatch($line['description'], $result->product, $result, $userId);
+                    } catch (\Throwable $e) {
+                        Log::debug("Failed to save alias for '{$line['description']}': " . $e->getMessage());
+                    }
+                }
 
                 $results[] = array_merge($line, [
                     'matched_item_id'  => $result->product?->id,

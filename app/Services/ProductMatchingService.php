@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\Product;
 use App\Models\ProductIdentity;
 use App\Models\Vendor;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -120,9 +120,7 @@ class ProductMatchingService
             return $this->emptyResult();
         }
 
-        $products = Product::where('is_active', true)
-            ->select(['id', 'name', 'brand', 'sport', 'year', 'set_name', 'product_type', 'configuration', 'upc'])
-            ->get();
+        $products = $this->fuzzyCatalog();
 
         $scores = [];
 
@@ -296,11 +294,26 @@ class ProductMatchingService
         }
 
         $this->embedding->flushCatalogCache();
+        $this->flushFuzzyCatalog();
 
         return $identity;
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
+
+    private function fuzzyCatalog(): \Illuminate\Database\Eloquent\Collection
+    {
+        return Cache::remember('matching:fuzzy_catalog', 300, fn () =>
+            Product::where('is_active', true)
+                ->select(['id', 'name', 'brand', 'sport', 'year', 'set_name', 'product_type', 'configuration', 'upc'])
+                ->get()
+        );
+    }
+
+    public function flushFuzzyCatalog(): void
+    {
+        Cache::forget('matching:fuzzy_catalog');
+    }
 
     private function tokenize(string $text): array
     {

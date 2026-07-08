@@ -5,7 +5,9 @@ namespace App\Services\AI\Mapping;
 use App\Models\Product;
 use App\Models\ProductIdentity;
 use App\Services\AI\OllamaClient;
+use App\Services\EmbeddingService;
 use App\Services\ProductMatchingService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -27,6 +29,7 @@ class MappingEngine
     public function __construct(
         private readonly ProductMatchingService $upstream,
         private readonly OllamaClient $ollama,
+        private readonly EmbeddingService $embedding,
     ) {}
 
     /**
@@ -36,12 +39,19 @@ class MappingEngine
      * @param string|null $upc         UPC/barcode if available
      * @param int|null    $vendorId    Scopes alias lookup to a specific vendor
      */
-    public function match(string $description, ?string $upc = null, ?int $vendorId = null): MappingResult
+    /**
+     * @param bool $skipLlm Skip the slow Stage 4 LLM call (use for web-request contexts).
+     */
+    public function match(string $description, ?string $upc = null, ?int $vendorId = null, bool $skipLlm = false): MappingResult
     {
         // Stages 1–3: delegate to the existing three-stage service
         $upstream = $this->upstream->match($description, $upc, $vendorId);
 
         if ($upstream['product'] && $upstream['confidence'] >= 0.95) {
+            return $this->fromUpstream($upstream);
+        }
+
+        if ($skipLlm) {
             return $this->fromUpstream($upstream);
         }
 
@@ -81,7 +91,7 @@ class MappingEngine
     private function llmMatch(string $description, array $candidates): ?MappingResult
     {
         // Build a short catalogue: prefer candidates from earlier stages, else sample from DB
-        $items = $this->buildCatalogue($candidates);
+        $items = $this->buildCatalogue($candidates, $description);
 
         if (empty($items)) {
             return null;
@@ -144,31 +154,73 @@ PROMPT;
     }
 
     /**
-     * Build a focused item catalogue for the LLM prompt.
-     * Use candidate products from earlier stages + a small random sample to reduce prompt size.
+     * Build a focused catalogue for the LLM prompt.
+     * Priority: stage 1-3 candidates → embedding-similar products → cached random pool.
      */
-    private function buildCatalogue(array $candidates): array
+    private function buildCatalogue(array $candidates, string $description): array
     {
         $items = collect($candidates)
             ->filter(fn ($c) => $c['product'] !== null)
             ->map(fn ($c) => [
                 'id'       => $c['product']->id,
                 'name'     => $c['product']->name,
-                'sku'      => $c['product']->sku,
-                'category' => $c['product']->category,
+                'sku'      => $c['product']->sku ?? null,
+                'category' => $c['product']->category ?? null,
             ])
+            ->unique('id')
+            ->values()
             ->toArray();
 
         if (count($items) < 20) {
-            $extra = Product::where('is_active', true)
-                ->whereNotIn('id', array_column($items, 'id'))
-                ->inRandomOrder()
-                ->limit(20 - count($items))
-                ->get(['id', 'name', 'sku', 'category'])
-                ->map(fn ($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'category' => $p->category])
-                ->toArray();
+            $existingIds = array_column($items, 'id');
 
-            $items = array_merge($items, $extra);
+            // Fill with embedding-similar products when possible
+            $queryVec = $this->embedding->embed($description);
+            if ($queryVec) {
+                $catalog = array_filter(
+                    $this->embedding->productEmbeddingCatalog(),
+                    fn ($id) => ! in_array($id, $existingIds),
+                    ARRAY_FILTER_USE_KEY
+                );
+                $ranked = $this->embedding->rankBySimilarity($queryVec, $catalog, 20 - count($items));
+                if (! empty($ranked)) {
+                    $embProducts = Product::whereIn('id', array_keys($ranked))
+                        ->where('is_active', true)
+                        ->get(['id', 'name', 'sku', 'category'])
+                        ->keyBy('id');
+                    foreach (array_keys($ranked) as $id) {
+                        if (count($items) >= 20) {
+                            break;
+                        }
+                        if (isset($embProducts[$id])) {
+                            $p           = $embProducts[$id];
+                            $items[]     = ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'category' => $p->category];
+                            $existingIds[] = $p->id;
+                        }
+                    }
+                }
+            }
+
+            // Fall back to a cached random pool for any remaining slots
+            if (count($items) < 20) {
+                $pool = Cache::remember('mapping:catalogue_pool', 300, fn () =>
+                    Product::where('is_active', true)
+                        ->inRandomOrder()
+                        ->limit(100)
+                        ->get(['id', 'name', 'sku', 'category'])
+                        ->map(fn ($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'category' => $p->category])
+                        ->toArray()
+                );
+                foreach ($pool as $p) {
+                    if (count($items) >= 20) {
+                        break;
+                    }
+                    if (! in_array($p['id'], $existingIds)) {
+                        $items[]     = $p;
+                        $existingIds[] = $p['id'];
+                    }
+                }
+            }
         }
 
         return $items;

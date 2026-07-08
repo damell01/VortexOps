@@ -175,7 +175,7 @@ class ImportManifest extends Page
         }
 
         try {
-            $result = $engine->match($description, $barcode);
+            $result = $engine->match(description: $description, upc: $barcode, skipLlm: true);
 
             if ($result->matched()) {
                 return [

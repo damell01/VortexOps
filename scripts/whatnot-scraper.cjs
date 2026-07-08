@@ -1158,7 +1158,10 @@ function normalizeApiShow(s) {
         let showsTab = null;
 
         const tabCandidates = [
-          // Text-based (Playwright extension — most stable)
+          // Sidebar nav link (live Whatnot dashboard HTML, July 2026 — <a> not button/tab)
+          'a:has-text("Shows")',
+          'a[href*="shows"]',
+          // Role-tab variants (kept for future UI changes)
           '[role="tab"]:has-text("Shows")',
           'button:has-text("Shows")',
           '[role="tab"]:has-text("Past Shows")',

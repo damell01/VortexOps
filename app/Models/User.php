@@ -51,12 +51,12 @@ class User extends Authenticatable implements FilamentUser
 
     public function isSuperAdmin(): bool
     {
-        return $this->hasRole('super_admin');
+        return $this->isOwner();
     }
 
     public function isAdmin(): bool
     {
-        return $this->hasAnyRole(['admin', 'super_admin']);
+        return $this->isOwner() || $this->hasAnyRole(['admin', 'super_admin']);
     }
 
     public function isStreamer(): bool

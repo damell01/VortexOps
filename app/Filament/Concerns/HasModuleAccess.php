@@ -8,6 +8,9 @@ trait HasModuleAccess
 {
     public static function canAccess(): bool
     {
+        if (auth()->user()?->isOwner()) {
+            return true;
+        }
         if (! AdminModules::isEnabled(static::$moduleSlug)) {
             return false;
         }
@@ -19,6 +22,9 @@ trait HasModuleAccess
 
     public static function shouldRegisterNavigation(): bool
     {
+        if (auth()->user()?->isOwner()) {
+            return true;
+        }
         if (! AdminModules::isEnabled(static::$moduleSlug)) {
             return false;
         }

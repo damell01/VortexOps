@@ -8,6 +8,7 @@ use App\Models\DeductionRequest;
 use App\Models\DeductionRequestLine;
 use App\Models\InventoryLocation;
 use App\Models\Product;
+use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WhatnotChannel;
 use Filament\Forms\Components\DatePicker;
@@ -16,6 +17,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\TimePicker;
+use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
 use Filament\Schemas\Components\Grid;
@@ -155,7 +157,7 @@ class CreateShow extends CreateRecord
 
             Step::make('Financials')
                 ->icon('heroicon-o-currency-dollar')
-                ->description('Revenue details')
+                ->description('Revenue and paper sales details')
                 ->schema([
                     Grid::make(3)->schema([
                         TextInput::make('gross_revenue')
@@ -177,11 +179,44 @@ class CreateShow extends CreateRecord
                             ->default(0),
                     ]),
 
+                    Grid::make(3)->schema([
+                        TextInput::make('paper_sales_gross')
+                            ->label('Paper Sales Gross')
+                            ->numeric()
+                            ->prefix('$')
+                            ->nullable()
+                            ->helperText('Streamer\'s own paper tracking (not Whatnot).'),
+
+                        TextInput::make('paper_sales_units')
+                            ->label('Paper Sales Units')
+                            ->numeric()
+                            ->nullable(),
+
+                        Toggle::make('sales_reconciled')
+                            ->label('Sales Reconciled')
+                            ->helperText('Whatnot totals and paper sheet have been compared.')
+                            ->inline(false),
+                    ]),
+
+                    Textarea::make('paper_sales_notes')
+                        ->label('Paper Sales Notes')
+                        ->rows(2)
+                        ->nullable()
+                        ->columnSpanFull(),
+
                     Textarea::make('notes')
                         ->label('Notes')
                         ->rows(3)
                         ->columnSpanFull()
                         ->nullable(),
+
+                    Select::make('status')
+                        ->label('Initial Status')
+                        ->options(Show::statusLabels())
+                        ->default('pending_review')
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->helperText('Choose Draft to save without triggering notifications yet.')
+                        ->columnSpanFull(),
                 ]),
         ];
     }
@@ -189,7 +224,7 @@ class CreateShow extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $data['import_source'] = 'manual';
-        $data['status']        = 'pending_review';
+        $data['status']        = $data['status'] ?? 'pending_review';
         $data['created_by']    = auth()->id();
 
         unset($data['inventory_items']);
@@ -201,7 +236,9 @@ class CreateShow extends CreateRecord
     {
         $show = $this->record;
 
-        NotifyShowReady::dispatch($show->id);
+        if ($show->status !== 'draft') {
+            NotifyShowReady::dispatch($show->id);
+        }
 
         $inventoryRows = $this->data['inventory_items'] ?? [];
 

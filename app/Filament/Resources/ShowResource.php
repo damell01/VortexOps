@@ -135,6 +135,11 @@ class ShowResource extends Resource
     {
         return $schema->components([
             Section::make('Show Details')->columns(2)->schema([
+                DatePicker::make('show_date')
+                    ->label('Show Date')
+                    ->required()
+                    ->default(now()),
+
                 Select::make('whatnot_channel_id')
                     ->label('Channel')
                     ->options(WhatnotChannel::where('status', 'active')->pluck('name', 'id'))
@@ -146,16 +151,12 @@ class ShowResource extends Resource
                     ->placeholder('e.g. Mojo Break #47')
                     ->maxLength(255),
 
-                DatePicker::make('show_date')
-                    ->label('Show Date')
+                Select::make('status')
+                    ->label('Status')
+                    ->options(Show::statusLabels())
                     ->required()
-                    ->default(now()),
-
-                Select::make('import_source')
-                    ->label('Import Source')
-                    ->options(Show::importSourceLabels())
-                    ->default('manual')
-                    ->required(),
+                    ->default('pending_review')
+                    ->visible(fn () => auth()->user()?->isAdmin()),
 
                 TimePicker::make('start_time')
                     ->label('Start Time')
@@ -182,6 +183,14 @@ class ShowResource extends Resource
                     ->options(Streamer::where('status', 'active')->pluck('name', 'id'))
                     ->relationship('streamers', 'name')
                     ->preload()
+                    ->columnSpanFull(),
+
+                Select::make('import_source')
+                    ->label('Import Source')
+                    ->options(Show::importSourceLabels())
+                    ->default('manual')
+                    ->required()
+                    ->visible(fn () => auth()->user()?->isOwner())
                     ->columnSpanFull(),
             ]),
 

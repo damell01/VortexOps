@@ -457,10 +457,14 @@ async function extractAnalyticsMetrics(page) {
   const browser = await chromium.launch({
     executablePath: CHROMIUM_PATH,
     headless:       true,
+    // HOME may be /var/www when running as www-data; Chrome can't create .local there.
+    // Setting HOME=/tmp lets Chrome write its profile and give crashpad a valid --database path.
+    env: { ...process.env, HOME: '/tmp' },
     args: [
       '--no-sandbox',
       '--disable-dev-shm-usage',
-      '--disable-crash-reporter',  // prevents crashpad handler from spawning (avoids --database SIGTRAP)
+      '--disable-crash-reporter',
+      '--crash-dumps-dir=/tmp',   // explicit crashpad database path — avoids SIGTRAP when HOME is unwritable
       '--disable-gpu',
       '--single-process',
     ],

@@ -42,11 +42,35 @@ class ProfitSharePacket extends Page
         return 'filament.pages.profit-share-packet';
     }
 
-    public string $month = '';
+    public string $month    = '';
+    public string $dateMode = 'month';  // 'month' | 'custom'
+    public string $dateFrom = '';
+    public string $dateTo   = '';
 
     public function mount(): void
     {
-        $this->month = now()->format('Y-m');
+        $this->month    = now()->format('Y-m');
+        $this->dateFrom = now()->startOfMonth()->toDateString();
+        $this->dateTo   = now()->endOfMonth()->toDateString();
+    }
+
+    public function getDateRangeLabel(): string
+    {
+        [$from, $to] = $this->resolvedDateRange();
+        if (! $from || ! $to) return '—';
+        return \Carbon\Carbon::parse($from)->format('M j, Y') . ' – ' . \Carbon\Carbon::parse($to)->format('M j, Y');
+    }
+
+    /** @return array{string|null, string|null} */
+    private function resolvedDateRange(): array
+    {
+        if ($this->dateMode === 'custom') {
+            return [$this->dateFrom ?: null, $this->dateTo ?: null];
+        }
+
+        if (! $this->month) return [null, null];
+        [$year, $mon] = explode('-', $this->month);
+        return ["{$year}-{$mon}-01", date('Y-m-t', strtotime("{$year}-{$mon}-01"))];
     }
 
     /**
@@ -54,13 +78,10 @@ class ProfitSharePacket extends Page
      */
     public function getPacketDataProperty(): array
     {
-        if (! $this->month) {
+        [$from, $to] = $this->resolvedDateRange();
+        if (! $from || ! $to) {
             return [];
         }
-
-        [$year, $mon] = explode('-', $this->month);
-        $from = "{$year}-{$mon}-01";
-        $to   = date('Y-m-t', strtotime($from));
 
         $streamers = Streamer::where('status', 'active')
             ->whereIn('payout_type', ['profit_share', 'hybrid'])

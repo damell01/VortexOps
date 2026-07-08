@@ -2,20 +2,51 @@
     <div class="space-y-6">
 
         {{-- Controls --}}
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4">
-            <div class="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div class="flex-1 max-w-xs">
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Month</label>
-                    <input
-                        wire:model.live="month"
-                        type="month"
-                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4 print:hidden">
+            <div class="flex flex-col sm:flex-row sm:items-end gap-4 flex-wrap">
+
+                {{-- Mode toggle --}}
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Date Range</label>
+                    <div class="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden text-sm">
+                        <button wire:click="$set('dateMode','month')" type="button"
+                            class="px-3 py-2 transition-colors {{ $dateMode === 'month' ? 'bg-primary-600 text-white font-medium' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600' }}">
+                            Month
+                        </button>
+                        <button wire:click="$set('dateMode','custom')" type="button"
+                            class="px-3 py-2 border-l border-gray-300 dark:border-gray-600 transition-colors {{ $dateMode === 'custom' ? 'bg-primary-600 text-white font-medium' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600' }}">
+                            Custom
+                        </button>
+                    </div>
                 </div>
-                <div class="flex items-end">
-                    <button
-                        x-on:click="window.print()"
-                        type="button"
-                        class="inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors print:hidden">
+
+                {{-- Month picker --}}
+                @if($dateMode === 'month')
+                    <div class="max-w-xs">
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Month</label>
+                        <input wire:model.live="month" type="month"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                    </div>
+                @else
+                    {{-- Custom date range --}}
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">From</label>
+                            <input wire:model.live="dateFrom" type="date"
+                                class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
+                            <input wire:model.live="dateTo" type="date"
+                                class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        </div>
+                    </div>
+                @endif
+
+                {{-- Print --}}
+                <div class="sm:ml-auto">
+                    <button x-on:click="window.print()" type="button"
+                        class="inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-colors">
                         <x-heroicon-o-printer class="h-4 w-4" />
                         Print Packet
                     </button>
@@ -27,7 +58,7 @@
 
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Profit Share Packet — {{ $month }}</h2>
+                <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Profit Share Packet — {{ $this->dateRangeLabel }}</h2>
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Profit share and hybrid streamers only</p>
             </div>
 

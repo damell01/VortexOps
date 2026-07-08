@@ -195,6 +195,11 @@ function log(...args) {
   if (DEBUG) process.stderr.write('[whatnot-scraper] ' + args.join(' ') + '\n');
 }
 
+// Always-on milestone logging (visible in artisan output / error table)
+function info(...args) {
+  process.stderr.write('[whatnot] ' + args.join(' ') + '\n');
+}
+
 async function debugShot(page, name) {
   if (!DEBUG) return;
   const p = `/tmp/whatnot-debug-${name}.png`;
@@ -282,6 +287,7 @@ async function performLogin(page, email, password) {
   await debugShot(page, '04-post-login');
 
   const url = page.url();
+  info('post-login URL:', url);
   if (url.includes('signin') || url.includes('login') || url.includes('verify')) {
     const pageText = await page.textContent('body');
     if (pageText.toLowerCase().includes('incorrect') || pageText.toLowerCase().includes('invalid')) {
@@ -315,11 +321,14 @@ async function switchToChannel(page, channelName) {
 
   const SWITCH_ROLE_SEL = '#team-invite-switch-role-anchor';
 
+  info('switchToChannel: current URL before switch:', page.url());
+
   // Wait up to 8s for the nav to render (React SPA hydration)
   let switchBtn = await page.waitForSelector(SWITCH_ROLE_SEL, { timeout: 8000 })
     .catch(() => null);
 
   if (!switchBtn || !await switchBtn.isVisible().catch(() => false)) {
+    info('switchToChannel: button not immediately visible, trying nav triggers');
     // Sidebar might be collapsed behind a toggle — try common triggers
     const navTriggers = [
       '[aria-label="Open navigation drawer"]',
@@ -337,7 +346,7 @@ async function switchToChannel(page, channelName) {
       await page.waitForTimeout(1000);
       switchBtn = await page.$(SWITCH_ROLE_SEL).catch(() => null);
       if (switchBtn && await switchBtn.isVisible().catch(() => false)) {
-        log(`revealed Switch Role button via: ${sel}`);
+        info('switchToChannel: revealed button via:', sel);
         break;
       }
       await page.keyboard.press('Escape').catch(() => {});
@@ -348,11 +357,11 @@ async function switchToChannel(page, channelName) {
   await debugShot(page, 'role-switch-02-found');
 
   if (!switchBtn || !await switchBtn.isVisible().catch(() => false)) {
-    log('WARNING: Switch Role button not found — continuing on currently active channel');
+    info('switchToChannel: WARNING — Switch Role button not found, continuing on active channel');
     return;
   }
 
-  // ── Click Switch Role ─────────────────────────────────────────────────────────
+  info('switchToChannel: clicking Switch Role button');
   await switchBtn.click();
   await page.waitForTimeout(2000);
   await debugShot(page, 'role-switch-03-role-list');
@@ -361,14 +370,15 @@ async function switchToChannel(page, channelName) {
   const target = page.getByText(channelName, { exact: false }).first();
   if (!await target.isVisible().catch(() => false)) {
     await debugShot(page, 'role-switch-failed-channel');
-    log(`WARNING: channel "${channelName}" not found in role list — continuing on active channel`);
+    info(`switchToChannel: WARNING — "${channelName}" not found in role list, continuing on active channel`);
     return;
   }
 
+  info(`switchToChannel: clicking channel "${channelName}"`);
   await target.click();
   await page.waitForTimeout(2500);
   await debugShot(page, 'role-switch-04-done');
-  log(`switched to channel "${channelName}"`);
+  info('switchToChannel: done, URL now:', page.url());
 }
 
 // ── Extract all metric cards from the current analytics page view ─────────────
@@ -868,13 +878,16 @@ async function extractAnalyticsMetrics(page) {
         let currentUrl = page.url();
 
         if (isLoginUrl(currentUrl)) {
-          log(`redirected to ${currentUrl} — session expired, re-authenticating`);
+          info('analytics redirect to login — re-authenticating and re-switching channel');
           await performLogin(page, email, password);
           await page.waitForTimeout(1000);
-          // After re-login retry this candidate
+          // Re-run channel switch after re-login
+          if (CHANNEL_NAME) await switchToChannel(page, CHANNEL_NAME);
+          // Retry this candidate
           await page.goto(candidate, { waitUntil: 'domcontentloaded', timeout: 30000 });
           await page.waitForTimeout(2000);
           currentUrl = page.url();
+          info('after re-auth retry, URL:', currentUrl);
         }
 
         if (!isLoginUrl(currentUrl)) {

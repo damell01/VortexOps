@@ -350,7 +350,10 @@ class WhatnotScraper
                 $marker = storage_path('chromium-path.txt');
                 if (file_exists($marker)) {
                     $markerPath = trim(file_get_contents($marker));
-                    if ($markerPath) {
+                    // Only pass the path if it's actually accessible to the current process.
+                    // When artisan runs as root the marker may point to /root/.cache/…,
+                    // which www-data cannot read — letting Node fall through to its own scan.
+                    if ($markerPath && file_exists($markerPath)) {
                         $env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'] = $markerPath;
                     }
                 }

@@ -105,8 +105,11 @@ const CHROMIUM_PATH = (() => {
   const fs = require('fs');
 
   // 1. Explicit env override (highest priority, covers dev/CI overrides)
+  //    Verify existence — path may come from a marker written by root and be inaccessible to www-data.
   if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
-    return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+    const p = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+    if (fs.existsSync(p)) return p;
+    // Path is set but inaccessible from this process; fall through to scan.
   }
 
   // 2. Marker files written by `php artisan whatnot:setup-chromium` or Docker build
@@ -143,6 +146,7 @@ const CHROMIUM_PATH = (() => {
 
   const searchRoots = [
     process.env.PLAYWRIGHT_BROWSERS_PATH,
+    '/opt/pw-browsers',                      // shared location written by whatnot:setup-chromium
     ...[process.env.HOME, '/root', '/var/www', '/home/www-data']
       .filter(Boolean)
       .map(h => `${h}/.cache/ms-playwright`),

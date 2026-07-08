@@ -343,56 +343,80 @@ async function switchToChannel(page, channelName) {
   if (!channelName) return;
   log(`switching to channel: "${channelName}"`);
 
-  // The Switch Role button (id=team-invite-switch-role-anchor) is part of the
-  // persistent sidebar nav — it's already on the page right after login.
-  // Do NOT navigate away first; just find and click it where we are.
-
-  await debugShot(page, 'role-switch-01-post-login');
+  await debugShot(page, 'role-switch-01-pre');
+  info('switchToChannel: current URL before switch:', page.url());
 
   const SWITCH_ROLE_SEL = '#team-invite-switch-role-anchor';
 
-  info('switchToChannel: current URL before switch:', page.url());
+  // The Switch Role button is inside the profile drawer — invisible until
+  // the avatar button in the top-nav is clicked. Try the avatar first, then
+  // fall back to other nav triggers.
+  const isInViewport = async (el) => {
+    if (!el) return false;
+    return el.evaluate(node => {
+      const r = node.getBoundingClientRect();
+      return r.top >= 0 && r.bottom <= window.innerHeight && r.width > 0 && r.height > 0;
+    }).catch(() => false);
+  };
 
-  // Wait up to 8s for the nav to render (React SPA hydration)
-  let switchBtn = await page.waitForSelector(SWITCH_ROLE_SEL, { timeout: 8000 })
-    .catch(() => null);
+  // Step 1 — open the profile drawer via the avatar button
+  const avatarTriggers = [
+    // Avatar container div with CSS custom property (from live Whatnot HTML, July 2026)
+    'button:has([style*="--avatar-size"])',
+    'a:has([style*="--avatar-size"])',
+    // Fallbacks
+    '[data-testid*="avatar"]',
+    '[data-testid*="profile"]',
+    'button[aria-label*="profile" i]',
+    'button[aria-label*="account" i]',
+    '[aria-label="Open navigation drawer"]',
+    '[aria-label="Open sidebar"]',
+    'button[aria-label*="menu" i]',
+  ];
 
-  if (!switchBtn || !await switchBtn.isVisible().catch(() => false)) {
-    info('switchToChannel: button not immediately visible, trying nav triggers');
-    // Sidebar might be collapsed behind a toggle — try common triggers
-    const navTriggers = [
-      '[aria-label="Open navigation drawer"]',
-      '[aria-label="Open sidebar"]',
-      '[aria-label="Toggle sidebar"]',
-      'button[aria-label*="menu" i]',
-      'button[aria-label*="profile" i]',
-      'button:has(img[alt="avatar"])',
-    ];
+  let drawerOpened = false;
+  for (const sel of avatarTriggers) {
+    const trigger = await page.locator(sel).first().elementHandle().catch(() => null);
+    if (!trigger || !await trigger.isVisible().catch(() => false)) continue;
+    info('switchToChannel: clicking avatar/nav trigger:', sel);
+    await trigger.click();
+    await page.waitForTimeout(1000);
+    const btn = await page.$(SWITCH_ROLE_SEL).catch(() => null);
+    if (btn && await isInViewport(btn)) {
+      info('switchToChannel: drawer opened, Switch Role now in viewport');
+      drawerOpened = true;
+      break;
+    }
+    // Dismiss and try next trigger
+    await page.keyboard.press('Escape').catch(() => {});
+    await page.waitForTimeout(300);
+  }
 
-    for (const sel of navTriggers) {
-      const trigger = await page.$(sel).catch(() => null);
-      if (!trigger || !await trigger.isVisible().catch(() => false)) continue;
-      await trigger.click();
+  // Step 2 — if drawer didn't open via UI triggers, force-click the element
+  // via JavaScript (bypasses the viewport restriction as a last resort)
+  const switchBtn = await page.$(SWITCH_ROLE_SEL).catch(() => null);
+  if (!drawerOpened) {
+    if (switchBtn) {
+      info('switchToChannel: fallback — JS-clicking Switch Role (outside viewport)');
+      await page.evaluate(sel => {
+        const el = document.querySelector(sel);
+        if (el) el.click();
+      }, SWITCH_ROLE_SEL);
       await page.waitForTimeout(1000);
-      switchBtn = await page.$(SWITCH_ROLE_SEL).catch(() => null);
-      if (switchBtn && await switchBtn.isVisible().catch(() => false)) {
-        info('switchToChannel: revealed button via:', sel);
-        break;
-      }
-      await page.keyboard.press('Escape').catch(() => {});
-      await page.waitForTimeout(300);
+    } else {
+      info('switchToChannel: WARNING — Switch Role element not in DOM, continuing on active channel');
+      return;
     }
   }
 
-  await debugShot(page, 'role-switch-02-found');
+  await debugShot(page, 'role-switch-02-drawer-open');
 
-  if (!switchBtn || !await switchBtn.isVisible().catch(() => false)) {
-    info('switchToChannel: WARNING — Switch Role button not found, continuing on active channel');
-    return;
+  // If the drawer was opened via UI trigger, we still need to click Switch Role.
+  // If we used the JS fallback above, it was already clicked — skip.
+  if (drawerOpened && switchBtn) {
+    info('switchToChannel: clicking Switch Role button');
+    await switchBtn.click();
   }
-
-  info('switchToChannel: clicking Switch Role button');
-  await switchBtn.click();
   await page.waitForTimeout(2000);
   await debugShot(page, 'role-switch-03-role-list');
 

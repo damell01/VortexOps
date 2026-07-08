@@ -600,6 +600,168 @@ php artisan queue:work --queue=ai,default --sleep=3 --tries=1 --timeout=330
 
 ---
 
+## Whatnot Scraper
+
+Whatnot has no public API. Everything is done through headless browser automation — a Playwright/Node.js script (`scripts/whatnot-scraper.cjs`) that PHP launches as a subprocess via Symfony Process (`app/Services/WhatnotScraper.php`).
+
+```
+PHP (WhatnotScraper.php)
+    └── Symfony Process
+            └── node scripts/whatnot-scraper.cjs
+                    └── Playwright → Chromium (headless)
+                            └── whatnot.com seller dashboard
+```
+
+---
+
+### How it logs in
+
+Every mode starts the same way: navigates to `whatnot.com/signin`, fills the email + password fields, submits, and waits for navigation away from the login URL. If the page stays on `/signin` after submission (incorrect credentials, 2FA prompt, etc.) the script exits with code 1 and surfaces the reason.
+
+2FA is not supported. The Whatnot account must have 2FA disabled.
+
+---
+
+### 4 operating modes (`WHATNOT_MODE`)
+
+| Mode | What it does |
+|---|---|
+| `analytics` | Scrapes per-show metrics from `/dashboard/analytics/overview` — the default for all imports |
+| `show-orders` | Scrapes the order/lot list from one specific show detail page (`WHATNOT_SHOW_URL` required) |
+| `seller-shows` | Scrapes `/seller/shows` to collect show detail URLs for backfilling |
+| `test` | Verifies credentials only; navigates to the seller hub and returns `{connected, email, seller_url}` |
+
+---
+
+### Mode: analytics (the main import)
+
+This is what runs when you hit "Import from Whatnot" in the admin UI.
+
+**What it navigates to:** `whatnot.com/dashboard/analytics/overview` → clicks the "Shows" tab.
+
+**How it paginates:** The analytics page shows one show at a time. There are two arrow buttons: "See older show" and "See newer show". The scraper starts at the newest show and clicks "See older show" repeatedly, up to `WHATNOT_LIMIT` times (default 50), stopping when the button is disabled (no more history).
+
+**How it extracts data per show:** `extractAnalyticsMetrics()` runs entirely inside the browser via `page.evaluate()`. It finds metric cards by their inline CSS (`height: 160px`, `border-radius: 16px`), then reads the name (16px bold) and value (32px bold) from each card. The show title and date are found by their own inline style signatures. No class names or test IDs are used — those change with every Whatnot deploy.
+
+**Fields captured per show:**
+
+| Field | Whatnot metric label |
+|---|---|
+| `gross_revenue` | Estimated Sales |
+| `whatnot_net` | Total Estimated Earnings |
+| `completed_earnings` | Completed Earnings |
+| `units_sold` | Orders |
+| `avg_order_value` | Average Order Value |
+| `giveaway_spend` | Giveaway Spend |
+| `giveaways_count` | Giveaways |
+| `buyers_count` | Buyers |
+| `first_time_buyers` | First Time Buyers |
+| `returning_buyers` | Returning Buyers |
+| `shares_count` | Shares |
+| `show_duration` | Show Duration (converted to minutes) |
+| `max_concurrent_viewers` | Max Concurrent Viewers |
+| `total_views` | Total Views |
+| `avg_order_rating` | Average Order Rating |
+| `detail_url` | Extracted from anchor `href` matching `/live/<username>/<id>` |
+
+**How PHP processes the results (`WhatnotScraper::importShows`):**
+
+1. For each show in the raw array, matches an existing record by `title + show_date` (or just one if the other is missing)
+2. **Existing show** → updates the analytics fields only (revenue, viewers, duration, etc.); never changes status, streamers, or ops data
+3. **New show** → creates with `status = draft`, `import_source = auto_whatnot`, then immediately calls `detectStreamers()`
+
+**Streamer auto-detection (`Show::detectStreamers`):**
+Runs on every newly imported show. Scans all active streamer names against the show title:
+- Full name found in title → `high` confidence
+- Any 4+ character name part found → `medium` confidence
+
+Suggestions are stored in `ai_streamer_suggestion` (JSON column). If the show has no streamers attached yet, high-confidence matches are auto-attached immediately. Medium matches are stored for ops to confirm manually.
+
+---
+
+### Mode: show-orders
+
+Scrapes the individual lot/order list from a show's detail page (requires `detail_url` to be set on the show first).
+
+**What it navigates to:** the show's own page on whatnot.com, then clicks the "Lots", "Orders", or "Sales" tab (tries all three names since Whatnot has used different labels).
+
+**How it extracts orders:** Whatnot uses dynamic/obfuscated CSS class names on show pages, so the scraper uses two structural strategies:
+
+1. **Strategy A — lot number walk:** Uses a `TreeWalker` to find all text nodes matching `"Lot #N"`, walks up the DOM to the nearest container element (TR / LI / ARTICLE, or a flex div with a fixed height), then extracts price (`$N.NN` patterns), buyer (`@username` pattern), status (`sold`/`completed`/`refunded`/etc.), and item name (longest non-metadata line in the container).
+
+2. **Strategy B — table rows:** If Strategy A finds nothing, scans all `<tr>` and `[role="row"]` elements for dollar amounts. Used as a fallback when Whatnot has changed to a table layout.
+
+If both strategies return nothing, the scraper exits with code 2 (selector miss) and dumps a page snapshot to stderr for debugging.
+
+**Fields captured per order:** `lot_number`, `buyer_username`, `item_name`, `quantity`, `unit_price`, `total_price`, `status`, `raw_data` (full text of the container, max 400 chars).
+
+**Deduplication (`importShowOrders`):** Pre-loads all existing `WhatnotShowOrder` records for the show in two queries, then deduplicates by `whatnot_order_id` when present, or falls back to the composite key `buyer|item_name|lot_number`.
+
+---
+
+### Mode: seller-shows (URL backfill)
+
+Scrapes `/seller/shows` to collect detail URLs for past shows and backfill them on existing `Show` records. Matches by title + date; falls back to date-only or title-only if both aren't available.
+
+Used when shows were imported before `detail_url` was being captured, or to repair missing links.
+
+---
+
+### Multi-channel support
+
+Each `WhatnotChannel` record has `whatnot_username` and `include_in_import`. `importAllEnabledChannels()` loops all active channels with `include_in_import = true` and runs a full analytics import per channel.
+
+**Channel switching:** Before scraping, if a `WHATNOT_CHANNEL_NAME` is set, the scraper:
+1. Navigates to the Whatnot home page
+2. Opens the navigation sidebar (tries profile avatar, aria-labelled buttons, drawer triggers in order)
+3. Clicks "Switch Role"
+4. Clicks the target channel by name from the role list
+
+If the sidebar won't open, the scraper logs a warning and continues on whatever channel is currently active rather than failing.
+
+---
+
+### Selector fragility & debugging
+
+Whatnot deploys UI changes without notice. When a selector breaks:
+
+- **Exit code 0** — success, JSON on stdout
+- **Exit code 1** — login/nav error, message on stderr
+- **Exit code 2** — selector miss; page structure changed
+
+When you get exit code 2:
+```bash
+WHATNOT_DEBUG=1 php artisan whatnot:import
+# Saves /tmp/whatnot-debug-*.png screenshots at each step
+# Check the logs for PAGE_SNAPSHOT with the raw HTML
+# Update the SELECTORS object at the top of scripts/whatnot-scraper.cjs
+```
+
+The `SELECTORS` constant at the top of the script is the single place to update when Whatnot changes their markup. Analytics selectors use `aria-controls`/`aria-label` attributes and inline style patterns rather than class names, which are more stable across deploys.
+
+---
+
+### Chromium resolution
+
+The script finds Chromium via a priority chain so it works across dev, Docker, and bare VPS:
+
+1. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` env var (explicit override)
+2. Marker files written by `php artisan whatnot:setup-chromium` (VPS) or Docker build
+3. Playwright's own API (`chromium.executablePath()`)
+4. Directory scan of `PLAYWRIGHT_BROWSERS_PATH` and `~/.cache/ms-playwright`
+5. System Chromium (`/usr/bin/chromium`, `/usr/bin/chromium-browser`, `/usr/bin/google-chrome`)
+
+**Setup commands:**
+```bash
+# VPS: installs Chromium and writes the marker file
+php artisan whatnot:setup-chromium
+
+# Docker: Playwright browsers are pre-installed at /opt/pw-browsers
+# The PLAYWRIGHT_BROWSERS_PATH env var is set in docker-compose.yml
+```
+
+---
+
 ## Roles & access
 
 | Role | Access |

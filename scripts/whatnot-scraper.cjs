@@ -885,9 +885,15 @@ async function extractAnalyticsMetrics(page) {
         process.exit(1);
       }
 
-      // Wait for the React app to hydrate
-      await page.waitForTimeout(2500);
-      await page.waitForLoadState('networkidle', { timeout: 12000 }).catch(() => {});
+      // Wait for React to hydrate — poll until visible text appears (up to 25s).
+      // Fixed timeouts and networkidle aren't reliable for SPAs with background polling.
+      await page.waitForFunction(
+        () => (document.body.innerText || '').trim().length > 100,
+        { timeout: 25000 }
+      ).catch(async () => {
+        log('body still empty after 25s — may be iframe or anti-bot; trying extra 5s');
+        await page.waitForTimeout(5000);
+      });
       await debugShot(page, '05-analytics-page');
 
       if (isAnalytics) {
@@ -932,14 +938,23 @@ async function extractAnalyticsMetrics(page) {
               .slice(0, 30)
               .map(el => `<button aria-label="${el.getAttribute('aria-label') || ''}">${(el.textContent || '').trim().substring(0, 60)}</button>`)
               .join('\n');
-            const bodyText = (document.body.innerText || '').substring(0, 2000);
-            return { url: location.href, tabs, buttons, bodyText };
+            const bodyText = (document.body.innerText || '').substring(0, 3000);
+            const rootHtml = (document.body.firstElementChild?.innerHTML || document.body.innerHTML || '').substring(0, 1000);
+            const iframeCount = document.querySelectorAll('iframe').length;
+            const readyState = document.readyState;
+            return { url: location.href, tabs, buttons, bodyText, rootHtml, iframeCount, readyState };
           });
+          const frames = page.frames();
           process.stderr.write('SELECTOR_MISS: Analytics "Shows" tab not found.\n');
           process.stderr.write('CURRENT_URL: ' + diag.url + '\n');
+          process.stderr.write('READY_STATE: ' + diag.readyState + '\n');
+          process.stderr.write('IFRAME_COUNT: ' + diag.iframeCount + ' | FRAME_COUNT: ' + frames.length + '\n');
           process.stderr.write('TAB_ELEMENTS:\n' + diag.tabs + '\n');
           process.stderr.write('BUTTON_ELEMENTS:\n' + diag.buttons + '\n');
           process.stderr.write('PAGE_TEXT:\n' + diag.bodyText + '\n');
+          if (!diag.bodyText) {
+            process.stderr.write('ROOT_HTML (body empty — showing raw):\n' + diag.rootHtml + '\n');
+          }
           process.exit(2);
         }
 

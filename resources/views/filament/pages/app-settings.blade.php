@@ -13,7 +13,9 @@
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Branding</h2>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Logo, brand name, and primary color</p>
                 </div>
-                <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-90' : ''" />
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200">
+                    <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" />
+                </span>
             </button>
 
             <div x-show="open" class="divide-y divide-gray-200 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-700">
@@ -127,7 +129,7 @@
                         ></span>
                     </button>
                 </div>
-                <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-90' : ''" />
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
             </button>
 
             <div x-show="open" class="px-6 py-4 border-t border-amber-200 dark:border-amber-800/60">
@@ -154,7 +156,7 @@
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Workspace Modules &amp; Features</h2>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Toggle entire modules on/off, then fine-tune which individual pages are visible within each one.</p>
                 </div>
-                <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-90' : ''" />
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
             </button>
 
             <div x-show="open" class="border-t border-gray-200 dark:border-gray-700 px-6 py-4 space-y-3">
@@ -223,7 +225,7 @@
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Navigation Visibility</h2>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Control which sidebar links are visible to <strong>admin users</strong>. You (the owner) always see everything.</p>
                 </div>
-                <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-90' : ''" />
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
             </button>
 
             <div x-show="open" class="border-t border-gray-200 dark:border-gray-700 px-6 py-4 space-y-4">
@@ -272,7 +274,7 @@
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Show Import</h2>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Control how shows are ingested and streamers assigned</p>
                 </div>
-                <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-90' : ''" />
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
             </button>
 
             <div x-show="open" class="divide-y divide-gray-200 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-700">
@@ -306,7 +308,7 @@
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Notifications</h2>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Control who receives each type of in-app notification</p>
                 </div>
-                <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-90' : ''" />
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
             </button>
 
             <div x-show="open" class="border-t border-gray-200 dark:border-gray-700">
@@ -420,7 +422,7 @@
                         <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">WHATNOT_PASSWORD</code> in <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">.env</code>.
                     </p>
                 </div>
-                <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-90' : ''" />
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
             </button>
 
             <div x-show="open" class="divide-y divide-gray-200 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-700">
@@ -528,7 +530,7 @@
                         Also runs automatically every night at 02:00.
                     </p>
                 </div>
-                <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-90' : ''" />
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
             </button>
 
             <div x-show="open" class="divide-y divide-gray-200 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-700">
@@ -579,7 +581,7 @@
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">System &amp; Maintenance</h2>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Run migrations, optimize caches, and keep the app running at peak speed.</p>
                 </div>
-                <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-90' : ''" />
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
             </button>
 
             <div x-show="open" class="divide-y divide-gray-200 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-700">
@@ -710,7 +712,7 @@
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">AI / Ollama</h2>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Chat model, vision model, embedding model, and connection settings</p>
                 </div>
-                <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-90' : ''" />
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
             </button>
 
             <div x-show="open" class="divide-y divide-gray-100 dark:divide-gray-700 border-t border-gray-100 dark:border-gray-700">
@@ -806,7 +808,7 @@
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Shipping Surcharge</h2>
                     <p class="text-xs text-gray-500 dark:text-gray-400">Per-package surcharge rate and threshold amount</p>
                 </div>
-                <x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-90' : ''" />
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
             </button>
 
             <div x-show="open" class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 grid grid-cols-1 sm:grid-cols-2 gap-4">

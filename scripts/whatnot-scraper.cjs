@@ -837,14 +837,57 @@ async function extractAnalyticsMetrics(page) {
     // ── Mode: analytics (default) ─────────────────────────────────────────────
     if (MODE === 'analytics' || MODE === 'shows') {
       const isAnalytics = MODE === 'analytics';
-      const targetUrl   = isAnalytics ? URLS.analytics : URLS.shows;
 
-      log(`navigating to ${targetUrl}`);
-      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      // Wait for the React app to hydrate — domcontentloaded fires before JS renders the tabs.
-      await page.waitForTimeout(3500);
-      // Also wait for network to quiet down (JS bundles / data fetches)
-      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+      // Try multiple analytics URL patterns — Whatnot has moved this page before.
+      const analyticsUrlCandidates = isAnalytics ? [
+        'https://www.whatnot.com/dashboard/analytics/overview',
+        'https://www.whatnot.com/creator/analytics',
+        'https://www.whatnot.com/seller/analytics',
+        'https://www.whatnot.com/dashboard/analytics',
+      ] : [URLS.shows];
+
+      function isLoginUrl(u) {
+        return /\/(login|signin|auth)(\/|\?|$)/i.test(u);
+      }
+
+      let targetUrl = analyticsUrlCandidates[0];
+      let landed    = false;
+
+      for (const candidate of analyticsUrlCandidates) {
+        log(`trying URL: ${candidate}`);
+        await page.goto(candidate, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForTimeout(2000);
+
+        let currentUrl = page.url();
+
+        if (isLoginUrl(currentUrl)) {
+          log(`redirected to ${currentUrl} — session expired, re-authenticating`);
+          await performLogin(page, email, password);
+          await page.waitForTimeout(1000);
+          // After re-login retry this candidate
+          await page.goto(candidate, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          await page.waitForTimeout(2000);
+          currentUrl = page.url();
+        }
+
+        if (!isLoginUrl(currentUrl)) {
+          targetUrl = candidate;
+          landed    = true;
+          log(`landed on: ${currentUrl}`);
+          break;
+        }
+
+        log(`${candidate} still redirects to ${currentUrl}, trying next`);
+      }
+
+      if (!landed) {
+        process.stderr.write('ERROR: All analytics URLs redirect to login — credentials may be invalid or account lacks analytics access.\n');
+        process.exit(1);
+      }
+
+      // Wait for the React app to hydrate
+      await page.waitForTimeout(2500);
+      await page.waitForLoadState('networkidle', { timeout: 12000 }).catch(() => {});
       await debugShot(page, '05-analytics-page');
 
       if (isAnalytics) {

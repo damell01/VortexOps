@@ -1198,11 +1198,9 @@ function normalizeApiShow(s) {
       const isAnalytics = MODE === 'analytics';
 
       // URL priority for show data:
-      //   1. /dashboard/shows — dashboard shows list (doesn't need Kasada-protected GraphQL)
-      //   2. /seller/shows    — seller shows list (reliable, basic data)
-      //   3. analytics overview — individual show analytics cards (Kasada-blocked in practice)
+      //   1. /seller/shows   — seller shows list, confirmed accessible, basic data
+      //   2. analytics overview — individual show analytics cards (Kasada-blocked in practice)
       const analyticsUrlCandidates = isAnalytics ? [
-        URLS.dashboardShows,
         URLS.shows,
         URLS.analytics,
       ] : [URLS.shows];
@@ -1235,13 +1233,19 @@ function normalizeApiShow(s) {
         }
 
         if (!isLoginUrl(currentUrl)) {
-          targetUrl = candidate;
-          landed    = true;
-          log(`landed on: ${currentUrl}`);
-          break;
+          // Check for Whatnot's 404 page before accepting this landing
+          const pageTextCheck = await page.evaluate(() => (document.body.innerText || '').substring(0, 300)).catch(() => '');
+          if (/HTTP 404|Page Not Found|does not exist/i.test(pageTextCheck)) {
+            info(`${candidate}: 404 page detected ("${pageTextCheck.trim().substring(0, 80)}"), trying next`);
+          } else {
+            targetUrl = candidate;
+            landed    = true;
+            log(`landed on: ${currentUrl}`);
+            break;
+          }
+        } else {
+          log(`${candidate} still redirects to ${currentUrl}, trying next`);
         }
-
-        log(`${candidate} still redirects to ${currentUrl}, trying next`);
       }
 
       if (!landed) {

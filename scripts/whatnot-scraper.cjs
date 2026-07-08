@@ -95,6 +95,7 @@ const URLS = {
   home:       'https://www.whatnot.com',
   login:      'https://www.whatnot.com/signin',
   analytics:  'https://www.whatnot.com/dashboard/analytics/overview',
+  dashboard:  'https://www.whatnot.com/dashboard',
   shows:      'https://www.whatnot.com/seller/shows',
   sellerHub:  'https://www.whatnot.com/seller',
 };
@@ -303,76 +304,89 @@ async function performLogin(page, email, password) {
 // Run with WHATNOT_DEBUG=1 to capture screenshots if the switch doesn't work.
 
 async function switchToChannel(page, channelName) {
-  if (!channelName) return; // no switch needed — scrape the currently active channel
+  if (!channelName) return;
   log(`switching to channel: "${channelName}"`);
 
-  // Navigate to the Whatnot home — the top nav with the sidebar trigger is always present
-  await page.goto(URLS.home, { waitUntil: 'domcontentloaded', timeout: 20000 });
-  await page.waitForTimeout(2000);
-  await debugShot(page, 'role-switch-01-home');
+  // The channel/role switcher lives in the dashboard navigation, not the public home page.
+  // Navigate there first so the authenticated nav is loaded.
+  await page.goto(URLS.dashboard, { waitUntil: 'domcontentloaded', timeout: 25000 });
+  await page.waitForTimeout(2500);
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+  await debugShot(page, 'role-switch-01-dashboard');
 
-  // ── Step 1: Open the navigation sidebar ─────────────────────────────────────
-  // The sidebar is a slide-out drawer containing the "Switch Role" h4 item.
-  // It's opened by clicking the profile avatar (or menu button) in the top nav.
-  // "Switch Role" text exact match tells us the drawer is open.
+  // ── Step 1: Find and open the channel/role switcher ──────────────────────────
+  // Whatnot uses a sidebar drawer with "Switch Role" text, or a dropdown in the
+  // top nav. Try all known patterns.
 
-  const isSidebarOpen = () =>
-    page.getByText('Switch Role', { exact: true }).first().isVisible().catch(() => false);
+  const isSwitchVisible = async () => {
+    for (const text of ['Switch Role', 'Switch Channel', 'Switch Account']) {
+      if (await page.getByText(text, { exact: false }).first().isVisible().catch(() => false)) return true;
+    }
+    return false;
+  };
 
-  if (!await isSidebarOpen()) {
-    // Try nav/header trigger buttons in priority order
+  if (!await isSwitchVisible()) {
     const navTriggers = [
-      'button:has(img[alt="avatar"])',          // profile avatar inside a button
-      'nav button[aria-label*="profile" i]',    // aria-labelled profile button
-      'nav button[aria-label*="menu" i]',       // aria-labelled menu button
-      'header button[aria-label*="menu" i]',    // header menu button
+      // Dashboard-specific triggers (sidebar toggle, account menu)
       '[aria-label="Open navigation drawer"]',
-      '[aria-label="Open menu"]',
+      '[aria-label="Open sidebar"]',
+      '[aria-label="Toggle sidebar"]',
+      'button[aria-label*="account" i]',
+      'button[aria-label*="profile" i]',
+      'button[aria-label*="menu" i]',
+      'button:has(img[alt="avatar"])',
+      'button:has(img[alt*="profile" i])',
+      'header button:last-child',
+      'nav button:last-child',
     ];
 
     for (const sel of navTriggers) {
       const trigger = await page.$(sel).catch(() => null);
       if (!trigger || !await trigger.isVisible().catch(() => false)) continue;
-
       await trigger.click();
       await page.waitForTimeout(1200);
-
-      if (await isSidebarOpen()) {
-        log(`opened navigation sidebar via: ${sel}`);
+      if (await isSwitchVisible()) {
+        log(`opened role switcher via: ${sel}`);
         break;
       }
-
-      // Wrong thing opened — dismiss and try next
       await page.keyboard.press('Escape').catch(() => {});
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(300);
     }
   }
 
-  if (!await isSidebarOpen()) {
-    await debugShot(page, 'role-switch-failed-sidebar');
-    log(`WARNING: could not open the navigation sidebar to find "Switch Role".`);
-    log(`Run with WHATNOT_DEBUG=1, check role-switch-failed-sidebar.png, then update navTriggers above.`);
-    return; // continue on whatever channel is currently active
+  await debugShot(page, 'role-switch-02-after-trigger');
+
+  if (!await isSwitchVisible()) {
+    // Dump what IS on the page so we can identify the correct trigger
+    const diagText = await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('button, a[role="button"]'))
+        .slice(0, 20)
+        .map(el => `[${el.tagName}] aria-label="${el.getAttribute('aria-label') || ''}" text="${(el.textContent || '').trim().substring(0, 40)}"`)
+        .join('\n');
+      return `URL: ${location.href}\nBUTTONS:\n${btns}`;
+    });
+    process.stderr.write('ROLE_SWITCH_MISS: Could not find channel switcher.\n' + diagText + '\n');
+    log('WARNING: channel switcher not found — scraping whatever channel is currently active');
+    return;
   }
 
-  await debugShot(page, 'role-switch-02-sidebar-open');
-
-  // ── Step 2: Click "Switch Role" ──────────────────────────────────────────────
-  // In the sidebar HTML, "Switch Role" is an h4 (class ogVNN) inside a
-  // div.eCoev with role="presentation". Clicking the text propagates to the div.
-  await page.getByText('Switch Role', { exact: true }).first().click();
-  await page.waitForTimeout(2000);
+  // ── Step 2: Click "Switch Role" / "Switch Channel" ───────────────────────────
+  for (const text of ['Switch Role', 'Switch Channel', 'Switch Account']) {
+    const el = page.getByText(text, { exact: false }).first();
+    if (await el.isVisible().catch(() => false)) {
+      await el.click();
+      await page.waitForTimeout(2000);
+      log(`clicked "${text}"`);
+      break;
+    }
+  }
   await debugShot(page, 'role-switch-03-role-list');
 
   // ── Step 3: Click the target channel ─────────────────────────────────────────
-  // After clicking Switch Role, Whatnot shows the list of available channel roles.
-  // Find by the whatnot_username (e.g. "vortexcards", "vortexbreaks").
   const target = page.getByText(channelName, { exact: false }).first();
-
   if (!await target.isVisible().catch(() => false)) {
     await debugShot(page, 'role-switch-failed-channel');
-    log(`WARNING: channel "${channelName}" not found in role list.`);
-    log(`Check role-switch-03-role-list.png to see the available options.`);
+    log(`WARNING: channel "${channelName}" not found in role list — continuing on active channel`);
     return;
   }
 
@@ -860,12 +874,8 @@ async function extractAnalyticsMetrics(page) {
     if (MODE === 'analytics' || MODE === 'shows') {
       const isAnalytics = MODE === 'analytics';
 
-      // Try multiple analytics URL patterns — Whatnot has moved this page before.
       const analyticsUrlCandidates = isAnalytics ? [
-        'https://www.whatnot.com/dashboard/analytics/overview',
-        'https://www.whatnot.com/creator/analytics',
-        'https://www.whatnot.com/seller/analytics',
-        'https://www.whatnot.com/dashboard/analytics',
+        URLS.analytics,   // https://www.whatnot.com/dashboard/analytics/overview
       ] : [URLS.shows];
 
       function isLoginUrl(u) {

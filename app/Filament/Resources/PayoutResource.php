@@ -138,10 +138,8 @@ class PayoutResource extends Resource
 
         $user = auth()->user();
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {
-            $streamerId = $user->streamer?->id;
-            if ($streamerId) {
-                $query->where('streamer_id', $streamerId);
-            }
+            // Always apply the filter — null means no linked profile → return nothing
+            $query->where('streamer_id', $user->streamer?->id ?? 0);
         }
 
         return $query;

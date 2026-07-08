@@ -1,12 +1,16 @@
 @php
     use App\Models\Setting;
     use App\Support\AdminModules;
-    $demoMode = (bool) Setting::get('demo_mode', false);
-    $user     = auth()->user();
-    $isAdmin  = $user?->isAdmin() || $user?->isOwner();
+    $demoMode   = (bool) Setting::get('demo_mode', false);
+    $user       = auth()->user();
+    $isAdmin    = $user?->isAdmin() || $user?->isOwner();
+    $isAuthPage = request()->routeIs('filament.admin.auth.*')
+               || str_contains(request()->path(), 'admin/login')
+               || str_contains(request()->path(), 'admin/password-reset')
+               || str_contains(request()->path(), 'admin/register');
 @endphp
 
-@if ($demoMode && ! $user)
+@if ($demoMode && ! $user && ! $isAuthPage)
     {{-- Non-admin sees a full-page showcase overlay --}}
     <div
         class="fixed inset-0 z-[9999] flex flex-col items-center justify-start overflow-y-auto bg-white dark:bg-gray-950"

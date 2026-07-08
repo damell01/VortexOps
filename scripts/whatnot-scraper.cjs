@@ -92,12 +92,13 @@ const SELECTORS = {
 };
 
 const URLS = {
-  home:       'https://www.whatnot.com',
-  login:      'https://www.whatnot.com/login',
-  analytics:  'https://www.whatnot.com/dashboard/analytics/overview',
-  dashboard:  'https://www.whatnot.com/dashboard',
-  shows:      'https://www.whatnot.com/seller/shows',
-  sellerHub:  'https://www.whatnot.com/seller',
+  home:           'https://www.whatnot.com',
+  login:          'https://www.whatnot.com/login',
+  analytics:      'https://www.whatnot.com/dashboard/analytics/overview',
+  dashboardShows: 'https://www.whatnot.com/dashboard/shows',
+  dashboard:      'https://www.whatnot.com/dashboard',
+  shows:          'https://www.whatnot.com/seller/shows',
+  sellerHub:      'https://www.whatnot.com/seller',
 };
 
 // Resolve Chromium binary.
@@ -557,6 +558,107 @@ async function extractAnalyticsMetrics(page) {
 
     return { title, dateText, metrics, hasOlder, cardCount: cards.length, detailUrl };
   }, { SEL: SELECTORS });
+}
+
+// ── Shows-list DOM extractor ──────────────────────────────────────────────────
+// Used when we land on a list-style page (/dashboard/shows, /seller/shows).
+// Returns an array of show objects in the same shape as the analytics extractor,
+// with whatever fields are available in the list view.
+
+async function extractShowsListFromDom(page) {
+  const shows = await page.evaluate(() => {
+    const results = [];
+    const addedUrls = new Set();
+
+    // Find every anchor that looks like a show detail link.
+    // Whatnot show URL patterns: /live/<user>/<id>, /show/<id>, /seller/shows/<id>, /dashboard/shows/<id>
+    const anchors = Array.from(document.querySelectorAll('a[href]'));
+    for (const a of anchors) {
+      const href = a.getAttribute('href') || '';
+      if (!(/\/live\/[^/]+\/[^/]+/.test(href) ||
+            /\/show\/[\w-]+/.test(href) ||
+            /\/seller\/shows\/[\w-]+/.test(href) ||
+            /\/dashboard\/shows\/[\w-]+/.test(href))) continue;
+      const fullUrl = href.startsWith('http') ? href : 'https://www.whatnot.com' + href;
+      if (addedUrls.has(fullUrl)) continue;
+      addedUrls.add(fullUrl);
+
+      // Walk up to find a card/row container that contains meaningful text (title + date).
+      let container = a;
+      for (let i = 0; i < 10; i++) {
+        if (!container.parentElement) break;
+        container = container.parentElement;
+        const t = (container.innerText || '').trim();
+        if (t.length > 30) break;
+      }
+
+      const text = (container.innerText || container.textContent || '').trim();
+      if (text.length < 5) continue;
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+      // Date: M/D/YYYY or ISO
+      let showDate = null;
+      const mdy = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+      if (mdy) {
+        const year = mdy[3].length === 2 ? '20' + mdy[3] : mdy[3];
+        showDate = `${year}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`;
+      } else {
+        const iso = text.match(/\b(20\d\d)[-\/](0[1-9]|1[0-2])[-\/](0[1-9]|[12]\d|3[01])\b/);
+        if (iso) showDate = `${iso[1]}-${iso[2]}-${iso[3]}`;
+      }
+
+      // Revenue: largest dollar amount in container
+      const prices = [...text.matchAll(/\$[\d,]+\.?\d*/g)]
+        .map(m => parseFloat(m[0].replace(/[^0-9.]/g, '')))
+        .filter(v => !isNaN(v) && v > 0);
+
+      // Orders / units
+      const unitMatch = text.match(/(\d{1,6})\s*(?:orders?|lots?\s+sold|units?\s+sold|sales)/i);
+      // Views
+      const viewMatch = text.match(/(\d{1,6})\s*(?:viewers?|views?)/i);
+
+      // Title: anchor text first, then longest meaningful line
+      const anchorText = (a.innerText || a.textContent || '').trim();
+      const title = anchorText.length > 5 ? anchorText : (
+        lines.filter(l =>
+          l.length > 5 &&
+          !/^\d+$/.test(l) &&
+          !/^\$/.test(l) &&
+          !/^\d{1,2}[\/\-]/.test(l) &&
+          !/^20\d\d/.test(l) &&
+          !/^(Live|Ended|Cancelled|Completed|Upcoming)$/i.test(l)
+        ).sort((a, b) => b.length - a.length)[0] || null
+      );
+
+      results.push({
+        title:                  title || null,
+        show_date:              showDate,
+        show_date_raw:          mdy ? mdy[0] : null,
+        detail_url:             fullUrl,
+        gross_revenue:          prices.length > 0 ? Math.max(...prices) : null,
+        whatnot_net:            null,
+        completed_earnings:     null,
+        units_sold:             unitMatch ? parseInt(unitMatch[1], 10) : null,
+        avg_order_value:        null,
+        giveaway_spend:         null,
+        giveaways_count:        null,
+        buyers_count:           null,
+        first_time_buyers:      null,
+        returning_buyers:       null,
+        shares_count:           null,
+        show_duration:          null,
+        max_concurrent_viewers: null,
+        total_views:            viewMatch ? parseInt(viewMatch[1], 10) : null,
+        avg_order_rating:       null,
+        _raw_metrics:           {},
+        _list_source:           true,
+      });
+    }
+
+    return results;
+  });
+
+  return shows;
 }
 
 // ── API interception helpers ──────────────────────────────────────────────────
@@ -1095,8 +1197,14 @@ function normalizeApiShow(s) {
     if (MODE === 'analytics' || MODE === 'shows') {
       const isAnalytics = MODE === 'analytics';
 
+      // URL priority for show data:
+      //   1. /dashboard/shows — dashboard shows list (doesn't need Kasada-protected GraphQL)
+      //   2. /seller/shows    — seller shows list (reliable, basic data)
+      //   3. analytics overview — individual show analytics cards (Kasada-blocked in practice)
       const analyticsUrlCandidates = isAnalytics ? [
-        URLS.analytics,   // https://www.whatnot.com/dashboard/analytics/overview
+        URLS.dashboardShows,
+        URLS.shows,
+        URLS.analytics,
       ] : [URLS.shows];
 
       function isLoginUrl(u) {
@@ -1152,16 +1260,16 @@ function normalizeApiShow(s) {
       });
       await debugShot(page, '05-analytics-page');
 
-      if (isAnalytics) {
-        // Click the "Shows" tab — try progressively broader selectors.
-        // Text-based matching is most stable across UI rebuilds.
+      // On the analytics overview page, look for a [role="tab"] Shows sub-tab
+      // (NOT the sidebar nav link which navigates away to /dashboard/shows).
+      // We only do this if we landed on the analytics URL — if we're already on
+      // a shows list page, there's nothing to click.
+      if (isAnalytics && targetUrl === URLS.analytics) {
         let showsTab = null;
 
         const tabCandidates = [
-          // Sidebar nav link (live Whatnot dashboard HTML, July 2026 — <a> not button/tab)
-          'a:has-text("Shows")',
-          'a[href*="shows"]',
-          // Role-tab variants (kept for future UI changes)
+          // Role-tab / button variants for the analytics sub-tabs only — deliberately
+          // excluding bare 'a:has-text("Shows")' which matches the sidebar nav link.
           '[role="tab"]:has-text("Shows")',
           'button:has-text("Shows")',
           '[role="tab"]:has-text("Past Shows")',
@@ -1177,7 +1285,6 @@ function normalizeApiShow(s) {
           '[role="tab"][data-index="1"]',
         ];
 
-        // Search the main frame first
         for (const sel of tabCandidates) {
           const el = await page.$(sel).catch(() => null);
           if (!el) continue;
@@ -1187,7 +1294,6 @@ function normalizeApiShow(s) {
           break;
         }
 
-        // If not in main frame, check child frames (some dashboards use iframes)
         if (!showsTab) {
           for (const frame of page.frames()) {
             if (frame === page.mainFrame()) continue;
@@ -1203,51 +1309,24 @@ function normalizeApiShow(s) {
           }
         }
 
-        if (!showsTab) {
-          // Dump human-readable diagnostics so the selector can be identified
-          // without needing to view PNG screenshots.
-          const diag = await page.evaluate(() => {
-            const tabs = Array.from(document.querySelectorAll('[role="tab"], nav a, [role="tablist"] *'))
-              .map(el => `<${el.tagName.toLowerCase()} role="${el.getAttribute('role') || ''}" aria-selected="${el.getAttribute('aria-selected') || ''}">${(el.textContent || '').trim().substring(0, 60)}</${el.tagName.toLowerCase()}>`)
-              .join('\n');
-            const buttons = Array.from(document.querySelectorAll('button'))
-              .slice(0, 30)
-              .map(el => `<button aria-label="${el.getAttribute('aria-label') || ''}">${(el.textContent || '').trim().substring(0, 60)}</button>`)
-              .join('\n');
-            const bodyText = (document.body.innerText || '').substring(0, 3000);
-            const rootHtml = (document.body.firstElementChild?.innerHTML || document.body.innerHTML || '').substring(0, 1000);
-            const iframeCount = document.querySelectorAll('iframe').length;
-            const readyState = document.readyState;
-            return { url: location.href, tabs, buttons, bodyText, rootHtml, iframeCount, readyState };
-          });
-          const frames = page.frames();
-          process.stderr.write('SELECTOR_MISS: Analytics "Shows" tab not found.\n');
-          process.stderr.write('CURRENT_URL: ' + diag.url + '\n');
-          process.stderr.write('READY_STATE: ' + diag.readyState + '\n');
-          process.stderr.write('IFRAME_COUNT: ' + diag.iframeCount + ' | FRAME_COUNT: ' + frames.length + '\n');
-          process.stderr.write('TAB_ELEMENTS:\n' + diag.tabs + '\n');
-          process.stderr.write('BUTTON_ELEMENTS:\n' + diag.buttons + '\n');
-          process.stderr.write('PAGE_TEXT:\n' + diag.bodyText + '\n');
-          if (!diag.bodyText) {
-            process.stderr.write('ROOT_HTML (body empty — showing raw):\n' + diag.rootHtml + '\n');
+        if (showsTab) {
+          const isSelected = await showsTab.evaluate(el =>
+            el.getAttribute('aria-selected') === 'true' || el.getAttribute('aria-current') === 'true'
+          ).catch(() => false);
+          if (!isSelected) {
+            await showsTab.click();
+            await page.waitForTimeout(1800);
           }
-          process.exit(2);
+          await debugShot(page, '06-shows-tab');
+        } else {
+          info('analytics overview: no [role="tab"] Shows sub-tab found — will rely on API intercept / list DOM');
+          await debugShot(page, '06-no-tab');
         }
-
-        // Only click if not already selected
-        const isSelected = await showsTab.evaluate(el =>
-          el.getAttribute('aria-selected') === 'true' || el.getAttribute('aria-current') === 'true'
-        ).catch(() => false);
-        if (!isSelected) {
-          await showsTab.click();
-          await page.waitForTimeout(1800);
-        }
-        await debugShot(page, '06-shows-tab');
       }
 
       // ── Try API interception first ───────────────────────────────────────────
-      // Give the SPA a moment to complete its data-fetch after tab activation.
-      await page.waitForTimeout(800);
+      // Give the SPA a moment to complete its data-fetch.
+      await page.waitForTimeout(1500);
       const apiShows = extractShowsFromCapture(capturedApiResponses);
 
       if (apiShows && apiShows.length > 0) {
@@ -1270,7 +1349,52 @@ function normalizeApiShow(s) {
         info('falling back to DOM scraping');
       }
 
-      // ── DOM scraping fallback ────────────────────────────────────────────────
+      // ── Shows-list DOM extraction (for /dashboard/shows and /seller/shows) ──
+      // Try this before the metric-card loop because list pages never have metric cards.
+      const currentPageUrl = page.url();
+      const isListPage = currentPageUrl.includes('/dashboard/shows') ||
+                         currentPageUrl.includes('/seller/shows') ||
+                         (targetUrl === URLS.dashboardShows) ||
+                         (targetUrl === URLS.shows);
+
+      if (isListPage) {
+        // Scroll down to trigger lazy-load of additional show cards
+        for (let s = 0; s < 4; s++) {
+          await page.evaluate(() => window.scrollBy(0, window.innerHeight));
+          await page.waitForTimeout(500);
+        }
+        await debugShot(page, '06-shows-list-scrolled');
+
+        const listShows = await extractShowsListFromDom(page);
+        info('shows-list DOM: found', listShows.length, 'show links on', currentPageUrl);
+
+        if (listShows.length > 0) {
+          const normalized = listShows.slice(0, LIMIT).filter(s => s.title || s.show_date);
+          if (normalized.length > 0) {
+            process.stdout.write(JSON.stringify(normalized, null, 2) + '\n');
+            info(`shows-list DOM: returned ${normalized.length} shows`);
+            process.exit(0);
+          }
+          info('shows-list DOM: found links but no title/date extracted — dumping diagnostics');
+        }
+
+        // Dump diagnostics so the selector can be updated
+        const diag = await page.evaluate(() => ({
+          url:      location.href,
+          bodyText: (document.body.innerText || '').substring(0, 3000),
+          links:    Array.from(document.querySelectorAll('a[href]'))
+                      .filter(a => /\/live\/|\/show\/|\/seller\/shows|\/dashboard\/shows/.test(a.getAttribute('href') || ''))
+                      .slice(0, 10)
+                      .map(a => a.getAttribute('href')),
+        }));
+        process.stderr.write('SELECTOR_MISS: No shows found on list page.\n');
+        process.stderr.write('CURRENT_URL: ' + diag.url + '\n');
+        process.stderr.write('SHOW_LINKS_FOUND: ' + JSON.stringify(diag.links) + '\n');
+        process.stderr.write('PAGE_TEXT:\n' + diag.bodyText + '\n');
+        process.exit(2);
+      }
+
+      // ── Metric-card DOM scraping (for analytics detail pages) ────────────────
       const results = [];
 
       for (let i = 0; i < LIMIT; i++) {

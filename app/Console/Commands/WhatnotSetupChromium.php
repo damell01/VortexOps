@@ -116,20 +116,28 @@ class WhatnotSetupChromium extends Command
             return null;
         }
 
+        $binNames = ['chrome-linux64/headless_shell', 'chrome-linux64/chrome',
+                     'chrome-linux/headless_shell', 'chrome-linux/chrome',
+                     'headless_shell', 'chrome'];
+
         // Some Playwright installs place the binary directly under the base dir
-        // (e.g. PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers → base/chrome-linux/chrome)
-        foreach (['chrome-linux64/chrome', 'chrome-linux/chrome', 'chrome'] as $bin) {
+        // (e.g. PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers → base/chrome-linux/headless_shell)
+        foreach ($binNames as $bin) {
             $full = "{$base}/{$bin}";
             if (file_exists($full)) {
                 return $full;
             }
         }
 
-        $dirs = array_filter(scandir($base) ?: [], fn ($d) => str_starts_with($d, 'chromium-'));
+        // Versioned subdirectory layout: chromium-NNN or chromium_headless_shell-NNN
+        $dirs = array_filter(
+            scandir($base) ?: [],
+            fn ($d) => str_starts_with($d, 'chromium-') || str_starts_with($d, 'chromium_headless_shell-')
+        );
         rsort($dirs);
 
         foreach ($dirs as $dir) {
-            foreach (['chrome-linux64/chrome', 'chrome-linux/chrome', 'chrome'] as $bin) {
+            foreach ($binNames as $bin) {
                 $full = "{$base}/{$dir}/{$bin}";
                 if (file_exists($full)) {
                     return $full;

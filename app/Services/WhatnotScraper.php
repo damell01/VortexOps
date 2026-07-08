@@ -334,9 +334,12 @@ class WhatnotScraper
 
     protected function makeProcess(array $env, int $timeout = 180): Process
     {
-        // Pass PLAYWRIGHT_BROWSERS_PATH if set in env, so www-data finds the right chromium
-        if ($path = env('PLAYWRIGHT_BROWSERS_PATH')) {
-            $env['PLAYWRIGHT_BROWSERS_PATH'] = $path;
+        // Pass PLAYWRIGHT_BROWSERS_PATH so Playwright's own API can locate the browser.
+        // Always default to /opt/pw-browsers (the shared install location) when the var
+        // isn't set in the web-server environment.
+        if (! isset($env['PLAYWRIGHT_BROWSERS_PATH'])) {
+            $pwPath = env('PLAYWRIGHT_BROWSERS_PATH');
+            $env['PLAYWRIGHT_BROWSERS_PATH'] = $pwPath ?: '/opt/pw-browsers';
         }
 
         // Pass the Chromium path from the marker file as an env var so the Node process

@@ -2,7 +2,7 @@
     <div class="space-y-6 max-w-3xl">
 
         {{-- ── Branding ──────────────────────────────────────────────────── --}}
-        <div x-data="{ open: true }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div wire:key="section-branding" x-data="{ open: true }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -100,7 +100,7 @@
 
         @if ($this->canSeeModuleToggles)
         {{-- Demo / Showcase Mode --}}
-        <div x-data="{ open: true }" class="rounded-xl border {{ $demo_mode ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900' }} overflow-hidden">
+        <div wire:key="section-demo-mode" x-data="{ open: true }" class="rounded-xl border {{ $demo_mode ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900' }} overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-amber-50/50 dark:hover:bg-amber-950/20 transition-colors">
@@ -145,7 +145,7 @@
         </div>
 
         {{-- Workspace Modules & Features --}}
-        <div x-data="{ open: true }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div wire:key="section-modules" x-data="{ open: true }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -214,7 +214,7 @@
 
         @if ($this->canSeeModuleToggles && count($this->navItemsForEditor))
         {{-- ── Navigation Visibility Editor ────────────────────────────────── --}}
-        <div x-data="{ open: false }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div wire:key="section-nav-visibility" x-data="{ open: false }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -263,7 +263,7 @@
         @endif
 
         {{-- ── Show Import Settings ──────────────────────────────────────── --}}
-        <div x-data="{ open: true }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div wire:key="section-show-import" x-data="{ open: true }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -297,7 +297,7 @@
         </div>
 
         {{-- ── Notifications ────────────────────────────────────────────── --}}
-        <div x-data="{ open: false }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div wire:key="section-notifications" x-data="{ open: false }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -407,7 +407,7 @@
 
         {{-- ── Whatnot Import (owner only) ────────────────────────────────── --}}
         @if ($this->canSeeModuleToggles)
-        <div x-data="{ open: true }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div wire:key="section-whatnot-import" x-data="{ open: true }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -516,7 +516,7 @@
 
         {{-- ── Database Backup (owner only) ──────────────────────────────────── --}}
         @if ($this->canSeeModuleToggles)
-        <div x-data="{ open: false }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div wire:key="section-db-backup" x-data="{ open: false }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -570,7 +570,7 @@
         @endif
 
         {{-- ── System & Maintenance ────────────────────────────────────────── --}}
-        <div x-data="{ open: false }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div wire:key="section-system" x-data="{ open: false }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -703,7 +703,7 @@
         </div>
 
         {{-- ── AI / Ollama ─────────────────────────────────────────────────── --}}
-        <div x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div wire:key="section-ai-ollama" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -799,7 +799,7 @@
         </div>
 
         {{-- ── Shipping Surcharge ──────────────────────────────────────────── --}}
-        <div x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div wire:key="section-shipping" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
 
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">

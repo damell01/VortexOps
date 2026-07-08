@@ -6,7 +6,7 @@
     $isAdmin  = $user?->isAdmin() || $user?->isOwner();
 @endphp
 
-@if ($demoMode && $user && ! $isAdmin)
+@if ($demoMode && ! $user)
     {{-- Non-admin sees a full-page showcase overlay --}}
     <div
         class="fixed inset-0 z-[9999] flex flex-col items-center justify-start overflow-y-auto bg-white dark:bg-gray-950"
@@ -22,9 +22,6 @@
                     {{ \App\Models\Setting::get('brand_name', 'VortexOps') }}
                 </span>
             </div>
-            <span class="ml-auto inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/40 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400">
-                Preview Mode
-            </span>
         </div>
 
         {{-- Hero --}}

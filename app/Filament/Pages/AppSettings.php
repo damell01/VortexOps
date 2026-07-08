@@ -493,22 +493,35 @@ class AppSettings extends Page
 
     public function clearCaches(): void
     {
-        try {
-            Artisan::call('optimize:clear');
-            $out = trim(Artisan::output());
-            Artisan::call('filament:optimize-clear');
-            $out .= "\n" . trim(Artisan::output());
+        $lines = [];
 
-            $this->lastCommandOutput = trim($out);
+        $run = function (string $command) use (&$lines): void {
+            try {
+                Artisan::call($command);
+                $out = trim(Artisan::output());
+                if ($out) {
+                    $lines[] = $out;
+                }
+            } catch (\Throwable $e) {
+                // Non-fatal: log and continue so one missing command doesn't block the rest
+                $lines[] = "[{$command}] skipped: " . $e->getMessage();
+            }
+        };
 
-            Notification::make()
-                ->title('Caches cleared')
-                ->body('All config, route, view, and Filament caches have been flushed.')
-                ->success()
-                ->send();
-        } catch (\Throwable $e) {
-            $this->lastCommandOutput = $e->getMessage();
-            Notification::make()->title('Cache clear failed')->body($e->getMessage())->danger()->send();
-        }
+        $run('optimize:clear');
+        $run('filament:clear-cached-components');
+        $run('view:clear');
+        $run('route:clear');
+        $run('config:clear');
+        // icons:clear may not be registered on all environments — best-effort only
+        $run('icons:clear');
+
+        $this->lastCommandOutput = trim(implode("\n", array_filter($lines)));
+
+        Notification::make()
+            ->title('Caches cleared')
+            ->body('Config, route, view, and Filament component caches flushed.')
+            ->success()
+            ->send();
     }
 }

@@ -282,6 +282,7 @@ async function performLogin(page, email, password) {
     throw new Error('Login form not found on ' + currentUrl + '. Page may have changed. Body: ' + bodyText.substring(0, 200));
   }
 
+  info('filling login form — email length:', email.length, '| password length:', password.length);
   await emailInput.click();
   await emailInput.fill(email);
   await page.keyboard.press('Tab');
@@ -313,15 +314,19 @@ async function performLogin(page, email, password) {
 
   const url = page.url();
   info('post-login URL:', url);
-  if (url.includes('signin') || url.includes('login') || url.includes('verify')) {
-    const pageText = await page.textContent('body');
-    if (pageText.toLowerCase().includes('incorrect') || pageText.toLowerCase().includes('invalid')) {
-      throw new Error('Login failed — incorrect email or password.');
+  if (url.includes('/login') || url.includes('/signin') || url.includes('/auth') || url.includes('/verify')) {
+    const pageText = await page.textContent('body').catch(() => '');
+    const snippet  = pageText.replace(/\s+/g, ' ').trim().substring(0, 400);
+    info('post-login page text:', snippet);
+    if (pageText.toLowerCase().includes('incorrect') || pageText.toLowerCase().includes('invalid') ||
+        pageText.toLowerCase().includes('wrong') || pageText.toLowerCase().includes('not found')) {
+      throw new Error(`Login failed — credentials rejected by Whatnot. Page said: ${snippet.substring(0, 200)}`);
     }
-    if (pageText.toLowerCase().includes('verify') || pageText.toLowerCase().includes('code')) {
-      throw new Error('Login requires 2FA verification. Disable 2FA on the Whatnot account or use a session cookie approach instead.');
+    if (pageText.toLowerCase().includes('verify') || pageText.toLowerCase().includes('code') ||
+        pageText.toLowerCase().includes('2fa') || pageText.toLowerCase().includes('authenticat')) {
+      throw new Error('Login requires 2FA/verification. Disable 2FA on the Whatnot account or use the cookie bootstrap (storage/whatnot-cookies.json).');
     }
-    throw new Error(`Login did not complete. Still on: ${url}`);
+    throw new Error(`Login did not complete — still on ${url}. Page text: ${snippet.substring(0, 200)}`);
   }
 }
 

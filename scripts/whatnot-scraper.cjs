@@ -6,6 +6,8 @@
  *   test         — verify credentials only, output {connected, email}
  *   show-orders  — scrape order/lot list for one show (requires WHATNOT_SHOW_URL)
  *   shows        — legacy: scrape the /seller/shows list page (less data, kept as fallback)
+ *   discover     — navigate to /seller/shows, dump all intercepted API endpoints + previews
+ *                  (run this once to find Whatnot's internal REST endpoints)
  *
  * Called by app/Services/WhatnotScraper.php via Symfony Process.
  *
@@ -598,15 +600,55 @@ async function extractShowsListFromDom(page) {
       if (text.length < 5) continue;
       const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
-      // Date: M/D/YYYY or ISO
+      // Date parsing — try formats in order of specificity
       let showDate = null;
-      const mdy = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
-      if (mdy) {
-        const year = mdy[3].length === 2 ? '20' + mdy[3] : mdy[3];
-        showDate = `${year}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`;
-      } else {
-        const iso = text.match(/\b(20\d\d)[-\/](0[1-9]|1[0-2])[-\/](0[1-9]|[12]\d|3[01])\b/);
-        if (iso) showDate = `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+      // ISO: 2026-07-05
+      const iso = text.match(/\b(20\d\d)[-\/](0[1-9]|1[0-2])[-\/](0[1-9]|[12]\d|3[01])\b/);
+      if (iso) {
+        showDate = `${iso[1]}-${iso[2]}-${iso[3]}`;
+      }
+
+      // M/D/YYYY or M-D-YYYY: 7/5/2026
+      if (!showDate) {
+        const mdy = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+        if (mdy) {
+          const year = mdy[3].length === 2 ? '20' + mdy[3] : mdy[3];
+          showDate = `${year}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`;
+        }
+      }
+
+      // Month-name: "July 5, 2026" / "Jul 5 2026"
+      if (!showDate) {
+        const mo = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+        const mn = text.match(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(20\d\d)\b/i);
+        if (mn) {
+          const m = mo[mn[1].substring(0,3).toLowerCase()];
+          showDate = `${mn[3]}-${String(m).padStart(2,'0')}-${mn[2].padStart(2,'0')}`;
+        } else {
+          // "5 July 2026"
+          const alt = text.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(20\d\d)\b/i);
+          if (alt) {
+            const m = mo[alt[2].substring(0,3).toLowerCase()];
+            showDate = `${alt[3]}-${String(m).padStart(2,'0')}-${alt[1].padStart(2,'0')}`;
+          }
+        }
+      }
+
+      // Relative: "2 days ago", "yesterday", "3 weeks ago"
+      if (!showDate) {
+        const rel = text.match(/\b(\d+)\s+(day|week)s?\s+ago\b/i);
+        if (rel) {
+          const d = new Date();
+          if (rel[2].toLowerCase() === 'week') d.setDate(d.getDate() - parseInt(rel[1]) * 7);
+          else d.setDate(d.getDate() - parseInt(rel[1]));
+          showDate = d.toISOString().substring(0, 10);
+        } else if (/\byesterday\b/i.test(text)) {
+          const d = new Date(); d.setDate(d.getDate() - 1);
+          showDate = d.toISOString().substring(0, 10);
+        } else if (/\btoday\b/i.test(text)) {
+          showDate = new Date().toISOString().substring(0, 10);
+        }
       }
 
       // Revenue: largest dollar amount in container
@@ -1146,7 +1188,8 @@ function normalizeApiShow(s) {
         for (const a of anchors) {
           const href = a.getAttribute('href') || '';
           // Show URLs: /live/<username>/<id> or /show/<id> or /seller/shows/<id>
-          if (!(/\/live\/[^/]+\/[^/]+/.test(href) || /\/show\/[\w-]+/.test(href) || /\/seller\/shows\/[\w-]+/.test(href))) continue;
+          // Lookahead (?=[?#]|$) prevents matching sub-pages like /analytics, /orders
+          if (!(/\/live\/[^/]+\/[^/?#\s]+(?=[?#]|$)/.test(href) || /\/show\/[\w-]+(?=[?#]|$)/.test(href) || /\/seller\/shows\/[\w-]+(?=[?#]|$)/.test(href))) continue;
           const fullUrl = href.startsWith('http') ? href : 'https://www.whatnot.com' + href;
           if (seen.has(fullUrl)) continue;
           seen.add(fullUrl);
@@ -1195,6 +1238,48 @@ function normalizeApiShow(s) {
       process.exit(0);
     }
 
+    // ── Mode: discover ───────────────────────────────────────────────────────
+    // Navigates to /seller/shows and dumps every JSON endpoint Whatnot calls.
+    // Run once with WHATNOT_MODE=discover to find the internal REST API paths,
+    // then hard-code those in a future fetch-based sync instead of DOM scraping.
+    //
+    // Usage: WHATNOT_MODE=discover WHATNOT_DEBUG=1 php artisan whatnot:import
+    // Output: JSON with { page_url, api_endpoints: [{url, status_code, keys, preview}] }
+    if (MODE === 'discover') {
+      log('discover: navigating to /seller/shows');
+      await page.goto(URLS.shows, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.waitForLoadState('networkidle', { timeout: 12000 }).catch(() => {});
+      await page.waitForTimeout(2000);
+      await debugShot(page, 'discover-01-initial');
+
+      // Scroll down to trigger lazy-load requests
+      for (let i = 0; i < 4; i++) {
+        await page.evaluate(() => window.scrollBy(0, window.innerHeight));
+        await page.waitForTimeout(800);
+      }
+      await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+      await debugShot(page, 'discover-02-scrolled');
+
+      const endpoints = capturedApiResponses.map(r => {
+        const body   = r.body;
+        const topKeys = typeof body === 'object' && body !== null
+          ? Object.keys(Array.isArray(body) ? (body[0] || {}) : body).slice(0, 15)
+          : [];
+        const preview = JSON.stringify(body).substring(0, 600);
+        return { url: r.url, keys: topKeys, preview };
+      });
+
+      const result = {
+        page_url:      page.url(),
+        endpoint_count: endpoints.length,
+        api_endpoints:  endpoints,
+      };
+
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+      log(`discover: intercepted ${endpoints.length} JSON endpoints`);
+      process.exit(0);
+    }
+
     // ── Mode: analytics (default) ─────────────────────────────────────────────
     if (MODE === 'analytics' || MODE === 'shows') {
       const isAnalytics = MODE === 'analytics';
@@ -1217,7 +1302,10 @@ function normalizeApiShow(s) {
       for (const candidate of analyticsUrlCandidates) {
         log(`trying URL: ${candidate}`);
         await page.goto(candidate, { waitUntil: 'domcontentloaded', timeout: 30000 });
-        await page.waitForTimeout(2000);
+        // Wait for the SPA to fire its data-fetch API calls before we read anything.
+        // networkidle (no network activity for 500ms) is more reliable than a fixed delay.
+        await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+        await page.waitForTimeout(1000);
 
         let currentUrl = page.url();
 
@@ -1229,7 +1317,8 @@ function normalizeApiShow(s) {
           if (CHANNEL_NAME) await switchToChannel(page, CHANNEL_NAME);
           // Retry this candidate
           await page.goto(candidate, { waitUntil: 'domcontentloaded', timeout: 30000 });
-          await page.waitForTimeout(2000);
+          await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+          await page.waitForTimeout(1000);
           currentUrl = page.url();
           info('after re-auth retry, URL:', currentUrl);
         }

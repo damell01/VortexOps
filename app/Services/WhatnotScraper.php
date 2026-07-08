@@ -500,6 +500,52 @@ class WhatnotScraper
         return $totals;
     }
 
+    /**
+     * Run discover mode: navigate to /seller/shows, intercept all JSON API calls,
+     * and return structured info about each endpoint found.
+     *
+     * Use this once to identify Whatnot's internal REST paths, then build
+     * targeted API calls against those endpoints instead of DOM scraping.
+     *
+     * @throws \RuntimeException on failure
+     */
+    public function runDiscover(?WhatnotChannel $channel = null, bool $debug = true): array
+    {
+        [$email, $password] = $this->resolveCredentials();
+
+        $env = [
+            'WHATNOT_EMAIL'    => $email,
+            'WHATNOT_PASSWORD' => $password,
+            'WHATNOT_MODE'     => 'discover',
+            'WHATNOT_DEBUG'    => $debug ? '1' : '0',
+        ];
+
+        if ($channel?->whatnot_username) {
+            $env['WHATNOT_CHANNEL_NAME'] = $channel->whatnot_username;
+        }
+
+        $process = $this->makeProcess($env, timeout: 120);
+        $process->run();
+
+        $stderr = trim($process->getErrorOutput());
+        $stdout = trim($process->getOutput());
+
+        if ($stderr) {
+            Log::channel('stack')->info('WhatnotScraper discover stderr', ['output' => $stderr]);
+        }
+
+        if (! $process->isSuccessful()) {
+            throw new \RuntimeException("Discover failed: " . ($stderr ?: "exit {$process->getExitCode()}"));
+        }
+
+        $data = json_decode($stdout, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \RuntimeException('Discover returned invalid JSON: ' . substr($stdout, 0, 300));
+        }
+
+        return $data;
+    }
+
     private function resolveCredentials(): array
     {
         $email    = config('vortex.whatnot.email');

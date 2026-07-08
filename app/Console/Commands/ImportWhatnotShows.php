@@ -11,7 +11,8 @@ class ImportWhatnotShows extends Command
     protected $signature = 'whatnot:import
                             {--channel= : WhatnotChannel name or ID — if omitted, imports all enabled channels}
                             {--limit=50 : Max number of shows to fetch per channel per run}
-                            {--debug    : Save Playwright screenshots to /tmp for debugging selectors}';
+                            {--debug    : Save Playwright screenshots to /tmp for debugging selectors}
+                            {--discover : Dump all intercepted Whatnot API endpoints (use to find REST paths)}';
 
     protected $description = 'Scrape completed shows from the Whatnot seller dashboard and import them';
 
@@ -19,6 +20,35 @@ class ImportWhatnotShows extends Command
     {
         $limit = (int) $this->option('limit');
         $debug = (bool) $this->option('debug');
+
+        // Discover mode: dump all API endpoints Whatnot calls when loading /seller/shows.
+        // Run once to find the internal REST paths, then use those for direct API calls.
+        if ($this->option('discover')) {
+            $channel = null;
+            if ($channelOpt = $this->option('channel')) {
+                $channel = is_numeric($channelOpt)
+                    ? WhatnotChannel::find($channelOpt)
+                    : WhatnotChannel::where('name', $channelOpt)->orWhere('whatnot_username', $channelOpt)->first();
+            }
+            $this->info('Running discover mode — navigating to /seller/shows and capturing API endpoints…');
+            try {
+                $json = app(WhatnotScraper::class)->runDiscover(channel: $channel, debug: true);
+                $this->line('');
+                $this->info("Page landed on: " . ($json['page_url'] ?? '?'));
+                $this->info("Intercepted {$json['endpoint_count']} API endpoint(s):\n");
+                foreach ($json['api_endpoints'] ?? [] as $i => $ep) {
+                    $this->line("  [" . ($i + 1) . "] " . $ep['url']);
+                    if (!empty($ep['keys'])) {
+                        $this->line("      Keys: " . implode(', ', $ep['keys']));
+                    }
+                    $this->line("      Preview: " . substr($ep['preview'] ?? '', 0, 120));
+                    $this->line('');
+                }
+            } catch (\RuntimeException $e) {
+                $this->error($e->getMessage());
+            }
+            return self::SUCCESS;
+        }
 
         if ($channelOpt = $this->option('channel')) {
             // Single-channel mode

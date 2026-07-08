@@ -7,8 +7,10 @@ use App\Models\DeductionRequest;
 use App\Models\DeductionRequestLine;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
+use App\Models\Product;
 use App\Services\DeductionApprovalService;
 use App\Services\DeductionRejectionService;
+use App\Services\ProductMatchingService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
@@ -334,10 +336,54 @@ class ViewDeductionRequest extends EditRecord
         $request = $this->record;
 
         return [
+            Action::make('fast_approve')
+                ->label('Fast-Track Approve')
+                ->icon('heroicon-o-bolt')
+                ->color('success')
+                ->visible(function () use ($request): bool {
+                    if (! in_array($request->status, ['pending', 'draft'])) {
+                        return false;
+                    }
+                    $lines = $request->lines;
+                    return $lines->isNotEmpty()
+                        && $lines->whereNull('inventory_item_id')->isEmpty()
+                        && $lines->whereNull('inventory_location_id')->isEmpty();
+                })
+                ->requiresConfirmation()
+                ->modalHeading('Fast-Track Approve')
+                ->modalDescription(function () use ($request): string {
+                    $count = $request->lines->count();
+                    return "All {$count} " . ($count === 1 ? 'line is' : 'lines are') . " mapped. Approve now using current quantities — no edits needed.";
+                })
+                ->action(function () use ($request): void {
+                    try {
+                        DB::transaction(fn () => app(DeductionApprovalService::class)->approve($request));
+
+                        Notification::make()
+                            ->title('Deduction request approved and inventory deducted')
+                            ->success()
+                            ->send();
+
+                        $this->redirect(DeductionRequestResource::getUrl('index'));
+                    } catch (Throwable $e) {
+                        Log::error('Fast-track approval failed', [
+                            'deduction_request_id' => $request->id,
+                            'message' => $e->getMessage(),
+                        ]);
+
+                        Notification::make()
+                            ->title('Approval failed')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->persistent()
+                            ->send();
+                    }
+                }),
+
             Action::make('approve')
                 ->label('Approve & Process')
                 ->icon('heroicon-o-check-circle')
-                ->color('success')
+                ->color('info')
                 ->visible(fn () => in_array($request->status, ['pending', 'draft']))
                 ->requiresConfirmation()
                 ->modalHeading('Approve Deduction Request')
@@ -407,16 +453,38 @@ class ViewDeductionRequest extends EditRecord
             if (! empty($lineData['id'])) {
                 $line = DeductionRequestLine::find($lineData['id']);
                 if ($line) {
-                    $qtyApproved = (float) ($lineData['quantity_approved'] ?? $line->quantity_approved);
-                    $unitCost    = (float) ($lineData['unit_cost_snapshot'] ?? $line->unit_cost_snapshot);
+                    $originalItemId = $line->inventory_item_id;
+                    $newItemId      = $lineData['inventory_item_id'] ?? $originalItemId;
+                    $qtyApproved    = (float) ($lineData['quantity_approved'] ?? $line->quantity_approved);
+                    $unitCost       = (float) ($lineData['unit_cost_snapshot'] ?? $line->unit_cost_snapshot);
+
                     $line->update([
-                        'inventory_item_id'     => $lineData['inventory_item_id'] ?? $line->inventory_item_id,
+                        'inventory_item_id'     => $newItemId,
                         'inventory_location_id' => $lineData['inventory_location_id'] ?? $line->inventory_location_id,
                         'quantity_approved'     => $qtyApproved,
                         'unit_cost_snapshot'    => $unitCost,
                         'line_total'            => round($qtyApproved * $unitCost, 2),
                         'ops_overridden'        => $qtyApproved != (float) $line->quantity_suggested,
                     ]);
+
+                    // Auto-learn: ops changed the matched item — save as a manual alias
+                    // so future identical descriptions resolve instantly in Stage 1
+                    if ($newItemId && $newItemId != $originalItemId && $line->raw_description) {
+                        try {
+                            $product = Product::find($newItemId);
+                            if ($product) {
+                                app(ProductMatchingService::class)->confirmMatch(
+                                    $line->raw_description,
+                                    $product,
+                                    1.0,
+                                    'manual',
+                                    auth()->id(),
+                                );
+                            }
+                        } catch (\Throwable $e) {
+                            Log::debug("Failed to save manual alias for '{$line->raw_description}': " . $e->getMessage());
+                        }
+                    }
                 }
             } else {
                 $qtyApproved = (float) ($lineData['quantity_approved'] ?? 0);

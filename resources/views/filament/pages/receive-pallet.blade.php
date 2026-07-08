@@ -2,22 +2,44 @@
     <div class="space-y-6">
 
         {{-- ── Pallet Summary ──────────────────────────────────────────────── --}}
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4 flex flex-wrap gap-6">
-            <div>
-                <p class="text-xs text-gray-400 uppercase tracking-wide">Vendor</p>
-                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->vendor?->name ?? '—' }}</p>
-            </div>
-            <div>
-                <p class="text-xs text-gray-400 uppercase tracking-wide">Reference</p>
-                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->reference ?? '—' }}</p>
-            </div>
-            <div>
-                <p class="text-xs text-gray-400 uppercase tracking-wide">Status</p>
-                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ ucfirst($this->record->status) }}</p>
-            </div>
-            <div>
-                <p class="text-xs text-gray-400 uppercase tracking-wide">Lines</p>
-                <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->lines->count() }}</p>
+        @php
+            $summaryExpected = collect($lineProgress)->sum('case_count');
+            $summaryReceived = collect($lineProgress)->sum('received');
+            $summaryPct      = $summaryExpected > 0 ? round(($summaryReceived / $summaryExpected) * 100) : 0;
+            $summaryDone     = $summaryExpected > 0 && $summaryReceived >= $summaryExpected;
+        @endphp
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4 space-y-3">
+            <div class="flex flex-wrap gap-6">
+                <div>
+                    <p class="text-xs text-gray-400 uppercase tracking-wide">Vendor</p>
+                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->vendor?->name ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-400 uppercase tracking-wide">Reference</p>
+                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->reference ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-400 uppercase tracking-wide">Status</p>
+                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ ucfirst($this->record->status) }}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-400 uppercase tracking-wide">Lines</p>
+                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->lines->count() }}</p>
+                </div>
+                @if ($summaryExpected > 0)
+                    <div class="ml-auto flex items-center gap-3 shrink-0">
+                        <div class="text-right">
+                            <p class="text-xs text-gray-400 uppercase tracking-wide">Overall Progress</p>
+                            <p class="text-sm font-bold {{ $summaryDone ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100' }} tabular-nums">
+                                {{ $summaryPct }}% &nbsp;·&nbsp; {{ $summaryReceived }}/{{ $summaryExpected }} boxes
+                            </p>
+                        </div>
+                        <div class="w-32 bg-gray-100 dark:bg-gray-700 rounded-full h-2.5">
+                            <div class="h-2.5 rounded-full {{ $summaryDone ? 'bg-green-500' : 'bg-violet-500' }} transition-all"
+                                 style="width: {{ $summaryPct }}%"></div>
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -205,7 +227,7 @@
                 <div class="px-6 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between gap-4">
                     <span class="text-xs text-gray-500 dark:text-gray-400">
                         {{ count($lineProgress) }} line{{ count($lineProgress) !== 1 ? 's' : '' }} ·
-                        {{ collect($lineProgress)->where('received', '>=', collect($lineProgress)->pluck('case_count')->first() ?? 0)->count() }}
+                        {{ collect($lineProgress)->filter(fn ($l) => $l['received'] >= $l['case_count'] && $l['case_count'] > 0)->count() }}
                         complete
                     </span>
                     <span class="text-sm font-bold {{ $allDone ? 'text-green-600 dark:text-green-400' : 'text-gray-800 dark:text-gray-100' }} tabular-nums">

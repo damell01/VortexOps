@@ -23,10 +23,16 @@ class OllamaClient
 
     public static function fromSettings(): static
     {
-        $baseUrl        = rtrim(Setting::get('ollama_base_url') ?: config('services.ollama.url', 'http://localhost:11434'), '/');
-        $defaultModel   = Setting::get('ollama_model')          ?: config('services.ollama.model', 'llama3.2:3b');
-        $embeddingModel = config('services.ollama.embedding_model', 'nomic-embed-text');
-        $visionModel    = config('services.ollama.vision_model', 'moondream');
+        $baseUrl = rtrim(Setting::get('ollama_base_url') ?: config('services.ollama.url', 'http://localhost:11434'), '/');
+
+        // Specific model keys take priority; fall back to the legacy generic key
+        $defaultModel   = Setting::get('ollama_chat_model')
+            ?: Setting::get('ollama_model')
+            ?: config('services.ollama.model', 'llama3.2:3b');
+        $embeddingModel = Setting::get('ollama_embedding_model')
+            ?: config('services.ollama.embedding_model', 'nomic-embed-text');
+        $visionModel    = Setting::get('ollama_vision_model')
+            ?: config('services.ollama.vision_model', 'moondream');
 
         return new static($baseUrl, $defaultModel, $embeddingModel, $visionModel);
     }

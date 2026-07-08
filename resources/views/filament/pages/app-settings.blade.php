@@ -688,31 +688,54 @@
         <div class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
                 <x-heroicon-o-sparkles class="h-5 w-5 text-primary-500" />
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">AI / Ollama Connection</h2>
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">AI / Ollama</h2>
             </div>
 
-            <div class="px-6 py-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Ollama Base URL</label>
-                    <input
-                        wire:model.blur="ollama_base_url"
-                        type="url"
-                        placeholder="http://localhost:11434"
-                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">URL of your Ollama server (default: http://localhost:11434)</p>
-                </div>
+            {{-- Ollama Base URL --}}
+            <div class="px-6 py-4">
+                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Ollama Base URL</label>
+                <input
+                    wire:model.blur="ollama_base_url"
+                    type="url"
+                    placeholder="http://localhost:11434"
+                    class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">URL of your Ollama server (default: http://localhost:11434)</p>
+            </div>
 
+            {{-- Model selectors --}}
+            <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Model Name</label>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Chat Model</label>
                     <input
-                        wire:model.blur="ollama_model"
+                        wire:model.blur="ollama_chat_model"
                         type="text"
                         placeholder="llama3.2:3b"
                         class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Model to use for chat (e.g. llama3.2, mistral, qwen2.5)</p>
+                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Used for AI chat + inventory mapping LLM stage (e.g. qwen3:4b)</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Vision Model</label>
+                    <input
+                        wire:model.blur="ollama_vision_model"
+                        type="text"
+                        placeholder="moondream"
+                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Used for packing slip image parsing (e.g. qwen2.5-vl, moondream)</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Embedding Model</label>
+                    <input
+                        wire:model.blur="ollama_embedding_model"
+                        type="text"
+                        placeholder="nomic-embed-text"
+                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Used for inventory similarity search (e.g. nomic-embed-text)</p>
                 </div>
             </div>
 
+            {{-- Test Connection --}}
             <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                     <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Test Connection</p>
@@ -740,24 +763,24 @@
             </div>
 
             @if ($ollamaTestResult)
-                <div class="px-6 py-3 rounded-b-xl {{ $ollamaTestStatus === 'success' ? 'bg-emerald-50 dark:bg-emerald-950' : 'bg-red-50 dark:bg-red-950' }}">
+                <div class="px-6 py-3 border-t border-gray-100 dark:border-gray-700 {{ $ollamaTestStatus === 'success' ? 'bg-emerald-50 dark:bg-emerald-950' : 'bg-red-50 dark:bg-red-950' }}">
                     <p class="text-xs {{ $ollamaTestStatus === 'success' ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300' }}">
                         {{ $ollamaTestResult }}
                     </p>
                 </div>
             @endif
-        </div>
 
-        {{-- AI auto-queue toggle --}}
-        <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between gap-4">
-            <div>
-                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Auto-Queue AI Mapping on Import</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">When enabled, shows created by the Whatnot import are automatically moved to Pending Review and queued for AI mapping.</p>
+            {{-- Auto-queue toggle (moved inside the AI card) --}}
+            <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Auto-Queue AI Mapping on Import</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">When enabled, shows created by the Whatnot import are automatically moved to Pending Review and queued for AI mapping.</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input wire:model.live="ai_auto_queue_on_import" type="checkbox" class="sr-only peer">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-500 dark:peer-focus:ring-primary-600 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
+                </label>
             </div>
-            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                <input wire:model.live="ai_auto_queue_on_import" type="checkbox" class="sr-only peer">
-                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-500 dark:peer-focus:ring-primary-600 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
-            </label>
         </div>
 
         {{-- ── Shipping Surcharge ──────────────────────────────────────────── --}}

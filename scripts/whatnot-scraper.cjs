@@ -714,6 +714,39 @@ function normalizeApiShow(s) {
     } catch (_) {}
   });
 
+  // ── Bootstrap session cookies (one-time first-run setup) ─────────────────────
+  // Export cookies from your logged-in browser (Cookie-Editor extension → Export
+  // as JSON) and save to storage/whatnot-cookies.json on the server. The scraper
+  // loads them here so goto(/signin) redirects to the dashboard — login page
+  // (and its bot detection) is never hit. Once the profile is primed, the file
+  // can be deleted; the persistent context keeps the session alive.
+  const _cookiesFile = process.env.WHATNOT_COOKIES_FILE ||
+    require('path').join(__dirname, '../storage/whatnot-cookies.json');
+  if (require('fs').existsSync(_cookiesFile)) {
+    try {
+      const _raw = JSON.parse(require('fs').readFileSync(_cookiesFile, 'utf8'));
+      const _sameSiteMap = { no_restriction: 'None', strict: 'Strict', lax: 'Lax' };
+      const _cookies = _raw
+        .filter(c => typeof c.name === 'string' && typeof c.value === 'string')
+        .map(c => ({
+          name:     c.name,
+          value:    c.value,
+          domain:   c.domain || '.whatnot.com',
+          path:     c.path   || '/',
+          expires:  c.expirationDate ?? c.expires ?? -1,
+          httpOnly: Boolean(c.httpOnly),
+          secure:   Boolean(c.secure),
+          sameSite: _sameSiteMap[(c.sameSite || '').toLowerCase()] || 'Lax',
+        }));
+      if (_cookies.length > 0) {
+        await context.addCookies(_cookies);
+        info('loaded', _cookies.length, 'session cookies from', _cookiesFile);
+      }
+    } catch (e) {
+      info('cookie file found but failed to load:', e.message);
+    }
+  }
+
   const page = await context.newPage();
 
   // Capture every JSON response from whatnot.com during this session.

@@ -18,6 +18,7 @@ class DeductionRequestLine extends Model
         'raw_description',
         'ai_confidence',
         'ai_reason',
+        'match_stage',
         'ops_overridden',
     ];
 

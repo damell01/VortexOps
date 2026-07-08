@@ -186,6 +186,7 @@ class RunShowAiMappingJob implements ShouldQueue
                         'inventory_item_id' => $line['matched_item_id'],
                         'ai_confidence'     => $line['ai_confidence'],
                         'ai_reason'         => $line['ai_reason'],
+                        'match_stage'       => $line['stage'] ?? null,
                     ]);
                 } else {
                     $item     = $line['matched_item_id'] ? ($itemsById->get($line['matched_item_id']) ?? InventoryItem::find($line['matched_item_id'])) : null;
@@ -203,6 +204,7 @@ class RunShowAiMappingJob implements ShouldQueue
                         'line_total'            => round($qty * $unitCost, 2),
                         'ai_confidence'         => $line['ai_confidence'],
                         'ai_reason'             => $line['ai_reason'],
+                        'match_stage'           => $line['stage'] ?? null,
                         'ops_overridden'        => false,
                     ]);
                     $created++;

@@ -13,6 +13,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Illuminate\Support\HtmlString;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -132,6 +133,7 @@ class ViewDeductionRequest extends EditRecord
                                 'raw_description'       => $line->raw_description,
                                 'ai_confidence'         => $line->ai_confidence,
                                 'ai_reason'             => $line->ai_reason,
+                                'match_stage'           => $line->match_stage,
                                 'quantity_suggested'    => (float) $line->quantity_suggested,
                                 'quantity_approved'     => (float) $line->quantity_approved,
                                 'unit_cost_snapshot'    => (float) $line->unit_cost_snapshot,
@@ -139,13 +141,13 @@ class ViewDeductionRequest extends EditRecord
                             ])->all();
                         })
                         ->schema([
-                            Grid::make(4)->schema([
+                            Grid::make(12)->schema([
                                 Select::make('inventory_item_id')
                                     ->label('Item')
                                     ->options(InventoryItem::where('is_active', true)->pluck('name', 'id'))
                                     ->searchable()
                                     ->required()
-                                    ->columnSpan(2)
+                                    ->columnSpan(5)
                                     ->disabled(! $editable),
 
                                 Select::make('inventory_location_id')
@@ -153,12 +155,33 @@ class ViewDeductionRequest extends EditRecord
                                     ->options(InventoryLocation::where('status', 'active')->pluck('name', 'id'))
                                     ->searchable()
                                     ->required()
+                                    ->columnSpan(3)
                                     ->disabled(! $editable),
 
                                 Select::make('ai_confidence')
-                                    ->label('AI Confidence')
+                                    ->label('Confidence')
                                     ->options(DeductionRequestLine::confidenceLabels())
+                                    ->columnSpan(2)
                                     ->disabled(),
+
+                                Placeholder::make('match_stage')
+                                    ->label('Stage')
+                                    ->columnSpan(2)
+                                    ->content(function ($state): HtmlString {
+                                        $map = [
+                                            'alias'     => ['label' => 'Alias',     'bg' => '#d1fae5', 'color' => '#065f46', 'border' => '#6ee7b7'],
+                                            'fuzzy'     => ['label' => 'Fuzzy',     'bg' => '#dbeafe', 'color' => '#1e40af', 'border' => '#93c5fd'],
+                                            'embedding' => ['label' => 'Embedding', 'bg' => '#ede9fe', 'color' => '#5b21b6', 'border' => '#c4b5fd'],
+                                            'llm'       => ['label' => 'LLM',       'bg' => '#fef3c7', 'color' => '#92400e', 'border' => '#fcd34d'],
+                                        ];
+                                        if (! $state || ! isset($map[$state])) {
+                                            return new HtmlString('<span style="color:#9ca3af;font-size:12px">—</span>');
+                                        }
+                                        $s = $map[$state];
+                                        return new HtmlString(
+                                            "<span style=\"display:inline-flex;align-items:center;padding:2px 10px;border-radius:9999px;background:{$s['bg']};color:{$s['color']};border:1px solid {$s['border']};font-size:11px;font-weight:600;letter-spacing:0.04em\">{$s['label']}</span>"
+                                        );
+                                    }),
                             ]),
 
                             Grid::make(4)->schema([

@@ -30,14 +30,21 @@ class ImportWhatnotShows extends Command
                     ? WhatnotChannel::find($channelOpt)
                     : WhatnotChannel::where('name', $channelOpt)->orWhere('whatnot_username', $channelOpt)->first();
             }
+            $progressLog = storage_path('logs/whatnot-discover-progress-' . date('Y-m-d-His') . '.log');
+            $logHandle   = fopen($progressLog, 'w');
+
             $this->info('Running discover mode — navigating Seller Hub and capturing API endpoints…');
-            $this->line('<fg=gray>Progress will stream below. This takes 5–10 minutes.</>');
+            $this->line("<fg=gray>Progress log: {$progressLog}</>");
             $this->line('');
             try {
                 $json = app(WhatnotScraper::class)->runDiscover(
                     channel: $channel,
                     debug: true,
-                    onProgress: fn(string $line) => $this->line("<fg=gray>  {$line}</>"),
+                    onProgress: function (string $line) use ($logHandle) {
+                        $this->line("<fg=gray>  {$line}</>");
+                        fwrite($logHandle, '[' . date('H:i:s') . '] ' . $line . "\n");
+                        fflush($logHandle);
+                    },
                 );
 
                 $summary = $json['summary'] ?? [];
@@ -72,7 +79,10 @@ class ImportWhatnotShows extends Command
                 $this->info("Full JSON saved to: {$outFile}");
 
             } catch (\RuntimeException $e) {
+                fwrite($logHandle, '[' . date('H:i:s') . '] ERROR: ' . $e->getMessage() . "\n");
                 $this->error($e->getMessage());
+            } finally {
+                fclose($logHandle);
             }
             return self::SUCCESS;
         }

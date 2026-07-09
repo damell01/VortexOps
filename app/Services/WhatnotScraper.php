@@ -69,7 +69,7 @@ class WhatnotScraper
             $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
         }
 
-        $process = $this->makeProcess($env);
+        $process = $this->makeProcess($env, timeout: 240);
         $process->run();
 
         $stderr = trim($process->getErrorOutput());

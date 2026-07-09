@@ -338,6 +338,79 @@ async function performLogin(page, email, password) {
   }
 }
 
+// ── Seller mode activation ────────────────────────────────────────────────────
+// Whatnot accounts can be in buyer mode or seller mode. After login/cookie auth
+// the browser may land in buyer mode, where /seller shows a marketing page and
+// /seller/shows returns 404. This function detects buyer mode and clicks the
+// "Switch to Selling" link that Whatnot surfaces in the nav or on 404 pages.
+//
+// If the account is already in seller mode (the nav shows seller controls),
+// this is a no-op. Throws if buyer mode is detected but can't be exited.
+
+async function ensureSellerMode(page) {
+  const pageText = await page.evaluate(() =>
+    (document.body.innerText || '').substring(0, 600)
+  ).catch(() => '');
+
+  // "For Brands / Start Selling on Whatnot" = marketing page (buyer mode).
+  // "Switch to Selling" = explicitly offered in the page nav.
+  const isBuyerMode = /for brands|start selling on whatnot/i.test(pageText) ||
+                      /switch to selling/i.test(pageText);
+  if (!isBuyerMode) return; // already in seller mode — nothing to do
+
+  info('ensureSellerMode: buyer mode detected — looking for "Switch to Selling"');
+  await debugShot(page, 'seller-mode-01-buyer-mode');
+
+  // Whatnot places "Switch to Selling" as a top-nav link on marketing pages.
+  // Try text-based selectors first, then href-based fallback.
+  const candidates = [
+    'a:has-text("Switch to Selling")',
+    'button:has-text("Switch to Selling")',
+    'a[href*="/seller"]',
+    'a:has-text("Start Selling")',
+    'button:has-text("Start Selling")',
+  ];
+
+  let switched = false;
+  for (const sel of candidates) {
+    const el = await page.locator(sel).first().elementHandle().catch(() => null);
+    if (!el || !await el.isVisible().catch(() => false)) continue;
+
+    const elText = await el.evaluate(e => (e.innerText || e.textContent || '').trim()).catch(() => '');
+    // Avoid clicking generic "/seller" links that just lead back to the marketing page
+    if (sel === 'a[href*="/seller"]' && !/switch.*sell|start.*sell/i.test(elText)) continue;
+
+    info('ensureSellerMode: clicking', sel, '→', elText.substring(0, 40));
+    await el.click();
+    await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    await debugShot(page, 'seller-mode-02-after-click');
+
+    const newText = await page.evaluate(() =>
+      (document.body.innerText || '').substring(0, 400)
+    ).catch(() => '');
+
+    if (!/for brands|start selling on whatnot/i.test(newText)) {
+      info('ensureSellerMode: seller mode activated — URL now', page.url());
+      switched = true;
+      break;
+    }
+    info('ensureSellerMode:', sel, 'clicked but still in buyer mode, trying next');
+  }
+
+  if (!switched) {
+    const snippet = await page.evaluate(() =>
+      (document.body.innerText || '').substring(0, 300)
+    ).catch(() => '');
+    throw new Error(
+      'Session is in buyer mode and "Switch to Selling" was not found or clickable. ' +
+      'Visit https://www.whatnot.com/seller in a real browser, click "Switch to Selling", ' +
+      'then re-export cookies (php artisan whatnot:login) to capture a seller-mode session.\n' +
+      'Page text: ' + snippet
+    );
+  }
+}
+
 // ── Role / channel switcher ───────────────────────────────────────────────────
 // Whatnot's navigation sidebar (the slide-out drawer) contains a "Switch Role"
 // item (an h4 with that text, class ogVNN, inside a div.eCoev). Clicking it
@@ -1201,6 +1274,12 @@ async function runWsExploreStandalone(cookiesFilePath) {
         await performLogin(page, email, password);
       } else {
         info('cookie auth check: seller hub reached without login (', checkUrl, ')');
+        // Activate seller mode if the session landed in buyer mode.
+        // Must be done before saving localStorage so the stored tokens reflect
+        // the seller-mode session, not the buyer-mode one.
+        if (MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies') {
+          await ensureSellerMode(page);
+        }
         // Persist localStorage so ws-explore can inject it into its temp browser.
         // The seller hub React app initialises seller-specific Phoenix topics only
         // after reading auth tokens from localStorage; cookies alone are not enough.
@@ -1222,6 +1301,10 @@ async function runWsExploreStandalone(cookiesFilePath) {
       }
     } else if (MODE !== 'cookie-test' && MODE !== 'dump-cookies') {
       await performLogin(page, email, password);
+      // After credential login, also ensure seller mode is active.
+      if (MODE !== 'test') {
+        await ensureSellerMode(page);
+      }
     }
 
     // Switch to the target channel before scraping (skipped for test/cookie modes)

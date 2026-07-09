@@ -614,22 +614,43 @@ PHP (WhatnotScraper.php)
 
 ---
 
-### How it logs in
+### Authentication — cookie bootstrap
 
-Every mode starts the same way: navigates to `whatnot.com/signin`, fills the email + password fields, submits, and waits for navigation away from the login URL. If the page stays on `/signin` after submission (incorrect credentials, 2FA prompt, etc.) the script exits with code 1 and surfaces the reason.
+Whatnot uses **Kasada bot protection** on the login page, which blocks headless browsers. VortexOps bypasses this entirely by loading real Chrome session cookies at startup — the scraper navigates straight to Seller Hub without ever touching the login page.
 
-2FA is not supported. The Whatnot account must have 2FA disabled.
+**One-time setup (do this once, repeat when sync starts failing ~30–90 days later):**
+
+1. **Install Cookie-Editor** in Chrome — search for "Cookie-Editor" by cgagnier in the Chrome Web Store
+2. **Log into whatnot.com** normally in Chrome, complete any 2FA
+3. **Export cookies** — click Cookie-Editor → Export → Export as JSON → save the file
+4. **Import into VortexOps:**
+   ```bash
+   php artisan whatnot:login --cookie-file=~/Downloads/whatnot-cookies.json
+   ```
+   This validates and saves cookies to `storage/whatnot-cookies.json`.
+
+**Verify / refresh:**
+```bash
+php artisan whatnot:login --test         # test whether existing cookies are still valid
+php artisan whatnot:login --cookie-file= # re-import fresh cookies when expired
+```
+
+If `WHATNOT_EMAIL` and `WHATNOT_PASSWORD` are set in `.env`, the command tries a headless form login first as a convenience — but this usually fails on accounts with Kasada challenges. The cookie import path always works.
+
+Cookies are stored at `storage/whatnot-cookies.json`. The scraper loads them into its Playwright context at startup, skipping the login page entirely on every run.
 
 ---
 
-### 4 operating modes (`WHATNOT_MODE`)
+### 6 operating modes (`WHATNOT_MODE`)
 
 | Mode | What it does |
 |---|---|
 | `analytics` | Scrapes per-show metrics from `/dashboard/analytics/overview` — the default for all imports |
 | `show-orders` | Scrapes the order/lot list from one specific show detail page (`WHATNOT_SHOW_URL` required) |
 | `seller-shows` | Scrapes `/seller/shows` to collect show detail URLs for backfilling |
-| `test` | Verifies credentials only; navigates to the seller hub and returns `{connected, email, seller_url}` |
+| `test` | Navigates to Seller Hub and returns `{connected, email, seller_url}` |
+| `cookie-test` | Checks whether current cookies give access to Seller Hub without a login page redirect |
+| `discover` | Crawls all Seller Hub nav pages and intercepts every JSON API call to build an endpoint map |
 
 ---
 
@@ -741,6 +762,26 @@ The `SELECTORS` constant at the top of the script is the single place to update 
 
 ---
 
+### Discover mode — mapping Whatnot's API
+
+Because Whatnot has no public API, the discover mode crawls Seller Hub and intercepts every JSON response the page makes, building a structured map of endpoints, payloads, and data shapes. Run it once after a fresh cookie import:
+
+```bash
+# One-time: import cookies
+php artisan whatnot:login --cookie-file=~/Downloads/whatnot-cookies.json
+
+# Map all Seller Hub API endpoints
+php artisan whatnot:import --discover
+```
+
+The scraper navigates each section of the Seller Hub (dashboard, analytics, shows, orders, payouts, settings), listens on `page.on('response', ...)` for JSON responses from `*.whatnot.com`, and outputs a JSON endpoint map to stdout. The command saves it and pretty-prints a summary of all captured endpoints.
+
+You can re-run discover any time Whatnot updates their Seller Hub to check whether endpoint paths or payload shapes have changed.
+
+> **Interactive browser alternative?** Embedding a real browser inside Filament would require server-side VNC (noVNC), which adds significant infrastructure complexity. Discover mode achieves the same result automatically — it clicks through every Seller Hub page for you and captures every API call. There is no advantage to a manual click-through approach; discover mode is the right tool.
+
+---
+
 ### Chromium resolution
 
 The script finds Chromium via a priority chain so it works across dev, Docker, and bare VPS:
@@ -762,6 +803,93 @@ php artisan whatnot:setup-chromium
 
 ---
 
+## Whatnot Sync Engine
+
+The Sync Engine (`app/Services/WhatnotSyncEngine.php`) ties the scraper to the database — it syncs shows, orders, and buyer profiles from Whatnot into VortexOps on a schedule. Each sync run is logged in the `whatnot_syncs` table for full audit history.
+
+```
+Scheduler (hourly)
+    └── whatnot:sync
+            └── WhatnotSyncEngine::syncAll()
+                    └── per WhatnotChannel:
+                            ├── importShows()        → Shows table
+                            ├── syncOrdersForChannel() → whatnot_show_orders
+                            └── syncBuyersForChannel() → whatnot_buyers
+```
+
+---
+
+### Sync types
+
+| Type | Shows targeted | Use case |
+|---|---|---|
+| `incremental` | Shows with no orders, or not synced in 7+ days | Default hourly background run |
+| `last_30_days` | Shows from the past 30 days | Catch up on recent shows |
+| `full` | All shows on record | Full resync after a long outage |
+
+---
+
+### Manual sync commands
+
+```bash
+# Incremental sync — all active channels
+php artisan whatnot:sync
+
+# Sync a specific channel
+php artisan whatnot:sync --channel=1
+
+# Last-30-days resync
+php artisan whatnot:sync --type=last_30_days
+
+# Dispatch as a background queue job instead of running inline
+php artisan whatnot:sync --queue
+```
+
+The command prints a results table showing shows/orders/buyers created and updated per channel.
+
+---
+
+### Sync Dashboard (Filament)
+
+**Admin → Streams → Whatnot Sync** — shows each active channel with its last sync status, plus recent sync history (up to 20 runs). From here you can trigger any sync type per-channel or across all channels.
+
+Sync runs display created/updated counts for shows, orders, and buyers, plus an error count and a link to the error detail when something goes wrong.
+
+---
+
+### Buyer profiles
+
+Every sync run aggregates order data per buyer into `whatnot_buyers`:
+
+| Column | Description |
+|---|---|
+| `username` | Whatnot handle (unique key) |
+| `display_name` | Display name if available |
+| `total_orders` | All-time order count across your channels |
+| `lifetime_spend` | Sum of all order totals |
+| `avg_order_value` | `lifetime_spend / total_orders` |
+| `first_purchase_date` | Earliest order date |
+| `last_purchase_date` | Most recent order date |
+
+**Admin → Streams → Buyers** lists all profiles sorted by lifetime spend. Filters: Repeat Buyers (2+ orders), High Value ($100+ lifetime).
+
+---
+
+### Scheduled sync
+
+The hourly sync is registered in `routes/console.php`:
+
+```php
+Schedule::command('whatnot:sync')
+    ->hourly()
+    ->name('whatnot-sync-hourly')
+    ->withoutOverlapping(10);
+```
+
+`withoutOverlapping(10)` prevents a second sync from starting if the previous one is still running (with a 10-minute lock TTL as a safety release). The sync runs in the main process when invoked by the scheduler; use `--queue` to offload long runs to the queue worker.
+
+---
+
 ## Roles & access
 
 | Role | Access |
@@ -779,15 +907,19 @@ Assign a streamer user to a **Streamer profile** via the linked profile field on
 ```
 WhatnotChannel
      │
+     ├──< WhatnotSync (type, status, counters, errors, started_at)
+     │
      └──< Show >────────────────────────────< show_streamer >─────────< Streamer
               │                                                               │
-              ├──< DeductionRequest >─────< DeductionRequestLine      InventoryLocation (streamer_id FK)
-              │         │                       │          │                  │
-              │   approved_by (User)     InventoryItem  Location        InventoryStock
+              ├──< WhatnotShowOrder >──────────── whatnot_buyer_id ──< WhatnotBuyer
+              │                                                         (username, lifetime_spend,
+              ├──< DeductionRequest >─────< DeductionRequestLine         total_orders, ...)
+              │         │                       │          │
+              │   approved_by (User)     InventoryItem  Location   InventoryLocation (streamer_id FK)
               │                                                               │
-              └──< Payout >──< WeeklyPayoutBatch                       InventoryItem
-                    │
-                 Streamer
+              └──< Payout >──< WeeklyPayoutBatch                       InventoryStock
+                    │                                                        │
+                 Streamer                                              InventoryItem
 
 InventoryMovement (inventory_item_id, from_location_id, to_location_id, quantity, type, created_by)
 FeedbackTicket    (title, description, screenshot_path, page_url, status, priority, submitted_by, assigned_to)
@@ -817,7 +949,8 @@ app/
 │   │   ├── AppSettings.php              # branding, AI, notifications, maintenance actions
 │   │   ├── AiAssistant.php             # full-screen AI chat page
 │   │   ├── InventoryScanner.php        # barcode/SKU lookup + quick stock adjustment
-│   │   └── LogViewer.php              # log file browser with level filter + search
+│   │   ├── LogViewer.php              # log file browser with level filter + search
+│   │   └── WhatnotSyncPage.php        # sync dashboard: trigger syncs, view sync history
 │   ├── Resources/
 │   │   ├── ShowResource.php            # show CRUD + AI mapping action + QueryBuilder filters
 │   │   ├── DeductionRequestResource/
@@ -831,6 +964,7 @@ app/
 │   │   ├── PayoutResource.php          # grouping (streamer/week/status) + summaries + QueryBuilder
 │   │   ├── WeeklyPayoutBatchResource.php
 │   │   ├── StreamerResource.php        # channel routing repeater (reorderable, cloneable, collapsible)
+│   │   ├── WhatnotBuyerResource.php   # buyer profiles — lifetime spend, order counts, dates
 │   │   ├── WhatnotChannelResource.php
 │   │   ├── UserResource.php
 │   │   ├── ActivityLogResource.php              # Spatie activity log viewer
@@ -847,7 +981,8 @@ app/
 │   ├── MapShowInventory.php
 │   ├── NotifyShowReady.php
 │   ├── NotifyShowReconciled.php
-│   └── SendLowStockNotification.php    # queued, dispatched after commit
+│   ├── SendLowStockNotification.php    # queued, dispatched after commit
+│   └── RunWhatnotSyncJob.php          # queued sync job (timeout=600s)
 ├── Livewire/
 │   ├── AiChatPanel.php                 # floating AI chat sidebar
 │   └── FeedbackWidget.php             # screenshot capture + annotation + submit
@@ -856,12 +991,17 @@ app/
 │   ├── InventoryItem.php · InventoryLocation.php · InventoryMovement.php · InventoryStock.php
 │   ├── Streamer.php · WhatnotChannel.php
 │   ├── Payout.php · WeeklyPayoutBatch.php
+│   ├── WhatnotBuyer.php               # buyer profiles + aggregate recalculation
+│   ├── WhatnotSync.php                # sync run log (type, status, counters, errors)
+│   ├── WhatnotShowOrder.php           # individual orders with buyer FK + shipping fields
 │   ├── FeedbackTicket.php
 │   ├── User.php · Setting.php · AiLog.php
 └── Services/
     ├── InventoryService.php             # all stock mutations, transactions
     ├── OllamaService.php               # Ollama HTTP client + AI log
     ├── PayoutService.php               # payout calculation + weekly batch creation
+    ├── WhatnotSyncEngine.php           # shows → orders → buyers sync pipeline
+    ├── WhatnotScraper.php              # Playwright subprocess wrapper + cookie auth helpers
     ├── AiTitleParserService.php
     ├── AiInventoryMapperService.php
     ├── DeductionApprovalService.php    # approve + execute deductions
@@ -880,7 +1020,8 @@ app/
 | **Phase 3.5** | Platform Polish — performance optimization, mobile-responsive tables, nav badges, filter caching, client feedback tooling | ✅ Complete |
 | **Phase 3.6** | Scanner & Ops Tools — barcode scanner page (BT/USB/camera), log viewer, shows calendar widget, QueryBuilder advanced filters, payout grouping, table summaries, streamer repeater enhancements | ✅ Complete |
 | **Phase 4** | Operational Reporting — P&L summaries, per-streamer profitability, COGS trends, show performance dashboards | Planned |
-| **Phase 5** | Automation & Expansion — Whatnot API integration, automated show ingestion, advanced analytics, webhook alerts | Planned |
+| **Phase 5** | Automation & Expansion — Whatnot sync engine (shows/orders/buyers), cookie-based auth, discover mode endpoint mapping, buyer profiles, scheduled hourly sync | ✅ Complete |
+| **Phase 6** | Advanced Analytics & Webhooks — real-time Whatnot API integration (when available), automated alerts, per-show profitability dashboards | Planned |
 
 **Timeline notes:** Timelines vary depending on workflow discoveries, operational changes, review cycles, testing, platform limitations, client feedback, and evolving business requirements.
 

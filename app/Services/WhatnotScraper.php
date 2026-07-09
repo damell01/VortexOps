@@ -500,8 +500,8 @@ class WhatnotScraper
             $env['WHATNOT_CHANNEL_NAME'] = $channel->whatnot_username;
         }
 
-        // Visiting ~20 pages at ~10s each = allow up to 5 minutes
-        $process = $this->makeProcess($env, timeout: 300);
+        // Phase 1: ~20 nav pages × ~10 s + Phase 2: 5 shows × 5 tabs × ~8 s + Phase 3 = allow 10 minutes
+        $process = $this->makeProcess($env, timeout: 600);
 
         if ($onProgress) {
             $process->start();

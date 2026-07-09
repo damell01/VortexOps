@@ -6,8 +6,10 @@
  *   test         — verify credentials only, output {connected, email}
  *   show-orders  — scrape order/lot list for one show (requires WHATNOT_SHOW_URL)
  *   shows        — legacy: scrape the /seller/shows list page (less data, kept as fallback)
- *   discover     — navigate to /seller/shows, dump all intercepted API endpoints + previews
- *                  (run this once to find Whatnot's internal REST endpoints)
+ *   discover     — 3-phase deep crawl: (1) visit all Seller Hub nav pages, (2) drill into
+ *                  individual show detail pages and click each tab (Orders/Lots/Sales/Buyers),
+ *                  (3) crawl /seller/orders and individual order detail pages. Filters out
+ *                  third-party telemetry (/reroute/ paths) so only Whatnot's own APIs appear.
  *
  * Called by app/Services/WhatnotScraper.php via Symfony Process.
  *
@@ -1318,20 +1320,24 @@ function normalizeApiShow(s) {
       function drainCaptures() {
         const fresh = capturedApiResponses.slice(lastCaptureIdx);
         lastCaptureIdx = capturedApiResponses.length;
-        return fresh.map(r => {
-          const body = r.body;
-          const topKeys = typeof body === 'object' && body !== null
-            ? Object.keys(Array.isArray(body) ? (body[0] || {}) : body).slice(0, 20)
-            : [];
-          // Determine HTTP method from URL (POST for graphql, GET otherwise)
-          const method = r.url.includes('/graphql') || r.url.includes('graphql') ? 'POST' : 'GET';
-          return {
-            method,
-            url:     r.url,
-            keys:    topKeys,
-            preview: JSON.stringify(body).substring(0, 800),
-          };
-        });
+        return fresh
+          // Strip out third-party telemetry that Whatnot proxies via /reroute/
+          // (Datadog, Segment, Amplitude, etc.) — not Whatnot's own APIs
+          .filter(r => !r.url.includes('/reroute/'))
+          .map(r => {
+            const body = r.body;
+            const topKeys = typeof body === 'object' && body !== null
+              ? Object.keys(Array.isArray(body) ? (body[0] || {}) : body).slice(0, 20)
+              : [];
+            // Determine HTTP method from URL (POST for graphql, GET otherwise)
+            const method = r.url.includes('/graphql') || r.url.includes('graphql') ? 'POST' : 'GET';
+            return {
+              method,
+              url:     r.url,
+              keys:    topKeys,
+              preview: JSON.stringify(body).substring(0, 800),
+            };
+          });
       }
 
       // Helper: visit a page, wait for API calls to settle, scroll once, drain
@@ -1429,7 +1435,185 @@ function normalizeApiShow(s) {
         info(`  → ${apis.length} API endpoint(s) captured`);
       }
 
-      // ── Step 4: output ───────────────────────────────────────────────────
+      // ── Step 4: Deep crawl — visit individual show detail pages ──────────
+      // Now that we know what pages exist, drill into individual show pages and
+      // click through every tab to trigger the data-fetch API calls that only
+      // fire on interaction (Orders, Lots, Sales, Buyers, Analytics, etc.).
+      info('discover: === PHASE 2: Deep crawl individual show pages ===');
+      try {
+        // Navigate to the shows list to extract show detail links
+        await page.goto('https://www.whatnot.com/seller/shows', { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+        await page.waitForTimeout(2000);
+        for (let i = 0; i < 3; i++) {
+          await page.evaluate(() => window.scrollBy(0, window.innerHeight));
+          await page.waitForTimeout(500);
+        }
+        await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
+        drainCaptures(); // discard — already captured this page in Phase 1
+
+        const showDetailLinks = await page.evaluate(() => {
+          const links = [];
+          const seen = new Set();
+          for (const a of document.querySelectorAll('a[href]')) {
+            const href = a.getAttribute('href') || '';
+            if (!(/\/seller\/shows\/[\w-]+(?=[?#]|$)/.test(href) ||
+                  /\/live\/[^/]+\/[^/?#\s]+(?=[?#]|$)/.test(href))) continue;
+            const full = href.startsWith('http') ? href : 'https://www.whatnot.com' + href;
+            if (seen.has(full)) continue;
+            seen.add(full);
+            links.push(full);
+          }
+          return links.slice(0, 5);
+        });
+
+        info(`discover: found ${showDetailLinks.length} show detail pages to deep-crawl`);
+
+        const SHOW_TAB_SELECTORS = [
+          ['Overview',  'button:has-text("Overview"), [role="tab"]:has-text("Overview")'],
+          ['Orders',    'button:has-text("Orders"),   [role="tab"]:has-text("Orders")'],
+          ['Lots',      'button:has-text("Lots"),     [role="tab"]:has-text("Lots")'],
+          ['Sales',     'button:has-text("Sales"),    [role="tab"]:has-text("Sales")'],
+          ['Buyers',    'button:has-text("Buyers"),   [role="tab"]:has-text("Buyers")'],
+          ['Analytics', 'button:has-text("Analytics"),[role="tab"]:has-text("Analytics")'],
+          ['Payouts',   'button:has-text("Payouts"),  [role="tab"]:has-text("Payouts")'],
+        ];
+
+        for (let showIdx = 0; showIdx < showDetailLinks.length; showIdx++) {
+          const showUrl = showDetailLinks[showIdx];
+          info(`discover: deep-crawl show ${showIdx + 1}/${showDetailLinks.length}: ${showUrl}`);
+          try {
+            await page.goto(showUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+            await page.waitForTimeout(2000);
+            if (DEBUG) await debugShot(page, `discover-show-${showIdx + 1}-load`);
+
+            const loadApis = drainCaptures();
+            if (loadApis.length > 0) {
+              pageResults.push({
+                url:           showUrl,
+                nav_label:     `Show Detail (page load) #${showIdx + 1}`,
+                landed_url:    page.url(),
+                api_count:     loadApis.length,
+                api_endpoints: loadApis,
+              });
+              info(`  → page load: ${loadApis.length} API endpoint(s) — keys: ${loadApis.flatMap(e => e.keys).slice(0, 8).join(', ')}`);
+            }
+
+            // Click through each unique visible tab
+            const clickedLabels = new Set();
+            for (const [tabLabel, tabSel] of SHOW_TAB_SELECTORS) {
+              const tab = await page.$(tabSel).catch(() => null);
+              if (!tab || !await tab.isVisible().catch(() => false)) continue;
+              if (clickedLabels.has(tabLabel)) continue;
+
+              const isActive = await tab.evaluate(el =>
+                el.getAttribute('aria-selected') === 'true' || el.getAttribute('aria-current') === 'page'
+              ).catch(() => false);
+              if (isActive) { clickedLabels.add(tabLabel); continue; }
+
+              info(`  → clicking "${tabLabel}" tab`);
+              clickedLabels.add(tabLabel);
+              await tab.click();
+              await page.waitForTimeout(2500);
+              await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
+              for (let i = 0; i < 3; i++) {
+                await page.evaluate(() => window.scrollBy(0, window.innerHeight));
+                await page.waitForTimeout(400);
+              }
+              await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
+              if (DEBUG) await debugShot(page, `discover-show-${showIdx + 1}-tab-${tabLabel.toLowerCase()}`);
+
+              const tabApis = drainCaptures();
+              pageResults.push({
+                url:           showUrl,
+                nav_label:     `Show Detail - "${tabLabel}" tab #${showIdx + 1}`,
+                landed_url:    page.url(),
+                api_count:     tabApis.length,
+                api_endpoints: tabApis,
+              });
+              if (tabApis.length > 0) {
+                info(`    → ${tabApis.length} API endpoint(s) — keys: ${tabApis.flatMap(e => e.keys).slice(0, 8).join(', ')}`);
+              } else {
+                info(`    → 0 API endpoint(s) (tab may be DOM-rendered or empty)`);
+              }
+            }
+          } catch (e) {
+            info(`discover: error deep-crawling show ${showUrl}: ${e.message}`);
+          }
+        }
+      } catch (e) {
+        info(`discover: Phase 2 error: ${e.message}`);
+      }
+
+      // ── Step 5: Deep crawl /seller/orders ─────────────────────────────────
+      info('discover: === PHASE 3: Deep crawl /seller/orders ===');
+      try {
+        await page.goto('https://www.whatnot.com/seller/orders', { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+        await page.waitForTimeout(2000);
+        for (let i = 0; i < 3; i++) {
+          await page.evaluate(() => window.scrollBy(0, window.innerHeight));
+          await page.waitForTimeout(500);
+        }
+        await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
+
+        const ordersPageApis = drainCaptures();
+        if (ordersPageApis.length > 0) {
+          pageResults.push({
+            url:           'https://www.whatnot.com/seller/orders',
+            nav_label:     'Orders List (deep crawl)',
+            landed_url:    page.url(),
+            api_count:     ordersPageApis.length,
+            api_endpoints: ordersPageApis,
+          });
+          info(`  → orders list: ${ordersPageApis.length} API endpoint(s) — keys: ${ordersPageApis.flatMap(e => e.keys).slice(0, 8).join(', ')}`);
+        }
+
+        // Click into the first 2 order detail pages
+        const orderDetailLinks = await page.evaluate(() => {
+          const links = [];
+          const seen = new Set();
+          for (const a of document.querySelectorAll('a[href]')) {
+            const href = a.getAttribute('href') || '';
+            if (!/\/seller\/orders\/[\w-]+(?=[?#]|$)/.test(href)) continue;
+            const full = href.startsWith('http') ? href : 'https://www.whatnot.com' + href;
+            if (seen.has(full)) continue;
+            seen.add(full);
+            links.push(full);
+          }
+          return links.slice(0, 2);
+        });
+
+        info(`discover: found ${orderDetailLinks.length} order detail pages to crawl`);
+
+        for (let oIdx = 0; oIdx < orderDetailLinks.length; oIdx++) {
+          const orderUrl = orderDetailLinks[oIdx];
+          info(`discover: deep-crawl order ${oIdx + 1}/${orderDetailLinks.length}: ${orderUrl}`);
+          try {
+            await page.goto(orderUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+            await page.waitForTimeout(2000);
+            const orderApis = drainCaptures();
+            if (orderApis.length > 0) {
+              pageResults.push({
+                url:           orderUrl,
+                nav_label:     `Order Detail #${oIdx + 1}`,
+                landed_url:    page.url(),
+                api_count:     orderApis.length,
+                api_endpoints: orderApis,
+              });
+              info(`  → order detail: ${orderApis.length} API endpoint(s) — keys: ${orderApis.flatMap(e => e.keys).slice(0, 8).join(', ')}`);
+            }
+          } catch (e) {
+            info(`discover: error crawling order ${orderUrl}: ${e.message}`);
+          }
+        }
+      } catch (e) {
+        info(`discover: Phase 3 error: ${e.message}`);
+      }
+
+      // ── Step 6: output ───────────────────────────────────────────────────
       const allEndpoints = pageResults.flatMap(p => p.api_endpoints.map(e => ({ ...e, from_page: p.url })));
       // Deduplicate by URL for the summary
       const uniqueEndpoints = [];

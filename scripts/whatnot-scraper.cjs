@@ -945,6 +945,15 @@ function normalizeApiShow(s) {
       if (url.includes('/reroute/')) return;  // skip Datadog/Segment/third-party proxies
       if (response.status() < 200 || response.status() >= 300) return;
       const ct = response.headers()['content-type'] || '';
+      // In discover mode: log EVERY non-asset response so we can see what protocol
+      // Whatnot uses (GraphQL, gRPC, protobuf, unusual content-type, etc.)
+      if (MODE === 'discover') {
+        const isAsset = /\.(js|css|png|jpg|gif|svg|ico|woff2?|ttf|eot|map)(\?|$)/.test(url)
+                     || ct.includes('javascript') || ct.includes('text/css') || ct.includes('image/');
+        if (!isAsset) {
+          info(`[net] ${response.status()} ${ct.split(';')[0].trim() || '(no ct)'} ${url.replace('https://www.whatnot.com', '').substring(0, 120)}`);
+        }
+      }
       if (!ct.includes('application/json') && !ct.includes('graphql')) return;
       const text = await response.text().catch(() => '');
       if (text.length < 50) return;
@@ -1316,6 +1325,21 @@ function normalizeApiShow(s) {
     // Usage:  WHATNOT_MODE=discover php artisan whatnot:import --discover
     // Output: JSON with { nav_links, pages: [{ url, nav_label, api_endpoints }] }
     if (MODE === 'discover') {
+      // Log every outbound request in discover mode (not just captured JSON responses).
+      // This reveals API calls with unusual content-types, gRPC, or other protocols
+      // that the response handler's JSON filter would otherwise silently skip.
+      page.on('request', (request) => {
+        try {
+          const url = request.url();
+          if (!url.includes('whatnot.com')) return;
+          if (url.includes('/reroute/')) return;
+          // Skip JS/CSS/font bundles and Next.js static chunks
+          if (/\.(js|css|png|jpg|gif|svg|ico|woff2?|ttf|eot|map)(\?|$)/.test(url)) return;
+          if (url.includes('/_next/static/') || url.includes('/_next/webpack')) return;
+          info(`[req] ${request.method()} ${url.replace('https://www.whatnot.com', '').substring(0, 120)}`);
+        } catch {}
+      });
+
       // Helper: snapshot and summarise all NEW API calls captured since last call
       let lastCaptureIdx = 0;
       function drainCaptures() {
@@ -1357,6 +1381,14 @@ function normalizeApiShow(s) {
           }
           await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
           await page.waitForTimeout(500);
+
+          // Diagnostic: confirm the page actually loaded meaningful content
+          const pageSnap = await page.evaluate(() => ({
+            url:     location.href,
+            title:   document.title,
+            bodyLen: (document.body.innerText || '').length,
+          })).catch(() => ({ url: '?', title: '?', bodyLen: 0 }));
+          info(`  ├ loaded: "${pageSnap.title}" (${pageSnap.bodyLen} chars) @ ${pageSnap.url}`);
 
           // page.goto() triggers Next.js SSR: the server embeds all page data in
           // <script id="__NEXT_DATA__"> and no XHR/fetch calls fire for the initial

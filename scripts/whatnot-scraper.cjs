@@ -886,13 +886,30 @@ async function runWsExploreStandalone(cookiesFilePath) {
       });
     });
 
-    info('ws-explore: navigating to seller shows page…');
-    await tempPage.goto('https://www.whatnot.com/seller/shows', {
-      waitUntil: 'domcontentloaded',
-      timeout:   45000,
-    });
-    info(`ws-explore: page loaded — waiting 25 s for Phoenix frames to flow in…`);
-    await new Promise(r => setTimeout(r, 25000));
+    // Try several seller hub URLs in sequence — capture frames from each.
+    // Whatnot may redirect or use a different path for the seller dashboard.
+    const SELLER_URLS = [
+      'https://www.whatnot.com/seller/shows',
+      'https://www.whatnot.com/seller/dashboard',
+      'https://www.whatnot.com/seller',
+    ];
+    for (const url of SELLER_URLS) {
+      info(`ws-explore: navigating to ${url}…`);
+      await tempPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      // Let React mount and join channels
+      await tempPage.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
+      const actualUrl = tempPage.url();
+      info(`ws-explore: landed on ${actualUrl} — topics so far: ${[...topicsJoined].join(', ') || 'none'}`);
+      // If we already found seller-specific topics (not just general), stop early
+      const nonGeneral = [...topicsJoined].filter(t => !t.startsWith('general:') && t !== 'phoenix');
+      if (nonGeneral.length > 0) break;
+      // Wait a bit more for lazy-loaded WS joins
+      await new Promise(r => setTimeout(r, 5000));
+      const nonGeneral2 = [...topicsJoined].filter(t => !t.startsWith('general:') && t !== 'phoenix');
+      if (nonGeneral2.length > 0) break;
+    }
+    // Final wait to collect any trailing frames
+    await new Promise(r => setTimeout(r, 8000));
     info(`ws-explore: sniff complete — topics joined: ${[...topicsJoined].join(', ') || 'none'}`);
 
   } finally {

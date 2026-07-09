@@ -942,6 +942,7 @@ function normalizeApiShow(s) {
     try {
       const url = response.url();
       if (!url.includes('whatnot.com')) return;
+      if (url.includes('/reroute/')) return;  // skip Datadog/Segment/third-party proxies
       if (response.status() < 200 || response.status() >= 300) return;
       const ct = response.headers()['content-type'] || '';
       if (!ct.includes('application/json') && !ct.includes('graphql')) return;

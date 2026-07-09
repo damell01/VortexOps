@@ -847,6 +847,10 @@ function normalizeApiShow(s) {
       'sec-ch-ua-platform': '"Windows"',
       'Accept-Language':    'en-US,en;q=0.9',
     },
+    // In discover mode, block service workers so that fetch() calls go through the real
+    // network instead of being served from the SW cache (which bypasses page.on('response')).
+    // Other modes leave SWs enabled so session/auth SWs keep working normally.
+    ...(MODE === 'discover' ? { serviceWorkers: 'block' } : {}),
   });
 
   // Mask automation signals that trigger bot detection on sites like Whatnot.
@@ -1340,9 +1344,71 @@ function normalizeApiShow(s) {
         } catch {}
       });
 
-      // Helper: snapshot and summarise all NEW API calls captured since last call
+      // Intercept WebSocket frames — Whatnot uses WS for live-stream real-time data.
+      // page.on('response') only sees HTTP; WS frames are invisible without this.
+      page.on('websocket', (ws) => {
+        if (!ws.url().includes('whatnot.com')) return;
+        info(`[ws] CONNECT ${ws.url().replace('https://www.whatnot.com', '').substring(0, 100)}`);
+        ws.on('framereceived', ({ payload }) => {
+          try {
+            if (typeof payload !== 'string' || payload.length < 10) return;
+            const data = JSON.parse(payload);
+            capturedApiResponses.push({ url: ws.url() + '#ws', body: data });
+          } catch {}
+        });
+        ws.on('framesent', ({ payload }) => {
+          if (typeof payload === 'string' && payload.length > 2) {
+            info(`[ws] SEND ${payload.substring(0, 80)}`);
+          }
+        });
+      });
+
+      // Monkey-patch window.fetch so responses served from a service-worker cache
+      // (which bypass page.on('response') since no real HTTP request is made) are
+      // still captured. Runs on each page.goto() navigation as a page-level init script.
+      await page.addInitScript(() => {
+        window.__wn_captures = [];
+        const _orig = window.fetch;
+        if (!_orig) return;
+        window.fetch = async function () {
+          const resp = await _orig.apply(this, arguments);
+          try {
+            const req = arguments[0];
+            const url = typeof req === 'string' ? req
+                      : (req instanceof URL ? req.href : (req && req.url) || '');
+            if (url.includes('whatnot.com') && !url.includes('/reroute/')) {
+              const ct = resp.headers.get('content-type') || '';
+              if (ct.includes('application/json') || ct.includes('graphql')) {
+                resp.clone().text().then(t => {
+                  try {
+                    if (t.length > 50) window.__wn_captures.push({ url, body: JSON.parse(t) });
+                  } catch {}
+                }).catch(() => {});
+              }
+            }
+          } catch {}
+          return resp;
+        };
+      });
+
+      // Helper: snapshot and summarise all NEW API calls captured since last call.
+      // Also drains the in-page fetch interceptor (picks up SW-cached responses).
       let lastCaptureIdx = 0;
-      function drainCaptures() {
+      async function drainCaptures() {
+        // Poll the in-page fetch interceptor; splice(0) atomically empties the array
+        const inPage = await page.evaluate(() => {
+          const c = window.__wn_captures || [];
+          window.__wn_captures = [];
+          return c;
+        }).catch(() => []);
+        for (const c of inPage) {
+          // Avoid duplicating what page.on('response') already captured via HTTP
+          if (!capturedApiResponses.some(r => r.url === c.url)) {
+            capturedApiResponses.push(c);
+            info(`[fetch-intercept] ${c.url.replace('https://www.whatnot.com', '').substring(0, 100)}`);
+          }
+        }
+
         const fresh = capturedApiResponses.slice(lastCaptureIdx);
         lastCaptureIdx = capturedApiResponses.length;
         return fresh
@@ -1354,7 +1420,6 @@ function normalizeApiShow(s) {
             const topKeys = typeof body === 'object' && body !== null
               ? Object.keys(Array.isArray(body) ? (body[0] || {}) : body).slice(0, 20)
               : [];
-            // Determine HTTP method from URL (POST for graphql, GET otherwise)
             const method = r.url.includes('/graphql') || r.url.includes('graphql') ? 'POST' : 'GET';
             return {
               method,
@@ -1405,10 +1470,43 @@ function normalizeApiShow(s) {
           } else {
             info(`  ├ no __NEXT_DATA__ (client-only SPA page or not Next.js)`);
           }
+
+          // DOM extraction — pull visible table/list data as a last-resort fallback.
+          // If the app renders data server-side or from a SW cache with no observable
+          // HTTP response, at least we can see what text is on screen.
+          const domSnap = await page.evaluate(() => {
+            const tables = [];
+            for (const tbl of document.querySelectorAll('table')) {
+              const rows = [];
+              for (const tr of tbl.querySelectorAll('tr')) {
+                const cells = Array.from(tr.querySelectorAll('td, th')).map(c => c.innerText.trim());
+                if (cells.some(c => c.length > 0)) rows.push(cells);
+              }
+              if (rows.length > 1) tables.push(rows.slice(0, 20));
+            }
+            // Also grab any visible card/row text blocks (common in React list UIs)
+            const listItems = Array.from(document.querySelectorAll('[class*="row"], [class*="card"], [class*="item"], li'))
+              .slice(0, 30)
+              .map(el => el.innerText.trim().replace(/\s+/g, ' ').substring(0, 200))
+              .filter(t => t.length > 10);
+            return { tables, listItems: [...new Set(listItems)] };
+          }).catch(() => null);
+          if (domSnap) {
+            if (domSnap.tables.length > 0) {
+              info(`  ├ DOM: ${domSnap.tables.length} table(s), largest ${domSnap.tables[0].length} rows`);
+              capturedApiResponses.push({ url: '__dom__:' + url, body: domSnap });
+            }
+            if (domSnap.listItems.length > 0) {
+              info(`  ├ DOM: ${domSnap.listItems.length} list items visible`);
+              if (!domSnap.tables.length) {
+                capturedApiResponses.push({ url: '__dom__:' + url, body: domSnap });
+              }
+            }
+          }
         } catch (e) {
           info(`discover: error visiting ${url}: ${e.message}`);
         }
-        return drainCaptures();
+        return await drainCaptures();
       }
 
       // ── Step 1: land on Seller Hub home, grab all nav links ──────────────
@@ -1417,7 +1515,7 @@ function normalizeApiShow(s) {
       await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
       await page.waitForTimeout(2000);
       await debugShot(page, 'discover-00-seller-hub');
-      drainCaptures(); // discard hub-home API calls — we'll capture them properly below
+      await drainCaptures(); // discard hub-home API calls — we'll capture them properly below
 
       // Extract every link in the seller hub sidebar / nav
       const navLinks = await page.evaluate(() => {
@@ -1499,7 +1597,7 @@ function normalizeApiShow(s) {
           await page.waitForTimeout(500);
         }
         await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
-        drainCaptures(); // discard — already captured this page in Phase 1
+        await drainCaptures(); // discard — already captured this page in Phase 1
 
         const showDetailLinks = await page.evaluate(() => {
           const links = [];
@@ -1549,7 +1647,7 @@ function normalizeApiShow(s) {
               info(`  ├ SSR(__NEXT_DATA__) — pageProps keys: ${propKeys || '(empty)'}`);
             }
 
-            const loadApis = drainCaptures();
+            const loadApis = await drainCaptures();
             if (loadApis.length > 0) {
               pageResults.push({
                 url:           showUrl,
@@ -1585,7 +1683,7 @@ function normalizeApiShow(s) {
               await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
               if (DEBUG) await debugShot(page, `discover-show-${showIdx + 1}-tab-${tabLabel.toLowerCase()}`);
 
-              const tabApis = drainCaptures();
+              const tabApis = await drainCaptures();
               pageResults.push({
                 url:           showUrl,
                 nav_label:     `Show Detail - "${tabLabel}" tab #${showIdx + 1}`,
@@ -1619,7 +1717,7 @@ function normalizeApiShow(s) {
         }
         await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
 
-        const ordersPageApis = drainCaptures();
+        const ordersPageApis = await drainCaptures();
         if (ordersPageApis.length > 0) {
           pageResults.push({
             url:           'https://www.whatnot.com/seller/orders',
@@ -1655,7 +1753,7 @@ function normalizeApiShow(s) {
             await page.goto(orderUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
             await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
             await page.waitForTimeout(2000);
-            const orderApis = drainCaptures();
+            const orderApis = await drainCaptures();
             if (orderApis.length > 0) {
               pageResults.push({
                 url:           orderUrl,

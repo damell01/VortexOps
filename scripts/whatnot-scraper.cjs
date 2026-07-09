@@ -801,9 +801,9 @@ function normalizeApiShow(s) {
 // needed. Reads cookies from the cookie file, fetches CSRF tokens via https,
 // then probes Phoenix Channels directly over WebSocket.
 async function runWsExploreStandalone(cookiesFilePath) {
-  const https = require('https');
-  const fs    = require('fs');
-  const path  = require('path');
+  const fs   = require('fs');
+  const os   = require('os');
+  const path = require('path');
 
   // Load cookies from file
   if (!fs.existsSync(cookiesFilePath)) {
@@ -818,72 +818,67 @@ async function runWsExploreStandalone(cookiesFilePath) {
     process.stderr.write('ws-explore: failed to parse cookie file: ' + e.message + '\n');
     process.exit(1);
   }
-  const cookieStr = rawCookies
+
+  info('ws-explore: loaded', rawCookies.length, 'cookies from file');
+
+  // Fetch CSRF + session tokens using a TEMPORARY Playwright browser context.
+  // We cannot use raw https because the session endpoint is behind Kasada bot
+  // detection which requires real browser fingerprinting headers.
+  // We use a fresh temp directory (not the shared persistent profile) so there
+  // is no SingletonLock conflict with concurrent scraper sessions.
+  info('ws-explore: launching temporary browser to fetch Phoenix session tokens (bypasses bot detection)');
+
+  const tempDir  = fs.mkdtempSync(path.join(os.tmpdir(), 'whatnot-ws-'));
+  const _sameSiteMap = { no_restriction: 'None', strict: 'Strict', lax: 'Lax' };
+  const playwrightCookies = rawCookies
     .filter(c => c.name && c.value)
-    .map(c => `${c.name}=${c.value}`)
-    .join('; ');
+    .map(c => ({
+      name:     c.name,
+      value:    c.value,
+      domain:   c.domain || '.whatnot.com',
+      path:     c.path   || '/',
+      expires:  c.expirationDate ?? c.expires ?? -1,
+      httpOnly: Boolean(c.httpOnly),
+      secure:   Boolean(c.secure),
+      sameSite: _sameSiteMap[(c.sameSite || '').toLowerCase()] || 'Lax',
+    }));
 
-  info('ws-explore: loaded', rawCookies.length, 'cookies from file (no browser needed)');
-
-  // Fetch CSRF + session extension token, following up to 5 redirects
-  info('ws-explore: fetching Phoenix session tokens via https');
-  const sessionJson = await (async function fetchWithRedirects(url, depth = 0) {
-    if (depth > 5) throw new Error('too many redirects fetching session tokens');
-    return new Promise((resolve, reject) => {
-      const parsed = new URL(url);
-      const options = {
-        hostname: parsed.hostname,
-        path:     parsed.pathname + parsed.search,
-        method:   'GET',
-        headers: {
-          'Cookie':       cookieStr,
-          'User-Agent':   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0.0.0',
-          'Accept':       'application/json, text/plain, */*',
-          'Referer':      'https://www.whatnot.com/seller',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-      };
-      const req = https.request(options, (res) => {
-        info(`ws-explore: session endpoint status=${res.statusCode} location=${res.headers.location || '-'}`);
-        // Follow redirects
-        if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
-          res.resume(); // drain the body
-          const next = res.headers.location.startsWith('http')
-            ? res.headers.location
-            : 'https://www.whatnot.com' + res.headers.location;
-          resolve(fetchWithRedirects(next, depth + 1));
-          return;
-        }
-        let body = '';
-        res.on('data', d => body += d);
-        res.on('end', () => {
-          info(`ws-explore: session response body (${body.length} bytes): ${body.substring(0, 300)}`);
-          if (res.statusCode !== 200) {
-            reject(new Error(`session endpoint returned HTTP ${res.statusCode} — cookies may be expired. Body: ${body.substring(0, 200)}`));
-            return;
-          }
-          if (!body.trim()) {
-            reject(new Error('session endpoint returned empty body — likely an auth redirect that exhausted redirects'));
-            return;
-          }
-          try { resolve(JSON.parse(body)); }
-          catch (e) { reject(new Error('session parse error: ' + body.substring(0, 200))); }
-        });
-      });
-      req.on('error', reject);
-      req.setTimeout(10000, () => { req.destroy(); reject(new Error('session request timed out')); });
-      req.end();
+  let csrfToken, sessionToken, cookieStr;
+  const tempContext = await chromium.launchPersistentContext(tempDir, {
+    executablePath: CHROMIUM_PATH,
+    headless:       true,
+    env: { ...process.env, HOME: '/tmp' },
+    args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
+           '--disable-crash-reporter', '--crash-dumps-dir=/tmp'],
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+  });
+  try {
+    await tempContext.addCookies(playwrightCookies);
+    const tempPage = await tempContext.newPage();
+    const resp = await tempPage.evaluate(async () => {
+      const r = await fetch('https://www.whatnot.com/services/live/socket/v3/session',
+                            { credentials: 'include' });
+      return { status: r.status, text: await r.text() };
     });
-  })('https://www.whatnot.com/services/live/socket/v3/session');
-
-  const csrfToken    = sessionJson.csrf_token;
-  const sessionToken = sessionJson.session_extension_token;
-  if (!csrfToken || !sessionToken) {
-    process.stderr.write('ws-explore: session endpoint did not return tokens — cookies may be expired\n');
-    process.stderr.write('Response: ' + JSON.stringify(sessionJson).substring(0, 300) + '\n');
-    process.exit(1);
+    info(`ws-explore: session endpoint status=${resp.status} body=${resp.text.substring(0, 200)}`);
+    if (resp.status !== 200 || !resp.text) {
+      throw new Error(`session endpoint returned ${resp.status} — cookies may be expired`);
+    }
+    const parsed = JSON.parse(resp.text);
+    csrfToken    = parsed.csrf_token;
+    sessionToken = parsed.session_extension_token;
+    if (!csrfToken || !sessionToken) {
+      throw new Error('session response missing tokens: ' + resp.text.substring(0, 200));
+    }
+    // Also capture current cookies (session may have been refreshed)
+    const liveCookies = await tempContext.cookies('https://www.whatnot.com');
+    cookieStr = liveCookies.map(c => `${c.name}=${c.value}`).join('; ');
+    info('ws-explore: got csrf_token and session_extension_token');
+  } finally {
+    await tempContext.close().catch(() => {});
+    // Clean up temp profile dir
+    fs.rm(tempDir, { recursive: true, force: true }, () => {});
   }
-  info('ws-explore: got csrf_token and session_extension_token');
 
   // Open Phoenix WebSocket
   const WebSocket = (() => {

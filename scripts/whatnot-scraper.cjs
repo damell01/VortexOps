@@ -881,6 +881,28 @@ async function runWsExploreStandalone(cookiesFilePath) {
       info('ws-explore: proceeding with cookies only (seller topics may not appear)');
     }
 
+    // Capture HTTP API calls (GraphQL/REST JSON) — the shows list is likely REST, not WS
+    const httpCaptures = [];
+    tempPage.on('response', async (resp) => {
+      try {
+        const url = resp.url();
+        if (!url.includes('whatnot.com')) return;
+        if (url.includes('/reroute/') || url.includes('/_next/') || url.includes('/static/')) return;
+        const ct = resp.headers()['content-type'] || '';
+        if (!ct.includes('json') && !ct.includes('graphql')) return;
+        const text = await resp.text().catch(() => '');
+        if (text.length < 30) return;
+        const path = url.replace('https://www.whatnot.com', '');
+        info(`[http] ${resp.status()} ${resp.request().method()} ${path.substring(0, 100)}`);
+        try {
+          const body = JSON.parse(text);
+          httpCaptures.push({ method: resp.request().method(), url: path, status: resp.status(), body });
+        } catch {
+          httpCaptures.push({ method: resp.request().method(), url: path, status: resp.status(), body: text.substring(0, 500) });
+        }
+      } catch {}
+    });
+
     // Wire up WS interception BEFORE navigating so we catch the very first join frames
     tempPage.on('websocket', (ws) => {
       if (!ws.url().includes('whatnot.com')) return;
@@ -910,31 +932,18 @@ async function runWsExploreStandalone(cookiesFilePath) {
       });
     });
 
-    // Try several seller hub URLs in sequence — capture frames from each.
-    // Whatnot may redirect or use a different path for the seller dashboard.
-    const SELLER_URLS = [
-      'https://www.whatnot.com/seller/shows',
-      'https://www.whatnot.com/seller/dashboard',
-      'https://www.whatnot.com/seller',
-    ];
-    for (const url of SELLER_URLS) {
-      info(`ws-explore: navigating to ${url}…`);
-      await tempPage.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      // Let React mount and join channels
-      await tempPage.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
-      const actualUrl = tempPage.url();
-      info(`ws-explore: landed on ${actualUrl} — topics so far: ${[...topicsJoined].join(', ') || 'none'}`);
-      // If we already found seller-specific topics (not just general), stop early
-      const nonGeneral = [...topicsJoined].filter(t => !t.startsWith('general:') && t !== 'phoenix');
-      if (nonGeneral.length > 0) break;
-      // Wait a bit more for lazy-loaded WS joins
-      await new Promise(r => setTimeout(r, 5000));
-      const nonGeneral2 = [...topicsJoined].filter(t => !t.startsWith('general:') && t !== 'phoenix');
-      if (nonGeneral2.length > 0) break;
-    }
-    // Final wait to collect any trailing frames
-    await new Promise(r => setTimeout(r, 8000));
-    info(`ws-explore: sniff complete — topics joined: ${[...topicsJoined].join(', ') || 'none'}`);
+    // Navigate only to /seller/shows — that's the page we care about for show data
+    info(`ws-explore: navigating to /seller/shows…`);
+    await tempPage.goto('https://www.whatnot.com/seller/shows', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await tempPage.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+    const actualUrl = tempPage.url();
+    info(`ws-explore: landed on ${actualUrl}`);
+    // Capture page text to confirm shows are visible
+    const pageText = await tempPage.evaluate(() => (document.body.innerText || '').substring(0, 500)).catch(() => '');
+    info(`ws-explore: page text preview: ${pageText.replace(/\n/g, ' ').substring(0, 200)}`);
+    // Final wait for any lazy-loaded API calls
+    await new Promise(r => setTimeout(r, 5000));
+    info(`ws-explore: captured ${httpCaptures.length} HTTP API calls, ${allMessages.length} WS frames`);
 
   } finally {
     await tempContext.close().catch(() => {});
@@ -959,14 +968,16 @@ async function runWsExploreStandalone(cookiesFilePath) {
     topics_joined:  [...topicsJoined],
     topics:         Object.values(byTopicEvent),
     messages:       allMessages,
+    http_captures:  httpCaptures,
   };
   fs.writeFileSync(outFile, JSON.stringify(result, null, 2));
-  log(`ws-explore complete: ${allMessages.length} frames, ${Object.keys(byTopicEvent).length} topic/event combos → ${outFile}`);
+  log(`ws-explore complete: ${allMessages.length} WS frames, ${httpCaptures.length} HTTP calls → ${outFile}`);
   process.stdout.write(JSON.stringify({
-    output_file: outFile,
+    output_file:    outFile,
     total_messages: allMessages.length,
     topics_joined:  [...topicsJoined],
     topics:         Object.values(byTopicEvent),
+    http_captures:  httpCaptures,
   }) + '\n');
 }
 

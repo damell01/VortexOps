@@ -129,31 +129,53 @@ class ImportWhatnotShows extends Command
                     $this->line('');
                 }
 
-                // Inbound frames grouped by topic — the actual data
-                $this->info('── Inbound Frames by Topic ───────────────────────────');
-                $recvTopics = array_values(array_filter($json['topics'] ?? [], fn($t) => ($t['dir'] ?? 'recv') === 'recv'));
-                foreach ($recvTopics as $t) {
-                    $topic  = $t['topic'];
-                    $event  = $t['event'];
-                    $count  = $t['count'];
-                    $sample = $t['sample'] ?? null;
-
-                    if ($event === 'phx_reply') {
-                        $status = $sample['status'] ?? '?';
-                        $icon   = $status === 'ok' ? '<fg=green>✓</>' : '<fg=yellow>·</>';
-                        $this->line("  [{$count}x] {$icon} {$topic}/{$event} status={$status}");
-                        if (!empty($sample['response'])) {
-                            $resp = json_encode($sample['response'], JSON_UNESCAPED_SLASHES);
-                            $this->line("         response: " . substr($resp, 0, 300));
+                // HTTP API calls — likely where the shows data actually lives
+                $httpCaptures = $json['http_captures'] ?? [];
+                if ($httpCaptures) {
+                    $this->info('── HTTP API Calls (' . count($httpCaptures) . ') ─────────────────────────');
+                    foreach ($httpCaptures as $h) {
+                        $method  = $h['method'] ?? 'GET';
+                        $url     = $h['url'] ?? '';
+                        $status  = $h['status'] ?? '?';
+                        $this->line("  {$method} {$status} {$url}");
+                        if (!empty($h['body'])) {
+                            $preview = is_array($h['body']) ? json_encode($h['body'], JSON_UNESCAPED_SLASHES) : (string) $h['body'];
+                            $this->line("         " . substr($preview, 0, 400));
                         }
-                    } else {
-                        $this->line("  [{$count}x] {$topic}/{$event}");
-                        if ($sample !== null) {
-                            $preview = json_encode($sample, JSON_UNESCAPED_SLASHES);
-                            $this->line("         payload: " . substr($preview, 0, 400));
-                        }
+                        $this->line('');
                     }
+                } else {
+                    $this->line('  (no HTTP API calls captured — shows may not have loaded in temp browser)');
                     $this->line('');
+                }
+
+                // Inbound WS frames grouped by topic
+                $recvTopics = array_values(array_filter($json['topics'] ?? [], fn($t) => ($t['dir'] ?? 'recv') === 'recv'));
+                if ($recvTopics) {
+                    $this->info('── WebSocket Frames by Topic ─────────────────────────');
+                    foreach ($recvTopics as $t) {
+                        $topic  = $t['topic'];
+                        $event  = $t['event'];
+                        $count  = $t['count'];
+                        $sample = $t['sample'] ?? null;
+
+                        if ($event === 'phx_reply') {
+                            $status = $sample['status'] ?? '?';
+                            $icon   = $status === 'ok' ? '<fg=green>✓</>' : '<fg=yellow>·</>';
+                            $this->line("  [{$count}x] {$icon} {$topic}/{$event} status={$status}");
+                            if (!empty($sample['response'])) {
+                                $resp = json_encode($sample['response'], JSON_UNESCAPED_SLASHES);
+                                $this->line("         response: " . substr($resp, 0, 300));
+                            }
+                        } else {
+                            $this->line("  [{$count}x] {$topic}/{$event}");
+                            if ($sample !== null) {
+                                $preview = json_encode($sample, JSON_UNESCAPED_SLASHES);
+                                $this->line("         payload: " . substr($preview, 0, 400));
+                            }
+                        }
+                        $this->line('');
+                    }
                 }
 
                 $outFile = storage_path('logs/whatnot-ws-explore-' . date('Y-m-d-His') . '.json');

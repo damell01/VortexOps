@@ -114,30 +114,43 @@ class ImportWhatnotShows extends Command
 
                 $this->line('');
                 $this->info('── WS-Explore Summary ────────────────────────────────');
-                $this->line("  Total messages received: " . ($json['total_messages'] ?? 0));
+                $this->line("  Total frames:   " . ($json['total_messages'] ?? 0));
+                $topicsJoined = $json['topics_joined'] ?? [];
+                $this->line("  Topics joined:  " . (count($topicsJoined) ? implode(', ', $topicsJoined) : 'none'));
                 $this->line('');
 
-                $this->info('── Topics / Events Seen ──────────────────────────────');
-                foreach ($json['topics'] ?? [] as $t) {
+                // Outbound phx_join frames — show real topic names the app uses
+                $sentJoins = array_values(array_filter($json['topics'] ?? [], fn($t) => ($t['dir'] ?? '') === 'sent' && $t['event'] === 'phx_join'));
+                if ($sentJoins) {
+                    $this->info('── Topics the App Joined (phx_join sent) ─────────────');
+                    foreach ($sentJoins as $t) {
+                        $this->line("  " . $t['topic']);
+                    }
+                    $this->line('');
+                }
+
+                // Inbound frames grouped by topic — the actual data
+                $this->info('── Inbound Frames by Topic ───────────────────────────');
+                $recvTopics = array_values(array_filter($json['topics'] ?? [], fn($t) => ($t['dir'] ?? 'recv') === 'recv'));
+                foreach ($recvTopics as $t) {
                     $topic  = $t['topic'];
                     $event  = $t['event'];
                     $count  = $t['count'];
                     $sample = $t['sample'] ?? null;
 
-                    // For phx_reply, show the join status prominently
-                    if ($event === 'phx_reply' && $topic !== 'phoenix') {
+                    if ($event === 'phx_reply') {
                         $status = $sample['status'] ?? '?';
-                        $icon   = $status === 'ok' ? '<fg=green>✓</>' : '<fg=red>✗</>';
-                        $this->line("  [{$count}x] {$icon} topic={$topic} event={$event} status={$status}");
+                        $icon   = $status === 'ok' ? '<fg=green>✓</>' : '<fg=yellow>·</>';
+                        $this->line("  [{$count}x] {$icon} {$topic}/{$event} status={$status}");
                         if (!empty($sample['response'])) {
                             $resp = json_encode($sample['response'], JSON_UNESCAPED_SLASHES);
                             $this->line("         response: " . substr($resp, 0, 300));
                         }
                     } else {
-                        $this->line("  [{$count}x] topic={$topic} event={$event}");
+                        $this->line("  [{$count}x] {$topic}/{$event}");
                         if ($sample !== null) {
                             $preview = json_encode($sample, JSON_UNESCAPED_SLASHES);
-                            $this->line("         payload: " . substr($preview, 0, 300));
+                            $this->line("         payload: " . substr($preview, 0, 400));
                         }
                     }
                     $this->line('');

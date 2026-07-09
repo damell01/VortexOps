@@ -798,8 +798,9 @@ function normalizeApiShow(s) {
 
 // ── ws-explore standalone (no browser) ───────────────────────────────────────
 // Called before launchPersistentContext so the shared profile lock is never
-// needed. Reads cookies from the cookie file, fetches CSRF tokens via https,
-// then probes Phoenix Channels directly over WebSocket.
+// needed. Launches a temporary Playwright browser, navigates to the seller hub,
+// and intercepts the real Phoenix WS frames the app sends/receives.
+// This avoids guessing topic names — we just listen to what the app does.
 async function runWsExploreStandalone(cookiesFilePath) {
   const fs   = require('fs');
   const os   = require('os');
@@ -821,14 +822,10 @@ async function runWsExploreStandalone(cookiesFilePath) {
 
   info('ws-explore: loaded', rawCookies.length, 'cookies from file');
 
-  // Fetch CSRF + session tokens using a TEMPORARY Playwright browser context.
-  // We cannot use raw https because the session endpoint is behind Kasada bot
-  // detection which requires real browser fingerprinting headers.
-  // We use a fresh temp directory (not the shared persistent profile) so there
-  // is no SingletonLock conflict with concurrent scraper sessions.
-  info('ws-explore: launching temporary browser to fetch Phoenix session tokens (bypasses bot detection)');
-
-  const tempDir  = fs.mkdtempSync(path.join(os.tmpdir(), 'whatnot-ws-'));
+  // Use a temporary Playwright browser context (fresh dir = no SingletonLock conflict).
+  // Navigate to the seller hub and intercept real Phoenix WS frames — the app joins
+  // the correct topics automatically, so we never have to guess topic names.
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'whatnot-ws-'));
   const _sameSiteMap = { no_restriction: 'None', strict: 'Strict', lax: 'Lax' };
   const playwrightCookies = rawCookies
     .filter(c => c.name && c.value)
@@ -843,7 +840,10 @@ async function runWsExploreStandalone(cookiesFilePath) {
       sameSite: _sameSiteMap[(c.sameSite || '').toLowerCase()] || 'Lax',
     }));
 
-  let csrfToken, sessionToken, cookieStr;
+  info('ws-explore: launching browser to sniff real Phoenix topic names…');
+  const allMessages  = [];
+  const topicsJoined = new Set();
+
   const tempContext = await chromium.launchPersistentContext(tempDir, {
     executablePath: CHROMIUM_PATH,
     headless:       true,
@@ -851,155 +851,82 @@ async function runWsExploreStandalone(cookiesFilePath) {
     args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
            '--disable-crash-reporter', '--crash-dumps-dir=/tmp'],
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+    viewport:  { width: 1280, height: 900 },
   });
   try {
     await tempContext.addCookies(playwrightCookies);
     const tempPage = await tempContext.newPage();
 
-    // Must navigate to whatnot.com first — fetch from about:blank has null origin
-    // which triggers CORS rejection on credentialed requests.
-    info('ws-explore: navigating to whatnot.com to establish origin…');
-    await tempPage.goto('https://www.whatnot.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
-    info('ws-explore: page loaded, fetching session token…');
+    // Wire up WS interception BEFORE navigating so we catch the very first join frames
+    tempPage.on('websocket', (ws) => {
+      if (!ws.url().includes('whatnot.com')) return;
+      info(`[ws] CONNECT ${ws.url().replace('wss://www.whatnot.com', '').substring(0, 120)}`);
 
-    const resp = await tempPage.evaluate(async () => {
-      const r = await fetch('/services/live/socket/v3/session',
-                            { credentials: 'include' });
-      return { status: r.status, text: await r.text() };
+      ws.on('framesent', ({ payload }) => {
+        try {
+          if (typeof payload !== 'string') return;
+          const data = JSON.parse(payload);
+          if (!Array.isArray(data) || data.length !== 5) return;
+          const [, , topic, event, pl] = data;
+          if (event === 'phx_join') topicsJoined.add(topic);
+          info(`[ws] SENT  topic=${topic} event=${event} ${JSON.stringify(pl || {}).substring(0, 100)}`);
+          allMessages.push({ dir: 'sent', topic, event, payload: pl });
+        } catch {}
+      });
+
+      ws.on('framereceived', ({ payload }) => {
+        try {
+          if (typeof payload !== 'string') return;
+          const data = JSON.parse(payload);
+          if (!Array.isArray(data) || data.length !== 5) return;
+          const [, , topic, event, pl] = data;
+          info(`[ws] RECV  topic=${topic} event=${event} ${JSON.stringify(pl || {}).substring(0, 300)}`);
+          allMessages.push({ dir: 'recv', topic, event, payload: pl });
+        } catch {}
+      });
     });
-    info(`ws-explore: session endpoint status=${resp.status} body=${resp.text.substring(0, 200)}`);
-    if (resp.status !== 200 || !resp.text) {
-      throw new Error(`session endpoint returned ${resp.status} — cookies may be expired`);
-    }
-    const parsed = JSON.parse(resp.text);
-    csrfToken    = parsed.csrf_token;
-    sessionToken = parsed.session_extension_token;
-    if (!csrfToken || !sessionToken) {
-      throw new Error('session response missing tokens: ' + resp.text.substring(0, 200));
-    }
-    // Also capture current cookies (session may have been refreshed)
-    const liveCookies = await tempContext.cookies('https://www.whatnot.com');
-    cookieStr = liveCookies.map(c => `${c.name}=${c.value}`).join('; ');
-    info('ws-explore: got csrf_token and session_extension_token');
+
+    info('ws-explore: navigating to seller shows page…');
+    await tempPage.goto('https://www.whatnot.com/seller/shows', {
+      waitUntil: 'domcontentloaded',
+      timeout:   45000,
+    });
+    info(`ws-explore: page loaded — waiting 25 s for Phoenix frames to flow in…`);
+    await new Promise(r => setTimeout(r, 25000));
+    info(`ws-explore: sniff complete — topics joined: ${[...topicsJoined].join(', ') || 'none'}`);
+
   } finally {
     await tempContext.close().catch(() => {});
-    // Clean up temp profile dir
     fs.rm(tempDir, { recursive: true, force: true }, () => {});
   }
 
-  // Open Phoenix WebSocket
-  const WebSocket = (() => {
-    try { return require('ws'); } catch { return global.WebSocket; }
-  })();
-  if (!WebSocket) {
-    process.stderr.write('ws-explore: "ws" npm package not found — run: npm install ws\n');
-    process.exit(1);
-  }
-
-  const teamOwnerId = process.env.WHATNOT_TEAM_OWNER_ID || '408585';
-  const wsUrl = [
-    'wss://www.whatnot.com/services/live/socket/websocket',
-    `?_csrf_token=${encodeURIComponent(csrfToken)}`,
-    `&client_layer=nextjs&client_type=web`,
-    `&client_version=${new Date().toISOString().slice(0,10).replace(/-/g,'')}-0000`,
-    `&team_owner_id=${teamOwnerId}`,
-    `&sessionExtensionToken=${encodeURIComponent(sessionToken)}`,
-    `&vsn=2.0.0`,
-  ].join('');
-
-  info(`ws-explore: connecting (team_owner_id=${teamOwnerId})`);
-
-  const allMessages = [];
-  let ref = 1;
-  const PROBE_TOPICS = [
-    'seller_hub:shows', 'seller_hub:orders', 'seller_hub:payouts',
-    'seller_hub:analytics', `seller:${teamOwnerId}`, `team:${teamOwnerId}`,
-    `user:${teamOwnerId}`, 'seller_hub', 'live_seller_hub',
-  ];
-  const PUSH_EVENTS = ['list', 'get', 'load', 'refresh', 'fetch',
-                       'shows_list', 'orders_list', 'payouts_list', 'analytics_summary'];
-
-  await new Promise((resolve) => {
-    const ws = new WebSocket(wsUrl, {
-      headers: {
-        'Cookie':     cookieStr,
-        'Origin':     'https://www.whatnot.com',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0.0.0',
-      },
-    });
-
-    const send = (joinRef, topic, event, payload = {}) => {
-      const frame = JSON.stringify([joinRef, String(ref++), topic, event, payload]);
-      info(`[ws] SEND  topic=${topic} event=${event} ${JSON.stringify(payload).substring(0, 60)}`);
-      ws.send(frame);
-    };
-
-    const joinRefMap  = {};
-    const joinedTopics = new Set();
-    let joinedCount = 0;
-    let heartbeatInterval;
-
-    ws.on('open', () => {
-      info('[ws] CONNECT opened');
-      heartbeatInterval = setInterval(() => send(null, 'phoenix', 'heartbeat', {}), 15000);
-      for (const topic of PROBE_TOPICS) {
-        const jr = String(++joinedCount);
-        joinRefMap[jr] = topic;
-        send(jr, topic, 'phx_join', {});
-      }
-    });
-
-    ws.on('message', (raw) => {
-      try {
-        const data = JSON.parse(raw.toString());
-        if (!Array.isArray(data) || data.length !== 5) return;
-        const [joinRef, , topic, event, payload] = data;
-        info(`[ws] RECV  topic=${topic} event=${event} ${JSON.stringify(payload || {}).substring(0, 400)}`);
-        allMessages.push({ topic, event, payload });
-
-        if (event === 'phx_reply' && joinRefMap[joinRef]) {
-          const joinedTopic = joinRefMap[joinRef];
-          const status      = payload && payload.status;
-          const response    = payload && payload.response;
-          if (status === 'ok') {
-            info(`[ws] JOIN OK  topic=${joinedTopic} response=${JSON.stringify(response).substring(0, 200)}`);
-            joinedTopics.add(joinedTopic);
-            for (const pushEvent of PUSH_EVENTS) send(joinRef, joinedTopic, pushEvent, {});
-          } else {
-            const reason = response && (response.reason || JSON.stringify(response));
-            info(`[ws] JOIN ERR topic=${joinedTopic} reason=${reason}`);
-          }
-        }
-      } catch (e) { info(`[ws] parse error: ${e.message}`); }
-    });
-
-    ws.on('error', (e) => info(`[ws] ERROR ${e.message}`));
-    ws.on('close', (code, reason) => {
-      info(`[ws] CLOSE code=${code} reason=${(reason || '').toString().substring(0, 80)}`);
-      clearInterval(heartbeatInterval);
-      resolve();
-    });
-
-    setTimeout(() => {
-      info(`[ws] probe complete — joined ${joinedTopics.size} topic(s): ${[...joinedTopics].join(', ') || 'none'}`);
-      ws.close();
-    }, 30000);
-  });
-
-  // Group and output
-  const byTopic = {};
+  // Group by topic + event for the summary table
+  const byTopicEvent = {};
   for (const m of allMessages) {
-    const key = `${m.topic}::${m.event}`;
-    if (!byTopic[key]) byTopic[key] = { topic: m.topic, event: m.event, count: 0, sample: null };
-    byTopic[key].count++;
-    if (!byTopic[key].sample) byTopic[key].sample = m.payload;
+    const key = `${m.dir}::${m.topic}::${m.event}`;
+    if (!byTopicEvent[key]) {
+      byTopicEvent[key] = { dir: m.dir, topic: m.topic, event: m.event, count: 0, sample: null };
+    }
+    byTopicEvent[key].count++;
+    if (!byTopicEvent[key].sample) byTopicEvent[key].sample = m.payload;
   }
 
+  // Output JSON to stdout for the PHP wrapper to parse
   const outFile = `/tmp/whatnot-ws-explore-${Date.now()}.json`;
-  const result  = { total_messages: allMessages.length, topics: Object.values(byTopic), messages: allMessages };
+  const result  = {
+    total_messages: allMessages.length,
+    topics_joined:  [...topicsJoined],
+    topics:         Object.values(byTopicEvent),
+    messages:       allMessages,
+  };
   fs.writeFileSync(outFile, JSON.stringify(result, null, 2));
-  log(`ws-explore complete: ${allMessages.length} messages, ${Object.keys(byTopic).length} topic/event combos → ${outFile}`);
-  process.stdout.write(JSON.stringify({ output_file: outFile, summary: { total_messages: allMessages.length, topics: Object.keys(byTopic) } }) + '\n');
+  log(`ws-explore complete: ${allMessages.length} frames, ${Object.keys(byTopicEvent).length} topic/event combos → ${outFile}`);
+  process.stdout.write(JSON.stringify({
+    output_file: outFile,
+    total_messages: allMessages.length,
+    topics_joined:  [...topicsJoined],
+    topics:         Object.values(byTopicEvent),
+  }) + '\n');
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────

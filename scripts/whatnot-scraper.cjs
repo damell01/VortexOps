@@ -1016,8 +1016,27 @@ async function runWsExploreStandalone(cookiesFilePath) {
     let pageText = await tempPage.evaluate(() => (document.body.innerText || '').substring(0, 300)).catch(() => '');
     info(`ws-explore: page preview: ${pageText.replace(/\n/g, ' ').substring(0, 200)}`);
 
-    // If we landed on a non-404 page that isn't shows yet, try navigating to shows
-    if (!actualUrl.includes('/shows') && !pageText.includes('404')) {
+    // If we landed in buyer mode (marketing page), try switching to seller mode.
+    // Buyer mode = /seller shows "For Brands / Start Selling on Whatnot" marketing page.
+    // Without seller mode, /seller/shows 404s and no seller GraphQL calls ever fire.
+    const _buyerModeText = /for brands|start selling on whatnot/i.test(pageText);
+    if (_buyerModeText) {
+      info('ws-explore: buyer mode detected — attempting "Switch to Selling"');
+      try {
+        await ensureSellerMode(tempPage);
+        info('ws-explore: seller mode activated');
+        actualUrl = tempPage.url();
+        pageText  = await tempPage.evaluate(() => (document.body.innerText || '').substring(0, 300)).catch(() => '');
+        info(`ws-explore: now on ${actualUrl}`);
+      } catch (_smErr) {
+        info('ws-explore: seller mode not activated:', _smErr.message.substring(0, 120));
+        info('ws-explore: continuing — seller GraphQL ops will not appear');
+        info('ws-explore: to fix, export cookies from a browser session already in seller mode');
+      }
+    }
+
+    // Navigate to /seller/shows if not already there and page isn't a 404
+    if (!actualUrl.includes('/shows') && !/404|page not found/i.test(pageText)) {
       info(`ws-explore: navigating to /seller/shows for show-specific API calls…`);
       await tempPage.goto('https://www.whatnot.com/seller/shows', { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
       await tempPage.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});

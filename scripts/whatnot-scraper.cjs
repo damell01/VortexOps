@@ -855,8 +855,15 @@ async function runWsExploreStandalone(cookiesFilePath) {
   try {
     await tempContext.addCookies(playwrightCookies);
     const tempPage = await tempContext.newPage();
+
+    // Must navigate to whatnot.com first — fetch from about:blank has null origin
+    // which triggers CORS rejection on credentialed requests.
+    info('ws-explore: navigating to whatnot.com to establish origin…');
+    await tempPage.goto('https://www.whatnot.com/', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    info('ws-explore: page loaded, fetching session token…');
+
     const resp = await tempPage.evaluate(async () => {
-      const r = await fetch('https://www.whatnot.com/services/live/socket/v3/session',
+      const r = await fetch('/services/live/socket/v3/session',
                             { credentials: 'include' });
       return { status: r.status, text: await r.text() };
     });

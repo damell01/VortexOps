@@ -796,6 +796,182 @@ function normalizeApiShow(s) {
   };
 }
 
+// ── ws-explore standalone (no browser) ───────────────────────────────────────
+// Called before launchPersistentContext so the shared profile lock is never
+// needed. Reads cookies from the cookie file, fetches CSRF tokens via https,
+// then probes Phoenix Channels directly over WebSocket.
+async function runWsExploreStandalone(cookiesFilePath) {
+  const https = require('https');
+  const fs    = require('fs');
+  const path  = require('path');
+
+  // Load cookies from file
+  if (!fs.existsSync(cookiesFilePath)) {
+    process.stderr.write('ws-explore: no cookie file found at ' + cookiesFilePath + '\n');
+    process.stderr.write('Run: php artisan whatnot:login\n');
+    process.exit(1);
+  }
+  let rawCookies;
+  try {
+    rawCookies = JSON.parse(fs.readFileSync(cookiesFilePath, 'utf8'));
+  } catch (e) {
+    process.stderr.write('ws-explore: failed to parse cookie file: ' + e.message + '\n');
+    process.exit(1);
+  }
+  const cookieStr = rawCookies
+    .filter(c => c.name && c.value)
+    .map(c => `${c.name}=${c.value}`)
+    .join('; ');
+
+  info('ws-explore: loaded', rawCookies.length, 'cookies from file (no browser needed)');
+
+  // Fetch CSRF + session extension token
+  info('ws-explore: fetching Phoenix session tokens via https');
+  const sessionJson = await new Promise((resolve, reject) => {
+    const req = https.get('https://www.whatnot.com/services/live/socket/v3/session', {
+      headers: {
+        'Cookie':          cookieStr,
+        'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0.0.0',
+        'Accept':          'application/json',
+        'Referer':         'https://www.whatnot.com/seller',
+        'x-csrf-token':    rawCookies.find(c => c.name === '_csrf_token')?.value || '',
+      },
+    }, (res) => {
+      let body = '';
+      res.on('data', d => body += d);
+      res.on('end', () => {
+        try { resolve(JSON.parse(body)); }
+        catch (e) { reject(new Error('session parse error: ' + body.substring(0, 200))); }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(10000, () => { req.destroy(); reject(new Error('session request timed out')); });
+  });
+
+  const csrfToken    = sessionJson.csrf_token;
+  const sessionToken = sessionJson.session_extension_token;
+  if (!csrfToken || !sessionToken) {
+    process.stderr.write('ws-explore: session endpoint did not return tokens — cookies may be expired\n');
+    process.stderr.write('Response: ' + JSON.stringify(sessionJson).substring(0, 300) + '\n');
+    process.exit(1);
+  }
+  info('ws-explore: got csrf_token and session_extension_token');
+
+  // Open Phoenix WebSocket
+  const WebSocket = (() => {
+    try { return require('ws'); } catch { return global.WebSocket; }
+  })();
+  if (!WebSocket) {
+    process.stderr.write('ws-explore: "ws" npm package not found — run: npm install ws\n');
+    process.exit(1);
+  }
+
+  const teamOwnerId = process.env.WHATNOT_TEAM_OWNER_ID || '408585';
+  const wsUrl = [
+    'wss://www.whatnot.com/services/live/socket/websocket',
+    `?_csrf_token=${encodeURIComponent(csrfToken)}`,
+    `&client_layer=nextjs&client_type=web`,
+    `&client_version=${new Date().toISOString().slice(0,10).replace(/-/g,'')}-0000`,
+    `&team_owner_id=${teamOwnerId}`,
+    `&sessionExtensionToken=${encodeURIComponent(sessionToken)}`,
+    `&vsn=2.0.0`,
+  ].join('');
+
+  info(`ws-explore: connecting (team_owner_id=${teamOwnerId})`);
+
+  const allMessages = [];
+  let ref = 1;
+  const PROBE_TOPICS = [
+    'seller_hub:shows', 'seller_hub:orders', 'seller_hub:payouts',
+    'seller_hub:analytics', `seller:${teamOwnerId}`, `team:${teamOwnerId}`,
+    `user:${teamOwnerId}`, 'seller_hub', 'live_seller_hub',
+  ];
+  const PUSH_EVENTS = ['list', 'get', 'load', 'refresh', 'fetch',
+                       'shows_list', 'orders_list', 'payouts_list', 'analytics_summary'];
+
+  await new Promise((resolve) => {
+    const ws = new WebSocket(wsUrl, {
+      headers: {
+        'Cookie':     cookieStr,
+        'Origin':     'https://www.whatnot.com',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0.0.0',
+      },
+    });
+
+    const send = (joinRef, topic, event, payload = {}) => {
+      const frame = JSON.stringify([joinRef, String(ref++), topic, event, payload]);
+      info(`[ws] SEND  topic=${topic} event=${event} ${JSON.stringify(payload).substring(0, 60)}`);
+      ws.send(frame);
+    };
+
+    const joinRefMap  = {};
+    const joinedTopics = new Set();
+    let joinedCount = 0;
+    let heartbeatInterval;
+
+    ws.on('open', () => {
+      info('[ws] CONNECT opened');
+      heartbeatInterval = setInterval(() => send(null, 'phoenix', 'heartbeat', {}), 15000);
+      for (const topic of PROBE_TOPICS) {
+        const jr = String(++joinedCount);
+        joinRefMap[jr] = topic;
+        send(jr, topic, 'phx_join', {});
+      }
+    });
+
+    ws.on('message', (raw) => {
+      try {
+        const data = JSON.parse(raw.toString());
+        if (!Array.isArray(data) || data.length !== 5) return;
+        const [joinRef, , topic, event, payload] = data;
+        info(`[ws] RECV  topic=${topic} event=${event} ${JSON.stringify(payload || {}).substring(0, 400)}`);
+        allMessages.push({ topic, event, payload });
+
+        if (event === 'phx_reply' && joinRefMap[joinRef]) {
+          const joinedTopic = joinRefMap[joinRef];
+          const status      = payload && payload.status;
+          const response    = payload && payload.response;
+          if (status === 'ok') {
+            info(`[ws] JOIN OK  topic=${joinedTopic} response=${JSON.stringify(response).substring(0, 200)}`);
+            joinedTopics.add(joinedTopic);
+            for (const pushEvent of PUSH_EVENTS) send(joinRef, joinedTopic, pushEvent, {});
+          } else {
+            const reason = response && (response.reason || JSON.stringify(response));
+            info(`[ws] JOIN ERR topic=${joinedTopic} reason=${reason}`);
+          }
+        }
+      } catch (e) { info(`[ws] parse error: ${e.message}`); }
+    });
+
+    ws.on('error', (e) => info(`[ws] ERROR ${e.message}`));
+    ws.on('close', (code, reason) => {
+      info(`[ws] CLOSE code=${code} reason=${(reason || '').toString().substring(0, 80)}`);
+      clearInterval(heartbeatInterval);
+      resolve();
+    });
+
+    setTimeout(() => {
+      info(`[ws] probe complete — joined ${joinedTopics.size} topic(s): ${[...joinedTopics].join(', ') || 'none'}`);
+      ws.close();
+    }, 30000);
+  });
+
+  // Group and output
+  const byTopic = {};
+  for (const m of allMessages) {
+    const key = `${m.topic}::${m.event}`;
+    if (!byTopic[key]) byTopic[key] = { topic: m.topic, event: m.event, count: 0, sample: null };
+    byTopic[key].count++;
+    if (!byTopic[key].sample) byTopic[key].sample = m.payload;
+  }
+
+  const outFile = `/tmp/whatnot-ws-explore-${Date.now()}.json`;
+  const result  = { total_messages: allMessages.length, topics: Object.values(byTopic), messages: allMessages };
+  fs.writeFileSync(outFile, JSON.stringify(result, null, 2));
+  log(`ws-explore complete: ${allMessages.length} messages, ${Object.keys(byTopic).length} topic/event combos → ${outFile}`);
+  process.stdout.write(JSON.stringify({ output_file: outFile, summary: { total_messages: allMessages.length, topics: Object.keys(byTopic) } }) + '\n');
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 (async () => {
@@ -813,6 +989,16 @@ function normalizeApiShow(s) {
       'Run: php artisan whatnot:login\n'
     );
     process.exit(1);
+  }
+
+  // ── Mode: ws-explore (browser-free fast path) ──────────────────────────────
+  // ws-explore only needs the session cookies + one HTTP call to get CSRF tokens.
+  // It must NOT use the persistent browser profile because that profile may be
+  // locked by a concurrent scraper process (SingletonLock). Instead it reads
+  // cookies directly from storage/whatnot-cookies.json and uses Node.js https.
+  if (MODE === 'ws-explore') {
+    await runWsExploreStandalone(_cookiesFilePath);
+    process.exit(0);
   }
 
   // ── Persistent browser profile ───────────────────────────────────────────────
@@ -1846,191 +2032,6 @@ function normalizeApiShow(s) {
       log(`discover complete: ${pageResults.length} pages, ${uniqueEndpoints.length} unique endpoints → ${outFile}`);
       // Stdout carries only a small envelope so PHP can find the file
       process.stdout.write(JSON.stringify({ output_file: outFile, summary: result.summary }) + '\n');
-      process.exit(0);
-    }
-
-    // ── Mode: ws-explore ─────────────────────────────────────────────────────
-    // Directly connect to Whatnot's Phoenix Channels WebSocket and probe seller
-    // hub channels (shows, orders, payouts, analytics) to learn what topics/events
-    // carry the data we want. No full browser session needed after first run.
-    //
-    // Usage:  WHATNOT_MODE=ws-explore php artisan whatnot:import
-    // Output: JSON with all Phoenix messages received across all probed channels
-    if (MODE === 'ws-explore') {
-      const WebSocket = (() => {
-        // Use the 'ws' npm package if available, otherwise use Node.js built-in (v22+)
-        try { return require('ws'); } catch {
-          try { return require('node:ws'); } catch { return global.WebSocket; }
-        }
-      })();
-
-      if (!WebSocket) {
-        process.stderr.write('ws-explore: WebSocket not available — install the "ws" npm package\n');
-        process.exit(1);
-      }
-
-      // Step 1: get a fresh CSRF + session token via HTTP
-      info('ws-explore: fetching Phoenix session tokens');
-      const sessionUrl = 'https://www.whatnot.com/services/live/socket/v3/session';
-      const cookies    = await context.cookies('https://www.whatnot.com');
-      const cookieStr  = cookies.map(c => `${c.name}=${c.value}`).join('; ');
-
-      let csrfToken, sessionToken;
-      try {
-        const resp = await page.evaluate(async (url) => {
-          const r = await fetch(url, { credentials: 'include' });
-          return { ok: r.ok, status: r.status, text: await r.text() };
-        }, sessionUrl);
-        if (!resp.ok) throw new Error(`session endpoint returned ${resp.status}`);
-        const parsed = JSON.parse(resp.text);
-        csrfToken    = parsed.csrf_token;
-        sessionToken = parsed.session_extension_token;
-        info(`ws-explore: got csrf_token and session_extension_token`);
-      } catch (e) {
-        process.stderr.write(`ws-explore: failed to get session tokens: ${e.message}\n`);
-        process.exit(1);
-      }
-
-      // Step 2: open the Phoenix WS connection
-      // Pull team_owner_id from session token: it's in the WS URL query string
-      // We get it from the last discover run or hardcode from seen URL params.
-      // For now we'll detect it from the logged-in profile.
-      const teamOwnerId = process.env.WHATNOT_TEAM_OWNER_ID || '408585';
-      const wsUrl = [
-        'wss://www.whatnot.com/services/live/socket/websocket',
-        `?_csrf_token=${encodeURIComponent(csrfToken)}`,
-        `&client_layer=nextjs`,
-        `&client_type=web`,
-        `&client_version=${new Date().toISOString().slice(0,10).replace(/-/g,'')}-0000`,
-        `&team_owner_id=${teamOwnerId}`,
-        `&sessionExtensionToken=${encodeURIComponent(sessionToken)}`,
-        `&vsn=2.0.0`,
-      ].join('');
-
-      info(`ws-explore: connecting to Phoenix WS (team_owner_id=${teamOwnerId})`);
-
-      const allMessages = [];
-      let ref = 1;
-
-      await new Promise((resolve) => {
-        const ws = new WebSocket(wsUrl, {
-          headers: {
-            'Cookie':          cookieStr,
-            'Origin':          'https://www.whatnot.com',
-            'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0.0.0',
-          },
-        });
-
-        const send = (joinRef, topic, event, payload = {}) => {
-          const frame = JSON.stringify([joinRef, String(ref++), topic, event, payload]);
-          info(`[ws] SEND  topic=${topic} event=${event} ${JSON.stringify(payload).substring(0, 60)}`);
-          ws.send(frame);
-        };
-
-        // Candidate seller hub Phoenix Channel topics to probe
-        const PROBE_TOPICS = [
-          'seller_hub:shows',
-          'seller_hub:orders',
-          'seller_hub:payouts',
-          'seller_hub:analytics',
-          `seller:${teamOwnerId}`,
-          `team:${teamOwnerId}`,
-          `user:${teamOwnerId}`,
-          'seller_hub',
-          'live_seller_hub',
-          'phoenix',
-        ];
-
-        let heartbeatInterval;
-        const joinRefMap = {}; // joinRef → topic (to correlate phx_reply to the join)
-        let joinedCount  = 0;
-        // Track which topics succeeded so we can push data-request events on them
-        const joinedTopics = new Set();
-
-        // Events to try pushing on each successfully-joined topic (in order).
-        // Phoenix Channel data-request events vary by app; we try the most common.
-        const PUSH_EVENTS = ['list', 'get', 'load', 'refresh', 'fetch', 'shows_list',
-                             'orders_list', 'payouts_list', 'analytics_summary'];
-
-        ws.on('open', () => {
-          info('[ws] CONNECT opened');
-          heartbeatInterval = setInterval(() => {
-            send(null, 'phoenix', 'heartbeat', {});
-          }, 15000);
-
-          // Try joining every candidate topic — also retry with auth payloads
-          // in case the server requires a user_token / team_id in the join body
-          for (const topic of PROBE_TOPICS) {
-            if (topic === 'phoenix') continue; // phoenix is a control channel, not joinable
-            const jr = String(++joinedCount);
-            joinRefMap[jr] = topic;
-            // First attempt: empty join payload (auth is in the WS URL query string)
-            send(jr, topic, 'phx_join', {});
-          }
-        });
-
-        ws.on('message', (raw) => {
-          try {
-            const data = JSON.parse(raw.toString());
-            if (!Array.isArray(data) || data.length !== 5) return;
-            const [joinRef, msgRef, topic, event, payload] = data;
-
-            // Full payload to log — truncate at 400 chars for readability
-            const full = JSON.stringify(payload || {});
-            info(`[ws] RECV  topic=${topic} event=${event} ${full.substring(0, 400)}`);
-            allMessages.push({ topic, event, payload });
-
-            // On join reply: parse status and, if ok, push data-request events
-            if (event === 'phx_reply' && joinRefMap[joinRef]) {
-              const joinedTopic = joinRefMap[joinRef];
-              const status      = payload && payload.status;
-              const response    = payload && payload.response;
-
-              if (status === 'ok') {
-                info(`[ws] JOIN OK  topic=${joinedTopic} response=${JSON.stringify(response).substring(0, 200)}`);
-                joinedTopics.add(joinedTopic);
-                // Push data-request events on this channel so the server sends data back
-                for (const pushEvent of PUSH_EVENTS) {
-                  send(joinRef, joinedTopic, pushEvent, {});
-                }
-              } else {
-                const reason = response && (response.reason || JSON.stringify(response));
-                info(`[ws] JOIN ERR topic=${joinedTopic} reason=${reason}`);
-              }
-            }
-          } catch (e) {
-            info(`[ws] parse error: ${e.message}`);
-          }
-        });
-
-        ws.on('error', (e) => info(`[ws] ERROR ${e.message}`));
-        ws.on('close', (code, reason) => {
-          info(`[ws] CLOSE code=${code} reason=${reason.toString().substring(0, 80)}`);
-          clearInterval(heartbeatInterval);
-          resolve();
-        });
-
-        // Collect for 30 seconds — longer to catch data pushes that arrive after joins
-        setTimeout(() => {
-          info(`[ws] probe complete — joined ${joinedTopics.size} topic(s): ${[...joinedTopics].join(', ') || 'none'}`);
-          ws.close();
-        }, 30000);
-      });
-
-      // Group messages by topic/event for easy reading
-      const byTopic = {};
-      for (const m of allMessages) {
-        const key = `${m.topic}::${m.event}`;
-        if (!byTopic[key]) byTopic[key] = { topic: m.topic, event: m.event, count: 0, sample: null };
-        byTopic[key].count++;
-        if (!byTopic[key].sample) byTopic[key].sample = m.payload;
-      }
-
-      const outFile = `/tmp/whatnot-ws-explore-${Date.now()}.json`;
-      const result  = { total_messages: allMessages.length, topics: Object.values(byTopic), messages: allMessages };
-      require('fs').writeFileSync(outFile, JSON.stringify(result, null, 2));
-      log(`ws-explore complete: ${allMessages.length} messages, ${Object.keys(byTopic).length} topic/event combos → ${outFile}`);
-      process.stdout.write(JSON.stringify({ output_file: outFile, summary: { total_messages: allMessages.length, topics: Object.keys(byTopic) } }) + '\n');
       process.exit(0);
     }
 

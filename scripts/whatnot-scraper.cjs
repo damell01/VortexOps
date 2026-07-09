@@ -1451,8 +1451,12 @@ function normalizeApiShow(s) {
         pages:            pageResults,
       };
 
-      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
-      log(`discover complete: ${pageResults.length} pages, ${uniqueEndpoints.length} unique endpoints`);
+      // Write full JSON to a temp file — stdout pipe buffer can't handle 257 endpoints worth of data
+      const outFile = `/tmp/whatnot-discover-${Date.now()}.json`;
+      require('fs').writeFileSync(outFile, JSON.stringify(result, null, 2));
+      log(`discover complete: ${pageResults.length} pages, ${uniqueEndpoints.length} unique endpoints → ${outFile}`);
+      // Stdout carries only a small envelope so PHP can find the file
+      process.stdout.write(JSON.stringify({ output_file: outFile, summary: result.summary }) + '\n');
       process.exit(0);
     }
 

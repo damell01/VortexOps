@@ -30,9 +30,15 @@ class ImportWhatnotShows extends Command
                     ? WhatnotChannel::find($channelOpt)
                     : WhatnotChannel::where('name', $channelOpt)->orWhere('whatnot_username', $channelOpt)->first();
             }
-            $this->info('Running discover mode — navigating to /seller/shows and capturing API endpoints…');
+            $this->info('Running discover mode — navigating Seller Hub and capturing API endpoints…');
+            $this->line('<fg=gray>Progress will stream below. This takes 5–10 minutes.</>');
+            $this->line('');
             try {
-                $json = app(WhatnotScraper::class)->runDiscover(channel: $channel, debug: true);
+                $json = app(WhatnotScraper::class)->runDiscover(
+                    channel: $channel,
+                    debug: true,
+                    onProgress: fn(string $line) => $this->line("<fg=gray>  {$line}</>"),
+                );
 
                 $summary = $json['summary'] ?? [];
                 $this->line('');

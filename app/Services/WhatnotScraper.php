@@ -491,7 +491,7 @@ class WhatnotScraper
      *
      * @throws \RuntimeException on failure
      */
-    public function runDiscover(?WhatnotChannel $channel = null, bool $debug = true): array
+    public function runDiscover(?WhatnotChannel $channel = null, bool $debug = true, ?callable $onProgress = null): array
     {
         $env = $this->baseEnv($debug);
         $env['WHATNOT_MODE'] = 'discover';
@@ -502,7 +502,26 @@ class WhatnotScraper
 
         // Visiting ~20 pages at ~10s each = allow up to 5 minutes
         $process = $this->makeProcess($env, timeout: 300);
-        $process->run();
+
+        if ($onProgress) {
+            $process->start();
+            while ($process->isRunning()) {
+                if ($err = $process->getIncrementalErrorOutput()) {
+                    foreach (explode("\n", trim($err)) as $line) {
+                        if ($line !== '') $onProgress($line);
+                    }
+                }
+                usleep(200_000);
+            }
+            // drain any remaining stderr after process exits
+            if ($err = $process->getIncrementalErrorOutput()) {
+                foreach (explode("\n", trim($err)) as $line) {
+                    if ($line !== '') $onProgress($line);
+                }
+            }
+        } else {
+            $process->run();
+        }
 
         $stderr = trim($process->getErrorOutput());
         $stdout = trim($process->getOutput());
@@ -515,7 +534,17 @@ class WhatnotScraper
             throw new \RuntimeException("Discover failed: " . ($stderr ?: "exit {$process->getExitCode()}"));
         }
 
-        $data = json_decode($stdout, true);
+        // stdout is a small envelope: { output_file, summary }
+        // The full JSON is written to a temp file to avoid pipe buffer limits
+        $envelope = json_decode($stdout, true);
+        if (isset($envelope['output_file']) && file_exists($envelope['output_file'])) {
+            $data = json_decode(file_get_contents($envelope['output_file']), true);
+            @unlink($envelope['output_file']);
+        } else {
+            // fallback: try parsing stdout directly (old behaviour / small results)
+            $data = json_decode($stdout, true);
+        }
+
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new \RuntimeException('Discover returned invalid JSON: ' . substr($stdout, 0, 300));
         }

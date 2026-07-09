@@ -857,6 +857,30 @@ async function runWsExploreStandalone(cookiesFilePath) {
     await tempContext.addCookies(playwrightCookies);
     const tempPage = await tempContext.newPage();
 
+    // Inject saved localStorage so the seller hub React app finds its auth tokens.
+    // Whatnot stores session state in localStorage (not just cookies); without it
+    // only the generic presence channel (general:XXXX) gets joined.
+    const _lsFile = path.join(__dirname, '../storage/whatnot-localstorage.json');
+    if (fs.existsSync(_lsFile)) {
+      try {
+        const savedLs = JSON.parse(fs.readFileSync(_lsFile, 'utf8'));
+        // Navigate to whatnot.com first so the localStorage origin is correct
+        await tempPage.goto('https://www.whatnot.com/', { waitUntil: 'domcontentloaded', timeout: 15000 });
+        await tempPage.evaluate((data) => {
+          for (const [k, v] of Object.entries(data)) {
+            try { localStorage.setItem(k, v); } catch {}
+          }
+        }, savedLs);
+        info(`ws-explore: injected ${Object.keys(savedLs).length} localStorage keys`);
+      } catch (_lsErr) {
+        info('ws-explore: localStorage inject failed:', _lsErr.message);
+      }
+    } else {
+      info('ws-explore: no saved localStorage found — run a normal import first to generate it');
+      info('ws-explore:   php artisan whatnot:import --channel=1');
+      info('ws-explore: proceeding with cookies only (seller topics may not appear)');
+    }
+
     // Wire up WS interception BEFORE navigating so we catch the very first join frames
     tempPage.on('websocket', (ws) => {
       if (!ws.url().includes('whatnot.com')) return;
@@ -1148,6 +1172,24 @@ async function runWsExploreStandalone(cookiesFilePath) {
         await performLogin(page, email, password);
       } else {
         info('cookie auth check: seller hub reached without login (', checkUrl, ')');
+        // Persist localStorage so ws-explore can inject it into its temp browser.
+        // The seller hub React app initialises seller-specific Phoenix topics only
+        // after reading auth tokens from localStorage; cookies alone are not enough.
+        try {
+          const ls = await page.evaluate(() => {
+            const out = {};
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              out[k] = localStorage.getItem(k);
+            }
+            return out;
+          });
+          const _lsFile = require('path').join(__dirname, '../storage/whatnot-localstorage.json');
+          require('fs').writeFileSync(_lsFile, JSON.stringify(ls));
+          info('saved localStorage (' + Object.keys(ls).length + ' keys) →', _lsFile);
+        } catch (_lsErr) {
+          info('localStorage save skipped:', _lsErr.message);
+        }
       }
     } else if (MODE !== 'cookie-test' && MODE !== 'dump-cookies') {
       await performLogin(page, email, password);

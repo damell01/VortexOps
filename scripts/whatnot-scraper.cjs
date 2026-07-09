@@ -843,6 +843,7 @@ async function runWsExploreStandalone(cookiesFilePath) {
   info('ws-explore: launching browser to sniff real Phoenix topic names…');
   const allMessages  = [];
   const topicsJoined = new Set();
+  const httpCaptures = [];  // declared here so it's in scope after the try/finally
 
   const tempContext = await chromium.launchPersistentContext(tempDir, {
     executablePath: CHROMIUM_PATH,
@@ -882,7 +883,6 @@ async function runWsExploreStandalone(cookiesFilePath) {
     }
 
     // Capture HTTP API calls (GraphQL/REST JSON) — the shows list is likely REST, not WS
-    const httpCaptures = [];
     tempPage.on('response', async (resp) => {
       try {
         const url = resp.url();
@@ -932,16 +932,29 @@ async function runWsExploreStandalone(cookiesFilePath) {
       });
     });
 
-    // Navigate only to /seller/shows — that's the page we care about for show data
-    info(`ws-explore: navigating to /seller/shows…`);
-    await tempPage.goto('https://www.whatnot.com/seller/shows', { waitUntil: 'domcontentloaded', timeout: 30000 });
+    // Navigate to the seller hub entry point (/seller) rather than /seller/shows
+    // directly — the latter is a Next.js SSR route that 404s without a full session;
+    // /seller client-side routes to shows and triggers the right API calls.
+    info(`ws-explore: navigating to /seller…`);
+    await tempPage.goto('https://www.whatnot.com/seller', { waitUntil: 'domcontentloaded', timeout: 30000 });
     await tempPage.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
-    const actualUrl = tempPage.url();
+    let actualUrl = tempPage.url();
     info(`ws-explore: landed on ${actualUrl}`);
-    // Capture page text to confirm shows are visible
-    const pageText = await tempPage.evaluate(() => (document.body.innerText || '').substring(0, 500)).catch(() => '');
-    info(`ws-explore: page text preview: ${pageText.replace(/\n/g, ' ').substring(0, 200)}`);
-    // Final wait for any lazy-loaded API calls
+    let pageText = await tempPage.evaluate(() => (document.body.innerText || '').substring(0, 300)).catch(() => '');
+    info(`ws-explore: page preview: ${pageText.replace(/\n/g, ' ').substring(0, 200)}`);
+
+    // If we landed on a non-404 page that isn't shows yet, try navigating to shows
+    if (!actualUrl.includes('/shows') && !pageText.includes('404')) {
+      info(`ws-explore: navigating to /seller/shows for show-specific API calls…`);
+      await tempPage.goto('https://www.whatnot.com/seller/shows', { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+      await tempPage.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+      actualUrl = tempPage.url();
+      pageText  = await tempPage.evaluate(() => (document.body.innerText || '').substring(0, 300)).catch(() => '');
+      info(`ws-explore: /seller/shows landed on ${actualUrl}`);
+      info(`ws-explore: page preview: ${pageText.replace(/\n/g, ' ').substring(0, 200)}`);
+    }
+
+    // Final wait for lazy-loaded API calls
     await new Promise(r => setTimeout(r, 5000));
     info(`ws-explore: captured ${httpCaptures.length} HTTP API calls, ${allMessages.length} WS frames`);
 

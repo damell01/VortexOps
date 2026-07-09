@@ -8,8 +8,11 @@
  *   shows        — legacy: scrape the /seller/shows list page (less data, kept as fallback)
  *   discover     — 3-phase deep crawl: (1) visit all Seller Hub nav pages, (2) drill into
  *                  individual show detail pages and click each tab (Orders/Lots/Sales/Buyers),
- *                  (3) crawl /seller/orders and individual order detail pages. Filters out
- *                  third-party telemetry (/reroute/ paths) so only Whatnot's own APIs appear.
+ *                  (3) crawl /seller/orders and individual order detail pages. Logs all
+ *                  Phoenix Channel (WS) SEND/RECV frames so you can read topic + event names.
+ *   ws-explore   — direct Phoenix Channels probe: skips browser scraping, opens WS directly,
+ *                  joins candidate seller_hub:* channels, captures 20 s of messages.
+ *                  Output: { topics, messages } — use to learn the real channel/event names.
  *
  * Called by app/Services/WhatnotScraper.php via Symfony Process.
  *
@@ -1344,23 +1347,48 @@ function normalizeApiShow(s) {
         } catch {}
       });
 
-      // Intercept WebSocket frames — Whatnot uses WS for live-stream real-time data.
-      // page.on('response') only sees HTTP; WS frames are invisible without this.
+      // Intercept WebSocket frames — Whatnot uses Phoenix Channels (vsn=2.0.0) over WS
+      // for all seller hub data (shows, orders, payouts, analytics, etc.).
+      // Phoenix frame format: [join_ref, ref, topic, event, payload]
+      // We log every SEND and RECV to stderr so we can read the channel/event names,
+      // then push received data into capturedApiResponses for the discover output.
       page.on('websocket', (ws) => {
         if (!ws.url().includes('whatnot.com')) return;
-        info(`[ws] CONNECT ${ws.url().replace('https://www.whatnot.com', '').substring(0, 100)}`);
+        info(`[ws] CONNECT /services/live/socket/websocket (Phoenix vsn=2.0.0)`);
         ws.on('framereceived', ({ payload }) => {
           try {
-            if (typeof payload !== 'string' || payload.length < 10) return;
+            if (typeof payload !== 'string' || payload.length < 2) return;
             const data = JSON.parse(payload);
-            capturedApiResponses.push({ url: ws.url() + '#ws', body: data });
+            // Phoenix Channels: [join_ref, ref, topic, event, payload]
+            if (Array.isArray(data) && data.length === 5) {
+              const [, ref, topic, event, wsPayload] = data;
+              const summary = JSON.stringify(wsPayload || {}).substring(0, 120);
+              info(`[ws] RECV  ref=${ref || '-'} topic=${topic} event=${event} ${summary}`);
+              // Push with a stable URL key so deduplicate works: topic + event
+              capturedApiResponses.push({
+                url: `ws://phoenix/${topic}/${event}`,
+                body: { topic, event, payload: wsPayload },
+              });
+            } else if (payload.length > 2) {
+              info(`[ws] RECV  (non-phoenix) ${payload.substring(0, 120)}`);
+              capturedApiResponses.push({ url: ws.url() + '#ws', body: data });
+            }
           } catch {}
         });
         ws.on('framesent', ({ payload }) => {
-          if (typeof payload === 'string' && payload.length > 2) {
-            info(`[ws] SEND ${payload.substring(0, 80)}`);
-          }
+          try {
+            if (typeof payload !== 'string' || payload.length < 2) return;
+            const data = JSON.parse(payload);
+            if (Array.isArray(data) && data.length === 5) {
+              const [, ref, topic, event, wsPayload] = data;
+              const summary = JSON.stringify(wsPayload || {}).substring(0, 80);
+              info(`[ws] SEND  ref=${ref || '-'} topic=${topic} event=${event} ${summary}`);
+            } else {
+              info(`[ws] SEND  ${payload.substring(0, 80)}`);
+            }
+          } catch {}
         });
+        ws.on('close', () => info(`[ws] CLOSE`));
       });
 
       // Monkey-patch window.fetch so responses served from a service-worker cache
@@ -1417,10 +1445,25 @@ function normalizeApiShow(s) {
           .filter(r => !r.url.includes('/reroute/'))
           .map(r => {
             const body = r.body;
-            const topKeys = typeof body === 'object' && body !== null
-              ? Object.keys(Array.isArray(body) ? (body[0] || {}) : body).slice(0, 20)
-              : [];
-            const method = r.url.includes('/graphql') || r.url.includes('graphql') ? 'POST' : 'GET';
+            let topKeys;
+            let method = 'GET';
+            if (r.url.startsWith('ws://phoenix/')) {
+              // Phoenix Channels capture: { topic, event, payload }
+              // Keys = the payload keys so we can see what data fields arrived
+              const pl = body && body.payload;
+              topKeys = pl && typeof pl === 'object' && !Array.isArray(pl)
+                ? Object.keys(pl).slice(0, 20)
+                : (body ? ['topic:' + body.topic, 'event:' + body.event] : []);
+              method = 'WS';
+            } else if (r.url.startsWith('__dom__:')) {
+              topKeys = ['tables', 'listItems'];
+              method = 'DOM';
+            } else {
+              topKeys = typeof body === 'object' && body !== null
+                ? Object.keys(Array.isArray(body) ? (body[0] || {}) : body).slice(0, 20)
+                : [];
+              if (r.url.includes('/graphql')) method = 'POST';
+            }
             return {
               method,
               url:     r.url,
@@ -1436,7 +1479,10 @@ function normalizeApiShow(s) {
         try {
           await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
           await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-          await page.waitForTimeout(1500);
+          // Extra wait for Phoenix Channel data pushes: the WS connection is established
+          // during pageload and Phoenix immediately sends channel join replies + data,
+          // but these arrive slightly after networkidle (which only tracks HTTP).
+          await page.waitForTimeout(4000);
           if (shotSuffix) await debugShot(page, `discover-${shotSuffix}`);
 
           // Scroll to trigger lazy-load API calls
@@ -1794,12 +1840,162 @@ function normalizeApiShow(s) {
         pages:            pageResults,
       };
 
-      // Write full JSON to a temp file — stdout pipe buffer can't handle 257 endpoints worth of data
+      // Write full JSON to a temp file — stdout pipe buffer can't handle large endpoint data
       const outFile = `/tmp/whatnot-discover-${Date.now()}.json`;
       require('fs').writeFileSync(outFile, JSON.stringify(result, null, 2));
       log(`discover complete: ${pageResults.length} pages, ${uniqueEndpoints.length} unique endpoints → ${outFile}`);
       // Stdout carries only a small envelope so PHP can find the file
       process.stdout.write(JSON.stringify({ output_file: outFile, summary: result.summary }) + '\n');
+      process.exit(0);
+    }
+
+    // ── Mode: ws-explore ─────────────────────────────────────────────────────
+    // Directly connect to Whatnot's Phoenix Channels WebSocket and probe seller
+    // hub channels (shows, orders, payouts, analytics) to learn what topics/events
+    // carry the data we want. No full browser session needed after first run.
+    //
+    // Usage:  WHATNOT_MODE=ws-explore php artisan whatnot:import
+    // Output: JSON with all Phoenix messages received across all probed channels
+    if (MODE === 'ws-explore') {
+      const WebSocket = (() => {
+        // Use the 'ws' npm package if available, otherwise use Node.js built-in (v22+)
+        try { return require('ws'); } catch {
+          try { return require('node:ws'); } catch { return global.WebSocket; }
+        }
+      })();
+
+      if (!WebSocket) {
+        process.stderr.write('ws-explore: WebSocket not available — install the "ws" npm package\n');
+        process.exit(1);
+      }
+
+      // Step 1: get a fresh CSRF + session token via HTTP
+      info('ws-explore: fetching Phoenix session tokens');
+      const sessionUrl = 'https://www.whatnot.com/services/live/socket/v3/session';
+      const cookies    = await context.cookies('https://www.whatnot.com');
+      const cookieStr  = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+
+      let csrfToken, sessionToken;
+      try {
+        const resp = await page.evaluate(async (url) => {
+          const r = await fetch(url, { credentials: 'include' });
+          return { ok: r.ok, status: r.status, text: await r.text() };
+        }, sessionUrl);
+        if (!resp.ok) throw new Error(`session endpoint returned ${resp.status}`);
+        const parsed = JSON.parse(resp.text);
+        csrfToken    = parsed.csrf_token;
+        sessionToken = parsed.session_extension_token;
+        info(`ws-explore: got csrf_token and session_extension_token`);
+      } catch (e) {
+        process.stderr.write(`ws-explore: failed to get session tokens: ${e.message}\n`);
+        process.exit(1);
+      }
+
+      // Step 2: open the Phoenix WS connection
+      // Pull team_owner_id from session token: it's in the WS URL query string
+      // We get it from the last discover run or hardcode from seen URL params.
+      // For now we'll detect it from the logged-in profile.
+      const teamOwnerId = process.env.WHATNOT_TEAM_OWNER_ID || '408585';
+      const wsUrl = [
+        'wss://www.whatnot.com/services/live/socket/websocket',
+        `?_csrf_token=${encodeURIComponent(csrfToken)}`,
+        `&client_layer=nextjs`,
+        `&client_type=web`,
+        `&client_version=${new Date().toISOString().slice(0,10).replace(/-/g,'')}-0000`,
+        `&team_owner_id=${teamOwnerId}`,
+        `&sessionExtensionToken=${encodeURIComponent(sessionToken)}`,
+        `&vsn=2.0.0`,
+      ].join('');
+
+      info(`ws-explore: connecting to Phoenix WS (team_owner_id=${teamOwnerId})`);
+
+      const allMessages = [];
+      let ref = 1;
+
+      await new Promise((resolve) => {
+        const ws = new WebSocket(wsUrl, {
+          headers: {
+            'Cookie':          cookieStr,
+            'Origin':          'https://www.whatnot.com',
+            'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0.0.0',
+          },
+        });
+
+        const send = (joinRef, topic, event, payload = {}) => {
+          const frame = JSON.stringify([joinRef, String(ref++), topic, event, payload]);
+          info(`[ws] SEND  topic=${topic} event=${event} ${JSON.stringify(payload).substring(0, 60)}`);
+          ws.send(frame);
+        };
+
+        // Candidate seller hub Phoenix Channel topics to probe
+        const PROBE_TOPICS = [
+          'seller_hub:shows',
+          'seller_hub:orders',
+          'seller_hub:payouts',
+          'seller_hub:analytics',
+          `seller:${teamOwnerId}`,
+          `team:${teamOwnerId}`,
+          `user:${teamOwnerId}`,
+          'seller_hub',
+          'live_seller_hub',
+          'phoenix',
+        ];
+
+        let heartbeatInterval;
+        let joinedCount = 0;
+
+        ws.on('open', () => {
+          info('[ws] CONNECT opened');
+          // Phoenix heartbeat — required every 30s to keep connection alive
+          heartbeatInterval = setInterval(() => {
+            send(null, 'phoenix', 'heartbeat', {});
+          }, 15000);
+          // Join every candidate topic
+          for (const topic of PROBE_TOPICS) {
+            send(String(joinedCount + 1), topic, 'phx_join', {});
+            joinedCount++;
+          }
+        });
+
+        ws.on('message', (raw) => {
+          try {
+            const data = JSON.parse(raw.toString());
+            if (!Array.isArray(data) || data.length !== 5) return;
+            const [joinRef, msgRef, topic, event, payload] = data;
+            const summary = JSON.stringify(payload || {}).substring(0, 150);
+            info(`[ws] RECV  topic=${topic} event=${event} ${summary}`);
+            allMessages.push({ topic, event, payload });
+          } catch {}
+        });
+
+        ws.on('error', (e) => info(`[ws] ERROR ${e.message}`));
+        ws.on('close', (code, reason) => {
+          info(`[ws] CLOSE code=${code} reason=${reason.toString().substring(0, 80)}`);
+          clearInterval(heartbeatInterval);
+          resolve();
+        });
+
+        // Collect for 20 seconds then close
+        setTimeout(() => {
+          info('[ws] probe complete — closing');
+          ws.close();
+        }, 20000);
+      });
+
+      // Group messages by topic/event for easy reading
+      const byTopic = {};
+      for (const m of allMessages) {
+        const key = `${m.topic}::${m.event}`;
+        if (!byTopic[key]) byTopic[key] = { topic: m.topic, event: m.event, count: 0, sample: null };
+        byTopic[key].count++;
+        if (!byTopic[key].sample) byTopic[key].sample = m.payload;
+      }
+
+      const outFile = `/tmp/whatnot-ws-explore-${Date.now()}.json`;
+      const result  = { total_messages: allMessages.length, topics: Object.values(byTopic), messages: allMessages };
+      require('fs').writeFileSync(outFile, JSON.stringify(result, null, 2));
+      log(`ws-explore complete: ${allMessages.length} messages, ${Object.keys(byTopic).length} topic/event combos → ${outFile}`);
+      process.stdout.write(JSON.stringify({ output_file: outFile, summary: { total_messages: allMessages.length, topics: Object.keys(byTopic) } }) + '\n');
       process.exit(0);
     }
 

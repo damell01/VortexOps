@@ -552,6 +552,69 @@ class WhatnotScraper
         return $data;
     }
 
+    /**
+     * Directly probe Whatnot's Phoenix Channels WebSocket (no DOM scraping).
+     * Opens the WS, joins candidate seller_hub:* topics, collects 20 s of messages.
+     * Use this to learn the real topic + event names that carry shows/orders/payouts.
+     *
+     * @throws \RuntimeException on failure
+     */
+    public function runWsExplore(?WhatnotChannel $channel = null, ?callable $onProgress = null): array
+    {
+        $env = $this->baseEnv(true);
+        $env['WHATNOT_MODE'] = 'ws-explore';
+
+        if ($channel?->whatnot_username) {
+            $env['WHATNOT_CHANNEL_NAME'] = $channel->whatnot_username;
+        }
+
+        $process = $this->makeProcess($env, timeout: 120);
+
+        if ($onProgress) {
+            $process->start();
+            while ($process->isRunning()) {
+                if ($err = $process->getIncrementalErrorOutput()) {
+                    foreach (explode("\n", trim($err)) as $line) {
+                        if ($line !== '') $onProgress($line);
+                    }
+                }
+                usleep(200_000);
+            }
+            if ($err = $process->getIncrementalErrorOutput()) {
+                foreach (explode("\n", trim($err)) as $line) {
+                    if ($line !== '') $onProgress($line);
+                }
+            }
+        } else {
+            $process->run();
+        }
+
+        $stdout = trim($process->getOutput());
+        $stderr = trim($process->getErrorOutput());
+
+        if ($stderr) {
+            Log::channel('stack')->info('WhatnotScraper ws-explore stderr', ['output' => $stderr]);
+        }
+
+        if (! $process->isSuccessful()) {
+            throw new \RuntimeException("ws-explore failed: " . ($stderr ?: "exit {$process->getExitCode()}"));
+        }
+
+        $envelope = json_decode($stdout, true);
+        if (isset($envelope['output_file']) && file_exists($envelope['output_file'])) {
+            $data = json_decode(file_get_contents($envelope['output_file']), true);
+            @unlink($envelope['output_file']);
+        } else {
+            $data = json_decode($stdout, true);
+        }
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \RuntimeException('ws-explore returned invalid JSON: ' . substr($stdout, 0, 300));
+        }
+
+        return $data;
+    }
+
     // ── Public helpers ────────────────────────────────────────────────────────
 
     /**

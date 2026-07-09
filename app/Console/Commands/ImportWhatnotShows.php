@@ -9,10 +9,11 @@ use Illuminate\Console\Command;
 class ImportWhatnotShows extends Command
 {
     protected $signature = 'whatnot:import
-                            {--channel= : WhatnotChannel name or ID — if omitted, imports all enabled channels}
-                            {--limit=50 : Max number of shows to fetch per channel per run}
-                            {--debug    : Save Playwright screenshots to /tmp for debugging selectors}
-                            {--discover : Dump all intercepted Whatnot API endpoints (use to find REST paths)}';
+                            {--channel=    : WhatnotChannel name or ID — if omitted, imports all enabled channels}
+                            {--limit=50    : Max number of shows to fetch per channel per run}
+                            {--debug       : Save Playwright screenshots to /tmp for debugging selectors}
+                            {--discover    : 3-phase browser crawl — logs all Phoenix WS frames so you can read topic/event names}
+                            {--ws-explore  : Direct Phoenix Channels probe — no DOM scraping, joins seller_hub:* topics for 20 s}';
 
     protected $description = 'Scrape completed shows from the Whatnot seller dashboard and import them';
 
@@ -75,6 +76,58 @@ class ImportWhatnotShows extends Command
 
                 // Also write the raw JSON to a file for full review
                 $outFile = storage_path('logs/whatnot-discover-' . date('Y-m-d-His') . '.json');
+                file_put_contents($outFile, json_encode($json, JSON_PRETTY_PRINT));
+                $this->info("Full JSON saved to: {$outFile}");
+
+            } catch (\RuntimeException $e) {
+                fwrite($logHandle, '[' . date('H:i:s') . '] ERROR: ' . $e->getMessage() . "\n");
+                $this->error($e->getMessage());
+            } finally {
+                fclose($logHandle);
+            }
+            return self::SUCCESS;
+        }
+
+        // ws-explore mode: directly probe Phoenix Channels WebSocket to learn topic/event names
+        if ($this->option('ws-explore')) {
+            $channel = null;
+            if ($channelOpt = $this->option('channel')) {
+                $channel = is_numeric($channelOpt)
+                    ? WhatnotChannel::find($channelOpt)
+                    : WhatnotChannel::where('name', $channelOpt)->orWhere('whatnot_username', $channelOpt)->first();
+            }
+            $progressLog = storage_path('logs/whatnot-ws-explore-' . date('Y-m-d-His') . '.log');
+            $logHandle   = fopen($progressLog, 'w');
+
+            $this->info('Running ws-explore — connecting directly to Whatnot Phoenix Channels WebSocket…');
+            $this->line("<fg=gray>Progress log: {$progressLog}</>");
+            $this->line('');
+            try {
+                $json = app(WhatnotScraper::class)->runWsExplore(
+                    channel: $channel,
+                    onProgress: function (string $line) use ($logHandle) {
+                        $this->line("<fg=gray>  {$line}</>");
+                        fwrite($logHandle, '[' . date('H:i:s') . '] ' . $line . "\n");
+                        fflush($logHandle);
+                    },
+                );
+
+                $this->line('');
+                $this->info('── WS-Explore Summary ────────────────────────────────');
+                $this->line("  Total messages received: " . ($json['total_messages'] ?? 0));
+                $this->line('');
+
+                $this->info('── Topics / Events Seen ──────────────────────────────');
+                foreach ($json['topics'] ?? [] as $t) {
+                    $this->line("  [{$t['count']}x] topic={$t['topic']} event={$t['event']}");
+                    if (!empty($t['sample'])) {
+                        $keys = array_keys((array)$t['sample']);
+                        $this->line("         sample keys: " . implode(', ', array_slice($keys, 0, 10)));
+                    }
+                    $this->line('');
+                }
+
+                $outFile = storage_path('logs/whatnot-ws-explore-' . date('Y-m-d-His') . '.json');
                 file_put_contents($outFile, json_encode($json, JSON_PRETTY_PRINT));
                 $this->info("Full JSON saved to: {$outFile}");
 

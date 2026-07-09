@@ -1357,6 +1357,22 @@ function normalizeApiShow(s) {
           }
           await page.waitForLoadState('networkidle', { timeout: 4000 }).catch(() => {});
           await page.waitForTimeout(500);
+
+          // page.goto() triggers Next.js SSR: the server embeds all page data in
+          // <script id="__NEXT_DATA__"> and no XHR/fetch calls fire for the initial
+          // load. Pull that payload — it contains shows, orders, payouts, etc.
+          const nextData = await page.evaluate(() => {
+            const el = document.getElementById('__NEXT_DATA__');
+            if (!el || !el.textContent) return null;
+            try { return JSON.parse(el.textContent); } catch { return null; }
+          }).catch(() => null);
+          if (nextData) {
+            capturedApiResponses.push({ url: '__next_ssr__:' + url, body: nextData });
+            const propKeys = Object.keys(nextData.props?.pageProps || nextData.props || {}).join(', ');
+            info(`  ├ SSR(__NEXT_DATA__) — pageProps keys: ${propKeys || '(empty)'}`);
+          } else {
+            info(`  ├ no __NEXT_DATA__ (client-only SPA page or not Next.js)`);
+          }
         } catch (e) {
           info(`discover: error visiting ${url}: ${e.message}`);
         }
@@ -1488,6 +1504,18 @@ function normalizeApiShow(s) {
             await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
             await page.waitForTimeout(2000);
             if (DEBUG) await debugShot(page, `discover-show-${showIdx + 1}-load`);
+
+            // Pull Next.js SSR data from the show detail page (same as nav pages)
+            const showNextData = await page.evaluate(() => {
+              const el = document.getElementById('__NEXT_DATA__');
+              if (!el || !el.textContent) return null;
+              try { return JSON.parse(el.textContent); } catch { return null; }
+            }).catch(() => null);
+            if (showNextData) {
+              capturedApiResponses.push({ url: '__next_ssr__:' + showUrl, body: showNextData });
+              const propKeys = Object.keys(showNextData.props?.pageProps || showNextData.props || {}).join(', ');
+              info(`  ├ SSR(__NEXT_DATA__) — pageProps keys: ${propKeys || '(empty)'}`);
+            }
 
             const loadApis = drainCaptures();
             if (loadApis.length > 0) {

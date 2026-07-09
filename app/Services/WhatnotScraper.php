@@ -27,14 +27,10 @@ class WhatnotScraper
      */
     public function testConnection(bool $debug = false): array
     {
-        [$email, $password] = $this->resolveCredentials();
+        $env = $this->baseEnv($debug);
+        $env['WHATNOT_MODE'] = 'test';
 
-        $process = $this->makeProcess([
-            'WHATNOT_EMAIL'    => $email,
-            'WHATNOT_PASSWORD' => $password,
-            'WHATNOT_MODE'     => 'test',
-            'WHATNOT_DEBUG'    => $debug ? '1' : '0',
-        ], timeout: 60);
+        $process = $this->makeProcess($env, timeout: 60);
 
         $process->run();
 
@@ -65,15 +61,9 @@ class WhatnotScraper
      */
     public function fetchShows(int $limit = 50, bool $debug = false, ?string $channelUsername = null): array
     {
-        [$email, $password] = $this->resolveCredentials();
-
-        $env = [
-            'WHATNOT_EMAIL'    => $email,
-            'WHATNOT_PASSWORD' => $password,
-            'WHATNOT_MODE'     => 'analytics',
-            'WHATNOT_LIMIT'    => (string) $limit,
-            'WHATNOT_DEBUG'    => $debug ? '1' : '0',
-        ];
+        $env = $this->baseEnv($debug);
+        $env['WHATNOT_MODE']  = 'analytics';
+        $env['WHATNOT_LIMIT'] = (string) $limit;
 
         if ($channelUsername) {
             $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
@@ -124,14 +114,10 @@ class WhatnotScraper
      */
     public function fetchSellerShowUrls(bool $debug = false): array
     {
-        [$email, $password] = $this->resolveCredentials();
+        $env = $this->baseEnv($debug);
+        $env['WHATNOT_MODE'] = 'seller-shows';
 
-        $process = $this->makeProcess([
-            'WHATNOT_EMAIL'    => $email,
-            'WHATNOT_PASSWORD' => $password,
-            'WHATNOT_MODE'     => 'seller-shows',
-            'WHATNOT_DEBUG'    => $debug ? '1' : '0',
-        ], timeout: 120);
+        $process = $this->makeProcess($env, timeout: 120);
 
         $process->run();
 
@@ -212,15 +198,11 @@ class WhatnotScraper
      */
     public function fetchShowOrders(string $showUrl, bool $debug = false): array
     {
-        [$email, $password] = $this->resolveCredentials();
+        $env = $this->baseEnv($debug);
+        $env['WHATNOT_MODE']     = 'show-orders';
+        $env['WHATNOT_SHOW_URL'] = $showUrl;
 
-        $process = $this->makeProcess([
-            'WHATNOT_EMAIL'    => $email,
-            'WHATNOT_PASSWORD' => $password,
-            'WHATNOT_MODE'     => 'show-orders',
-            'WHATNOT_SHOW_URL' => $showUrl,
-            'WHATNOT_DEBUG'    => $debug ? '1' : '0',
-        ]);
+        $process = $this->makeProcess($env);
 
         $process->run();
 
@@ -511,14 +493,8 @@ class WhatnotScraper
      */
     public function runDiscover(?WhatnotChannel $channel = null, bool $debug = true): array
     {
-        [$email, $password] = $this->resolveCredentials();
-
-        $env = [
-            'WHATNOT_EMAIL'    => $email,
-            'WHATNOT_PASSWORD' => $password,
-            'WHATNOT_MODE'     => 'discover',
-            'WHATNOT_DEBUG'    => $debug ? '1' : '0',
-        ];
+        $env = $this->baseEnv($debug);
+        $env['WHATNOT_MODE'] = 'discover';
 
         if ($channel?->whatnot_username) {
             $env['WHATNOT_CHANNEL_NAME'] = $channel->whatnot_username;
@@ -545,6 +521,99 @@ class WhatnotScraper
         }
 
         return $data;
+    }
+
+    // ── Public helpers ────────────────────────────────────────────────────────
+
+    /**
+     * Path to the session cookie bootstrap file.
+     */
+    public function cookiesFilePath(): string
+    {
+        return storage_path('whatnot-cookies.json');
+    }
+
+    public function hasCookieFile(): bool
+    {
+        return file_exists($this->cookiesFilePath());
+    }
+
+    /**
+     * Test whether saved session cookies still grant seller hub access.
+     * Returns ['ok' => true, 'url' => ...] or throws RuntimeException.
+     */
+    public function testCookieAuth(): array
+    {
+        $process = $this->makeProcess([
+            'WHATNOT_MODE'  => 'cookie-test',
+            'WHATNOT_DEBUG' => '0',
+        ], timeout: 30);
+
+        $process->run();
+        $stdout = trim($process->getOutput());
+        $stderr = trim($process->getErrorOutput());
+
+        if ($stderr) {
+            Log::channel('stack')->info('WhatnotScraper cookie-test stderr', ['output' => $stderr]);
+        }
+
+        if (! $process->isSuccessful()) {
+            throw new \RuntimeException('Cookie auth test failed: ' . ($stderr ?: "exit {$process->getExitCode()}"));
+        }
+
+        $data = json_decode($stdout, true);
+        if (! $data || empty($data['ok'])) {
+            throw new \RuntimeException('Cookie auth test returned unexpected response: ' . $stdout);
+        }
+
+        return $data;
+    }
+
+    /**
+     * After a form-based login has primed the persistent profile,
+     * dump those cookies to storage/whatnot-cookies.json for future use.
+     */
+    public function dumpSessionCookies(): int
+    {
+        [$email, $password] = $this->resolveCredentials();
+
+        $process = $this->makeProcess([
+            'WHATNOT_EMAIL'    => $email,
+            'WHATNOT_PASSWORD' => $password,
+            'WHATNOT_MODE'     => 'dump-cookies',
+        ], timeout: 60);
+
+        $process->run();
+
+        if (! $process->isSuccessful()) {
+            throw new \RuntimeException('Cookie dump failed: ' . ($process->getErrorOutput() ?: "exit {$process->getExitCode()}"));
+        }
+
+        $json = json_decode($process->getOutput(), true);
+        if (! is_array($json)) {
+            throw new \RuntimeException('Cookie dump returned invalid JSON');
+        }
+
+        file_put_contents($this->cookiesFilePath(), json_encode($json, JSON_PRETTY_PRINT));
+        return count($json);
+    }
+
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Build the base env array for the scraper process.
+     * Credentials are included when available; cookie-only modes don't need them.
+     */
+    private function baseEnv(bool $debug = false): array
+    {
+        $env = ['WHATNOT_DEBUG' => $debug ? '1' : '0'];
+
+        $email    = config('vortex.whatnot.email');
+        $password = config('vortex.whatnot.password');
+        if ($email)    $env['WHATNOT_EMAIL']    = $email;
+        if ($password) $env['WHATNOT_PASSWORD'] = $password;
+
+        return $env;
     }
 
     private function resolveCredentials(): array

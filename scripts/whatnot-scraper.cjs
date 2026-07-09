@@ -794,11 +794,19 @@ function normalizeApiShow(s) {
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 (async () => {
-  const email    = process.env.WHATNOT_EMAIL;
-  const password = process.env.WHATNOT_PASSWORD;
+  const email    = process.env.WHATNOT_EMAIL    || '';
+  const password = process.env.WHATNOT_PASSWORD || '';
+  const _cookiesFilePath = process.env.WHATNOT_COOKIES_FILE ||
+    require('path').join(__dirname, '../storage/whatnot-cookies.json');
+  const hasCookieFile = require('fs').existsSync(_cookiesFilePath);
 
-  if (!email || !password) {
-    process.stderr.write('Error: WHATNOT_EMAIL and WHATNOT_PASSWORD are required\n');
+  // Credentials are only required when we don't have a session cookie file
+  // and we're not in a mode that only tests cookies.
+  if (!hasCookieFile && !email && MODE !== 'cookie-test' && MODE !== 'dump-cookies') {
+    process.stderr.write(
+      'Error: WHATNOT_EMAIL and WHATNOT_PASSWORD are required (or provide storage/whatnot-cookies.json).\n' +
+      'Run: php artisan whatnot:login\n'
+    );
     process.exit(1);
   }
 
@@ -944,11 +952,70 @@ function normalizeApiShow(s) {
   });
 
   try {
-    await performLogin(page, email, password);
+    // If we have a cookie file, attempt a fast cookie-auth check before trying form login.
+    // This skips the Kasada-blocked login page entirely on subsequent runs.
+    if (hasCookieFile && MODE !== 'cookie-test' && MODE !== 'dump-cookies') {
+      await page.goto(URLS.sellerHub, { waitUntil: 'domcontentloaded', timeout: 20000 });
+      await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
+      const checkUrl = page.url();
+      if (/\/(login|signin|auth)(\/|\?|$)/i.test(checkUrl)) {
+        info('cookie auth check: cookies expired, falling back to credential login');
+        if (!email || !password) {
+          throw new Error(
+            'Session cookies are expired and no WHATNOT_EMAIL/WHATNOT_PASSWORD set. ' +
+            'Run: php artisan whatnot:login'
+          );
+        }
+        await performLogin(page, email, password);
+      } else {
+        info('cookie auth check: seller hub reached without login (', checkUrl, ')');
+      }
+    } else if (MODE !== 'cookie-test' && MODE !== 'dump-cookies') {
+      await performLogin(page, email, password);
+    }
 
-    // Switch to the target channel before scraping (skipped for test mode)
-    if (MODE !== 'test' && CHANNEL_NAME) {
+    // Switch to the target channel before scraping (skipped for test/cookie modes)
+    if (MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && CHANNEL_NAME) {
       await switchToChannel(page, CHANNEL_NAME);
+    }
+
+    // ── Mode: cookie-test ────────────────────────────────────────────────────
+    // Test whether the loaded session cookies grant access to the Seller Hub.
+    // Returns { ok: true, url } on success, or exits 1 on failure.
+    if (MODE === 'cookie-test') {
+      info('cookie-test: navigating to seller hub');
+      await page.goto(URLS.sellerHub, { waitUntil: 'domcontentloaded', timeout: 20000 });
+      await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+      const url = page.url();
+      info('cookie-test: landed on', url);
+
+      if (/\/(login|signin|auth)(\/|\?|$)/i.test(url)) {
+        const bodyText = await page.evaluate(() => (document.body.innerText || '').substring(0, 200)).catch(() => '');
+        process.stderr.write('COOKIE_TEST_FAILED: redirected to login page — cookies are missing, expired, or invalid.\n');
+        process.stderr.write('URL: ' + url + '\n');
+        process.stderr.write('PAGE: ' + bodyText + '\n');
+        process.exit(1);
+      }
+
+      const pageText = await page.evaluate(() => (document.body.innerText || '').substring(0, 300)).catch(() => '');
+      if (pageText.trim().length < 50) {
+        process.stderr.write('COOKIE_TEST_FAILED: seller hub loaded but page appears empty — bot detection may still be active.\n');
+        process.stderr.write('URL: ' + url + '\n');
+        process.exit(1);
+      }
+
+      process.stdout.write(JSON.stringify({ ok: true, url, page_length: pageText.length }) + '\n');
+      process.exit(0);
+    }
+
+    // ── Mode: dump-cookies ────────────────────────────────────────────────────
+    // Dump the current Playwright context cookies for whatnot.com to stdout as JSON.
+    // Used after a successful login to persist the session.
+    if (MODE === 'dump-cookies') {
+      const cookies = await context.cookies('https://www.whatnot.com');
+      process.stdout.write(JSON.stringify(cookies, null, 2) + '\n');
+      info('dump-cookies: dumped', cookies.length, 'cookies');
+      process.exit(0);
     }
 
     // ── Mode: test ───────────────────────────────────────────────────────────

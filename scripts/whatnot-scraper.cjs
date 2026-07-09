@@ -1225,6 +1225,23 @@ async function runWsExploreStandalone(cookiesFilePath) {
         process.exit(1);
       }
 
+      // Save localStorage so ws-explore can inject it into its temp browser.
+      try {
+        const ls = await page.evaluate(() => {
+          const out = {};
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            out[k] = localStorage.getItem(k);
+          }
+          return out;
+        });
+        const _lsFile = require('path').join(__dirname, '../storage/whatnot-localstorage.json');
+        require('fs').writeFileSync(_lsFile, JSON.stringify(ls));
+        info('cookie-test: saved localStorage (' + Object.keys(ls).length + ' keys) →', _lsFile);
+      } catch (_e) {
+        info('cookie-test: localStorage save skipped:', _e.message);
+      }
+
       process.stdout.write(JSON.stringify({ ok: true, url, page_length: pageText.length }) + '\n');
       process.exit(0);
     }

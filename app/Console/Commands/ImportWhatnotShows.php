@@ -119,10 +119,26 @@ class ImportWhatnotShows extends Command
 
                 $this->info('── Topics / Events Seen ──────────────────────────────');
                 foreach ($json['topics'] ?? [] as $t) {
-                    $this->line("  [{$t['count']}x] topic={$t['topic']} event={$t['event']}");
-                    if (!empty($t['sample'])) {
-                        $keys = array_keys((array)$t['sample']);
-                        $this->line("         sample keys: " . implode(', ', array_slice($keys, 0, 10)));
+                    $topic  = $t['topic'];
+                    $event  = $t['event'];
+                    $count  = $t['count'];
+                    $sample = $t['sample'] ?? null;
+
+                    // For phx_reply, show the join status prominently
+                    if ($event === 'phx_reply' && $topic !== 'phoenix') {
+                        $status = $sample['status'] ?? '?';
+                        $icon   = $status === 'ok' ? '<fg=green>✓</>' : '<fg=red>✗</>';
+                        $this->line("  [{$count}x] {$icon} topic={$topic} event={$event} status={$status}");
+                        if (!empty($sample['response'])) {
+                            $resp = json_encode($sample['response'], JSON_UNESCAPED_SLASHES);
+                            $this->line("         response: " . substr($resp, 0, 300));
+                        }
+                    } else {
+                        $this->line("  [{$count}x] topic={$topic} event={$event}");
+                        if ($sample !== null) {
+                            $preview = json_encode($sample, JSON_UNESCAPED_SLASHES);
+                            $this->line("         payload: " . substr($preview, 0, 300));
+                        }
                     }
                     $this->line('');
                 }

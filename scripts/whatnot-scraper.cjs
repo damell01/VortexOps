@@ -1942,18 +1942,30 @@ function normalizeApiShow(s) {
         ];
 
         let heartbeatInterval;
-        let joinedCount = 0;
+        const joinRefMap = {}; // joinRef → topic (to correlate phx_reply to the join)
+        let joinedCount  = 0;
+        // Track which topics succeeded so we can push data-request events on them
+        const joinedTopics = new Set();
+
+        // Events to try pushing on each successfully-joined topic (in order).
+        // Phoenix Channel data-request events vary by app; we try the most common.
+        const PUSH_EVENTS = ['list', 'get', 'load', 'refresh', 'fetch', 'shows_list',
+                             'orders_list', 'payouts_list', 'analytics_summary'];
 
         ws.on('open', () => {
           info('[ws] CONNECT opened');
-          // Phoenix heartbeat — required every 30s to keep connection alive
           heartbeatInterval = setInterval(() => {
             send(null, 'phoenix', 'heartbeat', {});
           }, 15000);
-          // Join every candidate topic
+
+          // Try joining every candidate topic — also retry with auth payloads
+          // in case the server requires a user_token / team_id in the join body
           for (const topic of PROBE_TOPICS) {
-            send(String(joinedCount + 1), topic, 'phx_join', {});
-            joinedCount++;
+            if (topic === 'phoenix') continue; // phoenix is a control channel, not joinable
+            const jr = String(++joinedCount);
+            joinRefMap[jr] = topic;
+            // First attempt: empty join payload (auth is in the WS URL query string)
+            send(jr, topic, 'phx_join', {});
           }
         });
 
@@ -1962,10 +1974,33 @@ function normalizeApiShow(s) {
             const data = JSON.parse(raw.toString());
             if (!Array.isArray(data) || data.length !== 5) return;
             const [joinRef, msgRef, topic, event, payload] = data;
-            const summary = JSON.stringify(payload || {}).substring(0, 150);
-            info(`[ws] RECV  topic=${topic} event=${event} ${summary}`);
+
+            // Full payload to log — truncate at 400 chars for readability
+            const full = JSON.stringify(payload || {});
+            info(`[ws] RECV  topic=${topic} event=${event} ${full.substring(0, 400)}`);
             allMessages.push({ topic, event, payload });
-          } catch {}
+
+            // On join reply: parse status and, if ok, push data-request events
+            if (event === 'phx_reply' && joinRefMap[joinRef]) {
+              const joinedTopic = joinRefMap[joinRef];
+              const status      = payload && payload.status;
+              const response    = payload && payload.response;
+
+              if (status === 'ok') {
+                info(`[ws] JOIN OK  topic=${joinedTopic} response=${JSON.stringify(response).substring(0, 200)}`);
+                joinedTopics.add(joinedTopic);
+                // Push data-request events on this channel so the server sends data back
+                for (const pushEvent of PUSH_EVENTS) {
+                  send(joinRef, joinedTopic, pushEvent, {});
+                }
+              } else {
+                const reason = response && (response.reason || JSON.stringify(response));
+                info(`[ws] JOIN ERR topic=${joinedTopic} reason=${reason}`);
+              }
+            }
+          } catch (e) {
+            info(`[ws] parse error: ${e.message}`);
+          }
         });
 
         ws.on('error', (e) => info(`[ws] ERROR ${e.message}`));
@@ -1975,11 +2010,11 @@ function normalizeApiShow(s) {
           resolve();
         });
 
-        // Collect for 20 seconds then close
+        // Collect for 30 seconds — longer to catch data pushes that arrive after joins
         setTimeout(() => {
-          info('[ws] probe complete — closing');
+          info(`[ws] probe complete — joined ${joinedTopics.size} topic(s): ${[...joinedTopics].join(', ') || 'none'}`);
           ws.close();
-        }, 20000);
+        }, 30000);
       });
 
       // Group messages by topic/event for easy reading

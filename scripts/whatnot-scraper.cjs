@@ -825,28 +825,56 @@ async function runWsExploreStandalone(cookiesFilePath) {
 
   info('ws-explore: loaded', rawCookies.length, 'cookies from file (no browser needed)');
 
-  // Fetch CSRF + session extension token
+  // Fetch CSRF + session extension token, following up to 5 redirects
   info('ws-explore: fetching Phoenix session tokens via https');
-  const sessionJson = await new Promise((resolve, reject) => {
-    const req = https.get('https://www.whatnot.com/services/live/socket/v3/session', {
-      headers: {
-        'Cookie':          cookieStr,
-        'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0.0.0',
-        'Accept':          'application/json',
-        'Referer':         'https://www.whatnot.com/seller',
-        'x-csrf-token':    rawCookies.find(c => c.name === '_csrf_token')?.value || '',
-      },
-    }, (res) => {
-      let body = '';
-      res.on('data', d => body += d);
-      res.on('end', () => {
-        try { resolve(JSON.parse(body)); }
-        catch (e) { reject(new Error('session parse error: ' + body.substring(0, 200))); }
+  const sessionJson = await (async function fetchWithRedirects(url, depth = 0) {
+    if (depth > 5) throw new Error('too many redirects fetching session tokens');
+    return new Promise((resolve, reject) => {
+      const parsed = new URL(url);
+      const options = {
+        hostname: parsed.hostname,
+        path:     parsed.pathname + parsed.search,
+        method:   'GET',
+        headers: {
+          'Cookie':       cookieStr,
+          'User-Agent':   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128.0.0.0',
+          'Accept':       'application/json, text/plain, */*',
+          'Referer':      'https://www.whatnot.com/seller',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      };
+      const req = https.request(options, (res) => {
+        info(`ws-explore: session endpoint status=${res.statusCode} location=${res.headers.location || '-'}`);
+        // Follow redirects
+        if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+          res.resume(); // drain the body
+          const next = res.headers.location.startsWith('http')
+            ? res.headers.location
+            : 'https://www.whatnot.com' + res.headers.location;
+          resolve(fetchWithRedirects(next, depth + 1));
+          return;
+        }
+        let body = '';
+        res.on('data', d => body += d);
+        res.on('end', () => {
+          info(`ws-explore: session response body (${body.length} bytes): ${body.substring(0, 300)}`);
+          if (res.statusCode !== 200) {
+            reject(new Error(`session endpoint returned HTTP ${res.statusCode} — cookies may be expired. Body: ${body.substring(0, 200)}`));
+            return;
+          }
+          if (!body.trim()) {
+            reject(new Error('session endpoint returned empty body — likely an auth redirect that exhausted redirects'));
+            return;
+          }
+          try { resolve(JSON.parse(body)); }
+          catch (e) { reject(new Error('session parse error: ' + body.substring(0, 200))); }
+        });
       });
+      req.on('error', reject);
+      req.setTimeout(10000, () => { req.destroy(); reject(new Error('session request timed out')); });
+      req.end();
     });
-    req.on('error', reject);
-    req.setTimeout(10000, () => { req.destroy(); reject(new Error('session request timed out')); });
-  });
+  })('https://www.whatnot.com/services/live/socket/v3/session');
 
   const csrfToken    = sessionJson.csrf_token;
   const sessionToken = sessionJson.session_extension_token;

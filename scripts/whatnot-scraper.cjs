@@ -1019,7 +1019,12 @@ async function runWsExploreStandalone(cookiesFilePath) {
   // locked by a concurrent scraper process (SingletonLock). Instead it reads
   // cookies directly from storage/whatnot-cookies.json and uses Node.js https.
   if (MODE === 'ws-explore') {
-    await runWsExploreStandalone(_cookiesFilePath);
+    // Prefer live cookies saved by cookie-test mode (persistent browser session, passes SSR auth)
+    // over the original export which may be stale. Fall back to original if live not present.
+    const _liveCookiesPath = require('path').join(__dirname, '../storage/whatnot-live-cookies.json');
+    const _wsExploreCookies = require('fs').existsSync(_liveCookiesPath) ? _liveCookiesPath : _cookiesFilePath;
+    info('ws-explore using cookie file:', _wsExploreCookies);
+    await runWsExploreStandalone(_wsExploreCookies);
     process.exit(0);
   }
 
@@ -1249,7 +1254,9 @@ async function runWsExploreStandalone(cookiesFilePath) {
         process.exit(1);
       }
 
-      // Save localStorage so ws-explore can inject it into its temp browser.
+      // Save localStorage + live cookies so ws-explore can inject them into its temp browser.
+      // The persistent browser's cookies may differ from whatnot-cookies.json (session refreshed);
+      // only these live cookies pass Next.js SSR auth checks.
       try {
         const ls = await page.evaluate(() => {
           const out = {};
@@ -1264,6 +1271,14 @@ async function runWsExploreStandalone(cookiesFilePath) {
         info('cookie-test: saved localStorage (' + Object.keys(ls).length + ' keys) →', _lsFile);
       } catch (_e) {
         info('cookie-test: localStorage save skipped:', _e.message);
+      }
+      try {
+        const liveCookies = await context.cookies('https://www.whatnot.com');
+        const _liveCookiesFile = require('path').join(__dirname, '../storage/whatnot-live-cookies.json');
+        require('fs').writeFileSync(_liveCookiesFile, JSON.stringify(liveCookies, null, 2));
+        info('cookie-test: saved live cookies (' + liveCookies.length + ' cookies) →', _liveCookiesFile);
+      } catch (_e) {
+        info('cookie-test: live cookie save skipped:', _e.message);
       }
 
       process.stdout.write(JSON.stringify({ ok: true, url, page_length: pageText.length }) + '\n');

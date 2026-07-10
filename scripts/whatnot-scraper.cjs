@@ -929,17 +929,34 @@ function findShowsInJson(obj, url, depth = 0) {
 }
 
 function extractShowsFromCapture(captured) {
-  let best = null;
+  const candidates = [];
   for (const { url, body } of captured) {
     const found = findShowsInJson(body, url);
-    if (found && (!best || found.score > best.score)) best = found;
+    if (found) candidates.push(found);
   }
-  if (best) {
-    info('API intercept: data found in', best.url.replace('https://www.whatnot.com', ''));
-    info('API intercept:', best.array.length, 'records, score=' + best.score);
-    info('API intercept: first record keys:', Object.keys(best.array[0]).join(', '));
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => b.score - a.score);
+  const topScore = candidates[0].score;
+
+  // Merge all responses of the same data type (score within 1 of best) — handles pagination.
+  const seen = new Set();
+  const merged = [];
+  for (const c of candidates.filter(c => c.score >= topScore - 1)) {
+    for (const item of c.array) {
+      const key = item.id || item.show_id || item.uuid ||
+                  (item.title ? item.title.substring(0, 30) : null) ||
+                  JSON.stringify(item).substring(0, 60);
+      if (!seen.has(key)) {
+        seen.add(key);
+        merged.push(item);
+      }
+    }
   }
-  return best ? best.array : null;
+
+  info(`API intercept: merged ${merged.length} records from ${candidates.length} response(s), score=${topScore}`);
+  if (merged.length > 0) info('API intercept: first record keys:', Object.keys(merged[0]).join(', '));
+  return merged.length > 0 ? merged : null;
 }
 
 function normalizeApiShow(s) {
@@ -2617,12 +2634,48 @@ async function runWsExploreStandalone(cookiesFilePath) {
                          (targetUrl === URLS.shows);
 
       if (isListPage) {
-        // Scroll down to trigger lazy-load of additional show cards
-        for (let s = 0; s < 4; s++) {
-          await page.evaluate(() => window.scrollBy(0, window.innerHeight));
-          await page.waitForTimeout(500);
+        // Scroll-until-stable: keep scrolling and clicking "Load More" until no new
+        // show cards appear between passes (or LIMIT is reached).
+        let prevLinkCount = 0;
+        let stableRounds = 0;
+        const LINK_SEL = 'a[href*="/dashboard/live/"], a[href*="/live/"], a[href*="/dashboard/shows/"]';
+        for (let scrollRound = 0; scrollRound < 40; scrollRound++) {
+          const currentLinks = await page.evaluate(
+            sel => document.querySelectorAll(sel).length, LINK_SEL
+          ).catch(() => 0);
+          info(`scroll round ${scrollRound}: ${currentLinks} show link(s) visible`);
+          if (currentLinks >= LIMIT) { info('scroll: LIMIT reached'); break; }
+
+          // Click "Load More" / "View more" if present
+          const clicked = await page.evaluate(() => {
+            const btn = Array.from(document.querySelectorAll('button, a[role="button"], a'))
+              .find(el => /load more|view more|show more|see more/i.test((el.textContent || '').trim()));
+            if (btn) { btn.click(); return true; }
+            return false;
+          }).catch(() => false);
+          if (clicked) {
+            info('scroll: clicked Load More');
+            await page.waitForTimeout(1500);
+            stableRounds = 0;
+            prevLinkCount = currentLinks;
+            continue;
+          }
+
+          await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+          await page.waitForTimeout(900);
+
+          const newLinks = await page.evaluate(
+            sel => document.querySelectorAll(sel).length, LINK_SEL
+          ).catch(() => 0);
+          if (newLinks <= currentLinks) {
+            stableRounds++;
+            if (stableRounds >= 3) { info(`scroll: stable after ${scrollRound + 1} rounds`); break; }
+          } else {
+            stableRounds = 0;
+          }
+          prevLinkCount = newLinks;
         }
-        await page.waitForTimeout(1000);  // let scroll-triggered API calls complete
+        await page.waitForTimeout(800);
         await debugShot(page, '06-shows-list-scrolled');
 
         // Second API check — GetDashboardLivestreamsByUserId fires during scroll,

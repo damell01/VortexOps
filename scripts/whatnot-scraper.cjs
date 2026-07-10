@@ -1235,7 +1235,12 @@ async function runWsExploreStandalone(cookiesFilePath) {
 // startUuid — live_id UUID of the newest show (comes from initial API intercept).
 
 async function scrapeViaAnalyticsPage(page, startUuid, limit) {
-  const analyticsUrl = `https://www.whatnot.com/account/analytics?tab=livestream&live_id=${startUuid}`;
+  // Open with a wide date range so the "See older show" nav can reach the full
+  // channel history. Left to itself the app defaults to a ~2-week window
+  // (start_dt/end_dt), which may cap how far back the walk can go.
+  const _today  = new Date().toISOString().substring(0, 10);
+  const analyticsUrl = `https://www.whatnot.com/account/analytics?tab=livestream&live_id=${startUuid}` +
+                       `&start_dt=2019-01-01&end_dt=${_today}`;
   info(`analytics-nav: navigating to ${analyticsUrl}`);
   await page.goto(analyticsUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
@@ -1294,7 +1299,7 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
   info(`analytics-nav: rewound to newest show at ${page.url()}`);
 
   const results = [];
-  const seenUuids = new Set();
+  const seenSignatures = new Set();
 
   for (let i = 0; i < limit; i++) {
     await page.waitForTimeout(800);
@@ -1345,25 +1350,25 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
       return null;
     };
 
-    // Extract the current show's UUID from the page URL (updates on each navigation)
-    let uuid = null;
-    try { uuid = new URL(page.url()).searchParams.get('live_id'); } catch {}
-
-    // Guard against a stalled navigation looping forever on the same show.
-    // Signature = UUID when the URL carries live_id, else title+date (Whatnot may
-    // swap analytics content client-side without changing the URL).
-    const signature = uuid || `${title || ''}|${dateText || ''}`;
-    if (signature.trim() && seenUuids.has(signature)) {
+    // Dedup / stall-guard on the CONTENT, not the URL. The analytics page swaps
+    // the displayed show in place (title/date/metrics all change) WITHOUT updating
+    // the live_id query param — the URL UUID is stale and unrelated to what's shown,
+    // so it can't identify the current show. title+date is the reliable signature.
+    const signature = `${(title || '').trim()}|${(dateText || '').trim()}`;
+    if (signature.replace('|', '').trim() && seenSignatures.has(signature)) {
       info(`analytics-nav: revisited show "${signature}" — navigation stalled, stopping`);
       break;
     }
-    if (signature.trim()) seenUuids.add(signature);
+    if (signature.replace('|', '').trim()) seenSignatures.add(signature);
 
     results.push({
       title,
       show_date:               parseDateString(dateText),
       show_date_raw:           dateText,
-      detail_url:              data.detailUrl || (uuid ? `https://www.whatnot.com/dashboard/live/${uuid}` : null),
+      // detail_url is intentionally null: the URL live_id is stale here and does not
+      // correspond to the displayed show, so any /dashboard/live/<uuid> we built from
+      // it would point at the wrong show. Order-sync backfills detail_url separately.
+      detail_url:              null,
       gross_revenue:           parseMoney(get('Estimated Sales')),
       whatnot_net:             parseMoney(get('Total Estimated Earnings')),
       completed_earnings:      parseMoney(get('Completed Earnings')),

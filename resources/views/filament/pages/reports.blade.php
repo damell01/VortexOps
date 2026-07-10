@@ -74,7 +74,7 @@
 
         {{-- Revenue KPI tiles --}}
         @php $rev = $this->revenueSummary; @endphp
-        <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
             @foreach ([
                 ['label' => 'Shows',       'value' => number_format($rev['shows']),          'trend' => $rev['trend_shows'], 'icon' => 'heroicon-o-video-camera',   'accent' => 'border-violet-500'],
                 ['label' => 'Units Sold',  'value' => number_format($rev['units']),           'trend' => null,                'icon' => 'heroicon-o-shopping-bag',   'accent' => 'border-sky-500'],
@@ -83,12 +83,12 @@
                 ['label' => 'Tips',        'value' => '$'.number_format($rev['tips'], 0),    'trend' => null,                'icon' => 'heroicon-o-star',           'accent' => 'border-amber-500'],
                 ['label' => 'Paper Sales', 'value' => '$'.number_format($rev['paper'], 0),   'trend' => null,                'icon' => 'heroicon-o-document-text',  'accent' => 'border-rose-500'],
             ] as $tile)
-                <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 border-t-2 {{ $tile['accent'] }}">
+                <div class="min-w-0 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 border-t-2 {{ $tile['accent'] }}">
                     <div class="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
-                        <x-dynamic-component :component="$tile['icon']" class="h-3.5 w-3.5" />
-                        {{ $tile['label'] }}
+                        <x-dynamic-component :component="$tile['icon']" class="h-3.5 w-3.5 shrink-0" />
+                        <span class="truncate">{{ $tile['label'] }}</span>
                     </div>
-                    <div class="mt-2 text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">{{ $tile['value'] }}</div>
+                    <div class="mt-2 truncate text-lg font-bold tabular-nums text-gray-900 dark:text-white sm:text-xl" title="{{ $tile['value'] }}">{{ $tile['value'] }}</div>
                     @if ($tile['trend'] !== null)
                         <div class="mt-1 text-xs font-medium {{ $trendClass($tile['trend']) }}">
                             {{ $trendIcon($tile['trend']) }} {{ abs($tile['trend']) }}%

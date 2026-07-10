@@ -69,7 +69,11 @@ class WhatnotScraper
             $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
         }
 
-        $process = $this->makeProcess($env, timeout: 240);
+        // Analytics-nav walks the full channel history one show at a time, so a
+        // channel with hundreds of past shows can legitimately run for many
+        // minutes. 240s was too short and killed the walk mid-import; allow up to
+        // 20 minutes per channel (scales roughly with --limit).
+        $process = $this->makeProcess($env, timeout: 1200);
         $process->run();
 
         $stderr = trim($process->getErrorOutput());

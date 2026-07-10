@@ -1317,8 +1317,7 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
     if (!newerEnabled) break;
     const prevUrl = page.url();
     await page.click(SELECTORS.showNavNewer).catch(() => {});
-    await page.waitForFunction(prev => location.href !== prev, prevUrl, { timeout: 8000 }).catch(() => {});
-    await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
+    await page.waitForFunction(prev => location.href !== prev, prevUrl, { timeout: 6000 }).catch(() => {});
     await page.waitForTimeout(300);
   }
   info(`analytics-nav: rewound to newest show at ${page.url()}`);
@@ -1327,7 +1326,10 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
   const seenSignatures = new Set();
 
   for (let i = 0; i < limit; i++) {
-    await page.waitForTimeout(800);
+    // Brief settle so the metric cards finish re-rendering to match the new show
+    // before we extract (avoids pairing a new title with the prior show's metrics).
+    // Kept small: the per-show cost dominates total runtime across a long history.
+    await page.waitForTimeout(400);
 
     // Primary: CSS-based extraction (height:160px metric cards + inline-style title)
     const data = await extractAnalyticsMetrics(page);
@@ -1423,6 +1425,9 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
       await page.click(SELECTORS.showNavOlder);
       // Wait for the show to change — Whatnot may update the live_id param in the
       // URL OR swap the analytics content in place. Accept either signal.
+      // NOTE: no networkidle wait here — analytics pages poll in the background and
+      // rarely go idle, so waiting on it burned the full timeout every show (the
+      // cause of the 240s process timeout). The content-change signal is enough.
       await page.waitForFunction(
         ({ prev, prevT }) => {
           if (location.href !== prev) return true;
@@ -1431,9 +1436,8 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
           return t && t !== prevT;
         },
         { prev: prevUrl, prevT: prevTitle },
-        { timeout: 8000 }
+        { timeout: 6000 }
       ).catch(() => {});
-      await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
     } catch (navErr) {
       info(`analytics-nav: nav error at show ${i + 1}: ${navErr.message.substring(0, 100)}`);
       break;

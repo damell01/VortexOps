@@ -99,13 +99,14 @@ const SELECTORS = {
 };
 
 const URLS = {
-  home:           'https://www.whatnot.com',
-  login:          'https://www.whatnot.com/login',
-  analytics:      'https://www.whatnot.com/dashboard/analytics/overview',
-  dashboardShows: 'https://www.whatnot.com/dashboard/shows',
-  dashboard:      'https://www.whatnot.com/dashboard',
-  shows:          'https://www.whatnot.com/seller/shows',
-  sellerHub:      'https://www.whatnot.com/seller',
+  home:            'https://www.whatnot.com',
+  login:           'https://www.whatnot.com/login',
+  analytics:       'https://www.whatnot.com/dashboard/analytics/overview',
+  dashboardLives:  'https://www.whatnot.com/dashboard/lives',   // actual seller shows list
+  dashboardShows:  'https://www.whatnot.com/dashboard/shows',   // historic alias (404s on direct nav)
+  dashboard:       'https://www.whatnot.com/dashboard',
+  shows:           'https://www.whatnot.com/seller/shows',
+  sellerHub:       'https://www.whatnot.com/seller',
 };
 
 // Resolve Chromium binary.
@@ -754,7 +755,8 @@ async function extractAnalyticsMetrics(page) {
 }
 
 // ── Shows-list DOM extractor ──────────────────────────────────────────────────
-// Used when we land on a list-style page (/dashboard/shows, /seller/shows).
+// Used when we land on a list-style page (/dashboard/lives, /seller/shows).
+// The seller sidebar "Shows" nav link goes to /dashboard/lives (not /dashboard/shows).
 // Returns an array of show objects in the same shape as the analytics extractor,
 // with whatever fields are available in the list view.
 
@@ -775,7 +777,8 @@ async function extractShowsListFromDom(page) {
       if (!(/\/live\/[^/]+\/[^/?#\s]+(?=[?#]|$)/.test(href) ||
             /\/show\/[\w-]+(?=[?#]|$)/.test(href) ||
             /\/seller\/shows\/[\w-]+(?=[?#]|$)/.test(href) ||
-            /\/dashboard\/shows\/[\w-]+(?=[?#]|$)/.test(href))) continue;
+            /\/dashboard\/shows\/[\w-]+(?=[?#]|$)/.test(href) ||
+            /\/dashboard\/lives\/[\w-]+(?=[?#]|$)/.test(href))) continue;
       const fullUrl = href.startsWith('http') ? href : 'https://www.whatnot.com' + href;
       if (addedUrls.has(fullUrl)) continue;
       addedUrls.add(fullUrl);
@@ -795,6 +798,7 @@ async function extractShowsListFromDom(page) {
 
       // Date parsing — try formats in order of specificity
       let showDate = null;
+      let mdy = null;
 
       // ISO: 2026-07-05
       const iso = text.match(/\b(20\d\d)[-\/](0[1-9]|1[0-2])[-\/](0[1-9]|[12]\d|3[01])\b/);
@@ -804,7 +808,7 @@ async function extractShowsListFromDom(page) {
 
       // M/D/YYYY or M-D-YYYY: 7/5/2026
       if (!showDate) {
-        const mdy = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+        mdy = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
         if (mdy) {
           const year = mdy[3].length === 2 ? '20' + mdy[3] : mdy[3];
           showDate = `${year}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`;
@@ -2341,12 +2345,14 @@ async function runWsExploreStandalone(cookiesFilePath) {
       //   3. /seller/shows     — SSR route that 404s for team members on direct nav; kept as fallback
       //   4. analytics overview — individual show analytics cards (Kasada-blocked in practice)
       const analyticsUrlCandidates = isAnalytics ? [
-        global._sellerModeActive ? URLS.dashboard : URLS.dashboardShows,
+        global._sellerModeActive ? URLS.dashboard : URLS.dashboardLives,
+        URLS.dashboardLives,
         URLS.dashboardShows,
         URLS.shows,
         URLS.analytics,
       ] : [
-        global._sellerModeActive ? URLS.dashboard : URLS.dashboardShows,
+        global._sellerModeActive ? URLS.dashboard : URLS.dashboardLives,
+        URLS.dashboardLives,
         URLS.dashboardShows,
         URLS.shows,
       ];
@@ -2556,14 +2562,12 @@ async function runWsExploreStandalone(cookiesFilePath) {
       // ── Shows-list DOM extraction (for /dashboard/shows and /seller/shows) ──
       // Try this before the metric-card loop because list pages never have metric cards.
       const currentPageUrl = page.url();
-      // Also treat as a list page if targetUrl was updated to something after a sidebar click
-      const isListPage = currentPageUrl.includes('/dashboard/shows') ||
+      const isListPage = currentPageUrl.includes('/dashboard/lives') ||
+                         currentPageUrl.includes('/dashboard/shows') ||
                          currentPageUrl.includes('/seller/shows') ||
+                         (targetUrl === URLS.dashboardLives) ||
                          (targetUrl === URLS.dashboardShows) ||
-                         (targetUrl === URLS.shows) ||
-                         (targetUrl !== URLS.dashboard && targetUrl !== URLS.analytics &&
-                          targetUrl !== URLS.sellerHub && !/\/dashboard\/home/.test(targetUrl) &&
-                          /\/dashboard\/|\/seller\//.test(targetUrl));
+                         (targetUrl === URLS.shows);
 
       if (isListPage) {
         // Scroll down to trigger lazy-load of additional show cards

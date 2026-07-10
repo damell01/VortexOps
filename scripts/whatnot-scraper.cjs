@@ -1317,6 +1317,48 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
   };
   page.on('request', liveIdHandler);
 
+  // Fallback id source: the analytics page likely loads all shows in one API
+  // response (e.g. AccountAnalyticsSellerLivestreams) and navigates client-side
+  // without a per-show request — so lastLiveId may never populate. Harvest real
+  // ids straight from GraphQL RESPONSES: any object carrying a UUID `id` plus a
+  // title/date. Index by normalized title and by date so each walked show can be
+  // matched back to its real livestream id regardless of the response's shape.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const idByTitle = new Map();
+  const idByDate  = new Map();
+  const normTitle = (t) => (t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
+  function harvestIds(node, depth = 0) {
+    if (!node || depth > 8) return;
+    if (Array.isArray(node)) { for (const x of node) harvestIds(x, depth + 1); return; }
+    if (typeof node !== 'object') return;
+    const idVal = node.id || node.livestreamId || node.live_id || node.uuid;
+    const title = node.title || node.show_title || node.name;
+    if (typeof idVal === 'string' && UUID_RE.test(idVal) && title) {
+      const nt = normTitle(title);
+      if (nt && !idByTitle.has(nt)) idByTitle.set(nt, idVal);
+      const rawDate = node.startTime || node.start_time || node.startedAt || node.started_at ||
+                      node.date || node.show_date || node.createdAt || node.created_at;
+      if (rawDate) {
+        const s = String(rawDate);
+        const d = s.includes('T') ? s.substring(0, 10) : (parseDateString(s) || null);
+        if (d && !idByDate.has(d)) idByDate.set(d, idVal);
+      }
+    }
+    for (const v of Object.values(node)) {
+      if (v && typeof v === 'object') harvestIds(v, depth + 1);
+    }
+  }
+  const respHandler = async (resp) => {
+    try {
+      if (!/graphql/i.test(resp.url())) return;
+      const ct = resp.headers()['content-type'] || '';
+      if (!ct.includes('json')) return;
+      const json = await resp.json().catch(() => null);
+      if (json) harvestIds(json);
+    } catch {}
+  };
+  page.on('response', respHandler);
+
   // Wait for the per-show analytics view to actually render. Direct URL nav loads
   // the SPA shell first; the show metrics + nav buttons appear only after the
   // analytics data-fetch completes. Poll for a known metric label OR the show-nav
@@ -1436,15 +1478,24 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
     }
     if (signature.replace('|', '').trim()) seenSignatures.add(signature);
 
+    // Resolve the show's REAL livestream id. Prefer a per-show request capture,
+    // then the response-harvested id matched by title, then by date. The URL's
+    // live_id is stale and never used here.
+    const showDate = parseDateString(dateText);
+    const resolvedLiveId = showLiveId
+      || idByTitle.get(normTitle(title))
+      || (showDate ? idByDate.get(showDate) : null)
+      || null;
+
     results.push({
       title,
-      show_date:               parseDateString(dateText),
+      show_date:               showDate,
       show_date_raw:           dateText,
-      // detail_url is built from the REAL livestream id captured from the show's
-      // load query (not the stale URL live_id). null when no id was seen for this
-      // show — better than a wrong URL. This id also drives per-show order import.
-      detail_url:              showLiveId ? `https://www.whatnot.com/dashboard/live/${showLiveId}` : null,
-      whatnot_live_id:         showLiveId || null,
+      // detail_url is built from the REAL livestream id (per-show request capture
+      // or response-harvested by title/date) — not the stale URL live_id. null when
+      // no id resolved. This id also drives per-show order import.
+      detail_url:              resolvedLiveId ? `https://www.whatnot.com/dashboard/live/${resolvedLiveId}` : null,
+      whatnot_live_id:         resolvedLiveId,
       gross_revenue:           parseMoney(get('Estimated Sales')),
       whatnot_net:             parseMoney(get('Total Estimated Earnings')),
       completed_earnings:      parseMoney(get('Completed Earnings')),
@@ -1495,7 +1546,9 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
   }
 
   page.off('request', liveIdHandler);
+  page.off('response', respHandler);
   const withId = results.filter(r => r.whatnot_live_id).length;
+  info(`analytics-nav: harvested ${idByTitle.size} id(s) by title, ${idByDate.size} by date`);
   info(`analytics-nav: collected ${results.length} shows total (${withId} with a resolved livestream id)`);
   return results;
 }

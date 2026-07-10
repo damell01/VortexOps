@@ -437,28 +437,36 @@ async function ensureSellerMode(page) {
   await page.waitForTimeout(2000);
   await debugShot(page, 'seller-mode-04-after-switch-to-selling');
 
-  // ── Verify: /seller/shows loads without 404 ───────────────────────────────────
-  info('ensureSellerMode: verifying seller mode by navigating to /seller/shows');
-  await page.goto('https://www.whatnot.com/seller/shows', {
-    waitUntil: 'domcontentloaded', timeout: 20000
-  }).catch(() => {});
-  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
-  await debugShot(page, 'seller-mode-05-shows-verify');
+  // ── Verify seller mode from the current page ──────────────────────────────────
+  // Do NOT hard-navigate to /seller/shows for verification — that's a Next.js SSR
+  // route that 404s when hit directly as a team member (server can't determine the
+  // active channel context). Instead check the current URL/page after the click:
+  // landing on /dashboard confirms the mode switch fired correctly.
+  const postClickUrl  = page.url();
+  const postClickText = await page.evaluate(() => (document.body.innerText || '').substring(0, 600)).catch(() => '');
+  info('ensureSellerMode: post-click URL:', postClickUrl);
+  info('ensureSellerMode: post-click text (first 200):', postClickText.substring(0, 200));
+  await debugShot(page, 'seller-mode-05-post-click-verify');
 
-  const showsText = await page.evaluate(() =>
-    (document.body.innerText || '').substring(0, 500)
-  ).catch(() => '');
-  info('ensureSellerMode: /seller/shows text:', showsText.substring(0, 200));
+  const sellerModeConfirmed =
+    /\/dashboard|\/seller\/hub|\/creator/i.test(postClickUrl) ||
+    /seller hub|your shows|schedule a show|go live/i.test(postClickText);
 
-  if (/404|page not found|for brands|start selling on whatnot/i.test(showsText)) {
-    throw new Error(
-      '"Switch to Selling" clicked but /seller/shows still 404.\n' +
-      'Check /tmp/whatnot-debug-seller-mode-*.png\n' +
-      'Page text: ' + showsText.substring(0, 300)
-    );
+  if (!sellerModeConfirmed) {
+    // Still showing buyer-mode marketing page
+    if (/for brands|start selling on whatnot/i.test(postClickText)) {
+      throw new Error(
+        '"Switch to Selling" clicked but still in buyer mode.\n' +
+        'URL: ' + postClickUrl + '\n' +
+        'Page text: ' + postClickText.substring(0, 300)
+      );
+    }
+    // Ambiguous — log and continue; the main scraping URL attempts will sort it out
+    info('ensureSellerMode: could not confirm seller mode from URL/text — proceeding anyway');
+    info('ensureSellerMode: URL:', postClickUrl, '| text:', postClickText.substring(0, 150));
+  } else {
+    info('ensureSellerMode: seller mode confirmed — URL:', postClickUrl);
   }
-
-  info('ensureSellerMode: seller mode confirmed — /seller/shows loaded, URL:', page.url());
 }
 
 // ── Role / channel switcher ───────────────────────────────────────────────────
@@ -2308,12 +2316,14 @@ async function runWsExploreStandalone(cookiesFilePath) {
       const isAnalytics = MODE === 'analytics';
 
       // URL priority for show data:
-      //   1. /seller/shows   — seller shows list, confirmed accessible, basic data
-      //   2. analytics overview — individual show analytics cards (Kasada-blocked in practice)
+      //   1. /dashboard/shows  — team-member-accessible shows list (works with direct navigation)
+      //   2. /seller/shows     — SSR route that 404s for team members on direct nav; kept as fallback
+      //   3. analytics overview — individual show analytics cards (Kasada-blocked in practice)
       const analyticsUrlCandidates = isAnalytics ? [
+        URLS.dashboardShows,
         URLS.shows,
         URLS.analytics,
-      ] : [URLS.shows];
+      ] : [URLS.dashboardShows, URLS.shows];
 
       function isLoginUrl(u) {
         return /\/(login|signin|auth)(\/|\?|$)/i.test(u);

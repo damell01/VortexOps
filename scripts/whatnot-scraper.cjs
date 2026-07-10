@@ -2598,33 +2598,10 @@ async function runWsExploreStandalone(cookiesFilePath) {
         }
       }
 
-      // ── Try API interception first ───────────────────────────────────────────
-      // Give the SPA a moment to complete its data-fetch.
-      await page.waitForTimeout(1500);
-      const apiShows = extractShowsFromCapture(capturedApiResponses);
-
-      if (apiShows && apiShows.length > 0) {
-        const normalized = apiShows.slice(0, LIMIT).map(normalizeApiShow)
-          .filter(r => r.title || r.show_date || r.gross_revenue !== null);
-
-        if (normalized.length > 0) {
-          process.stdout.write(JSON.stringify(normalized, null, 2) + '\n');
-          info(`API intercept: returned ${normalized.length} shows — no DOM scraping needed`);
-          process.exit(0);
-        }
-        info('API intercept found array but normalization yielded nothing — falling back to DOM scraping');
-      } else {
-        if (capturedApiResponses.length > 0) {
-          info('captured', capturedApiResponses.length, 'API response(s) but none matched show data:',
-            capturedApiResponses.map(r => r.url.replace('https://www.whatnot.com', '')).join(' | '));
-        } else {
-          info('no API responses captured — Whatnot may be using non-JSON transport');
-        }
-        info('falling back to DOM scraping');
-      }
-
       // ── Shows-list DOM extraction (for /dashboard/shows and /seller/shows) ──
       // Try this before the metric-card loop because list pages never have metric cards.
+      // NOTE: we do NOT do an early API exit here — the scroll loop below must run first
+      // to trigger all paginated GetDashboardLivestreamsByUserId requests before we check.
       const currentPageUrl = page.url();
       const isListPage = currentPageUrl.includes('/dashboard/lives') ||
                          currentPageUrl.includes('/dashboard/shows') ||

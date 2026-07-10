@@ -418,20 +418,32 @@ async function ensureSellerMode(page) {
     info('ensureSellerMode: Seller Hub not visible after role switch — checking mode anyway');
   }
 
-  // ── Verify ────────────────────────────────────────────────────────────────────
-  const finalText = await page.evaluate(() =>
-    (document.body.innerText || '').substring(0, 400)
+  // ── Verify: navigate to /seller/shows and confirm it loads (not 404) ──────────
+  // Checking page text alone is not enough — /user/vortexbreaks and other public
+  // pages don't have "For Brands" text but also aren't in seller mode.
+  info('ensureSellerMode: verifying seller mode by navigating to /seller/shows');
+  await page.goto('https://www.whatnot.com/seller/shows', {
+    waitUntil: 'domcontentloaded', timeout: 20000
+  }).catch(() => {});
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+  await debugShot(page, 'seller-mode-05-shows-verify');
+
+  const showsText = await page.evaluate(() =>
+    (document.body.innerText || '').substring(0, 500)
   ).catch(() => '');
-  if (/for brands|start selling on whatnot/i.test(finalText)) {
-    const snippet = finalText.substring(0, 300);
+  info('ensureSellerMode: /seller/shows text:', showsText.substring(0, 200));
+
+  if (/404|page not found|for brands|start selling on whatnot/i.test(showsText)) {
+    const snippet = showsText.substring(0, 300);
     throw new Error(
-      'Still in buyer mode after Switch Role + Seller Hub attempt.\n' +
-      'Check debug screenshots in /tmp/whatnot-debug-seller-mode-*.png\n' +
+      'Switch Role ran but /seller/shows still returns 404 — role switch did not complete.\n' +
+      'Check debug screenshots in /tmp/whatnot-debug-seller-mode-*.png and\n' +
+      '/tmp/whatnot-debug-role-switch-*.png\n' +
       'Page text: ' + snippet
     );
   }
 
-  info('ensureSellerMode: seller mode active — URL now', page.url());
+  info('ensureSellerMode: seller mode confirmed — /seller/shows loaded, URL:', page.url());
 }
 
 // ── Role / channel switcher ───────────────────────────────────────────────────
@@ -463,12 +475,12 @@ async function switchToChannel(page, channelName) {
     }).catch(() => false);
   };
 
-  // Step 1 — open the profile drawer via the avatar button
+  // Step 1 — open the profile drawer via the avatar BUTTON
+  // Only use button selectors here — <a> tags navigate instead of opening drawers.
+  // Confirmed July 2026: button:has([style*="--avatar-size"]) opens the seller sidebar
+  // and triggers seller GraphQL calls even in buyer mode on the logged-in homepage.
   const avatarTriggers = [
-    // Avatar container div with CSS custom property (from live Whatnot HTML, July 2026)
     'button:has([style*="--avatar-size"])',
-    'a:has([style*="--avatar-size"])',
-    // Fallbacks
     '[data-testid*="avatar"]',
     '[data-testid*="profile"]',
     'button[aria-label*="profile" i]',
@@ -483,51 +495,50 @@ async function switchToChannel(page, channelName) {
     const trigger = await page.locator(sel).first().elementHandle().catch(() => null);
     if (!trigger || !await trigger.isVisible().catch(() => false)) continue;
     info('switchToChannel: clicking avatar/nav trigger:', sel);
-    await trigger.click();
-    await page.waitForTimeout(1000);
-    const btn = await page.$(SWITCH_ROLE_SEL).catch(() => null);
-    if (btn && await isInViewport(btn)) {
-      info('switchToChannel: drawer opened, Switch Role now in viewport');
+    await trigger.click().catch(async () => {
+      await page.locator(sel).first().click({ force: true }).catch(() => {});
+    });
+    await page.waitForTimeout(1500);
+    // Check if drawer is open: Switch Role element in DOM OR "Switch Role" text visible.
+    // Don't require viewport — it may be below the fold in a tall sidebar.
+    const btnAfterClick = await page.$(SWITCH_ROLE_SEL).catch(() => null);
+    const textAfterClick = await page.getByText('Switch Role', { exact: false }).first().isVisible().catch(() => false);
+    if (btnAfterClick || textAfterClick) {
+      info('switchToChannel: drawer opened after clicking', sel, '— Switch Role found in DOM');
       drawerOpened = true;
       break;
     }
     // Dismiss and try next trigger
     await page.keyboard.press('Escape').catch(() => {});
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
   }
 
-  // Step 2 — find and click Switch Role
+  if (!drawerOpened) {
+    info('switchToChannel: no avatar trigger opened the drawer — trying to JS-click Switch Role directly');
+  }
+
+  // Step 2 — click Switch Role (by ID if available, then by text, then JS-click)
   await debugShot(page, 'role-switch-02-drawer-open');
 
   const switchBtn = await page.$(SWITCH_ROLE_SEL).catch(() => null);
-  const switchRoleByText = page.getByText('Switch Role', { exact: true }).first();
+  const switchRoleByText = page.getByText('Switch Role', { exact: false }).first();
   const switchRoleVisible = await switchRoleByText.isVisible().catch(() => false);
 
-  if (drawerOpened && (switchBtn || switchRoleVisible)) {
-    // Drawer is open — click Switch Role
-    if (switchRoleVisible) {
-      info('switchToChannel: clicking "Switch Role" by text');
-      await switchRoleByText.click({ force: true, timeout: 8000 }).catch(async () => {
-        await switchRoleByText.evaluate(el => el.click()).catch(() => {});
-      });
-    } else {
-      info('switchToChannel: clicking Switch Role by selector');
-      await switchBtn.click();
-    }
+  if (switchRoleVisible) {
+    info('switchToChannel: clicking "Switch Role" by text');
+    await switchRoleByText.click({ force: true, timeout: 8000 }).catch(async () => {
+      await switchRoleByText.evaluate(el => el.click()).catch(() => {});
+    });
   } else if (switchBtn) {
-    // Drawer not opened via avatar (or element off-viewport) — JS-click directly
-    info('switchToChannel: fallback — JS-clicking Switch Role (outside viewport)');
+    info('switchToChannel: JS-clicking Switch Role by selector (may be off-viewport)');
     await page.evaluate(sel => {
       const el = document.querySelector(sel);
       if (el) el.click();
     }, SWITCH_ROLE_SEL);
-  } else if (switchRoleVisible) {
-    info('switchToChannel: clicking "Switch Role" by text (no ID found)');
-    await switchRoleByText.click({ force: true, timeout: 8000 }).catch(async () => {
-      await switchRoleByText.evaluate(el => el.click()).catch(() => {});
-    });
   } else {
-    info('switchToChannel: WARNING — Switch Role not found (ID or text), drawer may not have opened');
+    info('switchToChannel: WARNING — Switch Role not found (ID or text) — dumping page text for diagnosis');
+    const pageSnippet = await page.evaluate(() => (document.body.innerText || '').substring(0, 500)).catch(() => '');
+    info('switchToChannel: page text:', pageSnippet);
     await debugShot(page, 'role-switch-no-switch-role');
     return;
   }

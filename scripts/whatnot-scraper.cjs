@@ -736,42 +736,26 @@ async function extractShowsListFromDom(page) {
     const results = [];
     const addedUrls = new Set();
 
-    // Find every anchor that looks like a show detail link.
-    // The lookahead (?=[?#]|$) requires the ID to be the final path segment —
-    // sub-page links like /seller/shows/<id>/analytics would otherwise match
-    // and return "Analytics" as the show title.
-    // Whatnot show URL patterns: /live/<user>/<id>, /show/<id>, /seller/shows/<id>,
-    // /dashboard/shows/<id>  (the pattern used on the /dashboard/shows list page)
-    const anchors = Array.from(document.querySelectorAll('a[href]'));
-    for (const a of anchors) {
+    // All action-button labels that must NOT be treated as a show title
+    const genericActionLabel = /^(open show|edit show|clone items?|copy show link|start sharing|end show|enable private mode|schedule a show|show tools?|view show|show details?|see analytics|view shipments|restart show|cancel show|going live help|obs tools|schedule a show)$/i;
+
+    function processAnchor(a, forcedUrl) {
       const href = a.getAttribute('href') || '';
-      // Exclude known non-show action paths (new, setup, clone, edit, etc.)
-      const isKnownNonShow = /\/dashboard\/lives?\/(new|setup|edit|clone|schedule|preview|analytics)(?:[?#]|$)/i.test(href) ||
-                             /\/account\/live\/[^/]+\/clone/.test(href);
-      if (isKnownNonShow) continue;
-      if (!(/\/live\/[^/]+\/[^/?#\s]+(?=[?#]|$)/.test(href) ||
-            /\/show\/[\w-]+(?=[?#]|$)/.test(href) ||
-            /\/seller\/shows\/[\w-]+(?=[?#]|$)/.test(href) ||
-            /\/dashboard\/shows\/[\w-]+(?=[?#]|$)/.test(href) ||
-            /\/dashboard\/lives\/[\w-]+(?=[?#]|$)/.test(href) ||
-            /\/dashboard\/live\/[\w-]+(?=[?#]|$)/.test(href))) continue;
-      const fullUrl = href.startsWith('http') ? href : 'https://www.whatnot.com' + href;
-      if (addedUrls.has(fullUrl)) continue;
+      const fullUrl = forcedUrl || (href.startsWith('http') ? href : 'https://www.whatnot.com' + href);
+      if (!fullUrl || addedUrls.has(fullUrl)) return;
       addedUrls.add(fullUrl);
 
-      // Walk up to find a card/row container with title + date.
-      // Threshold 100: the action-buttons div alone has ~90 chars of button text,
-      // so we keep walking past it to the full card element that also has title+date.
+      // Walk up to find the card container that includes title + date.
+      // Action-buttons div is ~90 chars, so threshold 100 passes it and reaches the full card.
       let container = a;
       for (let i = 0; i < 12; i++) {
         if (!container.parentElement) break;
         container = container.parentElement;
-        const t = (container.innerText || '').trim();
-        if (t.length > 100) break;
+        if ((container.innerText || '').trim().length > 100) break;
       }
 
       const text = (container.innerText || container.textContent || '').trim();
-      if (text.length < 5) continue;
+      if (text.length < 5) return;
       const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
 
       // Date parsing — try formats in order of specificity
@@ -780,11 +764,9 @@ async function extractShowsListFromDom(page) {
 
       // ISO: 2026-07-05
       const iso = text.match(/\b(20\d\d)[-\/](0[1-9]|1[0-2])[-\/](0[1-9]|[12]\d|3[01])\b/);
-      if (iso) {
-        showDate = `${iso[1]}-${iso[2]}-${iso[3]}`;
-      }
+      if (iso) showDate = `${iso[1]}-${iso[2]}-${iso[3]}`;
 
-      // M/D/YYYY or M-D-YYYY: 7/5/2026
+      // M/D/YYYY or M-D-YYYY: 7/9/2026  (list page shows this format)
       if (!showDate) {
         mdy = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
         if (mdy) {
@@ -801,7 +783,6 @@ async function extractShowsListFromDom(page) {
           const m = mo[mn[1].substring(0,3).toLowerCase()];
           showDate = `${mn[3]}-${String(m).padStart(2,'0')}-${mn[2].padStart(2,'0')}`;
         } else {
-          // "5 July 2026"
           const alt = text.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(20\d\d)\b/i);
           if (alt) {
             const m = mo[alt[2].substring(0,3).toLowerCase()];
@@ -826,35 +807,33 @@ async function extractShowsListFromDom(page) {
         }
       }
 
-      // Revenue: largest dollar amount in container
+      // Revenue / units / views from container text
       const prices = [...text.matchAll(/\$[\d,]+\.?\d*/g)]
         .map(m => parseFloat(m[0].replace(/[^0-9.]/g, '')))
         .filter(v => !isNaN(v) && v > 0);
-
-      // Orders / units
       const unitMatch = text.match(/(\d{1,6})\s*(?:orders?|lots?\s+sold|units?\s+sold|sales)/i);
-      // Views
       const viewMatch = text.match(/(\d{1,6})\s*(?:viewers?|views?)/i);
 
-      // Title: prefer anchor text unless it's a generic action label.
-      // /dashboard/live/<id> links say "Open show" — skip those.
-      const genericActionLabel = /^(open show|edit show|clone items?|copy show link|start sharing|end show|enable private mode|schedule a show|show tools?|view show|show details?)$/i;
+      // Title extraction:
+      // 1. Prefer anchor's own text (skip generic action labels)
+      // 2. On /dashboard/lives list, first line is "TITLE — date • time" — split on " — "
+      // 3. Fall back to longest non-date non-price line in container
       const anchorText = (a.innerText || a.textContent || '').trim();
       const usableAnchorText = anchorText.length > 5 && !genericActionLabel.test(anchorText) ? anchorText : null;
-      const title = usableAnchorText || (
+      const firstLine = lines[0] || '';
+      const dashIdx = firstLine.indexOf(' — ');
+      const titleFromHeader = (dashIdx > 3) ? firstLine.substring(0, dashIdx).trim() : null;
+      const title = usableAnchorText || titleFromHeader || (
         lines.filter(l =>
-          l.length > 5 &&
-          !/^\d+$/.test(l) &&
-          !/^\$/.test(l) &&
-          !/^\d{1,2}[\/\-]/.test(l) &&
-          !/^20\d\d/.test(l) &&
+          l.length > 5 && !/^\d+$/.test(l) && !/^\$/.test(l) &&
+          !/^\d{1,2}[\/\-]/.test(l) && !/^20\d\d/.test(l) &&
           !/^(Live|Ended|Cancelled|Completed|Upcoming|—|•)$/i.test(l) &&
           !genericActionLabel.test(l)
         ).sort((a, b) => b.length - a.length)[0] || null
       );
 
       results.push({
-        title:                  title || null,
+        title,
         show_date:              showDate,
         show_date_raw:          mdy ? mdy[0] : null,
         detail_url:             fullUrl,
@@ -876,6 +855,35 @@ async function extractShowsListFromDom(page) {
         _raw_metrics:           {},
         _list_source:           true,
       });
+    }
+
+    // Pass 1: standard show URL patterns (e.g. "Open show" → /dashboard/live/<uuid>)
+    // Whatnot show URL patterns: /live/<user>/<id>, /show/<id>, /seller/shows/<id>,
+    // /dashboard/shows/<id>, /dashboard/live/<id>
+    for (const a of document.querySelectorAll('a[href]')) {
+      const href = a.getAttribute('href') || '';
+      const isKnownNonShow = /\/dashboard\/lives?\/(new|setup|edit|clone|schedule|preview|analytics)(?:[?#]|$)/i.test(href) ||
+                             /\/account\/live\/[^/]+\/clone/.test(href);
+      if (isKnownNonShow) continue;
+      if (!(/\/live\/[^/]+\/[^/?#\s]+(?=[?#]|$)/.test(href) ||
+            /\/show\/[\w-]+(?=[?#]|$)/.test(href) ||
+            /\/seller\/shows\/[\w-]+(?=[?#]|$)/.test(href) ||
+            /\/dashboard\/shows\/[\w-]+(?=[?#]|$)/.test(href) ||
+            /\/dashboard\/lives\/[\w-]+(?=[?#]|$)/.test(href) ||
+            /\/dashboard\/live\/[\w-]+(?=[?#]|$)/.test(href))) continue;
+      processAnchor(a);
+    }
+
+    // Pass 2: "See Analytics" links — href contains live_id=<uuid>.
+    // These reliably appear on every past show card even when "Open show" is a <button>.
+    // The UUID in live_id IS the show ID, so we construct the canonical detail URL.
+    for (const a of document.querySelectorAll('a[href*="live_id="]')) {
+      const href = a.getAttribute('href') || '';
+      let uuid = null;
+      try { uuid = new URL(href, location.origin).searchParams.get('live_id'); }
+      catch (e) { const m = href.match(/[?&]live_id=([\w-]+)/); uuid = m && m[1]; }
+      if (!uuid) continue;
+      processAnchor(a, `https://www.whatnot.com/dashboard/live/${uuid}`);
     }
 
     return results;
@@ -2615,7 +2623,7 @@ async function runWsExploreStandalone(cookiesFilePath) {
         // show cards appear between passes (or LIMIT is reached).
         let prevLinkCount = 0;
         let stableRounds = 0;
-        const LINK_SEL = 'a[href*="/dashboard/live/"], a[href*="/live/"], a[href*="/dashboard/shows/"]';
+        const LINK_SEL = 'a[href*="/dashboard/live/"], a[href*="/live/"], a[href*="/dashboard/shows/"], a[href*="live_id="]';
         for (let scrollRound = 0; scrollRound < 40; scrollRound++) {
           const currentLinks = await page.evaluate(
             sel => document.querySelectorAll(sel).length, LINK_SEL
@@ -2655,20 +2663,9 @@ async function runWsExploreStandalone(cookiesFilePath) {
         await page.waitForTimeout(800);
         await debugShot(page, '06-shows-list-scrolled');
 
-        // Second API check — GetDashboardLivestreamsByUserId fires during scroll,
-        // after the first check above, so we must re-check here.
-        const postScrollApiShows = extractShowsFromCapture(capturedApiResponses);
-        if (postScrollApiShows && postScrollApiShows.length > 0) {
-          const normalized = postScrollApiShows.slice(0, LIMIT).map(normalizeApiShow)
-            .filter(r => r.title || r.show_date || r.gross_revenue !== null);
-          if (normalized.length > 0) {
-            process.stdout.write(JSON.stringify(normalized, null, 2) + '\n');
-            info(`API intercept (post-scroll): returned ${normalized.length} shows`);
-            process.exit(0);
-          }
-          info('API intercept (post-scroll): array found but normalization yielded nothing — falling back to DOM');
-        }
-
+        // DOM extraction runs FIRST on list pages — GetDashboardLivestreamsByUserId is
+        // scoped to the logged-in user as host, so it misses shows hosted by other
+        // channel streamers. The DOM renders ALL channel shows after scrolling.
         const listShows = await extractShowsListFromDom(page);
         info('shows-list DOM: found', listShows.length, 'show links on', currentPageUrl);
         if (listShows.length > 0) {
@@ -2684,7 +2681,20 @@ async function runWsExploreStandalone(cookiesFilePath) {
             info(`shows-list DOM: returned ${normalized.length} shows`);
             process.exit(0);
           }
-          info('shows-list DOM: found links but no title/date extracted — dumping diagnostics');
+          info('shows-list DOM: found links but no title/date extracted — falling back to API');
+        }
+
+        // API fallback — only if DOM found nothing at all
+        const postScrollApiShows = extractShowsFromCapture(capturedApiResponses);
+        if (postScrollApiShows && postScrollApiShows.length > 0) {
+          const normalized = postScrollApiShows.slice(0, LIMIT).map(normalizeApiShow)
+            .filter(r => r.title || r.show_date || r.gross_revenue !== null);
+          if (normalized.length > 0) {
+            process.stdout.write(JSON.stringify(normalized, null, 2) + '\n');
+            info(`API intercept (post-scroll): returned ${normalized.length} shows`);
+            process.exit(0);
+          }
+          info('API intercept (post-scroll): array found but normalization yielded nothing');
         }
 
         // Dump diagnostics so the selector can be updated

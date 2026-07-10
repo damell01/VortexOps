@@ -2403,6 +2403,54 @@ async function runWsExploreStandalone(cookiesFilePath) {
         process.exit(1);
       }
 
+      // If we landed on the seller dashboard home (/dashboard/home or /dashboard),
+      // client-side navigate to the Shows list via the sidebar link. Direct-nav to
+      // /dashboard/shows returns a 404; we must click from within the SPA.
+      {
+        const landedUrl = page.url();
+        if (/\/dashboard\/home|\/dashboard\/?(?:[?#]|$)/.test(landedUrl)) {
+          info('landed on seller dashboard home — navigating to Shows via sidebar link');
+          await debugShot(page, '05a-dashboard-home');
+
+          // Wait for the sidebar to render
+          await page.waitForFunction(
+            () => Array.from(document.querySelectorAll('a[href]'))
+              .some(a => /\/dashboard\/shows/.test(a.getAttribute('href') || '')),
+            { timeout: 10000 }
+          ).catch(() => info('sidebar Shows link did not appear within 10s — attempting anyway'));
+
+          const showsHref = await page.evaluate(() => {
+            const links = Array.from(document.querySelectorAll('a[href]'));
+            const match = links.find(a => /\/dashboard\/shows/.test(a.getAttribute('href') || ''));
+            if (match) { match.click(); return match.getAttribute('href'); }
+            return null;
+          }).catch(() => null);
+
+          if (showsHref) {
+            info('sidebar Shows link clicked:', showsHref);
+            await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+            await page.waitForTimeout(1000);
+            targetUrl = page.url();
+            info('after Shows sidebar click, URL:', targetUrl);
+            await debugShot(page, '05b-after-shows-click');
+          } else {
+            // Fallback: try direct navigation once more (may work from inside the SPA context)
+            info('no sidebar Shows link found — attempting page.goto /dashboard/shows as fallback');
+            await page.goto(URLS.dashboardShows, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+            await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+            await page.waitForTimeout(1000);
+            const fallbackText = await page.evaluate(() => (document.body.innerText || '').substring(0, 200)).catch(() => '');
+            if (!/HTTP 404|Page Not Found|does not exist/i.test(fallbackText)) {
+              targetUrl = page.url();
+              info('fallback /dashboard/shows loaded, URL:', targetUrl);
+            } else {
+              info('fallback /dashboard/shows also 404 — will scrape from dashboard home');
+            }
+            await debugShot(page, '05b-shows-fallback');
+          }
+        }
+      }
+
       // Wait for React to hydrate — poll until visible text appears (up to 25s).
       // Fixed timeouts and networkidle aren't reliable for SPAs with background polling.
       await page.waitForFunction(

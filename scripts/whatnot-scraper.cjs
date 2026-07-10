@@ -508,18 +508,35 @@ async function switchToChannel(page, channelName) {
     '[data-testid*="profile"]',
     'button[aria-label*="profile" i]',
     'button[aria-label*="account" i]',
+    // Radix/headless menu triggers expose aria-haspopup — the profile menu that
+    // holds #team-invite-switch-role-anchor is one of these.
+    'button[aria-haspopup="menu"]',
+    'button[aria-haspopup="dialog"]',
+    'button[aria-haspopup="true"]',
+    // The top-nav avatar is a button wrapping an <img>.
+    'header button:has(img)',
+    'nav button:has(img)',
     '[aria-label="Open navigation drawer"]',
     '[aria-label="Open sidebar"]',
     'button[aria-label*="menu" i]',
   ];
 
   let drawerOpened = false;
+  // Try each fixed selector, plus a sweep over every aria-haspopup button, and
+  // after each click check specifically for the Switch Role anchor appearing.
+  const triggerHandles = [];
   for (const sel of avatarTriggers) {
-    const trigger = await page.locator(sel).first().elementHandle().catch(() => null);
+    const h = await page.locator(sel).first().elementHandle().catch(() => null);
+    if (h) triggerHandles.push({ sel, h });
+  }
+  for (const extra of await page.$$('button[aria-haspopup], [role="button"][aria-haspopup]').catch(() => [])) {
+    triggerHandles.push({ sel: 'sweep:aria-haspopup', h: extra });
+  }
+  for (const { sel, h: trigger } of triggerHandles) {
     if (!trigger || !await trigger.isVisible().catch(() => false)) continue;
     info('switchToChannel: clicking avatar/nav trigger:', sel);
     await trigger.click().catch(async () => {
-      await page.locator(sel).first().click({ force: true }).catch(() => {});
+      await trigger.evaluate(el => el.click()).catch(() => {});
     });
     await page.waitForTimeout(1500);
     // Check if drawer is open: Switch Role element in DOM OR "Switch Role" text visible.

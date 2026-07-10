@@ -959,7 +959,8 @@ function normalizeApiShow(s) {
     title:                  find('title', 'show_title', 'name', 'show_name') || null,
     show_date:              showDate,
     show_date_raw:          rawDate || null,
-    detail_url:             find('url', 'detail_url', 'show_url', 'permalink', 'livestreamUrl', 'livestream_url', 'link') || null,
+    detail_url:             find('url', 'detail_url', 'show_url', 'permalink', 'livestreamUrl', 'livestream_url', 'link') ||
+                            (s.id ? `https://www.whatnot.com/dashboard/live/${s.id}` : null),
     gross_revenue:          parseMoney(String(find('gross_revenue', 'gross', 'revenue', 'sales', 'estimated_sales', 'total_sales') || '')),
     whatnot_net:            parseMoney(String(find('net_revenue', 'net', 'earnings', 'total_estimated_earnings', 'estimated_earnings') || '')),
     completed_earnings:     parseMoney(String(find('completed_earnings', 'completed_revenue') || '')),

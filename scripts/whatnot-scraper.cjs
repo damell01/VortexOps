@@ -398,15 +398,34 @@ async function ensureSellerMode(page) {
       continue;
     }
 
-    const switchEl = await page.getByText('Switch to Selling', { exact: true })
-      .first().elementHandle().catch(() => null);
-    if (!switchEl || !await switchEl.isVisible().catch(() => false)) {
+    const switchLocator = page.getByText('Switch to Selling', { exact: true }).first();
+    if (!await switchLocator.isVisible().catch(() => false)) {
       info('ensureSellerMode: "Switch to Selling" in text but element not visible on', page.url());
       continue;
     }
 
-    info('ensureSellerMode: clicking "Switch to Selling" nav element on', page.url());
-    await switchEl.click();
+    // Prefer navigating to the <a> href directly — avoids click actionability failures
+    // caused by React overlays or pointer-events issues on the 404 page.
+    const switchHref = await switchLocator.evaluate(el => {
+      let node = el;
+      for (let i = 0; i < 8; i++) {
+        if (!node) break;
+        if (node.tagName === 'A' && node.href) return node.href;
+        node = node.parentElement;
+      }
+      return null;
+    }).catch(() => null);
+
+    if (switchHref && /^https?:\/\//.test(switchHref)) {
+      info('ensureSellerMode: navigating to Switch to Selling href:', switchHref);
+      await page.goto(switchHref, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+    } else {
+      info('ensureSellerMode: force-clicking "Switch to Selling" on', page.url());
+      await switchLocator.click({ force: true, timeout: 10000 }).catch(async (e) => {
+        info('ensureSellerMode: click failed (' + e.message.substring(0, 80) + '), trying JS click');
+        await switchLocator.evaluate(el => el.click()).catch(() => {});
+      });
+    }
     await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
     await page.waitForTimeout(1500);
     await debugShot(page, 'seller-mode-02-after-switch-to-selling');

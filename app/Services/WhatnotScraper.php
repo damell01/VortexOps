@@ -258,7 +258,20 @@ class WhatnotScraper
             throw new \RuntimeException("Show #{$show->id} has no detail_url — run a show list import first to capture the Whatnot show URL.");
         }
 
-        $rows    = $this->fetchShowOrders($show->detail_url, $debug);
+        $rows = $this->fetchShowOrders($show->detail_url, $debug);
+
+        return $this->persistShowOrders($show, $rows);
+    }
+
+    /**
+     * Persist already-scraped order rows onto a Show, deduplicating on
+     * whatnot_order_id (when available) or buyer+item+lot_number within the show.
+     *
+     * @param  array<int,array<string,mixed>>  $rows
+     * @return array{created: int, skipped: int}
+     */
+    public function persistShowOrders(Show $show, array $rows): array
+    {
         $created = 0;
         $skipped = 0;
 
@@ -289,6 +302,8 @@ class WhatnotScraper
             } else {
                 $key      = ($row['buyer'] ?? '') . '|' . ($row['item_name'] ?? '') . '|' . ($row['lot_number'] ?? '');
                 $existing = isset($existingFallbackKeys[$key]);
+                // Guard against duplicate rows within this same batch
+                $existingFallbackKeys[$key] = true;
             }
 
             if ($existing) {
@@ -314,13 +329,81 @@ class WhatnotScraper
             $created++;
         }
 
-        Log::info('WhatnotScraper importShowOrders complete', [
+        Log::info('WhatnotScraper persistShowOrders complete', [
             'show_id' => $show->id,
             'created' => $created,
             'skipped' => $skipped,
         ]);
 
         return compact('created', 'skipped');
+    }
+
+    /**
+     * Scrape orders for many shows in a single browser session (orders-batch mode).
+     *
+     * @param  array<int,array{live_id:string, show_key:int|string}>  $sources
+     * @return array<int|string, array<int,array<string,mixed>>>  map of show_key => order rows
+     */
+    public function fetchOrdersForShows(array $sources, ?string $channelUsername = null, bool $debug = false): array
+    {
+        if (empty($sources)) {
+            return [];
+        }
+
+        $srcFile = tempnam(sys_get_temp_dir(), 'wn-orders-') . '.json';
+        file_put_contents($srcFile, json_encode(array_values($sources)));
+
+        $env = $this->baseEnv($debug);
+        $env['WHATNOT_MODE']                = 'orders-batch';
+        $env['WHATNOT_ORDER_SOURCES_FILE']  = $srcFile;
+        if ($channelUsername) {
+            $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
+        }
+
+        // Each show is a separate page navigation in one session; scale the timeout
+        // with the number of shows (login overhead + ~15s worst-case/show) and cap.
+        $timeout = min(3600, 300 + count($sources) * 15);
+
+        try {
+            $process = $this->makeProcess($env, timeout: $timeout);
+            $process->run();
+
+            $stderr = trim($process->getErrorOutput());
+            $stdout = trim($process->getOutput());
+
+            if ($stderr) {
+                Log::channel('stack')->warning('WhatnotScraper orders-batch stderr', ['output' => $stderr]);
+                if ($debug) {
+                    fwrite(STDERR, $stderr . "\n");
+                }
+            }
+
+            if (! $process->isSuccessful() || empty($stdout)) {
+                Log::warning('WhatnotScraper orders-batch produced no usable output', [
+                    'exit' => $process->getExitCode(),
+                ]);
+                return [];
+            }
+
+            $data = json_decode($stdout, true);
+            if (json_last_error() !== JSON_ERROR_NONE || ! is_array($data)) {
+                Log::warning('WhatnotScraper orders-batch returned invalid JSON', ['error' => json_last_error_msg()]);
+                return [];
+            }
+
+            $map = [];
+            foreach ($data as $entry) {
+                $key = $entry['show_key'] ?? null;
+                if ($key === null) {
+                    continue;
+                }
+                $map[$key] = $entry['orders'] ?? [];
+            }
+
+            return $map;
+        } finally {
+            @unlink($srcFile);
+        }
     }
 
     protected function makeProcess(array $env, int $timeout = 180): Process
@@ -363,13 +446,17 @@ class WhatnotScraper
      * Fetch shows and upsert them into the shows table for one channel.
      * Returns counts: ['created' => n, 'updated' => n, 'skipped' => n].
      */
-    public function importShows(?WhatnotChannel $channel = null, int $limit = 50, bool $debug = false): array
+    public function importShows(?WhatnotChannel $channel = null, int $limit = 50, bool $debug = false, bool $withOrders = true): array
     {
         $rows = $this->fetchShows($limit, $debug, $channel?->whatnot_username);
 
         $created = 0;
         $updated = 0;
         $skipped = 0;
+
+        // Collect (Show, livestream id) pairs so we can batch-scrape their orders
+        // in a single session after all shows are persisted.
+        $orderTargets = [];
 
         foreach ($rows as $row) {
             if (empty($row['title']) && empty($row['show_date'])) {
@@ -433,6 +520,7 @@ class WhatnotScraper
                 } else {
                     $skipped++;
                 }
+                $showModel = $existing;
             } else {
                 // show_date is NOT NULL with no default — skip creation rather than crash
                 if (! $lookupDate) {
@@ -442,24 +530,88 @@ class WhatnotScraper
                 $show = Show::create(array_merge($payload, ['status' => 'draft', 'created_by' => auth()->id() ?? 1]));
                 $show->detectStreamers();
                 $created++;
+                $showModel = $show;
+            }
+
+            // Record this show's livestream id for the batched order scrape.
+            $liveId = $row['whatnot_live_id'] ?? $this->extractLiveIdFromUrl($row['detail_url'] ?? null);
+            if ($withOrders && $liveId) {
+                $orderTargets[] = ['show' => $showModel, 'live_id' => $liveId];
             }
         }
 
+        $ordersCreated = 0;
+        if ($withOrders && ! empty($orderTargets)) {
+            $ordersCreated = $this->importOrdersForTargets($orderTargets, $channel?->whatnot_username, $debug);
+        }
+
         Log::info('WhatnotScraper import complete', [
-            'channel'  => $channel?->name,
-            'created'  => $created,
-            'updated'  => $updated,
-            'skipped'  => $skipped,
+            'channel'        => $channel?->name,
+            'created'        => $created,
+            'updated'        => $updated,
+            'skipped'        => $skipped,
+            'orders_created' => $ordersCreated,
         ]);
 
-        return compact('created', 'updated', 'skipped');
+        return compact('created', 'updated', 'skipped', 'ordersCreated');
+    }
+
+    /**
+     * Extract a livestream UUID from a /dashboard/live/<uuid> or ?source=<uuid> URL.
+     */
+    private function extractLiveIdFromUrl(?string $url): ?string
+    {
+        if (! $url) {
+            return null;
+        }
+        if (preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $url, $m)) {
+            return $m[0];
+        }
+        return null;
+    }
+
+    /**
+     * Batch-scrape and persist orders for a set of (Show, live_id) targets.
+     *
+     * @param  array<int,array{show: Show, live_id: string}>  $targets
+     * @return int  total orders created across all shows
+     */
+    private function importOrdersForTargets(array $targets, ?string $channelUsername, bool $debug): int
+    {
+        $sources = [];
+        $byKey   = [];
+        foreach ($targets as $t) {
+            $key = $t['show']->id;
+            $sources[] = ['live_id' => $t['live_id'], 'show_key' => $key];
+            $byKey[$key] = $t['show'];
+        }
+
+        try {
+            $ordersByShow = $this->fetchOrdersForShows($sources, $channelUsername, $debug);
+        } catch (\Throwable $e) {
+            // Order scraping is best-effort — never fail the whole show import over it.
+            Log::error('WhatnotScraper: batched order scrape failed — ' . $e->getMessage());
+            return 0;
+        }
+
+        $ordersCreated = 0;
+        foreach ($ordersByShow as $showKey => $rows) {
+            $show = $byKey[$showKey] ?? null;
+            if (! $show || empty($rows)) {
+                continue;
+            }
+            $res = $this->persistShowOrders($show, $rows);
+            $ordersCreated += $res['created'];
+        }
+
+        return $ordersCreated;
     }
 
     /**
      * Import shows from all channels that have include_in_import = true.
      * Returns aggregated counts across all channels.
      */
-    public function importAllEnabledChannels(int $limit = 50, bool $debug = false): array
+    public function importAllEnabledChannels(int $limit = 50, bool $debug = false, bool $withOrders = true): array
     {
         $channels = WhatnotChannel::where('include_in_import', true)
             ->where('status', 'active')
@@ -476,7 +628,7 @@ class WhatnotScraper
             Log::info("WhatnotScraper: importing channel \"{$channel->name}\" ({$channel->whatnot_username})");
 
             try {
-                $result = $this->importShows($channel, $limit, $debug);
+                $result = $this->importShows($channel, $limit, $debug, $withOrders);
                 $totals['created'] += $result['created'];
                 $totals['updated'] += $result['updated'];
                 $totals['skipped'] += $result['skipped'];

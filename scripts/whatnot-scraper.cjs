@@ -1500,6 +1500,116 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
   return results;
 }
 
+// ── Order-row extractor (shared by show-orders and orders-batch modes) ────────
+// Whatnot uses dynamic class names, so we detect orders structurally: "Lot #N"
+// text near a price/@buyer, else any table/grid row that carries a price. Returns
+// an array of raw order objects, or { fallback:true, html, text } when nothing
+// order-shaped was found (so the caller can log a diagnostic and move on).
+async function extractOrdersFromPage(page) {
+  return page.evaluate(() => {
+    function findParentWithText(el, maxLevels = 6) {
+      let node = el;
+      for (let i = 0; i < maxLevels; i++) {
+        if (!node.parentElement) break;
+        node = node.parentElement;
+        if (node.tagName === 'TR' || node.tagName === 'LI' || node.tagName === 'ARTICLE') return node;
+        const s = node.getAttribute('style') || '';
+        if ((s.includes('display: flex') || s.includes('display:flex')) && s.match(/height:\s*(4|5|6|7|8)\d/)) return node;
+      }
+      return el.parentElement?.parentElement || el;
+    }
+
+    const results = [];
+    const seen = new Set();
+
+    // Strategy A — "Lot #N" text nodes
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let textNode;
+    while ((textNode = walker.nextNode())) {
+      const lotMatch = (textNode.textContent || '').match(/Lot\s*#?\s*(\d+)/i);
+      if (!lotMatch) continue;
+      const el = textNode.parentElement;
+      if (!el) continue;
+      const container = findParentWithText(el);
+      if (!container || seen.has(container)) continue;
+      seen.add(container);
+
+      const containerText = container.innerText || container.textContent || '';
+      const lines  = containerText.split('\n').map(l => l.trim()).filter(Boolean);
+      const prices = [...containerText.matchAll(/\$[\d,]+\.?\d*/g)]
+        .map(m => parseFloat(m[0].replace(/[^0-9.]/g, ''))).filter(v => !isNaN(v) && v > 0);
+      const buyerMatch  = containerText.match(/@([\w.]+)/);
+      const statusMatch = containerText.match(/\b(sold|completed|refunded|cancelled|pending|shipped)\b/i);
+      const itemName = lines
+        .filter(l => !l.startsWith('@') && !l.startsWith('$') && !l.startsWith('Lot') &&
+                     !/^(sold|completed|refunded|cancelled|pending|shipped|view)$/i.test(l) && l.length > 3)
+        .sort((a, b) => b.length - a.length)[0] || null;
+
+      results.push({
+        lot_number:  parseInt(lotMatch[1], 10),
+        buyer:       buyerMatch ? buyerMatch[1] : null,
+        item_name:   itemName,
+        unit_price:  prices.length > 0 ? prices[prices.length - 1] : null,
+        total_price: prices.length > 1 ? prices.reduce((a, b) => a + b, 0) : (prices[0] || null),
+        status:      statusMatch ? statusMatch[1].toLowerCase() : 'completed',
+        raw_text:    containerText.replace(/\s+/g, ' ').trim().substring(0, 400),
+      });
+    }
+
+    // Strategy B — any table/grid row carrying a price (covers the shipments list,
+    // which groups a show's orders by buyer rather than by lot).
+    if (results.length === 0) {
+      const rows = Array.from(document.querySelectorAll('tr, [role="row"], li'));
+      for (const row of rows) {
+        if (seen.has(row)) continue;
+        const text = row.innerText || row.textContent || '';
+        if (text.length < 5) continue;
+        const prices = [...text.matchAll(/\$[\d,]+\.?\d*/g)]
+          .map(m => parseFloat(m[0].replace(/[^0-9.]/g, ''))).filter(v => !isNaN(v) && v > 0);
+        if (prices.length === 0) continue;
+        seen.add(row);
+        const lotMatch   = text.match(/(?:Lot\s*#?\s*|#)(\d+)/i);
+        const buyerMatch = text.match(/@([\w.]+)/);
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        const itemName = lines
+          .filter(l => !l.startsWith('@') && !l.startsWith('$') && !/^#?\d+$/.test(l) && l.length > 3)
+          .sort((a, b) => b.length - a.length)[0] || null;
+        results.push({
+          lot_number:  lotMatch ? parseInt(lotMatch[1], 10) : null,
+          buyer:       buyerMatch ? buyerMatch[1] : null,
+          item_name:   itemName,
+          unit_price:  prices[prices.length - 1] || null,
+          total_price: prices[0] || null,
+          status:      'completed',
+          raw_text:    text.replace(/\s+/g, ' ').trim().substring(0, 400),
+        });
+      }
+    }
+
+    if (results.length === 0) {
+      return { fallback: true, html: document.body.innerHTML.substring(0, 6000), text: document.body.innerText.substring(0, 3000) };
+    }
+    return results;
+  });
+}
+
+// Normalize raw extractor rows into the persisted order shape.
+function normalizeOrders(rows) {
+  return (rows || [])
+    .filter(o => o.lot_number || o.buyer || o.item_name)
+    .map(o => ({
+      order_id:    null,
+      buyer:       o.buyer || null,
+      item_name:   o.item_name || null,
+      lot_number:  o.lot_number || null,
+      quantity:    1,
+      unit_price:  o.unit_price,
+      total_price: o.total_price,
+      status:      o.status || 'completed',
+      raw_text:    o.raw_text || null,
+    }));
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 (async () => {
@@ -1888,119 +1998,8 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
       await page.waitForTimeout(1000);
 
       // ── Step 3: Extract order data from the page ─────────────────────────────
-      const orders = await page.evaluate(() => {
-        // Helper: find the closest ancestor container shared by a set of text nodes.
-        // We look for a repeating structure: elements containing both a dollar amount
-        // and a lot or order identifier.
-
-        const bodyText = document.body.innerText || '';
-
-        // --- Strategy A: rows containing "Lot #N" patterns ---
-        // Whatnot typically shows lots as "Lot #1", "Lot #2" etc.
-        // Find all elements whose text matches this pattern, then walk up to find
-        // a container that also has price info.
-        function findParentWithText(el, maxLevels = 6) {
-          let node = el;
-          for (let i = 0; i < maxLevels; i++) {
-            node = node.parentElement;
-            if (!node) break;
-            if (node.tagName === 'TR' || node.tagName === 'LI' || node.tagName === 'ARTICLE') return node;
-            const s = node.getAttribute('style') || '';
-            // A container element is likely a card/row if it has flex/grid and a fixed height
-            if ((s.includes('display: flex') || s.includes('display:flex')) && s.match(/height:\s*(4|5|6|7|8)\d/)) return node;
-          }
-          return el.parentElement?.parentElement || el;
-        }
-
-        const results = [];
-        const seen = new Set();
-
-        // Find all text nodes containing "Lot #" pattern
-        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-        let textNode;
-        while ((textNode = walker.nextNode())) {
-          const text = textNode.textContent || '';
-          const lotMatch = text.match(/Lot\s*#?\s*(\d+)/i);
-          if (!lotMatch) continue;
-
-          const el = textNode.parentElement;
-          if (!el) continue;
-          const container = findParentWithText(el);
-          if (!container || seen.has(container)) continue;
-          seen.add(container);
-
-          const containerText = container.innerText || container.textContent || '';
-          const lines = containerText.split('\n').map(l => l.trim()).filter(Boolean);
-
-          // Extract lot number
-          const lotNum = parseInt(lotMatch[1], 10);
-
-          // Extract price(s): dollar amounts in the container
-          const prices = [...containerText.matchAll(/\$[\d,]+\.?\d*/g)]
-            .map(m => parseFloat(m[0].replace(/[^0-9.]/g, '')))
-            .filter(v => !isNaN(v) && v > 0);
-
-          // Extract buyer: look for "@username" patterns
-          const buyerMatch = containerText.match(/@([\w.]+)/);
-          const buyer = buyerMatch ? buyerMatch[1] : null;
-
-          // Look for "Sold" / "Completed" / "Refunded" status text
-          const statusMatch = containerText.match(/\b(sold|completed|refunded|cancelled|pending|shipped)\b/i);
-          const status = statusMatch ? statusMatch[1].toLowerCase() : 'completed';
-
-          // Item name: longest non-price, non-buyer, non-status line
-          const itemName = lines
-            .filter(l => !l.startsWith('@') && !l.startsWith('$') && !l.startsWith('Lot') && !/^(sold|completed|refunded|cancelled|pending|shipped|view)$/i.test(l) && l.length > 3)
-            .sort((a, b) => b.length - a.length)[0] || null;
-
-          results.push({
-            lot_number: lotNum,
-            buyer,
-            item_name:  itemName,
-            unit_price: prices.length > 0 ? prices[prices.length - 1] : null,
-            total_price: prices.length > 1 ? prices.reduce((a, b) => a + b, 0) : (prices[0] || null),
-            status,
-            raw_text: containerText.replace(/\s+/g, ' ').trim().substring(0, 400),
-          });
-        }
-
-        // --- Strategy B: table rows if Strategy A found nothing ---
-        if (results.length === 0) {
-          const rows = Array.from(document.querySelectorAll('tr, [role="row"]'));
-          for (const row of rows) {
-            if (seen.has(row)) continue;
-            const text = row.innerText || row.textContent || '';
-            if (text.length < 5) continue;
-            const prices = [...text.matchAll(/\$[\d,]+\.?\d*/g)]
-              .map(m => parseFloat(m[0].replace(/[^0-9.]/g, '')))
-              .filter(v => !isNaN(v) && v > 0);
-            if (prices.length === 0) continue;
-            seen.add(row);
-            const lotMatch = text.match(/(?:Lot\s*#?\s*|#)(\d+)/i);
-            const buyerMatch = text.match(/@([\w.]+)/);
-            results.push({
-              lot_number: lotMatch ? parseInt(lotMatch[1], 10) : null,
-              buyer: buyerMatch ? buyerMatch[1] : null,
-              item_name: null,
-              unit_price: prices[prices.length - 1] || null,
-              total_price: prices[0] || null,
-              status: 'completed',
-              raw_text: text.replace(/\s+/g, ' ').trim().substring(0, 400),
-            });
-          }
-        }
-
-        // Capture page snapshot if both strategies find nothing
-        if (results.length === 0) {
-          return {
-            fallback: true,
-            html: document.body.innerHTML.substring(0, 12000),
-            text: document.body.innerText.substring(0, 4000),
-          };
-        }
-
-        return results;
-      });
+      await page.waitForTimeout(1000);
+      const orders = await extractOrdersFromPage(page);
 
       if (orders && orders.fallback) {
         process.stderr.write('SELECTOR_MISS: Could not find order/lot rows on the show page.\n');
@@ -2009,19 +2008,7 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
         process.exit(2);
       }
 
-      const normalized = (orders || [])
-        .filter(o => o.lot_number || o.buyer || o.item_name)
-        .map(o => ({
-          order_id:    null,
-          buyer:       o.buyer || null,
-          item_name:   o.item_name || null,
-          lot_number:  o.lot_number || null,
-          quantity:    1,
-          unit_price:  o.unit_price,
-          total_price: o.total_price,
-          status:      o.status || 'completed',
-          raw_text:    o.raw_text || null,
-        }));
+      const normalized = normalizeOrders(orders);
 
       if (normalized.length === 0) {
         process.stderr.write('SELECTOR_MISS: Orders array was empty after normalization.\n');
@@ -2030,6 +2017,69 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
 
       log(`show-orders: returned ${normalized.length} orders`);
       writeJsonAndExit(normalized);
+      return;
+    }
+
+    // ── Mode: orders-batch ────────────────────────────────────────────────────
+    // Scrape orders for MANY shows in one authenticated session (login + seller
+    // mode + channel switch already happened above). Input is a JSON file of
+    // [{ live_id, show_key }]; output is [{ show_key, live_id, order_count,
+    // orders:[...] }]. Past-show orders live on the shipments page grouped by
+    // buyer; we try that first, then fall back to the show detail page.
+    if (MODE === 'orders-batch') {
+      const srcFile = process.env.WHATNOT_ORDER_SOURCES_FILE;
+      if (!srcFile || !require('fs').existsSync(srcFile)) {
+        process.stderr.write('Error: WHATNOT_ORDER_SOURCES_FILE (existing JSON) is required for orders-batch mode\n');
+        process.exit(1);
+      }
+      let sources;
+      try {
+        sources = JSON.parse(require('fs').readFileSync(srcFile, 'utf8'));
+      } catch (e) {
+        process.stderr.write('orders-batch: failed to parse sources file: ' + e.message + '\n');
+        process.exit(1);
+      }
+      if (!Array.isArray(sources)) sources = [];
+      info(`orders-batch: ${sources.length} show(s) to scrape orders for`);
+
+      const out = [];
+      for (let i = 0; i < sources.length; i++) {
+        const { live_id, show_key } = sources[i] || {};
+        if (!live_id) { out.push({ show_key, live_id: null, order_count: 0, orders: [] }); continue; }
+
+        const urls = [
+          `https://www.whatnot.com/dashboard/shipments?source=${live_id}`,
+          `https://www.whatnot.com/dashboard/live/${live_id}`,
+        ];
+
+        let orders = null;
+        for (const url of urls) {
+          try {
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+            // Orders/shipments rows are lazy-loaded; wait for a price to appear.
+            await page.waitForFunction(
+              () => /\$[\d,]+\.?\d*/.test(document.body.innerText || ''),
+              { timeout: 6000 }
+            ).catch(() => {});
+            await page.waitForTimeout(500);
+            const extracted = await extractOrdersFromPage(page);
+            if (extracted && !extracted.fallback) { orders = normalizeOrders(extracted); if (orders.length) break; }
+            else if (extracted && extracted.fallback && DEBUG) {
+              info(`orders-batch: [${i + 1}/${sources.length}] no rows on ${url.replace('https://www.whatnot.com', '')} — text: ${(extracted.text || '').replace(/\s+/g, ' ').substring(0, 160)}`);
+            }
+          } catch (e) {
+            info(`orders-batch: [${i + 1}/${sources.length}] error on ${url.replace('https://www.whatnot.com', '')}: ${e.message.substring(0, 80)}`);
+          }
+        }
+
+        orders = orders || [];
+        info(`orders-batch: [${i + 1}/${sources.length}] show ${show_key} live_id=${live_id} → ${orders.length} order(s)`);
+        out.push({ show_key, live_id, order_count: orders.length, orders });
+      }
+
+      const total = out.reduce((n, s) => n + s.order_count, 0);
+      info(`orders-batch: done — ${total} order(s) across ${out.length} show(s)`);
+      writeJsonAndExit(out);
       return;
     }
 

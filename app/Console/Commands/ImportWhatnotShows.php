@@ -12,6 +12,7 @@ class ImportWhatnotShows extends Command
                             {--channel=    : WhatnotChannel name or ID — if omitted, imports all enabled channels}
                             {--limit=50    : Max number of shows to fetch per channel per run}
                             {--debug       : Save Playwright screenshots to /tmp for debugging selectors}
+                            {--no-orders   : Skip scraping per-show orders (faster; imports show summaries only)}
                             {--discover    : 3-phase browser crawl — logs all Phoenix WS frames so you can read topic/event names}
                             {--ws-explore  : Direct Phoenix Channels probe — no DOM scraping, joins seller_hub:* topics for 20 s}';
 
@@ -19,8 +20,9 @@ class ImportWhatnotShows extends Command
 
     public function handle(WhatnotScraper $scraper): int
     {
-        $limit = (int) $this->option('limit');
-        $debug = (bool) $this->option('debug');
+        $limit      = (int) $this->option('limit');
+        $debug      = (bool) $this->option('debug');
+        $withOrders = ! (bool) $this->option('no-orders');
 
         // Discover mode: dump all API endpoints Whatnot calls when loading /seller/shows.
         // Run once to find the internal REST paths, then use those for direct API calls.
@@ -205,7 +207,7 @@ class ImportWhatnotShows extends Command
             $this->info("Importing channel: {$channel->name} (@{$channel->whatnot_username})…");
 
             try {
-                $result = $scraper->importShows(channel: $channel, limit: $limit, debug: $debug);
+                $result = $scraper->importShows(channel: $channel, limit: $limit, debug: $debug, withOrders: $withOrders);
             } catch (\RuntimeException $e) {
                 $this->error($e->getMessage());
                 $this->printTroubleshootingHints($e->getMessage());
@@ -213,7 +215,10 @@ class ImportWhatnotShows extends Command
             }
 
             $this->info("Import complete:");
-            $this->table(['Created', 'Updated', 'Skipped'], [[$result['created'], $result['updated'], $result['skipped']]]);
+            $this->table(
+                ['Created', 'Updated', 'Skipped', 'Orders'],
+                [[$result['created'], $result['updated'], $result['skipped'], $result['ordersCreated'] ?? 0]]
+            );
 
         } else {
             // All-enabled-channels mode (default)
@@ -227,28 +232,30 @@ class ImportWhatnotShows extends Command
 
             $this->info("Importing {$channels->count()} channel(s): " . $channels->pluck('name')->join(', ') . '…');
 
-            $totals = ['created' => 0, 'updated' => 0, 'skipped' => 0];
+            $totals = ['created' => 0, 'updated' => 0, 'skipped' => 0, 'orders' => 0];
             $rows   = [];
 
             foreach ($channels as $channel) {
                 $this->line("  → {$channel->name} (@{$channel->whatnot_username})");
                 try {
-                    $result = $scraper->importShows(channel: $channel, limit: $limit, debug: $debug);
+                    $result = $scraper->importShows(channel: $channel, limit: $limit, debug: $debug, withOrders: $withOrders);
+                    $orders = $result['ordersCreated'] ?? 0;
                     $totals['created'] += $result['created'];
                     $totals['updated'] += $result['updated'];
                     $totals['skipped'] += $result['skipped'];
-                    $rows[] = [$channel->name, $result['created'], $result['updated'], $result['skipped']];
+                    $totals['orders']  += $orders;
+                    $rows[] = [$channel->name, $result['created'], $result['updated'], $result['skipped'], $orders];
                 } catch (\RuntimeException $e) {
                     $this->error("  Channel \"{$channel->name}\" failed: " . $e->getMessage());
                     $this->printTroubleshootingHints($e->getMessage());
-                    $rows[] = [$channel->name, 'ERROR', 'ERROR', $e->getMessage()];
+                    $rows[] = [$channel->name, 'ERROR', 'ERROR', 'ERROR', $e->getMessage()];
                 }
             }
 
             $this->newLine();
             $this->info('Import complete:');
-            $this->table(['Channel', 'Created', 'Updated', 'Skipped'], $rows);
-            $this->line("Total: {$totals['created']} created, {$totals['updated']} updated, {$totals['skipped']} skipped");
+            $this->table(['Channel', 'Created', 'Updated', 'Skipped', 'Orders'], $rows);
+            $this->line("Total: {$totals['created']} created, {$totals['updated']} updated, {$totals['skipped']} skipped, {$totals['orders']} orders");
         }
 
         return self::SUCCESS;

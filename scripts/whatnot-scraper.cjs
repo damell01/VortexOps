@@ -369,37 +369,71 @@ async function ensureSellerMode(page) {
 
   let switched = false;
 
-  // Strategy 1: click the "Switch to Selling" nav element.
-  // Whatnot renders it as a div/span with onClick — use getByText() which matches
-  // any element type, unlike CSS :has-text() which is limited to a/<button>.
-  // Do NOT click "Start Selling" — that navigates to /apply-to-sell/seller (onboarding
-  // for a new individual seller account, not the team-channel toggle we need).
-  const switchEl = await page.getByText('Switch to Selling', { exact: true })
-    .first().elementHandle().catch(() => null);
-  if (switchEl && await switchEl.isVisible().catch(() => false)) {
-    info('ensureSellerMode: clicking "Switch to Selling" nav element');
+  // Strategy 1: click "Switch to Selling" in the seller nav header.
+  //
+  // Key discovery: the /seller MARKETING PAGE has a buyer-mode header with NO
+  // "Switch to Selling" nav element. But the /seller/shows 404 PAGE renders with
+  // the seller-context nav header which DOES include "Switch to Selling".
+  //
+  // Procedure: navigate to /seller/shows (gets the 404 page + seller nav), find
+  // "Switch to Selling" via getByText() (any element type — it's a React component),
+  // click it, then verify seller mode activated.
+  //
+  // Do NOT click "Start Selling" — that is the marketing CTA for /apply-to-sell/seller
+  // (onboarding for a new individual seller), not the team-channel toggle we need.
+  for (const probeUrl of [null, 'https://www.whatnot.com/seller/shows']) {
+    if (probeUrl) {
+      info('ensureSellerMode: navigating to', probeUrl, 'to reach page with seller nav');
+      await page.goto(probeUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+      await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
+      await debugShot(page, 'seller-mode-01b-shows-404');
+    }
+
+    const probe = await page.evaluate(() =>
+      (document.body.innerText || '').substring(0, 300)
+    ).catch(() => '');
+
+    if (!/switch to selling/i.test(probe)) {
+      info('ensureSellerMode: "Switch to Selling" not in page text on', page.url());
+      continue;
+    }
+
+    const switchEl = await page.getByText('Switch to Selling', { exact: true })
+      .first().elementHandle().catch(() => null);
+    if (!switchEl || !await switchEl.isVisible().catch(() => false)) {
+      info('ensureSellerMode: "Switch to Selling" in text but element not visible on', page.url());
+      continue;
+    }
+
+    info('ensureSellerMode: clicking "Switch to Selling" nav element on', page.url());
     await switchEl.click();
     await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
     await page.waitForTimeout(1500);
     await debugShot(page, 'seller-mode-02-after-switch-to-selling');
+
     const newText = await page.evaluate(() =>
       (document.body.innerText || '').substring(0, 400)
     ).catch(() => '');
     if (!/for brands|start selling on whatnot/i.test(newText)) {
       info('ensureSellerMode: seller mode activated — URL now', page.url());
       switched = true;
-    } else {
-      info('ensureSellerMode: "Switch to Selling" clicked but still in buyer mode');
+      break;
     }
-  } else {
-    info('ensureSellerMode: "Switch to Selling" not visible — trying channel switcher');
+    info('ensureSellerMode: clicked but still in buyer mode — page:', page.url());
   }
 
   // Strategy 2: open the profile drawer and switch to the seller channel by name.
-  // This is the canonical way team members activate seller mode (Switch Role → channel).
+  // This is the canonical path for team members (Switch Role → channel name).
+  // Requires CHANNEL_NAME (pass --channel="Vortex Breaks" to the artisan command).
   if (!switched && CHANNEL_NAME) {
     info('ensureSellerMode: calling switchToChannel("' + CHANNEL_NAME + '")');
     try {
+      // switchToChannel needs to be on a page with the seller nav visible.
+      // Navigate to /seller (the team may still have a nav header there with avatar).
+      if (!/whatnot\.com\/seller$/i.test(page.url())) {
+        await page.goto('https://www.whatnot.com/seller', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+        await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
+      }
       await switchToChannel(page, CHANNEL_NAME);
       await page.waitForTimeout(1000);
       const newText = await page.evaluate(() =>
@@ -416,7 +450,6 @@ async function ensureSellerMode(page) {
     }
   } else if (!switched) {
     info('ensureSellerMode: CHANNEL_NAME not set — skipping channel switcher');
-    info('ensureSellerMode: pass --channel=NAME to try the profile-drawer switch');
   }
 
   if (!switched) {
@@ -427,10 +460,9 @@ async function ensureSellerMode(page) {
       'Session is in buyer mode and seller mode could not be activated.\n' +
       'The logged-in account appears to be a team member (not the primary seller).\n' +
       'Fix options:\n' +
-      '  1. Export cookies from a browser where you already clicked "Switch to Selling"\n' +
-      '     on the https://www.whatnot.com/seller marketing page, then run: php artisan whatnot:login\n' +
-      '  2. Pass --channel="Vortex Breaks" (or your channel name) so the scraper can\n' +
-      '     use the profile-drawer Switch Role flow.\n' +
+      '  1. Export cookies from a browser already in seller mode (click "Switch to Selling"\n' +
+      '     on https://www.whatnot.com/seller/shows), then run: php artisan whatnot:login\n' +
+      '  2. Pass --channel="Vortex Breaks" so the scraper tries the profile-drawer Switch Role.\n' +
       'Page text: ' + snippet
     );
   }

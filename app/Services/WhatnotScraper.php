@@ -254,13 +254,22 @@ class WhatnotScraper
      */
     public function importShowOrders(Show $show, bool $debug = false): array
     {
-        if (! $show->detail_url) {
-            throw new \RuntimeException("Show #{$show->id} has no detail_url — run a show list import first to capture the Whatnot show URL.");
+        $liveId = $this->extractLiveIdFromUrl($show->detail_url);
+        if (! $liveId) {
+            throw new \RuntimeException("Show #{$show->id} has no livestream id — run `php artisan whatnot:import` first to capture the Whatnot show URL.");
         }
 
-        $rows = $this->fetchShowOrders($show->detail_url, $debug);
+        // Route through the batched orders scrape (one show) so the per-show button
+        // and the scheduled backfill use the same code path as the bulk import:
+        // the /dashboard/orders?source=<id> table, paginated and deduped by order id.
+        $show->loadMissing('channel');
+        $ordersByShow = $this->fetchOrdersForShows(
+            [['live_id' => $liveId, 'show_key' => $show->id]],
+            $show->channel?->whatnot_username,
+            $debug,
+        );
 
-        return $this->persistShowOrders($show, $rows);
+        return $this->persistShowOrders($show, $ordersByShow[$show->id] ?? []);
     }
 
     /**

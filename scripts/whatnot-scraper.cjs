@@ -788,13 +788,15 @@ async function extractShowsListFromDom(page) {
       if (addedUrls.has(fullUrl)) continue;
       addedUrls.add(fullUrl);
 
-      // Walk up to find a card/row container that contains meaningful text (title + date).
+      // Walk up to find a card/row container with title + date.
+      // Threshold 100: the action-buttons div alone has ~90 chars of button text,
+      // so we keep walking past it to the full card element that also has title+date.
       let container = a;
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < 12; i++) {
         if (!container.parentElement) break;
         container = container.parentElement;
         const t = (container.innerText || '').trim();
-        if (t.length > 30) break;
+        if (t.length > 100) break;
       }
 
       const text = (container.innerText || container.textContent || '').trim();
@@ -863,16 +865,20 @@ async function extractShowsListFromDom(page) {
       // Views
       const viewMatch = text.match(/(\d{1,6})\s*(?:viewers?|views?)/i);
 
-      // Title: anchor text first, then longest meaningful line
+      // Title: prefer anchor text unless it's a generic action label.
+      // /dashboard/live/<id> links say "Open show" — skip those.
+      const genericActionLabel = /^(open show|edit show|clone items?|copy show link|start sharing|end show|enable private mode|schedule a show|show tools?|view show|show details?)$/i;
       const anchorText = (a.innerText || a.textContent || '').trim();
-      const title = anchorText.length > 5 ? anchorText : (
+      const usableAnchorText = anchorText.length > 5 && !genericActionLabel.test(anchorText) ? anchorText : null;
+      const title = usableAnchorText || (
         lines.filter(l =>
           l.length > 5 &&
           !/^\d+$/.test(l) &&
           !/^\$/.test(l) &&
           !/^\d{1,2}[\/\-]/.test(l) &&
           !/^20\d\d/.test(l) &&
-          !/^(Live|Ended|Cancelled|Completed|Upcoming)$/i.test(l)
+          !/^(Live|Ended|Cancelled|Completed|Upcoming|—|•)$/i.test(l) &&
+          !genericActionLabel.test(l)
         ).sort((a, b) => b.length - a.length)[0] || null
       );
 
@@ -917,7 +923,7 @@ function scoreShowObject(obj) {
   const keys = Object.keys(obj).map(k => k.toLowerCase());
   let score = 0;
   if (keys.some(k => /\btitle\b|show_title|show_name/.test(k)))     score += 3;
-  if (keys.some(k => /\bdate\b|started_at|created_at|show_date/.test(k))) score += 2;
+  if (keys.some(k => /\bdate\b|started_at|start_time|startedat|starttime|created_at|createdat|show_date|scheduled_at|scheduledat/.test(k))) score += 2;
   if (keys.some(k => /revenue|sales|gross|earnings|estimated/.test(k)))   score += 3;
   if (keys.some(k => /\borders\b|units_sold|buyers/.test(k)))        score += 2;
   if (keys.some(k => /\bviews\b|viewers|watch/.test(k)))             score += 1;

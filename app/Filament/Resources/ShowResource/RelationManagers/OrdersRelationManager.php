@@ -2,12 +2,16 @@
 
 namespace App\Filament\Resources\ShowResource\RelationManagers;
 
+use App\Models\InventoryItem;
+use App\Models\InventoryLocation;
 use App\Models\WhatnotShowOrder;
 use App\Services\WhatnotScraper;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\TextInputColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
@@ -74,7 +78,42 @@ class OrdersRelationManager extends RelationManager
                         'cancelled' => 'danger',
                         'pending'   => 'warning',
                         default     => 'gray',
-                    }),
+                    })
+                    ->toggleable(),
+
+                // ── Streamer enrichment (inline-editable) ────────────────────────
+                // Map the sold item to inventory, its location, and the streamer's
+                // cost. total_cost is kept = qty × unit_cost by the model.
+                SelectColumn::make('inventory_item_id')
+                    ->label('Inventory Item')
+                    ->options(fn () => InventoryItem::query()
+                        ->where('is_active', true)
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->toArray())
+                    ->selectablePlaceholder('— map item —')
+                    ->width('220px'),
+
+                SelectColumn::make('inventory_location_id')
+                    ->label('Location')
+                    ->options(fn () => InventoryLocation::query()
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->toArray())
+                    ->selectablePlaceholder('—')
+                    ->width('160px'),
+
+                TextInputColumn::make('unit_cost')
+                    ->label('Unit Cost')
+                    ->type('number')
+                    ->rules(['nullable', 'numeric', 'min:0'])
+                    ->width('110px'),
+
+                TextColumn::make('total_cost')
+                    ->label('Total Cost')
+                    ->money('USD')
+                    ->placeholder('—')
+                    ->weight('bold'),
             ])
             ->groups([
                 Group::make('buyer_username')

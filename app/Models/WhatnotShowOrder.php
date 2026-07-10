@@ -11,6 +11,9 @@ class WhatnotShowOrder extends Model
         'show_id',
         'whatnot_buyer_id',
         'inventory_item_id',
+        'inventory_location_id',
+        'unit_cost',
+        'total_cost',
         'whatnot_order_id',
         'whatnot_show_url',
         'buyer_username',
@@ -38,12 +41,25 @@ class WhatnotShowOrder extends Model
         'quantity'        => 'integer',
         'unit_price'      => 'decimal:2',
         'total_price'     => 'decimal:2',
+        'unit_cost'       => 'decimal:2',
+        'total_cost'      => 'decimal:2',
         'shipping_amount' => 'decimal:2',
         'tax_amount'      => 'decimal:2',
         'fees_amount'     => 'decimal:2',
         'net_amount'      => 'decimal:2',
         'lot_number'      => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        // Keep total_cost = quantity × unit_cost whenever a cost is entered, so the
+        // streamer only has to set the unit cost inline.
+        static::saving(function (WhatnotShowOrder $order) {
+            if ($order->unit_cost !== null) {
+                $order->total_cost = round((float) $order->unit_cost * (int) ($order->quantity ?: 1), 2);
+            }
+        });
+    }
 
     public function show(): BelongsTo
     {
@@ -58,6 +74,11 @@ class WhatnotShowOrder extends Model
     public function inventoryItem(): BelongsTo
     {
         return $this->belongsTo(InventoryItem::class);
+    }
+
+    public function inventoryLocation(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\InventoryLocation::class);
     }
 
     public static function statusLabels(): array

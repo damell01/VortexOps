@@ -2321,16 +2321,35 @@ async function extractLedgerFromPage(page) {
           if (btn) { btn.click(); return true; }
           return false;
         }).catch(() => false);
-        await page.waitForTimeout(600);
+        // The dialog renders in a portal after a short delay — wait for its date
+        // inputs to actually mount before filling (a fixed 600ms was too short).
+        await page.waitForSelector('input[type="date"]', { timeout: 6000 }).catch(() => {});
         const dateInputs = await page.$$('input[type="date"]').catch(() => []);
         if (dateInputs.length >= 2) {
-          await dateInputs[0].fill(from).catch(() => {});
-          await dateInputs[1].fill(to).catch(() => {});
-          await page.evaluate(() => {
-            const btn = Array.from(document.querySelectorAll('button')).find(b => /^update$/i.test((b.textContent || '').trim()));
-            if (btn) btn.click();
-          }).catch(() => {});
-          await page.waitForTimeout(1600);
+          // Fill the last two date inputs (the dialog's Start/End) and fire the
+          // events React needs to register the change.
+          const startEl = dateInputs[dateInputs.length - 2];
+          const endEl   = dateInputs[dateInputs.length - 1];
+          await startEl.fill(from).catch(() => {});
+          await endEl.fill(to).catch(() => {});
+          await startEl.evaluate((el, v) => {
+            el.value = v;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          }, from).catch(() => {});
+          await endEl.evaluate((el, v) => {
+            el.value = v;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+            el.dispatchEvent(new Event('change', { bubbles: true }));
+          }, to).catch(() => {});
+          await page.waitForTimeout(300);
+          const updated = await page.evaluate(() => {
+            const btn = Array.from(document.querySelectorAll('button')).find(b => /^update$/i.test((b.textContent || '').trim()) && !b.disabled);
+            if (btn) { btn.click(); return true; }
+            return false;
+          }).catch(() => false);
+          info(`ledger: applied date window ${from}..${to} (update clicked=${updated})`);
+          await page.waitForTimeout(1800);
         } else {
           info(`ledger: date inputs not found (opened dialog=${opened}) — scraping default range`);
         }

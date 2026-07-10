@@ -395,35 +395,26 @@ async function ensureSellerMode(page) {
   }
 
   // ── Step 3: click the "Switch to Selling" anchor ────────────────────────────
-  // IMPORTANT: target the <a> element, not a child span.
-  // getByText/getByRole often resolves to an inner <span> whose click event
-  // does NOT trigger React Router's onClick (which lives on the <a>).
-  // We use page.evaluate to find the anchor by text and call .click() directly
-  // so the browser fires it as a trusted click including default navigation.
+  // The JS click sets the seller session cookie but does NOT trigger React Router
+  // navigation (URL stays at /). We click, wait briefly, then navigate directly.
   info('ensureSellerMode: locating "Switch to Selling" <a> anchor in drawer');
   const drawerText = await page.evaluate(() => (document.body.innerText || '').substring(0, 600)).catch(() => '');
   if (!/switch to selling/i.test(drawerText)) {
     info('ensureSellerMode: "Switch to Selling" not in drawer text — drawer may not be open');
-    info('ensureSellerMode: drawer text:', drawerText.substring(0, 300));
     await debugShot(page, 'seller-mode-03b-no-switch-to-selling');
     throw new Error('"Switch to Selling" not found in open nav drawer.\nDrawer text: ' + drawerText.substring(0, 300));
   }
 
-  // Set up URL-change listener BEFORE the click so we catch the navigation
-  const navPromise = page.waitForURL(u => u.includes('/dashboard'), { timeout: 8000 }).catch(() => null);
-
-  info('ensureSellerMode: JS-clicking <a> "Switch to Selling" to trigger React Router navigation');
+  info('ensureSellerMode: JS-clicking <a> "Switch to Selling"');
   const anchorFound = await page.evaluate(() => {
-    // Walk all anchors, find the one whose text content matches "Switch to Selling"
     const anchors = Array.from(document.querySelectorAll('a'));
     const target   = anchors.find(a => /switch\s+to\s+selling/i.test((a.textContent || '').trim()));
     if (!target) return false;
-    target.click();   // fires onClick (React Router) + default browser navigation
+    target.click();
     return true;
   }).catch(() => false);
 
   if (!anchorFound) {
-    // No <a> — fall back to the Playwright locator
     info('ensureSellerMode: no <a> anchor found, falling back to Playwright locator click');
     const switchLoc = page.getByText('Switch to Selling', { exact: false }).first();
     await switchLoc.click({ force: true, timeout: 10000 }).catch(async () => {
@@ -439,38 +430,18 @@ async function ensureSellerMode(page) {
     });
   }
 
-  // Wait for React Router to navigate to /dashboard (seller dashboard)
-  const navigated = await navPromise;
-  info('ensureSellerMode: navigation to /dashboard:', navigated ? 'YES — ' + page.url() : 'NO (URL stayed at ' + page.url() + ')');
-  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-  await page.waitForTimeout(1500);
-  await debugShot(page, 'seller-mode-04-after-switch-to-selling');
-
-  // ── Verify: check current URL and page content ────────────────────────────────
-  const postClickUrl  = page.url();
-  const postClickText = await page.evaluate(() => (document.body.innerText || '').substring(0, 600)).catch(() => '');
-  info('ensureSellerMode: post-click URL:', postClickUrl);
-  info('ensureSellerMode: post-click text (first 200):', postClickText.substring(0, 200));
-  await debugShot(page, 'seller-mode-05-post-click-verify');
-
-  if (postClickUrl.includes('/dashboard')) {
-    info('ensureSellerMode: seller mode confirmed — landed on seller dashboard:', postClickUrl);
-    // Signal to the main flow so switchToChannel is skipped (already in seller mode)
-    global._sellerModeActive = true;
-    return;
-  }
-
-  // URL didn't change — try navigating to /dashboard directly to confirm if mode is set
-  info('ensureSellerMode: URL did not change to /dashboard; trying page.goto /dashboard to verify');
+  // Brief pause for the session cookie to be set, then navigate to /dashboard.
+  // React Router navigation never fires from this click (URL stays at /), so we
+  // always go directly — no point waiting for a URL change that won't happen.
+  await page.waitForTimeout(500);
+  info('ensureSellerMode: navigating to /dashboard to confirm seller mode');
   await page.goto('https://www.whatnot.com/dashboard', { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
   await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
-  await debugShot(page, 'seller-mode-06-dashboard-direct');
+  await debugShot(page, 'seller-mode-04-dashboard-verify');
 
   const dashText = await page.evaluate(() => (document.body.innerText || '').substring(0, 400)).catch(() => '');
   info('ensureSellerMode: /dashboard text:', dashText.substring(0, 200));
 
-  // In seller mode the dashboard shows "Switch to Buying" in the nav.
-  // In buyer mode it shows "Switch to Selling" or the marketing page text.
   if (/switch to buying/i.test(dashText) || !/for brands|start selling on whatnot|switch to selling/i.test(dashText)) {
     info('ensureSellerMode: seller mode confirmed via /dashboard content');
     global._sellerModeActive = true;
@@ -936,6 +907,15 @@ function findShowsInJson(obj, url, depth = 0) {
   if (Array.isArray(obj) && obj.length > 0 && typeof obj[0] === 'object') {
     const s = scoreShowObject(obj[0]);
     if (s >= 4) return { array: obj, score: s, url };
+    // Relay-style edge/node wrapper: [{node:{...}}, ...] or [{edge:{...}}, ...]
+    // GraphQL pagination wraps each item in a {node} or {cursor,node} object.
+    const wrapKey = ['node', 'edge'].find(k => obj[0][k] && typeof obj[0][k] === 'object');
+    if (wrapKey) {
+      const ns = scoreShowObject(obj[0][wrapKey]);
+      if (ns >= 4) {
+        return { array: obj.map(e => e[wrapKey]).filter(Boolean), score: ns, url };
+      }
+    }
   }
   if (typeof obj === 'object' && obj !== null && !Array.isArray(obj)) {
     let best = null;
@@ -972,14 +952,14 @@ function normalizeApiShow(s) {
     return null;
   };
 
-  const rawDate = String(find('date', 'show_date', 'started_at', 'created_at', 'scheduled_at') || '');
+  const rawDate = String(find('date', 'show_date', 'started_at', 'startTime', 'start_time', 'created_at', 'scheduled_at', 'scheduledAt') || '');
   const showDate = rawDate.includes('T') ? rawDate.substring(0, 10) : parseDateString(rawDate);
 
   return {
     title:                  find('title', 'show_title', 'name', 'show_name') || null,
     show_date:              showDate,
     show_date_raw:          rawDate || null,
-    detail_url:             find('url', 'detail_url', 'show_url', 'link') || null,
+    detail_url:             find('url', 'detail_url', 'show_url', 'permalink', 'livestreamUrl', 'livestream_url', 'link') || null,
     gross_revenue:          parseMoney(String(find('gross_revenue', 'gross', 'revenue', 'sales', 'estimated_sales', 'total_sales') || '')),
     whatnot_net:            parseMoney(String(find('net_revenue', 'net', 'earnings', 'total_estimated_earnings', 'estimated_earnings') || '')),
     completed_earnings:     parseMoney(String(find('completed_earnings', 'completed_revenue') || '')),

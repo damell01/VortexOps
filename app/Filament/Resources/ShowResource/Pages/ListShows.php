@@ -7,6 +7,7 @@ use App\Jobs\RunShowAiMappingJob;
 use App\Models\AiTask;
 use App\Models\Setting;
 use App\Models\Show;
+use App\Services\FeatureFlagService;
 use App\Services\WhatnotScraper;
 use App\Support\AdminModules;
 use Filament\Actions\Action;
@@ -28,6 +29,7 @@ class ListShows extends ListRecords
                 ->icon('heroicon-o-arrow-down-tray')
                 ->color('info')
                 ->visible(fn () => auth()->user()?->isAdmin()
+                    && FeatureFlagService::enabled('whatnot_import')
                     && ! empty(config('vortex.whatnot.email'))
                     && ! empty(config('vortex.whatnot.password')))
                 ->requiresConfirmation()

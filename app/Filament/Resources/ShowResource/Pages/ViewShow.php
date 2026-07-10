@@ -270,7 +270,8 @@ class ViewShow extends ViewRecord
                 })
                 ->icon('heroicon-o-shopping-cart')
                 ->color('gray')
-                ->visible(fn () => (bool) $this->record->detail_url)
+                ->visible(fn () => (bool) $this->record->detail_url
+                    && \App\Services\FeatureFlagService::enabled('whatnot_import'))
                 ->requiresConfirmation()
                 ->modalHeading('Import Items Sold from Whatnot')
                 ->modalDescription('This scrapes the order list for this show from Whatnot and may take up to 60 seconds.')

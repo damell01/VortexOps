@@ -22,7 +22,11 @@ class WhatnotLedgerResource extends Resource
 
     protected static ?string $model = WhatnotLedgerEntry::class;
 
-    protected static ?string $navigationLabel = 'Whatnot Ledger';
+    protected static ?string $navigationLabel = 'Ledger';
+
+    protected static ?string $modelLabel = 'ledger entry';
+
+    protected static ?string $pluralModelLabel = 'ledger';
 
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
@@ -117,6 +121,12 @@ class WhatnotLedgerResource extends Resource
                 SelectFilter::make('whatnot_channel_id')
                     ->label('Channel')
                     ->relationship('channel', 'name'),
+                SelectFilter::make('status')
+                    ->options(fn () => WhatnotLedgerEntry::query()
+                        ->whereNotNull('status')
+                        ->distinct()
+                        ->pluck('status', 'status')
+                        ->toArray()),
                 Filter::make('created_date')
                     ->schema([
                         DatePicker::make('from')->label('From'),

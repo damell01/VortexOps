@@ -2190,11 +2190,14 @@ function normalizeOrders(rows) {
             } else if (pages === 0 && DEBUG) {
               info(`orders-batch: [${i + 1}/${sources.length}] no rows on ${url.replace('https://www.whatnot.com', '')} — text: ${((extracted && extracted.text) || '').replace(/\s+/g, ' ').substring(0, 140)}`);
             }
-            // Advance to the next page if the button is enabled.
+            // Advance to the next page if the button is enabled. The "Next page"
+            // aria-label sits on the SVG, not the button, so locate the button via
+            // its child svg (fall back to a button carrying the label directly).
             const advanced = await page.evaluate(() => {
-              const btn = Array.from(document.querySelectorAll('button[aria-label="Next page"], button'))
-                .find(b => (b.getAttribute('aria-label') === 'Next page'));
-              if (btn && !btn.disabled) { btn.click(); return true; }
+              const svg = document.querySelector('svg[aria-label="Next page"]');
+              let btn = svg ? svg.closest('button') : null;
+              if (!btn) btn = document.querySelector('button[aria-label="Next page"]');
+              if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') { btn.click(); return true; }
               return false;
             }).catch(() => false);
             pages++;

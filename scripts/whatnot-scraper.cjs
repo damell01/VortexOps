@@ -2358,6 +2358,23 @@ async function extractLedgerFromPage(page) {
 
       const out = [...byKey.values()];
       info(`ledger: extracted ${out.length} entries for ${from || '?'}..${to || '?'}`);
+
+      // Diagnose an empty result: where did we land, is there a table, what's on
+      // the page? (Only logged when nothing was found, to keep noise down.)
+      if (out.length === 0) {
+        const diag = await page.evaluate(() => ({
+          url:       location.href,
+          tables:    document.querySelectorAll('table').length,
+          tbodyRows: document.querySelectorAll('table tbody tr').length,
+          hasEditDates: /edit dates/i.test(document.body.innerText || ''),
+          hasLedgerTab: /Ledger/i.test(document.body.innerText || ''),
+          dateInputs: document.querySelectorAll('input[type="date"]').length,
+          bodySnippet: (document.body.innerText || '').replace(/\n+/g, ' | ').substring(0, 500),
+        })).catch(() => ({}));
+        info('ledger diag:', JSON.stringify(diag));
+        await debugShot(page, 'ledger-empty');
+      }
+
       writeJsonAndExit(out);
       return;
     }

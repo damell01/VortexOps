@@ -1225,6 +1225,168 @@ async function runWsExploreStandalone(cookiesFilePath) {
   }) + '\n');
 }
 
+// ── Analytics page nav: iterate all channel shows via "See older show" ─────────
+// /account/analytics?tab=livestream&live_id=<uuid> is channel-scoped:
+// its "See older show" button walks through ALL past shows for the channel,
+// not just shows hosted by the logged-in user. This is the only reliable way
+// to import every show when the bot account is a team member but not the HOST
+// of most shows (e.g. Tucker/Cate/Dennis/Matt are the actual hosts).
+//
+// startUuid — live_id UUID of the newest show (comes from initial API intercept).
+
+async function scrapeViaAnalyticsPage(page, startUuid, limit) {
+  const analyticsUrl = `https://www.whatnot.com/account/analytics?tab=livestream&live_id=${startUuid}`;
+  info(`analytics-nav: navigating to ${analyticsUrl}`);
+  await page.goto(analyticsUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  await debugShot(page, 'analytics-nav-01-start');
+
+  if (!/analytics/i.test(page.url())) {
+    info(`analytics-nav: unexpected landing URL ${page.url()} — aborting`);
+    return [];
+  }
+
+  // Rewind to the newest show first — the seed UUID may be an older user-hosted
+  // show, and "See older show" only walks backward. Clicking "See newer show"
+  // until it's disabled guarantees we start from the most recent channel show,
+  // so the seed UUID doesn't have to be the newest.
+  for (let r = 0; r < limit; r++) {
+    const newerEnabled = await page.evaluate((sel) => {
+      const btn = document.querySelector(sel);
+      return btn && !btn.disabled;
+    }, SELECTORS.showNavNewer).catch(() => false);
+    if (!newerEnabled) break;
+    const prevUrl = page.url();
+    await page.click(SELECTORS.showNavNewer).catch(() => {});
+    await page.waitForFunction(prev => location.href !== prev, prevUrl, { timeout: 8000 }).catch(() => {});
+    await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
+    await page.waitForTimeout(300);
+  }
+  info(`analytics-nav: rewound to newest show at ${page.url()}`);
+
+  const results = [];
+  const seenUuids = new Set();
+
+  for (let i = 0; i < limit; i++) {
+    await page.waitForTimeout(800);
+
+    // Primary: CSS-based extraction (height:160px metric cards + inline-style title)
+    const data = await extractAnalyticsMetrics(page);
+    info(`analytics-nav show ${i + 1}: title="${data.title}" date="${data.dateText}" cards=${data.cardCount} hasOlder=${data.hasOlder}`);
+
+    // Bodytext fallback for title + date — more resilient to style/layout changes.
+    // On /account/analytics the selected show title + date appear just before the
+    // "Select Show" dropdown label in the page text.
+    let title    = data.title;
+    let dateText = data.dateText;
+    if (!title) {
+      const bt = await page.evaluate(() => {
+        const lines = (document.body.innerText || '').split('\n')
+          .map(l => l.trim()).filter(Boolean);
+        let foundTitle = null;
+        let foundDate  = null;
+        const selectIdx = lines.indexOf('Select Show');
+        if (selectIdx >= 2) {
+          const candidate     = lines[selectIdx - 2];
+          const dateCandidate = lines[selectIdx - 1];
+          if (candidate && candidate.length > 4) foundTitle = candidate;
+          if (dateCandidate && /\d{1,2}\/\d{1,2}\/\d{4}/.test(dateCandidate)) foundDate = dateCandidate;
+        }
+        // Second pass: first non-trivial line that isn't a number/price/section header
+        if (!foundTitle) {
+          foundTitle = lines.find(l =>
+            l.length > 10 && !/^\d/.test(l) && !/^[$€£¥]/.test(l) &&
+            !/^(Sales Metrics|Stream Metrics|Select Show|Analytics|Dashboard|Whatnot|Home)$/i.test(l)
+          ) || null;
+        }
+        return { title: foundTitle, dateText: foundDate };
+      }).catch(() => ({ title: null, dateText: null }));
+      title    = bt.title    || title;
+      dateText = bt.dateText || dateText;
+    }
+
+    if (!title && data.cardCount === 0) {
+      info('analytics-nav: no show data on page — stopping');
+      break;
+    }
+
+    const m   = data.metrics;
+    const get = (...labels) => {
+      for (const l of labels) { if (m[l] !== undefined) return m[l]; }
+      return null;
+    };
+
+    // Extract the current show's UUID from the page URL (updates on each navigation)
+    let uuid = null;
+    try { uuid = new URL(page.url()).searchParams.get('live_id'); } catch {}
+
+    // Guard against a stalled navigation looping forever on the same show.
+    // Signature = UUID when the URL carries live_id, else title+date (Whatnot may
+    // swap analytics content client-side without changing the URL).
+    const signature = uuid || `${title || ''}|${dateText || ''}`;
+    if (signature.trim() && seenUuids.has(signature)) {
+      info(`analytics-nav: revisited show "${signature}" — navigation stalled, stopping`);
+      break;
+    }
+    if (signature.trim()) seenUuids.add(signature);
+
+    results.push({
+      title,
+      show_date:               parseDateString(dateText),
+      show_date_raw:           dateText,
+      detail_url:              data.detailUrl || (uuid ? `https://www.whatnot.com/dashboard/live/${uuid}` : null),
+      gross_revenue:           parseMoney(get('Estimated Sales')),
+      whatnot_net:             parseMoney(get('Total Estimated Earnings')),
+      completed_earnings:      parseMoney(get('Completed Earnings')),
+      units_sold:              parseInteger(get('Orders')),
+      avg_order_value:         parseMoney(get('Average Order Value', 'AOV')),
+      giveaway_spend:          parseMoney(get('Giveaway Spend')),
+      giveaways_count:         parseInteger(get('Giveaways')),
+      buyers_count:            parseInteger(get('Buyers')),
+      first_time_buyers:       parseInteger(get('First Time Buyers')),
+      returning_buyers:        parseInteger(get('Returning Buyers')),
+      shares_count:            parseInteger(get('Shares')),
+      show_duration:           parseDurationToMinutes(get('Show Duration')),
+      max_concurrent_viewers:  parseInteger(get('Max Concurrent Viewers')),
+      total_views:             parseInteger(get('Total Views')),
+      avg_order_rating:        parseMoney(get('Average Order Rating')),
+      _raw_metrics:            m,
+    });
+
+    if (!data.hasOlder) {
+      info('analytics-nav: "See older show" is disabled — reached oldest show in channel history');
+      break;
+    }
+
+    const prevUrl   = page.url();
+    const prevTitle = title || '';
+    try {
+      await page.click(SELECTORS.showNavOlder);
+      // Wait for the show to change — Whatnot may update the live_id param in the
+      // URL OR swap the analytics content in place. Accept either signal.
+      await page.waitForFunction(
+        ({ prev, prevT }) => {
+          if (location.href !== prev) return true;
+          const el = document.querySelector('div[style*="white-space: nowrap"][style*="text-overflow: ellipsis"][style*="max-width: 90%"]');
+          const t  = el ? el.textContent.trim() : '';
+          return t && t !== prevT;
+        },
+        { prev: prevUrl, prevT: prevTitle },
+        { timeout: 8000 }
+      ).catch(() => {});
+      await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+    } catch (navErr) {
+      info(`analytics-nav: nav error at show ${i + 1}: ${navErr.message.substring(0, 100)}`);
+      break;
+    }
+    info(`analytics-nav: advanced to show ${i + 2}`);
+  }
+
+  info(`analytics-nav: collected ${results.length} shows total`);
+  return results;
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 (async () => {
@@ -2662,6 +2824,65 @@ async function runWsExploreStandalone(cookiesFilePath) {
         }
         await page.waitForTimeout(800);
         await debugShot(page, '06-shows-list-scrolled');
+
+        // ── PRIMARY: analytics-page navigation (channel-scoped, gets ALL shows) ──
+        // /dashboard/lives renders show action buttons ("Open show", "See Analytics")
+        // as <button> elements with onClick handlers — NOT <a> tags — so link-based
+        // DOM extraction finds nothing, and the GetDashboardLivestreamsByUserId API is
+        // user-scoped (only shows the bot account hosted). The ONLY source that exposes
+        // every past channel show is /account/analytics?tab=livestream&live_id=<uuid>,
+        // whose "See older show" button walks the full channel history.
+        //
+        // We just need ONE valid live_id UUID to seed it; scrapeViaAnalyticsPage rewinds
+        // to the newest show before walking backward, so any show's UUID works.
+        //
+        // Seed priority (most-reliable first):
+        //   1. Anchor href carrying live_id= / source= — guaranteed a show UUID
+        //   2. Captured API response id — the user-hosted show, guaranteed a show UUID
+        //   3. Any UUID in the rendered HTML (thumbnail URLs etc.) — may be unrelated
+        const anchorSeed = await page.evaluate(() => {
+          for (const a of document.querySelectorAll('a[href*="live_id="], a[href*="source="]')) {
+            const href = a.getAttribute('href') || '';
+            const m = href.match(/[?&](?:live_id|source)=([0-9a-f-]{36})/i);
+            if (m) return m[1];
+          }
+          return null;
+        }).catch(() => null);
+
+        let apiSeed = null;
+        if (!anchorSeed) {
+          const apiShows = extractShowsFromCapture(capturedApiResponses);
+          if (apiShows && apiShows.length > 0) {
+            const first = apiShows.find(s => s.id || s.uuid || s.show_id);
+            apiSeed = first && (first.id || first.uuid || first.show_id);
+          }
+        }
+
+        let htmlSeed = null;
+        if (!anchorSeed && !apiSeed) {
+          htmlSeed = await page.evaluate(() => {
+            const m = (document.body.innerHTML || '')
+              .match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+            return m ? m[0] : null;
+          }).catch(() => null);
+        }
+
+        const startUuid = anchorSeed || apiSeed || htmlSeed;
+        if (startUuid) {
+          info(`shows-list: seeding analytics-nav with live_id=${startUuid}`);
+          const analyticsShows = await scrapeViaAnalyticsPage(page, startUuid, LIMIT);
+          const normalized = analyticsShows
+            .slice(0, LIMIT)
+            .filter(s => s.title || s.show_date || s.gross_revenue !== null);
+          if (normalized.length > 0) {
+            process.stdout.write(JSON.stringify(normalized, null, 2) + '\n');
+            info(`analytics-nav: returned ${normalized.length} shows`);
+            process.exit(0);
+          }
+          info('analytics-nav: produced no usable shows — falling back to DOM/API extraction');
+        } else {
+          info('shows-list: no seed UUID found for analytics-nav — falling back to DOM/API extraction');
+        }
 
         // DOM extraction runs FIRST on list pages — GetDashboardLivestreamsByUserId is
         // scoped to the logged-in user as host, so it misses shows hosted by other

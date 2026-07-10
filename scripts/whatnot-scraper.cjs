@@ -1289,6 +1289,34 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
     return [];
   }
 
+  // Capture each show's REAL livestream UUID. The URL live_id param is stale and
+  // doesn't correspond to the displayed show, but every time a show's analytics
+  // load the page fires a GraphQL query whose variables carry the true livestream
+  // id. We track the most-recently-seen one so each extracted show can be tagged
+  // with the correct id — used to build a valid detail_url (and later pull that
+  // show's orders). Background polls don't carry a livestream-scoped id, so the
+  // key-name filter keeps this from being clobbered between shows.
+  let lastLiveId = null;
+  const liveIdHandler = (req) => {
+    try {
+      if (req.method() !== 'POST' || !/graphql/i.test(req.url())) return;
+      const body = req.postData();
+      if (!body || body.indexOf('-') === -1) return;
+      const parsed = JSON.parse(body);
+      for (const op of (Array.isArray(parsed) ? parsed : [parsed])) {
+        const vars = (op && op.variables) || {};
+        for (const [k, v] of Object.entries(vars)) {
+          if (typeof v === 'string' &&
+              /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v) &&
+              /livestream|live_?id|show_?id/i.test(k)) {
+            lastLiveId = v;
+          }
+        }
+      }
+    } catch {}
+  };
+  page.on('request', liveIdHandler);
+
   // Wait for the per-show analytics view to actually render. Direct URL nav loads
   // the SPA shell first; the show metrics + nav buttons appear only after the
   // analytics data-fetch completes. Poll for a known metric label OR the show-nav
@@ -1345,9 +1373,15 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
     // Kept small: the per-show cost dominates total runtime across a long history.
     await page.waitForTimeout(400);
 
+    // Snapshot the current show's real livestream id BEFORE any further awaits
+    // (which could let a background request change lastLiveId). At this point the
+    // load query for the displayed show has already fired, and we haven't yet
+    // navigated to the next one, so lastLiveId belongs to this show.
+    const showLiveId = lastLiveId;
+
     // Primary: CSS-based extraction (height:160px metric cards + inline-style title)
     const data = await extractAnalyticsMetrics(page);
-    info(`analytics-nav show ${i + 1}: title="${data.title}" date="${data.dateText}" cards=${data.cardCount} hasOlder=${data.hasOlder}`);
+    info(`analytics-nav show ${i + 1}: title="${data.title}" date="${data.dateText}" cards=${data.cardCount} hasOlder=${data.hasOlder} liveId=${showLiveId || '?'}`);
 
     // Bodytext fallback for title + date — more resilient to style/layout changes.
     // On /account/analytics the selected show title + date appear just before the
@@ -1406,10 +1440,11 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
       title,
       show_date:               parseDateString(dateText),
       show_date_raw:           dateText,
-      // detail_url is intentionally null: the URL live_id is stale here and does not
-      // correspond to the displayed show, so any /dashboard/live/<uuid> we built from
-      // it would point at the wrong show. Order-sync backfills detail_url separately.
-      detail_url:              null,
+      // detail_url is built from the REAL livestream id captured from the show's
+      // load query (not the stale URL live_id). null when no id was seen for this
+      // show — better than a wrong URL. This id also drives per-show order import.
+      detail_url:              showLiveId ? `https://www.whatnot.com/dashboard/live/${showLiveId}` : null,
+      whatnot_live_id:         showLiveId || null,
       gross_revenue:           parseMoney(get('Estimated Sales')),
       whatnot_net:             parseMoney(get('Total Estimated Earnings')),
       completed_earnings:      parseMoney(get('Completed Earnings')),
@@ -1459,7 +1494,9 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
     info(`analytics-nav: advanced to show ${i + 2}`);
   }
 
-  info(`analytics-nav: collected ${results.length} shows total`);
+  page.off('request', liveIdHandler);
+  const withId = results.filter(r => r.whatnot_live_id).length;
+  info(`analytics-nav: collected ${results.length} shows total (${withId} with a resolved livestream id)`);
   return results;
 }
 

@@ -410,28 +410,31 @@ async function ensureSellerMode(page) {
     }
   }
 
-  info('ensureSellerMode: clicking "Switch to Selling" in nav drawer');
-  // Extract the href first — navigating directly avoids React pointer-events issues.
-  const switchHref = await switchLoc.evaluate(el => {
-    let node = el;
-    for (let i = 0; i < 8; i++) {
-      if (!node) break;
-      if (node.tagName === 'A' && node.href) return node.href;
-      node = node.parentElement;
-    }
-    return null;
-  }).catch(() => null);
+  // IMPORTANT: click the element — do NOT navigate directly to its href.
+  // "Switch to Selling" has a React onClick that makes a server-side mode-switch
+  // API call before navigating. Direct page.goto(href) skips that call entirely
+  // and leaves the session in buyer mode even though the URL changes to /dashboard.
+  info('ensureSellerMode: clicking "Switch to Selling" — letting React fire mode-switch API call');
+  const clicked = await switchLoc.click({ force: true, timeout: 10000 })
+    .then(() => true)
+    .catch(() => false);
 
-  if (switchHref && /^https?:\/\//.test(switchHref)) {
-    info('ensureSellerMode: navigating to "Switch to Selling" href:', switchHref);
-    await page.goto(switchHref, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
-  } else {
-    await switchLoc.click({ force: true, timeout: 10000 }).catch(async () => {
-      await switchLoc.evaluate(el => el.click()).catch(() => {});
-    });
+  if (!clicked) {
+    info('ensureSellerMode: force click failed — falling back to evaluate click on anchor/button');
+    await switchLoc.evaluate(el => {
+      let node = el;
+      for (let i = 0; i < 8; i++) {
+        if (!node) break;
+        if (node.tagName === 'A' || node.tagName === 'BUTTON') { node.click(); return; }
+        node = node.parentElement;
+      }
+      el.click();
+    }).catch(() => {});
   }
-  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
-  await page.waitForTimeout(1500);
+
+  // Wait for the React mode-switch to complete and page to settle
+  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+  await page.waitForTimeout(2000);
   await debugShot(page, 'seller-mode-04-after-switch-to-selling');
 
   // ── Verify: /seller/shows loads without 404 ───────────────────────────────────

@@ -30,4 +30,12 @@ Schedule::command('whatnot:import-orders --new-only')
     ->name('whatnot-import-orders-backfill')
     ->withoutOverlapping(30);
 
+// Daily Whatnot ledger pull — grabs the last 8 days so late-completing entries
+// are caught (dedup keeps re-scraped rows from duplicating). Runs at :52, clear
+// of the imports above, so it never contends for the browser profile.
+Schedule::command('whatnot:import-ledger --days=8')
+    ->cron('52 4 * * *')
+    ->name('whatnot-ledger-daily')
+    ->withoutOverlapping(30);
+
 Schedule::command('whatnot:sync')->hourly()->name('whatnot-sync-hourly')->withoutOverlapping(10);

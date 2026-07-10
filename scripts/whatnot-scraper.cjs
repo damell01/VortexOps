@@ -1760,6 +1760,38 @@ function normalizeOrders(rows) {
     }));
 }
 
+// ── Ledger-row extractor (/dashboard/ledger/overview) ─────────────────────────
+// Columns are positional: [Created Date, Amount, Listing ID, Order ID (link),
+// Message, Status, Transaction Type, Completed Date]. The Order ID cell links to
+// /dashboard/orders/<hash>; we keep both the numeric id and the hash.
+async function extractLedgerFromPage(page) {
+  return page.evaluate(() => {
+    const rows = [];
+    for (const tr of document.querySelectorAll('table tbody tr')) {
+      const tds = Array.from(tr.querySelectorAll(':scope > td'));
+      if (tds.length < 7) continue;
+      const txt = (i) => (tds[i]?.innerText || '').trim();
+      const orderA = tds[3]?.querySelector('a[href*="/dashboard/orders/"]');
+      const hash = orderA ? (orderA.getAttribute('href') || '').split('/dashboard/orders/')[1] : null;
+      const created = txt(0);
+      const amount  = txt(1);
+      if (!created && !amount) continue;
+      rows.push({
+        created_date:     created || null,
+        amount:           amount || null,
+        listing_id:       txt(2) || null,
+        order_id:         (orderA ? orderA.textContent : txt(3)).trim() || null,
+        order_hash:       hash || null,
+        message:          txt(4) || null,
+        status:           txt(5) || null,
+        transaction_type: txt(6) || null,
+        completed_date:   txt(7) || null,
+      });
+    }
+    return rows;
+  });
+}
+
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 (async () => {
@@ -2260,6 +2292,72 @@ function normalizeOrders(rows) {
 
       const total = out.reduce((n, s) => n + s.order_count, 0);
       info(`orders-batch: done — ${total} order(s) across ${out.length} show(s)`);
+      writeJsonAndExit(out);
+      return;
+    }
+
+    // ── Mode: ledger ──────────────────────────────────────────────────────────
+    // Scrape the Whatnot financial ledger (/dashboard/ledger/overview) for a date
+    // window (<=31 days, enforced by Whatnot). Sets the Start/End dates via the
+    // "Edit Dates" dialog, then paginates the table. Login/seller-mode/channel
+    // switch already ran above, so this is authenticated on the active channel.
+    if (MODE === 'ledger') {
+      const from = (process.env.WHATNOT_LEDGER_FROM || '').trim();
+      const to   = (process.env.WHATNOT_LEDGER_TO   || '').trim();
+      info(`ledger: scraping window ${from || '(default)'} .. ${to || '(default)'}`);
+
+      await page.goto('https://www.whatnot.com/dashboard/ledger/overview', { waitUntil: 'domcontentloaded', timeout: 30000 });
+      await page.waitForFunction(
+        () => document.querySelector('table tbody tr') !== null || /Ledger|Finances/i.test(document.body.innerText || ''),
+        { timeout: 15000 }
+      ).catch(() => {});
+      await page.waitForTimeout(700);
+
+      // Apply the date window via the "Edit Dates" dialog.
+      if (from && to) {
+        const opened = await page.evaluate(() => {
+          const btn = Array.from(document.querySelectorAll('button'))
+            .find(b => (b.getAttribute('title') || '').trim() === 'Edit Dates' || /edit dates/i.test((b.textContent || '').trim()));
+          if (btn) { btn.click(); return true; }
+          return false;
+        }).catch(() => false);
+        await page.waitForTimeout(600);
+        const dateInputs = await page.$$('input[type="date"]').catch(() => []);
+        if (dateInputs.length >= 2) {
+          await dateInputs[0].fill(from).catch(() => {});
+          await dateInputs[1].fill(to).catch(() => {});
+          await page.evaluate(() => {
+            const btn = Array.from(document.querySelectorAll('button')).find(b => /^update$/i.test((b.textContent || '').trim()));
+            if (btn) btn.click();
+          }).catch(() => {});
+          await page.waitForTimeout(1600);
+        } else {
+          info(`ledger: date inputs not found (opened dialog=${opened}) — scraping default range`);
+        }
+      }
+
+      const byKey = new Map();
+      for (let p = 0; p < 60; p++) {
+        await page.waitForFunction(() => document.querySelector('table tbody tr') !== null, { timeout: 6000 }).catch(() => {});
+        await page.waitForTimeout(350);
+        const rows = await extractLedgerFromPage(page);
+        for (const r of rows) {
+          const key = [r.order_id || '', r.listing_id || '', r.created_date || '', r.amount || '', r.transaction_type || ''].join('|');
+          if (!byKey.has(key)) byKey.set(key, r);
+        }
+        const advanced = await page.evaluate(() => {
+          const svg = document.querySelector('svg[aria-label="Next page"]');
+          let btn = svg ? svg.closest('button') : null;
+          if (!btn) btn = document.querySelector('button[aria-label="Next page"]');
+          if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') { btn.click(); return true; }
+          return false;
+        }).catch(() => false);
+        if (!advanced) break;
+        await page.waitForTimeout(700);
+      }
+
+      const out = [...byKey.values()];
+      info(`ledger: extracted ${out.length} entries for ${from || '?'}..${to || '?'}`);
       writeJsonAndExit(out);
       return;
     }

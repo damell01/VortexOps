@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\Show;
 use App\Models\WhatnotChannel;
+use App\Models\WhatnotLedgerEntry;
 use App\Models\WhatnotShowOrder;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
 
@@ -412,6 +414,147 @@ class WhatnotScraper
             return $map;
         } finally {
             @unlink($srcFile);
+        }
+    }
+
+    /**
+     * Scrape one Whatnot ledger date window (<=31 days) for a channel.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function fetchLedger(string $from, string $to, ?string $channelUsername = null, bool $debug = false): array
+    {
+        $env = $this->baseEnv($debug);
+        $env['WHATNOT_MODE']        = 'ledger';
+        $env['WHATNOT_LEDGER_FROM'] = $from;
+        $env['WHATNOT_LEDGER_TO']   = $to;
+        if ($channelUsername) {
+            $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
+        }
+
+        $process = $this->makeProcess($env, timeout: 900);
+        $process->run();
+
+        $stderr = trim($process->getErrorOutput());
+        $stdout = trim($process->getOutput());
+
+        if ($stderr) {
+            Log::channel('stack')->warning('WhatnotScraper ledger stderr', ['output' => $stderr]);
+            if ($debug) {
+                fwrite(STDERR, $stderr . "\n");
+            }
+        }
+
+        if (! $process->isSuccessful() || empty($stdout)) {
+            return [];
+        }
+
+        $data = json_decode($stdout, true);
+        if (json_last_error() !== JSON_ERROR_NONE || ! is_array($data)) {
+            Log::warning('WhatnotScraper ledger returned invalid JSON', ['error' => json_last_error_msg()]);
+            return [];
+        }
+
+        return $data;
+    }
+
+    /**
+     * Import the Whatnot ledger for a channel across a date range, splitting into
+     * <=31-day windows (Whatnot's max) and deduping on a stable per-row key.
+     *
+     * @return array{created: int, skipped: int, windows: int}
+     */
+    public function importLedger(?WhatnotChannel $channel, string $from, string $to, bool $debug = false): array
+    {
+        $cursor = Carbon::parse($from)->startOfDay();
+        $end    = Carbon::parse($to)->startOfDay();
+
+        $created = 0;
+        $skipped = 0;
+        $windows = 0;
+
+        while ($cursor->lte($end)) {
+            $wEnd = (clone $cursor)->addDays(30);
+            if ($wEnd->gt($end)) {
+                $wEnd = clone $end;
+            }
+            $windows++;
+
+            $rows = $this->fetchLedger($cursor->toDateString(), $wEnd->toDateString(), $channel?->whatnot_username, $debug);
+            foreach ($rows as $row) {
+                if ($this->persistLedgerRow($channel, $row)) {
+                    $created++;
+                } else {
+                    $skipped++;
+                }
+            }
+
+            $cursor = (clone $wEnd)->addDay();
+        }
+
+        Log::info('WhatnotScraper importLedger complete', [
+            'channel' => $channel?->name,
+            'from'    => $from,
+            'to'      => $to,
+            'created' => $created,
+            'skipped' => $skipped,
+            'windows' => $windows,
+        ]);
+
+        return compact('created', 'skipped', 'windows');
+    }
+
+    /**
+     * Persist one scraped ledger row, deduped by a hash of its identifying fields.
+     * Returns true if a new row was created, false if it already existed.
+     */
+    private function persistLedgerRow(?WhatnotChannel $channel, array $row): bool
+    {
+        $amountRaw = $row['amount'] ?? null;
+        $amount = ($amountRaw !== null && $amountRaw !== '')
+            ? (float) str_replace(['$', ',', ' '], '', $amountRaw)   // "-$3.47" → -3.47
+            : null;
+
+        $dedup = md5(implode('|', [
+            $channel?->id ?? '',
+            $row['order_id'] ?? '',
+            $row['listing_id'] ?? '',
+            $row['created_date'] ?? '',
+            $amountRaw ?? '',
+            $row['transaction_type'] ?? '',
+        ]));
+
+        if (WhatnotLedgerEntry::where('dedup_key', $dedup)->exists()) {
+            return false;
+        }
+
+        WhatnotLedgerEntry::create([
+            'whatnot_channel_id' => $channel?->id,
+            'created_date'       => $this->parseWnDateTime($row['created_date'] ?? null),
+            'completed_date'     => $this->parseWnDateTime($row['completed_date'] ?? null),
+            'amount'             => $amount,
+            'listing_id'         => $row['listing_id'] ?? null,
+            'whatnot_order_id'   => $row['order_id'] ?? null,
+            'order_hash'         => $row['order_hash'] ?? null,
+            'message'            => $row['message'] ?? null,
+            'status'             => $row['status'] ?? null,
+            'transaction_type'   => $row['transaction_type'] ?? null,
+            'dedup_key'          => $dedup,
+            'raw_data'           => $row,
+        ]);
+
+        return true;
+    }
+
+    private function parseWnDateTime(?string $s): ?string
+    {
+        if (! $s) {
+            return null;
+        }
+        try {
+            return Carbon::parse($s)->toDateTimeString();
+        } catch (\Throwable) {
+            return null;
         }
     }
 

@@ -53,9 +53,12 @@ class LedgerResource extends Resource
             && ($user?->isAdmin() || $user?->isOwner());
     }
 
+    // Retired from the nav: the Whatnot-fed "Ledger" (WhatnotLedgerResource) is now
+    // the single ledger view. The internal accounting entries remain in the DB and
+    // are still reachable via LedgerService; this resource is just hidden.
     public static function shouldRegisterNavigation(): bool
     {
-        return static::canAccess();
+        return false;
     }
 
     public static function canCreate(): bool   { return false; }

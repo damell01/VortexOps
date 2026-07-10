@@ -2324,24 +2324,32 @@ async function extractLedgerFromPage(page) {
         // The dialog renders in a portal after a short delay — wait for its date
         // inputs to actually mount before filling (a fixed 600ms was too short).
         await page.waitForSelector('input[type="date"]', { timeout: 6000 }).catch(() => {});
-        const dateInputs = await page.$$('input[type="date"]').catch(() => []);
-        if (dateInputs.length >= 2) {
-          // Fill the last two date inputs (the dialog's Start/End) and fire the
-          // events React needs to register the change.
-          const startEl = dateInputs[dateInputs.length - 2];
-          const endEl   = dateInputs[dateInputs.length - 1];
+
+        // Resolve the Start/End inputs by their labels (ids are dynamic); fall back
+        // to the last two date inputs on the page. Use Playwright's fill() ONLY —
+        // it drives the native value setter that React's controlled input tracks.
+        // (A manual el.value=… + dispatch does NOT trigger React onChange and was
+        // leaving the applied range empty, so every window returned nothing.)
+        const inputForLabel = async (labelRx) => {
+          const h = await page.evaluateHandle((rx) => {
+            const re = new RegExp(rx, 'i');
+            const lbl = Array.from(document.querySelectorAll('label')).find(l => re.test((l.textContent || '').trim()));
+            if (lbl) { const id = lbl.getAttribute('for'); if (id) return document.getElementById(id); }
+            return null;
+          }, labelRx);
+          return h.asElement();
+        };
+
+        let startEl = await inputForLabel('^start date$');
+        let endEl   = await inputForLabel('^end date$');
+        if (!startEl || !endEl) {
+          const inputs = await page.$$('input[type="date"]').catch(() => []);
+          if (inputs.length >= 2) { startEl = inputs[inputs.length - 2]; endEl = inputs[inputs.length - 1]; }
+        }
+
+        if (startEl && endEl) {
           await startEl.fill(from).catch(() => {});
           await endEl.fill(to).catch(() => {});
-          await startEl.evaluate((el, v) => {
-            el.value = v;
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-          }, from).catch(() => {});
-          await endEl.evaluate((el, v) => {
-            el.value = v;
-            el.dispatchEvent(new Event('input', { bubbles: true }));
-            el.dispatchEvent(new Event('change', { bubbles: true }));
-          }, to).catch(() => {});
           await page.waitForTimeout(300);
           const updated = await page.evaluate(() => {
             const btn = Array.from(document.querySelectorAll('button')).find(b => /^update$/i.test((b.textContent || '').trim()) && !b.disabled);
@@ -2349,7 +2357,8 @@ async function extractLedgerFromPage(page) {
             return false;
           }).catch(() => false);
           info(`ledger: applied date window ${from}..${to} (update clicked=${updated})`);
-          await page.waitForTimeout(1800);
+          // Let the filtered table re-fetch and settle before extracting.
+          await page.waitForTimeout(2500);
         } else {
           info(`ledger: date inputs not found (opened dialog=${opened}) — scraping default range`);
         }

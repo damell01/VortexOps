@@ -13,6 +13,7 @@ use App\Models\WhatnotChannel;
 use App\Support\AdminModules;
 use Filament\Actions\Action as TableAction;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
@@ -635,6 +636,8 @@ class ShowResource extends Resource
             ->bulkActions([
                 BulkActionGroup::make([
                     ExportBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->visible(fn () => auth()->user()?->isAdmin()),
                 ]),
             ]);
     }

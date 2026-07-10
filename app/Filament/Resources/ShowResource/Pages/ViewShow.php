@@ -13,6 +13,7 @@ use App\Services\WhatnotScraper;
 use App\Support\AdminModules;
 use Filament\Actions\EditAction;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -69,6 +70,11 @@ class ViewShow extends ViewRecord
                 ->url(fn () => route('export.show-pl-pdf', ['show' => $this->record->id]))
                 ->openUrlInNewTab(),
 
+            // Secondary/contextual actions live in a "More actions" dropdown so the
+            // header row never overflows (12 buttons inline was cutting off the last
+            // ones and forcing horizontal scroll). Each action keeps its own
+            // visibility rules, so the dropdown only lists what's currently relevant.
+            ActionGroup::make([
             Action::make('inventory_breakdown')
                 ->label('Inventory Breakdown')
                 ->icon('heroicon-o-chart-bar-square')
@@ -290,6 +296,11 @@ class ViewShow extends ViewRecord
                             ->send();
                     }
                 }),
+            ])
+                ->label('More actions')
+                ->icon('heroicon-o-ellipsis-horizontal')
+                ->button()
+                ->color('gray'),
 
             EditAction::make(),
         ];

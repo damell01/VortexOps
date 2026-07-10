@@ -601,6 +601,31 @@ async function switchToChannel(page, channelName) {
   info('switchToChannel: done, URL now:', page.url());
 }
 
+// ── Detect the currently-active seller channel ────────────────────────────────
+// The seller dashboard nav renders the active channel as an "@username" anchor
+// pointing at /user/<username>. We read it to decide whether a channel switch is
+// actually needed — ensureSellerMode always lands on the account's PRIMARY
+// channel, so for any other channel we must still switch even though seller mode
+// is already active.
+async function getActiveChannelUsername(page) {
+  return page.evaluate(() => {
+    for (const a of document.querySelectorAll('a[href^="/user/"]')) {
+      const text = (a.textContent || '').trim();
+      if (text.startsWith('@')) {
+        const m = (a.getAttribute('href') || '').match(/^\/user\/([^/?#]+)/);
+        if (m) return m[1];
+      }
+    }
+    return null;
+  }).catch(() => null);
+}
+
+// Normalize a channel name/username for comparison: lowercase, strip @, spaces,
+// and punctuation so "Vortex Breaks", "@vortexbreaks", "vortex_breaks" all match.
+function normalizeChannelKey(s) {
+  return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
 // ── Extract all metric cards from the current analytics page view ─────────────
 
 async function extractAnalyticsMetrics(page) {
@@ -1660,12 +1685,19 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
       }
     }
 
-    // Switch to the target channel before scraping (skipped for test/cookie modes and
-    // when ensureSellerMode already navigated us into the seller dashboard directly).
-    if (MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && CHANNEL_NAME && !global._sellerModeActive) {
-      await switchToChannel(page, CHANNEL_NAME);
-    } else if (global._sellerModeActive) {
-      info('switchToChannel: skipped — ensureSellerMode already activated seller mode');
+    // Switch to the target channel before scraping. ensureSellerMode always lands
+    // on the account's PRIMARY channel, so for all-channels imports we must still
+    // switch when the requested channel differs — checking the active @username
+    // instead of blindly skipping whenever seller mode is active (which would
+    // scrape the primary channel for every channel).
+    if (MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && CHANNEL_NAME) {
+      const active = await getActiveChannelUsername(page);
+      if (active && normalizeChannelKey(active) === normalizeChannelKey(CHANNEL_NAME)) {
+        info(`switchToChannel: already on target channel @${active} — no switch needed`);
+      } else {
+        info(`switchToChannel: active=@${active || '?'} target=@${CHANNEL_NAME} — switching`);
+        await switchToChannel(page, CHANNEL_NAME);
+      }
     }
 
     // ── Mode: cookie-test ────────────────────────────────────────────────────

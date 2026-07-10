@@ -385,13 +385,19 @@ async function ensureSellerMode(page) {
   // ── Step 2: Switch Role → select Vortex Breaks ───────────────────────────────
   info('ensureSellerMode: calling switchToChannel("' + CHANNEL_NAME + '")');
   await switchToChannel(page, CHANNEL_NAME);
-  await page.waitForTimeout(1000);
+  // switchToChannel already waits for Seller Hub to appear; give a small buffer.
+  await page.waitForTimeout(500);
   await debugShot(page, 'seller-mode-03-after-switch-role');
 
   // ── Step 3: click Seller Hub to enter the seller dashboard ───────────────────
   // After switching channel the nav shows "Seller Hub". Clicking it lands on the
   // seller dashboard where all seller-side nav links (Shows, Orders, etc.) are visible.
   const sellerHubLoc = page.getByText('Seller Hub', { exact: true }).first();
+  // If not yet visible, wait up to 5s for the React nav to re-render after role switch.
+  if (!await sellerHubLoc.isVisible().catch(() => false)) {
+    info('ensureSellerMode: waiting for Seller Hub to appear in nav...');
+    await sellerHubLoc.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+  }
   if (await sellerHubLoc.isVisible().catch(() => false)) {
     info('ensureSellerMode: clicking Seller Hub');
     const hubHref = await sellerHubLoc.evaluate(el => {
@@ -546,18 +552,48 @@ async function switchToChannel(page, channelName) {
   await debugShot(page, 'role-switch-03-role-list');
 
   // ── Click the target channel ──────────────────────────────────────────────────
-  const target = page.getByText(channelName, { exact: false }).first();
-  if (!await target.isVisible().catch(() => false)) {
+  // Dump visible text so we can diagnose what the role picker shows.
+  const roleListText = await page.evaluate(() => (document.body.innerText || '').substring(0, 600)).catch(() => '');
+  info('switchToChannel: role list text:', roleListText.substring(0, 400));
+
+  // Try multiple name variants — handles cases where the caller passes
+  // "VortexBreaks" (camelCase) but the UI shows "Vortex Breaks" (spaced).
+  const nameVariants = [...new Set([
+    channelName,
+    channelName.replace(/([a-z])([A-Z])/g, '$1 $2'),   // VortexBreaks → Vortex Breaks
+    channelName.replace(/([A-Z])/g, ' $1').trim(),      // ABCBreaks → A B C Breaks
+  ])];
+
+  let target = null;
+  for (const variant of nameVariants) {
+    const loc = page.getByText(variant, { exact: false }).first();
+    if (await loc.isVisible().catch(() => false)) {
+      info(`switchToChannel: found channel option matching "${variant}"`);
+      target = loc;
+      break;
+    }
+  }
+
+  if (!target) {
     await debugShot(page, 'role-switch-failed-channel');
-    info(`switchToChannel: WARNING — "${channelName}" not found in role list, continuing on active channel`);
+    info(`switchToChannel: WARNING — channel "${channelName}" (variants: ${nameVariants.join(', ')}) not found in role list`);
+    info('switchToChannel: role list text was:', roleListText.substring(0, 300));
     return;
   }
 
-  info(`switchToChannel: clicking channel "${channelName}"`);
+  info(`switchToChannel: clicking channel option`);
   await target.click({ force: true, timeout: 8000 }).catch(async () => {
     await target.evaluate(el => el.click()).catch(() => {});
   });
-  await page.waitForTimeout(2500);
+
+  // Wait for the role switch to take effect: the nav re-renders and "Seller Hub" appears.
+  // Use waitForFunction instead of a fixed delay so we don't over-wait.
+  await page.waitForFunction(
+    () => document.body.innerText.includes('Seller Hub'),
+    { timeout: 6000 }
+  ).catch(() => {
+    info('switchToChannel: Seller Hub not found after channel click (may need more time or click was wrong element)');
+  });
   await debugShot(page, 'role-switch-04-done');
   info('switchToChannel: done, URL now:', page.url());
 }

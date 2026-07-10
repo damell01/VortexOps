@@ -393,80 +393,94 @@ async function ensureSellerMode(page) {
     await debugShot(page, 'seller-mode-03-no-menu-btn');
   }
 
-  // ── Step 3: click "Switch to Selling" from within the open drawer ────────────
-  const switchLoc = page.getByText('Switch to Selling', { exact: true }).first();
-  if (!await switchLoc.isVisible().catch(() => false)) {
-    // Also try case-insensitive / inexact match as fallback
-    const switchLocFuzzy = page.getByText('Switch to Selling', { exact: false }).first();
-    const drawerText = await page.evaluate(() => (document.body.innerText || '').substring(0, 600)).catch(() => '');
-    info('ensureSellerMode: "Switch to Selling" not found in drawer. Drawer text:', drawerText.substring(0, 400));
+  // ── Step 3: click the "Switch to Selling" anchor ────────────────────────────
+  // IMPORTANT: target the <a> element, not a child span.
+  // getByText/getByRole often resolves to an inner <span> whose click event
+  // does NOT trigger React Router's onClick (which lives on the <a>).
+  // We use page.evaluate to find the anchor by text and call .click() directly
+  // so the browser fires it as a trusted click including default navigation.
+  info('ensureSellerMode: locating "Switch to Selling" <a> anchor in drawer');
+  const drawerText = await page.evaluate(() => (document.body.innerText || '').substring(0, 600)).catch(() => '');
+  if (!/switch to selling/i.test(drawerText)) {
+    info('ensureSellerMode: "Switch to Selling" not in drawer text — drawer may not be open');
+    info('ensureSellerMode: drawer text:', drawerText.substring(0, 300));
     await debugShot(page, 'seller-mode-03b-no-switch-to-selling');
-
-    if (!await switchLocFuzzy.isVisible().catch(() => false)) {
-      throw new Error(
-        '"Switch to Selling" not found in nav drawer — check /tmp/whatnot-debug-seller-mode-*.png\n' +
-        'Drawer text: ' + drawerText.substring(0, 300)
-      );
-    }
+    throw new Error('"Switch to Selling" not found in open nav drawer.\nDrawer text: ' + drawerText.substring(0, 300));
   }
 
-  // IMPORTANT: click the element — do NOT navigate directly to its href.
-  // "Switch to Selling" has a React onClick that makes a server-side mode-switch
-  // API call before navigating. Direct page.goto(href) skips that call entirely
-  // and leaves the session in buyer mode even though the URL changes to /dashboard.
-  info('ensureSellerMode: clicking "Switch to Selling" — letting React fire mode-switch API call');
-  const clicked = await switchLoc.click({ force: true, timeout: 10000 })
-    .then(() => true)
-    .catch(() => false);
+  // Set up URL-change listener BEFORE the click so we catch the navigation
+  const navPromise = page.waitForURL(u => u.includes('/dashboard'), { timeout: 8000 }).catch(() => null);
 
-  if (!clicked) {
-    info('ensureSellerMode: force click failed — falling back to evaluate click on anchor/button');
-    await switchLoc.evaluate(el => {
-      let node = el;
-      for (let i = 0; i < 8; i++) {
-        if (!node) break;
-        if (node.tagName === 'A' || node.tagName === 'BUTTON') { node.click(); return; }
-        node = node.parentElement;
-      }
-      el.click();
-    }).catch(() => {});
+  info('ensureSellerMode: JS-clicking <a> "Switch to Selling" to trigger React Router navigation');
+  const anchorFound = await page.evaluate(() => {
+    // Walk all anchors, find the one whose text content matches "Switch to Selling"
+    const anchors = Array.from(document.querySelectorAll('a'));
+    const target   = anchors.find(a => /switch\s+to\s+selling/i.test((a.textContent || '').trim()));
+    if (!target) return false;
+    target.click();   // fires onClick (React Router) + default browser navigation
+    return true;
+  }).catch(() => false);
+
+  if (!anchorFound) {
+    // No <a> — fall back to the Playwright locator
+    info('ensureSellerMode: no <a> anchor found, falling back to Playwright locator click');
+    const switchLoc = page.getByText('Switch to Selling', { exact: false }).first();
+    await switchLoc.click({ force: true, timeout: 10000 }).catch(async () => {
+      await switchLoc.evaluate(el => {
+        let node = el;
+        for (let i = 0; i < 8; i++) {
+          if (!node) break;
+          if (node.tagName === 'A' || node.tagName === 'BUTTON') { node.click(); return; }
+          node = node.parentElement;
+        }
+        el.click();
+      }).catch(() => {});
+    });
   }
 
-  // Wait for the React mode-switch to complete and page to settle
+  // Wait for React Router to navigate to /dashboard (seller dashboard)
+  const navigated = await navPromise;
+  info('ensureSellerMode: navigation to /dashboard:', navigated ? 'YES — ' + page.url() : 'NO (URL stayed at ' + page.url() + ')');
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(1500);
   await debugShot(page, 'seller-mode-04-after-switch-to-selling');
 
-  // ── Verify seller mode from the current page ──────────────────────────────────
-  // Do NOT hard-navigate to /seller/shows for verification — that's a Next.js SSR
-  // route that 404s when hit directly as a team member (server can't determine the
-  // active channel context). Instead check the current URL/page after the click:
-  // landing on /dashboard confirms the mode switch fired correctly.
+  // ── Verify: check current URL and page content ────────────────────────────────
   const postClickUrl  = page.url();
   const postClickText = await page.evaluate(() => (document.body.innerText || '').substring(0, 600)).catch(() => '');
   info('ensureSellerMode: post-click URL:', postClickUrl);
   info('ensureSellerMode: post-click text (first 200):', postClickText.substring(0, 200));
   await debugShot(page, 'seller-mode-05-post-click-verify');
 
-  const sellerModeConfirmed =
-    /\/dashboard|\/seller\/hub|\/creator/i.test(postClickUrl) ||
-    /seller hub|your shows|schedule a show|go live/i.test(postClickText);
-
-  if (!sellerModeConfirmed) {
-    // Still showing buyer-mode marketing page
-    if (/for brands|start selling on whatnot/i.test(postClickText)) {
-      throw new Error(
-        '"Switch to Selling" clicked but still in buyer mode.\n' +
-        'URL: ' + postClickUrl + '\n' +
-        'Page text: ' + postClickText.substring(0, 300)
-      );
-    }
-    // Ambiguous — log and continue; the main scraping URL attempts will sort it out
-    info('ensureSellerMode: could not confirm seller mode from URL/text — proceeding anyway');
-    info('ensureSellerMode: URL:', postClickUrl, '| text:', postClickText.substring(0, 150));
-  } else {
-    info('ensureSellerMode: seller mode confirmed — URL:', postClickUrl);
+  if (postClickUrl.includes('/dashboard')) {
+    info('ensureSellerMode: seller mode confirmed — landed on seller dashboard:', postClickUrl);
+    // Signal to the main flow so switchToChannel is skipped (already in seller mode)
+    global._sellerModeActive = true;
+    return;
   }
+
+  // URL didn't change — try navigating to /dashboard directly to confirm if mode is set
+  info('ensureSellerMode: URL did not change to /dashboard; trying page.goto /dashboard to verify');
+  await page.goto('https://www.whatnot.com/dashboard', { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+  await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+  await debugShot(page, 'seller-mode-06-dashboard-direct');
+
+  const dashText = await page.evaluate(() => (document.body.innerText || '').substring(0, 400)).catch(() => '');
+  info('ensureSellerMode: /dashboard text:', dashText.substring(0, 200));
+
+  // In seller mode the dashboard shows "Switch to Buying" in the nav.
+  // In buyer mode it shows "Switch to Selling" or the marketing page text.
+  if (/switch to buying/i.test(dashText) || !/for brands|start selling on whatnot|switch to selling/i.test(dashText)) {
+    info('ensureSellerMode: seller mode confirmed via /dashboard content');
+    global._sellerModeActive = true;
+    return;
+  }
+
+  throw new Error(
+    '"Switch to Selling" clicked but /dashboard still shows buyer content.\n' +
+    'URL: ' + page.url() + '\n' +
+    'Text: ' + dashText.substring(0, 300)
+  );
 }
 
 // ── Role / channel switcher ───────────────────────────────────────────────────
@@ -1430,9 +1444,12 @@ async function runWsExploreStandalone(cookiesFilePath) {
       }
     }
 
-    // Switch to the target channel before scraping (skipped for test/cookie modes)
-    if (MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && CHANNEL_NAME) {
+    // Switch to the target channel before scraping (skipped for test/cookie modes and
+    // when ensureSellerMode already navigated us into the seller dashboard directly).
+    if (MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && CHANNEL_NAME && !global._sellerModeActive) {
       await switchToChannel(page, CHANNEL_NAME);
+    } else if (global._sellerModeActive) {
+      info('switchToChannel: skipped — ensureSellerMode already activated seller mode');
     }
 
     // ── Mode: cookie-test ────────────────────────────────────────────────────
@@ -2317,15 +2334,22 @@ async function runWsExploreStandalone(cookiesFilePath) {
     if (MODE === 'analytics' || MODE === 'shows') {
       const isAnalytics = MODE === 'analytics';
 
-      // URL priority for show data:
-      //   1. /dashboard/shows  — team-member-accessible shows list (works with direct navigation)
-      //   2. /seller/shows     — SSR route that 404s for team members on direct nav; kept as fallback
-      //   3. analytics overview — individual show analytics cards (Kasada-blocked in practice)
+      // URL priority for show data.  When ensureSellerMode already landed us on
+      // /dashboard, start there so we stay in seller-mode SPA context.
+      //   1. /dashboard        — seller dashboard (we're already here after Switch to Selling)
+      //   2. /dashboard/shows  — shows list within dashboard
+      //   3. /seller/shows     — SSR route that 404s for team members on direct nav; kept as fallback
+      //   4. analytics overview — individual show analytics cards (Kasada-blocked in practice)
       const analyticsUrlCandidates = isAnalytics ? [
+        global._sellerModeActive ? URLS.dashboard : URLS.dashboardShows,
         URLS.dashboardShows,
         URLS.shows,
         URLS.analytics,
-      ] : [URLS.dashboardShows, URLS.shows];
+      ] : [
+        global._sellerModeActive ? URLS.dashboard : URLS.dashboardShows,
+        URLS.dashboardShows,
+        URLS.shows,
+      ];
 
       function isLoginUrl(u) {
         return /\/(login|signin|auth)(\/|\?|$)/i.test(u);

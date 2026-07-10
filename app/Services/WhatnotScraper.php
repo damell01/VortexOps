@@ -77,6 +77,10 @@ class WhatnotScraper
 
         if ($stderr) {
             Log::channel('stack')->warning('WhatnotScraper stderr', ['output' => $stderr, 'channel' => $channelUsername]);
+            if ($debug) {
+                // Echo stderr so `php artisan whatnot:import --debug` shows [whatnot] lines
+                fwrite(STDERR, $stderr . "\n");
+            }
         }
 
         if ($process->getExitCode() === 2) {

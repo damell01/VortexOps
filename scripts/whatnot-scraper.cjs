@@ -753,13 +753,15 @@ async function extractShowsListFromDom(page) {
     // The lookahead (?=[?#]|$) requires the ID to be the final path segment —
     // sub-page links like /seller/shows/<id>/analytics would otherwise match
     // and return "Analytics" as the show title.
-    // Whatnot show URL patterns: /live/<user>/<id>, /show/<id>, /seller/shows/<id>
+    // Whatnot show URL patterns: /live/<user>/<id>, /show/<id>, /seller/shows/<id>,
+    // /dashboard/shows/<id>  (the pattern used on the /dashboard/shows list page)
     const anchors = Array.from(document.querySelectorAll('a[href]'));
     for (const a of anchors) {
       const href = a.getAttribute('href') || '';
       if (!(/\/live\/[^/]+\/[^/?#\s]+(?=[?#]|$)/.test(href) ||
             /\/show\/[\w-]+(?=[?#]|$)/.test(href) ||
-            /\/seller\/shows\/[\w-]+(?=[?#]|$)/.test(href))) continue;
+            /\/seller\/shows\/[\w-]+(?=[?#]|$)/.test(href) ||
+            /\/dashboard\/shows\/[\w-]+(?=[?#]|$)/.test(href))) continue;
       const fullUrl = href.startsWith('http') ? href : 'https://www.whatnot.com' + href;
       if (addedUrls.has(fullUrl)) continue;
       addedUrls.add(fullUrl);
@@ -2495,6 +2497,11 @@ async function runWsExploreStandalone(cookiesFilePath) {
 
         const listShows = await extractShowsListFromDom(page);
         info('shows-list DOM: found', listShows.length, 'show links on', currentPageUrl);
+        if (listShows.length > 0) {
+          info('shows-list DOM: first 3 raw results:', JSON.stringify(
+            listShows.slice(0, 3).map(s => ({ title: s.title, show_date: s.show_date, detail_url: s.detail_url }))
+          ));
+        }
 
         if (listShows.length > 0) {
           const normalized = listShows.slice(0, LIMIT).filter(s => s.title || s.show_date);

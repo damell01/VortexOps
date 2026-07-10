@@ -361,52 +361,40 @@ async function ensureSellerMode(page) {
     (document.body.innerText || '').substring(0, 600)
   ).catch(() => '');
 
-  // "For Brands / Start Selling on Whatnot" = the seller marketing page (buyer mode).
+  // "For Brands / Start Selling on Whatnot" = the buyer-mode marketing page.
   if (!/for brands|start selling on whatnot/i.test(pageText)) return;
 
-  info('ensureSellerMode: buyer mode detected — trying to activate seller context');
+  info('ensureSellerMode: buyer mode detected — following manual flow: Switch Role → Seller Hub');
   await debugShot(page, 'seller-mode-01-buyer-mode');
 
-  let switched = false;
+  if (!CHANNEL_NAME) {
+    throw new Error(
+      'Session is in buyer mode. Pass --channel="Vortex Breaks" so the scraper can switch to the seller account.\n' +
+      'Example: php artisan whatnot:import --channel="Vortex Breaks"'
+    );
+  }
 
-  // Strategy 1: click "Switch to Selling" in the seller nav header.
-  //
-  // Key discovery: the /seller MARKETING PAGE has a buyer-mode header with NO
-  // "Switch to Selling" nav element. But the /seller/shows 404 PAGE renders with
-  // the seller-context nav header which DOES include "Switch to Selling".
-  //
-  // Procedure: navigate to /seller/shows (gets the 404 page + seller nav), find
-  // "Switch to Selling" via getByText() (any element type — it's a React component),
-  // click it, then verify seller mode activated.
-  //
-  // Do NOT click "Start Selling" — that is the marketing CTA for /apply-to-sell/seller
-  // (onboarding for a new individual seller), not the team-channel toggle we need.
-  for (const probeUrl of [null, 'https://www.whatnot.com/seller/shows']) {
-    if (probeUrl) {
-      info('ensureSellerMode: navigating to', probeUrl, 'to reach page with seller nav');
-      await page.goto(probeUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-      await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
-      await debugShot(page, 'seller-mode-01b-shows-404');
-    }
+  // ── Step 1: navigate to the logged-in homepage (not /seller) ─────────────────
+  // /seller shows a marketing page in buyer mode with no usable profile drawer.
+  // The regular homepage renders the logged-in nav where the avatar → Switch Role flow works.
+  info('ensureSellerMode: navigating to https://www.whatnot.com for profile drawer access');
+  await page.goto('https://www.whatnot.com', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+  await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
+  await debugShot(page, 'seller-mode-02-homepage');
 
-    const probe = await page.evaluate(() =>
-      (document.body.innerText || '').substring(0, 300)
-    ).catch(() => '');
+  // ── Step 2: Switch Role → select Vortex Breaks ───────────────────────────────
+  info('ensureSellerMode: calling switchToChannel("' + CHANNEL_NAME + '")');
+  await switchToChannel(page, CHANNEL_NAME);
+  await page.waitForTimeout(1000);
+  await debugShot(page, 'seller-mode-03-after-switch-role');
 
-    if (!/switch to selling/i.test(probe)) {
-      info('ensureSellerMode: "Switch to Selling" not in page text on', page.url());
-      continue;
-    }
-
-    const switchLocator = page.getByText('Switch to Selling', { exact: true }).first();
-    if (!await switchLocator.isVisible().catch(() => false)) {
-      info('ensureSellerMode: "Switch to Selling" in text but element not visible on', page.url());
-      continue;
-    }
-
-    // Prefer navigating to the <a> href directly — avoids click actionability failures
-    // caused by React overlays or pointer-events issues on the 404 page.
-    const switchHref = await switchLocator.evaluate(el => {
+  // ── Step 3: click Seller Hub to enter the seller dashboard ───────────────────
+  // After switching channel the nav shows "Seller Hub". Clicking it lands on the
+  // seller dashboard where all seller-side nav links (Shows, Orders, etc.) are visible.
+  const sellerHubLoc = page.getByText('Seller Hub', { exact: true }).first();
+  if (await sellerHubLoc.isVisible().catch(() => false)) {
+    info('ensureSellerMode: clicking Seller Hub');
+    const hubHref = await sellerHubLoc.evaluate(el => {
       let node = el;
       for (let i = 0; i < 8; i++) {
         if (!node) break;
@@ -415,76 +403,35 @@ async function ensureSellerMode(page) {
       }
       return null;
     }).catch(() => null);
-
-    if (switchHref && /^https?:\/\//.test(switchHref)) {
-      info('ensureSellerMode: navigating to Switch to Selling href:', switchHref);
-      await page.goto(switchHref, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+    if (hubHref && /^https?:\/\//.test(hubHref)) {
+      info('ensureSellerMode: navigating to Seller Hub href:', hubHref);
+      await page.goto(hubHref, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
     } else {
-      info('ensureSellerMode: force-clicking "Switch to Selling" on', page.url());
-      await switchLocator.click({ force: true, timeout: 10000 }).catch(async (e) => {
-        info('ensureSellerMode: click failed (' + e.message.substring(0, 80) + '), trying JS click');
-        await switchLocator.evaluate(el => el.click()).catch(() => {});
+      await sellerHubLoc.click({ force: true, timeout: 10000 }).catch(async () => {
+        await sellerHubLoc.evaluate(el => el.click()).catch(() => {});
       });
     }
     await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
     await page.waitForTimeout(1500);
-    await debugShot(page, 'seller-mode-02-after-switch-to-selling');
-
-    const newText = await page.evaluate(() =>
-      (document.body.innerText || '').substring(0, 400)
-    ).catch(() => '');
-    if (!/for brands|start selling on whatnot/i.test(newText)) {
-      info('ensureSellerMode: seller mode activated — URL now', page.url());
-      switched = true;
-      break;
-    }
-    info('ensureSellerMode: clicked but still in buyer mode — page:', page.url());
+    await debugShot(page, 'seller-mode-04-seller-hub');
+  } else {
+    info('ensureSellerMode: Seller Hub not visible after role switch — checking mode anyway');
   }
 
-  // Strategy 2: open the profile drawer and switch to the seller channel by name.
-  // This is the canonical path for team members (Switch Role → channel name).
-  // Requires CHANNEL_NAME (pass --channel="Vortex Breaks" to the artisan command).
-  if (!switched && CHANNEL_NAME) {
-    info('ensureSellerMode: calling switchToChannel("' + CHANNEL_NAME + '")');
-    try {
-      // switchToChannel needs to be on a page with the seller nav visible.
-      // Navigate to /seller (the team may still have a nav header there with avatar).
-      if (!/whatnot\.com\/seller$/i.test(page.url())) {
-        await page.goto('https://www.whatnot.com/seller', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
-        await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
-      }
-      await switchToChannel(page, CHANNEL_NAME);
-      await page.waitForTimeout(1000);
-      const newText = await page.evaluate(() =>
-        (document.body.innerText || '').substring(0, 400)
-      ).catch(() => '');
-      if (!/for brands|start selling on whatnot/i.test(newText)) {
-        info('ensureSellerMode: channel switch succeeded — seller mode active, URL:', page.url());
-        switched = true;
-      } else {
-        info('ensureSellerMode: channel switch ran but still in buyer mode');
-      }
-    } catch (e) {
-      info('ensureSellerMode: switchToChannel threw:', e.message.substring(0, 100));
-    }
-  } else if (!switched) {
-    info('ensureSellerMode: CHANNEL_NAME not set — skipping channel switcher');
-  }
-
-  if (!switched) {
-    const snippet = await page.evaluate(() =>
-      (document.body.innerText || '').substring(0, 300)
-    ).catch(() => '');
+  // ── Verify ────────────────────────────────────────────────────────────────────
+  const finalText = await page.evaluate(() =>
+    (document.body.innerText || '').substring(0, 400)
+  ).catch(() => '');
+  if (/for brands|start selling on whatnot/i.test(finalText)) {
+    const snippet = finalText.substring(0, 300);
     throw new Error(
-      'Session is in buyer mode and seller mode could not be activated.\n' +
-      'The logged-in account appears to be a team member (not the primary seller).\n' +
-      'Fix options:\n' +
-      '  1. Export cookies from a browser already in seller mode (click "Switch to Selling"\n' +
-      '     on https://www.whatnot.com/seller/shows), then run: php artisan whatnot:login\n' +
-      '  2. Pass --channel="Vortex Breaks" so the scraper tries the profile-drawer Switch Role.\n' +
+      'Still in buyer mode after Switch Role + Seller Hub attempt.\n' +
+      'Check debug screenshots in /tmp/whatnot-debug-seller-mode-*.png\n' +
       'Page text: ' + snippet
     );
   }
+
+  info('ensureSellerMode: seller mode active — URL now', page.url());
 }
 
 // ── Role / channel switcher ───────────────────────────────────────────────────
@@ -549,30 +496,40 @@ async function switchToChannel(page, channelName) {
     await page.waitForTimeout(300);
   }
 
-  // Step 2 — if drawer didn't open via UI triggers, force-click the element
-  // via JavaScript (bypasses the viewport restriction as a last resort)
-  const switchBtn = await page.$(SWITCH_ROLE_SEL).catch(() => null);
-  if (!drawerOpened) {
-    if (switchBtn) {
-      info('switchToChannel: fallback — JS-clicking Switch Role (outside viewport)');
-      await page.evaluate(sel => {
-        const el = document.querySelector(sel);
-        if (el) el.click();
-      }, SWITCH_ROLE_SEL);
-      await page.waitForTimeout(1000);
-    } else {
-      info('switchToChannel: WARNING — Switch Role element not in DOM, continuing on active channel');
-      return;
-    }
-  }
-
+  // Step 2 — find and click Switch Role
   await debugShot(page, 'role-switch-02-drawer-open');
 
-  // If the drawer was opened via UI trigger, we still need to click Switch Role.
-  // If we used the JS fallback above, it was already clicked — skip.
-  if (drawerOpened && switchBtn) {
-    info('switchToChannel: clicking Switch Role button');
-    await switchBtn.click();
+  const switchBtn = await page.$(SWITCH_ROLE_SEL).catch(() => null);
+  const switchRoleByText = page.getByText('Switch Role', { exact: true }).first();
+  const switchRoleVisible = await switchRoleByText.isVisible().catch(() => false);
+
+  if (drawerOpened && (switchBtn || switchRoleVisible)) {
+    // Drawer is open — click Switch Role
+    if (switchRoleVisible) {
+      info('switchToChannel: clicking "Switch Role" by text');
+      await switchRoleByText.click({ force: true, timeout: 8000 }).catch(async () => {
+        await switchRoleByText.evaluate(el => el.click()).catch(() => {});
+      });
+    } else {
+      info('switchToChannel: clicking Switch Role by selector');
+      await switchBtn.click();
+    }
+  } else if (switchBtn) {
+    // Drawer not opened via avatar (or element off-viewport) — JS-click directly
+    info('switchToChannel: fallback — JS-clicking Switch Role (outside viewport)');
+    await page.evaluate(sel => {
+      const el = document.querySelector(sel);
+      if (el) el.click();
+    }, SWITCH_ROLE_SEL);
+  } else if (switchRoleVisible) {
+    info('switchToChannel: clicking "Switch Role" by text (no ID found)');
+    await switchRoleByText.click({ force: true, timeout: 8000 }).catch(async () => {
+      await switchRoleByText.evaluate(el => el.click()).catch(() => {});
+    });
+  } else {
+    info('switchToChannel: WARNING — Switch Role not found (ID or text), drawer may not have opened');
+    await debugShot(page, 'role-switch-no-switch-role');
+    return;
   }
   await page.waitForTimeout(2000);
   await debugShot(page, 'role-switch-03-role-list');
@@ -586,7 +543,9 @@ async function switchToChannel(page, channelName) {
   }
 
   info(`switchToChannel: clicking channel "${channelName}"`);
-  await target.click();
+  await target.click({ force: true, timeout: 8000 }).catch(async () => {
+    await target.evaluate(el => el.click()).catch(() => {});
+  });
   await page.waitForTimeout(2500);
   await debugShot(page, 'role-switch-04-done');
   info('switchToChannel: done, URL now:', page.url());

@@ -774,6 +774,10 @@ async function extractShowsListFromDom(page) {
     const anchors = Array.from(document.querySelectorAll('a[href]'));
     for (const a of anchors) {
       const href = a.getAttribute('href') || '';
+      // Exclude known non-show action paths (new, setup, clone, edit, etc.)
+      const isKnownNonShow = /\/dashboard\/lives\/(new|setup|edit|clone|schedule|preview|analytics)(?:[?#]|$)/i.test(href) ||
+                             /\/account\/live\/[^/]+\/clone/.test(href);
+      if (isKnownNonShow) continue;
       if (!(/\/live\/[^/]+\/[^/?#\s]+(?=[?#]|$)/.test(href) ||
             /\/show\/[\w-]+(?=[?#]|$)/.test(href) ||
             /\/seller\/shows\/[\w-]+(?=[?#]|$)/.test(href) ||
@@ -2531,6 +2535,61 @@ async function runWsExploreStandalone(cookiesFilePath) {
         } else {
           info('analytics overview: no [role="tab"] Shows sub-tab found — will rely on API intercept / list DOM');
           await debugShot(page, '06-no-tab');
+        }
+      }
+
+      // ── On /dashboard/lives, click the "Completed" / "Past" tab ────────────
+      // The page defaults to upcoming/scheduled shows. Completed shows are under
+      // a separate tab — click it so the list (and API calls) actually load.
+      if (page.url().includes('/dashboard/lives')) {
+        // Dump visible tabs/buttons so we can see what's available
+        const livesPageTabs = await page.evaluate(() =>
+          Array.from(document.querySelectorAll('[role="tab"], button'))
+            .map(el => ({ tag: el.tagName, text: (el.innerText || el.textContent || '').trim().replace(/\s+/g,' ').substring(0,40), role: el.getAttribute('role') }))
+            .filter(el => el.text)
+        ).catch(() => []);
+        info('/dashboard/lives tabs/buttons:', JSON.stringify(livesPageTabs.slice(0, 20)));
+
+        const completedTabSels = [
+          '[role="tab"]:has-text("Completed")',
+          '[role="tab"]:has-text("Past")',
+          '[role="tab"]:has-text("Ended")',
+          '[role="tab"]:has-text("Past Shows")',
+          '[role="tab"]:has-text("History")',
+          'button:has-text("Completed")',
+          'button:has-text("Past Shows")',
+          'button:has-text("Ended")',
+        ];
+
+        let clickedTab = null;
+        for (const sel of completedTabSels) {
+          const el = await page.$(sel).catch(() => null);
+          if (!el || !await el.isVisible().catch(() => false)) continue;
+          const isSelected = await el.evaluate(e =>
+            e.getAttribute('aria-selected') === 'true' || e.getAttribute('aria-current') === 'true'
+          ).catch(() => false);
+          if (!isSelected) {
+            await el.click().catch(() => {});
+            info('/dashboard/lives: clicked tab via:', sel);
+            await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+            await page.waitForTimeout(1500);
+          } else {
+            info('/dashboard/lives: tab already selected via:', sel);
+          }
+          clickedTab = sel;
+          await debugShot(page, '06a-lives-completed-tab');
+          break;
+        }
+
+        if (!clickedTab) {
+          // Try URL param approach as fallback
+          info('/dashboard/lives: no Completed tab found — trying ?status=completed');
+          await page.goto('https://www.whatnot.com/dashboard/lives?status=completed', {
+            waitUntil: 'domcontentloaded', timeout: 20000
+          }).catch(() => {});
+          await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+          await page.waitForTimeout(1500);
+          await debugShot(page, '06a-lives-status-param');
         }
       }
 

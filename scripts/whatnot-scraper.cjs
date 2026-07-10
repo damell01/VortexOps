@@ -775,14 +775,15 @@ async function extractShowsListFromDom(page) {
     for (const a of anchors) {
       const href = a.getAttribute('href') || '';
       // Exclude known non-show action paths (new, setup, clone, edit, etc.)
-      const isKnownNonShow = /\/dashboard\/lives\/(new|setup|edit|clone|schedule|preview|analytics)(?:[?#]|$)/i.test(href) ||
+      const isKnownNonShow = /\/dashboard\/lives?\/(new|setup|edit|clone|schedule|preview|analytics)(?:[?#]|$)/i.test(href) ||
                              /\/account\/live\/[^/]+\/clone/.test(href);
       if (isKnownNonShow) continue;
       if (!(/\/live\/[^/]+\/[^/?#\s]+(?=[?#]|$)/.test(href) ||
             /\/show\/[\w-]+(?=[?#]|$)/.test(href) ||
             /\/seller\/shows\/[\w-]+(?=[?#]|$)/.test(href) ||
             /\/dashboard\/shows\/[\w-]+(?=[?#]|$)/.test(href) ||
-            /\/dashboard\/lives\/[\w-]+(?=[?#]|$)/.test(href))) continue;
+            /\/dashboard\/lives\/[\w-]+(?=[?#]|$)/.test(href) ||
+            /\/dashboard\/live\/[\w-]+(?=[?#]|$)/.test(href))) continue;
       const fullUrl = href.startsWith('http') ? href : 'https://www.whatnot.com' + href;
       if (addedUrls.has(fullUrl)) continue;
       addedUrls.add(fullUrl);
@@ -2634,7 +2635,22 @@ async function runWsExploreStandalone(cookiesFilePath) {
           await page.evaluate(() => window.scrollBy(0, window.innerHeight));
           await page.waitForTimeout(500);
         }
+        await page.waitForTimeout(1000);  // let scroll-triggered API calls complete
         await debugShot(page, '06-shows-list-scrolled');
+
+        // Second API check — GetDashboardLivestreamsByUserId fires during scroll,
+        // after the first check above, so we must re-check here.
+        const postScrollApiShows = extractShowsFromCapture(capturedApiResponses);
+        if (postScrollApiShows && postScrollApiShows.length > 0) {
+          const normalized = postScrollApiShows.slice(0, LIMIT).map(normalizeApiShow)
+            .filter(r => r.title || r.show_date || r.gross_revenue !== null);
+          if (normalized.length > 0) {
+            process.stdout.write(JSON.stringify(normalized, null, 2) + '\n');
+            info(`API intercept (post-scroll): returned ${normalized.length} shows`);
+            process.exit(0);
+          }
+          info('API intercept (post-scroll): array found but normalization yielded nothing — falling back to DOM');
+        }
 
         const listShows = await extractShowsListFromDom(page);
         info('shows-list DOM: found', listShows.length, 'show links on', currentPageUrl);
@@ -2659,7 +2675,7 @@ async function runWsExploreStandalone(cookiesFilePath) {
           url:      location.href,
           bodyText: (document.body.innerText || '').substring(0, 3000),
           links:    Array.from(document.querySelectorAll('a[href]'))
-                      .filter(a => /\/live\/|\/show\/|\/seller\/shows|\/dashboard\/shows/.test(a.getAttribute('href') || ''))
+                      .filter(a => /\/live\/|\/show\/|\/seller\/shows|\/dashboard\/shows|\/dashboard\/live\//.test(a.getAttribute('href') || ''))
                       .slice(0, 10)
                       .map(a => a.getAttribute('href')),
         }));

@@ -2412,41 +2412,43 @@ async function runWsExploreStandalone(cookiesFilePath) {
           info('landed on seller dashboard home — navigating to Shows via sidebar link');
           await debugShot(page, '05a-dashboard-home');
 
-          // Wait for the sidebar to render
+          // Wait for nav links to render (any links at all)
           await page.waitForFunction(
-            () => Array.from(document.querySelectorAll('a[href]'))
-              .some(a => /\/dashboard\/shows/.test(a.getAttribute('href') || '')),
+            () => document.querySelectorAll('a[href]').length > 5,
             { timeout: 10000 }
-          ).catch(() => info('sidebar Shows link did not appear within 10s — attempting anyway'));
+          ).catch(() => {});
 
+          // Dump all anchors so we can see what href the Shows nav link actually has
+          const allAnchors = await page.evaluate(() =>
+            Array.from(document.querySelectorAll('a[href]'))
+              .map(a => ({ text: (a.textContent || '').trim().replace(/\s+/g, ' ').substring(0, 40), href: a.getAttribute('href') }))
+              .filter(l => l.text && l.href)
+          ).catch(() => []);
+          info('dashboard home anchors:', JSON.stringify(allAnchors.slice(0, 30)));
+
+          // Find the "Shows" sidebar nav link by text content (href pattern is unknown)
           const showsHref = await page.evaluate(() => {
             const links = Array.from(document.querySelectorAll('a[href]'));
-            const match = links.find(a => /\/dashboard\/shows/.test(a.getAttribute('href') || ''));
+            // Try href pattern first
+            let match = links.find(a => /\/dashboard\/shows|\/seller\/shows/i.test(a.getAttribute('href') || ''));
+            // Fall back to exact text match for the sidebar "Shows" nav item
+            if (!match) {
+              match = links.find(a => (a.textContent || '').trim() === 'Shows');
+            }
             if (match) { match.click(); return match.getAttribute('href'); }
             return null;
           }).catch(() => null);
 
           if (showsHref) {
-            info('sidebar Shows link clicked:', showsHref);
+            info('sidebar Shows link clicked, href was:', showsHref);
             await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
             await page.waitForTimeout(1000);
             targetUrl = page.url();
             info('after Shows sidebar click, URL:', targetUrl);
             await debugShot(page, '05b-after-shows-click');
           } else {
-            // Fallback: try direct navigation once more (may work from inside the SPA context)
-            info('no sidebar Shows link found — attempting page.goto /dashboard/shows as fallback');
-            await page.goto(URLS.dashboardShows, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
-            await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
-            await page.waitForTimeout(1000);
-            const fallbackText = await page.evaluate(() => (document.body.innerText || '').substring(0, 200)).catch(() => '');
-            if (!/HTTP 404|Page Not Found|does not exist/i.test(fallbackText)) {
-              targetUrl = page.url();
-              info('fallback /dashboard/shows loaded, URL:', targetUrl);
-            } else {
-              info('fallback /dashboard/shows also 404 — will scrape from dashboard home');
-            }
-            await debugShot(page, '05b-shows-fallback');
+            info('no Shows link found by text or href — dumping all anchor hrefs and continuing');
+            await debugShot(page, '05b-no-shows-link');
           }
         }
       }
@@ -2554,10 +2556,14 @@ async function runWsExploreStandalone(cookiesFilePath) {
       // ── Shows-list DOM extraction (for /dashboard/shows and /seller/shows) ──
       // Try this before the metric-card loop because list pages never have metric cards.
       const currentPageUrl = page.url();
+      // Also treat as a list page if targetUrl was updated to something after a sidebar click
       const isListPage = currentPageUrl.includes('/dashboard/shows') ||
                          currentPageUrl.includes('/seller/shows') ||
                          (targetUrl === URLS.dashboardShows) ||
-                         (targetUrl === URLS.shows);
+                         (targetUrl === URLS.shows) ||
+                         (targetUrl !== URLS.dashboard && targetUrl !== URLS.analytics &&
+                          targetUrl !== URLS.sellerHub && !/\/dashboard\/home/.test(targetUrl) &&
+                          /\/dashboard\/|\/seller\//.test(targetUrl));
 
       if (isListPage) {
         // Scroll down to trigger lazy-load of additional show cards

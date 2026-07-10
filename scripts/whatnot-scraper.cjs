@@ -559,9 +559,37 @@ async function switchToChannel(page, channelName) {
       if (el) el.click();
     }, SWITCH_ROLE_SEL);
   } else {
-    info('switchToChannel: WARNING — Switch Role not found (ID or text) — dumping page text for diagnosis');
-    const pageSnippet = await page.evaluate(() => (document.body.innerText || '').substring(0, 500)).catch(() => '');
-    info('switchToChannel: page text:', pageSnippet);
+    info('switchToChannel: WARNING — Switch Role not found — dumping interactive elements to locate the profile/role switcher');
+    // Dump every button/link/menuitem with its label so we can see the real
+    // avatar trigger and channel-switch controls in the current Whatnot UI.
+    const controls = await page.evaluate(() => {
+      const out = [];
+      const els = document.querySelectorAll('button, a[href], [role="button"], [role="menuitem"], [aria-haspopup]');
+      for (const el of els) {
+        const label = (el.getAttribute('aria-label') || el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ').substring(0, 40);
+        const href  = el.getAttribute('href') || '';
+        const role  = el.getAttribute('role') || '';
+        const pop   = el.getAttribute('aria-haspopup') || '';
+        if (label || href || pop) out.push({ tag: el.tagName, label, href, role, pop });
+      }
+      // De-dup and keep it readable
+      const seen = new Set();
+      return out.filter(o => { const k = o.tag + o.label + o.href; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 60);
+    }).catch(() => []);
+    info('switchToChannel: controls:', JSON.stringify(controls));
+    // Also dump anything mentioning the channel name or "switch"/"account"/"role".
+    const hits = await page.evaluate((name) => {
+      const rx = new RegExp(name.replace(/[^a-z0-9]/gi, '') + '|switch|account|role|profile', 'i');
+      const out = [];
+      for (const el of document.querySelectorAll('*')) {
+        if (el.childElementCount > 0) continue;
+        const t = (el.innerText || el.textContent || '').trim();
+        if (t && t.length < 40 && rx.test(t)) out.push({ tag: el.tagName, text: t, cls: (el.className || '').toString().substring(0, 30) });
+        if (out.length > 40) break;
+      }
+      return out;
+    }, channelName).catch(() => []);
+    info('switchToChannel: role/channel text hits:', JSON.stringify(hits));
     await debugShot(page, 'role-switch-no-switch-role');
     return;
   }

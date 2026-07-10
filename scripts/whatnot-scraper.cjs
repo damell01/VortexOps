@@ -1507,6 +1507,54 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
 // order-shaped was found (so the caller can log a diagnostic and move on).
 async function extractOrdersFromPage(page) {
   return page.evaluate(() => {
+    // Strategy 0 — the Seller Hub orders table (/dashboard/orders). Rows carry
+    // data-testid="orders-N-row"; cells are positional:
+    // [Order(title+Order #id), Date, Customer, Items(qty), Sales Channel, Price,
+    //  Order Status, Earnings, Actions]. This is the most reliable shape.
+    const testidRows = Array.from(document.querySelectorAll('tbody[data-testid="orders-table-body"] tr, tr[data-testid$="-row"]'));
+    if (testidRows.length > 0) {
+      const parsePrice = (s) => {
+        if (!s) return null;
+        const neg = /-\s*\$/.test(s);
+        const m = s.replace(/[^0-9.]/g, '');
+        if (!m) return null;
+        const v = parseFloat(m);
+        if (isNaN(v)) return null;
+        return neg ? -v : v;
+      };
+      const rows = [];
+      for (const tr of testidRows) {
+        const tds = Array.from(tr.querySelectorAll(':scope > td'));
+        if (tds.length < 6) continue;
+        const orderCell = tds[0];
+        const titleEl = orderCell.querySelector('span[title]') || orderCell.querySelector('strong');
+        const item_name = titleEl ? (titleEl.getAttribute('title') || titleEl.textContent || '').trim() : null;
+        const orderIdMatch = (orderCell.innerText || '').match(/Order\s*#\s*(\d+)/i);
+        const buyer = (tds[2]?.innerText || '').trim() || null;
+        const qty = parseInt((tds[3]?.innerText || '').replace(/[^0-9]/g, ''), 10);
+        const channel = (tds[4]?.innerText || '').trim() || null;
+        const price = parsePrice(tds[5]?.innerText || '');
+        const orderStatus = (tds[6]?.innerText || '').trim() || null;
+        // Earnings cell: first strong is the amount, second line is status.
+        const earnStrong = tds[7]?.querySelector('strong');
+        const earnings = parsePrice(earnStrong ? earnStrong.textContent : (tds[7]?.innerText || ''));
+        rows.push({
+          order_id:    orderIdMatch ? orderIdMatch[1] : null,
+          buyer,
+          item_name,
+          lot_number:  null,
+          quantity:    isNaN(qty) ? 1 : qty,
+          unit_price:  price,
+          total_price: price,
+          net_earnings: earnings,
+          sales_channel: channel,
+          status:      orderStatus || 'completed',
+          raw_text:    (tr.innerText || '').replace(/\s+/g, ' ').trim().substring(0, 400),
+        });
+      }
+      if (rows.length > 0) return rows;
+    }
+
     function findParentWithText(el, maxLevels = 6) {
       let node = el;
       for (let i = 0; i < maxLevels; i++) {
@@ -1593,20 +1641,24 @@ async function extractOrdersFromPage(page) {
   });
 }
 
-// Normalize raw extractor rows into the persisted order shape.
+// Normalize raw extractor rows into the persisted order shape. Keeps a real
+// order_id when the table exposed one (used for dedup), plus any extra fields
+// (net earnings, sales channel) which are preserved in raw_data downstream.
 function normalizeOrders(rows) {
   return (rows || [])
-    .filter(o => o.lot_number || o.buyer || o.item_name)
+    .filter(o => o.order_id || o.lot_number || o.buyer || o.item_name)
     .map(o => ({
-      order_id:    null,
-      buyer:       o.buyer || null,
-      item_name:   o.item_name || null,
-      lot_number:  o.lot_number || null,
-      quantity:    1,
-      unit_price:  o.unit_price,
-      total_price: o.total_price,
-      status:      o.status || 'completed',
-      raw_text:    o.raw_text || null,
+      order_id:      o.order_id || null,
+      buyer:         o.buyer || null,
+      item_name:     o.item_name || null,
+      lot_number:    o.lot_number || null,
+      quantity:      o.quantity || 1,
+      unit_price:    o.unit_price ?? null,
+      total_price:   o.total_price ?? null,
+      net_earnings:  o.net_earnings ?? null,
+      sales_channel: o.sales_channel || null,
+      status:        o.status || 'completed',
+      raw_text:      o.raw_text || null,
     }));
 }
 
@@ -2042,37 +2094,65 @@ function normalizeOrders(rows) {
       if (!Array.isArray(sources)) sources = [];
       info(`orders-batch: ${sources.length} show(s) to scrape orders for`);
 
+      // The Seller Hub orders table (/dashboard/orders) filters by show via the
+      // ?source=<livestreamId> param (same param the shipments view uses). Rows
+      // are paginated (~20/page) via a "Next page" button. We scrape each page,
+      // dedup by order id, and click Next until it's disabled or a page cap.
+      const PAGE_CAP = 40; // ~800 orders/show ceiling to bound runtime
       const out = [];
       for (let i = 0; i < sources.length; i++) {
         const { live_id, show_key } = sources[i] || {};
         if (!live_id) { out.push({ show_key, live_id: null, order_count: 0, orders: [] }); continue; }
 
-        const urls = [
+        const candidateUrls = [
+          `https://www.whatnot.com/dashboard/orders?source=${live_id}`,
           `https://www.whatnot.com/dashboard/shipments?source=${live_id}`,
-          `https://www.whatnot.com/dashboard/live/${live_id}`,
         ];
 
-        let orders = null;
-        for (const url of urls) {
+        const byId = new Map();
+        const noId = [];
+        let landed = false;
+
+        for (const url of candidateUrls) {
           try {
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
-            // Orders/shipments rows are lazy-loaded; wait for a price to appear.
-            await page.waitForFunction(
-              () => /\$[\d,]+\.?\d*/.test(document.body.innerText || ''),
-              { timeout: 6000 }
-            ).catch(() => {});
-            await page.waitForTimeout(500);
+          } catch { continue; }
+          // Wait for the orders table (or at least a price) to render.
+          await page.waitForFunction(
+            () => document.querySelector('tbody[data-testid="orders-table-body"] tr, tr[data-testid$="-row"]') !== null
+                  || /\$[\d,]+\.?\d*/.test(document.body.innerText || ''),
+            { timeout: 7000 }
+          ).catch(() => {});
+          await page.waitForTimeout(400);
+
+          let pages = 0;
+          while (pages < PAGE_CAP) {
             const extracted = await extractOrdersFromPage(page);
-            if (extracted && !extracted.fallback) { orders = normalizeOrders(extracted); if (orders.length) break; }
-            else if (extracted && extracted.fallback && DEBUG) {
-              info(`orders-batch: [${i + 1}/${sources.length}] no rows on ${url.replace('https://www.whatnot.com', '')} — text: ${(extracted.text || '').replace(/\s+/g, ' ').substring(0, 160)}`);
+            if (extracted && !extracted.fallback && extracted.length) {
+              landed = true;
+              for (const o of normalizeOrders(extracted)) {
+                if (o.order_id) byId.set(o.order_id, o);
+                else noId.push(o);
+              }
+            } else if (pages === 0 && DEBUG) {
+              info(`orders-batch: [${i + 1}/${sources.length}] no rows on ${url.replace('https://www.whatnot.com', '')} — text: ${((extracted && extracted.text) || '').replace(/\s+/g, ' ').substring(0, 140)}`);
             }
-          } catch (e) {
-            info(`orders-batch: [${i + 1}/${sources.length}] error on ${url.replace('https://www.whatnot.com', '')}: ${e.message.substring(0, 80)}`);
+            // Advance to the next page if the button is enabled.
+            const advanced = await page.evaluate(() => {
+              const btn = Array.from(document.querySelectorAll('button[aria-label="Next page"], button'))
+                .find(b => (b.getAttribute('aria-label') === 'Next page'));
+              if (btn && !btn.disabled) { btn.click(); return true; }
+              return false;
+            }).catch(() => false);
+            pages++;
+            if (!advanced) break;
+            await page.waitForTimeout(700);
           }
+
+          if (landed) break; // got orders from this URL; don't try the fallback
         }
 
-        orders = orders || [];
+        const orders = [...byId.values(), ...noId];
         info(`orders-batch: [${i + 1}/${sources.length}] show ${show_key} live_id=${live_id} → ${orders.length} order(s)`);
         out.push({ show_key, live_id, order_count: orders.length, orders });
       }

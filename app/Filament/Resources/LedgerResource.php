@@ -15,7 +15,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Tables\Actions\Action;
+use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -163,7 +163,7 @@ class LedgerResource extends Resource
                     }),
             ])
             ->headerActions([
-                \Filament\Tables\Actions\Action::make('new_entry')
+                Action::make('new_entry')
                     ->label('New Entry')
                     ->icon('heroicon-o-plus')
                     ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner())

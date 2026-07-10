@@ -54,7 +54,7 @@ class ProfitSharePacket extends Page
         $this->dateTo   = now()->endOfMonth()->toDateString();
     }
 
-    public function getDateRangeLabel(): string
+    public function getDateRangeLabelProperty(): string
     {
         [$from, $to] = $this->resolvedDateRange();
         if (! $from || ! $to) return '—';

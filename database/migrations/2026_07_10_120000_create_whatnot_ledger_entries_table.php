@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('whatnot_ledger_entries', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('whatnot_channel_id')->nullable()->constrained('whatnot_channels')->nullOnDelete();
+            $table->unsignedBigInteger('whatnot_channel_id')->nullable();
 
             // Faithful copy of a Whatnot ledger row (/dashboard/ledger/overview).
             $table->dateTime('created_date')->nullable();
@@ -32,6 +32,18 @@ return new class extends Migration
             $table->index('whatnot_order_id');
             $table->index('transaction_type');
         });
+
+        // Best-effort FK — never let it abort the table creation on a DB where
+        // the constraint can't be formed (the Eloquent relation works regardless).
+        if (Schema::hasTable('whatnot_channels')) {
+            try {
+                Schema::table('whatnot_ledger_entries', function (Blueprint $table) {
+                    $table->foreign('whatnot_channel_id')->references('id')->on('whatnot_channels')->nullOnDelete();
+                });
+            } catch (\Throwable $e) {
+                // skip
+            }
+        }
     }
 
     public function down(): void

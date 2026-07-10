@@ -209,6 +209,20 @@ function info(...args) {
   process.stderr.write('[whatnot] ' + args.join(' ') + '\n');
 }
 
+// Write a JSON result to stdout and exit 0 — but only AFTER the write flushes.
+// stdout is a pipe under Symfony Process, so a large buffered write followed by
+// an immediate process.exit(0) truncates the output (producing invalid JSON on
+// the PHP side). The write callback fires once the data has drained to the OS,
+// so we exit only then. Falls back to a timeout guard in case the callback is
+// somehow missed.
+function writeJsonAndExit(value) {
+  const out = JSON.stringify(value, null, 2) + '\n';
+  let exited = false;
+  const done = () => { if (!exited) { exited = true; process.exit(0); } };
+  process.stdout.write(out, done);
+  setTimeout(done, 5000);
+}
+
 async function debugShot(page, name) {
   if (!DEBUG) return;
   const p = `/tmp/whatnot-debug-${name}.png`;
@@ -1977,9 +1991,9 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
         process.exit(2);
       }
 
-      process.stdout.write(JSON.stringify(normalized, null, 2) + '\n');
       log(`show-orders: returned ${normalized.length} orders`);
-      process.exit(0);
+      writeJsonAndExit(normalized);
+      return;
     }
 
     // ── Mode: seller-shows ────────────────────────────────────────────────────
@@ -2052,9 +2066,9 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
         process.exit(2);
       }
 
-      process.stdout.write(JSON.stringify(shows, null, 2) + '\n');
       log(`seller-shows: returned ${shows.length} show URLs`);
-      process.exit(0);
+      writeJsonAndExit(shows);
+      return;
     }
 
     // ── Mode: discover ───────────────────────────────────────────────────────
@@ -2944,9 +2958,9 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
             .slice(0, LIMIT)
             .filter(s => s.title || s.show_date || s.gross_revenue !== null);
           if (normalized.length > 0) {
-            process.stdout.write(JSON.stringify(normalized, null, 2) + '\n');
             info(`analytics-nav: returned ${normalized.length} shows`);
-            process.exit(0);
+            writeJsonAndExit(normalized);
+            return;
           }
           info('analytics-nav: produced no usable shows — falling back to DOM/API extraction');
         } else {
@@ -2967,9 +2981,9 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
         if (listShows.length > 0) {
           const normalized = listShows.slice(0, LIMIT).filter(s => s.title || s.show_date);
           if (normalized.length > 0) {
-            process.stdout.write(JSON.stringify(normalized, null, 2) + '\n');
             info(`shows-list DOM: returned ${normalized.length} shows`);
-            process.exit(0);
+            writeJsonAndExit(normalized);
+            return;
           }
           info('shows-list DOM: found links but no title/date extracted — falling back to API');
         }
@@ -2980,9 +2994,9 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
           const normalized = postScrollApiShows.slice(0, LIMIT).map(normalizeApiShow)
             .filter(r => r.title || r.show_date || r.gross_revenue !== null);
           if (normalized.length > 0) {
-            process.stdout.write(JSON.stringify(normalized, null, 2) + '\n');
             info(`API intercept (post-scroll): returned ${normalized.length} shows`);
-            process.exit(0);
+            writeJsonAndExit(normalized);
+            return;
           }
           info('API intercept (post-scroll): array found but normalization yielded nothing');
         }
@@ -3074,9 +3088,9 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
         process.exit(2);
       }
 
-      process.stdout.write(JSON.stringify(results, null, 2) + '\n');
       log(`done — returned ${results.length} shows`);
-      process.exit(0);
+      writeJsonAndExit(results);
+      return;
     }
 
     process.stderr.write(`Unknown WHATNOT_MODE: ${MODE}\n`);

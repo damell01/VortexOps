@@ -1239,13 +1239,41 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
   info(`analytics-nav: navigating to ${analyticsUrl}`);
   await page.goto(analyticsUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
-  await page.waitForTimeout(1500);
-  await debugShot(page, 'analytics-nav-01-start');
 
   if (!/analytics/i.test(page.url())) {
     info(`analytics-nav: unexpected landing URL ${page.url()} — aborting`);
     return [];
   }
+
+  // Wait for the per-show analytics view to actually render. Direct URL nav loads
+  // the SPA shell first; the show metrics + nav buttons appear only after the
+  // analytics data-fetch completes. Poll for a known metric label OR the show-nav
+  // buttons OR the "Select Show" control (up to 20s) instead of a fixed delay.
+  await page.waitForFunction(() => {
+    const t = document.body.innerText || '';
+    return /Estimated Sales|Completed Earnings|Show Duration|Select Show/i.test(t) ||
+           document.querySelector('button[aria-label="See older show"], button[aria-label="See newer show"]') !== null;
+  }, { timeout: 20000 }).catch(() => {});
+  await page.waitForTimeout(1200);
+  await debugShot(page, 'analytics-nav-01-start');
+
+  // Diagnostic dump — shows exactly what the analytics page rendered so we can
+  // fix the selectors/URL if extraction comes up empty.
+  const diag = await page.evaluate(() => {
+    const older = document.querySelector('button[aria-label="See older show"]');
+    const newer = document.querySelector('button[aria-label="See newer show"]');
+    const ariaBtns = Array.from(document.querySelectorAll('button[aria-label]'))
+      .map(b => b.getAttribute('aria-label')).filter(Boolean).slice(0, 25);
+    return {
+      url:        location.href,
+      bodyLen:    (document.body.innerText || '').length,
+      bodySnippet:(document.body.innerText || '').replace(/\n+/g, ' | ').substring(0, 500),
+      olderBtn:   older ? `present disabled=${older.disabled}` : 'ABSENT',
+      newerBtn:   newer ? `present disabled=${newer.disabled}` : 'ABSENT',
+      ariaLabels: ariaBtns,
+    };
+  }).catch(() => ({}));
+  info('analytics-nav diag:', JSON.stringify(diag));
 
   // Rewind to the newest show first — the seed UUID may be an older user-hosted
   // show, and "See older show" only walks backward. Clicking "See newer show"

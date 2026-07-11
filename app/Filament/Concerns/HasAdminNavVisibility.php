@@ -10,7 +10,7 @@ trait HasAdminNavVisibility
     {
         $user = auth()->user();
 
-        if ($user && ! $user->isOwner() && NavVisibility::isHiddenForAdmin(static::class)) {
+        if ($user && ! $user->isOwner() && NavVisibility::isHiddenForUser(static::class, $user)) {
             return [];
         }
 

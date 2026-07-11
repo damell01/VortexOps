@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\RoleResource\Pages;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
@@ -59,18 +60,54 @@ class RoleResource extends Resource
                     ->required()
                     ->maxLength(255),
             ]),
+            Section::make('Page Visibility')
+                ->description('Check pages to HIDE them from this role in the sidebar. The owner always sees everything, and if a user has another role that shows a page it stays visible.')
+                ->schema([
+                    CheckboxList::make('hidden_pages')
+                        ->label('Pages hidden from this role')
+                        ->options(fn (): array => static::pageOptions())
+                        ->columns(3)
+                        ->searchable()
+                        ->bulkToggleable()
+                        ->dehydrated(false),  // stored in a setting, not on the roles table
+                ]),
             Section::make('Permissions')
-                ->description('What this role is allowed to do. Assign page/feature permissions here.')
+                ->description('Spatie permissions granted to this role (optional).')
+                ->collapsed()
                 ->schema([
                     CheckboxList::make('permissions')
                         ->relationship('permissions', 'name')
                         ->searchable()
                         ->bulkToggleable()
                         ->columns(3)
-                        ->noSearchResultsMessage('No permissions match.')
-                        ->helperText('Create permissions with `php artisan permission:create-permission "name"` or the page-permissions generator.'),
+                        ->noSearchResultsMessage('No permissions defined yet.'),
                 ]),
         ]);
+    }
+
+    /**
+     * Navigable resources + pages, keyed by class => label, for the hide list.
+     *
+     * @return array<class-string, string>
+     */
+    public static function pageOptions(): array
+    {
+        $panel = Filament::getCurrentPanel() ?? Filament::getDefaultPanel();
+        $opts  = [];
+
+        foreach ($panel->getResources() as $resource) {
+            if ($resource === static::class) {
+                continue; // never let a role hide the roles manager itself
+            }
+            try { $opts[$resource] = $resource::getNavigationLabel(); } catch (\Throwable) {}
+        }
+        foreach ($panel->getPages() as $page) {
+            try { $opts[$page] = $page::getNavigationLabel(); } catch (\Throwable) {}
+        }
+
+        asort($opts);
+
+        return $opts;
     }
 
     public static function table(Table $table): Table

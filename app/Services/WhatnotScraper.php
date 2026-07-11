@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Show;
+use App\Models\StreamerLogEntry;
 use App\Models\WhatnotChannel;
 use App\Models\WhatnotLedgerEntry;
 use App\Models\WhatnotShowOrder;
@@ -286,6 +287,10 @@ class WhatnotScraper
         $created = 0;
         $skipped = 0;
 
+        // Default each new order's location to the show's streamer's own inventory
+        // location, so the streamer's Items editor is pre-filled with their location.
+        $defaultLocationId = $show->defaultInventoryLocation()?->id;
+
         // Pre-load all existing order IDs and fallback keys in two queries instead of one per row
         $existingOrderIds = WhatnotShowOrder::where('show_id', $show->id)
             ->whereNotNull('whatnot_order_id')
@@ -323,18 +328,19 @@ class WhatnotScraper
             }
 
             WhatnotShowOrder::create([
-                'show_id'          => $show->id,
-                'whatnot_order_id' => $orderId,
-                'whatnot_show_url' => $show->detail_url,
-                'buyer_username'   => $row['buyer'] ?? null,
-                'lot_number'       => $row['lot_number'] ?? null,
-                'item_name'        => $row['item_name'] ?? null,
-                'quantity'         => $row['quantity'] ?? 1,
-                'unit_price'       => $row['unit_price'] ?? null,
-                'total_price'      => $row['total_price'] ?? null,
-                'status'           => $row['status'] ?? 'completed',
-                'show_date'        => $show->show_date,
-                'raw_data'         => $row,
+                'show_id'               => $show->id,
+                'whatnot_order_id'      => $orderId,
+                'whatnot_show_url'      => $show->detail_url,
+                'inventory_location_id' => $defaultLocationId,
+                'buyer_username'        => $row['buyer'] ?? null,
+                'lot_number'            => $row['lot_number'] ?? null,
+                'item_name'             => $row['item_name'] ?? null,
+                'quantity'              => $row['quantity'] ?? 1,
+                'unit_price'            => $row['unit_price'] ?? null,
+                'total_price'           => $row['total_price'] ?? null,
+                'status'                => $row['status'] ?? 'completed',
+                'show_date'             => $show->show_date,
+                'raw_data'              => $row,
             ]);
 
             $created++;
@@ -685,6 +691,10 @@ class WhatnotScraper
                 $showModel = $show;
             }
 
+            // Auto-create the streamer's log entry for this show so they land
+            // straight in the enrichment flow after import (one entry per show).
+            $this->ensureStreamerLogEntry($showModel);
+
             // Record this show's livestream id for the batched order scrape.
             $liveId = $row['whatnot_live_id'] ?? $this->extractLiveIdFromUrl($row['detail_url'] ?? null);
             if ($withOrders && $liveId) {
@@ -706,6 +716,30 @@ class WhatnotScraper
         ]);
 
         return compact('created', 'updated', 'skipped', 'ordersCreated');
+    }
+
+    /**
+     * Create a pending StreamerLogEntry for a show (one per show, keyed by the
+     * unique show_id) so the streamer can enrich it after import. No-op when the
+     * show has no detected streamer or an entry already exists.
+     */
+    private function ensureStreamerLogEntry(Show $show): void
+    {
+        $show->loadMissing('streamers');
+        $streamer = $show->primaryStreamer();
+        if (! $streamer) {
+            return;
+        }
+        if (StreamerLogEntry::where('show_id', $show->id)->exists()) {
+            return;
+        }
+
+        StreamerLogEntry::create([
+            'show_id'       => $show->id,
+            'streamer_id'   => $streamer->id,
+            'status'        => 'pending',
+            'gross_revenue' => $show->gross_revenue,
+        ]);
     }
 
     /**

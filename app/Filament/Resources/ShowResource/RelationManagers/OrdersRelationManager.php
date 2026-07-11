@@ -96,10 +96,16 @@ class OrdersRelationManager extends RelationManager
 
                 SelectColumn::make('inventory_location_id')
                     ->label('Location')
-                    ->options(fn () => InventoryLocation::query()
-                        ->orderBy('name')
-                        ->pluck('name', 'id')
-                        ->toArray())
+                    // Prefer the show's streamer's own locations; fall back to all.
+                    ->options(function () use ($show) {
+                        $streamer = $show->primaryStreamer();
+                        $own = $streamer
+                            ? $streamer->inventoryLocations()->orderBy('name')->pluck('name', 'id')->toArray()
+                            : [];
+                        return ! empty($own)
+                            ? $own
+                            : InventoryLocation::query()->orderBy('name')->pluck('name', 'id')->toArray();
+                    })
                     ->selectablePlaceholder('—')
                     ->width('160px'),
 

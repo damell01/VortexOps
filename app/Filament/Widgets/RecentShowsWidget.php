@@ -20,15 +20,32 @@ class RecentShowsWidget extends BaseWidget
         return AdminModules::isEnabled('streams');
     }
 
+    /** Streamer id to scope by, or null for admins/owner (who see all shows). */
+    private function streamerScopeId(): ?int
+    {
+        $user = auth()->user();
+
+        if ($user && $user->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
+            return $user->streamer?->id ?? 0; // 0 → matches nothing if unlinked
+        }
+
+        return null;
+    }
+
     public function table(Table $table): Table
     {
+        $query = Show::query()->with('channel');
+
+        // A streamer only sees shows they were on (shows are many-to-many with
+        // streamers, so co-hosted shows count). Apply unconditionally when scoped
+        // — an unlinked streamer (id 0) then matches nothing rather than leaking.
+        $streamerId = $this->streamerScopeId();
+        if ($streamerId !== null) {
+            $query->whereHas('streamers', fn ($s) => $s->where('streamers.id', $streamerId));
+        }
+
         return $table
-            ->query(
-                Show::query()
-                    ->with('channel')
-                    ->orderByDesc('show_date')
-                    ->limit(10)
-            )
+            ->query($query->orderByDesc('show_date')->limit(10))
             ->columns([
                 TextColumn::make('show_date')
                     ->label('Date')

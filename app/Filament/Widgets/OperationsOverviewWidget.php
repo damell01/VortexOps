@@ -22,8 +22,11 @@ class OperationsOverviewWidget extends BaseWidget
 
     protected function getStats(): array
     {
+        // flexible() serves the cached value for 120s, then serves a slightly
+        // stale value (up to 300s) while refreshing in the background — so an
+        // expiring key never makes concurrent dashboard loads all recompute at once.
         [$pendingLogs, $ledgerNet, $monthGross, $monthOrders] =
-            Cache::remember('widget:ops_overview', 120, function () {
+            Cache::flexible('widget:ops_overview', [120, 300], function () {
                 $mStart = now()->startOfMonth();
                 $mEnd   = now()->endOfMonth();
 

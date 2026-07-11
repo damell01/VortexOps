@@ -26,8 +26,10 @@ class StreamerOverviewWidget extends BaseWidget
             return [];
         }
 
+        // flexible(): serve fresh for 120s, then stale-while-revalidate up to 300s
+        // so an expiring key never stampedes concurrent loads (see OperationsOverviewWidget).
         [$pending, $myShowsMonth, $myGrossMonth, $outstanding] =
-            Cache::remember("widget:streamer_overview:{$streamerId}", 120, function () use ($streamerId) {
+            Cache::flexible("widget:streamer_overview:{$streamerId}", [120, 300], function () use ($streamerId) {
                 $mStart = now()->startOfMonth()->toDateString();
                 $mEnd   = now()->endOfMonth()->toDateString();
 

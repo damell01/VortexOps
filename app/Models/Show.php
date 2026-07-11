@@ -16,6 +16,7 @@ class Show extends Model
 
     protected $fillable = [
         'whatnot_channel_id',
+        'channel_attribution_suspect',
         'whatnot_show_id',
         'cover_image_url',
         'title',
@@ -57,7 +58,8 @@ class Show extends Model
     ];
 
     protected $casts = [
-        'show_date'              => 'date',
+        'show_date'                   => 'date',
+        'channel_attribution_suspect' => 'boolean',
         'gross_revenue'          => 'decimal:2',
         'whatnot_net'            => 'decimal:2',
         'whatnot_fees'           => 'decimal:2',

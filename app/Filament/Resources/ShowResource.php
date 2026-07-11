@@ -37,6 +37,7 @@ use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\QueryBuilder;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
@@ -494,7 +495,11 @@ class ShowResource extends Resource
 
                 TextColumn::make('channel.name')
                     ->label('Channel')
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->description(fn (Show $record): ?string => $record->channel_attribution_suspect
+                        ? '⚠ Verify channel — also scraped under another channel'
+                        : null)
+                    ->color(fn (Show $record) => $record->channel_attribution_suspect ? 'warning' : null),
 
                 TextColumn::make('streamers.name')
                     ->label('Streamers')
@@ -594,6 +599,12 @@ class ShowResource extends Resource
                     ->label('Channel')
                     ->relationship('channel', 'name')
                     ->multiple(),
+
+                TernaryFilter::make('channel_attribution_suspect')
+                    ->label('Channel attribution')
+                    ->placeholder('All shows')
+                    ->trueLabel('Needs channel review')
+                    ->falseLabel('Attribution OK'),
 
                 QueryBuilder::make()
                     ->label('Advanced Filters')

@@ -710,6 +710,15 @@ class WhatnotScraper
                     'max_concurrent_viewers', 'total_views', 'avg_order_rating',
                 ]));
 
+                // Attribution guard: this show is being returned by channel X's scrape
+                // but was first attributed to a different channel. The Whatnot channel
+                // switch is known to be unreliable, so flag it for manual review rather
+                // than silently re-stamping (we keep the original channel_id).
+                if ($channel && $existing->whatnot_channel_id
+                    && (int) $existing->whatnot_channel_id !== (int) $channel->id) {
+                    $updateFields['channel_attribution_suspect'] = true;
+                }
+
                 if (! empty($updateFields)) {
                     $existing->update($updateFields);
                     $updated++;

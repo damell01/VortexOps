@@ -413,6 +413,76 @@ class PayoutService
         });
     }
 
+    /**
+     * Read-only dry run of what finalizing this batch will pay each streamer,
+     * including the loan repayments that would be deducted — without mutating any
+     * payout or loan. Mirrors applyLoanRepayments() exactly (deduction applies to
+     * a streamer's first payout by id and is capped at that payout's amount) so
+     * the preview matches what finalizing will actually do.
+     *
+     * @return array{rows: array<int, array{streamer: string, gross: float, loan: float, net: float}>, gross: float, loan: float, net: float}
+     */
+    public function previewFinalization(WeeklyPayoutBatch $batch): array
+    {
+        $payouts = $batch->payouts()->with('streamer.loans')->orderBy('id')->get();
+
+        $byStreamer = [];   // streamer_id => [streamer, gross, loan]
+        $loanApplied = [];  // streamer_id => already computed loan deduction
+
+        foreach ($payouts as $payout) {
+            $sid = $payout->streamer_id;
+
+            if (! isset($byStreamer[$sid])) {
+                $byStreamer[$sid] = [
+                    'streamer' => $payout->streamer?->name ?? 'Unknown streamer',
+                    'gross'    => 0.0,
+                    'loan'     => 0.0,
+                ];
+            }
+
+            $byStreamer[$sid]['gross'] += (float) $payout->calculated_payout;
+
+            // Loan repayment is realised against the first payout only (id order),
+            // capped at that payout's amount — same as applyLoanRepayments().
+            if (! isset($loanApplied[$sid])) {
+                $totalDeducted = 0.0;
+                foreach (($payout->streamer?->loans ?? collect())->where('status', 'active') as $loan) {
+                    if ($loan->deduct_from_payout) {
+                        $totalDeducted += min((float) $loan->weekly_repayment, (float) $loan->remaining_balance);
+                    }
+                }
+                $realised = min($totalDeducted, (float) $payout->calculated_payout);
+                $byStreamer[$sid]['loan'] = round($realised, 2);
+                $loanApplied[$sid] = true;
+            }
+        }
+
+        $rows = [];
+        $gross = $loan = $net = 0.0;
+
+        foreach ($byStreamer as $row) {
+            $rowNet = max(0, round($row['gross'] - $row['loan'], 2));
+            $rows[] = [
+                'streamer' => $row['streamer'],
+                'gross'    => round($row['gross'], 2),
+                'loan'     => $row['loan'],
+                'net'      => $rowNet,
+            ];
+            $gross += $row['gross'];
+            $loan  += $row['loan'];
+            $net   += $rowNet;
+        }
+
+        usort($rows, fn ($a, $b) => strcmp($a['streamer'], $b['streamer']));
+
+        return [
+            'rows'  => $rows,
+            'gross' => round($gross, 2),
+            'loan'  => round($loan, 2),
+            'net'   => round($net, 2),
+        ];
+    }
+
     public function finalizeBatch(WeeklyPayoutBatch $batch): void
     {
         DB::transaction(function () use ($batch) {

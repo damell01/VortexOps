@@ -26,6 +26,18 @@ class ViewWeeklyPayoutBatch extends ViewRecord
             DeleteAction::make()
                 ->visible(fn () => $this->record->status === 'draft'),
 
+            Action::make('preview')
+                ->label('Preview Pay Run')
+                ->icon('heroicon-o-eye')
+                ->color('info')
+                ->visible(fn () => $this->record->status === 'draft')
+                ->modalHeading('Payout preview')
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Close')
+                ->modalContent(fn () => view('filament.payout-preview', [
+                    'preview' => app(PayoutService::class)->previewFinalization($this->record),
+                ])),
+
             Action::make('finalize')
                 ->label('Finalize Pay Run')
                 ->icon('heroicon-o-lock-closed')

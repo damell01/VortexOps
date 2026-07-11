@@ -8,6 +8,7 @@ use App\Models\WhatnotChannel;
 use App\Models\WhatnotLedgerEntry;
 use App\Models\WhatnotShowOrder;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\Process\Process;
 
@@ -35,7 +36,7 @@ class WhatnotScraper
 
         $process = $this->makeProcess($env, timeout: 60);
 
-        $process->run();
+        $this->withBrowserLock(fn () => $process->run());
 
         $stderr = trim($process->getErrorOutput());
         $stdout = trim($process->getOutput());
@@ -77,7 +78,7 @@ class WhatnotScraper
         // minutes. 240s was too short and killed the walk mid-import; allow up to
         // 20 minutes per channel (scales roughly with --limit).
         $process = $this->makeProcess($env, timeout: 1200);
-        $process->run();
+        $this->withBrowserLock(fn () => $process->run());
 
         $stderr = trim($process->getErrorOutput());
         $stdout = trim($process->getOutput());
@@ -130,7 +131,7 @@ class WhatnotScraper
 
         $process = $this->makeProcess($env, timeout: 120);
 
-        $process->run();
+        $this->withBrowserLock(fn () => $process->run());
 
         $stderr = trim($process->getErrorOutput());
         $stdout = trim($process->getOutput());
@@ -215,7 +216,7 @@ class WhatnotScraper
 
         $process = $this->makeProcess($env);
 
-        $process->run();
+        $this->withBrowserLock(fn () => $process->run());
 
         $stderr = trim($process->getErrorOutput());
         $stdout = trim($process->getOutput());
@@ -383,7 +384,7 @@ class WhatnotScraper
 
         try {
             $process = $this->makeProcess($env, timeout: $timeout);
-            $process->run();
+            $this->withBrowserLock(fn () => $process->run());
 
             $stderr = trim($process->getErrorOutput());
             $stdout = trim($process->getOutput());
@@ -439,7 +440,7 @@ class WhatnotScraper
         }
 
         $process = $this->makeProcess($env, timeout: 900);
-        $process->run();
+        $this->withBrowserLock(fn () => $process->run());
 
         $stderr = trim($process->getErrorOutput());
         $stdout = trim($process->getOutput());
@@ -598,6 +599,43 @@ class WhatnotScraper
         $process = new Process([$this->nodeBin, $this->scriptPath], null, $env);
         $process->setTimeout($timeout);
         return $process;
+    }
+
+    /**
+     * Serialize every Chromium-launching task behind one shared lock.
+     *
+     * All whatnot:* work (shows, orders, ledger, discover, cookie dumps) drives
+     * the SAME persistent Chromium profile. Two runs at once corrupt that
+     * profile and produce garbage/empty scrapes, so import/orders/ledger — run
+     * from cron, Filament, or the CLI — must take turns. The callback holds the
+     * lock only while the browser process runs; DB persistence happens after it
+     * is released. TTL (30 min) safely exceeds the longest process timeout
+     * (1200 s) so a crashed run can't wedge the lock forever.
+     *
+     * @template T
+     * @param  callable():T  $fn
+     * @return T
+     */
+    protected function withBrowserLock(callable $fn, int $waitSeconds = 1200)
+    {
+        $lock = Cache::lock('whatnot:browser', 1800);
+
+        try {
+            // block() waits up to $waitSeconds for the lock, throwing on timeout.
+            $lock->block($waitSeconds);
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+            throw new \RuntimeException(
+                'Timed out waiting for the shared Whatnot browser lock — another import/orders/ledger task is still running.',
+                0,
+                $e
+            );
+        }
+
+        try {
+            return $fn();
+        } finally {
+            $lock->release();
+        }
     }
 
     /**
@@ -865,25 +903,27 @@ class WhatnotScraper
         // Phase 1: ~20 nav pages × ~10 s + Phase 2: 5 shows × 5 tabs × ~8 s + Phase 3 = allow 10 minutes
         $process = $this->makeProcess($env, timeout: 600);
 
-        if ($onProgress) {
-            $process->start();
-            while ($process->isRunning()) {
+        $this->withBrowserLock(function () use ($process, $onProgress) {
+            if ($onProgress) {
+                $process->start();
+                while ($process->isRunning()) {
+                    if ($err = $process->getIncrementalErrorOutput()) {
+                        foreach (explode("\n", trim($err)) as $line) {
+                            if ($line !== '') $onProgress($line);
+                        }
+                    }
+                    usleep(200_000);
+                }
+                // drain any remaining stderr after process exits
                 if ($err = $process->getIncrementalErrorOutput()) {
                     foreach (explode("\n", trim($err)) as $line) {
                         if ($line !== '') $onProgress($line);
                     }
                 }
-                usleep(200_000);
+            } else {
+                $process->run();
             }
-            // drain any remaining stderr after process exits
-            if ($err = $process->getIncrementalErrorOutput()) {
-                foreach (explode("\n", trim($err)) as $line) {
-                    if ($line !== '') $onProgress($line);
-                }
-            }
-        } else {
-            $process->run();
-        }
+        });
 
         $stderr = trim($process->getErrorOutput());
         $stdout = trim($process->getOutput());
@@ -932,24 +972,26 @@ class WhatnotScraper
 
         $process = $this->makeProcess($env, timeout: 120);
 
-        if ($onProgress) {
-            $process->start();
-            while ($process->isRunning()) {
+        $this->withBrowserLock(function () use ($process, $onProgress) {
+            if ($onProgress) {
+                $process->start();
+                while ($process->isRunning()) {
+                    if ($err = $process->getIncrementalErrorOutput()) {
+                        foreach (explode("\n", trim($err)) as $line) {
+                            if ($line !== '') $onProgress($line);
+                        }
+                    }
+                    usleep(200_000);
+                }
                 if ($err = $process->getIncrementalErrorOutput()) {
                     foreach (explode("\n", trim($err)) as $line) {
                         if ($line !== '') $onProgress($line);
                     }
                 }
-                usleep(200_000);
+            } else {
+                $process->run();
             }
-            if ($err = $process->getIncrementalErrorOutput()) {
-                foreach (explode("\n", trim($err)) as $line) {
-                    if ($line !== '') $onProgress($line);
-                }
-            }
-        } else {
-            $process->run();
-        }
+        });
 
         $stdout = trim($process->getOutput());
         $stderr = trim($process->getErrorOutput());
@@ -1003,7 +1045,7 @@ class WhatnotScraper
             'WHATNOT_DEBUG' => '0',
         ], timeout: 30);
 
-        $process->run();
+        $this->withBrowserLock(fn () => $process->run());
         $stdout = trim($process->getOutput());
         $stderr = trim($process->getErrorOutput());
 
@@ -1037,7 +1079,7 @@ class WhatnotScraper
             'WHATNOT_MODE'     => 'dump-cookies',
         ], timeout: 60);
 
-        $process->run();
+        $this->withBrowserLock(fn () => $process->run());
 
         if (! $process->isSuccessful()) {
             throw new \RuntimeException('Cookie dump failed: ' . ($process->getErrorOutput() ?: "exit {$process->getExitCode()}"));

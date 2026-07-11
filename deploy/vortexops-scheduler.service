@@ -1,0 +1,17 @@
+[Unit]
+Description=VortexOps Scheduler (runs schedule:run every minute — imports, ledger, health checks, heartbeats)
+After=network.target mysql.service redis-server.service
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=APP_DIR
+# schedule:work is a long-running foreground process that fires schedule:run
+# every minute — no crontab entry needed. Restart=always keeps it alive.
+ExecStart=/usr/bin/php artisan schedule:work
+Restart=always
+RestartSec=10s
+StartLimitIntervalSec=120
+
+[Install]
+WantedBy=multi-user.target

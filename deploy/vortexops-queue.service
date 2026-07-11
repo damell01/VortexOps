@@ -1,0 +1,15 @@
+[Unit]
+Description=VortexOps Queue Worker (default queue: notifications, imports, worker heartbeat)
+After=network.target mysql.service redis-server.service
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=APP_DIR
+ExecStart=/usr/bin/php artisan queue:work --sleep=3 --tries=3 --timeout=120 --max-jobs=500 --max-time=3600
+Restart=always
+RestartSec=10s
+StartLimitIntervalSec=120
+
+[Install]
+WantedBy=multi-user.target

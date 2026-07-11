@@ -86,14 +86,38 @@ Open the site and confirm:
 
 - login page loads
 - static assets are present
-- queue worker is running
+- the **default** queue worker is running (drains notifications, imports, and the worker heartbeat)
+- the **scheduler** is running (fires `schedule:run` every minute)
 - `storage/logs/laravel.log` is clean
+
+Then open **Settings → System Health** (owner menu) and confirm the Scheduler
+and Queue Worker cards are green. See "Verifying workers and scheduler" below.
 
 ### Files involved
 
-- Installer: [deploy/install-vps.sh](/c:/Users/Shild/Downloads/VortexOps/deploy/install-vps.sh)
-- Nginx template: [deploy/nginx.vhost.conf](/c:/Users/Shild/Downloads/VortexOps/deploy/nginx.vhost.conf)
-- Queue service template: [deploy/systemd/vortexops-queue.service](/c:/Users/Shild/Downloads/VortexOps/deploy/systemd/vortexops-queue.service)
+- Installer: [deploy/vps-setup.sh](../deploy/vps-setup.sh)
+- Nginx template: [deploy/nginx.conf](../deploy/nginx.conf)
+- Default queue worker unit: [deploy/vortexops-queue.service](../deploy/vortexops-queue.service)
+- AI queue worker unit: [deploy/vortexops-ai-worker.service](../deploy/vortexops-ai-worker.service)
+- Scheduler unit: [deploy/vortexops-scheduler.service](../deploy/vortexops-scheduler.service)
+
+### Installing the systemd units (bare-metal)
+
+Copy each unit into `/etc/systemd/system/`, replace `APP_DIR` with the app path
+(e.g. `/var/www/vortexops`), then enable all three:
+
+```bash
+for svc in queue ai-worker scheduler; do
+  sed "s#APP_DIR#/var/www/vortexops#" deploy/vortexops-$svc.service \
+    | sudo tee /etc/systemd/system/vortexops-$svc.service >/dev/null
+done
+sudo systemctl daemon-reload
+sudo systemctl enable --now vortexops-queue vortexops-ai-worker vortexops-scheduler
+sudo systemctl status vortexops-queue vortexops-scheduler --no-pager
+```
+
+Without the **scheduler** unit nothing automated runs — no Whatnot imports, no
+ledger pull, no health checks, and the worker-heartbeat signal never updates.
 
 ## Option 2: Docker
 
@@ -107,9 +131,15 @@ Open the site and confirm:
 ### What the Docker stack includes
 
 - `app`: Apache + PHP 8.3 container serving Laravel from `public/`
-- `worker`: dedicated `php artisan queue:work` container
+- `worker`: dedicated `php artisan queue:work` container (default queue)
+- `ai-worker`: `php artisan queue:work --queue=ai` container (packing-slip / Ollama jobs)
+- `scheduler`: loops `php artisan schedule:run` every 60s (imports, ledger, health, heartbeats)
 - `mysql`: MySQL 8.4
+- `redis`: cache, sessions, and the shared Whatnot browser lock
 - `ollama`: optional profile for AI features
+
+All long-running services use `restart: unless-stopped`, so `docker compose up -d`
+brings up **every** worker and the scheduler, and they self-restart on failure or reboot.
 
 ### First-time setup
 
@@ -195,6 +225,37 @@ docker push ghcr.io/your-org/vortexops:latest
 ### Queues are required
 
 This app uses queued jobs for show parsing, AI mapping, and notifications. In production, the queue worker is not optional.
+
+### Verifying workers and scheduler
+
+The **System Health** page (Settings → System Health, owner menu) is the source
+of truth. It shows live cards for:
+
+- **Scheduler** — green when `scheduler_last_heartbeat` is under 3 minutes old.
+- **Queue Worker** — green when the worker heartbeat is fresh (under 5 min),
+  pending/active counts, and any failed jobs. The scheduler enqueues a
+  `WorkerHeartbeat` job every minute; a running worker stamps it when it drains
+  it — so a stale heartbeat means the worker is down even if no other jobs exist.
+
+Both heartbeats require **both** the scheduler (to enqueue/stamp) and the worker
+(to drain) to be running. `health:check --notify` also runs every 15 minutes and
+sends the owner an in-app alert on failed jobs, a large backlog, a stale worker
+heartbeat, or low disk.
+
+Quick CLI checks:
+
+```bash
+# Docker
+docker compose --env-file .env.docker ps                    # all services Up?
+docker compose --env-file .env.docker logs -f worker scheduler
+
+# Bare-metal
+systemctl status vortexops-queue vortexops-scheduler --no-pager
+
+# Either: confirm the scheduler is registered and heartbeats are fresh
+php artisan schedule:list
+php artisan tinker --execute='echo App\Models\Setting::get("scheduler_last_heartbeat"), PHP_EOL, App\Models\Setting::get("worker_last_heartbeat"), PHP_EOL;'
+```
 
 ### AI is optional
 

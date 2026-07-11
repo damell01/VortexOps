@@ -14,10 +14,48 @@ use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Tabs\Tab;
+use Illuminate\Database\Eloquent\Builder;
 
 class ListShows extends ListRecords
 {
     protected static string $resource = ShowResource::class;
+
+    /** Saved-view chips above the table — quick one-tap filter presets. */
+    public function getTabs(): array
+    {
+        $weekStart = now()->startOfWeek()->toDateString();
+        $weekEnd   = now()->endOfWeek()->toDateString();
+
+        $tabs = [
+            'all' => Tab::make('All'),
+
+            'needs_review' => Tab::make('Needs Review')
+                ->modifyQueryUsing(fn (Builder $q) => $q->whereIn('status', ['pending_review', 'pending_approval']))
+                ->badge(Show::whereIn('status', ['pending_review', 'pending_approval'])->count())
+                ->badgeColor('warning'),
+
+            'this_week' => Tab::make('This Week')
+                ->modifyQueryUsing(fn (Builder $q) => $q->whereBetween('show_date', [$weekStart, $weekEnd])),
+
+            'unreconciled' => Tab::make('Unreconciled')
+                ->modifyQueryUsing(fn (Builder $q) => $q->whereNotIn('status', ['reconciled', 'closed', 'cancelled'])),
+        ];
+
+        // Channel-attribution review is admin-facing and only meaningful once a
+        // flagged show exists.
+        if (auth()->user()?->isAdmin()) {
+            $flagged = Show::where('channel_attribution_suspect', true)->count();
+            if ($flagged > 0) {
+                $tabs['flagged'] = Tab::make('Channel Review')
+                    ->modifyQueryUsing(fn (Builder $q) => $q->where('channel_attribution_suspect', true))
+                    ->badge($flagged)
+                    ->badgeColor('danger');
+            }
+        }
+
+        return $tabs;
+    }
 
     protected function getHeaderActions(): array
     {

@@ -16,12 +16,18 @@ class ShowReconciledNotification extends Notification
 
     public function toDatabase(object $notifiable): array
     {
-        return [
-            'title'   => 'Show Reconciled',
-            'body'    => "Show \"{$this->show->title}\" has been reconciled and inventory deductions processed.",
-            'show_id' => $this->show->id,
-            'icon'    => 'heroicon-o-check-circle',
-            'color'   => 'success',
-        ];
+        return \Filament\Notifications\Notification::make()
+            ->title('Show Reconciled')
+            ->body("Show \"{$this->show->title}\" has been reconciled and inventory deductions processed.")
+            ->icon('heroicon-o-check-circle')
+            ->success()
+            ->actions([
+                \Filament\Actions\Action::make('open')
+                    ->label('Open show')
+                    ->url(\App\Support\NotificationLinks::forShow($this->show->id, $notifiable))
+                    ->button()
+                    ->markAsRead(),
+            ])
+            ->getDatabaseMessage();
     }
 }

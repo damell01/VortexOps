@@ -2,8 +2,10 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\NeedsAttentionWidget;
 use App\Filament\Widgets\OperationsOverviewWidget;
 use App\Filament\Widgets\RecentShowsWidget;
+use App\Filament\Widgets\SetupChecklistWidget;
 use App\Filament\Widgets\ShowsKpiWidget;
 use App\Filament\Widgets\StreamerOverviewWidget;
 use App\Models\Setting;
@@ -22,10 +24,13 @@ class Dashboard extends BaseDashboard
         }
 
         return [
+            // First-run onboarding (auto-hides once complete/dismissed).
+            SetupChecklistWidget::class,
             // Streamer-scoped overview (visible to streamer accounts only).
             StreamerOverviewWidget::class,
             // Admin/owner overview (each gates itself via canView()).
             ShowsKpiWidget::class,
+            NeedsAttentionWidget::class,
             OperationsOverviewWidget::class,
             RecentShowsWidget::class,
         ];

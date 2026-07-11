@@ -57,6 +57,31 @@
                                     @endif
                                 </div>
 
+                                {{-- Time-in-status (aging) — spots stuck shows in the pipeline --}}
+                                @php
+                                    $age = $show->days_in_status;
+                                    [$ageTone, $ageBg] = match (true) {
+                                        is_null($age)  => ['text-gray-400', 'bg-gray-100 dark:bg-white/5'],
+                                        $age >= 7      => ['text-rose-700 dark:text-rose-300', 'bg-rose-100 dark:bg-rose-500/15'],
+                                        $age >= 3      => ['text-amber-700 dark:text-amber-300', 'bg-amber-100 dark:bg-amber-500/15'],
+                                        default        => ['text-gray-500 dark:text-gray-400', 'bg-gray-100 dark:bg-white/5'],
+                                    };
+                                    $ageLabel = is_null($age)
+                                        ? 'age unknown'
+                                        : ($age === 0 ? 'today' : $age . 'd in status');
+                                @endphp
+                                <div>
+                                    <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold {{ $ageTone }} {{ $ageBg }}"
+                                          @if($show->entered_status_at) title="Since {{ $show->entered_status_at->format('M j, Y g:i A') }}" @endif>
+                                        @if(! is_null($age) && $age >= 7)
+                                            <x-heroicon-s-exclamation-triangle class="h-3 w-3" />
+                                        @else
+                                            <x-heroicon-o-clock class="h-3 w-3" />
+                                        @endif
+                                        {{ $ageLabel }}
+                                    </span>
+                                </div>
+
                                 {{-- Streamers --}}
                                 @if ($show->streamers->isNotEmpty())
                                     <div class="flex flex-wrap gap-1">

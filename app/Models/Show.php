@@ -51,6 +51,7 @@ class Show extends Model
         'raw_import_payload',
         'ai_streamer_suggestion',
         'status',
+        'status_changed_at',
         'notes',
         'created_by',
         'shipping_surcharge_count',
@@ -59,6 +60,7 @@ class Show extends Model
 
     protected $casts = [
         'show_date'                   => 'date',
+        'status_changed_at'           => 'datetime',
         'channel_attribution_suspect' => 'boolean',
         'gross_revenue'          => 'decimal:2',
         'whatnot_net'            => 'decimal:2',
@@ -86,6 +88,21 @@ class Show extends Model
         'shipping_surcharge_count' => 'integer',
         'shipping_surcharge_total' => 'decimal:2',
     ];
+
+    protected static function booted(): void
+    {
+        // Stamp status_changed_at whenever the show enters a new status (and on
+        // create), so the pipeline board can show accurate time-in-status.
+        static::creating(function (Show $show) {
+            $show->status_changed_at ??= now();
+        });
+
+        static::updating(function (Show $show) {
+            if ($show->isDirty('status')) {
+                $show->status_changed_at = now();
+            }
+        });
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

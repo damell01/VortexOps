@@ -56,6 +56,8 @@ class ShowStatusBoard extends Page
             ->orderBy('show_date', 'desc')
             ->get();
 
+        $this->attachAging($shows);
+
         $columns = [];
         foreach ($statuses as $status => $meta) {
             $columns[] = [
@@ -68,6 +70,22 @@ class ShowStatusBoard extends Page
         }
 
         return $columns;
+    }
+
+    /**
+     * Attach `days_in_status` to each show: how long it has sat in its current
+     * status, from the status_changed_at stamp the model maintains (falling back
+     * to updated_at, then created_at, for rows predating that column).
+     *
+     * @param  \Illuminate\Support\Collection<int, Show>  $shows
+     */
+    protected function attachAging($shows): void
+    {
+        foreach ($shows as $show) {
+            $entered = $show->status_changed_at ?? $show->updated_at ?? $show->created_at;
+            $show->setAttribute('entered_status_at', $entered);
+            $show->setAttribute('days_in_status', $entered ? (int) $entered->diffInDays(now()) : null);
+        }
     }
 
     public function getShowUrl(Show $show): string

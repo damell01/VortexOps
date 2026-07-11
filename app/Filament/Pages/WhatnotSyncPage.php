@@ -21,6 +21,8 @@ class WhatnotSyncPage extends Page
     protected static ?string $title           = 'Whatnot Sync';
     protected static ?string $navigationLabel = 'Sync Dashboard';
 
+    protected static ?string $navigationParentItem = 'Import';
+
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
         return AdminModules::navigationGroupFor('streams');

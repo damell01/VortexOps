@@ -54,6 +54,12 @@ class ActivityLogResource extends Resource
         return ($user?->isAdmin() || $user?->isOwner()) ?? false;
     }
 
+    // Diagnostic tool — only surface it in the owner's menu (still URL-reachable).
+    public static function shouldRegisterNavigation(): bool
+    {
+        return auth()->user()?->isOwner() ?? false;
+    }
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()->with(['causer']);

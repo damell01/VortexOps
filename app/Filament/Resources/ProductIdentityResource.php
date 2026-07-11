@@ -19,6 +19,8 @@ class ProductIdentityResource extends Resource
 
     protected static ?string $navigationLabel = 'Alias Manager';
 
+    protected static ?string $navigationParentItem = 'Shows';
+
     protected static ?string $label = 'Alias';
 
     protected static ?string $pluralLabel = 'Aliases';

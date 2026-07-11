@@ -32,6 +32,8 @@ class InventoryLocationResource extends Resource
 
     protected static ?string $model = InventoryLocation::class;
 
+    protected static ?string $navigationParentItem = 'Inventory Items';
+
     // Streamers see only their own locations + shared locations (no streamer assigned)
     public static function getEloquentQuery(): Builder
     {

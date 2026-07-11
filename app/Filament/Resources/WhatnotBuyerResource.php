@@ -22,6 +22,8 @@ class WhatnotBuyerResource extends Resource
 
     protected static ?string $model          = WhatnotBuyer::class;
     protected static ?string $navigationLabel = 'Buyers';
+
+    protected static ?string $navigationParentItem = 'Shows';
     protected static ?string $pluralLabel    = 'Buyers';
 
     public static function getNavigationIcon(): string|\BackedEnum|null

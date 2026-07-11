@@ -89,9 +89,11 @@ class AdminPanelProvider extends PanelProvider
             ->databaseNotifications()
             ->databaseNotificationsPolling('300s')
             ->navigationGroups(array_map(
-                fn (string $group): NavigationGroup => $group === 'Settings'
-                    ? NavigationGroup::make($group)->collapsed()
-                    : NavigationGroup::make($group),
+                // Collapse every group except the primary "Streams" workflow, so the
+                // sidebar stays compact — you expand the group you need.
+                fn (string $group): NavigationGroup => $group === 'Streams'
+                    ? NavigationGroup::make($group)
+                    : NavigationGroup::make($group)->collapsed(),
                 AdminModules::visibleNavigationGroups(),
             ))
             ->renderHook(

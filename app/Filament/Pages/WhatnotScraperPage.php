@@ -20,7 +20,7 @@ class WhatnotScraperPage extends Page
     protected static string $featureSlug = 'show_ingestion_logs';
 
     protected static ?string $title = 'Whatnot Scraper';
-    protected static ?string $navigationLabel = 'Scraper & Import';
+    protected static ?string $navigationLabel = 'Import';
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {

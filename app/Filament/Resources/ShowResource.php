@@ -64,12 +64,15 @@ class ShowResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with([
-            'streamers',
-            'channel',
-            'latestDeductionRequest',
-            'payouts',
-        ]);
+        $query = parent::getEloquentQuery()
+            ->with([
+                'streamers',
+                'channel',
+                'latestDeductionRequest.lines', // lines power the P&L COGS
+                'payouts',
+            ])
+            // Payout aggregate for the Net Margin column, so P&L doesn't N+1.
+            ->withSum('payouts', 'calculated_payout');
 
         $user = auth()->user();
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {
@@ -438,14 +441,15 @@ class ShowResource extends Resource
                         ->label('')
                         ->columnSpanFull()
                         ->content(function (?Show $record): \Illuminate\Support\HtmlString {
-                            $gross   = (float) ($record?->gross_revenue ?? 0);
-                            $net     = (float) ($record?->whatnot_net ?? 0);
-                            $tips    = (float) ($record?->tips ?? 0);
-                            $cogs    = (float) ($record?->latestDeductionRequest?->lines?->sum('line_total') ?? 0);
-                            $payouts = (float) ($record?->payouts?->sum('calculated_payout') ?? 0);
-                            $margin  = ($net + $tips) - $cogs - $payouts;
-                            $base    = $net + $tips;
-                            $pct     = $base > 0 ? round(($margin / $base) * 100, 1) : 0;
+                            // Single source of truth — same numbers as the Net Margin column.
+                            $pl      = $record?->profitAndLoss() ?? ['gross' => 0, 'net' => 0, 'tips' => 0, 'cogs' => 0, 'payouts' => 0, 'margin' => 0, 'margin_pct' => 0];
+                            $gross   = $pl['gross'];
+                            $net     = $pl['net'];
+                            $tips    = $pl['tips'];
+                            $cogs    = $pl['cogs'];
+                            $payouts = $pl['payouts'];
+                            $margin  = $pl['margin'];
+                            $pct     = $pl['margin_pct'];
                             $sign    = $margin >= 0 ? '+' : '';
 
                             $f  = fn (float $v): string => '$' . number_format($v, 2);
@@ -514,6 +518,15 @@ class ShowResource extends Resource
                     ->money('USD')
                     ->default('—')
                     ->summarize(Sum::make()->money('USD')->label('Total Gross')),
+
+                TextColumn::make('net_margin')
+                    ->label('Net Margin')
+                    ->state(fn (Show $record): float => $record->profitAndLoss()['margin'])
+                    ->money('USD')
+                    ->color(fn (float $state): string => $state >= 0 ? 'success' : 'danger')
+                    ->tooltip(fn (Show $record): string => 'Margin ' . $record->profitAndLoss()['margin_pct'] . '%')
+                    ->sortable(false)
+                    ->toggleable(),
 
                 TextColumn::make('units_sold')
                     ->label('Units')

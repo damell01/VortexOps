@@ -89,6 +89,57 @@ class Show extends Model
         'shipping_surcharge_total' => 'decimal:2',
     ];
 
+    /**
+     * Per-show profit & loss — the single source of truth for the P&L Summary
+     * card and the Net Margin column. Margin = (Whatnot net + tips) − approved
+     * COGS − streamer payouts, where COGS is the sum of the latest deduction
+     * request's line totals. Uses loaded relations / withSum aggregates when
+     * present (and explicit queries otherwise) so it stays cheap on list views
+     * and safe with lazy loading disabled.
+     *
+     * @return array{gross: float, net: float, tips: float, cogs: float, payouts: float, margin: float, margin_pct: float}
+     */
+    public function profitAndLoss(): array
+    {
+        $gross = (float) $this->gross_revenue;
+        $net   = (float) $this->whatnot_net;
+        $tips  = (float) $this->tips;
+
+        // Approved COGS from the latest deduction request's lines.
+        $dr = $this->relationLoaded('latestDeductionRequest')
+            ? $this->getRelation('latestDeductionRequest')
+            : $this->latestDeductionRequest()->with('lines')->first();
+
+        $cogs = 0.0;
+        if ($dr) {
+            $cogs = (float) ($dr->relationLoaded('lines')
+                ? $dr->lines->sum('line_total')
+                : $dr->lines()->sum('line_total'));
+        }
+
+        $payouts = $this->payouts_sum_calculated_payout !== null
+            ? (float) $this->payouts_sum_calculated_payout
+            : (float) $this->payouts()->sum('calculated_payout');
+
+        $base   = $net + $tips;
+        $margin = round($base - $cogs - $payouts, 2);
+
+        return [
+            'gross'      => round($gross, 2),
+            'net'        => round($net, 2),
+            'tips'       => round($tips, 2),
+            'cogs'       => round($cogs, 2),
+            'payouts'    => round($payouts, 2),
+            'margin'     => $margin,
+            'margin_pct' => $base > 0.0 ? round($margin / $base * 100, 1) : 0.0,
+        ];
+    }
+
+    public function getNetProfitAttribute(): float
+    {
+        return $this->profitAndLoss()['margin'];
+    }
+
     protected static function booted(): void
     {
         // Stamp status_changed_at whenever the show enters a new status (and on

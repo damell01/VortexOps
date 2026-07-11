@@ -786,6 +786,22 @@ class WhatnotScraper
             if (! $show || empty($rows)) {
                 continue;
             }
+
+            // Safety net: order scraping trusts the ?source=<id> filter to scope
+            // rows to this show. If that filter ever silently fails we'd get EVERY
+            // order for the channel. The analytics "Orders" count (units_sold) is
+            // our expected magnitude — if the scrape returns wildly more than that,
+            // treat it as unfiltered and skip rather than corrupt the dataset.
+            $expected = (int) ($show->units_sold ?? 0);
+            if ($expected > 0 && count($rows) > ($expected * 2 + 100)) {
+                Log::warning('WhatnotScraper: order count far exceeds expected — skipping (likely unfiltered)', [
+                    'show_id'  => $show->id,
+                    'scraped'  => count($rows),
+                    'expected' => $expected,
+                ]);
+                continue;
+            }
+
             $res = $this->persistShowOrders($show, $rows);
             $ordersCreated += $res['created'];
         }

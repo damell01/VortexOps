@@ -4,9 +4,12 @@ namespace App\Filament\Resources\ShowResource\RelationManagers;
 
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
+use App\Models\InventoryStock;
 use App\Models\WhatnotShowOrder;
 use App\Services\WhatnotScraper;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\SelectColumn;
@@ -20,6 +23,33 @@ class OrdersRelationManager extends RelationManager
 {
     protected static string $relationship = 'orders';
     protected static ?string $title = 'Items Sold';
+
+    /**
+     * Inventory items for the item dropdown: the show streamer's own stock (items
+     * with a stock row at any of their locations), falling back to all active
+     * items when the streamer has no inventory set up.
+     *
+     * @return array<int, string>
+     */
+    protected static function streamerInventoryOptions($show): array
+    {
+        $locationIds = $show->primaryStreamer()?->inventoryLocations()->pluck('id') ?? collect();
+
+        $query = InventoryItem::query()->where('is_active', true);
+
+        if ($locationIds->isNotEmpty()) {
+            $scoped = (clone $query)
+                ->whereHas('stock', fn ($s) => $s->whereIn('inventory_location_id', $locationIds))
+                ->orderBy('name')
+                ->pluck('name', 'id')
+                ->toArray();
+            if (! empty($scoped)) {
+                return $scoped;
+            }
+        }
+
+        return $query->orderBy('name')->pluck('name', 'id')->toArray();
+    }
 
     public function table(Table $table): Table
     {
@@ -86,11 +116,9 @@ class OrdersRelationManager extends RelationManager
                 // cost. total_cost is kept = qty × unit_cost by the model.
                 SelectColumn::make('inventory_item_id')
                     ->label('Inventory Item')
-                    ->options(fn () => InventoryItem::query()
-                        ->where('is_active', true)
-                        ->orderBy('name')
-                        ->pluck('name', 'id')
-                        ->toArray())
+                    // Scope to the streamer's own inventory (items stocked at their
+                    // location); fall back to all active items when none is set up.
+                    ->options(fn () => self::streamerInventoryOptions($show))
                     ->selectablePlaceholder('— map item —')
                     ->width('220px'),
 
@@ -134,6 +162,48 @@ class OrdersRelationManager extends RelationManager
                     ->options(WhatnotShowOrder::statusLabels()),
             ])
             ->headerActions([
+                // Add a new inventory item on the fly and stock it at the streamer's
+                // location so it immediately appears in the (scoped) item dropdown.
+                Action::make('add_inventory_item')
+                    ->label('Add Inventory Item')
+                    ->icon('heroicon-o-plus')
+                    ->color('gray')
+                    ->schema([
+                        TextInput::make('name')->required()->maxLength(255),
+                        TextInput::make('sku')->label('SKU')->maxLength(255),
+                        TextInput::make('category')->maxLength(255),
+                        TextInput::make('unit_cost')->numeric()->default(0)->prefix('$'),
+                        Select::make('inventory_location_id')
+                            ->label('Location')
+                            ->options(function () use ($show) {
+                                $streamer = $show->primaryStreamer();
+                                return $streamer
+                                    ? $streamer->inventoryLocations()->orderBy('name')->pluck('name', 'id')->toArray()
+                                    : InventoryLocation::query()->orderBy('name')->pluck('name', 'id')->toArray();
+                            })
+                            ->default(fn () => $show->defaultInventoryLocation()?->id)
+                            ->required(),
+                    ])
+                    ->action(function (array $data): void {
+                        $item = InventoryItem::create([
+                            'name'      => $data['name'],
+                            'sku'       => $data['sku'] ?: null,
+                            'category'  => $data['category'] ?: null,
+                            'unit_cost' => $data['unit_cost'] ?: 0,
+                            'is_active' => true,
+                        ]);
+                        InventoryStock::firstOrCreate([
+                            'inventory_item_id'     => $item->id,
+                            'inventory_location_id' => $data['inventory_location_id'],
+                        ], ['quantity' => 0]);
+
+                        Notification::make()
+                            ->title("Added \"{$item->name}\" to inventory")
+                            ->body('It\'s now selectable in the item dropdown for this show.')
+                            ->success()
+                            ->send();
+                    }),
+
                 Action::make('import_orders')
                     ->label('Import Items Sold')
                     ->icon('heroicon-o-arrow-down-tray')

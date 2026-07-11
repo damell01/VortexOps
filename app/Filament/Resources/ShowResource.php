@@ -9,6 +9,7 @@ use App\Filament\Resources\ShowResource\RelationManagers\OrdersRelationManager;
 use App\Models\DeductionRequest;
 use App\Models\Show;
 use App\Models\Streamer;
+use App\Filament\Resources\WhatnotChannelResource;
 use App\Models\WhatnotChannel;
 use App\Support\AdminModules;
 use Filament\Actions\Action as TableAction;
@@ -592,6 +593,16 @@ class ShowResource extends Resource
             ->defaultPaginationPageOption(25)
             ->deferLoading()
             ->defaultSort('show_date', 'desc')
+            ->emptyStateIcon('heroicon-o-video-camera')
+            ->emptyStateHeading('No shows yet')
+            ->emptyStateDescription('Shows import automatically from Whatnot. Connect a channel and run your first import to see them here.')
+            ->emptyStateActions([
+                TableAction::make('go_import')
+                    ->label('Import from Whatnot')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->url(fn () => WhatnotChannelResource::getUrl('index'))
+                    ->visible(fn () => auth()->user()?->isAdmin() ?? false),
+            ])
             ->filters([
                 SelectFilter::make('status')
                     ->options(Show::statusLabels())

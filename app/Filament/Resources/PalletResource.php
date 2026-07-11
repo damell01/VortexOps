@@ -210,6 +210,12 @@ class PalletResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->emptyStateIcon('heroicon-o-inbox-stack')
+            ->emptyStateHeading('No pallets yet')
+            ->emptyStateDescription('Log an incoming pallet from a vendor, map its lines to inventory, then receive by barcode or all at once.')
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()->label('Receive a pallet'),
+            ])
             ->filters([
                 SelectFilter::make('status')->options(Pallet::statusLabels()),
                 SelectFilter::make('vendor_id')

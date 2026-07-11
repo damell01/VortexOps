@@ -119,6 +119,12 @@ class VendorResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->emptyStateIcon('heroicon-o-building-storefront')
+            ->emptyStateHeading('No vendors yet')
+            ->emptyStateDescription('Add the suppliers you buy inventory from so you can track pallets and costs against them.')
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()->label('Add a vendor'),
+            ])
             ->filters([
                 SelectFilter::make('status')->options(Vendor::statusLabels()),
             ])

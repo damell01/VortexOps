@@ -288,6 +288,12 @@ class StreamerResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->emptyStateIcon('heroicon-o-user-group')
+            ->emptyStateHeading('No streamers yet')
+            ->emptyStateDescription('Add the people you run breaks with — their payout terms, channel routing, and inventory location.')
+            ->emptyStateActions([
+                \Filament\Actions\CreateAction::make()->label('Add your first streamer'),
+            ])
             ->filters([
                 SelectFilter::make('status')
                     ->options(Streamer::statusLabels()),

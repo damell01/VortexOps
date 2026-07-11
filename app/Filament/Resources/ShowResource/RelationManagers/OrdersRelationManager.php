@@ -82,10 +82,11 @@ class OrdersRelationManager extends RelationManager
                     ->description(fn (WhatnotShowOrder $record) =>
                         $record->buyer_display_name ? '@' . $record->buyer_username : null),
 
-                TextColumn::make('quantity')
+                TextInputColumn::make('quantity')
                     ->label('Qty')
-                    ->alignCenter()
-                    ->width('56px'),
+                    ->type('number')
+                    ->rules(['required', 'integer', 'min:1'])
+                    ->width('72px'),
 
                 TextColumn::make('unit_price')
                     ->label('Unit')

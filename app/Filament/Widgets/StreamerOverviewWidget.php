@@ -6,6 +6,7 @@ use App\Models\Show;
 use App\Models\StreamerLogEntry;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Facades\Cache;
 
 class StreamerOverviewWidget extends BaseWidget
 {
@@ -25,24 +26,28 @@ class StreamerOverviewWidget extends BaseWidget
             return [];
         }
 
-        $mStart = now()->startOfMonth()->toDateString();
-        $mEnd   = now()->endOfMonth()->toDateString();
+        [$pending, $myShowsMonth, $myGrossMonth, $outstanding] =
+            Cache::remember("widget:streamer_overview:{$streamerId}", 120, function () use ($streamerId) {
+                $mStart = now()->startOfMonth()->toDateString();
+                $mEnd   = now()->endOfMonth()->toDateString();
 
-        $pending = StreamerLogEntry::where('streamer_id', $streamerId)
-            ->where('status', 'pending')
-            ->count();
+                $pending = StreamerLogEntry::where('streamer_id', $streamerId)
+                    ->where('status', 'pending')
+                    ->count();
 
-        $myShowsMonth = Show::whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamerId))
-            ->whereBetween('show_date', [$mStart, $mEnd])
-            ->count();
+                $showsQuery = fn () => Show::whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamerId))
+                    ->whereBetween('show_date', [$mStart, $mEnd]);
 
-        $myGrossMonth = (float) Show::whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamerId))
-            ->whereBetween('show_date', [$mStart, $mEnd])
-            ->sum('gross_revenue');
+                $myShowsMonth = $showsQuery()->count();
+                $myGrossMonth = (float) $showsQuery()->sum('gross_revenue');
 
-        $outstanding = (float) StreamerLogEntry::where('streamer_id', $streamerId)
-            ->get(['total_due', 'total_paid'])
-            ->sum(fn ($e) => max(0, (float) $e->total_due - (float) $e->total_paid));
+                // DB-side, portable "unpaid" sum (avoids loading every row).
+                $outstanding = (float) StreamerLogEntry::where('streamer_id', $streamerId)
+                    ->selectRaw('COALESCE(SUM(CASE WHEN total_due > total_paid THEN total_due - total_paid ELSE 0 END), 0) as o')
+                    ->value('o');
+
+                return [$pending, $myShowsMonth, $myGrossMonth, $outstanding];
+            });
 
         return [
             Stat::make('Shows to Review', number_format($pending))

@@ -2,11 +2,36 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\OperationsOverviewWidget;
+use App\Filament\Widgets\RecentShowsWidget;
+use App\Filament\Widgets\ShowsKpiWidget;
 use App\Models\Setting;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 class Dashboard extends BaseDashboard
 {
+    /**
+     * Curated home overview. Each widget's own canView() still applies, so a
+     * user only sees the ones relevant to their role/enabled modules.
+     */
+    public function getWidgets(): array
+    {
+        if ((bool) Setting::get('demo_mode', false)) {
+            return [];
+        }
+
+        return [
+            ShowsKpiWidget::class,
+            OperationsOverviewWidget::class,
+            RecentShowsWidget::class,
+        ];
+    }
+
+    public function getColumns(): int|string|array
+    {
+        return 1;
+    }
+
     public function getView(): string
     {
         if ((bool) Setting::get('demo_mode', false)) {

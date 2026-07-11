@@ -5,9 +5,11 @@ namespace Tests\Feature\Shows;
 use App\Models\Show;
 use App\Models\User;
 use App\Models\WhatnotChannel;
+use App\Models\WhatnotShowOrder;
 use App\Services\WhatnotScraper;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
+use ReflectionMethod;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
@@ -152,7 +154,7 @@ class WhatnotScraperTest extends TestCase
 
         $counts = $scraper->importShows($this->channel);
 
-        $this->assertEquals(['created' => 1, 'updated' => 0, 'skipped' => 0], $counts);
+        $this->assertEquals(['created' => 1, 'updated' => 0, 'skipped' => 0, 'ordersCreated' => 0], $counts);
 
         $show = Show::where('title', 'Test Break Show')->first();
         $this->assertNotNull($show);
@@ -186,7 +188,7 @@ class WhatnotScraperTest extends TestCase
 
         $counts = $scraper->importShows($this->channel);
 
-        $this->assertEquals(['created' => 0, 'updated' => 1, 'skipped' => 0], $counts);
+        $this->assertEquals(['created' => 0, 'updated' => 1, 'skipped' => 0, 'ordersCreated' => 0], $counts);
 
         $show = Show::where('title', 'Test Break Show')->first();
         $this->assertEquals(1500.00, (float) $show->gross_revenue);
@@ -228,7 +230,7 @@ class WhatnotScraperTest extends TestCase
 
         $counts = $scraper->importShows($this->channel);
 
-        $this->assertEquals(['created' => 0, 'updated' => 0, 'skipped' => 2], $counts);
+        $this->assertEquals(['created' => 0, 'updated' => 0, 'skipped' => 2, 'ordersCreated' => 0], $counts);
         $this->assertEquals(0, Show::count());
     }
 
@@ -243,7 +245,7 @@ class WhatnotScraperTest extends TestCase
 
         $counts = $scraper->importShows($this->channel);
 
-        $this->assertEquals(['created' => 3, 'updated' => 0, 'skipped' => 0], $counts);
+        $this->assertEquals(['created' => 3, 'updated' => 0, 'skipped' => 0, 'ordersCreated' => 0], $counts);
         $this->assertEquals(3, Show::where('import_source', 'auto_whatnot')->count());
     }
 
@@ -261,7 +263,69 @@ class WhatnotScraperTest extends TestCase
 
         $counts = $scraper->importShows($this->channel);
 
-        $this->assertEquals(['created' => 0, 'updated' => 0, 'skipped' => 0], $counts);
+        $this->assertEquals(['created' => 0, 'updated' => 0, 'skipped' => 0, 'ordersCreated' => 0], $counts);
+    }
+
+    // ── Channel attribution ───────────────────────────────────────────────────
+
+    public function test_import_flags_show_when_matched_under_different_channel(): void
+    {
+        $otherChannel = WhatnotChannel::create(['name' => 'Other Channel', 'status' => 'active']);
+
+        // Show first attributed to $otherChannel.
+        Show::create([
+            'whatnot_channel_id' => $otherChannel->id,
+            'title'              => 'Test Break Show',
+            'show_date'          => '2026-06-15',
+            'import_source'      => 'auto_whatnot',
+            'status'             => 'draft',
+            'created_by'         => 1,
+        ]);
+
+        // Now the same show is returned by an import running for $this->channel.
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow()]));
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Test Break Show')->first();
+        $this->assertTrue((bool) $show->channel_attribution_suspect, 'cross-channel match should be flagged');
+        // Original attribution is kept — we do not silently re-stamp the channel.
+        $this->assertEquals($otherChannel->id, $show->whatnot_channel_id);
+    }
+
+    public function test_import_does_not_flag_show_matched_under_same_channel(): void
+    {
+        Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'              => 'Test Break Show',
+            'show_date'          => '2026-06-15',
+            'import_source'      => 'auto_whatnot',
+            'status'             => 'draft',
+            'created_by'         => 1,
+        ]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow()]));
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Test Break Show')->first();
+        $this->assertFalse((bool) $show->channel_attribution_suspect);
+    }
+
+    public function test_import_does_not_flag_show_with_no_prior_channel(): void
+    {
+        // Existing show with no channel yet (e.g. created before channel tagging).
+        Show::create([
+            'title'         => 'Test Break Show',
+            'show_date'     => '2026-06-15',
+            'import_source' => 'auto_whatnot',
+            'status'        => 'draft',
+            'created_by'    => 1,
+        ]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow()]));
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Test Break Show')->first();
+        $this->assertFalse((bool) $show->channel_attribution_suspect);
     }
 
     // ── Analytics fields ──────────────────────────────────────────────────────
@@ -306,6 +370,96 @@ class WhatnotScraperTest extends TestCase
         $show = Show::first();
         $this->assertEquals(55,  $show->buyers_count);
         $this->assertEquals(750, $show->total_views);
+    }
+
+    // ── Order-scrape safety guard ─────────────────────────────────────────────
+
+    /** @return array<int,array<string,mixed>> distinct fake order rows */
+    private function fakeOrders(int $n): array
+    {
+        $rows = [];
+        for ($i = 0; $i < $n; $i++) {
+            $rows[] = [
+                'order_id' => "ord-{$i}",
+                'buyer'    => "buyer{$i}",
+                'item_name' => "Item {$i}",
+                'quantity' => 1,
+            ];
+        }
+        return $rows;
+    }
+
+    /** A real WhatnotScraper subclass with fetchOrdersForShows() stubbed to a fixed payload. */
+    private function scraperReturningOrders(array $ordersByShow): WhatnotScraper
+    {
+        return new class($ordersByShow) extends WhatnotScraper {
+            public function __construct(private array $stubOrders)
+            {
+                parent::__construct();
+            }
+
+            public function fetchOrdersForShows(array $sources, ?string $channelUsername = null, bool $debug = false): array
+            {
+                return $this->stubOrders;
+            }
+        };
+    }
+
+    private function invokeImportOrders(WhatnotScraper $scraper, Show $show): int
+    {
+        $method = new ReflectionMethod(WhatnotScraper::class, 'importOrdersForTargets');
+        $method->setAccessible(true);
+
+        return $method->invoke($scraper, [['show' => $show, 'live_id' => 'live-1']], null, false);
+    }
+
+    public function test_order_guard_skips_when_scrape_far_exceeds_expected(): void
+    {
+        $show = Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'      => 'Guarded Show', 'show_date' => '2026-06-15',
+            'units_sold' => 10, 'import_source' => 'auto_whatnot', 'created_by' => 1,
+        ]);
+
+        // 10 expected → threshold is 10*2+100 = 120; 500 rows must be rejected.
+        $scraper = $this->scraperReturningOrders([$show->id => $this->fakeOrders(500)]);
+
+        $created = $this->invokeImportOrders($scraper, $show);
+
+        $this->assertEquals(0, $created);
+        $this->assertEquals(0, WhatnotShowOrder::where('show_id', $show->id)->count());
+    }
+
+    public function test_order_guard_allows_reasonable_scrape(): void
+    {
+        $show = Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'      => 'Normal Show', 'show_date' => '2026-06-15',
+            'units_sold' => 10, 'import_source' => 'auto_whatnot', 'created_by' => 1,
+        ]);
+
+        $scraper = $this->scraperReturningOrders([$show->id => $this->fakeOrders(8)]);
+
+        $created = $this->invokeImportOrders($scraper, $show);
+
+        $this->assertEquals(8, $created);
+        $this->assertEquals(8, WhatnotShowOrder::where('show_id', $show->id)->count());
+    }
+
+    public function test_order_guard_disabled_when_expected_count_unknown(): void
+    {
+        // units_sold = 0 → no reliable expectation, so the guard must not fire.
+        $show = Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'      => 'Unknown Count Show', 'show_date' => '2026-06-15',
+            'units_sold' => 0, 'import_source' => 'auto_whatnot', 'created_by' => 1,
+        ]);
+
+        $scraper = $this->scraperReturningOrders([$show->id => $this->fakeOrders(5)]);
+
+        $created = $this->invokeImportOrders($scraper, $show);
+
+        $this->assertEquals(5, $created);
     }
 
     // ── importAllEnabledChannels ──────────────────────────────────────────────

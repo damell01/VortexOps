@@ -17,12 +17,14 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Hash;
-use Spatie\Permission\Models\Role;
 use App\Filament\Concerns\HasAdminNavVisibility;
 
 class UserResource extends Resource
 {
     use HasAdminNavVisibility;
+
+    /** Roles only the owner may grant/revoke. */
+    public const PRIVILEGED_ROLES = ['admin', 'super_admin'];
 
     protected static ?string $model = User::class;
 
@@ -93,9 +95,16 @@ class UserResource extends Resource
             Section::make('Roles & Access')->schema([
                 Select::make('roles')
                     ->multiple()
-                    ->options(Role::pluck('name', 'name'))
+                    // Options come from the relationship (keyed by id, labelled by
+                    // name). Only the owner sees the privileged roles, so other
+                    // admins can manage non-privileged roles (e.g. streamer) but
+                    // cannot create more admins. Enforced again on save below.
+                    ->relationship('roles', 'name', modifyQueryUsing: function ($query) {
+                        if (! (auth()->user()?->isOwner() ?? false)) {
+                            $query->whereNotIn('name', UserResource::PRIVILEGED_ROLES);
+                        }
+                    })
                     ->preload()
-                    ->relationship('roles', 'name')
                     ->helperText('Admin — full access. Streamer — scoped to their own inventory locations.'),
 
                 Select::make('streamer_id')

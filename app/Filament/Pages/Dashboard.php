@@ -8,6 +8,7 @@ use App\Filament\Widgets\RecentShowsWidget;
 use App\Filament\Widgets\SetupChecklistWidget;
 use App\Filament\Widgets\ShowsKpiWidget;
 use App\Filament\Widgets\StreamerOverviewWidget;
+use App\Filament\Widgets\StreamerShowsToReviewWidget;
 use App\Models\Setting;
 use Filament\Pages\Dashboard as BaseDashboard;
 
@@ -26,8 +27,9 @@ class Dashboard extends BaseDashboard
         return [
             // First-run onboarding (auto-hides once complete/dismissed).
             SetupChecklistWidget::class,
-            // Streamer-scoped overview (visible to streamer accounts only).
+            // Streamer-scoped overview + actionable to-do list (streamers only).
             StreamerOverviewWidget::class,
+            StreamerShowsToReviewWidget::class,
             // Admin/owner overview (each gates itself via canView()).
             ShowsKpiWidget::class,
             NeedsAttentionWidget::class,

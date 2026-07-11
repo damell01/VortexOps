@@ -157,6 +157,10 @@ class StreamerLogResource extends Resource
                 TextColumn::make('streamer.name')
                     ->label('Streamer')
                     ->searchable(),
+                TextColumn::make('show.channel.name')
+                    ->label('Channel')
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => StreamerLogEntry::statusLabels()[$state] ?? $state)
@@ -197,6 +201,13 @@ class StreamerLogResource extends Resource
                     ->label('Streamer')
                     ->options(Streamer::orderBy('name')->pluck('name', 'id'))
                     ->searchable(),
+                SelectFilter::make('channel')
+                    ->label('Channel')
+                    ->options(fn () => \App\Models\WhatnotChannel::orderBy('name')->pluck('name', 'id')->toArray())
+                    ->query(fn (Builder $query, array $data): Builder => $query->when(
+                        $data['value'] ?? null,
+                        fn ($q, $v) => $q->whereHas('show', fn ($s) => $s->where('whatnot_channel_id', $v)),
+                    )),
                 Filter::make('show_date')
                     ->form([
                         DatePicker::make('from')->label('From'),

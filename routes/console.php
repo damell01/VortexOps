@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\WorkerHeartbeat;
 use App\Models\Setting;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -10,6 +11,9 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::call(fn () => Setting::set('scheduler_last_heartbeat', now()->toISOString()))->everyMinute()->name('scheduler-heartbeat')->withoutOverlapping();
+// Enqueue a heartbeat job every minute; a live worker stamps worker_last_heartbeat
+// when it runs, so the System Health page can tell whether the queue is being drained.
+Schedule::job(new WorkerHeartbeat)->everyMinute()->name('worker-heartbeat')->withoutOverlapping();
 Schedule::command('db:backup')->dailyAt('02:00');
 Schedule::command('health:check --notify')->everyFifteenMinutes();
 // Frequent "catch the stream that just ended" import: the analytics walk starts

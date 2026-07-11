@@ -147,6 +147,28 @@ class SystemHealth extends Page
         }
     }
 
+    public function getWorkerStatusProperty(): array
+    {
+        try {
+            $lastHeartbeat = Setting::get('worker_last_heartbeat');
+            if (! $lastHeartbeat) {
+                return ['ok' => null, 'label' => 'No heartbeat yet — start a queue worker'];
+            }
+            $ts   = \Carbon\Carbon::parse($lastHeartbeat);
+            // Heartbeat job is enqueued every minute; allow 5 min of slack for a
+            // busy worker before calling it down.
+            $late = $ts->lt(now()->subMinutes(5));
+            return [
+                'ok'    => ! $late,
+                'label' => $late
+                    ? "Last drained {$ts->diffForHumans()} — queue worker may be down"
+                    : "Draining jobs — last heartbeat {$ts->diffForHumans()}",
+            ];
+        } catch (\Throwable) {
+            return ['ok' => null, 'label' => 'Unable to check'];
+        }
+    }
+
     public function getStorageStatusProperty(): array
     {
         try {

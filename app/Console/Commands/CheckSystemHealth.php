@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\SystemHealthAlert;
 use Illuminate\Console\Command;
@@ -26,6 +27,16 @@ class CheckSystemHealth extends Command
         $pending = DB::table('jobs')->count();
         if ($pending > 100) {
             $issues[] = "Queue backlog: {$pending} pending jobs (worker may be stuck)";
+        }
+
+        // Worker liveness — the scheduler enqueues a heartbeat job every minute;
+        // a stale stamp means no worker is draining the queue.
+        $workerHeartbeat = Setting::get('worker_last_heartbeat');
+        if ($workerHeartbeat) {
+            $ts = \Carbon\Carbon::parse($workerHeartbeat);
+            if ($ts->lt(now()->subMinutes(10))) {
+                $issues[] = "Queue worker heartbeat is stale ({$ts->diffForHumans()}) — worker may be down";
+            }
         }
 
         // Disk space

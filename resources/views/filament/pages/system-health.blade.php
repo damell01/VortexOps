@@ -4,6 +4,7 @@
     $queue     = $this->queueStatus;
     $ollama    = $this->ollamaStatus;
     $scheduler = $this->schedulerStatus;
+    $worker    = $this->workerStatus;
     $storage   = $this->storageStatus;
     $failed    = $this->failedJobs;
 @endphp
@@ -84,7 +85,7 @@
         </div>
 
         {{-- Queue Worker (Default) --}}
-        @php $queueOk = $queue['ok'] && $queue['failed'] === 0; @endphp
+        @php $queueOk = $queue['ok'] && $queue['failed'] === 0 && $worker['ok'] !== false; @endphp
         <div class="rounded-xl border {{ $queueOk ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950' : 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950' }} px-5 py-4">
             <div class="flex items-center gap-3">
                 <div class="rounded-full {{ $queueOk ? 'bg-green-100 dark:bg-green-900' : 'bg-amber-100 dark:bg-amber-900' }} p-2">
@@ -95,6 +96,10 @@
                     <p class="text-xs {{ $queueOk ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400' }}">
                         {{ $queue['default_pending'] }} pending · {{ $queue['active'] }} active
                     </p>
+                    <p class="text-[10px] {{ $worker['ok'] === false ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-400' }} mt-0.5">{{ $worker['label'] }}</p>
+                    @if ($worker['ok'] === false)
+                        <p class="text-[10px] text-gray-400 mt-0.5">Start: <code class="font-mono">php artisan queue:work</code></p>
+                    @endif
                     @if ($queue['failed'] > 0)
                         <p class="text-[10px] text-red-500 font-semibold mt-0.5">{{ $queue['failed'] }} failed job(s)</p>
                     @endif

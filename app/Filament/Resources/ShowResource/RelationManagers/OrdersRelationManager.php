@@ -64,7 +64,10 @@ class OrdersRelationManager extends RelationManager
                     ->label('Lot #')
                     ->sortable()
                     ->width('72px')
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    // Reference-only column — collapsible so the enrichment table
+                    // stays readable on a phone.
+                    ->toggleable(),
 
                 TextColumn::make('item_name')
                     ->label('Item')
@@ -80,7 +83,8 @@ class OrdersRelationManager extends RelationManager
                     ->formatStateUsing(fn ($state, WhatnotShowOrder $record) =>
                         $state ?: ('@' . ($record->buyer_username ?? '—')))
                     ->description(fn (WhatnotShowOrder $record) =>
-                        $record->buyer_display_name ? '@' . $record->buyer_username : null),
+                        $record->buyer_display_name ? '@' . $record->buyer_username : null)
+                    ->toggleable(),
 
                 TextInputColumn::make('quantity')
                     ->label('Qty')
@@ -201,6 +205,44 @@ class OrdersRelationManager extends RelationManager
                         Notification::make()
                             ->title("Added \"{$item->name}\" to inventory")
                             ->body('It\'s now selectable in the item dropdown for this show.')
+                            ->success()
+                            ->send();
+                    }),
+
+                // One-click cost entry: fill unit_cost for every mapped item that
+                // has no cost yet, using that inventory item's current cost — so a
+                // streamer doesn't retype what inventory already knows.
+                Action::make('fill_costs')
+                    ->label('Fill Costs')
+                    ->icon('heroicon-o-sparkles')
+                    ->color('primary')
+                    ->requiresConfirmation()
+                    ->modalHeading('Fill unit costs from inventory')
+                    ->modalDescription('Set the unit cost for every mapped item that has no cost yet, using that inventory item\'s current cost. Items you\'ve already priced are left untouched.')
+                    ->action(function () use ($show): void {
+                        $orders = $show->orders()
+                            ->whereNotNull('inventory_item_id')
+                            ->where(fn ($q) => $q->whereNull('unit_cost')->orWhere('unit_cost', 0))
+                            ->with('inventoryItem')
+                            ->get();
+
+                        $filled = 0;
+                        foreach ($orders as $order) {
+                            $cost = $order->inventoryItem?->unit_cost;
+                            if ($cost !== null && (float) $cost > 0) {
+                                $order->unit_cost = $cost; // model keeps total_cost in sync
+                                $order->save();
+                                $filled++;
+                            }
+                        }
+
+                        Notification::make()
+                            ->title($filled > 0
+                                ? "Filled costs on {$filled} item" . ($filled === 1 ? '' : 's')
+                                : 'Nothing to fill')
+                            ->body($filled > 0
+                                ? 'Costs came from each item\'s inventory record. Adjust any inline as needed.'
+                                : 'Map items to inventory (and give those items a cost) first.')
                             ->success()
                             ->send();
                     }),

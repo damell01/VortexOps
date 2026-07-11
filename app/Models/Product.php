@@ -91,6 +91,12 @@ class Product extends Model
         return $this->hasMany(PalletLine::class, 'inventory_item_id');
     }
 
+    /** Sold order lines mapped to this product (used for margin / sell-through). */
+    public function orders(): HasMany
+    {
+        return $this->hasMany(\App\Models\WhatnotShowOrder::class, 'inventory_item_id');
+    }
+
     public function preferredVendor(): BelongsTo
     {
         return $this->belongsTo(Vendor::class, 'preferred_vendor_id');

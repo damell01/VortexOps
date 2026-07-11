@@ -12,6 +12,7 @@ use App\Models\Streamer;
 use App\Models\WhatnotChannel;
 use App\Support\AdminModules;
 use Filament\Actions\Action as TableAction;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -40,6 +41,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 
 class ShowResource extends Resource
@@ -641,12 +643,45 @@ class ShowResource extends Resource
                     ->modalDescription('Are you sure you want to cancel this show? This cannot be undone.')
                     ->action(fn (Show $record) => $record->update(['status' => 'cancelled'])),
 
+                TableAction::make('confirm_channel')
+                    ->label('Confirm Channel')
+                    ->icon('heroicon-o-check-badge')
+                    ->color('warning')
+                    ->visible(fn (Show $record) => (bool) $record->channel_attribution_suspect
+                        && (auth()->user()?->isAdmin() ?? false))
+                    ->modalHeading('Confirm channel attribution')
+                    ->modalDescription('This show was also scraped under another channel, so its attribution may be wrong. Confirm the correct channel to clear the review flag.')
+                    ->modalSubmitActionLabel('Confirm & clear flag')
+                    ->schema([
+                        Select::make('whatnot_channel_id')
+                            ->label('Correct channel')
+                            ->options(fn () => WhatnotChannel::orderBy('name')->pluck('name', 'id'))
+                            ->default(fn (Show $record) => $record->whatnot_channel_id)
+                            ->required(),
+                    ])
+                    ->action(function (Show $record, array $data): void {
+                        $record->update([
+                            'whatnot_channel_id'          => $data['whatnot_channel_id'],
+                            'channel_attribution_suspect' => false,
+                        ]);
+                        Notification::make()->title('Channel confirmed')->success()->send();
+                    }),
+
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
                     ExportBulkAction::make(),
+                    BulkAction::make('clear_attribution_flag')
+                        ->label('Clear channel-review flag')
+                        ->icon('heroicon-o-check-badge')
+                        ->color('warning')
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->requiresConfirmation()
+                        ->modalDescription('Clear the channel-review flag on the selected shows, keeping their current channel.')
+                        ->action(fn (Collection $records) => $records->each->update(['channel_attribution_suspect' => false]))
+                        ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make()
                         ->visible(fn () => auth()->user()?->isAdmin()),
                 ]),

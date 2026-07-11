@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Filament\Widgets\ActivityFeedWidget;
 use App\Filament\Widgets\NeedsAttentionWidget;
 use App\Filament\Widgets\SetupChecklistWidget;
+use App\Filament\Widgets\ShowsCalendarWidget;
 use App\Models\Setting;
 use App\Models\Show;
 use App\Models\User;
@@ -100,5 +102,24 @@ class DashboardWidgetsTest extends TestCase
 
         Livewire::test(NeedsAttentionWidget::class)
             ->assertSee('need a channel confirmed');
+    }
+
+    // ── Blade widgets render (regression: $view must be set, not just getView) ──
+
+    public function test_activity_feed_widget_renders(): void
+    {
+        Livewire::actingAs($this->admin());
+
+        Livewire::test(ActivityFeedWidget::class)
+            ->assertOk()
+            ->assertSee('Recent Activity');
+    }
+
+    public function test_shows_calendar_widget_renders(): void
+    {
+        Livewire::actingAs($this->admin());
+
+        Livewire::test(ShowsCalendarWidget::class)
+            ->assertOk();
     }
 }

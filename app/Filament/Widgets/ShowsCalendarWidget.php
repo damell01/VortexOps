@@ -11,6 +11,7 @@ class ShowsCalendarWidget extends Widget
     protected static ?int    $sort        = 10;
     protected static ?string $heading     = null;
     protected int | string | array $columnSpan = 'full';
+    protected string $view = 'filament.widgets.shows-calendar';
 
     public int  $year;
     public int  $month;
@@ -20,8 +21,6 @@ class ShowsCalendarWidget extends Widget
         $this->year  = now()->year;
         $this->month = now()->month;
     }
-
-    public function getView(): string { return 'filament.widgets.shows-calendar'; }
 
     public function previousMonth(): void
     {

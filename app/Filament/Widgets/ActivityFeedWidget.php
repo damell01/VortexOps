@@ -10,15 +10,11 @@ class ActivityFeedWidget extends Widget
     protected static ?int $sort = 9;
     protected int | string | array $columnSpan = 'full';
     protected static ?string $heading = 'Recent Activity';
+    protected string $view = 'filament.widgets.activity-feed';
 
     public static function canView(): bool
     {
-        return auth()->user()?->isAdmin();
-    }
-
-    public function getView(): string
-    {
-        return 'filament.widgets.activity-feed';
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     protected function getViewData(): array

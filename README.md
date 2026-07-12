@@ -39,8 +39,14 @@ Auto-captured by the Playwright UI tour and stored in [`tests/Browser/screenshot
 | ![Stat card hover](tests/Browser/screenshots/desktop/04-dashboard-stat-hover.png) | ![Stat card hover](tests/Browser/screenshots/mobile/04-dashboard-stat-hover.png) |
 | ![Dark mode](tests/Browser/screenshots/desktop/05-dashboard-dark.png) | ![Dark mode](tests/Browser/screenshots/mobile/05-dashboard-dark.png) |
 | ![Dashboard full scroll](tests/Browser/screenshots/desktop/45-dashboard-final.png) | ![Dashboard full scroll](tests/Browser/screenshots/mobile/45-dashboard-final.png) |
+| ![Dashboard overview](tests/Browser/screenshots/desktop/50-dashboard-overview.png) | ![Dashboard overview](tests/Browser/screenshots/mobile/50-dashboard-overview.png) |
 
-The dashboard includes a **Shows Calendar Widget** — a full-width monthly calendar with colour-coded shows by status (draft/pending review/mapping/pending approval/reconciled/closed), month navigation, and a legend. Hovering a show chip displays the title inline.
+The dashboard adapts to the signed-in role:
+
+- **First-run setup checklist** — walks a fresh workspace through connecting a Whatnot channel, running the first import, adding streamers, and creating an inventory location; auto-hides once complete or dismissed.
+- **Needs Attention** — a single actionable list (pending streamer logs, shows flagged for channel review, deduction requests awaiting approval, low stock, failed jobs), each deep-linking to the work.
+- **Streamer view** — streamers get a scoped overview plus a **Shows to Review** to-do list that jumps straight into enrichment; they only ever see their own shows.
+- **Shows Calendar Widget** — a full-width monthly calendar with colour-coded shows by status, month navigation, and a legend.
 
 ---
 
@@ -111,6 +117,24 @@ The Shows table supports a **QueryBuilder** panel with 7 constraint types. Combi
 | ![Filter panel open](tests/Browser/screenshots/desktop/13b-shows-filter-panel.png) | ![Filter panel open](tests/Browser/screenshots/mobile/13b-shows-filter-panel.png) |
 | ![Advanced filter rules](tests/Browser/screenshots/desktop/13c-shows-advanced-filter.png) | ![Advanced filter rules](tests/Browser/screenshots/mobile/13c-shows-advanced-filter.png) |
 
+#### Net Margin & Filter Presets — Shows
+
+The Shows list carries a per-show **Net Margin** column (Whatnot net + tips − approved COGS − payouts, green/red with a margin-% tooltip) and one-tap **filter-preset tabs** — *Needs Review*, *This Week*, *Unreconciled*, plus a badged *Channel Review* tab for shows whose channel attribution may be wrong.
+
+| Desktop | Mobile |
+|---|---|
+| ![Shows net margin & tabs](tests/Browser/screenshots/desktop/54-shows-net-margin.png) | ![Shows net margin & tabs](tests/Browser/screenshots/mobile/54-shows-net-margin.png) |
+
+---
+
+### Show Pipeline — Status Board
+
+A Kanban view of shows moving through the ops pipeline (Pending Review → AI Mapping → Pending Approval → Reconciled). Each card shows a **time-in-status** aging badge — grey when fresh, amber at 3+ days, red at 7+ — so shows stuck in the reconcile pipeline stand out at a glance.
+
+| Desktop | Mobile |
+|---|---|
+| ![Status board aging](tests/Browser/screenshots/desktop/53-status-board-aging.png) | ![Status board aging](tests/Browser/screenshots/mobile/53-status-board-aging.png) |
+
 ---
 
 ### Deduction Requests
@@ -157,6 +181,17 @@ The Payouts table supports **three grouping modes** via the Group select: by Str
 |---|---|
 | ![Reports overview](tests/Browser/screenshots/desktop/28-reports.png) | ![Reports overview](tests/Browser/screenshots/mobile/28-reports.png) |
 | ![Reports full scroll](tests/Browser/screenshots/desktop/29-reports-full.png) | ![Reports full scroll](tests/Browser/screenshots/mobile/29-reports-full.png) |
+
+---
+
+### Product Insights
+
+Inventory profitability derived from data already captured — sold order lines, on-hand stock, and costs. Per product: units sold, revenue, COGS and **margin (%)**, **sell-through** (sold ÷ sold + on-hand), capital tied up, and days since last sale. Filter chips switch between **Best Margin**, **All Products**, **Dead Stock** (on-hand with no sale in 90 days), and **Never Sold**; KPI cards summarise total inventory value, dead-stock value, and SKU counts.
+
+| Desktop | Mobile |
+|---|---|
+| ![Product Insights — best margin](tests/Browser/screenshots/desktop/51-product-insights.png) | ![Product Insights — best margin](tests/Browser/screenshots/mobile/51-product-insights.png) |
+| ![Product Insights — dead stock](tests/Browser/screenshots/desktop/52-product-insights-dead-stock.png) | ![Product Insights — dead stock](tests/Browser/screenshots/mobile/52-product-insights-dead-stock.png) |
 
 ---
 

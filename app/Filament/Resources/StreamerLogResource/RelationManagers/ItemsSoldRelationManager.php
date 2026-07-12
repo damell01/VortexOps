@@ -76,11 +76,16 @@ class ItemsSoldRelationManager extends RelationManager
             ->recordTitleAttribute('item_name')
             ->defaultSort('lot_number')
             ->columns([
-                TextColumn::make('lot_number')->label('Lot #')->width('72px')->placeholder('—')->toggleable(),
+                // On phones the table slims down to what a streamer actually edits
+                // (item, qty, mapping, cost); context columns return at md+ so the
+                // row fits without sideways scrolling on a narrow screen.
+                TextColumn::make('lot_number')->label('Lot #')->width('72px')->placeholder('—')
+                    ->visibleFrom('md')->toggleable(),
 
                 TextColumn::make('item_name')->label('Item')->wrap()->placeholder('—'),
 
-                TextColumn::make('buyer_username')->label('Buyer')->placeholder('—')->toggleable(),
+                TextColumn::make('buyer_username')->label('Buyer')->placeholder('—')
+                    ->visibleFrom('md')->toggleable(),
 
                 TextInputColumn::make('quantity')
                     ->label('Qty')->type('number')->rules(['required', 'integer', 'min:1'])->width('72px')
@@ -88,6 +93,7 @@ class ItemsSoldRelationManager extends RelationManager
                     ->disabled($locked),
 
                 TextColumn::make('total_price')->label('Sold For')->money('USD')->placeholder('—')
+                    ->visibleFrom('md')
                     ->summarize(Sum::make()->label('Total')->money('USD')),
 
                 SelectColumn::make('inventory_item_id')
@@ -110,6 +116,7 @@ class ItemsSoldRelationManager extends RelationManager
                     })
                     ->selectablePlaceholder('—')
                     ->width('160px')
+                    ->visibleFrom('md')
                     ->disabled($locked),
 
                 TextInputColumn::make('unit_cost')
@@ -117,6 +124,7 @@ class ItemsSoldRelationManager extends RelationManager
                     ->disabled($locked),
 
                 TextColumn::make('total_cost')->label('Total Cost')->money('USD')->placeholder('—')->weight('bold')
+                    ->visibleFrom('md')
                     ->summarize(Sum::make()->label('Total')->money('USD')),
             ])
             ->heading(fn () => static::mappingProgress($show))

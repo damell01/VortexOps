@@ -4,6 +4,7 @@
         $rows = $this->rows;
         $views = [
             'best_margin' => 'Best Margin',
+            'reorder'     => 'Reorder Soon',
             'all'         => 'All Products',
             'dead_stock'  => 'Dead Stock (' . \App\Filament\Pages\ProductInsights::DEAD_DAYS . 'd+)',
             'never_sold'  => 'Never Sold',
@@ -85,8 +86,11 @@
                                     <span class="text-[10px] font-normal text-gray-400">{{ $r['margin_pct'] }}%</span>
                                 @endif
                             </td>
-                            <td class="px-3 py-2 text-right tabular-nums text-gray-600 dark:text-gray-300">
+                            <td class="px-3 py-2 text-right tabular-nums {{ $r['needs_reorder'] ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-600 dark:text-gray-300' }}">
                                 {{ is_null($r['sell_through']) ? '—' : $r['sell_through'] . '%' }}
+                                @if ($r['needs_reorder'])
+                                    <span class="ml-1 text-[10px] font-normal text-amber-500" title="Fast seller running low — consider restocking">↑</span>
+                                @endif
                             </td>
                             <td class="px-3 py-2 text-right tabular-nums text-gray-500 dark:text-gray-400">${{ number_format($r['capital'], 0) }}</td>
                             <td class="px-3 py-2 text-right text-gray-500 dark:text-gray-400">

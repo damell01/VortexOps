@@ -18,11 +18,14 @@ class ProductInsights extends Page
 
     protected static string $moduleSlug = 'inventory';
 
-    /** @var 'all'|'best_margin'|'dead_stock'|'never_sold' */
+    /** @var 'all'|'best_margin'|'dead_stock'|'never_sold'|'reorder' */
     public string $view = 'best_margin';
 
     /** Days without a sale before on-hand stock counts as "dead". */
     public const DEAD_DAYS = 90;
+
+    /** A fast seller counts as low on stock once sell-through crosses this line. */
+    public const REORDER_SELL_THROUGH = 70.0;
 
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
@@ -112,6 +115,10 @@ class ProductInsights extends Page
                 'sell_through'    => $available > 0 ? round($unitsSold / $available * 100, 1) : null,
                 'is_dead'         => $onHand > 0 && (! $lastSold || $lastSold->lt(now()->subDays(self::DEAD_DAYS))),
                 'never_sold'      => $unitsSold <= 0,
+                // A proven seller (sells fast) that's running low on hand — worth restocking.
+                'needs_reorder'   => $unitsSold > 0
+                    && $available > 0
+                    && round($unitsSold / $available * 100, 1) >= self::REORDER_SELL_THROUGH,
             ];
         });
     }
@@ -129,6 +136,7 @@ class ProductInsights extends Page
             'best_margin' => $rows->sortByDesc('margin')->values(),
             'dead_stock'  => $rows->filter(fn ($r) => $r['is_dead'])->sortByDesc('capital')->values(),
             'never_sold'  => $rows->filter(fn ($r) => $r['never_sold'] && $r['on_hand'] > 0)->sortByDesc('capital')->values(),
+            'reorder'     => $rows->filter(fn ($r) => $r['needs_reorder'])->sortByDesc('sell_through')->values(),
             default       => $rows->sortBy('name')->values(),
         };
     }
@@ -143,6 +151,7 @@ class ProductInsights extends Page
             'dead_value'      => round($all->where('is_dead', true)->sum('capital'), 2),
             'active_skus'     => $all->count(),
             'sold_skus'       => $all->where('units_sold', '>', 0)->count(),
+            'reorder_skus'    => $all->where('needs_reorder', true)->count(),
         ];
     }
 }

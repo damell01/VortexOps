@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Pages\ProductInsights;
 use App\Filament\Pages\SystemHealth;
 use App\Filament\Resources\DeductionRequestResource;
 use App\Filament\Resources\InventoryItemResource;
@@ -87,6 +88,15 @@ class NeedsAttentionWidget extends Widget
             );
 
             $add(
+                AdminModules::isEnabled('inventory') && Schema::hasTable('inventory_stock'),
+                $this->deadStockCount(),
+                'products dead on the shelf (capital stuck)',
+                'heroicon-o-archive-box-x-mark',
+                'warning',
+                ProductInsights::getUrl(),
+            );
+
+            $add(
                 Schema::hasTable('failed_jobs'),
                 (int) DB::table('failed_jobs')->count(),
                 'failed background jobs',
@@ -99,6 +109,35 @@ class NeedsAttentionWidget extends Widget
         }
 
         return $items;
+    }
+
+    /** Active products holding stock that hasn't sold within the dead-stock window. */
+    private function deadStockCount(): int
+    {
+        try {
+            $cutoff = now()->subDays(ProductInsights::DEAD_DAYS)->toDateString();
+
+            return InventoryItem::query()
+                ->where('is_active', true)
+                // Has stock on hand.
+                ->whereExists(function ($query) {
+                    $query->selectRaw('1')
+                        ->from('inventory_stock')
+                        ->whereColumn('inventory_stock.inventory_item_id', 'products.id')
+                        ->groupBy('inventory_stock.inventory_item_id')
+                        ->havingRaw('SUM(quantity) > 0');
+                })
+                // No sale inside the window (covers never-sold too).
+                ->whereNotExists(function ($query) use ($cutoff) {
+                    $query->selectRaw('1')
+                        ->from('whatnot_show_orders')
+                        ->whereColumn('whatnot_show_orders.inventory_item_id', 'products.id')
+                        ->where('whatnot_show_orders.show_date', '>=', $cutoff);
+                })
+                ->count();
+        } catch (\Throwable) {
+            return 0;
+        }
     }
 
     private function lowStockCount(): int

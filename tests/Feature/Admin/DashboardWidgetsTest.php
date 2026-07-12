@@ -104,6 +104,29 @@ class DashboardWidgetsTest extends TestCase
             ->assertSee('need a channel confirmed');
     }
 
+    public function test_needs_attention_surfaces_dead_stock(): void
+    {
+        $admin = $this->admin();
+
+        $item = \App\Models\InventoryItem::create(['name' => 'Stale Case', 'unit_cost' => 10, 'is_active' => true]);
+        $loc  = \App\Models\InventoryLocation::create(['name' => 'Main']);
+        \App\Models\InventoryStock::create([
+            'inventory_item_id' => $item->id, 'inventory_location_id' => $loc->id, 'quantity' => 5,
+        ]);
+        // Last (and only) sale is well outside the dead-stock window.
+        \App\Models\WhatnotShowOrder::create([
+            'show_id' => Show::create(['title' => 'S', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $admin->id])->id,
+            'inventory_item_id' => $item->id, 'buyer_username' => 'b', 'item_name' => 'Stale Case',
+            'quantity' => 1, 'unit_cost' => 10, 'total_price' => 12, 'status' => 'completed',
+            'show_date' => now()->subDays(200)->toDateString(),
+        ]);
+
+        Livewire::actingAs($admin);
+
+        Livewire::test(NeedsAttentionWidget::class)
+            ->assertSee('dead on the shelf');
+    }
+
     // ── Blade widgets render (regression: $view must be set, not just getView) ──
 
     public function test_activity_feed_widget_renders(): void

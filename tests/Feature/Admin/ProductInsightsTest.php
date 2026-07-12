@@ -88,6 +88,29 @@ class ProductInsightsTest extends TestCase
         $this->assertEqualsWithDelta(0.0, $neverRow['sell_through'], 0.01); // 0 sold / (0 + 5 stock) = 0%
     }
 
+    public function test_flags_reorder_for_fast_sellers_running_low(): void
+    {
+        // Sold 9, only 1 left → 90% sell-through, well over the 70% reorder line.
+        $hot = InventoryItem::create(['name' => 'Fast Mover', 'unit_cost' => 5, 'is_active' => true]);
+        $this->stock($hot, 1);
+        $this->sale($hot, 9, 5, 90);
+
+        // Sold 2, 10 left → 16.7% sell-through, plenty of stock, no reorder.
+        $slow = InventoryItem::create(['name' => 'Slow Mover', 'unit_cost' => 5, 'is_active' => true]);
+        $this->stock($slow, 10);
+        $this->sale($slow, 2, 5, 20);
+
+        $this->assertTrue($this->rowFor($hot->id)['needs_reorder']);
+        $this->assertFalse($this->rowFor($slow->id)['needs_reorder']);
+
+        // The reorder view shows only the fast mover.
+        $reorder = (new ProductInsights);
+        $reorder->view = 'reorder';
+        $ids = $reorder->getRowsProperty()->pluck('id')->all();
+        $this->assertContains($hot->id, $ids);
+        $this->assertNotContains($slow->id, $ids);
+    }
+
     public function test_dead_stock_view_and_kpis(): void
     {
         Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);

@@ -9,6 +9,7 @@ use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\SelectColumn;
+use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\TextInputColumn;
 use Filament\Tables\Table;
@@ -23,6 +24,25 @@ class ItemsSoldRelationManager extends RelationManager
 {
     protected static string $relationship = 'showOrders';
     protected static ?string $title = 'Items Sold';
+
+    /** Heading that doubles as a mapping-progress indicator (e.g. "Items Sold — 12 of 30 mapped"). */
+    protected static function mappingProgress($show): string
+    {
+        if (! $show) {
+            return 'Items Sold';
+        }
+
+        $total  = $show->orders()->count();
+        if ($total === 0) {
+            return 'Items Sold';
+        }
+
+        $mapped = $show->orders()->whereNotNull('inventory_item_id')->count();
+
+        return $mapped === $total
+            ? "Items Sold — all {$total} mapped ✓"
+            : "Items Sold — {$mapped} of {$total} mapped";
+    }
 
     /** Items for the dropdown: the streamer's own stock, else all active items. */
     protected static function streamerInventoryOptions($show): array
@@ -64,9 +84,11 @@ class ItemsSoldRelationManager extends RelationManager
 
                 TextInputColumn::make('quantity')
                     ->label('Qty')->type('number')->rules(['required', 'integer', 'min:1'])->width('72px')
+                    ->summarize(Sum::make()->label('Units'))
                     ->disabled($locked),
 
-                TextColumn::make('total_price')->label('Sold For')->money('USD')->placeholder('—'),
+                TextColumn::make('total_price')->label('Sold For')->money('USD')->placeholder('—')
+                    ->summarize(Sum::make()->label('Total')->money('USD')),
 
                 SelectColumn::make('inventory_item_id')
                     ->label('Inventory Item')
@@ -94,8 +116,10 @@ class ItemsSoldRelationManager extends RelationManager
                     ->label('Unit Cost')->type('number')->rules(['nullable', 'numeric', 'min:0'])->width('110px')
                     ->disabled($locked),
 
-                TextColumn::make('total_cost')->label('Total Cost')->money('USD')->placeholder('—')->weight('bold'),
+                TextColumn::make('total_cost')->label('Total Cost')->money('USD')->placeholder('—')->weight('bold')
+                    ->summarize(Sum::make()->label('Total')->money('USD')),
             ])
+            ->heading(fn () => static::mappingProgress($show))
             ->headerActions([
                 // One-click cost entry from each mapped item's inventory cost.
                 Action::make('fill_costs')

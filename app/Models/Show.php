@@ -153,6 +153,23 @@ class Show extends Model
                 $show->status_changed_at = now();
             }
         });
+
+        // Record a real, populated audit entry for status transitions. The
+        // LogsActivity auto-diff stores empty properties on this activitylog
+        // version, so we log the old → new status explicitly (this API works).
+        static::updated(function (Show $show) {
+            if ($show->wasChanged('status')) {
+                activity('show')
+                    ->performedOn($show)
+                    ->causedBy(auth()->user())
+                    ->withProperties([
+                        'old'        => ['status' => $show->getOriginal('status')],
+                        'attributes' => ['status' => $show->status],
+                    ])
+                    ->event('status_changed')
+                    ->log('Status changed');
+            }
+        });
     }
 
     public function getActivitylogOptions(): LogOptions

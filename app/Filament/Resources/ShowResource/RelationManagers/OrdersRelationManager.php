@@ -173,6 +173,8 @@ class OrdersRelationManager extends RelationManager
                     ->label('Add Inventory Item')
                     ->icon('heroicon-o-plus')
                     ->color('gray')
+                    // Writes to the shared inventory catalogue — admins only.
+                    ->visible(fn () => auth()->user()?->isAdmin() ?? false)
                     ->schema([
                         TextInput::make('name')->required()->maxLength(255),
                         TextInput::make('sku')->label('SKU')->maxLength(255),
@@ -251,7 +253,8 @@ class OrdersRelationManager extends RelationManager
                     ->label('Import Items Sold')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('success')
-                    ->visible(fn () => (bool) $show->detail_url)
+                    // Triggers a live Whatnot scrape (shared browser) — admins only.
+                    ->visible(fn () => (bool) $show->detail_url && (auth()->user()?->isAdmin() ?? false))
                     ->requiresConfirmation()
                     ->modalHeading('Import Items Sold from Whatnot')
                     ->modalDescription(

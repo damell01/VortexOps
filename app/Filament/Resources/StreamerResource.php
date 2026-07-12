@@ -8,6 +8,7 @@ use App\Filament\Resources\StreamerResource\Pages;
 use App\Filament\Resources\StreamerResource\RelationManagers\LoansRelationManager;
 use App\Models\Streamer;
 use App\Support\AdminModules;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -83,6 +84,32 @@ class StreamerResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
+            Section::make('Scorecard')
+                ->description('Performance across every show this streamer was on.')
+                ->icon('heroicon-o-trophy')
+                ->visible(fn ($record) => $record?->exists && $record->scorecard()['has_data'])
+                ->schema([
+                    Grid::make(4)->schema([
+                        Placeholder::make('sc_shows')
+                            ->label('Shows')
+                            ->content(fn ($record) => number_format($record->scorecard()['shows'])),
+                        Placeholder::make('sc_gross')
+                            ->label('Gross Driven')
+                            ->content(fn ($record) => '$' . number_format($record->scorecard()['gross'], 2)),
+                        Placeholder::make('sc_margin')
+                            ->label('Margin Contributed')
+                            ->content(fn ($record) => '$' . number_format($record->scorecard()['margin'], 2)),
+                        Placeholder::make('sc_rating')
+                            ->label('Avg Rating')
+                            ->content(function ($record) {
+                                $c = $record->scorecard();
+                                return $c['avg_rating'] !== null
+                                    ? number_format($c['avg_rating'], 2) . " ⭐ ({$c['rated_shows']} rated)"
+                                    : '—';
+                            }),
+                    ]),
+                ]),
+
             Section::make('Basic Information')->schema([
                 Grid::make(2)->schema([
                     TextInput::make('name')

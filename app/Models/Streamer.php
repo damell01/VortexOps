@@ -109,6 +109,46 @@ class Streamer extends Model
         return max(0, (float) $this->total_earnings_due - (float) $this->total_earnings_paid);
     }
 
+    /**
+     * A performance snapshot across every show this streamer was on: how many
+     * shows, total gross they drove, the margin their shows contributed, and
+     * their average order rating. Margin sums each show's P&L margin; the whole
+     * streamer's payouts already flow into those per-show margins.
+     *
+     * @return array{shows:int, gross:float, margin:float, avg_rating:?float, rated_shows:int, has_data:bool}
+     */
+    public function scorecard(): array
+    {
+        $shows = $this->shows()->get([
+            'shows.id', 'shows.gross_revenue', 'shows.whatnot_net',
+            'shows.tips', 'shows.avg_order_rating',
+        ]);
+
+        $gross     = 0.0;
+        $margin    = 0.0;
+        $ratingSum = 0.0;
+        $rated     = 0;
+
+        foreach ($shows as $show) {
+            $gross  += (float) $show->gross_revenue;
+            $margin += $show->profitAndLoss()['margin'];
+
+            if ($show->avg_order_rating !== null) {
+                $ratingSum += (float) $show->avg_order_rating;
+                $rated++;
+            }
+        }
+
+        return [
+            'shows'       => $shows->count(),
+            'gross'       => round($gross, 2),
+            'margin'      => round($margin, 2),
+            'avg_rating'  => $rated > 0 ? round($ratingSum / $rated, 2) : null,
+            'rated_shows' => $rated,
+            'has_data'    => $shows->isNotEmpty(),
+        ];
+    }
+
     public static function payoutTypeLabels(): array
     {
         return [

@@ -27,6 +27,9 @@ class ProductMatchingService
         private readonly EmbeddingService $embedding
     ) {}
 
+    /** Per-request memo of the active-product catalogue (see fuzzyCatalog). */
+    private ?\Illuminate\Database\Eloquent\Collection $catalogMemo = null;
+
     // ── Match result ───────────────────────────────────────────────────────────
 
     /**
@@ -301,17 +304,25 @@ class ProductMatchingService
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
+    /**
+     * The active-product catalogue used by fuzzy scoring, memoized on the
+     * instance for the life of this request. It is deliberately NOT stored in
+     * the shared cache: the database/file cache stores can't round-trip hydrated
+     * Eloquent models (they come back as __PHP_Incomplete_Class and blow up the
+     * return type), and a whole import batch shares one service instance, so a
+     * single query per batch is all the caching that's needed.
+     */
     private function fuzzyCatalog(): \Illuminate\Database\Eloquent\Collection
     {
-        return Cache::remember('matching:fuzzy_catalog', 300, fn () =>
-            Product::where('is_active', true)
-                ->select(['id', 'name', 'brand', 'sport', 'year', 'set_name', 'product_type', 'configuration', 'upc'])
-                ->get()
-        );
+        return $this->catalogMemo ??= Product::where('is_active', true)
+            ->select(['id', 'name', 'brand', 'sport', 'year', 'set_name', 'product_type', 'configuration', 'upc'])
+            ->get();
     }
 
     public function flushFuzzyCatalog(): void
     {
+        $this->catalogMemo = null;
+        // Clear any stale cross-request entry left by earlier versions.
         Cache::forget('matching:fuzzy_catalog');
     }
 

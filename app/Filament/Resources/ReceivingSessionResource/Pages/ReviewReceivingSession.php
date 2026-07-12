@@ -13,13 +13,20 @@ use App\Services\ReceivingSessionService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
+use Livewire\WithFileUploads;
 
 class ReviewReceivingSession extends Page
 {
+    use WithFileUploads;
+
     protected static string $resource = ReceivingSessionResource::class;
     protected static ?string $title = 'Review Receiving Session';
 
     public ReceivingSession $record;
+
+    // Uploaded manifest (CSV) awaiting parse.
+    public ?TemporaryUploadedFile $csvFile = null;
 
     // ── Per-line panel state ───────────────────────────────────────────────────
     // keyed by PalletLine id: ['action' => 'accept'|'choose'|'create'|null, 'selectedProductId' => int|null, ...]
@@ -387,19 +394,6 @@ class ReviewReceivingSession extends Page
             return;
         }
 
-        $pallet = $this->record->pallets()->first();
-
-        if (! $pallet) {
-            // Create a pallet for this session if none exists
-            $pallet = \App\Models\Pallet::create([
-                'vendor_id'            => $this->record->vendor_id,
-                'receiving_session_id' => $this->record->id,
-                'reference'            => "Session #{$this->record->id}",
-                'status'               => 'receiving',
-                'created_by'           => auth()->id(),
-            ]);
-        }
-
         $lines = [];
         foreach (explode("\n", $raw) as $row) {
             $parts = array_map('trim', explode('|', $row));
@@ -410,17 +404,101 @@ class ReviewReceivingSession extends Page
                 'description' => $parts[0],
                 'qty'         => isset($parts[1]) ? (float) $parts[1] : 1,
                 'unit_cost'   => isset($parts[2]) ? (float) $parts[2] : 0,
-                'upc'         => $parts[3] ?? null,
+                'upc'         => ($parts[3] ?? '') !== '' ? $parts[3] : null,
             ];
         }
 
-        if (! empty($lines)) {
-            app(ReceivingSessionService::class)->importLines($this->record, $pallet, $lines);
+        $this->runImport($lines, count($lines) . ' lines imported and matched.');
+        $this->manualLines = '';
+    }
+
+    /**
+     * Parse an uploaded CSV manifest into lines and run the same matching
+     * pipeline. Columns are: Description, Qty, Unit Cost, UPC (optional). A
+     * header row is skipped automatically when the second column isn't numeric.
+     */
+    public function importCsvFile(): void
+    {
+        $this->validate(
+            ['csvFile' => 'required|file|mimes:csv,txt|max:2048'],
+            [],
+            ['csvFile' => 'manifest file'],
+        );
+
+        $name  = $this->csvFile->getClientOriginalName();
+        $lines = self::parseManifest((string) file_get_contents($this->csvFile->getRealPath()));
+
+        if (empty($lines)) {
+            $this->flashError = "No usable rows found in \"{$name}\". Expected: Description, Qty, Unit Cost, UPC.";
+
+            return;
         }
 
-        $this->manualLines      = '';
+        $this->runImport($lines, count($lines) . " lines parsed from \"{$name}\" and matched.");
+        $this->csvFile = null;
+    }
+
+    /**
+     * Parse a CSV manifest (Description, Qty, Unit Cost, UPC) into import lines.
+     * A header row is dropped automatically when the second column isn't
+     * numeric. Pure and static so it's unit-testable without a Livewire mount.
+     *
+     * @return array<int, array{description:string, qty:float, unit_cost:float, upc:?string}>
+     */
+    public static function parseManifest(string $contents): array
+    {
+        $rows = array_map('str_getcsv', preg_split('/\r\n|\r|\n/', trim($contents)) ?: []);
+
+        // Drop a header row (e.g. "Description,Qty,...") when the qty cell is non-numeric.
+        if (isset($rows[0][1]) && ! is_numeric(trim((string) $rows[0][1]))) {
+            array_shift($rows);
+        }
+
+        $lines = [];
+        foreach ($rows as $cols) {
+            $desc = trim((string) ($cols[0] ?? ''));
+            if ($desc === '') {
+                continue;
+            }
+            $lines[] = [
+                'description' => $desc,
+                'qty'         => isset($cols[1]) ? (float) $cols[1] : 1,
+                'unit_cost'   => isset($cols[2]) ? (float) $cols[2] : 0,
+                'upc'         => isset($cols[3]) && trim((string) $cols[3]) !== '' ? trim((string) $cols[3]) : null,
+            ];
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Shared import path for both manual paste and CSV upload: resolve (or
+     * create) the session's pallet, run the matching pipeline, and refresh.
+     *
+     * @param array<int, array<string, mixed>> $lines
+     */
+    private function runImport(array $lines, string $okMessage): void
+    {
+        if (empty($lines)) {
+            return;
+        }
+
+        $pallet = $this->record->pallets()->first();
+
+        if (! $pallet) {
+            $pallet = \App\Models\Pallet::create([
+                'vendor_id'            => $this->record->vendor_id,
+                'receiving_session_id' => $this->record->id,
+                'reference'            => "Session #{$this->record->id}",
+                'status'               => 'receiving',
+                'created_by'           => auth()->id(),
+            ]);
+        }
+
+        app(ReceivingSessionService::class)->importLines($this->record, $pallet, $lines);
+
         $this->showManualImport = false;
-        $this->flashOk          = count($lines) . ' lines imported and matched.';
+        $this->flashOk          = $okMessage;
         $this->refreshGrouped();
     }
 
@@ -459,6 +537,23 @@ class ReviewReceivingSession extends Page
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('sample_manifest')
+                ->label('Sample manifest')
+                ->icon('heroicon-o-arrow-down-tray')
+                ->color('gray')
+                ->tooltip('Download a sample CSV to try the upload + AI matching flow')
+                ->action(fn () => response()->streamDownload(function () {
+                    $out = fopen('php://output', 'w');
+                    fputcsv($out, ['Description', 'Qty', 'Unit Cost', 'UPC']);
+                    // A mix that exercises every match outcome against demo inventory:
+                    fputcsv($out, ['2024 Bowman Chrome Hobby Box', 6, '125.00', '']);   // exact → auto
+                    fputcsv($out, ['Pokemon SV Booster Pack', 100, '4.25', '']);        // close → auto/review
+                    fputcsv($out, ['Prizm Basketball Hobby', 4, '185.00', '']);         // fuzzy → review
+                    fputcsv($out, ['Topps Series 1 Baseball Hobby', 12, '95.00', '']);  // fuzzy → review
+                    fputcsv($out, ['2025 Panini Mosaic Soccer Hobby Box', 3, '160.00', '']); // no match → new product
+                    fclose($out);
+                }, 'sample-manifest.csv', ['Content-Type' => 'text/csv'])),
+
             Action::make('back')
                 ->label('All Sessions')
                 ->icon('heroicon-o-arrow-left')

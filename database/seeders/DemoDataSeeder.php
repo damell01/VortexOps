@@ -16,6 +16,7 @@ use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\Payout;
+use App\Models\ReceivingSession;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\StreamerLoan;
@@ -754,6 +755,21 @@ class DemoDataSeeder extends Seeder
                 'deduct_from_payout' => true,
                 'status'             => 'active',
                 'notes'              => 'Demo loan — repayments deduct from weekly payouts.',
+            ],
+        );
+
+        // ── Receiving session (AI document-matching demo) ────────────────────
+        // An empty session ready for a manifest. Open it, hit "Import lines
+        // manually", and upload the Sample manifest (or paste lines) to watch the
+        // matching pipeline sort them into auto-matched / needs-review / new.
+        ReceivingSession::firstOrCreate(
+            ['invoice_number' => 'INV-DEMO-001'],
+            [
+                'vendor_id'      => $vendor->id,
+                'received_by'    => 1,
+                'purchase_order' => 'PO-DEMO-001',
+                'status'         => 'pending',
+                'notes'          => 'Demo — open this, choose "Import lines manually", and upload the Sample manifest to watch AI matching sort each line.',
             ],
         );
 

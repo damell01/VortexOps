@@ -7,6 +7,7 @@ use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\DeductionRequestResource\Pages;
 use App\Models\DeductionRequest;
 use App\Support\AdminModules;
+use App\Support\StatusColor;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -129,14 +130,7 @@ class DeductionRequestResource extends Resource
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => DeductionRequest::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => match ($state) {
-                        'draft' => 'gray',
-                        'pending' => 'warning',
-                        'approved' => 'info',
-                        'processed' => 'success',
-                        'rejected' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(fn ($state) => StatusColor::for($state)),
 
                 TextColumn::make('lines_count')
                     ->counts('lines')

@@ -12,6 +12,7 @@ use App\Models\Streamer;
 use App\Filament\Resources\WhatnotChannelResource;
 use App\Models\WhatnotChannel;
 use App\Support\AdminModules;
+use App\Support\StatusColor;
 use Filament\Actions\Action as TableAction;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
@@ -578,16 +579,7 @@ class ShowResource extends Resource
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => Show::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => match ($state) {
-                        'draft' => 'gray',
-                        'pending_review' => 'warning',
-                        'mapping' => 'info',
-                        'pending_approval' => 'warning',
-                        'reconciled' => 'success',
-                        'closed' => 'success',
-                        'cancelled' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(fn ($state) => StatusColor::for($state)),
 
                 TextColumn::make('latestDeductionRequest.status')
                     ->label('Approval')

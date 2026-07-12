@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\WhatnotLedgerResource\Pages;
 use App\Models\WhatnotLedgerEntry;
+use App\Support\StatusColor;
 use App\Services\FeatureFlagService;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -80,11 +81,7 @@ class WhatnotLedgerResource extends Resource
 
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn ($state) => match (strtolower((string) $state)) {
-                        'completed' => 'success',
-                        'processing' => 'warning',
-                        default => 'gray',
-                    }),
+                    ->color(fn ($state) => StatusColor::for($state)),
 
                 TextColumn::make('whatnot_order_id')
                     ->label('Order ID')

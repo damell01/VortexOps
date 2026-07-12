@@ -7,6 +7,7 @@ use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\WhatnotChannelResource\Pages;
 use App\Models\WhatnotChannel;
 use App\Support\AdminModules;
+use App\Support\StatusColor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -103,11 +104,7 @@ class WhatnotChannelResource extends Resource
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => WhatnotChannel::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => match ($state) {
-                        'active' => 'success',
-                        'inactive' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(fn ($state) => StatusColor::for($state)),
                 IconColumn::make('include_in_import')
                     ->label('Import')
                     ->boolean()

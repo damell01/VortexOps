@@ -102,6 +102,9 @@ class LoansRelationManager extends RelationManager
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => StreamerLoan::statusLabels()[$state] ?? $state)
+                    // Kept inline, not routed through StatusColor: an "active" loan
+                    // means money is still owed, so it reads as a warning here rather
+                    // than the "success" that "active" carries elsewhere.
                     ->color(fn ($state) => match ($state) {
                         'active'   => 'warning',
                         'paid_off' => 'success',

@@ -6,6 +6,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryStock;
 use App\Models\WhatnotShowOrder;
+use App\Support\StatusColor;
 use App\Services\WhatnotScraper;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -107,13 +108,7 @@ class OrdersRelationManager extends RelationManager
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => WhatnotShowOrder::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => match ($state) {
-                        'completed' => 'success',
-                        'refunded'  => 'danger',
-                        'cancelled' => 'danger',
-                        'pending'   => 'warning',
-                        default     => 'gray',
-                    })
+                    ->color(fn ($state) => StatusColor::for($state))
                     ->toggleable(),
 
                 // ── Streamer enrichment (inline-editable) ────────────────────────

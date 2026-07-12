@@ -12,6 +12,7 @@ use App\Models\PalletLine;
 use App\Models\Vendor;
 use App\Services\ReceivingService;
 use App\Support\AdminModules;
+use App\Support\StatusColor;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -191,13 +192,7 @@ class PalletResource extends Resource
                     ->placeholder('—'),
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn ($state) => match ($state) {
-                        'pending'   => 'gray',
-                        'receiving' => 'warning',
-                        'received'  => 'info',
-                        'processed' => 'success',
-                        default     => 'gray',
-                    }),
+                    ->color(fn ($state) => StatusColor::for($state)),
                 TextColumn::make('lines_count')
                     ->label('Lines')
                     ->sortable(),

@@ -7,6 +7,7 @@ use App\Filament\Resources\StreamerLogResource\RelationManagers;
 use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
 use App\Services\FeatureFlagService;
+use App\Support\StatusColor;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
@@ -202,12 +203,7 @@ class StreamerLogResource extends Resource
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => StreamerLogEntry::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => match ($state) {
-                        'pending'           => 'gray',
-                        'streamer_reviewed' => 'warning',
-                        'admin_approved'    => 'success',
-                        default             => 'gray',
-                    }),
+                    ->color(fn ($state) => StatusColor::for($state)),
                 TextColumn::make('hours_streamed')
                     ->label('Hours')
                     ->numeric(),

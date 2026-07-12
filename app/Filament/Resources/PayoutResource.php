@@ -8,6 +8,7 @@ use App\Filament\Resources\PayoutResource\Pages;
 use App\Models\Payout;
 use App\Models\Streamer;
 use App\Support\AdminModules;
+use App\Support\StatusColor;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\ViewAction;
@@ -206,12 +207,7 @@ class PayoutResource extends Resource
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => Payout::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => match ($state) {
-                        'draft' => 'gray',
-                        'approved' => 'info',
-                        'paid' => 'success',
-                        default => 'gray',
-                    }),
+                    ->color(fn ($state) => StatusColor::for($state)),
 
                 TextColumn::make('calculation_notes')
                     ->label('How Calculated')

@@ -7,6 +7,7 @@ use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\ShowIngestionLogResource\Pages;
 use App\Models\ShowIngestionLog;
 use App\Support\AdminModules;
+use App\Support\StatusColor;
 use Filament\Actions\ViewAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
@@ -101,12 +102,7 @@ class ShowIngestionLogResource extends Resource
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => ShowIngestionLog::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => match ($state) {
-                        'success' => 'success',
-                        'failed'  => 'danger',
-                        'partial' => 'warning',
-                        default   => 'gray',
-                    }),
+                    ->color(fn ($state) => StatusColor::for($state)),
 
                 TextColumn::make('error_message')
                     ->label('Error')

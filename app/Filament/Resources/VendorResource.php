@@ -7,6 +7,7 @@ use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\VendorResource\Pages;
 use App\Models\Vendor;
 use App\Support\AdminModules;
+use App\Support\StatusColor;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Select;
@@ -109,7 +110,7 @@ class VendorResource extends Resource
                     ->placeholder('—'),
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn ($state) => $state === 'active' ? 'success' : 'gray'),
+                    ->color(fn ($state) => StatusColor::for($state)),
                 TextColumn::make('pallets_count')
                     ->counts('pallets')
                     ->label('Pallets')

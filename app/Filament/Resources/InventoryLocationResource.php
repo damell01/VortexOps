@@ -7,6 +7,7 @@ use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\InventoryLocationResource\Pages;
 use App\Models\InventoryLocation;
 use App\Support\AdminModules;
+use App\Support\StatusColor;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -149,11 +150,7 @@ class InventoryLocationResource extends Resource
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => InventoryLocation::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => match ($state) {
-                        'active' => 'success',
-                        'inactive' => 'danger',
-                        default => 'gray',
-                    }),
+                    ->color(fn ($state) => StatusColor::for($state)),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()

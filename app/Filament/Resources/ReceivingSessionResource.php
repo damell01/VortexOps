@@ -8,6 +8,7 @@ use App\Filament\Resources\ReceivingSessionResource\Pages;
 use App\Models\ReceivingSession;
 use App\Models\Vendor;
 use App\Support\AdminModules;
+use App\Support\StatusColor;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Grid;
@@ -96,13 +97,7 @@ class ReceivingSessionResource extends Resource
 
                 TextColumn::make('status')
                     ->badge()
-                    ->color(fn (string $state) => match ($state) {
-                        'completed'  => 'success',
-                        'reviewing'  => 'warning',
-                        'parsing'    => 'info',
-                        'cancelled'  => 'danger',
-                        default      => 'gray',
-                    })
+                    ->color(fn (string $state) => StatusColor::for($state))
                     ->formatStateUsing(fn ($state) => ReceivingSession::statusLabels()[$state] ?? $state),
 
                 TextColumn::make('total_lines')

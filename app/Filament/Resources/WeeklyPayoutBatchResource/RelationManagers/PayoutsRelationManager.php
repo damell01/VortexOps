@@ -4,6 +4,7 @@ namespace App\Filament\Resources\WeeklyPayoutBatchResource\RelationManagers;
 
 use App\Models\Payout;
 use App\Models\Streamer;
+use App\Support\StatusColor;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
@@ -155,12 +156,7 @@ class PayoutsRelationManager extends RelationManager
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => Payout::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => match ($state) {
-                        'draft'    => 'gray',
-                        'approved' => 'info',
-                        'paid'     => 'success',
-                        default    => 'gray',
-                    }),
+                    ->color(fn ($state) => StatusColor::for($state)),
 
                 TextColumn::make('calculation_notes')
                     ->label('Notes')

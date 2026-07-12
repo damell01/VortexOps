@@ -9,6 +9,7 @@ use App\Filament\Resources\FeedbackTicketResource\RelationManagers\CommentsRelat
 use App\Models\FeedbackTicket;
 use App\Models\User;
 use App\Support\AdminModules;
+use App\Support\StatusColor;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -171,14 +172,7 @@ class FeedbackTicketResource extends Resource
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => FeedbackTicket::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => match ($state) {
-                        'open'        => 'danger',
-                        'in_progress' => 'warning',
-                        'needs_info'  => 'info',
-                        'resolved'    => 'success',
-                        'closed'      => 'gray',
-                        default       => 'gray',
-                    }),
+                    ->color(fn ($state) => StatusColor::for($state)),
 
                 TextColumn::make('submitted_name')
                     ->label('From')

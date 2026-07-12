@@ -9,6 +9,7 @@ use App\Filament\Resources\WeeklyPayoutBatchResource\RelationManagers;
 use App\Models\WeeklyPayoutBatch;
 use App\Services\PayoutService;
 use App\Support\AdminModules;
+use App\Support\StatusColor;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\ViewAction;
@@ -144,13 +145,7 @@ class WeeklyPayoutBatchResource extends Resource
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => WeeklyPayoutBatch::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => match ($state) {
-                        'draft'            => 'gray',
-                        'finalized'        => 'info',
-                        'submitted_to_adp' => 'warning',
-                        'paid'             => 'success',
-                        default            => 'gray',
-                    }),
+                    ->color(fn ($state) => StatusColor::for($state)),
 
                 TextColumn::make('finalizedBy.name')
                     ->label('Finalized By')

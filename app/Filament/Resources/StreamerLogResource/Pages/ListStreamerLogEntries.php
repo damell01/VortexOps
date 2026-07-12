@@ -11,6 +11,16 @@ class ListStreamerLogEntries extends ListRecords
 {
     protected static string $resource = StreamerLogResource::class;
 
+    public function getSubheading(): ?string
+    {
+        $user = auth()->user();
+        if ($user && $user->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
+            return 'Your shows to review — open one to map the items you sold, set costs, then mark it reviewed for admin approval.';
+        }
+
+        return 'Per-show streamer logs. Review streamer submissions and approve them, or send one back to reopen it.';
+    }
+
     /** Quick filter presets. The "To Review" count respects per-streamer scoping. */
     public function getTabs(): array
     {

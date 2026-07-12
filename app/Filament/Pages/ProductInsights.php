@@ -54,6 +54,11 @@ class ProductInsights extends Page
         return 'filament.pages.product-insights';
     }
 
+    public function getSubheading(): ?string
+    {
+        return 'Which products make money, which are stuck. Margin, sell-through, and dead stock — all from your sales and inventory data.';
+    }
+
     public function setView(string $view): void
     {
         $this->view = $view;

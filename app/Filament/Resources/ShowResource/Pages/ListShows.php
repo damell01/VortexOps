@@ -21,6 +21,11 @@ class ListShows extends ListRecords
 {
     protected static string $resource = ShowResource::class;
 
+    public function getSubheading(): ?string
+    {
+        return 'Shows import automatically from Whatnot. Net Margin shows profit per show; use the tabs to focus on what needs review.';
+    }
+
     /** Saved-view chips above the table — quick one-tap filter presets. */
     public function getTabs(): array
     {

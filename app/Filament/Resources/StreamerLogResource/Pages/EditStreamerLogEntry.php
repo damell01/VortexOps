@@ -16,6 +16,22 @@ class EditStreamerLogEntry extends EditRecord
         return [];
     }
 
+    public function getSubheading(): ?string
+    {
+        /** @var StreamerLogEntry $record */
+        $record = $this->record;
+
+        if (StreamerLogResource::isLockedForCurrentUser($record)) {
+            return '🔒 Approved — this entry is now view-only. Ask an admin to send it back if you need to make changes.';
+        }
+
+        if ($record->status === 'pending') {
+            return 'Map the items you sold to inventory, fill in your costs, then use "Streamer Reviewed" on the list to submit.';
+        }
+
+        return null;
+    }
+
     protected function afterSave(): void
     {
         /** @var StreamerLogEntry $record */

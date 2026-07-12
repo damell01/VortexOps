@@ -5,9 +5,12 @@ namespace Database\Seeders;
 use App\Models\DeductionRequest;
 use App\Models\Pallet;
 use App\Models\PalletLine;
+use App\Models\User;
 use App\Models\Vendor;
 use App\Services\ReceivingService;
 use App\Models\DeductionRequestLine;
+use App\Models\FeedbackTicket;
+use App\Models\InventoryCase;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
@@ -15,16 +18,27 @@ use App\Models\InventoryStock;
 use App\Models\Payout;
 use App\Models\Show;
 use App\Models\Streamer;
+use App\Models\StreamerLoan;
+use App\Models\StreamerLogEntry;
 use App\Models\WeeklyPayoutBatch;
 use App\Models\WhatnotChannel;
+use App\Models\WhatnotShowOrder;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
 
 class DemoDataSeeder extends Seeder
 {
     public function run(): void
     {
+        // Demo data builds on the base locations, channel, and roles that
+        // DefaultDataSeeder creates. Ensure they exist first so this seeder is
+        // self-sufficient — safe to run from the Demo Data button on a bare
+        // deployment, not just as part of a full db:seed. Both are idempotent.
+        $this->call(DefaultDataSeeder::class);
+
         // ── Streamers ────────────────────────────────────────────────────────
         $jordan = Streamer::firstOrCreate(['name' => 'Jordan'], [
             'email'             => 'jordan@vortexbreaks.com',
@@ -621,5 +635,136 @@ class DemoDataSeeder extends Seeder
             $receivingService = app(ReceivingService::class);
             $receivingService->receiveAllCasesForLine($pLine1);
         }
+
+        // ── Streamer login accounts (test data scoping as a streamer) ────────
+        // Each demo streamer gets a User with the "streamer" role, linked via
+        // streamers.user_id, so you can log in as them (password: demopassword)
+        // and see only their own shows, payouts, and log entries.
+        $streamerRole = Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
+        foreach ([$jordan, $taylor, $morgan, $alex] as $s) {
+            if (! $s->email) {
+                continue;
+            }
+            $u = User::firstOrCreate(
+                ['email' => $s->email],
+                ['name' => $s->name, 'password' => Hash::make('demopassword'), 'email_verified_at' => now()],
+            );
+            $u->syncRoles([$streamerRole]);
+            if ($s->user_id !== $u->id) {
+                $s->update(['user_id' => $u->id]);
+            }
+        }
+
+        // ── Per-show orders (items sold) ─────────────────────────────────────
+        // Drives the Streamer Log items editor, Product Insights (revenue,
+        // sell-through), and per-show P&L. Some are pre-mapped to inventory,
+        // some left unmapped so there's mapping work to demo.
+        $makeOrder = function (Show $show, string $oid, array $attrs): void {
+            WhatnotShowOrder::firstOrCreate(
+                ['show_id' => $show->id, 'whatnot_order_id' => $oid],
+                array_merge(['status' => 'completed', 'show_date' => $show->show_date, 'quantity' => 1], $attrs),
+            );
+        };
+        $mapped = fn (InventoryItem $item, ?InventoryLocation $loc, float $cost, int $qty): array => [
+            'inventory_item_id'     => $item->id,
+            'inventory_location_id' => $loc?->id,
+            'unit_cost'             => $cost,
+            'total_cost'            => round($cost * $qty, 2),
+        ];
+
+        // Show 1 (reconciled) — fully mapped
+        $makeOrder($show1, 'WN-S1-001', ['buyer_username' => 'cardking22', 'item_name' => '2024 Bowman Chrome Hobby Box', 'quantity' => 2, 'total_price' => 320.00] + $mapped($bowman, $jordanLoc, 125.00, 2));
+        $makeOrder($show1, 'WN-S1-002', ['buyer_username' => 'rookiehunter', 'item_name' => '2024 Topps Series 1', 'quantity' => 2, 'total_price' => 240.00] + $mapped($topps, $taylorLoc, 95.00, 2));
+        $makeOrder($show1, 'WN-S1-003', ['buyer_username' => 'pccollector', 'item_name' => 'Pokémon SV Booster', 'quantity' => 4, 'total_price' => 44.00] + $mapped($pokemon, $mainStorage, 4.50, 4));
+
+        // Show 2 (pending_approval) — one mapped, one left to map
+        $makeOrder($show2, 'WN-S2-001', ['buyer_username' => 'hoopsfan', 'item_name' => '2024 Prizm Basketball', 'quantity' => 3, 'total_price' => 640.00] + $mapped($prizm, $jordanLoc, 185.00, 3));
+        $makeOrder($show2, 'WN-S2-002', ['buyer_username' => 'gridiron', 'item_name' => 'Optic Football Box', 'quantity' => 2, 'total_price' => 300.00]);
+
+        // Show 3 (pending_review, TCG) — unmapped, streamer's job to map
+        $makeOrder($show3, 'WN-S3-001', ['buyer_username' => 'tcgmaster', 'item_name' => 'MTG Bloomburrow Box', 'quantity' => 1, 'total_price' => 140.00]);
+        $makeOrder($show3, 'WN-S3-002', ['buyer_username' => 'yugiking', 'item_name' => 'Yu-Gi-Oh Phantom Nightmare', 'quantity' => 1, 'total_price' => 90.00]);
+        $makeOrder($show3, 'WN-S3-003', ['buyer_username' => 'duelist', 'item_name' => 'Pokémon SV Booster', 'quantity' => 6, 'total_price' => 72.00]);
+
+        // Show 4 — a mapped sale
+        $makeOrder($show4, 'WN-S4-001', ['buyer_username' => 'nflcards', 'item_name' => '2025 Select Football', 'quantity' => 1, 'total_price' => 195.00] + $mapped($select, $alexLoc, 165.00, 1));
+
+        // ── Streamer log entries (the review → approval workflow) ─────────────
+        // One entry per show, spread across the pipeline so every state is
+        // demoable: approved+locked, awaiting-admin, and streamer-to-do.
+        $logStates = [
+            [$show1, 'admin_approved', $jordan],    // locked — test view-only + send-back
+            [$show2, 'streamer_reviewed', $jordan], // awaiting admin approval
+            [$show3, 'pending', $taylor],           // streamer still to fill
+            [$show4, 'pending', $alex],
+        ];
+        foreach ($logStates as [$show, $status, $streamer]) {
+            StreamerLogEntry::firstOrCreate(
+                ['show_id' => $show->id],
+                [
+                    'streamer_id'    => $streamer->id,
+                    'status'         => $status,
+                    'gross_revenue'  => $show->gross_revenue,
+                    'hours_streamed' => $show->show_duration ? round($show->show_duration / 60, 1) : null,
+                    'reviewed_at'    => $status === 'admin_approved' ? Carbon::now()->subDays(10) : null,
+                    'reviewed_by'    => $status === 'admin_approved' ? 1 : null,
+                ],
+            );
+        }
+
+        // ── Scannable pallet (barcode receiving demo) ────────────────────────
+        // A pallet mid-receipt whose cases carry real barcodes, so you can open
+        // Receive Pallet and scan them (VX-CASE-0001 … VX-CASE-0004).
+        $scanPallet = Pallet::firstOrCreate(
+            ['reference' => 'PO-2026-003'],
+            [
+                'vendor_id'  => $vendor->id,
+                'status'     => 'receiving',
+                'notes'      => 'Demo — scan the case barcodes (VX-CASE-0001 …) on the Receive page.',
+                'created_by' => 1,
+            ],
+        );
+        if ($scanPallet->wasRecentlyCreated) {
+            $scanLine = PalletLine::create([
+                'pallet_id'             => $scanPallet->id,
+                'line_number'           => 1,
+                'description'           => '2025 Bowman Draft HTA Box',
+                'inventory_item_id'     => $bowmanDraft->id,
+                'inventory_location_id' => $mainStorage?->id,
+                'case_count'            => 4,
+                'quantity_per_case'     => 6,
+                'unit_cost'             => 210.00,
+            ]);
+            for ($i = 1; $i <= 4; $i++) {
+                InventoryCase::create([
+                    'pallet_line_id' => $scanLine->id,
+                    'barcode'        => sprintf('VX-CASE-%04d', $i),
+                    'status'         => 'expected',
+                ]);
+            }
+        }
+
+        // ── Streamer loan (payout repayment deduction) ───────────────────────
+        StreamerLoan::firstOrCreate(
+            ['streamer_id' => $alex->id, 'label' => 'Equipment advance'],
+            [
+                'original_amount'    => 600.00,
+                'weekly_repayment'   => 50.00,
+                'remaining_balance'  => 450.00,
+                'deduct_from_payout' => true,
+                'status'             => 'active',
+                'notes'              => 'Demo loan — repayments deduct from weekly payouts.',
+            ],
+        );
+
+        // ── Feedback tickets (the in-app feedback flow) ──────────────────────
+        FeedbackTicket::firstOrCreate(
+            ['title' => 'Add CSV export to Product Insights'],
+            ['description' => 'Would love to export the dead-stock list to CSV.', 'type' => 'suggestion', 'status' => 'open', 'priority' => 'medium', 'submitted_name' => 'Jordan'],
+        );
+        FeedbackTicket::firstOrCreate(
+            ['title' => 'Confirm tips are in the payout preview'],
+            ['description' => 'Double-check tips are included in the weekly preview total.', 'type' => 'bug', 'status' => 'in_progress', 'priority' => 'high', 'submitted_name' => 'Taylor'],
+        );
     }
 }

@@ -434,6 +434,49 @@ class ShowResource extends Resource
                         }),
                 ]),
 
+            Section::make('Engagement')
+                ->description('How the audience engaged — imported with each show.')
+                ->visible(fn (?Show $record) => $record !== null && $record->engagement()['has_data'])
+                ->schema([
+                    Placeholder::make('engagement_card')
+                        ->label('')
+                        ->columnSpanFull()
+                        ->content(function (?Show $record): \Illuminate\Support\HtmlString {
+                            $e = $record?->engagement() ?? [];
+                            $n = fn ($v) => number_format((int) ($v ?? 0));
+                            $newReturn = ($e['first_time'] ?? 0) + ($e['returning'] ?? 0);
+                            $newPct  = $newReturn > 0 ? round(($e['first_time'] / $newReturn) * 100) : null;
+
+                            $cell = fn (string $label, string $value, string $sub = ''): string =>
+                                "<div style=\"padding:14px 18px\">
+                                    <div style=\"font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px\">{$label}</div>
+                                    <div style=\"font-size:18px;font-weight:700;color:#111827\">{$value}</div>"
+                                    . ($sub !== '' ? "<div style=\"font-size:11px;color:#6b7280;margin-top:2px\">{$sub}</div>" : '')
+                                    . '</div>';
+
+                            $conversion = $e['conversion_pct'] !== null ? $e['conversion_pct'] . '%' : '—';
+                            $rating     = $e['rating'] !== null ? number_format($e['rating'], 2) . ' ★' : '—';
+                            $newReturnCell = $newReturn > 0
+                                ? "{$newPct}% new"
+                                : '—';
+
+                            return new \Illuminate\Support\HtmlString("
+                                <div style=\"border:1px solid #e5e7eb;border-radius:10px;overflow:hidden\">
+                                    <div style=\"display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #e5e7eb\">
+                                        {$cell('Peak Viewers', $n($e['peak_viewers'] ?? 0))}
+                                        <div style=\"border-left:1px solid #e5e7eb\">{$cell('Total Views', $n($e['total_views'] ?? 0))}</div>
+                                        <div style=\"border-left:1px solid #e5e7eb\">{$cell('Shares', $n($e['shares'] ?? 0))}</div>
+                                    </div>
+                                    <div style=\"display:grid;grid-template-columns:repeat(3,1fr);background:#fafafa\">
+                                        {$cell('Buyers', $n($e['buyers'] ?? 0), $newReturnCell)}
+                                        <div style=\"border-left:1px solid #e5e7eb\">{$cell('Conversion', $conversion, 'buyers ÷ peak viewers')}</div>
+                                        <div style=\"border-left:1px solid #e5e7eb\">{$cell('Avg Rating', $rating)}</div>
+                                    </div>
+                                </div>
+                            ");
+                        }),
+                ]),
+
             Section::make('P&L Summary')
                 ->visible(fn (?Show $record) => $record !== null)
                 ->schema([

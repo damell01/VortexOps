@@ -82,4 +82,24 @@ class ShowProfitTest extends TestCase
         // No deductions, no payouts → margin = net + tips = 950
         $this->assertEqualsWithDelta(950.0, $show->profitAndLoss()['margin'], 0.01);
     }
+
+    public function test_engagement_computes_conversion_and_flags_data(): void
+    {
+        $show = Show::create([
+            'title' => 'E', 'show_date' => now()->toDateString(), 'status' => 'reconciled',
+            'created_by' => User::factory()->create()->id,
+            'max_concurrent_viewers' => 200, 'total_views' => 900, 'buyers_count' => 40,
+            'first_time_buyers' => 10, 'returning_buyers' => 30, 'avg_order_rating' => 4.7,
+        ]);
+
+        $e = $show->engagement();
+
+        $this->assertTrue($e['has_data']);
+        $this->assertEqualsWithDelta(20.0, $e['conversion_pct'], 0.1); // 40 buyers / 200 peak
+        $this->assertEqualsWithDelta(4.7, $e['rating'], 0.01);
+
+        // A show with no analytics has no engagement data.
+        $bare = Show::create(['title' => 'B', 'show_date' => now()->toDateString(), 'status' => 'draft', 'created_by' => User::factory()->create()->id]);
+        $this->assertFalse($bare->engagement()['has_data']);
+    }
 }

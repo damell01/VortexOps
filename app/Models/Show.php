@@ -152,6 +152,35 @@ class Show extends Model
         return $this->profitAndLoss()['margin'];
     }
 
+    /**
+     * Audience engagement, derived from the analytics fields imported with each
+     * show. Conversion is buyers ÷ peak viewers (falling back to total views).
+     *
+     * @return array{peak_viewers:int, total_views:int, shares:int, buyers:int, first_time:int, returning:int, rating:?float, conversion_pct:?float, has_data:bool}
+     */
+    public function engagement(): array
+    {
+        $peak      = (int) ($this->max_concurrent_viewers ?? 0);
+        $views     = (int) ($this->total_views ?? 0);
+        $buyers    = (int) ($this->buyers_count ?? 0);
+        $firstTime = (int) ($this->first_time_buyers ?? 0);
+        $returning = (int) ($this->returning_buyers ?? 0);
+
+        $denominator = $peak > 0 ? $peak : $views;
+
+        return [
+            'peak_viewers'   => $peak,
+            'total_views'    => $views,
+            'shares'         => (int) ($this->shares_count ?? 0),
+            'buyers'         => $buyers,
+            'first_time'     => $firstTime,
+            'returning'      => $returning,
+            'rating'         => $this->avg_order_rating !== null ? (float) $this->avg_order_rating : null,
+            'conversion_pct' => $denominator > 0 ? round($buyers / $denominator * 100, 1) : null,
+            'has_data'       => ($peak + $views + $buyers + $firstTime + $returning) > 0,
+        ];
+    }
+
     protected static function booted(): void
     {
         // Stamp status_changed_at whenever the show enters a new status (and on

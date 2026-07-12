@@ -783,6 +783,36 @@
                     </div>
                 @endif
 
+                {{-- Product embeddings (enables semantic stage-3 matching) --}}
+                @php $cov = $this->embeddingCoverage; @endphp
+                <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-gray-100 dark:border-gray-800">
+                    <div>
+                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Product Embeddings</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            Powers semantic matching on the receiving flow.
+                            <span class="font-medium text-gray-700 dark:text-gray-300">{{ $cov['embedded'] }} of {{ $cov['total'] }}</span> active products embedded.
+                            Runs synchronously against Ollama — no queue worker needed.
+                        </p>
+                    </div>
+                    <button
+                        wire:click="generateEmbeddingsNow"
+                        wire:loading.attr="disabled"
+                        wire:target="generateEmbeddingsNow"
+                        type="button"
+                        class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950 px-3 py-2 text-sm font-medium text-violet-700 dark:text-violet-300 shadow-sm hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        <span wire:loading.remove wire:target="generateEmbeddingsNow"><x-heroicon-o-sparkles class="h-4 w-4" /></span>
+                        <span wire:loading wire:target="generateEmbeddingsNow">
+                            <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                        </span>
+                        <span wire:loading.remove wire:target="generateEmbeddingsNow">Generate embeddings</span>
+                        <span wire:loading wire:target="generateEmbeddingsNow">Generating…</span>
+                    </button>
+                </div>
+
                 {{-- Auto-queue toggle --}}
                 <div class="px-6 py-4 flex items-center justify-between gap-4">
                     <div>

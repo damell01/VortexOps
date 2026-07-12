@@ -28,6 +28,53 @@ class EmbeddingService
     }
 
     /**
+     * The descriptive text an embedding is built from for a product — name plus
+     * the structured attributes that distinguish it. Single source of truth so
+     * the queued job and the synchronous "generate now" path stay in sync.
+     */
+    public function buildProductText(\App\Models\Product $product): string
+    {
+        return trim(implode(' ', array_filter([
+            $product->name,
+            $product->brand,
+            $product->sport,
+            $product->year,
+            $product->set_name,
+            $product->product_type,
+            $product->configuration,
+        ])));
+    }
+
+    /**
+     * Embed a single product and store the vector. Returns true when the product
+     * now has an embedding (either freshly written or already present without
+     * --force). Returns false if there's no text to embed or Ollama is
+     * unavailable. Caller is responsible for flushing the catalogue cache after
+     * a batch.
+     */
+    public function embedProduct(\App\Models\Product $product, bool $force = false): bool
+    {
+        if (! $force && $product->embedding !== null) {
+            return true;
+        }
+
+        $text = $this->buildProductText($product);
+        if ($text === '') {
+            return false;
+        }
+
+        $vector = $this->embed($text);
+        if (! $vector) {
+            return false;
+        }
+
+        // updateQuietly bypasses observers so this doesn't re-dispatch the job.
+        $product->updateQuietly(['embedding' => $vector]);
+
+        return true;
+    }
+
+    /**
      * Cosine similarity between two embedding vectors. Returns 0.0–1.0.
      *
      * @param float[] $a

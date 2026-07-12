@@ -397,6 +397,66 @@ class AppSettings extends Page
         }
     }
 
+    /**
+     * How many active products currently have an embedding vector — shown next
+     * to the generate button so you can see semantic-matching coverage.
+     *
+     * @return array{embedded:int, total:int}
+     */
+    public function getEmbeddingCoverageProperty(): array
+    {
+        return [
+            'embedded' => \App\Models\Product::where('is_active', true)->whereNotNull('embedding')->count(),
+            'total'    => \App\Models\Product::where('is_active', true)->count(),
+        ];
+    }
+
+    /**
+     * Generate embeddings for every active product synchronously against the
+     * configured Ollama — so semantic (stage-3) matching can be tested without
+     * standing up an `ai` queue worker.
+     */
+    public function generateEmbeddingsNow(): void
+    {
+        $this->ollamaTestResult = '';
+        $this->ollamaTestStatus = '';
+
+        $embedding = app(\App\Services\EmbeddingService::class);
+
+        if (! $embedding->isAvailable()) {
+            $this->ollamaTestResult = 'Ollama is not reachable at ' . ($this->ollama_base_url ?: 'the configured URL') . '. Save your settings and Test connection first.';
+            $this->ollamaTestStatus = 'error';
+            Notification::make()->title('Ollama not reachable')->body($this->ollamaTestResult)->danger()->send();
+
+            return;
+        }
+
+        $products = \App\Models\Product::where('is_active', true)->whereNull('embedding')->get();
+
+        if ($products->isEmpty()) {
+            Notification::make()->title('All products already embedded')->success()->send();
+
+            return;
+        }
+
+        $embedded = 0;
+        $failed   = 0;
+        foreach ($products as $product) {
+            $embedding->embedProduct($product) ? $embedded++ : $failed++;
+        }
+        $embedding->flushCatalogCache();
+
+        $body = "Embedded {$embedded} product(s)" . ($failed > 0 ? ", {$failed} failed (check the embedding model is pulled)." : '.');
+        $this->ollamaTestResult = $body;
+        $this->ollamaTestStatus = $failed > 0 ? 'error' : 'success';
+
+        Notification::make()
+            ->title('Embeddings generated')
+            ->body($body . ' Semantic matching is now active for the receiving flow.')
+            ->success()
+            ->send();
+    }
+
     public function importWhatnotShows(): void
     {
         $this->whatnotImportResult = '';

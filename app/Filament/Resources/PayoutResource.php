@@ -284,6 +284,30 @@ class PayoutResource extends Resource
                                 ->send();
                         })
                         ->visible(fn () => auth()->user()?->isAdmin()),
+                    BulkAction::make('mark_paid')
+                        ->label('Mark Paid')
+                        ->icon('heroicon-o-banknotes')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->modalHeading('Mark selected payouts as paid')
+                        ->modalDescription('Only approved payouts are marked paid; drafts are skipped so nothing unreviewed slips through.')
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
+                            $count = 0;
+                            $skipped = 0;
+                            foreach ($records as $payout) {
+                                if ($payout->status === 'approved') {
+                                    $payout->update(['status' => 'paid']);
+                                    $count++;
+                                } elseif ($payout->status !== 'paid') {
+                                    $skipped++;
+                                }
+                            }
+                            Notification::make()
+                                ->title("{$count} payout(s) marked paid" . ($skipped > 0 ? " · {$skipped} skipped (not approved)" : ''))
+                                ->success()
+                                ->send();
+                        })
+                        ->visible(fn () => auth()->user()?->isAdmin()),
                     ExportBulkAction::make(),
                 ]),
             ]);

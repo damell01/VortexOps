@@ -3,11 +3,12 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\StreamerLogResource\Pages;
+use App\Filament\Resources\StreamerLogResource\RelationManagers;
 use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
 use App\Services\FeatureFlagService;
-use App\Services\ShippingSurchargeService;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -18,7 +19,6 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Actions\Action;
-use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -62,10 +62,40 @@ class StreamerLogResource extends Resource
         return static::canAccess();
     }
 
+    /**
+     * A streamer may only edit their entry (and its items) while it's still open.
+     * Once an admin has approved it, it's view-only for the streamer until an
+     * admin sends it back. Admins/owner can always edit.
+     */
+    public static function isLockedForCurrentUser(?StreamerLogEntry $record): bool
+    {
+        $user = auth()->user();
+        if (! $record || $user?->isAdmin() || $user?->isOwner()) {
+            return false;
+        }
+
+        return $record->status === 'admin_approved';
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Show Info')->schema([
+            Section::make('Show')
+                ->visible(fn (?StreamerLogEntry $record) => $record !== null)
+                ->schema([
+                    Placeholder::make('show_label')
+                        ->label('')
+                        ->content(fn (?StreamerLogEntry $record) => $record?->show
+                            ? new \Illuminate\Support\HtmlString(
+                                '<span style="font-weight:600">' . e($record->show->title ?: 'Untitled show') . '</span>'
+                                . ($record->show->show_date ? ' <span style="color:#6b7280">· ' . e($record->show->show_date->format('M j, Y')) . '</span>' : '')
+                            )
+                            : '—'),
+                ]),
+
+            Section::make('Show Info')
+                ->disabled(fn (?StreamerLogEntry $record) => static::isLockedForCurrentUser($record))
+                ->schema([
                 Grid::make(2)->schema([
                     Toggle::make('hard_copy')
                         ->label('Hard Copy (physical log filed)'),
@@ -83,7 +113,9 @@ class StreamerLogResource extends Resource
                 ]),
             ]),
 
-            Section::make('Revenue & Product Cost')->schema([
+            Section::make('Revenue & Product Cost')
+                ->disabled(fn (?StreamerLogEntry $record) => static::isLockedForCurrentUser($record))
+                ->schema([
                 Grid::make(2)->schema([
                     TextInput::make('gross_revenue')
                         ->label('Gross Revenue')
@@ -98,7 +130,11 @@ class StreamerLogResource extends Resource
                 ]),
             ]),
 
-            Section::make('Pay Breakdown')->schema([
+            Section::make('Pay Breakdown')
+                // Streamers can log their info and items, but their pay is set by
+                // an admin — so these fields are read-only for non-admins.
+                ->disabled(fn () => ! (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
+                ->schema([
                 Grid::make(2)->schema([
                     TextInput::make('profit_share_amount')
                         ->label('Profit Share Amount')
@@ -134,7 +170,9 @@ class StreamerLogResource extends Resource
                 ]),
             ]),
 
-            Section::make('Notes')->schema([
+            Section::make('Notes')
+                ->disabled(fn (?StreamerLogEntry $record) => static::isLockedForCurrentUser($record))
+                ->schema([
                 Textarea::make('notes')
                     ->rows(3)
                     ->columnSpanFull(),
@@ -256,35 +294,36 @@ class StreamerLogResource extends Resource
                             ->success()
                             ->send();
                     }),
-                EditAction::make()
-                    ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner())
-                    ->after(function (StreamerLogEntry $record): void {
-                        // Auto-fill gross_revenue from show if not set
-                        if (! $record->gross_revenue && $record->show) {
-                            $record->gross_revenue = $record->show->gross_revenue;
-                        }
-
-                        // Recalculate profit share if we have cost data
-                        if ($record->gross_revenue && $record->product_cost !== null) {
-                            $record->profit_share_amount = $record->profitShareAmount();
-                        }
-                        $record->save();
-
-                        // Auto-create shipping surcharge if packages over 500 are set
-                        if (
-                            ($record->number_of_packages_over_500 ?? 0) > 0
-                            && $record->show
-                            && $record->streamer
-                        ) {
-                            app(ShippingSurchargeService::class)->createForShow(
-                                $record->show,
-                                $record->streamer,
-                                $record->number_of_packages_over_500,
-                                "Auto from streamer log #{$record->id}"
-                            );
-                        }
+                // Send an already-reviewed/approved entry back to the streamer so
+                // they can edit it again (admins/owner only).
+                Action::make('send_back')
+                    ->label('Send Back')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('warning')
+                    ->visible(fn (StreamerLogEntry $record) => in_array($record->status, ['streamer_reviewed', 'admin_approved'])
+                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
+                    ->requiresConfirmation()
+                    ->modalHeading('Send back to streamer')
+                    ->modalDescription('Reopens this entry so the streamer can edit it again. Its status returns to pending.')
+                    ->action(function (StreamerLogEntry $record): void {
+                        $record->update([
+                            'status'               => 'pending',
+                            'streamer_reviewed_at' => null,
+                            'reviewed_by'          => null,
+                            'reviewed_at'          => null,
+                        ]);
+                        Notification::make()->title('Sent back to streamer')->success()->send();
                     }),
+
+                // Opens the full edit page (with the Items Sold editor). Read-only
+                // for a streamer once the entry is approved.
+                Action::make('open')
+                    ->label(fn (StreamerLogEntry $record) => static::isLockedForCurrentUser($record) ? 'View' : 'Open')
+                    ->icon('heroicon-o-arrow-top-right-on-square')
+                    ->color('gray')
+                    ->url(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record])),
             ])
+            ->recordUrl(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record]))
             ->defaultSort('id', 'desc')
             ->striped()
             ->deferLoading()
@@ -299,13 +338,22 @@ class StreamerLogResource extends Resource
         if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
             $streamerId = $user->streamer?->id;
             if ($streamerId) {
-                $query->where('streamer_id', $streamerId);
+                // Every show the streamer was on — including shows co-hosted with
+                // others — not only the entries where they're the named streamer.
+                $query->whereHas('show.streamers', fn ($q) => $q->where('streamers.id', $streamerId));
             } else {
                 $query->whereRaw('1 = 0'); // no linked streamer record — show nothing
             }
         }
 
         return $query;
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            RelationManagers\ItemsSoldRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

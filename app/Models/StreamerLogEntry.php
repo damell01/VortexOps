@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StreamerLogEntry extends Model
 {
@@ -70,6 +71,15 @@ class StreamerLogEntry extends Model
     public function show(): BelongsTo
     {
         return $this->belongsTo(Show::class);
+    }
+
+    /**
+     * The items sold on this entry's show — matched on show_id so the streamer
+     * can enrich them from the log page without opening the show.
+     */
+    public function showOrders(): HasMany
+    {
+        return $this->hasMany(WhatnotShowOrder::class, 'show_id', 'show_id');
     }
 
     public function streamer(): BelongsTo

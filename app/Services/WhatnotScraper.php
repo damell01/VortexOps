@@ -777,16 +777,13 @@ class WhatnotScraper
         if (! $streamer) {
             return;
         }
-        if (StreamerLogEntry::where('show_id', $show->id)->exists()) {
-            return;
-        }
 
-        StreamerLogEntry::create([
-            'show_id'       => $show->id,
-            'streamer_id'   => $streamer->id,
-            'status'        => 'pending',
-            'gross_revenue' => $show->gross_revenue,
-        ]);
+        // One entry per show (schema enforces this); it's owned by the primary
+        // streamer but visible/editable to every streamer on the show.
+        StreamerLogEntry::firstOrCreate(
+            ['show_id' => $show->id],
+            ['streamer_id' => $streamer->id, 'status' => 'pending', 'gross_revenue' => $show->gross_revenue],
+        );
     }
 
     /**

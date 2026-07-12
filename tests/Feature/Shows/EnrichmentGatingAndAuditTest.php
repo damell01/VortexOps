@@ -93,7 +93,7 @@ class EnrichmentGatingAndAuditTest extends TestCase
         $show->update(['status' => 'pending_review']);
 
         $activity = Activity::where('subject_id', $show->id)
-            ->where('event', 'status_changed')
+            ->where('event', 'updated')
             ->latest('id')
             ->first();
 
@@ -115,6 +115,7 @@ class EnrichmentGatingAndAuditTest extends TestCase
 
         $show->update(['gross_revenue' => 500]); // no status change
 
-        $this->assertEquals(0, Activity::where('subject_id', $show->id)->where('event', 'status_changed')->count());
+        // Show only audits the status field, so a metric-only update logs nothing.
+        $this->assertEquals(0, Activity::where('subject_id', $show->id)->where('event', 'updated')->count());
     }
 }

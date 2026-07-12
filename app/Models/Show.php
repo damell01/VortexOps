@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsUpdates;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -12,7 +13,18 @@ use Spatie\Activitylog\Support\LogOptions;
 
 class Show extends Model
 {
-    use LogsActivity;
+    use LogsActivity, AuditsUpdates;
+
+    // AuditsUpdates records the real diff for status transitions; LogsActivity's
+    // (empty) auto "updated" entry is suppressed. Scoped to status so frequent
+    // metric re-imports don't flood the audit log.
+    protected static array $doNotRecordEvents = ['updated'];
+
+    /** @return array<int,string> */
+    public function auditableFields(): array
+    {
+        return ['status'];
+    }
 
     protected $fillable = [
         'whatnot_channel_id',
@@ -154,22 +166,7 @@ class Show extends Model
             }
         });
 
-        // Record a real, populated audit entry for status transitions. The
-        // LogsActivity auto-diff stores empty properties on this activitylog
-        // version, so we log the old → new status explicitly (this API works).
-        static::updated(function (Show $show) {
-            if ($show->wasChanged('status')) {
-                activity('show')
-                    ->performedOn($show)
-                    ->causedBy(auth()->user())
-                    ->withProperties([
-                        'old'        => ['status' => $show->getOriginal('status')],
-                        'attributes' => ['status' => $show->status],
-                    ])
-                    ->event('status_changed')
-                    ->log('Status changed');
-            }
-        });
+        // The AuditsUpdates trait records the populated status-change audit entry.
     }
 
     public function getActivitylogOptions(): LogOptions

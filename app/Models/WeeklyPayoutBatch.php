@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsUpdates;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -10,7 +11,16 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 
 class WeeklyPayoutBatch extends Model
 {
-    use LogsActivity;
+    use LogsActivity, AuditsUpdates;
+
+    // See Payout: AuditsUpdates records real diffs; LogsActivity skips "updated".
+    protected static array $doNotRecordEvents = ['updated'];
+
+    /** @return array<int,string> */
+    public function auditableFields(): array
+    {
+        return ['status', 'total_payout', 'finalized_by', 'finalized_at'];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsUpdates;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Spatie\Activitylog\Support\LogOptions;
@@ -9,7 +10,18 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 
 class Payout extends Model
 {
-    use LogsActivity;
+    use LogsActivity, AuditsUpdates;
+
+    // LogsActivity's auto-diff stores empty properties on activitylog v5.0.0, so
+    // AuditsUpdates records the real old → new diff for updates; LogsActivity is
+    // told not to also emit an empty "updated" entry.
+    protected static array $doNotRecordEvents = ['updated'];
+
+    /** @return array<int,string> */
+    public function auditableFields(): array
+    {
+        return ['status', 'calculated_payout', 'weekly_payout_batch_id'];
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

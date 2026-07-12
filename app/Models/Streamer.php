@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\AuditsUpdates;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Cache;
@@ -10,7 +11,12 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 
 class Streamer extends Model
 {
-    use LogsActivity;
+    use LogsActivity, AuditsUpdates;
+
+    // AuditsUpdates records the real diff (all changed fields); LogsActivity's
+    // empty "updated" entry is suppressed. Balance increments use the query
+    // builder (no model events), so they don't create audit noise here.
+    protected static array $doNotRecordEvents = ['updated'];
 
     protected static function booted(): void
     {

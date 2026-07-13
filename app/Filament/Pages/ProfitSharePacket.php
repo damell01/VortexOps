@@ -5,7 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\Payout;
 use App\Models\Show;
 use App\Models\Streamer;
-use App\Services\FeatureFlagService;
+use App\Support\AdminModules;
 use Filament\Pages\Page;
 use App\Filament\Concerns\HasAdminNavVisibility;
 
@@ -33,8 +33,13 @@ class ProfitSharePacket extends Page
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        return FeatureFlagService::enabled('profit_share_packet')
-            && ($user?->isAdmin() || $user?->isOwner());
+        if ($user?->isOwner()) {
+            return true;
+        }
+
+        return AdminModules::isEnabled('payouts')
+            && AdminModules::isFeatureEnabled('profit_share_packet')
+            && (bool) $user?->isAdmin();
     }
 
     public function getView(): string

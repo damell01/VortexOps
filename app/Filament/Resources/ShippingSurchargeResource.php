@@ -5,7 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ShippingSurchargeResource\Pages;
 use App\Models\ShippingSurcharge;
 use App\Models\Streamer;
-use App\Services\FeatureFlagService;
+use App\Support\AdminModules;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Resources\Resource;
@@ -43,8 +43,13 @@ class ShippingSurchargeResource extends Resource
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        return FeatureFlagService::enabled('shipping_surcharge')
-            && ($user?->isAdmin() || $user?->isOwner());
+        if ($user?->isOwner()) {
+            return true;
+        }
+
+        return AdminModules::isEnabled('payouts')
+            && AdminModules::isFeatureEnabled('shipping_surcharge')
+            && (bool) $user?->isAdmin();
     }
 
     public static function shouldRegisterNavigation(): bool

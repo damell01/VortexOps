@@ -210,7 +210,10 @@ class TimekeepingTest extends TestCase
 
     public function test_team_summary_only_returned_for_owner(): void
     {
-        TimeEntry::create(['user_id' => $this->admin->id, 'clocked_in_at' => now()->subHour(), 'clocked_out_at' => now()]);
+        // Anchor inside the current week so the summary's week filter can't drop
+        // it when the suite runs just after midnight on the first day of the week.
+        $in = now()->startOfWeek()->addHours(6);
+        TimeEntry::create(['user_id' => $this->admin->id, 'clocked_in_at' => $in, 'clocked_out_at' => $in->copy()->addHour()]);
 
         $this->actingAs($this->admin);
         $adminSummary = Livewire::test(Timekeeping::class)->instance()->getTeamSummaryProperty();

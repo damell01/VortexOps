@@ -6,7 +6,7 @@ use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\WhatnotLedgerResource\Pages;
 use App\Models\WhatnotLedgerEntry;
 use App\Support\StatusColor;
-use App\Services\FeatureFlagService;
+use App\Support\AdminModules;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Resources\Resource;
@@ -47,8 +47,13 @@ class WhatnotLedgerResource extends Resource
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        return FeatureFlagService::enabled('ledger')
-            && ($user?->isAdmin() || $user?->isOwner());
+        if ($user?->isOwner()) {
+            return true;
+        }
+
+        return AdminModules::isEnabled('reporting')
+            && AdminModules::isFeatureEnabled('ledger')
+            && (bool) $user?->isAdmin();
     }
 
     public static function shouldRegisterNavigation(): bool

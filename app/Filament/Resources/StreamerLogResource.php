@@ -6,7 +6,7 @@ use App\Filament\Resources\StreamerLogResource\Pages;
 use App\Filament\Resources\StreamerLogResource\RelationManagers;
 use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
-use App\Services\FeatureFlagService;
+use App\Support\AdminModules;
 use App\Support\StatusColor;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
@@ -54,8 +54,14 @@ class StreamerLogResource extends Resource
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        return FeatureFlagService::enabled('streamer_log')
-            && ($user?->isAdmin() || $user?->isOwner() || $user?->isStreamer());
+        if ($user?->isOwner()) {
+            return true;
+        }
+        if (! AdminModules::isEnabled('streams') || ! AdminModules::isFeatureEnabled('streamer_log')) {
+            return false;
+        }
+
+        return $user?->isAdmin() || $user?->isStreamer();
     }
 
     public static function shouldRegisterNavigation(): bool

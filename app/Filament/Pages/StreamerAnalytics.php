@@ -6,7 +6,7 @@ use App\Models\Payout;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
-use App\Services\FeatureFlagService;
+use App\Support\AdminModules;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
 use App\Filament\Concerns\HasAdminNavVisibility;
@@ -35,8 +35,13 @@ class StreamerAnalytics extends Page
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        return FeatureFlagService::enabled('analytics')
-            && ($user?->isAdmin() || $user?->isOwner());
+        if ($user?->isOwner()) {
+            return true;
+        }
+
+        return AdminModules::isEnabled('reporting')
+            && AdminModules::isFeatureEnabled('streamer_analytics')
+            && (bool) $user?->isAdmin();
     }
 
     public function getView(): string

@@ -5,7 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\LedgerResource\Pages;
 use App\Models\LedgerEntry;
 use App\Models\Streamer;
-use App\Services\FeatureFlagService;
+use App\Support\AdminModules;
 use App\Services\LedgerService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -49,8 +49,13 @@ class LedgerResource extends Resource
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        return FeatureFlagService::enabled('ledger')
-            && ($user?->isAdmin() || $user?->isOwner());
+        if ($user?->isOwner()) {
+            return true;
+        }
+
+        return AdminModules::isEnabled('reporting')
+            && AdminModules::isFeatureEnabled('ledger')
+            && (bool) $user?->isAdmin();
     }
 
     // Retired from the nav: the Whatnot-fed "Ledger" (WhatnotLedgerResource) is now

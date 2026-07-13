@@ -7,7 +7,7 @@ use App\Models\ShippingSurcharge;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\StreamerLoan;
-use App\Services\FeatureFlagService;
+use App\Support\AdminModules;
 use Filament\Pages\Page;
 use App\Filament\Concerns\HasAdminNavVisibility;
 
@@ -35,8 +35,13 @@ class StreamerStatement extends Page
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        return FeatureFlagService::enabled('statements')
-            && ($user?->isAdmin() || $user?->isOwner());
+        if ($user?->isOwner()) {
+            return true;
+        }
+
+        return AdminModules::isEnabled('payouts')
+            && AdminModules::isFeatureEnabled('streamer_statement')
+            && (bool) $user?->isAdmin();
     }
 
     public function getView(): string

@@ -82,10 +82,14 @@ class AdminModules
             'whatnot_sync'        => ['label' => 'Whatnot Sync',        'description' => 'Sync dashboard: pull shows, orders, and buyers from Whatnot.', 'module' => 'streams', 'order' => 35],
             'whatnot_buyers'      => ['label' => 'Buyers',              'description' => 'Buyer profiles aggregated from Whatnot order history.',        'module' => 'streams', 'order' => 36],
             'whatnot_sync_history'=> ['label' => 'Sync History',        'description' => 'Log of all Whatnot sync runs with per-resource counters.',     'module' => 'streams', 'order' => 37],
+            'streamer_log'        => ['label' => 'Streamer Log',        'description' => 'Per-show log a streamer fills in, then admin reviews & approves.', 'module' => 'streams', 'order' => 15],
 
             // ── Payouts ──────────────────────────────────────────────────────────
             'payouts'             => ['label' => 'Payouts',             'description' => 'Individual payout records and calculations.',          'module' => 'payouts',    'order' => 10],
             'weekly_pay_runs'     => ['label' => 'Weekly Pay Runs',     'description' => 'Batch pay run creation and ADP submission.',           'module' => 'payouts',    'order' => 20],
+            'profit_share_packet' => ['label' => 'Profit Share Packet', 'description' => 'Printable per-streamer profit-share statement packet.', 'module' => 'payouts',    'order' => 30],
+            'streamer_statement'  => ['label' => 'Streamer Statements', 'description' => 'Per-streamer earnings statements.',                     'module' => 'payouts',    'order' => 40],
+            'shipping_surcharge'  => ['label' => 'Shipping Surcharge',  'description' => 'Per-package shipping surcharge tracking.',              'module' => 'payouts',    'order' => 50],
 
             // ── Inventory ────────────────────────────────────────────────────────
             'inventory_items'     => ['label' => 'Inventory Items',     'description' => 'Product catalog, stock operations, and WAC tracking.', 'module' => 'inventory',  'order' => 10],
@@ -111,6 +115,8 @@ class AdminModules
 
             // ── Reporting ────────────────────────────────────────────────────────
             'reports'             => ['label' => 'Reports & Analytics', 'description' => 'Revenue, payout trends, and operational summaries.',   'module' => 'reporting',  'order' => 10],
+            'streamer_analytics'  => ['label' => 'Streamer Analytics',  'description' => 'Per-streamer performance analytics dashboard.',        'module' => 'reporting',  'order' => 20],
+            'ledger'              => ['label' => 'Ledger',              'description' => 'Financial ledger and Whatnot ledger entries.',         'module' => 'reporting',  'order' => 30],
 
             // ── AI ───────────────────────────────────────────────────────────────
             'ai_assistant'        => ['label' => 'AI Assistant',        'description' => 'Full-screen AI chat and context-aware assistance.',    'module' => 'ai',         'order' => 10],

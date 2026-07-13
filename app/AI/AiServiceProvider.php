@@ -6,7 +6,12 @@ use App\AI\Contracts\AIProvider;
 use App\AI\Providers\OllamaProvider;
 use App\AI\Providers\ProviderManager;
 use App\AI\Services\AiGateway;
+use App\AI\Services\IntentRouter;
 use App\AI\Services\ModelRouter;
+use App\AI\Services\ToolRegistry;
+use App\AI\Tools\InventoryLookupTool;
+use App\AI\Tools\ShowPnlTool;
+use App\AI\Tools\StreamerBalanceTool;
 use App\Services\AI\OllamaClient;
 use Illuminate\Support\ServiceProvider;
 
@@ -33,5 +38,25 @@ class AiServiceProvider extends ServiceProvider
             $app->make(AIProvider::class),
             $app->make(ModelRouter::class),
         ));
+
+        $this->app->singleton(ToolRegistry::class);
+        $this->app->singleton(IntentRouter::class);
+    }
+
+    /**
+     * The tools the AI can call. New tools register here — the intent router and
+     * any assistant UI pick them up automatically.
+     */
+    public function boot(): void
+    {
+        $registry = $this->app->make(ToolRegistry::class);
+
+        foreach ([
+            InventoryLookupTool::class,
+            StreamerBalanceTool::class,
+            ShowPnlTool::class,
+        ] as $tool) {
+            $registry->register($this->app->make($tool));
+        }
     }
 }

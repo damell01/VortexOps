@@ -71,6 +71,7 @@ class OllamaClient
                 'model'   => $options['model'] ?? $this->defaultModel,
                 'messages'=> $messages,
                 'stream'  => false,
+                'format'  => $options['format'] ?? null,
                 'options' => $options['ollama_options'] ?? null,
             ]));
 

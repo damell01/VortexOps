@@ -2,17 +2,21 @@
 
 namespace App\Services\AI\Documents;
 
-use App\Services\AI\OllamaClient;
+use App\AI\Prompts\PromptLibrary;
+use App\AI\Services\AiGateway;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Parses packing slips and invoices (PDF or image) into structured line items.
- * Uses the configured vision model via Ollama.
+ * Vision runs through AiGateway, so the model comes from Settings and the
+ * extraction prompt lives in PromptLibrary — this class owns the image handling
+ * and JSON normalisation, not the model or the prompt.
  */
 class PalletSlipParser
 {
     public function __construct(
-        private readonly OllamaClient $client,
+        private readonly AiGateway     $gateway,
+        private readonly PromptLibrary $prompts,
     ) {}
 
     /**
@@ -110,21 +114,13 @@ class PalletSlipParser
      */
     private function extractFromImage(string $base64Image): array
     {
-        $prompt = <<<'PROMPT'
-Look at this packing slip or invoice image. Extract every product line item you can read.
-Return ONLY a valid JSON object — no explanation, no markdown, no extra text — in exactly this format:
-{"lines":[{"description":"full product name","case_count":1,"unit_cost":89.99,"sku":"ABC123","barcode":"012345678901"}]}
-Rules:
-- description: full product name or description (required)
-- case_count: number of cases, units, or quantity as an integer (use 1 if not shown)
-- unit_cost: price per unit as a plain number, no $ sign (use null if not shown)
-- sku: item number, SKU, or part number (use null if not shown)
-- barcode: UPC, EAN, or barcode number (use null if not shown)
-Include every line item. If multiple pages, include all.
-PROMPT;
+        $response = $this->gateway->vision($this->prompts->slipExtraction(), $base64Image);
 
-        $raw = $this->client->vision($prompt, $base64Image);
-        return $this->parseJsonLines($raw);
+        if (! $response->success) {
+            throw new \RuntimeException("Vision extraction failed: {$response->error}");
+        }
+
+        return $this->parseJsonLines($response->content);
     }
 
     /**

@@ -143,6 +143,46 @@
         </div>
     </div>
 
+    {{-- ── AI Stack Checklist ──────────────────────────────────────────────── --}}
+    @php
+        $ai = $this->aiHealth;
+        $badge = [
+            'healthy'   => ['label' => 'HEALTHY',   'cls' => 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'],
+            'degraded'  => ['label' => 'DEGRADED',  'cls' => 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'],
+            'unhealthy' => ['label' => 'UNHEALTHY', 'cls' => 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'],
+        ][$ai['status']] ?? ['label' => 'UNKNOWN', 'cls' => 'bg-gray-100 text-gray-800'];
+    @endphp
+    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 px-5 py-3">
+            <div class="flex items-center gap-2">
+                <x-heroicon-o-sparkles class="h-5 w-5 text-violet-500" />
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">AI Stack</h3>
+            </div>
+            <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $badge['cls'] }}">{{ $badge['label'] }}</span>
+        </div>
+        <div class="divide-y divide-gray-50 dark:divide-gray-800">
+            @foreach ($ai['checks'] as $check)
+                @php
+                    $glyph = ['ok' => 'check-circle', 'warn' => 'exclamation-triangle', 'critical' => 'x-circle'][$check['state']] ?? 'minus-circle';
+                    $color = ['ok' => 'text-green-500', 'warn' => 'text-amber-500', 'critical' => 'text-red-500'][$check['state']] ?? 'text-gray-400';
+                @endphp
+                <div class="flex items-start gap-3 px-5 py-2.5">
+                    <x-dynamic-component :component="'heroicon-o-' . $glyph" class="mt-0.5 h-4 w-4 flex-shrink-0 {{ $color }}" />
+                    <div class="min-w-0">
+                        <p class="text-sm font-medium text-gray-800 dark:text-gray-200">{{ $check['label'] }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 break-words">{{ $check['detail'] }}</p>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+        @if (! empty($ai['missing_models']))
+            <div class="border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 px-5 py-3 text-xs text-gray-600 dark:text-gray-300">
+                Missing models can be fetched from the server with
+                <code class="rounded bg-gray-200 dark:bg-gray-700 px-1 font-mono">php artisan vortex:ai-doctor --pull</code>.
+            </div>
+        @endif
+    </div>
+
     {{-- ── Setup Reminders ─────────────────────────────────────────────────── --}}
     @if (! $ollama['ok'] || $scheduler['ok'] === null || $scheduler['ok'] === false)
         <div class="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-5 py-4 space-y-3 text-sm">

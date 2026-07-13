@@ -127,6 +127,17 @@ class SystemHealth extends Page
         }
     }
 
+    /**
+     * The full AI-stack checklist (models, embeddings, queue, tools) — the same
+     * report the vortex:ai-doctor command renders, surfaced in the UI.
+     *
+     * @return array{status:string, reachable:bool, provider:string, available_models:array, missing_models:array, checks:array}
+     */
+    public function getAiHealthProperty(): array
+    {
+        return app(\App\AI\Services\AiHealthReport::class)->generate();
+    }
+
     public function getSchedulerStatusProperty(): array
     {
         try {

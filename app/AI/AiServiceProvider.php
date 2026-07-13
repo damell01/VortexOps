@@ -10,6 +10,9 @@ use App\AI\Services\IntentRouter;
 use App\AI\Services\ModelRouter;
 use App\AI\Services\ToolRegistry;
 use App\AI\Tools\InventoryLookupTool;
+use App\AI\Tools\PayoutBatchStatusTool;
+use App\AI\Tools\PendingDeductionsTool;
+use App\AI\Tools\ReorderListTool;
 use App\AI\Tools\ShowPnlTool;
 use App\AI\Tools\StreamerBalanceTool;
 use App\Services\AI\OllamaClient;
@@ -55,6 +58,9 @@ class AiServiceProvider extends ServiceProvider
             InventoryLookupTool::class,
             StreamerBalanceTool::class,
             ShowPnlTool::class,
+            ReorderListTool::class,
+            PayoutBatchStatusTool::class,
+            PendingDeductionsTool::class,
         ] as $tool) {
             $registry->register($this->app->make($tool));
         }

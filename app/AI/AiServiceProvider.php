@@ -3,6 +3,9 @@
 namespace App\AI;
 
 use App\AI\Contracts\AIProvider;
+use App\AI\Contracts\MemoryStore;
+use App\AI\Memory\CacheMemoryStore;
+use App\AI\Memory\ConversationMemory;
 use App\AI\Providers\OllamaProvider;
 use App\AI\Providers\ProviderManager;
 use App\AI\Services\AiGateway;
@@ -44,6 +47,10 @@ class AiServiceProvider extends ServiceProvider
 
         $this->app->singleton(ToolRegistry::class);
         $this->app->singleton(IntentRouter::class);
+
+        // Conversation memory, cache-backed by default.
+        $this->app->singleton(MemoryStore::class, fn ($app) => new CacheMemoryStore($app->make('cache.store')));
+        $this->app->singleton(ConversationMemory::class);
     }
 
     /**

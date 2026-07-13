@@ -91,8 +91,62 @@ class AssistantServiceTest extends TestCase
             groundedAnswer: 'streamed hello',
         );
 
-        $chunks = iterator_to_array(app(AssistantService::class)->stream('/admin', [], 'hi', $this->owner()));
+        $chunks = iterator_to_array(app(AssistantService::class)->stream('/admin', 'hi', $this->owner()));
 
         $this->assertNotEmpty($chunks);
+    }
+
+    public function test_second_turn_recalls_the_first_from_memory(): void
+    {
+        // A provider that classifies everything as plain chat and records the
+        // messages its stream() was handed, so we can see what history reached it.
+        $fake = new class implements AIProvider {
+            public array $lastStreamMessages = [];
+            public function name(): string { return 'fake'; }
+            public function chat(array $messages, string $model, array $options = []): string
+            {
+                return '{"tool": null, "arguments": {}, "confidence": 0.0}'; // never routes a tool
+            }
+            public function stream(array $messages, string $model, array $options = []): \Generator
+            {
+                $this->lastStreamMessages = $messages;
+                yield 'ok';
+            }
+            public function vision(string $prompt, string $base64Image, string $model, array $options = []): string { return ''; }
+            public function embed(string $text, string $model): ?array { return null; }
+            public function listModels(): array { return []; }
+            public function isHealthy(): bool { return true; }
+        };
+        $this->app->instance(AIProvider::class, $fake);
+
+        $owner = $this->owner();
+        $svc   = app(AssistantService::class);
+
+        // Turn 1 — must be fully consumed so the reply is recorded to memory.
+        iterator_to_array($svc->stream('/admin', 'my name is Sam', $owner));
+        // Turn 2 — history should now carry turn 1.
+        iterator_to_array($svc->stream('/admin', 'what is my name?', $owner));
+
+        $contents = array_column($fake->lastStreamMessages, 'content');
+        $joined   = implode("\n", $contents);
+
+        $this->assertStringContainsString('my name is Sam', $joined, 'prior user turn should be recalled');
+        $this->assertStringContainsString('ok', $joined, 'prior assistant reply should be recalled');
+        $this->assertStringContainsString('what is my name?', $joined, 'current turn should be present');
+    }
+
+    public function test_forget_wipes_memory(): void
+    {
+        $this->scriptedProvider('{"tool": null, "arguments": {}, "confidence": 0.0}', 'ok');
+
+        $owner = $this->owner();
+        $mem   = app(\App\AI\Memory\ConversationMemory::class);
+        $svc   = app(AssistantService::class);
+
+        iterator_to_array($svc->stream('/admin', 'remember this', $owner));
+        $this->assertNotEmpty($mem->recall($mem->key($owner)));
+
+        $svc->forget($owner);
+        $this->assertSame([], $mem->recall($mem->key($owner)));
     }
 }

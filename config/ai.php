@@ -71,4 +71,13 @@ return [
     // Seconds to cache deterministic AI results (used by higher-level services).
     'cache_ttl' => ['setting' => 'ai_cache_ttl', 'default' => (int) env('AI_CACHE_TTL', 300)],
 
+    /*
+    | Conversation memory. The assistant remembers recent turns per user for
+    | `ttl` seconds (sliding), keeping at most `turns` turns per thread.
+    */
+    'memory' => [
+        'ttl'   => (int) env('AI_MEMORY_TTL', 3600),
+        'turns' => (int) env('AI_MEMORY_TURNS', 20),
+    ],
+
 ];

@@ -44,10 +44,11 @@ class AiChatPanel extends Component
         $fullReply = '';
 
         try {
-            $history   = array_slice($this->messages, -10);
-            // The assistant routes data questions to tools and falls back to
-            // plain chat — all of that lives in AssistantService, not here.
-            $generator = app(AssistantService::class)->stream($this->currentPath, $history, $text, auth()->user());
+            // The assistant routes data questions to tools, falls back to plain
+            // chat, and remembers the conversation per user — all of that lives
+            // in AssistantService, not here. It recalls prior turns from memory,
+            // so this component no longer passes history.
+            $generator = app(AssistantService::class)->stream($this->currentPath, $text, auth()->user());
 
             foreach ($generator as $chunk) {
                 $fullReply .= $chunk;
@@ -76,6 +77,8 @@ class AiChatPanel extends Component
         $this->messages          = [];
         $this->streamingResponse = '';
         session()->forget('vortex_ai_messages');
+        // Also wipe the model's memory of this conversation.
+        app(AssistantService::class)->forget(auth()->user());
     }
 
     public function render(): \Illuminate\View\View

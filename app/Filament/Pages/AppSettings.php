@@ -80,8 +80,15 @@ class AppSettings extends Page
     public string $ollama_base_url          = '';
     public string $ollama_model             = ''; // legacy — kept for backward compat
     public string $ollama_chat_model        = '';
+    public string $ollama_fast_model        = '';
+    public string $ollama_reasoning_model   = '';
     public string $ollama_vision_model      = '';
     public string $ollama_embedding_model   = '';
+    public string $ollama_json_model        = '';
+    // Generation defaults (ModelRouter reads these; per-call overrides win).
+    public string $ai_temperature           = '';
+    public string $ai_max_tokens            = '';
+    public bool   $ai_streaming             = true;
     public bool   $ai_auto_queue_on_import  = false;
     public string $ollamaTestResult         = '';
     public string $ollamaTestStatus         = ''; // 'success' | 'error' | ''
@@ -140,8 +147,15 @@ class AppSettings extends Page
         $this->ollama_base_url         = Setting::get('ollama_base_url', config('services.ollama.url', 'http://localhost:11434'));
         $this->ollama_model            = Setting::get('ollama_model', config('services.ollama.model', 'llama3.2:3b'));
         $this->ollama_chat_model       = Setting::get('ollama_chat_model', $this->ollama_model);
+        // Fast/reasoning/json default to the chat model until tuned separately.
+        $this->ollama_fast_model       = Setting::get('ollama_fast_model', config('ai.tasks.fast.default', $this->ollama_chat_model));
+        $this->ollama_reasoning_model  = Setting::get('ollama_reasoning_model', config('ai.tasks.reasoning.default', $this->ollama_chat_model));
         $this->ollama_vision_model     = Setting::get('ollama_vision_model', config('services.ollama.vision_model', 'moondream'));
         $this->ollama_embedding_model  = Setting::get('ollama_embedding_model', config('services.ollama.embedding_model', 'nomic-embed-text'));
+        $this->ollama_json_model       = Setting::get('ollama_json_model', config('ai.tasks.json.default', $this->ollama_chat_model));
+        $this->ai_temperature          = (string) Setting::get('ai_temperature', (string) config('ai.generation.temperature.default', '0.7'));
+        $this->ai_max_tokens           = (string) Setting::get('ai_max_tokens', (string) config('ai.generation.max_tokens.default', '1024'));
+        $this->ai_streaming            = (bool) Setting::get('ai_streaming', config('ai.streaming.default', true));
         $this->ai_auto_queue_on_import = (bool) Setting::get('ai_auto_queue_on_import', false);
     }
 
@@ -249,6 +263,8 @@ class AppSettings extends Page
             'notify_show_reconciled_users.*'   => 'integer|exists:users,id',
             'shipping_surcharge_rate'          => 'required|numeric|min:0',
             'shipping_surcharge_threshold'     => 'required|numeric|min:0',
+            'ai_temperature'                   => 'required|numeric|min:0|max:2',
+            'ai_max_tokens'                    => 'required|integer|min:1|max:32768',
         ];
 
         if ($isOwner) {
@@ -286,9 +302,17 @@ class AppSettings extends Page
 
         Setting::set('ollama_base_url',         rtrim(trim($this->ollama_base_url), '/') ?: 'http://localhost:11434');
         Setting::set('ollama_chat_model',       trim($this->ollama_chat_model) ?: 'llama3.2:3b');
+        // Fall back to the chat model when a task-specific model is left blank.
+        Setting::set('ollama_fast_model',       trim($this->ollama_fast_model) ?: (trim($this->ollama_chat_model) ?: 'llama3.2:3b'));
+        Setting::set('ollama_reasoning_model',  trim($this->ollama_reasoning_model) ?: (trim($this->ollama_chat_model) ?: 'llama3.2:3b'));
         Setting::set('ollama_vision_model',     trim($this->ollama_vision_model) ?: 'moondream');
         Setting::set('ollama_embedding_model',  trim($this->ollama_embedding_model) ?: 'nomic-embed-text');
+        Setting::set('ollama_json_model',       trim($this->ollama_json_model) ?: (trim($this->ollama_chat_model) ?: 'llama3.2:3b'));
         Setting::set('ollama_model',            trim($this->ollama_chat_model) ?: 'llama3.2:3b'); // keep legacy key in sync
+        // Generation defaults, clamped to sane ranges.
+        Setting::set('ai_temperature', (string) max(0, min(2, (float) $this->ai_temperature)));
+        Setting::set('ai_max_tokens',  (string) max(1, (int) $this->ai_max_tokens));
+        Setting::set('ai_streaming',   $this->ai_streaming ? '1' : '0');
         Setting::set('ai_auto_queue_on_import', $this->ai_auto_queue_on_import ? '1' : '0');
         if (auth()->user()?->isSuperAdmin() || auth()->user()?->isOwner()) {
             Setting::set('demo_mode', $this->demo_mode ? '1' : '0');
@@ -406,7 +430,8 @@ class AppSettings extends Page
     public function getEmbeddingCoverageProperty(): array
     {
         return [
-            'embedded' => \App\Models\Product::where('is_active', true)->whereNotNull('embedding')->count(),
+            // Embeddings live in their own table now — count via the relation.
+            'embedded' => \App\Models\Product::where('is_active', true)->whereHas('embedding')->count(),
             'total'    => \App\Models\Product::where('is_active', true)->count(),
         ];
     }
@@ -431,7 +456,7 @@ class AppSettings extends Page
             return;
         }
 
-        $products = \App\Models\Product::where('is_active', true)->whereNull('embedding')->get();
+        $products = \App\Models\Product::where('is_active', true)->whereDoesntHave('embedding')->get();
 
         if ($products->isEmpty()) {
             Notification::make()->title('All products already embedded')->success()->send();

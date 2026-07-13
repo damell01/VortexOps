@@ -728,25 +728,67 @@
                     <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">URL of your Ollama server (default: http://localhost:11434)</p>
                 </div>
 
-                {{-- Model selectors --}}
+                {{-- Model selectors — one model per AI task, resolved by the ModelRouter --}}
                 <div class="px-6 py-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Chat Model</label>
                         <input wire:model.blur="ollama_chat_model" type="text" placeholder="llama3.2:3b"
                             class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Used for AI chat + inventory mapping LLM stage (e.g. qwen3:4b)</p>
+                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Conversational assistant + mapping LLM stage (e.g. qwen3:4b)</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fast Model</label>
+                        <input wire:model.blur="ollama_fast_model" type="text" placeholder="llama3.2:1b"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Quick, low-stakes calls — classification, short rewrites</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Reasoning Model</label>
+                        <input wire:model.blur="ollama_reasoning_model" type="text" placeholder="llama3.2:3b"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Multi-step analysis where quality beats speed</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Vision Model</label>
                         <input wire:model.blur="ollama_vision_model" type="text" placeholder="moondream"
                             class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Used for packing slip image parsing (e.g. qwen2.5-vl, moondream)</p>
+                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Packing-slip / screenshot parsing (e.g. qwen2.5-vl, moondream)</p>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Embedding Model</label>
                         <input wire:model.blur="ollama_embedding_model" type="text" placeholder="nomic-embed-text"
                             class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Used for inventory similarity search (e.g. nomic-embed-text)</p>
+                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Inventory similarity search (e.g. nomic-embed-text)</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">JSON Model</label>
+                        <input wire:model.blur="ollama_json_model" type="text" placeholder="llama3.2:3b"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Structured extraction — must return valid JSON</p>
+                    </div>
+                </div>
+
+                {{-- Generation defaults --}}
+                <div class="px-6 py-4 border-t border-gray-100 dark:border-gray-800 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Temperature</label>
+                        <input wire:model.blur="ai_temperature" type="number" step="0.1" min="0" max="2" placeholder="0.7"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">0 = deterministic, 2 = most creative</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Max Tokens</label>
+                        <input wire:model.blur="ai_max_tokens" type="number" step="1" min="1" placeholder="1024"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Cap on response length per call</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Streaming</label>
+                        <label class="mt-1 inline-flex items-center cursor-pointer">
+                            <input wire:model.live="ai_streaming" type="checkbox" class="sr-only peer">
+                            <div class="relative w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:ring-2 peer-focus:ring-violet-500 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
+                            <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">Stream chat responses token-by-token</span>
+                        </label>
                     </div>
                 </div>
 

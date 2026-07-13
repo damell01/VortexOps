@@ -9,6 +9,7 @@ use Filament\Widgets\TableWidget as BaseWidget;
 
 class RecentMovementsWidget extends BaseWidget
 {
+    protected static bool $isLazy = true;
     protected static ?int $sort = 3;
     protected static ?string $heading = 'Recent Inventory Movements';
     protected int | string | array $columnSpan = 'full';

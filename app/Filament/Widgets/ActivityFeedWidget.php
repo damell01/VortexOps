@@ -7,6 +7,7 @@ use Spatie\Activitylog\Models\Activity;
 
 class ActivityFeedWidget extends Widget
 {
+    protected static bool $isLazy = true;
     protected static ?int $sort = 9;
     protected int | string | array $columnSpan = 'full';
     protected static ?string $heading = 'Recent Activity';

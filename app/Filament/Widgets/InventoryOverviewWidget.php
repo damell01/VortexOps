@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Cache;
 
 class InventoryOverviewWidget extends BaseWidget
 {
+    protected static bool $isLazy = true;
     protected static ?int $sort = 1;
 
     protected function getStats(): array

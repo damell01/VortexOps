@@ -26,6 +26,9 @@ class NeedsAttentionWidget extends Widget
 {
     protected static ?int $sort = 2;
     protected int | string | array $columnSpan = 'full';
+    // Deferred so the dashboard HTML returns instantly; the widget's queries
+    // run in a follow-up request rather than blocking the initial page load.
+    protected static bool $isLazy = true;
     protected static ?string $heading = 'Needs Attention';
     protected string $view = 'filament.widgets.needs-attention';
 

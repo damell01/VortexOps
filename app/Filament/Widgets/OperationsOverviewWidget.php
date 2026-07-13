@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Schema;
 
 class OperationsOverviewWidget extends BaseWidget
 {
+    protected static bool $isLazy = true;
     protected static ?int $sort = 1;
 
     public static function canView(): bool

@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Schema;
  */
 class SetupChecklistWidget extends Widget
 {
+    protected static bool $isLazy = true;
     protected static ?int $sort = -10; // top of the dashboard
     protected int | string | array $columnSpan = 'full';
     protected string $view = 'filament.widgets.setup-checklist';

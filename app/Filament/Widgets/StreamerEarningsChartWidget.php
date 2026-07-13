@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class StreamerEarningsChartWidget extends ChartWidget
 {
+    protected static bool $isLazy = true;
     protected static ?int $sort = 10;
     protected string $color     = 'primary';
     protected ?string $maxHeight = '260px';

@@ -11,6 +11,7 @@ use Filament\Widgets\TableWidget as BaseWidget;
 
 class PendingPayoutsWidget extends BaseWidget
 {
+    protected static bool $isLazy = true;
     protected static ?int $sort = 4;
     protected static ?string $heading = 'Pending Payouts';
     protected int | string | array $columnSpan = 'full';

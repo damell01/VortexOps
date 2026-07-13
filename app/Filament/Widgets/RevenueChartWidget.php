@@ -9,6 +9,7 @@ use Flowframe\Trend\Trend;
 
 class RevenueChartWidget extends ChartWidget
 {
+    protected static bool $isLazy = true;
     protected static ?int $sort = 5;
     protected string $color     = 'success';
     protected ?string $maxHeight = '280px';

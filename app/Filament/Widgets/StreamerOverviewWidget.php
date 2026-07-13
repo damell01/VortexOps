@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Cache;
 
 class StreamerOverviewWidget extends BaseWidget
 {
+    protected static bool $isLazy = true;
     protected static ?int $sort = 0;
 
     /** Streamer self-service overview — only for streamer accounts (not admins). */

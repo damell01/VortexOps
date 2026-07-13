@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Cache;
 
 class ShowsKpiWidget extends BaseWidget
 {
+    protected static bool $isLazy = true;
     protected static ?int $sort = 0;
 
     public static function canView(): bool

@@ -9,6 +9,7 @@ use Flowframe\Trend\Trend;
 
 class PayoutTrendsChartWidget extends ChartWidget
 {
+    protected static bool $isLazy = true;
     protected static ?int $sort = 6;
     protected string $color     = 'info';
     protected ?string $maxHeight = '280px';

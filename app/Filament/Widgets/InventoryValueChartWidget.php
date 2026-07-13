@@ -9,6 +9,7 @@ use Flowframe\Trend\Trend;
 
 class InventoryValueChartWidget extends ChartWidget
 {
+    protected static bool $isLazy = true;
     protected static ?int $sort = 7;
     protected string $color     = 'warning';
     protected ?string $maxHeight = '280px';

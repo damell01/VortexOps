@@ -21,12 +21,12 @@
                 <p class="text-[11px] text-gray-400">capital in on-hand stock</p>
             </div>
             <div class="rounded-xl border border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/10 px-5 py-4">
-                <p class="text-xs font-medium uppercase tracking-wide text-rose-600 dark:text-rose-300">Dead Stock</p>
+                <p class="text-xs font-medium uppercase tracking-wide text-rose-600 dark:text-rose-300 cursor-help" title="Capital tied up in products that haven't sold within the dead-stock window — inventory that isn't moving.">Dead Stock</p>
                 <p class="mt-1 text-2xl font-bold text-rose-700 dark:text-rose-200">${{ number_format($kpis['dead_value'], 0) }}</p>
                 <p class="text-[11px] text-rose-500/80 dark:text-rose-300/70">tied up, no sale in {{ \App\Filament\Pages\ProductInsights::DEAD_DAYS }}d</p>
             </div>
             <div class="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 px-5 py-4">
-                <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Active SKUs</p>
+                <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 cursor-help" title="SKU = Stock Keeping Unit — a distinct product. Active SKUs is how many products are currently in your catalog.">Active SKUs</p>
                 <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($kpis['active_skus']) }}</p>
                 <p class="text-[11px] text-gray-400">{{ number_format($kpis['sold_skus']) }} have sold</p>
             </div>
@@ -61,7 +61,7 @@
                         <th class="px-3 py-2 text-right font-medium">Sold</th>
                         <th class="px-3 py-2 text-right font-medium">Revenue</th>
                         <th class="px-3 py-2 text-right font-medium">Margin</th>
-                        <th class="px-3 py-2 text-right font-medium">Sell-through</th>
+                        <th class="px-3 py-2 text-right font-medium cursor-help" title="Units sold ÷ (units sold + units on hand). High means the product moves fast.">Sell-through</th>
                         <th class="px-3 py-2 text-right font-medium">Capital</th>
                         <th class="px-3 py-2 text-right font-medium">Last Sold</th>
                     </tr>

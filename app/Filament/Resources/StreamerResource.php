@@ -135,6 +135,7 @@ class StreamerResource extends Resource
                     // PWE + Labels fields
                     TextInput::make('pwe_rate')
                         ->label('PWE Rate ($ per package)')
+                        ->helperText('PWE = Plain White Envelope — the pay per single-card envelope shipped.')
                         ->numeric()
                         ->prefix('$')
                         ->minValue(0)
@@ -173,6 +174,7 @@ class StreamerResource extends Resource
                         ->default(true),
                     TextInput::make('adp_employee_id')
                         ->label('ADP Employee ID')
+                        ->helperText('ADP is the payroll provider pay runs export to. This is the streamer\'s ID in that system.')
                         ->maxLength(100),
                 ]),
             ]),

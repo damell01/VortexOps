@@ -479,6 +479,7 @@ class ShowResource extends Resource
                 ]),
 
             Section::make('P&L Summary')
+                ->description('Profit & Loss: (Whatnot net + tips) − COGS − streamer payouts.')
                 ->visible(fn (?Show $record) => $record !== null)
                 ->schema([
                     Placeholder::make('pl_card')
@@ -568,7 +569,7 @@ class ShowResource extends Resource
                     ->state(fn (Show $record): float => $record->profitAndLoss()['margin'])
                     ->money('USD')
                     ->color(fn (float $state): string => $state >= 0 ? 'success' : 'danger')
-                    ->tooltip(fn (Show $record): string => 'Margin ' . $record->profitAndLoss()['margin_pct'] . '%')
+                    ->tooltip(fn (Show $record): string => 'Profit after COGS and payouts — ' . $record->profitAndLoss()['margin_pct'] . '% margin')
                     ->sortable(false)
                     ->toggleable(),
 

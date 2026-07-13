@@ -138,6 +138,7 @@ class DeductionRequestResource extends Resource
 
                 TextColumn::make('lines_sum_line_total')
                     ->label('Total COGS')
+                    ->tooltip('COGS = Cost of Goods Sold — the wholesale cost of the products written off here.')
                     ->money('USD')
                     ->placeholder('$0.00'),
 

@@ -11,7 +11,9 @@ class ApiTokenMiddleware
     {
         $token = config('app.scraper_api_token');
 
-        if (!$token || $request->bearerToken() !== $token) {
+        // Fail closed when no token is configured, and compare in constant time
+        // so the token can't be recovered byte-by-byte via response timing.
+        if (! $token || ! hash_equals((string) $token, (string) $request->bearerToken())) {
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 

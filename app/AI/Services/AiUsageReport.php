@@ -84,6 +84,12 @@ final class AiUsageReport
      */
     private function groupBy(string $column, int $days): array
     {
+        // This value is interpolated into raw SQL below. Callers only ever pass
+        // literals, but whitelist anyway so it can never become an injection sink.
+        if (! in_array($column, ['task', 'model', 'provider'], true)) {
+            throw new \InvalidArgumentException("Unsupported group column [{$column}].");
+        }
+
         return AiInteraction::query()
             ->where('created_at', '>=', now()->subDays($days))
             ->groupBy($column)

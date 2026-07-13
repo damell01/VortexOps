@@ -39,6 +39,20 @@ class CheckSystemHealth extends Command
             }
         }
 
+        // Whatnot import freshness — the scheduled import stamps a success
+        // timestamp. If it hasn't succeeded in a while (and import is actually
+        // configured), the scraper is probably broken — logins expire, selectors
+        // drift. Only alerts once imports have run and channels are enabled, so
+        // it stays quiet on installs that don't use the scraper.
+        $lastImportSuccess = Setting::get('whatnot_last_import_success_at');
+        $importConfigured  = DB::table('whatnot_channels')->where('include_in_import', true)->exists();
+        if ($lastImportSuccess && $importConfigured) {
+            $ts = \Carbon\Carbon::parse($lastImportSuccess);
+            if ($ts->lt(now()->subHours(2))) {
+                $issues[] = "Whatnot import hasn't succeeded since {$ts->diffForHumans()} — the scraper may be failing (check credentials / selectors)";
+            }
+        }
+
         // Disk space
         $freeMb = (int) round(disk_free_space(storage_path()) / 1048576);
         if ($freeMb < 500) {

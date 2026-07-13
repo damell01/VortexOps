@@ -24,7 +24,12 @@ Schedule::command('health:check --notify')->everyFifteenMinutes();
 Schedule::command('whatnot:import --limit=15')
     ->cron('*/15 * * * *')
     ->name('whatnot-import-recent')
-    ->withoutOverlapping(30);
+    ->withoutOverlapping(30)
+    // Track import health: stamp a success timestamp so the dashboard and the
+    // health check can tell when the scrape pipeline last worked, and record
+    // failures so a broken scraper doesn't fail silently.
+    ->onSuccess(fn () => Setting::set('whatnot_last_import_success_at', now()->toISOString()))
+    ->onFailure(fn () => Setting::set('whatnot_last_import_failure_at', now()->toISOString()));
 
 // Order backfill for older shows (beyond the recent window above) that have a
 // detail_url but no orders yet. Once an hour at :22 — a quiet minute between the

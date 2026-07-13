@@ -96,6 +96,16 @@ class NeedsAttentionWidget extends Widget
                 ProductInsights::getUrl(),
             );
 
+            $staleHours = $this->importStaleHours();
+            $add(
+                $staleHours !== null,
+                $staleHours ?? 0,
+                'hours since Whatnot last imported — the scraper may be failing',
+                'heroicon-o-cloud-arrow-down',
+                'danger',
+                SystemHealth::getUrl(),
+            );
+
             $add(
                 Schema::hasTable('failed_jobs'),
                 (int) DB::table('failed_jobs')->count(),
@@ -109,6 +119,32 @@ class NeedsAttentionWidget extends Widget
         }
 
         return $items;
+    }
+
+    /**
+     * Hours since the scheduled Whatnot import last succeeded, but only when
+     * import is actually configured and the gap is meaningful (> 2h; imports
+     * run every 15 min). Null means healthy or not-in-use — no alert.
+     */
+    private function importStaleHours(): ?int
+    {
+        try {
+            if (! Schema::hasTable('whatnot_channels')
+                || ! \App\Models\WhatnotChannel::where('include_in_import', true)->exists()) {
+                return null;
+            }
+
+            $last = \App\Models\Setting::get('whatnot_last_import_success_at');
+            if (! $last) {
+                return null;
+            }
+
+            $hours = (int) \Illuminate\Support\Carbon::parse($last)->diffInHours(now());
+
+            return $hours >= 2 ? $hours : null;
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /** Active products holding stock that hasn't sold within the dead-stock window. */

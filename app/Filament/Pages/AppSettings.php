@@ -77,6 +77,7 @@ class AppSettings extends Page
 
     // ── AI / Ollama ──────────────────────────────────────────────────────────
 
+    public string $ai_provider              = 'ollama';
     public string $ollama_base_url          = '';
     public string $ollama_model             = ''; // legacy — kept for backward compat
     public string $ollama_chat_model        = '';
@@ -144,6 +145,7 @@ class AppSettings extends Page
         $this->shipping_surcharge_rate      = Setting::get('shipping_surcharge_rate', '4.00');
         $this->shipping_surcharge_threshold = Setting::get('shipping_surcharge_threshold', '500.00');
 
+        $this->ai_provider             = Setting::get('ai_provider', config('ai.default_provider', 'ollama'));
         $this->ollama_base_url         = Setting::get('ollama_base_url', config('services.ollama.url', 'http://localhost:11434'));
         $this->ollama_model            = Setting::get('ollama_model', config('services.ollama.model', 'llama3.2:3b'));
         $this->ollama_chat_model       = Setting::get('ollama_chat_model', $this->ollama_model);
@@ -265,6 +267,7 @@ class AppSettings extends Page
             'shipping_surcharge_threshold'     => 'required|numeric|min:0',
             'ai_temperature'                   => 'required|numeric|min:0|max:2',
             'ai_max_tokens'                    => 'required|integer|min:1|max:32768',
+            'ai_provider'                      => 'required|in:ollama,openai',
         ];
 
         if ($isOwner) {
@@ -300,6 +303,7 @@ class AppSettings extends Page
         Setting::set('shipping_surcharge_rate',      $this->shipping_surcharge_rate);
         Setting::set('shipping_surcharge_threshold', $this->shipping_surcharge_threshold);
 
+        Setting::set('ai_provider',             in_array($this->ai_provider, ['ollama', 'openai'], true) ? $this->ai_provider : 'ollama');
         Setting::set('ollama_base_url',         rtrim(trim($this->ollama_base_url), '/') ?: 'http://localhost:11434');
         Setting::set('ollama_chat_model',       trim($this->ollama_chat_model) ?: 'llama3.2:3b');
         // Fall back to the chat model when a task-specific model is left blank.

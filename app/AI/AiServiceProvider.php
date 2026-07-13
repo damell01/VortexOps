@@ -37,6 +37,11 @@ class AiServiceProvider extends ServiceProvider
             $app->make(OllamaClient::class),
         ));
 
+        $this->app->singleton(\App\AI\Providers\OpenAiProvider::class, fn () => new \App\AI\Providers\OpenAiProvider(
+            rtrim((string) config('ai.providers.openai.base_url', 'https://api.openai.com/v1'), '/'),
+            config('ai.providers.openai.api_key'),
+        ));
+
         // The active provider, resolved from config('ai.default_provider').
         $this->app->singleton(AIProvider::class, fn ($app) => $app->make(ProviderManager::class)->driver());
 

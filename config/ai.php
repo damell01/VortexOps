@@ -21,7 +21,14 @@ return [
         'ollama' => [
             'driver' => 'ollama',
         ],
-        // Future: 'openai', 'anthropic', 'gemini', 'deepseek', 'qwen'.
+        // OpenAI-compatible: also drives DeepSeek, Qwen/DashScope, Together,
+        // Groq, and local gateways — just point base_url at the endpoint.
+        'openai' => [
+            'driver'   => 'openai',
+            'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+            'api_key'  => env('OPENAI_API_KEY'),
+        ],
+        // Future: 'anthropic', 'gemini'.
     ],
 
     /*

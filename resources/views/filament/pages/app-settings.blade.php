@@ -717,6 +717,22 @@
 
             <div x-show="open" class="divide-y divide-gray-100 dark:divide-gray-700 border-t border-gray-100 dark:border-gray-700">
 
+                {{-- Provider --}}
+                <div class="px-6 py-4">
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">AI Provider</label>
+                    <select wire:model.live="ai_provider"
+                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        <option value="ollama">Ollama (local / self-hosted)</option>
+                        <option value="openai">OpenAI-compatible (OpenAI, DeepSeek, Qwen, …)</option>
+                    </select>
+                    <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                        Which backend the AI gateway uses. The model names below apply to whichever provider is active.
+                        @if ($ai_provider === 'openai')
+                            <span class="block mt-1">Set <code class="font-mono">OPENAI_BASE_URL</code> and <code class="font-mono">OPENAI_API_KEY</code> in your environment (keys are not stored in the database).</span>
+                        @endif
+                    </p>
+                </div>
+
                 {{-- Ollama Base URL --}}
                 <div class="px-6 py-4">
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Ollama Base URL</label>

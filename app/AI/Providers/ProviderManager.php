@@ -4,6 +4,7 @@ namespace App\AI\Providers;
 
 use App\AI\Contracts\AIProvider;
 use App\AI\Exceptions\UnsupportedProviderException;
+use App\Models\Setting;
 use Illuminate\Contracts\Container\Container;
 
 /**
@@ -19,10 +20,12 @@ final class ProviderManager
 
     public function driver(?string $name = null): AIProvider
     {
-        $name ??= config('ai.default_provider', 'ollama');
+        // Settings win (owner can switch in the UI), then config/env default.
+        $name ??= Setting::get('ai_provider') ?: config('ai.default_provider', 'ollama');
 
         return match ($name) {
             'ollama' => $this->app->make(OllamaProvider::class),
+            'openai' => $this->app->make(OpenAiProvider::class),
             default  => throw UnsupportedProviderException::for($name),
         };
     }

@@ -43,9 +43,9 @@ class EmbeddingMatchingTest extends TestCase
         $ok = app(EmbeddingService::class)->embedProduct($product);
 
         $this->assertTrue($ok);
-        $this->assertNotNull($product->fresh()->embedding);
+        $this->assertNotNull($product->embedding); // relation now
         // (JSON round-trips 1.0 → 1, so compare loosely.)
-        $this->assertEquals([1, 0, 0], $product->fresh()->embedding); // basketball axis
+        $this->assertEquals([1, 0, 0], $product->embedding->vector); // basketball axis
     }
 
     public function test_embed_product_returns_false_when_ollama_offline(): void
@@ -56,7 +56,7 @@ class EmbeddingMatchingTest extends TestCase
 
         $product = InventoryItem::create(['name' => 'Whatever Box', 'sku' => 'W-1', 'is_active' => true]);
         $this->assertFalse(app(EmbeddingService::class)->embedProduct($product));
-        $this->assertNull($product->fresh()->embedding);
+        $this->assertFalse($product->embedding()->exists());
     }
 
     public function test_embedding_stage_matches_the_semantically_closest_product(): void
@@ -65,9 +65,9 @@ class EmbeddingMatchingTest extends TestCase
 
         // Two embedded products on different axes.
         $bball = InventoryItem::create(['name' => '2024 Prizm Basketball Hobby', 'sku' => 'PRZ-1', 'is_active' => true]);
-        $bball->updateQuietly(['embedding' => [1.0, 0.0, 0.0]]);
+        \App\Models\ProductEmbedding::create(['product_id' => $bball->id, 'vector' => [1.0, 0.0, 0.0]]);
         $bball2 = InventoryItem::create(['name' => '2024 Bowman Chrome Baseball', 'sku' => 'BOW-1', 'is_active' => true]);
-        $bball2->updateQuietly(['embedding' => [0.0, 1.0, 0.0]]);
+        \App\Models\ProductEmbedding::create(['product_id' => $bball2->id, 'vector' => [0.0, 1.0, 0.0]]);
 
         // A description with no alias/exact/fuzzy hit (different wording) but
         // clearly basketball → embedding stage should pick the Prizm product.
@@ -84,12 +84,12 @@ class EmbeddingMatchingTest extends TestCase
         InventoryItem::create(['name' => 'Pokemon SV Booster', 'sku' => 'PKM-1', 'is_active' => true]);
         InventoryItem::create(['name' => '2024 Prizm Basketball', 'sku' => 'PRZ-2', 'is_active' => true]);
 
-        $this->assertSame(0, Product::whereNotNull('embedding')->count());
+        $this->assertSame(0, \App\Models\ProductEmbedding::count());
 
         $svc = app(EmbeddingService::class);
-        Product::where('is_active', true)->whereNull('embedding')->get()
+        Product::where('is_active', true)->whereDoesntHave('embedding')->get()
             ->each(fn (Product $p) => $svc->embedProduct($p));
 
-        $this->assertSame(2, Product::whereNotNull('embedding')->count());
+        $this->assertSame(2, \App\Models\ProductEmbedding::count());
     }
 }

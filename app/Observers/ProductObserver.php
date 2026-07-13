@@ -14,11 +14,12 @@ class ProductObserver
      */
     public function saved(Product $product): void
     {
-        if ($product->embedding !== null) {
+        // Cheap memoized check first, so non-AI installs never touch the DB.
+        if (! AdminModules::isEnabled('ai')) {
             return;
         }
 
-        if (! AdminModules::isEnabled('ai')) {
+        if ($product->embedding()->exists()) {
             return;
         }
 

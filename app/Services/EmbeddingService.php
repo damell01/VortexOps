@@ -54,7 +54,7 @@ class EmbeddingService
      */
     public function embedProduct(\App\Models\Product $product, bool $force = false): bool
     {
-        if (! $force && $product->embedding !== null) {
+        if (! $force && $product->embedding()->exists()) {
             return true;
         }
 
@@ -68,8 +68,10 @@ class EmbeddingService
             return false;
         }
 
-        // updateQuietly bypasses observers so this doesn't re-dispatch the job.
-        $product->updateQuietly(['embedding' => $vector]);
+        \App\Models\ProductEmbedding::updateOrCreate(
+            ['product_id' => $product->id],
+            ['vector' => $vector],
+        );
 
         return true;
     }
@@ -129,9 +131,9 @@ class EmbeddingService
     public function productEmbeddingCatalog(): array
     {
         return Cache::remember('embedding:product_catalog', 600, function () {
-            return \App\Models\Product::whereNotNull('embedding')
-                ->where('is_active', true)
-                ->pluck('embedding', 'id')
+            return \App\Models\ProductEmbedding::query()
+                ->whereHas('product', fn ($q) => $q->where('is_active', true))
+                ->pluck('vector', 'product_id')
                 ->toArray();
         });
     }

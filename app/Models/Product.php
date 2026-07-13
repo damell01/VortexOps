@@ -47,7 +47,6 @@ class Product extends Model
         'is_active',
         'preferred_vendor_id',
         'notes',
-        'embedding',
     ];
 
     protected $casts = [
@@ -56,7 +55,6 @@ class Product extends Model
         'total_units_received' => 'decimal:2',
         'is_active'            => 'boolean',
         'year'                 => 'integer',
-        'embedding'            => 'array',
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -100,6 +98,13 @@ class Product extends Model
     public function preferredVendor(): BelongsTo
     {
         return $this->belongsTo(Vendor::class, 'preferred_vendor_id');
+    }
+
+    /** The embedding vector, in its own table so it never bloats product reads. */
+    public function embedding(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        // Explicit FK: the InventoryItem alias would otherwise infer inventory_item_id.
+        return $this->hasOne(ProductEmbedding::class, 'product_id');
     }
 
     // ── Lookups ────────────────────────────────────────────────────────────────

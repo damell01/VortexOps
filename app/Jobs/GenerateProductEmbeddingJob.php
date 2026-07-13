@@ -26,7 +26,7 @@ class GenerateProductEmbeddingJob implements ShouldQueue
         }
 
         // Skip if already has embedding and job was not forced
-        if ($product->embedding !== null) {
+        if ($product->embedding()->exists()) {
             return;
         }
 

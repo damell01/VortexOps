@@ -22,7 +22,7 @@ class GenerateProductEmbeddingsCommand extends Command
         $query = Product::where('is_active', true);
 
         if (! $this->option('force')) {
-            $query->whereNull('embedding');
+            $query->whereDoesntHave('embedding');
         }
 
         $count = $query->count();
@@ -36,9 +36,9 @@ class GenerateProductEmbeddingsCommand extends Command
         $bar = $this->output->createProgressBar($count);
         $bar->start();
 
-        $query->each(function (Product $product) use ($bar) {
+        $query->select(['id'])->each(function (Product $product) use ($bar) {
             if ($this->option('force')) {
-                $product->updateQuietly(['embedding' => null]);
+                $product->embedding()->delete();
             }
             GenerateProductEmbeddingJob::dispatch($product->id)->onQueue('ai');
             $bar->advance();

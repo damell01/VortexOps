@@ -16,6 +16,18 @@ Schedule::call(fn () => Setting::set('scheduler_last_heartbeat', now()->toISOStr
 Schedule::job(new WorkerHeartbeat)->everyMinute()->name('worker-heartbeat')->withoutOverlapping();
 Schedule::command('db:backup')->dailyAt('02:00');
 Schedule::command('health:check --notify')->everyFifteenMinutes();
+
+// Keep append-only tables from growing forever.
+// AI telemetry: prune interactions older than 30 days (see AiInteraction::prunable()).
+Schedule::command('model:prune', ['--model' => [\App\Models\AiInteraction::class]])
+    ->dailyAt('03:00')
+    ->name('prune-ai-interactions')
+    ->withoutOverlapping();
+// Spatie audit log: clean records past the configured retention window.
+Schedule::command('activitylog:clean')
+    ->weeklyOn(7, '03:30')
+    ->name('clean-activity-log')
+    ->withoutOverlapping();
 // Frequent "catch the stream that just ended" import: the analytics walk starts
 // at the newest show, so a small limit grabs just-ended shows quickly (dedup
 // updates existing ones). Imports each show's orders in the same browser session.

@@ -53,6 +53,24 @@ class AiMonitoringTest extends TestCase
         $this->assertTrue($row->success);
     }
 
+    public function test_streamed_call_is_logged_after_completion(): void
+    {
+        $this->fakeProvider();
+
+        // A stream is only logged once fully consumed.
+        $stream = app(AiGateway::class)->stream(AiTask::Chat, [AiMessage::user('hi')]);
+        $this->assertSame(0, AiInteraction::count(), 'nothing logged until the stream is drained');
+
+        $chunks = iterator_to_array($stream);
+
+        $this->assertSame(['ok'], $chunks);
+        $this->assertSame(1, AiInteraction::count());
+        $row = AiInteraction::first();
+        $this->assertSame('chat', $row->task);
+        $this->assertTrue($row->success);
+        $this->assertNull($row->error);
+    }
+
     public function test_failed_call_is_logged_with_error(): void
     {
         $this->fakeProvider(throws: true);
@@ -62,6 +80,36 @@ class AiMonitoringTest extends TestCase
         $row = AiInteraction::first();
         $this->assertFalse($row->success);
         $this->assertStringContainsString('kaboom', $row->error);
+    }
+
+    public function test_stream_failure_is_logged_and_rethrown(): void
+    {
+        $throwing = new class implements AIProvider {
+            public function name(): string { return 'fake'; }
+            public function chat(array $m, string $model, array $o = []): string { return ''; }
+            public function stream(array $m, string $model, array $o = []): \Generator
+            {
+                yield 'partial';
+                throw new \RuntimeException('stream died');
+            }
+            public function vision(string $p, string $b, string $model, array $o = []): string { return ''; }
+            public function embed(string $t, string $model): ?array { return null; }
+            public function listModels(): array { return []; }
+            public function isHealthy(): bool { return true; }
+        };
+        $this->app->instance(AIProvider::class, $throwing);
+
+        try {
+            iterator_to_array(app(AiGateway::class)->stream(AiTask::Chat, [AiMessage::user('hi')]));
+            $this->fail('expected the stream to rethrow');
+        } catch (\RuntimeException $e) {
+            $this->assertStringContainsString('stream died', $e->getMessage());
+        }
+
+        $row = AiInteraction::first();
+        $this->assertNotNull($row);
+        $this->assertFalse($row->success);
+        $this->assertStringContainsString('stream died', $row->error);
     }
 
     public function test_monitoring_can_be_disabled(): void

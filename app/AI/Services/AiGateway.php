@@ -81,11 +81,43 @@ final class AiGateway
      */
     public function stream(AiTask $task, array $messages, array $overrides = []): \Generator
     {
-        return $this->provider->stream(
+        $model = $this->router->modelFor($task);
+        $inner = $this->provider->stream(
             AiMessage::normalizeMany($messages),
-            $this->router->modelFor($task),
+            $model,
             $this->router->generationOptions($task, $overrides),
         );
+
+        return $this->recordStream($task, $model, $inner);
+    }
+
+    /**
+     * Wrap a provider stream so telemetry is emitted once it finishes (or on
+     * mid-stream failure) — otherwise streamed calls, which is the assistant's
+     * main path, would go unmonitored. Latency is measured across the whole
+     * stream; the assembled text is the recorded content.
+     *
+     * @param  \Generator<int,string,void,void> $inner
+     * @return \Generator<int,string,void,void>
+     */
+    private function recordStream(AiTask $task, string $model, \Generator $inner): \Generator
+    {
+        $start    = microtime(true);
+        $provider = $this->provider->name();
+        $full     = '';
+
+        try {
+            foreach ($inner as $chunk) {
+                $full .= $chunk;
+                yield $chunk;
+            }
+        } catch (\Throwable $e) {
+            Log::error('AiGateway::stream failed', ['task' => $task->value, 'model' => $model, 'error' => $e->getMessage()]);
+            $this->record(AiResponse::failed($task, $model, $provider, $e->getMessage(), $this->elapsed($start)));
+            throw $e;
+        }
+
+        $this->record(new AiResponse($full, $model, $task, $provider, $this->elapsed($start)));
     }
 
     /**

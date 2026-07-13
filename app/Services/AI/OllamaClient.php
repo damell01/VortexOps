@@ -14,6 +14,9 @@ use Psr\Http\Message\StreamInterface;
  */
 class OllamaClient
 {
+    /** Model downloads can be large; give a pull a generous ceiling. */
+    private const PULL_TIMEOUT = 900;
+
     public function __construct(
         private readonly string $baseUrl,
         private readonly string $defaultModel,
@@ -170,6 +173,63 @@ class OllamaClient
         }
 
         return null;
+    }
+
+    // ── Model management ─────────────────────────────────────────────────────────
+
+    /**
+     * Download a model via /api/pull, streaming progress frames. Returns true
+     * once Ollama reports success. Works over the same HTTP channel as every
+     * other call, so no CLI or container access is needed.
+     *
+     * @param callable(array<string,mixed>):void|null $onProgress
+     */
+    public function pull(string $model, ?callable $onProgress = null): bool
+    {
+        try {
+            $response = Http::withOptions(['stream' => true])
+                ->timeout(self::PULL_TIMEOUT)
+                ->post("{$this->baseUrl}/api/pull", ['name' => $model, 'stream' => true]);
+
+            if (! $response->successful()) {
+                return false;
+            }
+
+            $body = $response->getBody();
+            $succeeded = false;
+
+            while (! $body->eof()) {
+                $line = $this->readLine($body);
+                if ($line === '') {
+                    continue;
+                }
+
+                $data = json_decode($line, true);
+                if (! is_array($data)) {
+                    continue;
+                }
+
+                if (isset($data['error'])) {
+                    if ($onProgress) {
+                        $onProgress($data);
+                    }
+                    return false;
+                }
+
+                if ($onProgress) {
+                    $onProgress($data);
+                }
+
+                if (($data['status'] ?? null) === 'success') {
+                    $succeeded = true;
+                }
+            }
+
+            return $succeeded;
+        } catch (\Throwable $e) {
+            Log::warning("OllamaClient::pull({$model}) — {$e->getMessage()}");
+            return false;
+        }
     }
 
     // ── Health / metadata ──────────────────────────────────────────────────────

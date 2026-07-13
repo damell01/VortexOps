@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\AI\Contracts\PullsModels;
 use App\AI\Enums\AiTask;
 use App\AI\Services\AiGateway;
 use App\AI\Services\ModelRouter;
@@ -20,7 +21,7 @@ use Illuminate\Support\Facades\Schema;
  */
 class AiDoctor extends Command
 {
-    protected $signature   = 'vortex:ai-doctor';
+    protected $signature   = 'vortex:ai-doctor {--pull : Download any configured models that are missing}';
     protected $description = 'Check the AI stack: Ollama reachability, configured models, embeddings, and the ai queue';
 
     private bool $hasCritical = false;
@@ -60,6 +61,23 @@ class AiDoctor extends Command
         // function; the rest degrade gracefully, so they only warn.
         $critical = [AiTask::Chat, AiTask::Json, AiTask::Embedding];
 
+        // Which configured models aren't present (deduped — several tasks may
+        // resolve to the same model).
+        $missing = [];
+        foreach (AiTask::cases() as $task) {
+            $model = $router->modelFor($task);
+            if (! $this->isPulled($model, $available)) {
+                $missing[$model] = true;
+            }
+        }
+        $missing = array_keys($missing);
+
+        // --pull: fetch the missing ones over HTTP, then refresh availability so
+        // the report below reflects what we just downloaded.
+        if ($missing !== [] && $this->option('pull')) {
+            $available = $this->pullMissing($provider, $missing, $available);
+        }
+
         foreach (AiTask::cases() as $task) {
             $model    = $router->modelFor($task);
             $isPulled = $this->isPulled($model, $available);
@@ -68,7 +86,7 @@ class AiDoctor extends Command
             if ($isPulled) {
                 $this->ok($label, $model);
             } elseif (in_array($task, $critical, true)) {
-                $this->critical($label, "\"{$model}\" is NOT pulled — run: ollama pull {$model}");
+                $this->critical($label, "\"{$model}\" is NOT pulled — run: ollama pull {$model} (or re-run with --pull)");
             } else {
                 $this->warn_($label, "\"{$model}\" is NOT pulled (optional) — ollama pull {$model}");
             }
@@ -107,6 +125,48 @@ class AiDoctor extends Command
         $this->renderSummary();
 
         return $this->hasCritical ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * Download each missing model over the provider's HTTP API and return the
+     * refreshed list of available models. No-ops (with a warning) when the
+     * active provider can't pull.
+     *
+     * @param  string[] $missing
+     * @param  string[] $available
+     * @return string[]
+     */
+    private function pullMissing(object $provider, array $missing, array $available): array
+    {
+        if (! $provider instanceof PullsModels) {
+            $this->warn_('Model pull', 'the active provider does not support pulling — install the models manually');
+            return $available;
+        }
+
+        $this->line('  <fg=cyan>Pulling ' . count($missing) . ' missing model(s)…</>');
+
+        foreach ($missing as $model) {
+            $this->line("  <fg=cyan>↓</> {$model}");
+
+            $lastStatus = '';
+            $ok = $provider->pull($model, function (array $frame) use (&$lastStatus) {
+                $status = (string) ($frame['status'] ?? ($frame['error'] ?? ''));
+                // Dedupe on the phase name so progress bytes don't flood output.
+                if ($status !== '' && $status !== $lastStatus) {
+                    $this->line("    <fg=gray>{$status}</>");
+                    $lastStatus = $status;
+                }
+            });
+
+            $ok
+                ? $this->line("    <fg=green>done</>")
+                : $this->line("    <fg=red>failed — pull it manually: ollama pull {$model}</>");
+        }
+
+        $this->line('');
+
+        // Ask the backend again so the report reflects the new state.
+        return $provider->listModels();
     }
 
     /**

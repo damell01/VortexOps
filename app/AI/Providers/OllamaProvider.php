@@ -3,6 +3,7 @@
 namespace App\AI\Providers;
 
 use App\AI\Contracts\AIProvider;
+use App\AI\Contracts\PullsModels;
 use App\Services\AI\OllamaClient;
 
 /**
@@ -10,7 +11,7 @@ use App\Services\AI\OllamaClient;
  * HTTP still flows through that single abstraction — this class only translates
  * the normalised option set into Ollama's wire shape.
  */
-final class OllamaProvider implements AIProvider
+final class OllamaProvider implements AIProvider, PullsModels
 {
     public function __construct(
         private readonly OllamaClient $client,
@@ -52,6 +53,11 @@ final class OllamaProvider implements AIProvider
     public function isHealthy(): bool
     {
         return $this->client->isOnline();
+    }
+
+    public function pull(string $model, ?callable $onProgress = null): bool
+    {
+        return $this->client->pull($model, $onProgress);
     }
 
     /**

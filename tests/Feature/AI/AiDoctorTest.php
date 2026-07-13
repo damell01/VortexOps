@@ -59,4 +59,34 @@ class AiDoctorTest extends TestCase
             ->expectsOutputToContain('ollama pull nomic-embed-text')
             ->assertExitCode(1);
     }
+
+    public function test_pull_flag_downloads_missing_models_and_recovers(): void
+    {
+        // A pull-capable provider that starts without the embedding model and
+        // "downloads" whatever pull() is asked for.
+        $fake = new class implements \App\AI\Contracts\AIProvider, \App\AI\Contracts\PullsModels {
+            public array $available = ['llama3.2:3b', 'llama3.2:1b', 'moondream'];
+            public array $pulled = [];
+            public function name(): string { return 'ollama'; }
+            public function chat(array $m, string $model, array $o = []): string { return ''; }
+            public function stream(array $m, string $model, array $o = []): \Generator { yield ''; }
+            public function vision(string $p, string $b, string $model, array $o = []): string { return ''; }
+            public function embed(string $t, string $model): ?array { return null; }
+            public function listModels(): array { return $this->available; }
+            public function isHealthy(): bool { return true; }
+            public function pull(string $model, ?callable $onProgress = null): bool
+            {
+                $this->pulled[] = $model;
+                $this->available[] = $model;
+                if ($onProgress) { $onProgress(['status' => 'success']); }
+                return true;
+            }
+        };
+        $this->app->instance(\App\AI\Contracts\AIProvider::class, $fake);
+
+        // With --pull, the missing nomic-embed-text is fetched and the run passes.
+        $this->artisan('vortex:ai-doctor --pull')->assertExitCode(0);
+
+        $this->assertContains('nomic-embed-text', $fake->pulled);
+    }
 }

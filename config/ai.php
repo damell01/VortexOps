@@ -80,4 +80,9 @@ return [
         'turns' => (int) env('AI_MEMORY_TURNS', 20),
     ],
 
+    // Persist every AI call as telemetry (latency/model/success). Prunable.
+    'monitoring' => [
+        'enabled' => (bool) env('AI_MONITORING', true),
+    ],
+
 ];

@@ -59,6 +59,12 @@ class AiServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Telemetry: persist every completed AI call.
+        \Illuminate\Support\Facades\Event::listen(
+            \App\AI\Events\AiCallCompleted::class,
+            \App\AI\Listeners\RecordAiInteraction::class,
+        );
+
         $registry = $this->app->make(ToolRegistry::class);
 
         foreach ([

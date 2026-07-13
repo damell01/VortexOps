@@ -6,6 +6,7 @@ use App\AI\Contracts\AIProvider;
 use App\AI\DTOs\AiMessage;
 use App\AI\DTOs\AiResponse;
 use App\AI\Enums\AiTask;
+use App\AI\Events\AiCallCompleted;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -41,17 +42,17 @@ final class AiGateway
                 $this->router->generationOptions($task, $overrides),
             );
 
-            return new AiResponse(
+            return $this->record(new AiResponse(
                 content:   $content,
                 model:     $model,
                 task:      $task,
                 provider:  $this->provider->name(),
                 latencyMs: $this->elapsed($start),
-            );
+            ));
         } catch (\Throwable $e) {
             Log::error('AiGateway::chat failed', ['task' => $task->value, 'model' => $model, 'error' => $e->getMessage()]);
 
-            return AiResponse::failed($task, $model, $this->provider->name(), $e->getMessage(), $this->elapsed($start));
+            return $this->record(AiResponse::failed($task, $model, $this->provider->name(), $e->getMessage(), $this->elapsed($start)));
         }
     }
 
@@ -100,11 +101,11 @@ final class AiGateway
         try {
             $content = $this->provider->vision($prompt, $base64Image, $model, $overrides);
 
-            return new AiResponse($content, $model, AiTask::Vision, $this->provider->name(), $this->elapsed($start));
+            return $this->record(new AiResponse($content, $model, AiTask::Vision, $this->provider->name(), $this->elapsed($start)));
         } catch (\Throwable $e) {
             Log::error('AiGateway::vision failed', ['model' => $model, 'error' => $e->getMessage()]);
 
-            return AiResponse::failed(AiTask::Vision, $model, $this->provider->name(), $e->getMessage(), $this->elapsed($start));
+            return $this->record(AiResponse::failed(AiTask::Vision, $model, $this->provider->name(), $e->getMessage(), $this->elapsed($start)));
         }
     }
 
@@ -136,5 +137,16 @@ final class AiGateway
     private function elapsed(float $start): int
     {
         return (int) ((microtime(true) - $start) * 1000);
+    }
+
+    /**
+     * Emit telemetry for a completed call, then hand the response back. Firing an
+     * event keeps the gateway ignorant of how (or whether) calls are recorded.
+     */
+    private function record(AiResponse $response): AiResponse
+    {
+        event(new AiCallCompleted($response));
+
+        return $response;
     }
 }

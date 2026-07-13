@@ -51,6 +51,10 @@ class InventoryItemResource extends Resource
 
     protected static ?string $model = InventoryItem::class;
 
+    // Global search does substring LIKE, which can't use an index; cap results
+    // low so ⌘K stays cheap on a very large catalogue.
+    protected static int $globalSearchResultsLimit = 15;
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-archive-box';

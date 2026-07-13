@@ -54,7 +54,34 @@ final class ModelRouter
             }
         }
 
-        return array_filter($base, fn ($v) => $v !== null);
+        return $this->coerceTypes(array_filter($base, fn ($v) => $v !== null));
+    }
+
+    /**
+     * Settings are stored as strings, but Ollama rejects a string where it wants
+     * a number ("option \"temperature\" must be of type float32"). Cast the
+     * numeric generation knobs to their real types before they leave the router.
+     *
+     * @param  array<string,mixed> $options
+     * @return array<string,mixed>
+     */
+    private function coerceTypes(array $options): array
+    {
+        $floats = ['temperature', 'top_p'];
+        $ints    = ['max_tokens', 'context_length'];
+
+        foreach ($floats as $key) {
+            if (isset($options[$key])) {
+                $options[$key] = (float) $options[$key];
+            }
+        }
+        foreach ($ints as $key) {
+            if (isset($options[$key])) {
+                $options[$key] = (int) $options[$key];
+            }
+        }
+
+        return $options;
     }
 
     public function streamingEnabled(): bool

@@ -55,6 +55,29 @@ class ModelRouterTest extends TestCase
         $this->assertEquals(256, $opts['max_tokens']);
     }
 
+    public function test_numeric_options_are_real_numbers_not_strings(): void
+    {
+        // Settings persist everything as strings; Ollama rejects a string where
+        // it wants float32/int. The router must coerce.
+        Setting::set('ai_temperature', '0.7');
+        Setting::set('ai_max_tokens', '2048');
+
+        $opts = $this->router()->generationOptions(AiTask::Chat);
+
+        $this->assertIsFloat($opts['temperature']);
+        $this->assertIsInt($opts['max_tokens']);
+        $this->assertSame(0.7, $opts['temperature']);
+        $this->assertSame(2048, $opts['max_tokens']);
+    }
+
+    public function test_string_overrides_are_also_coerced(): void
+    {
+        $opts = $this->router()->generationOptions(AiTask::Chat, ['temperature' => '0.2']);
+
+        $this->assertIsFloat($opts['temperature']);
+        $this->assertSame(0.2, $opts['temperature']);
+    }
+
     public function test_json_task_forces_json_format(): void
     {
         $opts = $this->router()->generationOptions(AiTask::Json);

@@ -2,7 +2,7 @@
 
 namespace App\Livewire;
 
-use App\Services\AI\Chat\ChatService;
+use App\AI\Services\AssistantService;
 use App\Support\AdminModules;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
@@ -45,7 +45,9 @@ class AiChatPanel extends Component
 
         try {
             $history   = array_slice($this->messages, -10);
-            $generator = app(ChatService::class)->stream($this->currentPath, $history, $text);
+            // The assistant routes data questions to tools and falls back to
+            // plain chat — all of that lives in AssistantService, not here.
+            $generator = app(AssistantService::class)->stream($this->currentPath, $history, $text, auth()->user());
 
             foreach ($generator as $chunk) {
                 $fullReply .= $chunk;

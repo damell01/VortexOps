@@ -235,6 +235,11 @@ class LedgerResource extends Resource
             ->defaultPaginationPageOption(25);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with('streamer');
+    }
+
     public static function getPages(): array
     {
         return [

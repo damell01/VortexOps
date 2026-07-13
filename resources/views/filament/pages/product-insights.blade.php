@@ -33,7 +33,9 @@
             <div class="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 px-5 py-4">
                 <p class="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Showing</p>
                 <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($rows->count()) }}</p>
-                <p class="text-[11px] text-gray-400">{{ $views[$this->view] ?? $this->view }}</p>
+                <p class="text-[11px] text-gray-400">
+                    {{ $views[$this->view] ?? $this->view }}@if ($rows->count() >= \App\Filament\Pages\ProductInsights::ROW_LIMIT) · top {{ \App\Filament\Pages\ProductInsights::ROW_LIMIT }}@endif
+                </p>
             </div>
         </div>
 

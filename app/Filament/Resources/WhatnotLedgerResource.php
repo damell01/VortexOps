@@ -145,6 +145,11 @@ class WhatnotLedgerResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with('channel');
+    }
+
     public static function getPages(): array
     {
         return [

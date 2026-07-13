@@ -2,17 +2,21 @@
 
 namespace App\Services\AI\Chat;
 
-use App\Services\AI\OllamaClient;
-use Illuminate\Support\Facades\Log;
+use App\AI\Enums\AiTask;
+use App\AI\Services\AiGateway;
 
 /**
  * Powers both AiChatPanel (streaming sidebar) and AiAssistant (full-page).
  * Combines SkillRegistry expertise instructions with ContextBuilder page data.
+ *
+ * All model traffic goes through AiGateway, so the chat model and generation
+ * defaults come from Settings (ModelRouter) — this service owns the prompt, not
+ * the model choice.
  */
 class ChatService
 {
     public function __construct(
-        private readonly OllamaClient  $client,
+        private readonly AiGateway      $gateway,
         private readonly ContextBuilder $context,
     ) {}
 
@@ -41,10 +45,10 @@ class ChatService
      */
     public function stream(string $path, array $history, string $userMessage): \Generator
     {
-        $messages = $this->buildMessages($path, $history, $userMessage);
-        return $this->client->chatStream($messages, [
-            'ollama_options' => ['num_ctx' => 4096],
-        ]);
+        return $this->gateway->stream(
+            AiTask::Chat,
+            $this->buildMessages($path, $history, $userMessage),
+        );
     }
 
     /**
@@ -55,32 +59,20 @@ class ChatService
      */
     public function complete(string $path, array $history, string $userMessage): array
     {
-        $start = microtime(true);
         $skill = SkillRegistry::detectFromPath($path);
 
-        try {
-            $messages = $this->buildMessages($path, $history, $userMessage);
-            $content  = $this->client->chat($messages, [
-                'timeout'        => 240,
-                'ollama_options' => ['num_predict' => 1024],
-            ]);
+        $response = $this->gateway->chat(
+            AiTask::Chat,
+            $this->buildMessages($path, $history, $userMessage),
+            ['timeout' => 240],
+        );
 
-            return [
-                'content'    => $content ?: '(empty response)',
-                'latency_ms' => (int) ((microtime(true) - $start) * 1000),
-                'success'    => true,
-                'skill'      => $skill,
-            ];
-        } catch (\Throwable $e) {
-            Log::error('ChatService::complete failed', ['error' => $e->getMessage(), 'path' => $path]);
-
-            return [
-                'content'    => "Error: {$e->getMessage()}",
-                'latency_ms' => (int) ((microtime(true) - $start) * 1000),
-                'success'    => false,
-                'skill'      => $skill,
-            ];
-        }
+        return [
+            'content'    => $response->success ? ($response->content ?: '(empty response)') : "Error: {$response->error}",
+            'latency_ms' => $response->latencyMs,
+            'success'    => $response->success,
+            'skill'      => $skill,
+        ];
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────

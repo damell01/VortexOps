@@ -48,7 +48,7 @@ class AppServiceProvider extends ServiceProvider
         ));
 
         $this->app->singleton(ChatService::class, fn ($app) => new ChatService(
-            $app->make(OllamaClient::class),
+            $app->make(\App\AI\Services\AiGateway::class),
             $app->make(ContextBuilder::class),
         ));
     }

@@ -156,29 +156,30 @@ class AdminPanelProvider extends PanelProvider
                     if ($isAuthenticatedAdminView()) return '';
                     return <<<'CSS'
                     <style>
+                    body:has(.vx-login-hero){background:#150430!important}
                     .fi-simple-layout:has(.vx-login-hero){
-                        position:relative;min-height:100vh;overflow:hidden;
+                        position:relative!important;min-height:100vh!important;overflow:hidden!important;
                         background:radial-gradient(ellipse 90% 60% at 15% 0%,rgba(109,40,217,.5),transparent 60%),
                                    radial-gradient(ellipse 80% 60% at 100% 100%,rgba(124,58,237,.4),transparent 60%),
-                                   linear-gradient(155deg,#150430 0%,#330d6b 45%,#5b21b6 100%);
+                                   linear-gradient(155deg,#150430 0%,#330d6b 45%,#5b21b6 100%)!important;
                     }
                     .fi-simple-layout:has(.vx-login-hero)::before{
-                        content:'';position:absolute;inset:0;pointer-events:none;opacity:.5;
+                        content:'';position:absolute;inset:0;pointer-events:none;opacity:.5;z-index:0;
                         background-image:
                             repeating-linear-gradient(115deg,transparent 0 60px,rgba(196,181,253,.05) 60px 62px),
                             repeating-linear-gradient(95deg,transparent 0 90px,rgba(196,181,253,.04) 90px 92px);
                     }
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main-ctn{
-                        position:relative;z-index:1;background:transparent!important;min-height:100vh;
-                        display:flex;align-items:center;justify-content:center;padding:2rem 1.5rem;
+                        position:relative!important;z-index:1!important;background:transparent!important;min-height:100vh!important;
+                        display:flex!important;flex-direction:column;align-items:center;justify-content:center;padding:2rem 1.5rem;
                     }
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-header{display:none!important}
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main{
                         background:rgba(30,16,56,.55)!important;
                         backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-                        border:1px solid rgba(255,255,255,.1);
-                        border-radius:1.25rem;
-                        box-shadow:0 20px 60px rgba(0,0,0,.35);
+                        border:1px solid rgba(255,255,255,.1)!important;
+                        border-radius:1.25rem!important;
+                        box-shadow:0 20px 60px rgba(0,0,0,.35)!important;
                         padding:2.25rem 2.25rem 1.75rem!important;
                         width:100%;max-width:26rem;
                     }
@@ -189,9 +190,16 @@ class AdminPanelProvider extends PanelProvider
                     .vx-login-hero h1{font-size:1.35rem;font-weight:700;color:#fff;margin:0}
                     .vx-form-heading{text-align:center;margin-bottom:1.5rem}
                     .vx-form-heading p{font-size:.85rem;color:#c4b5fd;margin:0}
-                    .vx-login-footer{position:relative;z-index:1;text-align:center;margin-top:1.5rem;font-size:.75rem;color:rgba(255,255,255,.35)}
-                    /* Dark-glass form controls */
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main label{color:#e9d5ff!important}
+                    .vx-login-footer{position:relative;z-index:1;text-align:center;margin-top:1.5rem;font-size:.75rem;color:rgba(255,255,255,.5)}
+                    /* Dark-glass form controls — cast a wide net since Filament nests label
+                       text in inner spans we can't predict the exact markup of. */
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main,
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main label,
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main label *,
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main p,
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main span:not([class*="text-"]){
+                        color:#e9d5ff!important;
+                    }
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input{
                         background:rgba(255,255,255,.06)!important;
                         border-color:rgba(255,255,255,.14)!important;
@@ -204,8 +212,10 @@ class AdminPanelProvider extends PanelProvider
                     }
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main .fi-fo-field-wrp-error-message,
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main .fi-fo-field-wrp-hint{color:#c4b5fd!important}
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a{color:#c4b5fd!important}
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a:hover{color:#e9d5ff!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a,
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a *{color:#c4b5fd!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a:hover,
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a:hover *{color:#e9d5ff!important}
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"],
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main .fi-btn[type="submit"]{
                         background:linear-gradient(90deg,#7c3aed,#a78bfa)!important;

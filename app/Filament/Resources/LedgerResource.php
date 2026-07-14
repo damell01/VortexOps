@@ -49,9 +49,6 @@ class LedgerResource extends Resource
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        if ($user?->isOwner()) {
-            return true;
-        }
 
         return AdminModules::isEnabled('reporting')
             && AdminModules::isFeatureEnabled('ledger')

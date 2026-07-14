@@ -3,21 +3,10 @@
 namespace App\AI;
 
 use App\AI\Contracts\AIProvider;
-use App\AI\Contracts\MemoryStore;
-use App\AI\Memory\CacheMemoryStore;
-use App\AI\Memory\ConversationMemory;
 use App\AI\Providers\OllamaProvider;
 use App\AI\Providers\ProviderManager;
 use App\AI\Services\AiGateway;
-use App\AI\Services\IntentRouter;
 use App\AI\Services\ModelRouter;
-use App\AI\Services\ToolRegistry;
-use App\AI\Tools\InventoryLookupTool;
-use App\AI\Tools\PayoutBatchStatusTool;
-use App\AI\Tools\PendingDeductionsTool;
-use App\AI\Tools\ReorderListTool;
-use App\AI\Tools\ShowPnlTool;
-use App\AI\Tools\StreamerBalanceTool;
 use App\Services\AI\OllamaClient;
 use Illuminate\Support\ServiceProvider;
 
@@ -49,19 +38,8 @@ class AiServiceProvider extends ServiceProvider
             $app->make(AIProvider::class),
             $app->make(ModelRouter::class),
         ));
-
-        $this->app->singleton(ToolRegistry::class);
-        $this->app->singleton(IntentRouter::class);
-
-        // Conversation memory, cache-backed by default.
-        $this->app->singleton(MemoryStore::class, fn ($app) => new CacheMemoryStore($app->make('cache.store')));
-        $this->app->singleton(ConversationMemory::class);
     }
 
-    /**
-     * The tools the AI can call. New tools register here — the intent router and
-     * any assistant UI pick them up automatically.
-     */
     public function boot(): void
     {
         // Telemetry: persist every completed AI call.
@@ -69,18 +47,5 @@ class AiServiceProvider extends ServiceProvider
             \App\AI\Events\AiCallCompleted::class,
             \App\AI\Listeners\RecordAiInteraction::class,
         );
-
-        $registry = $this->app->make(ToolRegistry::class);
-
-        foreach ([
-            InventoryLookupTool::class,
-            StreamerBalanceTool::class,
-            ShowPnlTool::class,
-            ReorderListTool::class,
-            PayoutBatchStatusTool::class,
-            PendingDeductionsTool::class,
-        ] as $tool) {
-            $registry->register($this->app->make($tool));
-        }
     }
 }

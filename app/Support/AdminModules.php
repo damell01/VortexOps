@@ -52,8 +52,8 @@ class AdminModules
                 'order'       => 45,
             ],
             'ai' => [
-                'label'       => 'AI Assistant',
-                'description' => 'Vortex AI assistant and AI activity logs. Requires Ollama. (Advanced)',
+                'label'       => 'AI Mapping & Vision',
+                'description' => 'AI show mapping, pallet-sheet vision parsing, and product embeddings. Requires Ollama. (Advanced)',
                 'group'       => 'AI',
                 'order'       => 60,
             ],
@@ -117,9 +117,6 @@ class AdminModules
             'reports'             => ['label' => 'Reports & Analytics', 'description' => 'Revenue, payout trends, and operational summaries.',   'module' => 'reporting',  'order' => 10],
             'streamer_analytics'  => ['label' => 'Streamer Analytics',  'description' => 'Per-streamer performance analytics dashboard.',        'module' => 'reporting',  'order' => 20],
             'ledger'              => ['label' => 'Ledger',              'description' => 'Financial ledger and Whatnot ledger entries.',         'module' => 'reporting',  'order' => 30],
-
-            // ── AI ───────────────────────────────────────────────────────────────
-            'ai_assistant'        => ['label' => 'AI Assistant',        'description' => 'Full-screen AI chat and context-aware assistance.',    'module' => 'ai',         'order' => 10],
 
             // ── Timekeeping ──────────────────────────────────────────────────────
             'timekeeping_page'    => ['label' => 'Timekeeping',         'description' => 'Employee time tracking and shift logs.',               'module' => 'timekeeping','order' => 10],

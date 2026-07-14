@@ -14,9 +14,9 @@ use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * Proves the two toggle systems actually hide menu items for a non-owner, and
- * that the owner keeps an unconditional view — the guarantee behind unfolding
- * features to a client over time.
+ * Proves module/feature toggles actually hide menu items for everyone,
+ * including the owner — disabling a module in Settings must be reflected in
+ * what the owner sees too, not just non-owner admins.
  */
 class MenuHidingTest extends TestCase
 {
@@ -111,15 +111,29 @@ class MenuHidingTest extends TestCase
         $this->assertFalse(StreamerLogResource::canAccess());
     }
 
-    // ── Owner bypass ───────────────────────────────────────────────────────────
+    // ── Owner also respects toggles ──────────────────────────────────────────
 
-    public function test_owner_sees_everything_regardless_of_toggles(): void
+    public function test_owner_also_loses_access_when_toggles_are_off(): void
     {
         $owner = User::factory()->create(['email' => 'owner@vortexbreaks.com']);
         $this->actingAs($owner);
 
         $this->setModules([]);          // every module off
         $this->setFeatures([]);         // every feature off
+
+        $this->assertFalse(PayoutResource::shouldRegisterNavigation());
+        $this->assertFalse(ShowResource::shouldRegisterNavigation());
+        $this->assertFalse(LedgerResource::canAccess());
+        $this->assertFalse(StreamerLogResource::canAccess());
+    }
+
+    public function test_owner_sees_resources_when_toggles_are_on(): void
+    {
+        $owner = User::factory()->create(['email' => 'owner@vortexbreaks.com']);
+        $this->actingAs($owner);
+
+        $this->setModules(array_keys(AdminModules::definitions()));
+        $this->setFeatures(array_keys(AdminModules::featureDefinitions()));
 
         $this->assertTrue(PayoutResource::shouldRegisterNavigation());
         $this->assertTrue(ShowResource::shouldRegisterNavigation());

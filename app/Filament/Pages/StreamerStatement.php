@@ -35,9 +35,6 @@ class StreamerStatement extends Page
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        if ($user?->isOwner()) {
-            return true;
-        }
 
         return AdminModules::isEnabled('payouts')
             && AdminModules::isFeatureEnabled('streamer_statement')

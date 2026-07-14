@@ -12,8 +12,6 @@ use App\Observers\PayoutObserver;
 use App\Observers\ProductObserver;
 use App\Observers\ShowObserver;
 use App\Services\AI\OllamaClient;
-use App\Services\AI\Chat\ChatService;
-use App\Services\AI\Chat\ContextBuilder;
 use App\Services\AI\Mapping\MappingEngine;
 use App\Services\EmbeddingService;
 use App\Services\ProductMatchingService;
@@ -45,11 +43,6 @@ class AppServiceProvider extends ServiceProvider
             $app->make(ProductMatchingService::class),
             $app->make(OllamaClient::class),
             $app->make(EmbeddingService::class),
-        ));
-
-        $this->app->singleton(ChatService::class, fn ($app) => new ChatService(
-            $app->make(\App\AI\Services\AiGateway::class),
-            $app->make(ContextBuilder::class),
         ));
     }
 

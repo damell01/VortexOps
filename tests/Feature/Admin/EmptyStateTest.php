@@ -22,10 +22,14 @@ class EmptyStateTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        AdminModules::flushMemo();
         config(['app.owner_email' => 'dbellcreations@gmail.com']);
-        // Owner has full access, so the empty state itself is what's under test
-        // rather than per-resource access gating.
+        // Explicitly enable every module/feature so the empty state itself is
+        // what's under test rather than per-resource access gating — the owner
+        // now respects toggles too, and a migration seeds a restrictive
+        // "shell phase" default that excludes purchasing.
+        \App\Models\Setting::set('enabled_admin_modules', json_encode(array_keys(AdminModules::definitions())));
+        \App\Models\Setting::set('enabled_admin_features', json_encode(array_keys(AdminModules::featureDefinitions())));
+        AdminModules::flushMemo();
         $owner = User::factory()->create(['email' => 'dbellcreations@gmail.com']);
         Livewire::actingAs($owner);
     }

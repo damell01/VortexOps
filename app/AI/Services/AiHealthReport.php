@@ -24,9 +24,8 @@ final class AiHealthReport
     private const CRITICAL_TASKS = [AiTask::Chat, AiTask::Json, AiTask::Embedding];
 
     public function __construct(
-        private readonly AiGateway    $gateway,
-        private readonly ModelRouter  $router,
-        private readonly ToolRegistry $tools,
+        private readonly AiGateway   $gateway,
+        private readonly ModelRouter $router,
     ) {}
 
     /**
@@ -43,7 +42,7 @@ final class AiHealthReport
 
         $checks[] = AdminModules::isEnabled('ai')
             ? $this->check('AI module', self::OK, 'enabled')
-            : $this->check('AI module', self::WARN, 'disabled — the assistant and embedding jobs are off (Settings → modules)');
+            : $this->check('AI module', self::WARN, 'disabled — show mapping and embedding jobs are off (Settings → modules)');
 
         // Backend reachability — everything else is meaningless if it's down.
         if (! $this->gateway->isHealthy()) {
@@ -156,9 +155,6 @@ final class AiHealthReport
     /** @param list<array<string,string>> $checks */
     private function infoChecks(array &$checks): void
     {
-        $toolNames = array_keys($this->tools->all());
-        $checks[]  = $this->check('Tools registered', self::OK, count($toolNames) . ' (' . implode(', ', $toolNames) . ')');
-
         $opts     = $this->router->generationOptions(AiTask::Chat);
         $checks[] = $this->check('Generation', self::OK, sprintf(
             'temp %s · max_tokens %s · streaming %s',

@@ -54,9 +54,6 @@ class StreamerLogResource extends Resource
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        if ($user?->isOwner()) {
-            return true;
-        }
         if (! AdminModules::isEnabled('streams') || ! AdminModules::isFeatureEnabled('streamer_log')) {
             return false;
         }

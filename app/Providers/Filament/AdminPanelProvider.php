@@ -128,10 +128,7 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn (): string => ! $isAuthenticatedAdminView()
                     ? ''
-                    : Blade::render(
-                        "@livewire('feedback-widget')"
-                        . "@livewire('ai-chat-panel')"
-                    ),
+                    : Blade::render("@livewire('feedback-widget')"),
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,

@@ -23,7 +23,7 @@ class NavTest extends TestCase
         AdminModules::flushMemo();
         NavVisibility::flushMemo();
         config(['app.owner_email' => 'dbellcreations@gmail.com']);
-        Setting::set('enabled_admin_modules', json_encode(['streams', 'inventory', 'payouts', 'streamers', 'vendors', 'purchasing', 'ledger', 'streamer_log', 'timekeeping', 'receiving']));
+        Setting::set('enabled_admin_modules', json_encode(['streams', 'inventory', 'payouts', 'purchasing', 'operations', 'reporting', 'timekeeping']));
         AdminModules::flushMemo();
         Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
     }

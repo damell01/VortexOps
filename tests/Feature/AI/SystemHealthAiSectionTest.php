@@ -32,7 +32,6 @@ class SystemHealthAiSectionTest extends TestCase
         Livewire::test(SystemHealth::class)
             ->assertOk()
             ->assertSee('AI Stack')
-            ->assertSee('Ollama backend')
-            ->assertSee('Tools registered');
+            ->assertSee('Ollama backend');
     }
 }

@@ -33,6 +33,7 @@ class Streamer extends Model
         'email',
         'phone',
         'payout_type',
+        'payout_cadence',
         'payout_percentage',
         'package_rate',
         'hourly_rate',
@@ -174,6 +175,14 @@ class Streamer extends Model
             'pwe_labels'     => 'PWE + Labels',
             'hybrid'         => 'Hybrid (Hourly + Tips + Profit Share)',
             'custom_formula' => 'Custom Formula',
+        ];
+    }
+
+    public static function payoutCadenceLabels(): array
+    {
+        return [
+            'weekly'  => 'Weekly',
+            'monthly' => 'Monthly',
         ];
     }
 

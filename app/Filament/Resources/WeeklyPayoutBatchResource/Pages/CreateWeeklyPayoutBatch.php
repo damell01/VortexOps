@@ -44,12 +44,19 @@ class CreateWeeklyPayoutBatch extends CreateRecord
             Section::make('Streamers to Include')->schema([
                 CheckboxList::make('streamer_ids')
                     ->label('Active Streamers')
+                    ->helperText('Monthly-cadence streamers (profit share, tips) are unchecked by default — only include them when it\'s time for their monthly pay-out, not every weekly run.')
                     ->options(fn () => Streamer::where('status', 'active')
+                        ->orderBy('payout_cadence')
                         ->orderBy('name')
                         ->get()
                         ->mapWithKeys(fn ($s) => [
-                            $s->id => $s->name . ' — ' . (Streamer::payoutTypeLabels()[$s->payout_type] ?? $s->payout_type),
+                            $s->id => $s->name . ' — ' . (Streamer::payoutTypeLabels()[$s->payout_type] ?? $s->payout_type)
+                                . ' (' . (Streamer::payoutCadenceLabels()[$s->payout_cadence] ?? $s->payout_cadence) . ')',
                         ])
+                        ->toArray())
+                    ->default(fn () => Streamer::where('status', 'active')
+                        ->where('payout_cadence', 'weekly')
+                        ->pluck('id')
                         ->toArray())
                     ->columns(2)
                     ->bulkToggleable()

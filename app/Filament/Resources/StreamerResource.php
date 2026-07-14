@@ -144,6 +144,12 @@ class StreamerResource extends Resource
                         ->options(Streamer::payoutTypeLabels())
                         ->required()
                         ->live(),
+                    Select::make('payout_cadence')
+                        ->label('Pay Run Cadence')
+                        ->options(Streamer::payoutCadenceLabels())
+                        ->default('weekly')
+                        ->required()
+                        ->helperText('Regular payout types run weekly; profit share and tips are usually batched monthly instead.'),
                     // PWE + Labels fields
                     TextInput::make('pwe_rate')
                         ->label('PWE Rate ($ per package)')
@@ -301,6 +307,12 @@ class StreamerResource extends Resource
                         'custom_formula' => 'primary',
                         default          => 'gray',
                     }),
+                TextColumn::make('payout_cadence')
+                    ->label('Cadence')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => Streamer::payoutCadenceLabels()[$state] ?? $state)
+                    ->color(fn ($state) => $state === 'monthly' ? 'primary' : 'gray')
+                    ->toggleable(),
                 TextColumn::make('total_earnings_due')
                     ->label('Due')
                     ->money('USD')

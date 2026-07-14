@@ -53,6 +53,14 @@ class ListShows extends ListRecords
                     ->badge($flagged)
                     ->badgeColor('danger');
             }
+
+            $revised = Show::where('financials_revised_after_lock', true)->count();
+            if ($revised > 0) {
+                $tabs['revised'] = Tab::make('Financials Revised')
+                    ->modifyQueryUsing(fn (Builder $q) => $q->where('financials_revised_after_lock', true))
+                    ->badge($revised)
+                    ->badgeColor('danger');
+            }
         }
 
         return $tabs;

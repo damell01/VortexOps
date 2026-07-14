@@ -542,7 +542,11 @@ class ShowResource extends Resource
                 TextColumn::make('title')
                     ->label('Show Title')
                     ->default('—')
-                    ->searchable(),
+                    ->searchable()
+                    ->description(fn (Show $record): ?string => $record->financials_revised_after_lock
+                        ? '⚠ Financials changed after this show was locked in — review'
+                        : null)
+                    ->color(fn (Show $record) => $record->financials_revised_after_lock ? 'danger' : null),
 
                 TextColumn::make('channel.name')
                     ->label('Channel')
@@ -667,6 +671,12 @@ class ShowResource extends Resource
                     ->trueLabel('Needs channel review')
                     ->falseLabel('Attribution OK'),
 
+                TernaryFilter::make('financials_revised_after_lock')
+                    ->label('Financials revised')
+                    ->placeholder('All shows')
+                    ->trueLabel('Revised after lock — needs review')
+                    ->falseLabel('Not revised'),
+
                 QueryBuilder::make()
                     ->label('Advanced Filters')
                     ->constraintPickerColumns(2)
@@ -726,6 +736,22 @@ class ShowResource extends Resource
                         Notification::make()->title('Channel confirmed')->success()->send();
                     }),
 
+                TableAction::make('acknowledge_revision')
+                    ->label('Review Revision')
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->color('danger')
+                    ->visible(fn (Show $record) => (bool) $record->financials_revised_after_lock
+                        && (auth()->user()?->isAdmin() ?? false))
+                    ->modalHeading('Financials changed after this show was locked in')
+                    ->modalDescription(fn (Show $record) => new \Illuminate\Support\HtmlString(
+                        'A later Whatnot sync brought back different numbers for this show after it moved past Pending Review — deduction lines or payouts may already be based on the old figures. Recalculate anything downstream before clearing this flag.<br><br><strong>Changes:</strong><br>' . nl2br(e($record->revision_notes ?? '—'))
+                    ))
+                    ->modalSubmitActionLabel('Clear flag — reviewed')
+                    ->action(function (Show $record): void {
+                        $record->update(['financials_revised_after_lock' => false]);
+                        Notification::make()->title('Revision flag cleared')->success()->send();
+                    }),
+
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
             ])
@@ -740,6 +766,15 @@ class ShowResource extends Resource
                         ->requiresConfirmation()
                         ->modalDescription('Clear the channel-review flag on the selected shows, keeping their current channel.')
                         ->action(fn (Collection $records) => $records->each->update(['channel_attribution_suspect' => false]))
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('clear_revision_flag')
+                        ->label('Clear revision flag')
+                        ->icon('heroicon-o-exclamation-triangle')
+                        ->color('danger')
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->requiresConfirmation()
+                        ->modalDescription('Clear the financials-revised flag on the selected shows without further action.')
+                        ->action(fn (Collection $records) => $records->each->update(['financials_revised_after_lock' => false]))
                         ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make()
                         ->visible(fn () => auth()->user()?->isAdmin()),

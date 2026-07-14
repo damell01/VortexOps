@@ -29,6 +29,8 @@ class Show extends Model
     protected $fillable = [
         'whatnot_channel_id',
         'channel_attribution_suspect',
+        'financials_revised_after_lock',
+        'revision_notes',
         'whatnot_show_id',
         'cover_image_url',
         'title',
@@ -74,6 +76,7 @@ class Show extends Model
         'show_date'                   => 'date',
         'status_changed_at'           => 'datetime',
         'channel_attribution_suspect' => 'boolean',
+        'financials_revised_after_lock' => 'boolean',
         'gross_revenue'          => 'decimal:2',
         'whatnot_net'            => 'decimal:2',
         'whatnot_fees'           => 'decimal:2',

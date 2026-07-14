@@ -73,6 +73,15 @@ class NeedsAttentionWidget extends Widget
             );
 
             $add(
+                AdminModules::isEnabled('streams') && Schema::hasColumn('shows', 'financials_revised_after_lock'),
+                Show::where('financials_revised_after_lock', true)->inChannelContext()->count(),
+                'shows had financials change after being locked in — review before payout',
+                'heroicon-o-exclamation-triangle',
+                'danger',
+                ShowResource::getUrl('index', ['tableFilters[financials_revised_after_lock][value]' => '1']),
+            );
+
+            $add(
                 Schema::hasTable('deduction_requests'),
                 DeductionRequest::where('status', 'pending')->inChannelContext()->count(),
                 'deduction requests pending approval',

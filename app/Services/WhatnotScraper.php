@@ -719,6 +719,32 @@ class WhatnotScraper
                     $updateFields['channel_attribution_suspect'] = true;
                 }
 
+                // Revision guard: a show past pending_review may already have deduction
+                // lines and payouts calculated off its current numbers. If a later scrape
+                // brings back different core financials, flag it rather than silently
+                // overwriting the figures ops already reviewed/approved.
+                if (in_array($existing->status, ['pending_approval', 'reconciled', 'closed'], true)) {
+                    $changes = [];
+                    foreach (['gross_revenue', 'whatnot_net', 'tips', 'units_sold'] as $field) {
+                        if (! array_key_exists($field, $updateFields)) {
+                            continue;
+                        }
+                        $old = (float) $existing->{$field};
+                        $new = (float) $updateFields[$field];
+                        if (abs($old - $new) > 0.01) {
+                            $changes[] = "{$field}: {$old} → {$new}";
+                        }
+                    }
+
+                    if (! empty($changes)) {
+                        $updateFields['financials_revised_after_lock'] = true;
+                        $updateFields['revision_notes'] = trim(
+                            ($existing->revision_notes ? $existing->revision_notes . "\n" : '')
+                            . now()->format('M j, Y g:ia') . ' — ' . implode('; ', $changes)
+                        );
+                    }
+                }
+
                 if (! empty($updateFields)) {
                     $existing->update($updateFields);
                     $updated++;

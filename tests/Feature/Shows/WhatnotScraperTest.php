@@ -196,6 +196,86 @@ class WhatnotScraperTest extends TestCase
         $this->assertEquals('reconciled', $show->status); // status not overwritten
     }
 
+    public function test_import_flags_financials_revised_when_locked_show_numbers_change(): void
+    {
+        Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'              => 'Test Break Show',
+            'show_date'          => '2026-06-15',
+            'gross_revenue'      => 1000.00,
+            'whatnot_net'        => 900.00,
+            'tips'               => 10.00,
+            'units_sold'         => 20,
+            'import_source'      => 'auto_whatnot',
+            'status'             => 'reconciled',
+            'created_by'         => 1,
+        ]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow([
+            'gross_revenue' => 1500.00,
+            'units_sold'    => 40,
+        ])]));
+
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Test Break Show')->first();
+        $this->assertTrue((bool) $show->financials_revised_after_lock);
+        $this->assertStringContainsString('gross_revenue: 1000 → 1500', $show->revision_notes);
+        $this->assertStringContainsString('units_sold: 20 → 40', $show->revision_notes);
+    }
+
+    public function test_import_does_not_flag_financials_revised_for_shows_still_in_review(): void
+    {
+        Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'              => 'Test Break Show',
+            'show_date'          => '2026-06-15',
+            'gross_revenue'      => 1000.00,
+            'units_sold'         => 20,
+            'import_source'      => 'auto_whatnot',
+            'status'             => 'pending_review',
+            'created_by'         => 1,
+        ]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow([
+            'gross_revenue' => 1500.00,
+            'units_sold'    => 40,
+        ])]));
+
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Test Break Show')->first();
+        $this->assertFalse((bool) $show->financials_revised_after_lock);
+        $this->assertNull($show->revision_notes);
+    }
+
+    public function test_import_does_not_flag_financials_revised_for_negligible_change(): void
+    {
+        Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'              => 'Test Break Show',
+            'show_date'          => '2026-06-15',
+            'gross_revenue'      => 1500.00,
+            'whatnot_net'        => 1350.00,
+            'tips'               => 25.00,
+            'units_sold'         => 40,
+            'import_source'      => 'auto_whatnot',
+            'status'             => 'reconciled',
+            'created_by'         => 1,
+        ]);
+
+        // Identical figures to the current row — no real revision, just a re-scrape.
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow([
+            'gross_revenue' => 1500.00,
+            'units_sold'    => 40,
+        ])]));
+
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Test Break Show')->first();
+        $this->assertFalse((bool) $show->financials_revised_after_lock);
+    }
+
     public function test_import_does_not_overwrite_non_financial_fields(): void
     {
         Show::create([

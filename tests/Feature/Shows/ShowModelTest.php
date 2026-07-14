@@ -193,6 +193,52 @@ class ShowModelTest extends TestCase
         }
     }
 
+    public function test_revenue_outlier_false_with_insufficient_history(): void
+    {
+        $streamer = Streamer::create(['name' => 'Alice', 'status' => 'active', 'include_tips' => false, 'payout_type' => 'hourly', 'hourly_rate' => 15]);
+
+        // Only 3 prior shows — below the 5-show minimum.
+        for ($i = 0; $i < 3; $i++) {
+            $prior = $this->makeShow(['gross_revenue' => 500, 'status' => 'reconciled', 'show_date' => now()->subDays($i + 1)->toDateString()]);
+            $prior->streamers()->attach($streamer->id, ['is_primary' => true]);
+        }
+
+        $show = $this->makeShow(['gross_revenue' => 5000, 'status' => 'reconciled']);
+        $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+
+        $this->assertFalse($show->isRevenueOutlier());
+    }
+
+    public function test_revenue_outlier_true_for_far_above_average(): void
+    {
+        $streamer = Streamer::create(['name' => 'Bob', 'status' => 'active', 'include_tips' => false, 'payout_type' => 'hourly', 'hourly_rate' => 15]);
+
+        for ($i = 0; $i < 6; $i++) {
+            $prior = $this->makeShow(['gross_revenue' => 500, 'status' => 'reconciled', 'show_date' => now()->subDays($i + 1)->toDateString()]);
+            $prior->streamers()->attach($streamer->id, ['is_primary' => true]);
+        }
+
+        $show = $this->makeShow(['gross_revenue' => 5000, 'status' => 'reconciled']);
+        $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+
+        $this->assertTrue($show->isRevenueOutlier());
+    }
+
+    public function test_revenue_outlier_false_for_consistent_revenue(): void
+    {
+        $streamer = Streamer::create(['name' => 'Carol', 'status' => 'active', 'include_tips' => false, 'payout_type' => 'hourly', 'hourly_rate' => 15]);
+
+        for ($i = 0; $i < 6; $i++) {
+            $prior = $this->makeShow(['gross_revenue' => 500, 'status' => 'reconciled', 'show_date' => now()->subDays($i + 1)->toDateString()]);
+            $prior->streamers()->attach($streamer->id, ['is_primary' => true]);
+        }
+
+        $show = $this->makeShow(['gross_revenue' => 520, 'status' => 'reconciled']);
+        $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+
+        $this->assertFalse($show->isRevenueOutlier());
+    }
+
     public function test_pipeline_steps_for_cancelled_show_are_skipped(): void
     {
         $show  = $this->makeShow(['status' => 'cancelled']);

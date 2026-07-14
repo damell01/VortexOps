@@ -438,6 +438,48 @@ class Show extends Model
         return $steps;
     }
 
+    /**
+     * True when this show's gross revenue is a statistical outlier compared
+     * to the primary streamer's trailing shows — a quick "does this number
+     * look right?" signal ops can check before approving payouts off it.
+     * Computed live (not stored) so it always reflects current history.
+     * Requires at least 5 prior shows for the same streamer, to avoid false
+     * positives on thin history.
+     */
+    public function isRevenueOutlier(): bool
+    {
+        if ($this->gross_revenue === null) {
+            return false;
+        }
+
+        $streamer = $this->relationLoaded('streamers') ? $this->streamers->first() : $this->primaryStreamer();
+        if (! $streamer) {
+            return false;
+        }
+
+        $priorRevenues = static::whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamer->id))
+            ->where('id', '!=', $this->id)
+            ->whereNotIn('status', ['cancelled', 'draft'])
+            ->whereNotNull('gross_revenue')
+            ->orderByDesc('show_date')
+            ->limit(10)
+            ->pluck('gross_revenue')
+            ->map(fn ($v) => (float) $v);
+
+        if ($priorRevenues->count() < 5) {
+            return false;
+        }
+
+        $mean = $priorRevenues->avg();
+        if ($mean <= 0) {
+            return false;
+        }
+
+        $ratio = (float) $this->gross_revenue / $mean;
+
+        return $ratio > 2.5 || $ratio < 0.35;
+    }
+
     public static function statusLabels(): array
     {
         return [

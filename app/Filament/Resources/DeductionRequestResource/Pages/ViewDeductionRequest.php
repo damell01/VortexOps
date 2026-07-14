@@ -67,6 +67,14 @@ class ViewDeductionRequest extends EditRecord
                         ->content($request->streamer->name ?? '—'),
                 ]),
 
+            Section::make('Revenue Outlier Warning')
+                ->visible(fn () => $show->isRevenueOutlier())
+                ->schema([
+                    Placeholder::make('revenue_outlier_notice')
+                        ->label('')
+                        ->content('📈 This show\'s gross revenue looks unusual compared to this streamer\'s recent shows. Double-check the imported figures before approving payouts off them.'),
+                ]),
+
             Section::make('Items Sold')
                 ->description('Reference — imported from Whatnot. Use these to assign inventory items to each deduction line below.')
                 ->visible(fn () => $show->orders->isNotEmpty())

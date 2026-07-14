@@ -565,6 +565,10 @@ class ShowResource extends Resource
                     ->label('Gross Revenue')
                     ->money('USD')
                     ->default('—')
+                    ->description(fn (Show $record): ?string => $record->isRevenueOutlier()
+                        ? '📈 Unusual vs recent shows — verify'
+                        : null)
+                    ->color(fn (Show $record) => $record->isRevenueOutlier() ? 'warning' : null)
                     ->summarize(Sum::make()->money('USD')->label('Total Gross')),
 
                 TextColumn::make('net_margin')

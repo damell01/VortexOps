@@ -67,6 +67,10 @@ class PayoutService
         $labelCount = 0;
         $burdenRateApplied = null;
 
+        $logEntry = $show->relationLoaded('streamerLogEntry')
+            ? $show->getRelation('streamerLogEntry')
+            : $show->streamerLogEntry()->first();
+
         switch ($streamer->payout_type) {
             case 'profit_share':
                 $pct              = (float) $streamer->payout_percentage / 100;
@@ -111,14 +115,20 @@ class PayoutService
 
             case 'pwe_labels':
                 // Per-package (PWE) + per-label model, with optional hourly component.
-                // pwe_count and label_count come from show metadata or are prompted at payout review.
-                $pweCount   = (int) ($show->units_sold ?? 0);
-                $labelCount = $pweCount;
+                // Prefer the real counts fulfillment/the streamer entered on the log
+                // entry; fall back to units_sold as a rough estimate only when those
+                // haven't been entered yet.
+                $countsAreActual = $logEntry && ($logEntry->pwe_count !== null || $logEntry->label_count !== null);
+                $pweCount   = $logEntry?->pwe_count   ?? (int) ($show->units_sold ?? 0);
+                $labelCount = $logEntry?->label_count ?? (int) ($show->units_sold ?? 0);
                 $pweEarned    = round((float) ($streamer->pwe_rate ?? 0) * $pweCount, 2);
                 $labelEarned  = round((float) ($streamer->label_rate ?? 0) * $labelCount, 2);
                 $hourlyEarned = $hours > 0 ? round((float) ($streamer->hourly_rate ?? 0) * $hours, 2) : 0;
                 $calculatedPayout = $pweEarned + $labelEarned + $hourlyEarned;
                 $calculationNotes = "\${$streamer->pwe_rate}/PWE × {$pweCount} + \${$streamer->label_rate}/label × {$labelCount}";
+                if (! $countsAreActual) {
+                    $calculationNotes .= ' (estimated from units sold — no fulfillment counts entered yet)';
+                }
                 if ($hourlyEarned > 0) {
                     $calculationNotes .= " + \${$streamer->hourly_rate}/hr × {$hours}hrs";
                 }

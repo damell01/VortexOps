@@ -47,7 +47,16 @@ class ViewShow extends ViewRecord
                 ->visible(fn () => auth()->user()?->isAdmin() && $this->record->streamers->isNotEmpty())
                 ->requiresConfirmation()
                 ->modalHeading('Calculate Payout')
-                ->modalDescription('Computes and saves payout records for all streamers on this show based on their configured payout type and the show revenue data.')
+                ->modalDescription(function (): string {
+                    $base = 'Computes and saves payout records for all streamers on this show based on their configured payout type and the show revenue data.';
+                    $log  = $this->record->streamerLogEntry;
+
+                    if ($log?->needsFulfillmentReview()) {
+                        $base .= ' ⚠ This show has a PWE + Labels streamer whose fulfillment review is not yet complete — the payout will use an estimated PWE/label count (from units sold) until that review happens.';
+                    }
+
+                    return $base;
+                })
                 ->action(function (): void {
                     try {
                         $payouts = app(PayoutService::class)->calculateForShow($this->record);

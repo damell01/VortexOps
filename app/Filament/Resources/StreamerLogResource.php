@@ -115,6 +115,16 @@ class StreamerLogResource extends Resource
                         ->label('Packages Over $500')
                         ->helperText('Triggers shipping surcharge')
                         ->integer(),
+                    TextInput::make('pwe_count')
+                        ->label('PWE Count')
+                        ->helperText('Packages shipped PWE — used for payout')
+                        ->integer()
+                        ->visible(fn (?StreamerLogEntry $record) => $record?->streamer?->payout_type === 'pwe_labels'),
+                    TextInput::make('label_count')
+                        ->label('Label-Only Count')
+                        ->helperText('Packages shipped with a label only — used for payout')
+                        ->integer()
+                        ->visible(fn (?StreamerLogEntry $record) => $record?->streamer?->payout_type === 'pwe_labels'),
                 ]),
             ]),
 
@@ -214,6 +224,22 @@ class StreamerLogResource extends Resource
                 TextColumn::make('number_of_shipments')
                     ->label('Shipments')
                     ->numeric(),
+                TextColumn::make('pwe_count')
+                    ->label('PWE')
+                    ->numeric()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('label_count')
+                    ->label('Labels')
+                    ->numeric()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('fulfillment_reviewed_at')
+                    ->label('Fulfillment')
+                    ->visible(fn ($record) => $record?->streamer?->payout_type === 'pwe_labels')
+                    ->boolean()
+                    ->getStateUsing(fn (StreamerLogEntry $record) => $record->fulfillment_reviewed_at !== null)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('gross_revenue')
                     ->label('Gross Rev')
                     ->money('USD')
@@ -294,6 +320,27 @@ class StreamerLogResource extends Resource
                             ->success()
                             ->send();
                     }),
+                Action::make('fulfillment_review')
+                    ->label('Fulfillment Reviewed')
+                    ->icon('heroicon-o-truck')
+                    ->color('info')
+                    ->visible(fn (StreamerLogEntry $record) => $record->needsFulfillmentReview()
+                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirm fulfillment review')
+                    ->modalDescription('Confirms the PWE and label counts above are correct for this payout-type streamer, after the streamer and admin review are already done.')
+                    ->action(function (StreamerLogEntry $record): void {
+                        $record->update([
+                            'fulfillment_reviewed_by' => auth()->id(),
+                            'fulfillment_reviewed_at' => now(),
+                        ]);
+
+                        Notification::make()
+                            ->title('Fulfillment review recorded')
+                            ->success()
+                            ->send();
+                    }),
+
                 // Send an already-reviewed/approved entry back to the streamer so
                 // they can edit it again (admins/owner only).
                 Action::make('send_back')
@@ -307,10 +354,12 @@ class StreamerLogResource extends Resource
                     ->modalDescription('Reopens this entry so the streamer can edit it again. Its status returns to pending.')
                     ->action(function (StreamerLogEntry $record): void {
                         $record->update([
-                            'status'               => 'pending',
-                            'streamer_reviewed_at' => null,
-                            'reviewed_by'          => null,
-                            'reviewed_at'          => null,
+                            'status'                  => 'pending',
+                            'streamer_reviewed_at'    => null,
+                            'reviewed_by'             => null,
+                            'reviewed_at'             => null,
+                            'fulfillment_reviewed_by' => null,
+                            'fulfillment_reviewed_at' => null,
                         ]);
                         Notification::make()->title('Sent back to streamer')->success()->send();
                     }),

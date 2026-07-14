@@ -15,6 +15,8 @@ class StreamerLogEntry extends Model
         'hard_copy',
         'hours_streamed',
         'number_of_shipments',
+        'pwe_count',
+        'label_count',
         'number_of_packages_over_500',
         'pwe_pay',
         'hourly_pay',
@@ -29,6 +31,8 @@ class StreamerLogEntry extends Model
         'reviewed_by',
         'reviewed_at',
         'streamer_reviewed_at',
+        'fulfillment_reviewed_by',
+        'fulfillment_reviewed_at',
         'notes',
     ];
 
@@ -46,9 +50,12 @@ class StreamerLogEntry extends Model
         'gross_revenue'                => 'decimal:2',
         'product_cost'                 => 'decimal:2',
         'number_of_shipments'          => 'integer',
+        'pwe_count'                    => 'integer',
+        'label_count'                  => 'integer',
         'number_of_packages_over_500'  => 'integer',
         'reviewed_at'                  => 'datetime',
         'streamer_reviewed_at'         => 'datetime',
+        'fulfillment_reviewed_at'      => 'datetime',
     ];
 
     public static function statusLabels(): array
@@ -102,5 +109,18 @@ class StreamerLogEntry extends Model
     public function reviewedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function fulfillmentReviewedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'fulfillment_reviewed_by');
+    }
+
+    /** Fulfillment review only applies to pwe_labels-payout streamers, and only once admin has approved. */
+    public function needsFulfillmentReview(): bool
+    {
+        return $this->status === 'admin_approved'
+            && $this->fulfillment_reviewed_at === null
+            && ($this->streamer?->payout_type === 'pwe_labels');
     }
 }

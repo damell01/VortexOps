@@ -239,6 +239,34 @@ class ShowModelTest extends TestCase
         $this->assertFalse($show->isRevenueOutlier());
     }
 
+    public function test_pipeline_steps_include_fulfillment_step_for_pwe_labels_streamer(): void
+    {
+        $show     = $this->makeShow(['status' => 'reconciled']);
+        $streamer = Streamer::create(['name' => 'Fulfillment Bob', 'status' => 'active', 'payout_type' => 'pwe_labels']);
+        $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+        DeductionRequest::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'processed']);
+        StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'admin_approved']);
+
+        $steps = $show->pipelineSteps();
+
+        $this->assertSame('current', $this->stepStatus($steps, 'fulfillment_reviewed'));
+
+        StreamerLogEntry::where('show_id', $show->id)->update(['fulfillment_reviewed_at' => now()]);
+        $steps = $show->fresh()->pipelineSteps();
+        $this->assertSame('done', $this->stepStatus($steps, 'fulfillment_reviewed'));
+    }
+
+    public function test_pipeline_steps_omit_fulfillment_step_for_non_pwe_labels_streamer(): void
+    {
+        $show     = $this->makeShow(['status' => 'reconciled']);
+        $streamer = Streamer::create(['name' => 'Hourly Ann', 'status' => 'active', 'payout_type' => 'hourly', 'hourly_rate' => 15]);
+        $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+
+        $steps = $show->pipelineSteps();
+
+        $this->assertNull(collect($steps)->firstWhere('key', 'fulfillment_reviewed'));
+    }
+
     public function test_pipeline_steps_for_cancelled_show_are_skipped(): void
     {
         $show  = $this->makeShow(['status' => 'cancelled']);

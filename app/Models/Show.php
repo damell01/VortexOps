@@ -384,6 +384,13 @@ class Show extends Model
         $logApprovedDone    = $log && $log->status === 'admin_approved';
         $logApprovedCurrent = $log && $log->status === 'streamer_reviewed';
 
+        // Fulfillment review is an extra step that only applies to pwe_labels-payout
+        // streamers, sitting after the regular admin log approval.
+        $primaryStreamer      = $this->relationLoaded('streamers') ? $this->streamers->first() : $this->primaryStreamer();
+        $needsFulfillmentStep = $primaryStreamer?->payout_type === 'pwe_labels';
+        $fulfillmentDone      = $log && $log->fulfillment_reviewed_at !== null;
+        $fulfillmentCurrent   = $log && $log->status === 'admin_approved' && ! $fulfillmentDone;
+
         $lineCount = fn () => $dr ? $dr->lines()->count() : null;
 
         $steps = [
@@ -417,12 +424,22 @@ class Show extends Model
                 'status' => $logApprovedDone ? 'done' : ($logApprovedCurrent ? 'current' : 'pending'),
                 'note'   => $log?->reviewed_at?->format('M j, Y'),
             ],
-            [
-                'key'    => 'payout',
-                'label'  => 'Payout Calculated',
-                'status' => $hasPayouts ? 'done' : 'pending',
-                'note'   => null,
-            ],
+        ];
+
+        if ($needsFulfillmentStep) {
+            $steps[] = [
+                'key'    => 'fulfillment_reviewed',
+                'label'  => 'Fulfillment Reviewed',
+                'status' => $fulfillmentDone ? 'done' : ($fulfillmentCurrent ? 'current' : 'pending'),
+                'note'   => $log?->fulfillment_reviewed_at?->format('M j, Y'),
+            ];
+        }
+
+        $steps[] = [
+            'key'    => 'payout',
+            'label'  => 'Payout Calculated',
+            'status' => $hasPayouts ? 'done' : 'pending',
+            'note'   => null,
         ];
 
         // Cancelled shows never proceed further — mark whatever's left as skipped

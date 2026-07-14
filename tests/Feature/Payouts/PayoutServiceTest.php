@@ -5,6 +5,7 @@ namespace Tests\Feature\Payouts;
 use App\Models\Payout;
 use App\Models\Show;
 use App\Models\Streamer;
+use App\Models\StreamerLogEntry;
 use App\Models\User;
 use App\Models\WhatnotChannel;
 use App\Services\PayoutService;
@@ -99,6 +100,34 @@ class PayoutServiceTest extends TestCase
         $this->assertEquals(55.00, (float) $payouts[0]->calculated_payout);
         $this->assertEquals(25, $payouts[0]->pwe_count);
         $this->assertEquals(25, $payouts[0]->label_count);
+    }
+
+    public function test_pwe_labels_payout_prefers_real_counts_from_streamer_log(): void
+    {
+        $streamer = $this->makeStreamer([
+            'payout_type'  => 'pwe_labels',
+            'pwe_rate'     => 0.75,
+            'label_rate'   => 0.25,
+            'hourly_rate'  => 15,
+            'include_tips' => false,
+        ]);
+        $this->show->streamers()->attach($streamer->id, ['is_primary' => true]);
+
+        StreamerLogEntry::create([
+            'show_id'     => $this->show->id,
+            'streamer_id' => $streamer->id,
+            'status'      => 'admin_approved',
+            'pwe_count'   => 10,
+            'label_count' => 40,
+        ]);
+
+        $payouts = $this->service->calculateForShow($this->show->fresh());
+
+        // (0.75*10) + (0.25*40) + (15*2) = 7.5 + 10 + 30 = 47.5 — not the units_sold estimate.
+        $this->assertEquals(47.50, (float) $payouts[0]->calculated_payout);
+        $this->assertEquals(10, $payouts[0]->pwe_count);
+        $this->assertEquals(40, $payouts[0]->label_count);
+        $this->assertStringNotContainsString('estimated', $payouts[0]->calculation_notes);
     }
 
     public function test_hybrid_payout_with_burden_rate(): void

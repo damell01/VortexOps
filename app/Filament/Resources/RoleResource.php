@@ -61,7 +61,7 @@ class RoleResource extends Resource
                     ->maxLength(255),
             ]),
             Section::make('Page Visibility')
-                ->description('Check pages to HIDE them from this role in the sidebar. The owner always sees everything, and if a user has another role that shows a page it stays visible.')
+                ->description('Check pages to hide from this role — hidden pages disappear from the sidebar and become inaccessible for that role. The owner always sees everything, and if a user has another role that shows a page it stays visible.')
                 ->schema([
                     CheckboxList::make('hidden_pages')
                         ->label('Pages hidden from this role')

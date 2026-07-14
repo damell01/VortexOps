@@ -16,7 +16,6 @@ class WhatnotSyncPage extends Page
     use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'streams';
-    protected static string $featureSlug = 'whatnot_sync';
 
     protected static ?string $title           = 'Whatnot Sync';
     protected static ?string $navigationLabel = 'Sync Dashboard';

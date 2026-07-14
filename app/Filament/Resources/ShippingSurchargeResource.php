@@ -6,6 +6,7 @@ use App\Filament\Resources\ShippingSurchargeResource\Pages;
 use App\Models\ShippingSurcharge;
 use App\Models\Streamer;
 use App\Support\AdminModules;
+use App\Support\NavVisibility;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Resources\Resource;
@@ -45,7 +46,7 @@ class ShippingSurchargeResource extends Resource
         $user = auth()->user();
 
         return AdminModules::isEnabled('payouts')
-            && AdminModules::isFeatureEnabled('shipping_surcharge')
+            && ! NavVisibility::isHiddenForUser(static::class, $user)
             && (bool) $user?->isAdmin();
     }
 

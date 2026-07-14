@@ -9,14 +9,16 @@ use App\Filament\Resources\StreamerLogResource;
 use App\Models\Setting;
 use App\Models\User;
 use App\Support\AdminModules;
+use App\Support\NavVisibility;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 /**
- * Proves module/feature toggles actually hide menu items for everyone,
- * including the owner — disabling a module in Settings must be reflected in
- * what the owner sees too, not just non-owner admins.
+ * Proves the single, consolidated nav-visibility system actually hides menu
+ * items for everyone, including the owner: module toggles are the coarse
+ * on/off (blocks access + nav for everyone), and per-role page visibility
+ * (edited on Roles & Permissions) is the only fine-grained control on top.
  */
 class MenuHidingTest extends TestCase
 {
@@ -27,6 +29,7 @@ class MenuHidingTest extends TestCase
         parent::setUp();
         config(['app.owner_email' => 'owner@vortexbreaks.com']);
         AdminModules::flushMemo();
+        NavVisibility::flushMemo();
     }
 
     private function admin(): User
@@ -44,12 +47,6 @@ class MenuHidingTest extends TestCase
         AdminModules::flushMemo();
     }
 
-    private function setFeatures(array $slugs): void
-    {
-        Setting::set('enabled_admin_features', json_encode($slugs));
-        AdminModules::flushMemo();
-    }
-
     // ── AdminModules: module level ─────────────────────────────────────────────
 
     public function test_disabling_a_module_hides_its_resource_for_a_client(): void
@@ -64,37 +61,33 @@ class MenuHidingTest extends TestCase
         $this->assertTrue(PayoutResource::shouldRegisterNavigation());
     }
 
-    // ── AdminModules: feature level ────────────────────────────────────────────
+    // ── NavVisibility: per-role fine-tuning within an enabled module ────────────
 
-    public function test_disabling_a_feature_hides_just_that_item(): void
+    public function test_hiding_a_page_for_a_role_hides_just_that_item(): void
     {
         $this->actingAs($this->admin());
-        $this->setModules(['streams']);
+        $this->setModules(array_keys(AdminModules::definitions()));
 
-        // All features except 'shows'.
-        $all = array_keys(AdminModules::featureDefinitions());
-        $this->setFeatures(array_values(array_filter($all, fn ($f) => $f !== 'shows')));
+        NavVisibility::setHiddenForRole('admin', [ShowResource::class]);
+        $this->assertFalse(ShowResource::canAccess(), 'Shows hides when hidden for the admin role');
 
-        $this->assertFalse(ShowResource::shouldRegisterNavigation(), 'Shows hides when its feature is off');
+        NavVisibility::setHiddenForRole('admin', []);
+        $this->assertTrue(ShowResource::canAccess(), 'Shows is visible again once un-hidden');
     }
 
-    // ── Consolidated items (formerly the separate feature-flag system) ──────────
-
-    public function test_consolidated_feature_hides_its_resource(): void
+    public function test_hiding_ledger_for_a_role_blocks_access(): void
     {
         $this->actingAs($this->admin());
-        $this->setModules(array_keys(AdminModules::definitions())); // every module on
+        $this->setModules(array_keys(AdminModules::definitions()));
 
-        // Ledger now rides the "ledger" module feature, not a standalone flag.
-        $all = array_keys(AdminModules::featureDefinitions());
-        $this->setFeatures(array_values(array_filter($all, fn ($f) => $f !== 'ledger')));
-        $this->assertFalse(LedgerResource::canAccess(), 'Ledger hides when its feature is off');
+        NavVisibility::setHiddenForRole('admin', [LedgerResource::class]);
+        $this->assertFalse(LedgerResource::canAccess(), 'Ledger hides when hidden for the admin role');
 
-        $this->setFeatures($all);
-        $this->assertTrue(LedgerResource::canAccess(), 'Ledger shows when its feature is on');
+        NavVisibility::setHiddenForRole('admin', []);
+        $this->assertTrue(LedgerResource::canAccess(), 'Ledger shows again once un-hidden');
     }
 
-    public function test_streamer_still_sees_their_log_when_feature_on(): void
+    public function test_streamer_still_sees_their_log_when_not_hidden(): void
     {
         Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
         $streamerUser = User::factory()->create(['email' => 'slog@test.com']);
@@ -102,24 +95,21 @@ class MenuHidingTest extends TestCase
         $this->actingAs($streamerUser);
 
         $this->setModules(array_keys(AdminModules::definitions()));
-        $this->setFeatures(array_keys(AdminModules::featureDefinitions()));
-        $this->assertTrue(StreamerLogResource::canAccess(), 'Streamer keeps access when the feature is on');
+        $this->assertTrue(StreamerLogResource::canAccess(), 'Streamer keeps access by default');
 
-        // Turning the feature off hides it from the streamer too.
-        $all = array_keys(AdminModules::featureDefinitions());
-        $this->setFeatures(array_values(array_filter($all, fn ($f) => $f !== 'streamer_log')));
+        // Hiding it for the streamer role hides it from the streamer too.
+        NavVisibility::setHiddenForRole('streamer', [StreamerLogResource::class]);
         $this->assertFalse(StreamerLogResource::canAccess());
     }
 
-    // ── Owner also respects toggles ──────────────────────────────────────────
+    // ── Owner also respects module toggles, but is always immune to per-role hiding ──
 
-    public function test_owner_also_loses_access_when_toggles_are_off(): void
+    public function test_owner_also_loses_access_when_modules_are_off(): void
     {
         $owner = User::factory()->create(['email' => 'owner@vortexbreaks.com']);
         $this->actingAs($owner);
 
-        $this->setModules([]);          // every module off
-        $this->setFeatures([]);         // every feature off
+        $this->setModules([]); // every module off
 
         $this->assertFalse(PayoutResource::shouldRegisterNavigation());
         $this->assertFalse(ShowResource::shouldRegisterNavigation());
@@ -127,17 +117,29 @@ class MenuHidingTest extends TestCase
         $this->assertFalse(StreamerLogResource::canAccess());
     }
 
-    public function test_owner_sees_resources_when_toggles_are_on(): void
+    public function test_owner_sees_resources_when_modules_are_on(): void
     {
         $owner = User::factory()->create(['email' => 'owner@vortexbreaks.com']);
         $this->actingAs($owner);
 
         $this->setModules(array_keys(AdminModules::definitions()));
-        $this->setFeatures(array_keys(AdminModules::featureDefinitions()));
 
         $this->assertTrue(PayoutResource::shouldRegisterNavigation());
         $this->assertTrue(ShowResource::shouldRegisterNavigation());
         $this->assertTrue(LedgerResource::canAccess());
         $this->assertTrue(StreamerLogResource::canAccess());
+    }
+
+    public function test_owner_ignores_per_role_hiding(): void
+    {
+        $owner = User::factory()->create(['email' => 'owner@vortexbreaks.com']);
+        $this->actingAs($owner);
+
+        $this->setModules(array_keys(AdminModules::definitions()));
+        NavVisibility::setHiddenForRole('admin', [LedgerResource::class, ShowResource::class]);
+
+        $this->assertTrue(LedgerResource::canAccess(), 'Owner is immune to per-role hiding');
+        $this->assertTrue(ShowResource::canAccess());
+        $this->assertNotEmpty(ShowResource::getNavigationItems(), 'Owner still sees it in the sidebar');
     }
 }

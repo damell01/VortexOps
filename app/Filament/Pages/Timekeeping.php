@@ -18,7 +18,6 @@ class Timekeeping extends Page
     use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'timekeeping';
-    protected static string $featureSlug = 'timekeeping_page';
     protected static ?string $title = 'Timekeeping';
 
     public static function getNavigationGroup(): string|\UnitEnum|null

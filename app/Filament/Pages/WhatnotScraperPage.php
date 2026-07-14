@@ -17,7 +17,6 @@ class WhatnotScraperPage extends Page
     use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'streams';
-    protected static string $featureSlug = 'show_ingestion_logs';
 
     protected static ?string $title = 'Whatnot Scraper';
     protected static ?string $navigationLabel = 'Import';

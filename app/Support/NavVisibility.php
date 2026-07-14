@@ -6,24 +6,6 @@ use App\Models\Setting;
 
 class NavVisibility
 {
-    private static ?array $memo = null;
-
-    public static function hiddenForAdmins(): array
-    {
-        return self::$memo ??= json_decode(Setting::get('hidden_admin_nav', '[]'), true) ?? [];
-    }
-
-    public static function isHiddenForAdmin(string $class): bool
-    {
-        return in_array($class, self::hiddenForAdmins(), true);
-    }
-
-    public static function setHiddenForAdmins(array $classes): void
-    {
-        Setting::set('hidden_admin_nav', json_encode(array_values($classes)));
-        self::$memo = null;
-    }
-
     // ── Per-role nav visibility ───────────────────────────────────────────────
     private static ?array $roleMemo = null;
 
@@ -50,17 +32,12 @@ class NavVisibility
     /**
      * Whether a page is hidden in the nav for a given user. The owner always sees
      * everything. A page is hidden only when EVERY one of the user's roles hides
-     * it (so any role that shows it wins) — plus the legacy admin-hidden list.
+     * it (so any role that shows it wins). A user with no roles sees everything.
      */
     public static function isHiddenForUser(string $class, $user): bool
     {
         if (! $user || (method_exists($user, 'isOwner') && $user->isOwner())) {
             return false;
-        }
-
-        // Legacy global "hidden from admins" list.
-        if (method_exists($user, 'isAdmin') && $user->isAdmin() && self::isHiddenForAdmin($class)) {
-            return true;
         }
 
         $roleNames = method_exists($user, 'getRoleNames') ? $user->getRoleNames()->all() : [];
@@ -80,7 +57,6 @@ class NavVisibility
 
     public static function flushMemo(): void
     {
-        self::$memo = null;
         self::$roleMemo = null;
     }
 }

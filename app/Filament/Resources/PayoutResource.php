@@ -36,7 +36,6 @@ class PayoutResource extends Resource
     use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'payouts';
-    protected static string $featureSlug = 'payouts';
 
     protected static ?string $model = Payout::class;
 

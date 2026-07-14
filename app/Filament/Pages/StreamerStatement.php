@@ -8,6 +8,7 @@ use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\StreamerLoan;
 use App\Support\AdminModules;
+use App\Support\NavVisibility;
 use Filament\Pages\Page;
 use App\Filament\Concerns\HasAdminNavVisibility;
 
@@ -37,7 +38,7 @@ class StreamerStatement extends Page
         $user = auth()->user();
 
         return AdminModules::isEnabled('payouts')
-            && AdminModules::isFeatureEnabled('streamer_statement')
+            && ! NavVisibility::isHiddenForUser(static::class, $user)
             && (bool) $user?->isAdmin();
     }
 

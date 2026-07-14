@@ -29,7 +29,6 @@ class InventoryStockResource extends Resource
     use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'inventory';
-    protected static string $featureSlug = 'inventory_stock';
 
     protected static ?string $model = InventoryStock::class;
 

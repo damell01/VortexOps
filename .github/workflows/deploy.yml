@@ -99,6 +99,13 @@ jobs:
             # Run migrations inside the app container
             docker compose --env-file .env.docker exec -T app php artisan migrate --force
 
+            # storage/ is a persisted named volume (survives container recreation),
+            # so compiled views/config/routes from a previous deploy can outlive the
+            # source files that produced them. Clear before re-optimizing so every
+            # deploy rebuilds caches from the code that's actually in this image.
+            docker compose --env-file .env.docker exec -T app php artisan optimize:clear
+            docker compose --env-file .env.docker exec -T app php artisan filament:clear-cached-components
+
             # Optimize caches
             docker compose --env-file .env.docker exec -T app php artisan optimize
             docker compose --env-file .env.docker exec -T app php artisan filament:optimize

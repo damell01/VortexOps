@@ -25,8 +25,16 @@ class ViewShow extends ViewRecord
             'channel',
             'payouts.streamer',
             'latestDeductionRequest.lines.inventoryItem',
+            'streamerLogEntry',
             'orders',
         ])->findOrFail($key);
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Widgets\ShowPipelineStatusWidget::class,
+        ];
     }
 
     protected function getHeaderActions(): array

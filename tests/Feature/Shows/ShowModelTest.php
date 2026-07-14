@@ -2,8 +2,11 @@
 
 namespace Tests\Feature\Shows;
 
+use App\Models\DeductionRequest;
+use App\Models\Payout;
 use App\Models\Show;
 use App\Models\Streamer;
+use App\Models\StreamerLogEntry;
 use App\Models\User;
 use App\Models\WhatnotChannel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -128,5 +131,76 @@ class ShowModelTest extends TestCase
 
         $this->assertNull($show->gross_revenue);
         $this->assertNull($show->whatnot_net);
+    }
+
+    private function stepStatus(array $steps, string $key): string
+    {
+        return collect($steps)->firstWhere('key', $key)['status'];
+    }
+
+    public function test_pipeline_steps_for_draft_show(): void
+    {
+        $show  = $this->makeShow();
+        $steps = $show->pipelineSteps();
+
+        $this->assertSame('done', $this->stepStatus($steps, 'created'));
+        $this->assertSame('pending', $this->stepStatus($steps, 'mapped'));
+        $this->assertSame('pending', $this->stepStatus($steps, 'deduction_approved'));
+        $this->assertSame('pending', $this->stepStatus($steps, 'streamer_reviewed'));
+        $this->assertSame('pending', $this->stepStatus($steps, 'log_approved'));
+        $this->assertSame('pending', $this->stepStatus($steps, 'payout'));
+    }
+
+    public function test_pipeline_steps_for_show_pending_approval(): void
+    {
+        $show     = $this->makeShow(['status' => 'pending_approval']);
+        $streamer = Streamer::create(['name' => 'Alice', 'status' => 'active', 'include_tips' => false, 'payout_type' => 'hourly', 'hourly_rate' => 15]);
+        DeductionRequest::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'pending']);
+
+        $steps = $show->pipelineSteps();
+
+        $this->assertSame('done', $this->stepStatus($steps, 'mapped'));
+        $this->assertSame('current', $this->stepStatus($steps, 'deduction_approved'));
+        $this->assertSame('pending', $this->stepStatus($steps, 'streamer_reviewed'));
+    }
+
+    public function test_pipeline_steps_for_reconciled_show_awaiting_streamer_review(): void
+    {
+        $show     = $this->makeShow(['status' => 'reconciled']);
+        $streamer = Streamer::create(['name' => 'Alice', 'status' => 'active', 'include_tips' => false, 'payout_type' => 'hourly', 'hourly_rate' => 15]);
+        DeductionRequest::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'processed']);
+        StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'pending']);
+
+        $steps = $show->pipelineSteps();
+
+        $this->assertSame('done', $this->stepStatus($steps, 'deduction_approved'));
+        $this->assertSame('current', $this->stepStatus($steps, 'streamer_reviewed'));
+        $this->assertSame('pending', $this->stepStatus($steps, 'log_approved'));
+    }
+
+    public function test_pipeline_steps_for_fully_completed_show(): void
+    {
+        $show     = $this->makeShow(['status' => 'reconciled']);
+        $streamer = Streamer::create(['name' => 'Bob', 'status' => 'active', 'include_tips' => false, 'payout_type' => 'flat_rate']);
+        DeductionRequest::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'processed']);
+        StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'admin_approved']);
+        Payout::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'payout_type' => 'flat_rate', 'calculated_payout' => 50, 'status' => 'draft']);
+
+        $steps = $show->pipelineSteps();
+
+        foreach (['created', 'mapped', 'deduction_approved', 'streamer_reviewed', 'log_approved', 'payout'] as $key) {
+            $this->assertSame('done', $this->stepStatus($steps, $key), "Expected step '{$key}' to be done");
+        }
+    }
+
+    public function test_pipeline_steps_for_cancelled_show_are_skipped(): void
+    {
+        $show  = $this->makeShow(['status' => 'cancelled']);
+        $steps = $show->pipelineSteps();
+
+        $this->assertSame('done', $this->stepStatus($steps, 'created'));
+        foreach (['mapped', 'deduction_approved', 'streamer_reviewed', 'log_approved', 'payout'] as $key) {
+            $this->assertSame('skipped', $this->stepStatus($steps, $key), "Expected step '{$key}' to be skipped");
+        }
     }
 }

@@ -346,6 +346,95 @@ class Show extends Model
             ->first();
     }
 
+    /**
+     * The full post-show pipeline, from creation through payout — a single
+     * source ops can read to see exactly where a show is stuck, instead of
+     * cross-referencing the deduction request and streamer log separately.
+     * Never touches an unloaded relation directly (lazy loading is disabled
+     * outside production), so each step falls back to an explicit query.
+     *
+     * @return array<int,array{key:string,label:string,status:string,note:?string}>
+     */
+    public function pipelineSteps(): array
+    {
+        $dr = $this->relationLoaded('latestDeductionRequest')
+            ? $this->getRelation('latestDeductionRequest')
+            : $this->latestDeductionRequest()->first();
+
+        $log = $this->relationLoaded('streamerLogEntry')
+            ? $this->getRelation('streamerLogEntry')
+            : $this->streamerLogEntry()->first();
+
+        $hasPayouts = $this->relationLoaded('payouts')
+            ? $this->payouts->isNotEmpty()
+            : $this->payouts()->exists();
+
+        $mappingDone    = in_array($this->status, ['pending_approval', 'reconciled', 'closed']);
+        $mappingCurrent = in_array($this->status, ['pending_review', 'mapping']);
+
+        $approvalDone    = in_array($this->status, ['reconciled', 'closed']);
+        $approvalCurrent = $this->status === 'pending_approval';
+
+        $streamerDone    = $log && in_array($log->status, ['streamer_reviewed', 'admin_approved']);
+        $streamerCurrent = $log && $log->status === 'pending';
+
+        $logApprovedDone    = $log && $log->status === 'admin_approved';
+        $logApprovedCurrent = $log && $log->status === 'streamer_reviewed';
+
+        $lineCount = fn () => $dr ? $dr->lines()->count() : null;
+
+        $steps = [
+            [
+                'key'    => 'created',
+                'label'  => 'Show Created',
+                'status' => 'done',
+                'note'   => $this->created_at?->format('M j, Y'),
+            ],
+            [
+                'key'    => 'mapped',
+                'label'  => 'Items Mapped',
+                'status' => $mappingDone ? 'done' : ($mappingCurrent ? 'current' : 'pending'),
+                'note'   => $lineCount() !== null ? "{$lineCount()} line" . ($lineCount() === 1 ? '' : 's') : null,
+            ],
+            [
+                'key'    => 'deduction_approved',
+                'label'  => 'Deduction Approved',
+                'status' => $approvalDone ? 'done' : ($approvalCurrent ? 'current' : 'pending'),
+                'note'   => $dr ? (DeductionRequest::statusLabels()[$dr->status] ?? null) : null,
+            ],
+            [
+                'key'    => 'streamer_reviewed',
+                'label'  => 'Streamer Reviewed',
+                'status' => $streamerDone ? 'done' : ($streamerCurrent ? 'current' : 'pending'),
+                'note'   => $log?->streamer_reviewed_at?->format('M j, Y'),
+            ],
+            [
+                'key'    => 'log_approved',
+                'label'  => 'Log Approved',
+                'status' => $logApprovedDone ? 'done' : ($logApprovedCurrent ? 'current' : 'pending'),
+                'note'   => $log?->reviewed_at?->format('M j, Y'),
+            ],
+            [
+                'key'    => 'payout',
+                'label'  => 'Payout Calculated',
+                'status' => $hasPayouts ? 'done' : 'pending',
+                'note'   => null,
+            ],
+        ];
+
+        // Cancelled shows never proceed further — mark whatever's left as skipped
+        // rather than a misleading "pending".
+        if ($this->status === 'cancelled') {
+            foreach ($steps as &$step) {
+                if ($step['status'] === 'pending') {
+                    $step['status'] = 'skipped';
+                }
+            }
+        }
+
+        return $steps;
+    }
+
     public static function statusLabels(): array
     {
         return [

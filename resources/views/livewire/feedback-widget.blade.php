@@ -10,7 +10,7 @@
         x-transition:enter-start="opacity-0 translate-y-2"
         x-transition:enter-end="opacity-100 translate-y-0"
         title="Leave feedback"
-        class="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg ring-1 ring-primary-500/20 hover:bg-primary-500 active:scale-95 transition-all duration-150">
+        class="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-gray-900 dark:bg-gray-800 px-4 py-2.5 text-sm font-semibold text-white shadow-lg ring-1 ring-white/10 hover:bg-gray-800 dark:hover:bg-gray-700 active:scale-95 transition-all duration-150">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>

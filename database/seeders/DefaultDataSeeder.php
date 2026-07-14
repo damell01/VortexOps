@@ -17,6 +17,7 @@ class DefaultDataSeeder extends Seeder
         $adminRole      = Role::firstOrCreate(['name' => 'admin',       'guard_name' => 'web']);
         $superAdminRole = Role::firstOrCreate(['name' => 'super_admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'fulfillment', 'guard_name' => 'web']);
 
         // Default admin account (dev/demo use — change password in production)
         $admin = User::firstOrCreate(

@@ -87,6 +87,41 @@ class RoleEditorTest extends TestCase
         $this->assertEquals([], NavVisibility::hiddenForRole('manager'));
     }
 
+    public function test_create_role_persists_readonly_pages(): void
+    {
+        Livewire::actingAs($this->owner());
+
+        Livewire::test(CreateRole::class)
+            ->fillForm([
+                'name'           => 'manager',
+                'guard_name'     => 'web',
+                'readonly_pages' => [LedgerResource::class],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->assertEquals([LedgerResource::class], NavVisibility::readonlyForRole('manager'));
+    }
+
+    public function test_edit_role_loads_and_updates_readonly_pages(): void
+    {
+        $role = Role::create(['name' => 'manager', 'guard_name' => 'web']);
+        NavVisibility::setReadonlyForRole('manager', [LedgerResource::class]);
+
+        Livewire::actingAs($this->owner());
+
+        $component = Livewire::test(EditRole::class, ['record' => $role->getRouteKey()])
+            ->assertFormSet(['readonly_pages' => [LedgerResource::class]]);
+
+        $component
+            ->fillForm(['readonly_pages' => []])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        NavVisibility::flushMemo();
+        $this->assertEquals([], NavVisibility::readonlyForRole('manager'));
+    }
+
     public function test_core_roles_cannot_be_deleted(): void
     {
         $admin = Role::create(['name' => 'admin', 'guard_name' => 'web']);

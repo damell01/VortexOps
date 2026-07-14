@@ -62,6 +62,12 @@ class AdminModules
                 'group'       => 'Operations',
                 'order'       => 42,
             ],
+            'fulfillment' => [
+                'label'       => 'Fulfillment Center',
+                'description' => 'Shipping status and tracking for sold items, scoped per fulfillment team member to their assigned shows.',
+                'group'       => 'Operations',
+                'order'       => 44,
+            ],
         ];
     }
 

@@ -231,6 +231,12 @@ class Show extends Model
         return $this->streamers()->wherePivot('is_primary', true)->first();
     }
 
+    /** Fulfillment-role users assigned to work this show — scopes their Fulfillment Center. */
+    public function fulfillmentUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'show_fulfillment_user')->withTimestamps();
+    }
+
     public function deductionRequests(): HasMany
     {
         return $this->hasMany(DeductionRequest::class);

@@ -49,6 +49,12 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasOne(Streamer::class);
     }
 
+    /** Shows this user is assigned to work in the Fulfillment Center. */
+    public function assignedFulfillmentShows(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Show::class, 'show_fulfillment_user')->withTimestamps();
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->isOwner();
@@ -62,6 +68,11 @@ class User extends Authenticatable implements FilamentUser
     public function isStreamer(): bool
     {
         return $this->hasRole('streamer') && ! $this->isAdmin();
+    }
+
+    public function isFulfillment(): bool
+    {
+        return $this->hasRole('fulfillment') && ! $this->isAdmin();
     }
 
     public function isOwner(): bool

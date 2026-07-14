@@ -656,6 +656,17 @@ class DemoDataSeeder extends Seeder
             }
         }
 
+        // ── Fulfillment login account (test data scoping as fulfillment) ─────
+        // Assigned to show1 only, so logging in as them (password: demopassword)
+        // demonstrates the Fulfillment Center scoped to just their assigned show.
+        $fulfillmentRole = Role::firstOrCreate(['name' => 'fulfillment', 'guard_name' => 'web']);
+        $fulfillmentUser = User::firstOrCreate(
+            ['email' => 'fulfillment@vortexbreaks.com'],
+            ['name' => 'Fulfillment Demo', 'password' => Hash::make('demopassword'), 'email_verified_at' => now()],
+        );
+        $fulfillmentUser->syncRoles([$fulfillmentRole]);
+        $show1->fulfillmentUsers()->syncWithoutDetaching([$fulfillmentUser->id]);
+
         // ── Per-show orders (items sold) ─────────────────────────────────────
         // Drives the Streamer Log items editor, Product Insights (revenue,
         // sell-through), and per-show P&L. Some are pre-mapped to inventory,

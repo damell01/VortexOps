@@ -71,6 +71,17 @@ class RoleResource extends Resource
                         ->bulkToggleable()
                         ->dehydrated(false),  // stored in a setting, not on the roles table
                 ]),
+            Section::make('Edit Access')
+                ->description('Check pages this role can view but not create, edit, or delete in — currently enforced on the Fulfillment Center; other pages can adopt the same check as they roll it out.')
+                ->schema([
+                    CheckboxList::make('readonly_pages')
+                        ->label('View-only pages for this role')
+                        ->options(fn (): array => static::pageOptions())
+                        ->columns(3)
+                        ->searchable()
+                        ->bulkToggleable()
+                        ->dehydrated(false),  // stored in a setting, not on the roles table
+                ]),
             Section::make('Permissions')
                 ->description('Spatie permissions granted to this role (optional).')
                 ->collapsed()

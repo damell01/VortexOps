@@ -13,7 +13,8 @@ class EditRole extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        $data['hidden_pages'] = NavVisibility::hiddenForRole($this->record->name);
+        $data['hidden_pages']   = NavVisibility::hiddenForRole($this->record->name);
+        $data['readonly_pages'] = NavVisibility::readonlyForRole($this->record->name);
 
         return $data;
     }
@@ -21,6 +22,7 @@ class EditRole extends EditRecord
     protected function afterSave(): void
     {
         NavVisibility::setHiddenForRole($this->record->name, $this->data['hidden_pages'] ?? []);
+        NavVisibility::setReadonlyForRole($this->record->name, $this->data['readonly_pages'] ?? []);
     }
 
     protected function getHeaderActions(): array

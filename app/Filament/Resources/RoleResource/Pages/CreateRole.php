@@ -13,5 +13,6 @@ class CreateRole extends CreateRecord
     protected function afterCreate(): void
     {
         NavVisibility::setHiddenForRole($this->record->name, $this->data['hidden_pages'] ?? []);
+        NavVisibility::setReadonlyForRole($this->record->name, $this->data['readonly_pages'] ?? []);
     }
 }

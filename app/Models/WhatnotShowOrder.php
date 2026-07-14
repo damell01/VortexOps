@@ -102,4 +102,15 @@ class WhatnotShowOrder extends Model
             'pending'   => 'Pending',
         ];
     }
+
+    public static function shippingStatusLabels(): array
+    {
+        return [
+            'pending' => 'Pending',
+            'packed'  => 'Packed',
+            'shipped' => 'Shipped',
+            'delivered' => 'Delivered',
+            'returned'  => 'Returned',
+        ];
+    }
 }

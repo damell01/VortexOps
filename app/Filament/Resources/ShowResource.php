@@ -193,6 +193,15 @@ class ShowResource extends Resource
                     ->preload()
                     ->columnSpanFull(),
 
+                Select::make('fulfillmentUsers')
+                    ->label('Fulfillment Team')
+                    ->multiple()
+                    ->options(fn () => \App\Models\User::role('fulfillment')->pluck('name', 'id'))
+                    ->relationship('fulfillmentUsers', 'name')
+                    ->helperText('Who this show shows up for in the Fulfillment Center.')
+                    ->preload()
+                    ->columnSpanFull(),
+
                 Select::make('import_source')
                     ->label('Import Source')
                     ->options(Show::importSourceLabels())

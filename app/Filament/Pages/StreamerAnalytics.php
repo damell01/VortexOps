@@ -7,6 +7,7 @@ use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
 use App\Support\AdminModules;
+use App\Support\NavVisibility;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
 use App\Filament\Concerns\HasAdminNavVisibility;
@@ -37,7 +38,7 @@ class StreamerAnalytics extends Page
         $user = auth()->user();
 
         return AdminModules::isEnabled('reporting')
-            && AdminModules::isFeatureEnabled('streamer_analytics')
+            && ! NavVisibility::isHiddenForUser(static::class, $user)
             && (bool) $user?->isAdmin();
     }
 

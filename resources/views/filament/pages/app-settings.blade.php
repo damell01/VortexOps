@@ -163,8 +163,6 @@
                 @foreach ($this->availableModules as $slug => $module)
                     @php
                         $moduleEnabled = in_array($slug, $enabled_modules);
-                        $features      = \App\Support\AdminModules::featuresForModule($slug);
-                        uasort($features, fn($a, $b) => $a['order'] <=> $b['order']);
                     @endphp
                     <div class="rounded-xl border {{ $moduleEnabled ? 'border-violet-200 dark:border-violet-800' : 'border-gray-200 dark:border-gray-700' }} overflow-hidden transition-colors">
                         <label class="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -185,79 +183,9 @@
                                 <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ $module['description'] }}</p>
                             </div>
                         </label>
-                        @if (count($features))
-                            <div class="{{ $moduleEnabled ? '' : 'opacity-40 pointer-events-none' }} border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 px-4 py-2 space-y-1">
-                                <p class="text-[11px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">Pages &amp; features</p>
-                                @foreach ($features as $featureSlug => $feature)
-                                    <label class="flex items-start gap-2.5 py-1 cursor-pointer group">
-                                        <input
-                                            type="checkbox"
-                                            wire:model.live="enabled_features"
-                                            value="{{ $featureSlug }}"
-                                            {{ ! $moduleEnabled ? 'disabled' : '' }}
-                                            class="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-violet-500 focus:ring-violet-500 focus:ring-offset-0 bg-white dark:bg-gray-900"
-                                        />
-                                        <div class="min-w-0">
-                                            <span class="text-sm text-gray-800 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white">{{ $feature['label'] }}</span>
-                                            <p class="text-xs text-gray-400 dark:text-gray-500">{{ $feature['description'] }}</p>
-                                        </div>
-                                    </label>
-                                @endforeach
-                            </div>
-                        @endif
                     </div>
                 @endforeach
-                <p class="text-xs text-gray-400 pt-1">Disabled modules and features disappear from navigation and their routes become inaccessible until re-enabled. Changes apply on the next page load after saving.</p>
-            </div>
-        </div>
-        @endif
-
-        @if ($this->canSeeModuleToggles && count($this->navItemsForEditor))
-        {{-- ── Navigation Visibility Editor ────────────────────────────────── --}}
-        <div wire:key="section-nav-visibility" x-data="{ open: false }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
-
-            <button type="button" @click="open = !open"
-                class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                <div class="rounded-lg bg-violet-100 dark:bg-violet-900/40 p-2 shrink-0">
-                    <x-heroicon-o-bars-3 class="h-5 w-5 text-violet-600 dark:text-violet-400" />
-                </div>
-                <div class="flex-1 min-w-0">
-                    <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Navigation Visibility</h2>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">Control which sidebar links are visible to <strong>admin users</strong>. You (the owner) always see everything.</p>
-                </div>
-                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
-            </button>
-
-            <div x-show="open" class="border-t border-gray-200 dark:border-gray-700 px-6 py-4 space-y-4">
-                @foreach ($this->navItemsForEditor as $group => $items)
-                    <div>
-                        <p class="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2">{{ $group }}</p>
-                        <div class="space-y-1">
-                            @foreach ($items as $item)
-                                <label class="flex items-center gap-3 py-1.5 cursor-pointer group">
-                                    <input
-                                        type="checkbox"
-                                        wire:model.live="hidden_nav_items"
-                                        value="{{ $item['class'] }}"
-                                        class="rounded border-gray-300 dark:border-gray-600 text-rose-500 focus:ring-rose-500 focus:ring-offset-0 bg-white dark:bg-gray-900"
-                                    />
-                                    <div class="flex items-center gap-2 flex-1 min-w-0">
-                                        @if ($item['icon'])
-                                            <x-dynamic-component :component="$item['icon']" class="h-4 w-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                                        @endif
-                                        <span class="text-sm text-gray-800 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white truncate">
-                                            {{ $item['label'] }}
-                                        </span>
-                                    </div>
-                                    @if (in_array($item['class'], $hidden_nav_items))
-                                        <span class="text-[11px] text-rose-500 dark:text-rose-400 font-medium">hidden from admins</span>
-                                    @endif
-                                </label>
-                            @endforeach
-                        </div>
-                    </div>
-                @endforeach
-                <p class="text-xs text-gray-400 pt-1">Checked items are <strong>hidden</strong> from admin nav. Changes apply after saving.</p>
+                <p class="text-xs text-gray-400 pt-1">Disabled modules disappear from navigation and their routes become inaccessible until re-enabled, for everyone including you. To control which individual pages a given role can see within an enabled module, use the Page Visibility checklist on each role in <strong>Roles &amp; Permissions</strong>. Changes apply on the next page load after saving.</p>
             </div>
         </div>
         @endif

@@ -17,7 +17,6 @@ class ReceivingAnalytics extends Page
     use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'purchasing';
-    protected static string $featureSlug = 'receiving_analytics';
     protected static ?string $title = 'Receiving Analytics';
     protected static ?string $navigationLabel = 'Analytics';
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-presentation-chart-line';

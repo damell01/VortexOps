@@ -22,7 +22,6 @@ class DeductionRequestResource extends Resource
     use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'streams';
-    protected static string $featureSlug = 'deduction_requests';
 
     protected static ?string $model = DeductionRequest::class;
 

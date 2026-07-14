@@ -26,7 +26,6 @@ class StreamerLoanResource extends Resource
     use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'operations';
-    protected static string $featureSlug = 'streamer_loans';
     protected static ?string $model = StreamerLoan::class;
 
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-banknotes'; }

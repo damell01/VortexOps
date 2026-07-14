@@ -6,6 +6,7 @@ use App\Models\Payout;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Support\AdminModules;
+use App\Support\NavVisibility;
 use Filament\Pages\Page;
 use App\Filament\Concerns\HasAdminNavVisibility;
 
@@ -35,7 +36,7 @@ class ProfitSharePacket extends Page
         $user = auth()->user();
 
         return AdminModules::isEnabled('payouts')
-            && AdminModules::isFeatureEnabled('profit_share_packet')
+            && ! NavVisibility::isHiddenForUser(static::class, $user)
             && (bool) $user?->isAdmin();
     }
 

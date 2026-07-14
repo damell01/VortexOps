@@ -6,6 +6,7 @@ use App\Filament\Resources\LedgerResource\Pages;
 use App\Models\LedgerEntry;
 use App\Models\Streamer;
 use App\Support\AdminModules;
+use App\Support\NavVisibility;
 use App\Services\LedgerService;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -51,7 +52,7 @@ class LedgerResource extends Resource
         $user = auth()->user();
 
         return AdminModules::isEnabled('reporting')
-            && AdminModules::isFeatureEnabled('ledger')
+            && ! NavVisibility::isHiddenForUser(static::class, $user)
             && (bool) $user?->isAdmin();
     }
 

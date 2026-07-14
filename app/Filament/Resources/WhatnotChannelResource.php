@@ -30,7 +30,6 @@ class WhatnotChannelResource extends Resource
     use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'operations';
-    protected static string $featureSlug = 'whatnot_channels';
 
     protected static ?string $model = WhatnotChannel::class;
 

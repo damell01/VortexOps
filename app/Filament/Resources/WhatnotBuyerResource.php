@@ -18,7 +18,6 @@ class WhatnotBuyerResource extends Resource
     use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'streams';
-    protected static string $featureSlug = 'whatnot_buyers';
 
     protected static ?string $model          = WhatnotBuyer::class;
     protected static ?string $navigationLabel = 'Buyers';

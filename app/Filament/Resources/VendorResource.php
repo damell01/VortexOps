@@ -28,7 +28,6 @@ class VendorResource extends Resource
     use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'purchasing';
-    protected static string $featureSlug = 'vendors';
 
     protected static ?string $model = Vendor::class;
 

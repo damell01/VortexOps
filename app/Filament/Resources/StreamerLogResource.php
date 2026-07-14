@@ -7,6 +7,7 @@ use App\Filament\Resources\StreamerLogResource\RelationManagers;
 use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
 use App\Support\AdminModules;
+use App\Support\NavVisibility;
 use App\Support\StatusColor;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
@@ -54,7 +55,7 @@ class StreamerLogResource extends Resource
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        if (! AdminModules::isEnabled('streams') || ! AdminModules::isFeatureEnabled('streamer_log')) {
+        if (! AdminModules::isEnabled('streams') || NavVisibility::isHiddenForUser(static::class, $user)) {
             return false;
         }
 

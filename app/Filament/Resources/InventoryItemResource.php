@@ -47,7 +47,6 @@ class InventoryItemResource extends Resource
     use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'inventory';
-    protected static string $featureSlug = 'inventory_items';
 
     protected static ?string $model = InventoryItem::class;
 

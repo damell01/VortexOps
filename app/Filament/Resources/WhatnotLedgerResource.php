@@ -7,6 +7,7 @@ use App\Filament\Resources\WhatnotLedgerResource\Pages;
 use App\Models\WhatnotLedgerEntry;
 use App\Support\StatusColor;
 use App\Support\AdminModules;
+use App\Support\NavVisibility;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Resources\Resource;
@@ -49,7 +50,7 @@ class WhatnotLedgerResource extends Resource
         $user = auth()->user();
 
         return AdminModules::isEnabled('reporting')
-            && AdminModules::isFeatureEnabled('ledger')
+            && ! NavVisibility::isHiddenForUser(static::class, $user)
             && (bool) $user?->isAdmin();
     }
 

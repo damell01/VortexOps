@@ -29,7 +29,6 @@ class InventoryLocationResource extends Resource
     use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'inventory';
-    protected static string $featureSlug = 'inventory_locations';
 
     protected static ?string $model = InventoryLocation::class;
 

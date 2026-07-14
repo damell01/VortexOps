@@ -66,21 +66,21 @@ class NavTest extends TestCase
 
     public function test_nav_visibility_hides_item_from_admin(): void
     {
-        NavVisibility::setHiddenForAdmins([LedgerResource::class]);
+        NavVisibility::setHiddenForRole('admin', [LedgerResource::class]);
         $user = $this->adminUser();
         \Illuminate\Support\Facades\Auth::login($user);
         $items = LedgerResource::getNavigationItems();
         $this->assertEmpty($items);
-        NavVisibility::setHiddenForAdmins([]);
+        NavVisibility::setHiddenForRole('admin', []);
     }
 
     public function test_nav_visibility_still_shows_item_for_owner(): void
     {
-        NavVisibility::setHiddenForAdmins([LedgerResource::class]);
+        NavVisibility::setHiddenForRole('admin', [LedgerResource::class]);
         $user = $this->ownerUser();
         \Illuminate\Support\Facades\Auth::login($user);
         $items = LedgerResource::getNavigationItems();
         $this->assertNotEmpty($items);
-        NavVisibility::setHiddenForAdmins([]);
+        NavVisibility::setHiddenForRole('admin', []);
     }
 }

@@ -16,7 +16,6 @@ class ProductHealthDashboard extends Page
     use HasModuleAccess, HasAdminNavVisibility;
 
     protected static string $moduleSlug  = 'purchasing';
-    protected static string $featureSlug = 'catalog_intelligence';
     protected static ?string $title = 'Catalog Intelligence';
     protected static ?string $navigationLabel = 'Catalog Intelligence';
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chart-bar-square';

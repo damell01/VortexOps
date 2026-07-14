@@ -47,7 +47,7 @@ class OperationsOverviewWidget extends BaseWidget
             });
 
         return [
-            Stat::make('Pending Streamer Logs', number_format($pendingLogs))
+            Stat::make('Streamer Logs', number_format($pendingLogs))
                 ->description($pendingLogs > 0 ? 'Awaiting streamer review' : 'All caught up')
                 ->icon('heroicon-o-clipboard-document-list')
                 ->color($pendingLogs > 0 ? 'warning' : 'gray'),

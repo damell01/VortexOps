@@ -3,6 +3,7 @@
 namespace App\Filament\Concerns;
 
 use App\Support\AdminModules;
+use App\Support\NavVisibility;
 
 trait HasModuleAccess
 {
@@ -11,7 +12,7 @@ trait HasModuleAccess
         if (! AdminModules::isEnabled(static::$moduleSlug)) {
             return false;
         }
-        if (isset(static::$featureSlug) && ! AdminModules::isFeatureEnabled(static::$featureSlug)) {
+        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
             return false;
         }
         return static::passesModuleAccessCheck();
@@ -19,13 +20,7 @@ trait HasModuleAccess
 
     public static function shouldRegisterNavigation(): bool
     {
-        if (! AdminModules::isEnabled(static::$moduleSlug)) {
-            return false;
-        }
-        if (isset(static::$featureSlug) && ! AdminModules::isFeatureEnabled(static::$featureSlug)) {
-            return false;
-        }
-        return true;
+        return AdminModules::isEnabled(static::$moduleSlug);
     }
 
     protected static function passesModuleAccessCheck(): bool

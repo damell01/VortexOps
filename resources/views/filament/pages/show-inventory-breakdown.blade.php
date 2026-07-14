@@ -34,7 +34,7 @@
             <div class="rounded-xl border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/50 px-8 py-12 text-center">
                 <x-heroicon-o-clipboard-document-list class="mx-auto h-10 w-10 text-gray-400 mb-3" />
                 <p class="text-sm font-medium text-gray-600 dark:text-gray-400">No inventory lines yet</p>
-                <p class="text-xs text-gray-400 mt-1">Run AI Mapping on the show to generate inventory deduction lines.</p>
+                <p class="text-xs text-gray-400 mt-1">Use "Map Items Manually" on the show to generate inventory deduction lines.</p>
             </div>
         @else
             {{-- ── Summary Stats ────────────────────────────────────────────── --}}

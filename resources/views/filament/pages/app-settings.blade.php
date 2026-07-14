@@ -799,18 +799,6 @@
                     </button>
                 </div>
 
-                {{-- Auto-queue toggle --}}
-                <div class="px-6 py-4 flex items-center justify-between gap-4">
-                    <div>
-                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Auto-Queue AI Mapping on Import</p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">When enabled, shows created by the Whatnot import are automatically moved to Pending Review and queued for AI mapping.</p>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                        <input wire:model.live="ai_auto_queue_on_import" type="checkbox" class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-500 dark:peer-focus:ring-primary-600 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
-                    </label>
-                </div>
-
             </div>
         </div>
 

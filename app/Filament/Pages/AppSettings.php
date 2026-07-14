@@ -89,7 +89,6 @@ class AppSettings extends Page
     public string $ai_temperature           = '';
     public string $ai_max_tokens            = '';
     public bool   $ai_streaming             = true;
-    public bool   $ai_auto_queue_on_import  = false;
     public string $ollamaTestResult         = '';
     public string $ollamaTestStatus         = ''; // 'success' | 'error' | ''
 
@@ -153,7 +152,6 @@ class AppSettings extends Page
         $this->ai_temperature          = (string) Setting::get('ai_temperature', (string) config('ai.generation.temperature.default', '0.7'));
         $this->ai_max_tokens           = (string) Setting::get('ai_max_tokens', (string) config('ai.generation.max_tokens.default', '1024'));
         $this->ai_streaming            = (bool) Setting::get('ai_streaming', config('ai.streaming.default', true));
-        $this->ai_auto_queue_on_import = (bool) Setting::get('ai_auto_queue_on_import', false);
     }
 
     public function getAllUsersProperty(): \Illuminate\Support\Collection
@@ -263,7 +261,6 @@ class AppSettings extends Page
         Setting::set('ai_temperature', (string) max(0, min(2, (float) $this->ai_temperature)));
         Setting::set('ai_max_tokens',  (string) max(1, (int) $this->ai_max_tokens));
         Setting::set('ai_streaming',   $this->ai_streaming ? '1' : '0');
-        Setting::set('ai_auto_queue_on_import', $this->ai_auto_queue_on_import ? '1' : '0');
         if (auth()->user()?->isSuperAdmin() || auth()->user()?->isOwner()) {
             Setting::set('demo_mode', $this->demo_mode ? '1' : '0');
         }

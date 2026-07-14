@@ -6,8 +6,14 @@ use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\WhatnotShowOrder;
 use Filament\Actions\Action;
+use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Schema;
 use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
@@ -17,8 +23,9 @@ use Filament\Tables\Table;
 /**
  * The items sold on the log entry's show, editable straight from the Streamer
  * Log page — so a streamer maps each item to inventory and confirms its cost
- * without opening the individual show. Items are imported automatically; the
- * streamer only enriches (map + cost), so there is no create/delete here.
+ * without opening the individual show. Most rows import automatically from
+ * Whatnot; the streamer can also add a row manually (e.g. an off-platform
+ * sale) and remove any manually-added row. Imported rows can't be deleted.
  */
 class ItemsSoldRelationManager extends RelationManager
 {
@@ -63,6 +70,51 @@ class ItemsSoldRelationManager extends RelationManager
         }
 
         return $query->orderBy('name')->pluck('name', 'id')->toArray();
+    }
+
+    /** Form for manually adding an item the streamer sold that wasn't auto-imported from Whatnot. */
+    public function form(Schema $schema): Schema
+    {
+        $show = $this->getOwnerRecord()->show;
+
+        return $schema->components([
+            Grid::make(2)->schema([
+                Select::make('inventory_item_id')
+                    ->label('Item')
+                    ->options(fn () => self::streamerInventoryOptions($show))
+                    ->searchable()
+                    ->required()
+                    ->columnSpanFull(),
+
+                TextInput::make('quantity')
+                    ->numeric()
+                    ->minValue(1)
+                    ->default(1)
+                    ->required(),
+
+                Select::make('inventory_location_id')
+                    ->label('Location')
+                    ->options(function () use ($show) {
+                        $streamer = $show?->primaryStreamer();
+                        $own = $streamer
+                            ? $streamer->inventoryLocations()->orderBy('name')->pluck('name', 'id')->toArray()
+                            : [];
+                        return ! empty($own)
+                            ? $own
+                            : InventoryLocation::query()->orderBy('name')->pluck('name', 'id')->toArray();
+                    }),
+
+                TextInput::make('unit_cost')
+                    ->label('Unit Cost ($)')
+                    ->numeric()
+                    ->minValue(0),
+
+                TextInput::make('unit_price')
+                    ->label('Sold For ($, optional)')
+                    ->numeric()
+                    ->minValue(0),
+            ]),
+        ]);
     }
 
     public function table(Table $table): Table
@@ -129,6 +181,24 @@ class ItemsSoldRelationManager extends RelationManager
             ])
             ->heading(fn () => static::mappingProgress($show))
             ->headerActions([
+                // Lets a streamer add something they sold that wasn't auto-imported
+                // from Whatnot (e.g. an off-platform sale, or the import missed a lot).
+                CreateAction::make()
+                    ->label('Add Item')
+                    ->visible(fn () => ! $locked)
+                    ->mutateFormDataUsing(function (array $data) use ($show): array {
+                        $item = InventoryItem::find($data['inventory_item_id'] ?? null);
+                        $qty  = (int) ($data['quantity'] ?? 1);
+
+                        $data['item_name']   = $item?->name;
+                        $data['show_date']   = $show?->show_date;
+                        $data['status']      = 'completed';
+                        $data['unit_price']  = $data['unit_price'] ?? null;
+                        $data['total_price'] = $data['unit_price'] !== null ? round((float) $data['unit_price'] * $qty, 2) : null;
+
+                        return $data;
+                    }),
+
                 // One-click cost entry from each mapped item's inventory cost.
                 Action::make('fill_costs')
                     ->label('Fill Costs')
@@ -161,8 +231,14 @@ class ItemsSoldRelationManager extends RelationManager
                             ->send();
                     }),
             ])
+            ->recordActions([
+                // Only manually-added rows (no whatnot_order_id) can be removed —
+                // imported order lines stay as the source of truth for the show.
+                DeleteAction::make()
+                    ->visible(fn (WhatnotShowOrder $record) => empty($record->whatnot_order_id) && ! $locked),
+            ])
             ->emptyStateHeading('No items yet')
-            ->emptyStateDescription('Items sold import automatically once this show\'s orders are pulled from Whatnot.')
+            ->emptyStateDescription('Items sold import automatically once this show\'s orders are pulled from Whatnot, or add one yourself with "Add Item".')
             ->emptyStateIcon('heroicon-o-shopping-cart')
             ->paginated([25, 50, 100]);
     }

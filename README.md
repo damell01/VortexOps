@@ -365,10 +365,10 @@ Create Show
 pending_review ──► Assign streamers + enter financials
     │
     ▼
-[Run AI Mapping] ──► Jobs: ParseShowTitle → MapShowInventory
+[Map Items Manually / streamer maps items sold] ──► DeductionRequest + lines created
     │
     ▼
-mapping ──► AI reads show title + available inventory → creates DeductionRequest with suggested lines
+mapping ──► Ops/streamer assigns each line to an inventory item, location, and cost
     │
     ▼
 pending_approval ──► Ops reviews/edits deduction lines in the approval UI
@@ -382,8 +382,8 @@ pending_approval ──► Ops reviews/edits deduction lines in the approval UI
 | Status | Meaning |
 |---|---|
 | `draft` | Just created; no streamers or financials yet |
-| `pending_review` | Ready for ops to assign streamers and trigger AI mapping |
-| `mapping` | AI job running — deduction lines being generated |
+| `pending_review` | Ready for ops to assign streamers and map items |
+| `mapping` | Deduction lines are being manually assigned to inventory |
 | `pending_approval` | Deduction request created; waiting for ops to approve or reject |
 | `reconciled` | Approved and inventory deducted; payouts generated |
 | `closed` | Manually closed without reconciliation |
@@ -518,44 +518,14 @@ The chatbot is a floating sparkles panel (`AiChatPanel` Livewire component) that
 
 ---
 
-### 2. Show AI Mapping Pipeline (4 Stages)
+### 2. Show Order → Inventory Mapping (Manual)
 
-The mapping engine reads raw Whatnot order lines (e.g. `"2023 Topps Chrome #145 Julio Rodriguez Auto PSA 9"`) and finds the matching `InventoryItem` in your catalogue. It short-circuits as soon as confidence reaches ≥ 0.95 — expensive stages are skipped when earlier stages are confident enough.
+Matching a sold item on a show to an `InventoryItem` is a manual step, not an AI one. Two paths:
 
-**Entry point:** `RunShowAiMappingJob` — queued on the `ai` queue, 5-minute timeout, 1 attempt.
+- **Streamer self-service** — on the Streamer Log page's "Items Sold" panel, the streamer maps each imported Whatnot order line to an inventory item (and location/cost) via a dropdown, or adds a line themselves for something that wasn't auto-imported.
+- **Admin bulk mapping** — "Map Items Manually" on a show's detail page creates one `DeductionRequestLine` per distinct sold-item description, then the admin assigns each to an inventory item/location on the Deduction Request review page (`ViewDeductionRequest`), which supports adding, editing, and removing lines before approval.
 
-**Job flow:**
-1. Sets show status → `mapping`
-2. Extracts raw order lines from the show's `raw_import_payload`
-3. Runs each line through `MappingEngine::match()`
-4. Persists a `DeductionRequest` + `DeductionRequestLine` records with match stage and confidence stored per line
-5. Sets show status → `pending_approval`
-6. Sends a Filament notification to whoever triggered the job
-
-**The 4 stages (inside `MappingEngine` + `ProductMatchingService`):**
-
-| Stage | Method | Speed | How it works |
-|---|---|---|---|
-| **1 — Alias** | `aliasMatch()` | ~0 ms | Looks up an exact learned alias in `ProductIdentity`. Vendor-scoped first, then global. Confidence = 1.0. |
-| **2 — Fuzzy** | `fuzzyMatch()` | ~5–20 ms | Jaccard similarity (token intersection ÷ union) plus field bonuses for card number, year, and brand matches. |
-| **3 — Embedding** | `embeddingMatch()` | ~10–50 ms | Converts both texts to float vectors via Ollama's `nomic-embed-text` model, then measures cosine similarity. Catches semantic matches that fuzzy misses. |
-| **4 — LLM** | `llmMatch()` | ~500 ms–5 s | Builds a catalogue of up to 20 candidate items (top Stage 1–3 hits + embedding-similar + random pool), sends a structured JSON prompt to Ollama, maps the returned confidence label (high → 0.88 / medium → 0.75 / low → 0.60). |
-
-**Auto-learning:** When Stage 4 returns high confidence (≥ 0.88), `MappingEngine::confirmMatch()` saves the description → `InventoryItem` mapping as a `ProductIdentity` alias. The next time that exact description appears, it hits Stage 1 instantly with zero AI cost.
-
-**Confidence thresholds:**
-
-| Score | Outcome |
-|---|---|
-| 1.0 | Exact alias — auto-accepted |
-| ≥ 0.95 | Pipeline stops, auto-accepted |
-| ≥ 0.80 | Matched but flagged for ops review |
-| < 0.80 | Unmatched — ops must assign manually |
-
-**Triggering mapping:**
-- Manually via the "Run AI Mapping" action on a show's detail page
-- In bulk via "Map All Pending Review" on the Shows list
-- Automatically after a Whatnot import when **Auto-Queue AI Mapping on Import** is enabled in Settings
+`MappingEngine`'s LLM-assisted stage is still used elsewhere (see the packing-slip parser below and the receiving/pallet manifest import) — it is intentionally not part of the show order reconciliation flow.
 
 ---
 

@@ -51,8 +51,8 @@ class AdminModules
                 'order'       => 45,
             ],
             'ai' => [
-                'label'       => 'AI Mapping & Vision',
-                'description' => 'AI show mapping, pallet-sheet vision parsing, and product embeddings. Requires Ollama. (Advanced)',
+                'label'       => 'AI Vision & Matching',
+                'description' => 'Pallet-sheet vision parsing, receiving item matching, and product embeddings. Requires Ollama. (Advanced)',
                 'group'       => 'AI',
                 'order'       => 60,
             ],

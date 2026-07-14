@@ -19,7 +19,7 @@
             [
                 'icon' => 'heroicon-o-view-columns', 'color' => 'violet',
                 'title' => '4. Track the pipeline',
-                'body' => 'The <strong>Status Board</strong> shows every show moving through the pipeline (Pending Review → AI Mapping → Pending Approval → Reconciled), with a time-in-status badge so nothing gets stuck.',
+                'body' => 'The <strong>Status Board</strong> shows every show moving through the pipeline (Pending Review → Mapping → Pending Approval → Reconciled), with a time-in-status badge so nothing gets stuck.',
             ],
             [
                 'icon' => 'heroicon-o-banknotes', 'color' => 'emerald',

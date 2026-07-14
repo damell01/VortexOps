@@ -46,7 +46,7 @@ class ShowStatusBoard extends Page
     {
         $statuses = [
             'pending_review'   => ['label' => 'Pending Review',   'color' => '#d97706', 'icon' => '⏳'],
-            'mapping'          => ['label' => 'AI Mapping',        'color' => '#7c3aed', 'icon' => '✨'],
+            'mapping'          => ['label' => 'Mapping',           'color' => '#7c3aed', 'icon' => '📦'],
             'pending_approval' => ['label' => 'Pending Approval',  'color' => '#0284c7', 'icon' => '📋'],
             'reconciled'       => ['label' => 'Reconciled',        'color' => '#059669', 'icon' => '✅'],
         ];

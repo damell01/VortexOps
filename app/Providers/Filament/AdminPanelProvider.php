@@ -13,6 +13,7 @@ use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\Auth\Login;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -48,7 +49,7 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            ->login(Login::class)
             ->passwordReset()
             ->profile(isSimple: false)
             ->brandName($brandName)
@@ -149,7 +150,7 @@ class AdminPanelProvider extends PanelProvider
                     </script>
                     HTML : '',
             )
-            // ── Login page: full-bleed gradient background + centered glass card ─
+            // ── Login page: soft gradient background + light glassmorphic card ───
             // Everything lives inside AUTH_LOGIN_FORM_BEFORE/AFTER — the only hooks
             // confirmed to actually render on this page — rather than
             // SIMPLE_LAYOUT_START/END, which don't fire reliably here.
@@ -159,18 +160,12 @@ class AdminPanelProvider extends PanelProvider
                     if ($isAuthenticatedAdminView()) return '';
                     return <<<'CSS'
                     <style>
-                    body:has(.vx-login-hero){background:#150430!important}
+                    body:has(.vx-login-hero){background:#f5f3ff!important}
                     .fi-simple-layout:has(.vx-login-hero){
                         position:relative!important;min-height:100vh!important;overflow:hidden!important;
-                        background:radial-gradient(ellipse 90% 60% at 15% 0%,rgba(109,40,217,.5),transparent 60%),
-                                   radial-gradient(ellipse 80% 60% at 100% 100%,rgba(124,58,237,.4),transparent 60%),
-                                   linear-gradient(155deg,#150430 0%,#330d6b 45%,#5b21b6 100%)!important;
-                    }
-                    .fi-simple-layout:has(.vx-login-hero)::before{
-                        content:'';position:absolute;inset:0;pointer-events:none;opacity:.5;z-index:0;
-                        background-image:
-                            repeating-linear-gradient(115deg,transparent 0 60px,rgba(196,181,253,.05) 60px 62px),
-                            repeating-linear-gradient(95deg,transparent 0 90px,rgba(196,181,253,.04) 90px 92px);
+                        background:radial-gradient(ellipse 80% 50% at 15% -10%,rgba(139,92,246,.28),transparent 60%),
+                                   radial-gradient(ellipse 70% 50% at 100% 100%,rgba(99,102,241,.22),transparent 60%),
+                                   linear-gradient(160deg,#f5f3ff 0%,#ede9fe 50%,#e0e7ff 100%)!important;
                     }
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main-ctn{
                         position:relative!important;z-index:1!important;background:transparent!important;min-height:100vh!important;
@@ -179,17 +174,18 @@ class AdminPanelProvider extends PanelProvider
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-header{display:none!important}
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main{
                         position:relative;
-                        background:rgba(30,16,56,.6)!important;
-                        backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-                        border:1px solid rgba(255,255,255,.1)!important;
-                        border-radius:1.25rem!important;
-                        box-shadow:0 20px 60px rgba(0,0,0,.35)!important;
-                        padding:2.25rem!important;
+                        background:rgba(255,255,255,.85)!important;
+                        backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+                        border:1px solid rgba(255,255,255,.6)!important;
+                        border-radius:1rem!important;
+                        box-shadow:0 10px 40px rgba(76,29,149,.12)!important;
+                        padding:2rem!important;
                         width:100%;max-width:26rem;
+                        overflow:hidden;
                     }
                     /* Every nested wrapper Filament renders inside the card (sections,
-                       field groups, etc.) brings its own light background — strip all
-                       of them so the dark glass shows through uniformly, then
+                       field groups, etc.) brings its own background/border — strip all
+                       of them so the glass card shows through uniformly, then
                        re-apply distinct styling to the actual interactive controls. */
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main *{
                         background-color:transparent!important;
@@ -199,64 +195,77 @@ class AdminPanelProvider extends PanelProvider
                     }
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main,
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main *{
-                        color:#e9d5ff!important;
+                        color:#4c1d95!important;
                     }
-                    .vx-login-hero{text-align:center;margin-bottom:1.75rem}
-                    .vx-login-hero-mark{display:flex;align-items:center;justify-content:center;gap:.65rem;margin-bottom:1.1rem}
-                    .vx-login-hero-word{font-size:1.35rem;font-weight:800;color:#fff!important;letter-spacing:-.3px;line-height:1;text-align:left}
-                    .vx-login-hero-word small{display:block;font-size:.62rem;font-weight:700;color:#c4b5fd!important;letter-spacing:3px;line-height:1.7}
-                    .vx-login-hero h1{font-size:1.25rem;font-weight:700;color:#fff!important;margin:0}
-                    .vx-form-heading{text-align:center;margin-bottom:1.5rem}
-                    .vx-form-heading p{font-size:.85rem;color:#c4b5fd!important;margin:0}
-                    .vx-login-footer{text-align:center;margin-top:1.5rem;font-size:.75rem;color:rgba(255,255,255,.5)!important}
+                    .vx-wave-banner{
+                        margin:-2rem -2rem 1.5rem;padding:1.5rem 2rem;position:relative;overflow:hidden;
+                        background:linear-gradient(135deg,#4c1d95 0%,#6d28d9 50%,#4f46e5 100%)!important;
+                    }
+                    .vx-wave-banner::before,.vx-wave-banner::after{
+                        content:'';position:absolute;border-radius:50%;pointer-events:none;
+                        background:rgba(255,255,255,.08);
+                    }
+                    .vx-wave-banner::before{width:140px;height:140px;top:-60px;right:-30px}
+                    .vx-wave-banner::after{width:90px;height:90px;bottom:-50px;left:20%}
+                    .vx-wave-banner-inner{position:relative;z-index:1;display:flex;align-items:center;gap:.6rem}
+                    .vx-wave-banner-word{font-size:1.05rem;font-weight:800;color:#fff!important;letter-spacing:-.2px;line-height:1.1}
+                    .vx-wave-banner-word span{font-weight:500;color:#ddd6fe!important;font-size:.85rem;margin-left:.35rem}
+                    .vx-login-heading{margin-bottom:1.5rem}
+                    .vx-login-heading h1{font-size:1.3rem;font-weight:700;color:#3b0764!important;margin:0 0 .3rem}
+                    .vx-login-heading p{font-size:.85rem;color:#7c6f9c!important;margin:0}
+                    .vx-login-footer{text-align:center;margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid rgba(124,58,237,.12)!important;font-size:.75rem;color:#9083b0!important}
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input{
-                        background:rgba(255,255,255,.07)!important;
-                        border:1px solid rgba(255,255,255,.16)!important;
-                        color:#fff!important;
-                        border-radius:.5rem!important;
+                        background:#faf9fd!important;
+                        border:1px solid rgba(124,58,237,.18)!important;
+                        color:#3b0764!important;
+                        border-radius:.6rem!important;
                     }
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input::placeholder{color:rgba(255,255,255,.35)!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input::placeholder{color:#b3a5cf!important}
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input:focus{
-                        border-color:#a78bfa!important;
-                        box-shadow:0 0 0 1px #a78bfa!important;
+                        border-color:#8b5cf6!important;
+                        box-shadow:0 0 0 3px rgba(139,92,246,.15)!important;
                     }
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main svg{color:#c4b5fd!important}
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a{color:#c4b5fd!important;text-decoration:none}
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a:hover{color:#e9d5ff!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main svg{color:#8b5cf6!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a{color:#7c3aed!important;text-decoration:none;font-weight:500}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a:hover{color:#5b21b6!important}
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"]{
-                        background:linear-gradient(90deg,#7c3aed,#a78bfa)!important;
+                        background:linear-gradient(135deg,#4a00e0 0%,#8e2de2 100%)!important;
                         border:none!important;
                         border-radius:.6rem!important;
-                        box-shadow:0 4px 16px rgba(124,58,237,.4)!important;
+                        box-shadow:0 4px 16px rgba(114,9,183,.35)!important;
                         color:#fff!important;
+                        transition:transform .15s ease,box-shadow .15s ease;
                     }
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"]:hover{
-                        background:linear-gradient(90deg,#6d28d9,#8b5cf6)!important;
+                        transform:translateY(-1px);
+                        box-shadow:0 6px 20px rgba(114,9,183,.45)!important;
                     }
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"] *{color:#fff!important}
                     </style>
                     CSS;
                 },
             )
-            // ── Login page: logo, heading, and subheading inside the card ────────
+            // ── Login page: gradient banner + heading inside the card ────────────
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
                 fn (): string => <<<'HTML'
                 <div class="vx-login-hero">
-                    <div class="vx-login-hero-mark">
-                        <svg viewBox="0 0 100 100" width="30" height="30" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                            <defs><mask id="vx-lm2"><rect width="100" height="100" fill="white"/><rect x="0" y="19.5" width="100" height="9" fill="black"/></mask></defs>
-                            <path mask="url(#vx-lm2)" d="M 23,15 L 77,15 Q 87,15 82,25 L 53,80 Q 50,87 47,80 L 18,25 Q 13,15 23,15 Z" stroke="#f0ece6" stroke-width="5.5" stroke-linejoin="round" fill="none"/>
-                            <path d="M 30,24 L 70,24 Q 79,24 74.5,32 L 52.5,75 Q 50,81 47.5,75 L 25.5,32 Q 21,24 30,24 Z" stroke="#f0ece6" stroke-width="5" stroke-linejoin="round" fill="none"/>
-                            <path d="M 23,15 L 77,15" stroke="#f0ece6" stroke-width="5.5" stroke-linecap="round"/>
-                            <path d="M 30,24 L 70,24" stroke="#f0ece6" stroke-width="5" stroke-linecap="round"/>
-                        </svg>
-                        <div class="vx-login-hero-word">VORTEX<small>BREAKS</small></div>
+                    <div class="vx-wave-banner">
+                        <div class="vx-wave-banner-inner">
+                            <svg viewBox="0 0 100 100" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                                <defs><mask id="vx-lm2"><rect width="100" height="100" fill="white"/><rect x="0" y="19.5" width="100" height="9" fill="black"/></mask></defs>
+                                <path mask="url(#vx-lm2)" d="M 23,15 L 77,15 Q 87,15 82,25 L 53,80 Q 50,87 47,80 L 18,25 Q 13,15 23,15 Z" stroke="#fff" stroke-width="6" stroke-linejoin="round" fill="none"/>
+                                <path d="M 30,24 L 70,24 Q 79,24 74.5,32 L 52.5,75 Q 50,81 47.5,75 L 25.5,32 Q 21,24 30,24 Z" stroke="#fff" stroke-width="5.5" stroke-linejoin="round" fill="none"/>
+                                <path d="M 23,15 L 77,15" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+                                <path d="M 30,24 L 70,24" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/>
+                            </svg>
+                            <div class="vx-wave-banner-word">VORTEX<span>Operations Platform</span></div>
+                        </div>
                     </div>
-                    <h1>Operations Platform &mdash; Welcome Back</h1>
-                </div>
-                <div class="vx-form-heading">
-                    <p>Sign in to manage your hub</p>
+                    <div class="vx-login-heading">
+                        <h1>Welcome Back!</h1>
+                        <p>Sign in to manage your operations hub.</p>
+                    </div>
                 </div>
                 HTML,
             )

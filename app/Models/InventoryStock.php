@@ -37,4 +37,16 @@ class InventoryStock extends Model
     {
         return $this->belongsTo(InventoryLocation::class, 'inventory_location_id');
     }
+
+    /** Limit to the admin's currently active channel (App\Support\ChannelContext), if any. */
+    public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        if (! \App\Support\ChannelContext::isScoped()) {
+            return $query;
+        }
+
+        return $query->whereHas('location', fn (\Illuminate\Database\Eloquent\Builder $q) =>
+            $q->where('whatnot_channel_id', \App\Support\ChannelContext::currentId())
+        );
+    }
 }

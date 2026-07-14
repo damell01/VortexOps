@@ -29,7 +29,7 @@ class PayoutTrendsChartWidget extends ChartWidget
     {
         try {
             $trend = Trend::query(
-                Payout::query()->whereIn('status', ['approved', 'paid'])
+                Payout::query()->whereIn('status', ['approved', 'paid'])->inChannelContext()
             )
                 ->between(now()->subWeeks(11)->startOfWeek(), now()->endOfWeek())
                 ->perWeek()

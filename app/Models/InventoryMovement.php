@@ -58,6 +58,21 @@ class InventoryMovement extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    /** Limit to the admin's currently active channel (App\Support\ChannelContext), if any. */
+    public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        if (! \App\Support\ChannelContext::isScoped()) {
+            return $query;
+        }
+
+        $channelId = \App\Support\ChannelContext::currentId();
+
+        return $query->where(function (\Illuminate\Database\Eloquent\Builder $q) use ($channelId) {
+            $q->whereHas('fromLocation', fn (\Illuminate\Database\Eloquent\Builder $q2) => $q2->where('whatnot_channel_id', $channelId))
+                ->orWhereHas('toLocation', fn (\Illuminate\Database\Eloquent\Builder $q2) => $q2->where('whatnot_channel_id', $channelId));
+        });
+    }
+
     public static function movementTypeLabels(): array
     {
         return [

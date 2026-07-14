@@ -26,6 +26,7 @@ class ActiveStreamersWidget extends BaseWidget
             ->query(
                 Streamer::query()
                     ->where('status', 'active')
+                    ->inChannelContext()
                     ->withCount('inventoryLocations')
                     ->orderBy('name')
             )

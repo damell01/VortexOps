@@ -64,7 +64,7 @@ class StreamerAnalytics extends Page
 
     public function getStreamersListProperty(): Collection
     {
-        return Streamer::where('status', 'active')->orderBy('name')->get(['id', 'name']);
+        return Streamer::where('status', 'active')->inChannelContext()->orderBy('name')->get(['id', 'name']);
     }
 
     /**
@@ -77,6 +77,7 @@ class StreamerAnalytics extends Page
 
         $query = Streamer::query()
             ->where('status', 'active')
+            ->inChannelContext()
             ->with([
                 'shows' => function ($q) use ($from, $to) {
                     $q->whereBetween('show_date', [$from, $to]);
@@ -158,6 +159,7 @@ class StreamerAnalytics extends Page
         $to   = $this->dateTo   ?: now()->toDateString();
 
         $shows = Show::whereBetween('show_date', [$from, $to])
+            ->inChannelContext()
             ->with('streamerLogEntry')
             ->orderBy('show_date')
             ->get();

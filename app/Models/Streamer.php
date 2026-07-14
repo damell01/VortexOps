@@ -84,6 +84,14 @@ class Streamer extends Model
         return $this->belongsTo(WhatnotChannel::class, 'whatnot_channel_id');
     }
 
+    /** Limit to the admin's currently active channel (App\Support\ChannelContext), if any. */
+    public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return \App\Support\ChannelContext::isScoped()
+            ? $query->where('whatnot_channel_id', \App\Support\ChannelContext::currentId())
+            : $query;
+    }
+
     public function inventoryLocations(): HasMany
     {
         return $this->hasMany(InventoryLocation::class);

@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Models\Payout;
 use App\Models\Show;
 use App\Support\AdminModules;
+use App\Support\ChannelContext;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Cache;
@@ -21,18 +22,21 @@ class ShowsKpiWidget extends BaseWidget
 
     protected function getStats(): array
     {
+        $cacheKey = 'widget:shows_kpi:' . (ChannelContext::currentId() ?? 'all');
+
         [$weekShows, $weekRevenue, $pendingReview, $draftPayoutTotal] =
-            Cache::remember('widget:shows_kpi', 120, function () {
+            Cache::remember($cacheKey, 120, function () {
                 $weekStart = now()->startOfWeek()->toDateString();
                 $weekEnd   = now()->endOfWeek()->toDateString();
 
-                $weekShows    = Show::whereBetween('show_date', [$weekStart, $weekEnd])->count();
+                $weekShows    = Show::whereBetween('show_date', [$weekStart, $weekEnd])->inChannelContext()->count();
                 $weekRevenue  = (float) Show::whereBetween('show_date', [$weekStart, $weekEnd])
                     ->whereNotNull('whatnot_net')
+                    ->inChannelContext()
                     ->sum('whatnot_net');
-                $pendingReview = Show::where('status', 'pending_review')->count();
+                $pendingReview = Show::where('status', 'pending_review')->inChannelContext()->count();
                 $draftPayoutTotal = AdminModules::isEnabled('payouts')
-                    ? (float) Payout::where('status', 'draft')->sum('calculated_payout')
+                    ? (float) Payout::where('status', 'draft')->inChannelContext()->sum('calculated_payout')
                     : 0.0;
 
                 return [$weekShows, $weekRevenue, $pendingReview, $draftPayoutTotal];

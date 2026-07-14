@@ -6,6 +6,7 @@ use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Models\Show;
 use App\Support\AdminModules;
+use App\Support\ChannelContext;
 use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -84,7 +85,7 @@ class Reports extends Page
     private function cacheKey(string $section): string
     {
         $key = $this->period === 'custom' ? "{$this->dateFrom}_{$this->dateTo}" : $this->period;
-        return "reports_{$section}_{$key}_" . auth()->id();
+        return "reports_{$section}_{$key}_" . auth()->id() . '_ch' . (ChannelContext::currentId() ?? 'all');
     }
 
     private function periodStart(): Carbon
@@ -114,6 +115,7 @@ class Reports extends Page
             ->with(['whatnotChannel:id,name', 'streamers:id,name'])
             ->whereBetween('show_date', [$start, $end])
             ->whereNotIn('status', ['cancelled'])
+            ->inChannelContext()
             ->orderBy('show_date')
             ->get(['id', 'title', 'show_date', 'gross_revenue', 'whatnot_net', 'tips', 'units_sold', 'status', 'whatnot_channel_id']);
 
@@ -151,6 +153,7 @@ class Reports extends Page
             $cur = DB::table('shows')
                 ->whereBetween('show_date', [$start, $end])
                 ->whereNotIn('status', ['cancelled'])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', ChannelContext::currentId()))
                 ->selectRaw('
                     COUNT(*) as shows,
                     COALESCE(SUM(gross_revenue), 0) as gross,
@@ -167,6 +170,7 @@ class Reports extends Page
                     $start->copy()->subDay(),
                 ])
                 ->whereNotIn('status', ['cancelled'])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', ChannelContext::currentId()))
                 ->selectRaw('
                     COUNT(*) as shows,
                     COALESCE(SUM(gross_revenue), 0) as gross,
@@ -199,6 +203,7 @@ class Reports extends Page
                 ->leftJoin('whatnot_channels', 'shows.whatnot_channel_id', '=', 'whatnot_channels.id')
                 ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])
                 ->whereNotIn('shows.status', ['cancelled'])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
                 ->selectRaw('
                     COALESCE(whatnot_channels.name, "Unknown") as channel,
                     COUNT(*) as shows,
@@ -228,6 +233,7 @@ class Reports extends Page
             return DB::table('shows')
                 ->whereBetween('show_date', [$this->periodStart(), $this->periodEnd()])
                 ->whereNotIn('status', ['cancelled'])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', ChannelContext::currentId()))
                 ->selectRaw("
                     {$weekExpr} as week_start,
                     COUNT(*) as shows,
@@ -259,6 +265,7 @@ class Reports extends Page
                 ->join('shows', 'payouts.show_id', '=', 'shows.id')
                 ->join('streamers', 'payouts.streamer_id', '=', 'streamers.id')
                 ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
                 ->selectRaw('
                     streamers.name as streamer,
                     COUNT(DISTINCT payouts.show_id) as shows,
@@ -282,6 +289,7 @@ class Reports extends Page
             $rows = DB::table('payouts')
                 ->join('shows', 'payouts.show_id', '=', 'shows.id')
                 ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
                 ->selectRaw('
                     payouts.status,
                     COUNT(*) as cnt,

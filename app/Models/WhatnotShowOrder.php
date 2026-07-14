@@ -66,6 +66,18 @@ class WhatnotShowOrder extends Model
         return $this->belongsTo(Show::class);
     }
 
+    /** Limit to the admin's currently active channel (App\Support\ChannelContext), if any. */
+    public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        if (! \App\Support\ChannelContext::isScoped()) {
+            return $query;
+        }
+
+        return $query->whereHas('show', fn (\Illuminate\Database\Eloquent\Builder $q) =>
+            $q->where('whatnot_channel_id', \App\Support\ChannelContext::currentId())
+        );
+    }
+
     public function buyer(): BelongsTo
     {
         return $this->belongsTo(WhatnotBuyer::class, 'whatnot_buyer_id');

@@ -6,6 +6,7 @@ use App\Models\Show;
 use App\Models\StreamerLogEntry;
 use App\Models\WhatnotLedgerEntry;
 use App\Models\WhatnotShowOrder;
+use App\Support\ChannelContext;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Cache;
@@ -26,22 +27,27 @@ class OperationsOverviewWidget extends BaseWidget
         // flexible() serves the cached value for 120s, then serves a slightly
         // stale value (up to 300s) while refreshing in the background — so an
         // expiring key never makes concurrent dashboard loads all recompute at once.
+        $cacheKey = 'widget:ops_overview:' . (ChannelContext::currentId() ?? 'all');
+
         [$pendingLogs, $ledgerNet, $monthGross, $monthOrders] =
-            Cache::flexible('widget:ops_overview', [120, 300], function () {
+            Cache::flexible($cacheKey, [120, 300], function () {
                 $mStart = now()->startOfMonth();
                 $mEnd   = now()->endOfMonth();
 
-                $pendingLogs = StreamerLogEntry::where('status', 'pending')->count();
+                $pendingLogs = StreamerLogEntry::where('status', 'pending')->inChannelContext()->count();
 
                 // Ledger table may not be migrated yet on every environment.
                 $ledgerNet = Schema::hasTable('whatnot_ledger_entries')
-                    ? (float) WhatnotLedgerEntry::whereBetween('created_date', [$mStart, $mEnd])->sum('amount')
+                    ? (float) WhatnotLedgerEntry::whereBetween('created_date', [$mStart, $mEnd])->inChannelContext()->sum('amount')
                     : 0.0;
 
                 $monthGross = (float) Show::whereBetween('show_date', [$mStart->toDateString(), $mEnd->toDateString()])
+                    ->inChannelContext()
                     ->sum('gross_revenue');
 
-                $monthOrders = WhatnotShowOrder::whereBetween('show_date', [$mStart->toDateString(), $mEnd->toDateString()])->count();
+                $monthOrders = WhatnotShowOrder::whereBetween('show_date', [$mStart->toDateString(), $mEnd->toDateString()])
+                    ->inChannelContext()
+                    ->count();
 
                 return [$pendingLogs, $ledgerNet, $monthGross, $monthOrders];
             });

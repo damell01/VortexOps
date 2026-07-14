@@ -26,8 +26,11 @@ class LowStockWidget extends BaseWidget
                         $query->selectRaw('1')
                             ->from('inventory_stock')
                             ->whereColumn('inventory_stock.inventory_item_id', 'products.id')
+                            ->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q
+                                ->join('inventory_locations', 'inventory_locations.id', '=', 'inventory_stock.inventory_location_id')
+                                ->where('inventory_locations.whatnot_channel_id', \App\Support\ChannelContext::currentId()))
                             ->groupBy('inventory_stock.inventory_item_id')
-                            ->havingRaw('SUM(quantity) <= products.reorder_level');
+                            ->havingRaw('SUM(inventory_stock.quantity) <= products.reorder_level');
                     })
             )
             ->columns([

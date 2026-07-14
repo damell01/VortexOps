@@ -56,7 +56,7 @@ class NeedsAttentionWidget extends Widget
         try {
             $add(
                 AdminModules::isEnabled('streamer_log') && Schema::hasTable('streamer_log_entries'),
-                StreamerLogEntry::where('status', 'pending')->count(),
+                StreamerLogEntry::where('status', 'pending')->inChannelContext()->count(),
                 'streamer logs awaiting review',
                 'heroicon-o-clipboard-document-list',
                 'warning',
@@ -65,7 +65,7 @@ class NeedsAttentionWidget extends Widget
 
             $add(
                 AdminModules::isEnabled('streams') && Schema::hasColumn('shows', 'channel_attribution_suspect'),
-                Show::where('channel_attribution_suspect', true)->count(),
+                Show::where('channel_attribution_suspect', true)->inChannelContext()->count(),
                 'shows need a channel confirmed',
                 'heroicon-o-check-badge',
                 'warning',
@@ -74,7 +74,7 @@ class NeedsAttentionWidget extends Widget
 
             $add(
                 Schema::hasTable('deduction_requests'),
-                DeductionRequest::where('status', 'pending')->count(),
+                DeductionRequest::where('status', 'pending')->inChannelContext()->count(),
                 'deduction requests pending approval',
                 'heroicon-o-clipboard-document-check',
                 'info',
@@ -163,15 +163,21 @@ class NeedsAttentionWidget extends Widget
                     $query->selectRaw('1')
                         ->from('inventory_stock')
                         ->whereColumn('inventory_stock.inventory_item_id', 'products.id')
+                        ->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q
+                            ->join('inventory_locations', 'inventory_locations.id', '=', 'inventory_stock.inventory_location_id')
+                            ->where('inventory_locations.whatnot_channel_id', \App\Support\ChannelContext::currentId()))
                         ->groupBy('inventory_stock.inventory_item_id')
-                        ->havingRaw('SUM(quantity) > 0');
+                        ->havingRaw('SUM(inventory_stock.quantity) > 0');
                 })
                 // No sale inside the window (covers never-sold too).
                 ->whereNotExists(function ($query) use ($cutoff) {
                     $query->selectRaw('1')
                         ->from('whatnot_show_orders')
                         ->whereColumn('whatnot_show_orders.inventory_item_id', 'products.id')
-                        ->where('whatnot_show_orders.show_date', '>=', $cutoff);
+                        ->where('whatnot_show_orders.show_date', '>=', $cutoff)
+                        ->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q
+                            ->join('inventory_locations', 'inventory_locations.id', '=', 'whatnot_show_orders.inventory_location_id')
+                            ->where('inventory_locations.whatnot_channel_id', \App\Support\ChannelContext::currentId()));
                 })
                 ->count();
         } catch (\Throwable) {
@@ -189,8 +195,11 @@ class NeedsAttentionWidget extends Widget
                     $query->selectRaw('1')
                         ->from('inventory_stock')
                         ->whereColumn('inventory_stock.inventory_item_id', 'products.id')
+                        ->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q
+                            ->join('inventory_locations', 'inventory_locations.id', '=', 'inventory_stock.inventory_location_id')
+                            ->where('inventory_locations.whatnot_channel_id', \App\Support\ChannelContext::currentId()))
                         ->groupBy('inventory_stock.inventory_item_id')
-                        ->havingRaw('SUM(quantity) <= products.reorder_level');
+                        ->havingRaw('SUM(inventory_stock.quantity) <= products.reorder_level');
                 })
                 ->count();
         } catch (\Throwable) {

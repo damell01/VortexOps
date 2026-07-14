@@ -6,6 +6,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryStock;
 use App\Models\Streamer;
+use App\Support\ChannelContext;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Cache;
@@ -17,28 +18,40 @@ class InventoryOverviewWidget extends BaseWidget
 
     protected function getStats(): array
     {
+        $cacheKey = 'widget:inventory_overview:' . (ChannelContext::currentId() ?? 'all');
+
         [$totalQty, $totalItems, $lowStockCount, $activeLocations, $activeStreamers, $inventoryValue] =
-            Cache::remember('widget:inventory_overview', 300, function () {
+            Cache::remember($cacheKey, 300, function () {
                 $inventoryValue = \Illuminate\Support\Facades\DB::table('inventory_stock')
                     ->join('products', 'inventory_stock.inventory_item_id', '=', 'products.id')
                     ->whereNotNull('products.average_cost')
                     ->where('products.average_cost', '>', 0)
+                    ->when(ChannelContext::isScoped(), fn ($q) => $q
+                        ->join('inventory_locations', 'inventory_locations.id', '=', 'inventory_stock.inventory_location_id')
+                        ->where('inventory_locations.whatnot_channel_id', ChannelContext::currentId()))
                     ->selectRaw('SUM(inventory_stock.quantity * products.average_cost) as total_value')
                     ->value('total_value') ?? 0;
 
                 return [
-                    InventoryStock::sum('quantity'),
-                    InventoryItem::where('is_active', true)->count(),
+                    InventoryStock::query()->inChannelContext()->sum('quantity'),
+                    InventoryItem::where('is_active', true)
+                        ->when(ChannelContext::isScoped(), fn ($q) => $q->whereHas('stock.location', fn ($q2) =>
+                            $q2->where('whatnot_channel_id', ChannelContext::currentId())
+                        ))
+                        ->count(),
                     InventoryItem::whereNotNull('reorder_level')
                         ->where('is_active', true)
                         ->whereExists(fn ($q) => $q->selectRaw('1')
                             ->from('inventory_stock')
                             ->whereColumn('inventory_stock.inventory_item_id', 'products.id')
+                            ->when(ChannelContext::isScoped(), fn ($q2) => $q2
+                                ->join('inventory_locations', 'inventory_locations.id', '=', 'inventory_stock.inventory_location_id')
+                                ->where('inventory_locations.whatnot_channel_id', ChannelContext::currentId()))
                             ->groupBy('inventory_stock.inventory_item_id')
-                            ->havingRaw('SUM(quantity) <= products.reorder_level'))
+                            ->havingRaw('SUM(inventory_stock.quantity) <= products.reorder_level'))
                         ->count(),
-                    InventoryLocation::where('status', 'active')->count(),
-                    Streamer::where('status', 'active')->count(),
+                    InventoryLocation::where('status', 'active')->inChannelContext()->count(),
+                    Streamer::where('status', 'active')->inChannelContext()->count(),
                     (float) $inventoryValue,
                 ];
             });

@@ -20,6 +20,7 @@ class RecentMovementsWidget extends BaseWidget
             ->query(
                 InventoryMovement::query()
                     ->with(['item', 'fromLocation', 'toLocation', 'createdByUser'])
+                    ->inChannelContext()
                     ->latest()
                     ->limit(15)
             )

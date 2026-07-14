@@ -150,6 +150,9 @@ class AdminPanelProvider extends PanelProvider
                     HTML : '',
             )
             // ── Login page: full-bleed gradient background + centered glass card ─
+            // Everything lives inside AUTH_LOGIN_FORM_BEFORE/AFTER — the only hooks
+            // confirmed to actually render on this page — rather than
+            // SIMPLE_LAYOUT_START/END, which don't fire reliably here.
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 function () use ($isAuthenticatedAdminView): string {
@@ -171,105 +174,98 @@ class AdminPanelProvider extends PanelProvider
                     }
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main-ctn{
                         position:relative!important;z-index:1!important;background:transparent!important;min-height:100vh!important;
-                        display:flex!important;flex-direction:column;align-items:center;justify-content:center;padding:2rem 1.5rem;
+                        display:flex!important;align-items:center;justify-content:center;padding:2rem 1.5rem;
                     }
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-header{display:none!important}
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main{
-                        background:rgba(30,16,56,.55)!important;
+                        position:relative;
+                        background:rgba(30,16,56,.6)!important;
                         backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
                         border:1px solid rgba(255,255,255,.1)!important;
                         border-radius:1.25rem!important;
                         box-shadow:0 20px 60px rgba(0,0,0,.35)!important;
-                        padding:2.25rem 2.25rem 1.75rem!important;
+                        padding:2.25rem!important;
                         width:100%;max-width:26rem;
                     }
-                    .vx-login-hero{position:relative;z-index:1;text-align:center;margin:0 auto 1.75rem;max-width:26rem}
-                    .vx-login-hero-mark{display:flex;align-items:center;justify-content:center;gap:.65rem;margin-bottom:1.25rem}
-                    .vx-login-hero-word{font-size:1.35rem;font-weight:800;color:#fff;letter-spacing:-.3px;line-height:1;text-align:left}
-                    .vx-login-hero-word small{display:block;font-size:.62rem;font-weight:700;color:#c4b5fd;letter-spacing:3px;line-height:1.7}
-                    .vx-login-hero h1{font-size:1.35rem;font-weight:700;color:#fff;margin:0}
-                    .vx-form-heading{text-align:center;margin-bottom:1.5rem}
-                    .vx-form-heading p{font-size:.85rem;color:#c4b5fd;margin:0}
-                    .vx-login-footer{position:relative;z-index:1;text-align:center;margin-top:1.5rem;font-size:.75rem;color:rgba(255,255,255,.5)}
-                    /* Dark-glass form controls — cast a wide net since Filament nests label
-                       text in inner spans we can't predict the exact markup of. */
+                    /* Every nested wrapper Filament renders inside the card (sections,
+                       field groups, etc.) brings its own light background — strip all
+                       of them so the dark glass shows through uniformly, then
+                       re-apply distinct styling to the actual interactive controls. */
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main *{
+                        background-color:transparent!important;
+                        background-image:none!important;
+                        box-shadow:none!important;
+                        border-color:transparent!important;
+                    }
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main,
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main label,
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main label *,
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main p,
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main span:not([class*="text-"]){
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main *{
                         color:#e9d5ff!important;
                     }
+                    .vx-login-hero{text-align:center;margin-bottom:1.75rem}
+                    .vx-login-hero-mark{display:flex;align-items:center;justify-content:center;gap:.65rem;margin-bottom:1.1rem}
+                    .vx-login-hero-word{font-size:1.35rem;font-weight:800;color:#fff!important;letter-spacing:-.3px;line-height:1;text-align:left}
+                    .vx-login-hero-word small{display:block;font-size:.62rem;font-weight:700;color:#c4b5fd!important;letter-spacing:3px;line-height:1.7}
+                    .vx-login-hero h1{font-size:1.25rem;font-weight:700;color:#fff!important;margin:0}
+                    .vx-form-heading{text-align:center;margin-bottom:1.5rem}
+                    .vx-form-heading p{font-size:.85rem;color:#c4b5fd!important;margin:0}
+                    .vx-login-footer{text-align:center;margin-top:1.5rem;font-size:.75rem;color:rgba(255,255,255,.5)!important}
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input{
-                        background:rgba(255,255,255,.06)!important;
-                        border-color:rgba(255,255,255,.14)!important;
+                        background:rgba(255,255,255,.07)!important;
+                        border:1px solid rgba(255,255,255,.16)!important;
                         color:#fff!important;
+                        border-radius:.5rem!important;
                     }
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input::placeholder{color:rgba(255,255,255,.35)!important}
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input:focus{
                         border-color:#a78bfa!important;
                         box-shadow:0 0 0 1px #a78bfa!important;
                     }
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main .fi-fo-field-wrp-error-message,
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main .fi-fo-field-wrp-hint{color:#c4b5fd!important}
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a,
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a *{color:#c4b5fd!important}
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a:hover,
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a:hover *{color:#e9d5ff!important}
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"],
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main .fi-btn[type="submit"]{
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main svg{color:#c4b5fd!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a{color:#c4b5fd!important;text-decoration:none}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a:hover{color:#e9d5ff!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"]{
                         background:linear-gradient(90deg,#7c3aed,#a78bfa)!important;
                         border:none!important;
+                        border-radius:.6rem!important;
                         box-shadow:0 4px 16px rgba(124,58,237,.4)!important;
+                        color:#fff!important;
                     }
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"]:hover,
-                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main .fi-btn[type="submit"]:hover{
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"]:hover{
                         background:linear-gradient(90deg,#6d28d9,#8b5cf6)!important;
                     }
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"] *{color:#fff!important}
                     </style>
                     CSS;
                 },
             )
-            // ── Login page: logo + heading above the card ────────────────────────
-            ->renderHook(
-                PanelsRenderHook::SIMPLE_LAYOUT_START,
-                function () use ($isAuthenticatedAdminView): string {
-                    if ($isAuthenticatedAdminView()) return '';
-                    return <<<'HTML'
-                    <div class="vx-login-hero">
-                        <div class="vx-login-hero-mark">
-                            <svg viewBox="0 0 100 100" width="34" height="34" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                                <defs><mask id="vx-lm2"><rect width="100" height="100" fill="white"/><rect x="0" y="19.5" width="100" height="9" fill="black"/></mask></defs>
-                                <path mask="url(#vx-lm2)" d="M 23,15 L 77,15 Q 87,15 82,25 L 53,80 Q 50,87 47,80 L 18,25 Q 13,15 23,15 Z" stroke="#f0ece6" stroke-width="5.5" stroke-linejoin="round" fill="none"/>
-                                <path d="M 30,24 L 70,24 Q 79,24 74.5,32 L 52.5,75 Q 50,81 47.5,75 L 25.5,32 Q 21,24 30,24 Z" stroke="#f0ece6" stroke-width="5" stroke-linejoin="round" fill="none"/>
-                                <path d="M 23,15 L 77,15" stroke="#f0ece6" stroke-width="5.5" stroke-linecap="round"/>
-                                <path d="M 30,24 L 70,24" stroke="#f0ece6" stroke-width="5" stroke-linecap="round"/>
-                            </svg>
-                            <div class="vx-login-hero-word">VORTEX<small>BREAKS</small></div>
-                        </div>
-                        <h1>Operations Platform &mdash; Welcome Back</h1>
-                    </div>
-                    HTML;
-                },
-            )
-            // ── Login page: subheading inside the card, above the form ───────────
+            // ── Login page: logo, heading, and subheading inside the card ────────
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
                 fn (): string => <<<'HTML'
+                <div class="vx-login-hero">
+                    <div class="vx-login-hero-mark">
+                        <svg viewBox="0 0 100 100" width="30" height="30" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                            <defs><mask id="vx-lm2"><rect width="100" height="100" fill="white"/><rect x="0" y="19.5" width="100" height="9" fill="black"/></mask></defs>
+                            <path mask="url(#vx-lm2)" d="M 23,15 L 77,15 Q 87,15 82,25 L 53,80 Q 50,87 47,80 L 18,25 Q 13,15 23,15 Z" stroke="#f0ece6" stroke-width="5.5" stroke-linejoin="round" fill="none"/>
+                            <path d="M 30,24 L 70,24 Q 79,24 74.5,32 L 52.5,75 Q 50,81 47.5,75 L 25.5,32 Q 21,24 30,24 Z" stroke="#f0ece6" stroke-width="5" stroke-linejoin="round" fill="none"/>
+                            <path d="M 23,15 L 77,15" stroke="#f0ece6" stroke-width="5.5" stroke-linecap="round"/>
+                            <path d="M 30,24 L 70,24" stroke="#f0ece6" stroke-width="5" stroke-linecap="round"/>
+                        </svg>
+                        <div class="vx-login-hero-word">VORTEX<small>BREAKS</small></div>
+                    </div>
+                    <h1>Operations Platform &mdash; Welcome Back</h1>
+                </div>
                 <div class="vx-form-heading">
                     <p>Sign in to manage your hub</p>
                 </div>
                 HTML,
             )
-            // ── Login page: footer credit below the card ─────────────────────────
+            // ── Login page: footer credit inside the card, below the form ────────
             ->renderHook(
-                PanelsRenderHook::SIMPLE_LAYOUT_END,
-                function () use ($isAuthenticatedAdminView): string {
-                    if ($isAuthenticatedAdminView()) return '';
-                    return <<<'HTML'
-                    <div class="vx-login-footer">Built by DBell Creations</div>
-                    HTML;
-                },
+                PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
+                fn (): string => <<<'HTML'
+                <div class="vx-login-footer">Built by DBell Creations</div>
+                HTML,
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

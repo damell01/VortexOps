@@ -8,6 +8,7 @@ use App\Filament\Resources\StreamerResource\Pages;
 use App\Filament\Resources\StreamerResource\RelationManagers\LoansRelationManager;
 use App\Models\Streamer;
 use App\Support\AdminModules;
+use App\Support\ChannelContext;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -71,7 +72,13 @@ class StreamerResource extends Resource
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
-        return parent::getEloquentQuery()->withCount('inventoryLocations');
+        $query = parent::getEloquentQuery()->withCount('inventoryLocations');
+
+        if (ChannelContext::isScoped()) {
+            $query->where('whatnot_channel_id', ChannelContext::currentId());
+        }
+
+        return $query;
     }
 
     // Streamers cannot manage other streamers
@@ -122,6 +129,12 @@ class StreamerResource extends Resource
                     TextInput::make('phone')
                         ->tel()
                         ->maxLength(50),
+                    Select::make('whatnot_channel_id')
+                        ->label('Channel')
+                        ->relationship('channel', 'name')
+                        ->searchable()
+                        ->preload()
+                        ->helperText('Primary channel this streamer is attributed to for stats and analytics.'),
                 ]),
             ]),
 
@@ -308,6 +321,12 @@ class StreamerResource extends Resource
                 IconColumn::make('include_tips')
                     ->boolean()
                     ->label('Tips'),
+                TextColumn::make('channel.name')
+                    ->label('Channel')
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('inventoryLocations_count')
                     ->counts('inventoryLocations')
                     ->label('Locations'),
@@ -327,6 +346,9 @@ class StreamerResource extends Resource
                     ->options(Streamer::statusLabels()),
                 SelectFilter::make('payout_type')
                     ->options(Streamer::payoutTypeLabels()),
+                SelectFilter::make('whatnot_channel_id')
+                    ->label('Channel')
+                    ->relationship('channel', 'name'),
             ])
             ->actions([
                 ViewAction::make(),

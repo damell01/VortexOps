@@ -27,6 +27,7 @@ class Streamer extends Model
 
     protected $fillable = [
         'user_id',
+        'whatnot_channel_id',
         'name',
         'legal_name',
         'email',
@@ -75,6 +76,12 @@ class Streamer extends Model
     public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** Primary channel this streamer is attributed to for stats/analytics. */
+    public function channel(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(WhatnotChannel::class, 'whatnot_channel_id');
     }
 
     public function inventoryLocations(): HasMany

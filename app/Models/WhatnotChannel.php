@@ -33,6 +33,18 @@ class WhatnotChannel extends Model
         return $this->hasMany(Show::class);
     }
 
+    /** Streamers primarily attributed to this channel. */
+    public function streamers(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Streamer::class);
+    }
+
+    /** Inventory locations grouped under this channel. */
+    public function inventoryLocations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(InventoryLocation::class);
+    }
+
     public function syncs(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(WhatnotSync::class);

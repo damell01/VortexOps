@@ -7,6 +7,7 @@ use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\InventoryLocationResource\Pages;
 use App\Models\InventoryLocation;
 use App\Support\AdminModules;
+use App\Support\ChannelContext;
 use App\Support\StatusColor;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms\Components\Select;
@@ -37,7 +38,7 @@ class InventoryLocationResource extends Resource
     // Streamers see only their own locations + shared locations (no streamer assigned)
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['streamer']);
+        $query = parent::getEloquentQuery()->with(['streamer', 'channel']);
         $user  = auth()->user();
 
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {
@@ -46,6 +47,10 @@ class InventoryLocationResource extends Resource
                 $q->whereNull('streamer_id')
                   ->orWhere('streamer_id', $streamerId);
             });
+        }
+
+        if (ChannelContext::isScoped()) {
+            $query->where('whatnot_channel_id', ChannelContext::currentId());
         }
 
         return $query;
@@ -112,6 +117,12 @@ class InventoryLocationResource extends Resource
                         ->options(InventoryLocation::statusLabels())
                         ->required()
                         ->default('active'),
+                    Select::make('whatnot_channel_id')
+                        ->label('Channel')
+                        ->relationship('channel', 'name')
+                        ->searchable()
+                        ->preload()
+                        ->helperText('Which channel this location\'s stock is grouped under.'),
                 ]),
                 Textarea::make('notes')
                     ->rows(3)
@@ -143,6 +154,12 @@ class InventoryLocationResource extends Resource
                     ->label('Streamer')
                     ->placeholder('—')
                     ->searchable(),
+                TextColumn::make('channel.name')
+                    ->label('Channel')
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('stock_count')
                     ->label('SKUs')
                     ->counts('stock'),
@@ -163,6 +180,9 @@ class InventoryLocationResource extends Resource
                 SelectFilter::make('streamer_id')
                     ->label('Streamer')
                     ->relationship('streamer', 'name'),
+                SelectFilter::make('whatnot_channel_id')
+                    ->label('Channel')
+                    ->relationship('channel', 'name'),
             ])
             ->actions([
                 ViewAction::make(),

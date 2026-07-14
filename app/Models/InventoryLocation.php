@@ -16,6 +16,7 @@ class InventoryLocation extends Model
         'name',
         'type',
         'streamer_id',
+        'whatnot_channel_id',
         'status',
         'notes',
     ];
@@ -28,6 +29,12 @@ class InventoryLocation extends Model
     public function streamer(): BelongsTo
     {
         return $this->belongsTo(Streamer::class);
+    }
+
+    /** Channel this location's stock is grouped under for reporting/costing. */
+    public function channel(): BelongsTo
+    {
+        return $this->belongsTo(WhatnotChannel::class, 'whatnot_channel_id');
     }
 
     public function stock(): HasMany

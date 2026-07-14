@@ -132,6 +132,12 @@ class AdminPanelProvider extends PanelProvider
                     : Blade::render("@livewire('feedback-widget')"),
             )
             ->renderHook(
+                PanelsRenderHook::TOPBAR_START,
+                fn (): string => (auth()->user()?->isAdmin() ?? false)
+                    ? Blade::render("@livewire('channel-switcher')")
+                    : '',
+            )
+            ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn () => ! $isAuthenticatedAdminView()
                     ? ''

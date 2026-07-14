@@ -414,9 +414,24 @@ async function ensureSellerMode(page) {
   info('ensureSellerMode: locating "Switch to Selling" <a> anchor in drawer');
   const drawerText = await page.evaluate(() => (document.body.innerText || '').substring(0, 600)).catch(() => '');
   if (!/switch to selling/i.test(drawerText)) {
-    info('ensureSellerMode: "Switch to Selling" not in drawer text — drawer may not be open');
+    info('ensureSellerMode: "Switch to Selling" not in drawer text — this account has no individual seller channel of its own');
     await debugShot(page, 'seller-mode-03b-no-switch-to-selling');
-    throw new Error('"Switch to Selling" not found in open nav drawer.\nDrawer text: ' + drawerText.substring(0, 300));
+
+    // Some accounts are team members ONLY — no personal seller channel, so
+    // "Switch to Selling" never appears in the drawer. Fall back to Strategy 2:
+    // open the role switcher directly and select the target channel by name.
+    if (CHANNEL_NAME) {
+      info(`ensureSellerMode: falling back to switchToChannel("${CHANNEL_NAME}")`);
+      await page.keyboard.press('Escape').catch(() => {});
+      await switchToChannel(page, CHANNEL_NAME);
+      global._sellerModeActive = true;
+      return;
+    }
+
+    throw new Error(
+      '"Switch to Selling" not found in open nav drawer, and WHATNOT_CHANNEL_NAME is not set to fall back to Switch Role.\n' +
+      'Drawer text: ' + drawerText.substring(0, 300)
+    );
   }
 
   info('ensureSellerMode: JS-clicking <a> "Switch to Selling"');

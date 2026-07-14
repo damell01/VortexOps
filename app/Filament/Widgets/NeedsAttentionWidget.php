@@ -108,6 +108,15 @@ class NeedsAttentionWidget extends Widget
                 ProductInsights::getUrl(),
             );
 
+            $add(
+                AdminModules::isEnabled('inventory') && Schema::hasTable('whatnot_show_orders'),
+                $this->zeroStockMappedSalesCount(),
+                'sold items mapped to a product with no stock — likely mis-mapped',
+                'heroicon-o-magnifying-glass',
+                'danger',
+                InventoryItemResource::getUrl(),
+            );
+
             $staleHours = $this->importStaleHours();
             $add(
                 $staleHours !== null,
@@ -187,6 +196,48 @@ class NeedsAttentionWidget extends Widget
                         ->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q
                             ->join('inventory_locations', 'inventory_locations.id', '=', 'whatnot_show_orders.inventory_location_id')
                             ->where('inventory_locations.whatnot_channel_id', \App\Support\ChannelContext::currentId()));
+                })
+                ->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    /**
+     * Distinct products mapped to a recent sold-item line while showing zero
+     * stock everywhere and no restock in 14+ days — the same "can't have sold
+     * something with no stock" nudge shown inline when a streamer maps an
+     * item, aggregated here so ops sees the system-wide picture too.
+     */
+    private function zeroStockMappedSalesCount(): int
+    {
+        try {
+            $cutoff        = now()->subDays(60)->toDateString();
+            $restockCutoff = now()->subDays(14);
+
+            return InventoryItem::query()
+                ->whereExists(function ($query) use ($cutoff) {
+                    $query->selectRaw('1')
+                        ->from('whatnot_show_orders')
+                        ->whereColumn('whatnot_show_orders.inventory_item_id', 'products.id')
+                        ->where('whatnot_show_orders.show_date', '>=', $cutoff)
+                        ->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q
+                            ->join('inventory_locations', 'inventory_locations.id', '=', 'whatnot_show_orders.inventory_location_id')
+                            ->where('inventory_locations.whatnot_channel_id', \App\Support\ChannelContext::currentId()));
+                })
+                ->whereNotExists(function ($query) {
+                    $query->selectRaw('1')
+                        ->from('inventory_stock')
+                        ->whereColumn('inventory_stock.inventory_item_id', 'products.id')
+                        ->groupBy('inventory_stock.inventory_item_id')
+                        ->havingRaw('SUM(inventory_stock.quantity) > 0');
+                })
+                ->whereNotExists(function ($query) use ($restockCutoff) {
+                    $query->selectRaw('1')
+                        ->from('inventory_movements')
+                        ->whereColumn('inventory_movements.inventory_item_id', 'products.id')
+                        ->whereIn('inventory_movements.movement_type', ['opening', 'return'])
+                        ->where('inventory_movements.created_at', '>=', $restockCutoff);
                 })
                 ->count();
         } catch (\Throwable) {

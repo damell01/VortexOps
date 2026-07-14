@@ -193,6 +193,32 @@ class Product extends Model
         return $this->totalQuantity() <= $this->reorder_level;
     }
 
+    /** Most recent time stock was added to this item (opening or return), or null if never. */
+    public function lastRestockedAt(): ?\Illuminate\Support\Carbon
+    {
+        $max = $this->relationLoaded('movements')
+            ? $this->movements->whereIn('movement_type', ['opening', 'return'])->max('created_at')
+            : $this->movements()->whereIn('movement_type', ['opening', 'return'])->max('created_at');
+
+        return $max ? \Illuminate\Support\Carbon::parse($max) : null;
+    }
+
+    /**
+     * True when this item currently has zero stock everywhere and hasn't been
+     * restocked in at least $days days (or ever) — a signal that a sale mapped
+     * to it is likely a mis-mapping rather than a real transaction.
+     */
+    public function hasBeenOutOfStockFor(int $days = 14): bool
+    {
+        if ($this->totalQuantity() > 0) {
+            return false;
+        }
+
+        $lastRestock = $this->lastRestockedAt();
+
+        return $lastRestock === null || $lastRestock->lt(now()->subDays($days));
+    }
+
     /**
      * Human-readable card label, e.g. "2025 Topps Chrome Baseball Hobby Box".
      */

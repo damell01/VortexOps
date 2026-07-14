@@ -153,7 +153,24 @@ class ItemsSoldRelationManager extends RelationManager
                     ->options(fn () => self::streamerInventoryOptions($show))
                     ->selectablePlaceholder('— map item —')
                     ->width('220px')
-                    ->disabled($locked),
+                    ->disabled($locked)
+                    ->afterStateUpdated(function ($state): void {
+                        // Smart-monitoring nudge: catches the common mis-mapping where a
+                        // streamer picks the wrong (visually similar) item — one with no
+                        // real stock to have sold from.
+                        if (! $state) {
+                            return;
+                        }
+
+                        $item = InventoryItem::find($state);
+                        if ($item && $item->hasBeenOutOfStockFor(14)) {
+                            Notification::make()
+                                ->title('This item shows no stock')
+                                ->body("\"{$item->name}\" has had zero stock for 14+ days. Double-check this is the right item before submitting.")
+                                ->warning()
+                                ->send();
+                        }
+                    }),
 
                 SelectColumn::make('inventory_location_id')
                     ->label('Location')

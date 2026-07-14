@@ -127,6 +127,47 @@ class DashboardWidgetsTest extends TestCase
             ->assertSee('dead on the shelf');
     }
 
+    public function test_needs_attention_surfaces_zero_stock_mapped_sale(): void
+    {
+        $admin = $this->admin();
+
+        $item = \App\Models\InventoryItem::create(['name' => 'Ghost Card', 'unit_cost' => 10, 'is_active' => true]);
+        // No InventoryStock row at all for this item, and no restock movement.
+        \App\Models\WhatnotShowOrder::create([
+            'show_id' => Show::create(['title' => 'S', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $admin->id])->id,
+            'inventory_item_id' => $item->id, 'buyer_username' => 'b', 'item_name' => 'Ghost Card',
+            'quantity' => 1, 'unit_cost' => 10, 'total_price' => 12, 'status' => 'completed',
+            'show_date' => now()->subDays(3)->toDateString(),
+        ]);
+
+        Livewire::actingAs($admin);
+
+        Livewire::test(NeedsAttentionWidget::class)
+            ->assertSee('likely mis-mapped');
+    }
+
+    public function test_needs_attention_does_not_flag_item_with_stock(): void
+    {
+        $admin = $this->admin();
+
+        $item = \App\Models\InventoryItem::create(['name' => 'Real Card', 'unit_cost' => 10, 'is_active' => true]);
+        $loc  = \App\Models\InventoryLocation::create(['name' => 'Main']);
+        \App\Models\InventoryStock::create([
+            'inventory_item_id' => $item->id, 'inventory_location_id' => $loc->id, 'quantity' => 5,
+        ]);
+        \App\Models\WhatnotShowOrder::create([
+            'show_id' => Show::create(['title' => 'S', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $admin->id])->id,
+            'inventory_item_id' => $item->id, 'buyer_username' => 'b', 'item_name' => 'Real Card',
+            'quantity' => 1, 'unit_cost' => 10, 'total_price' => 12, 'status' => 'completed',
+            'show_date' => now()->subDays(3)->toDateString(),
+        ]);
+
+        Livewire::actingAs($admin);
+
+        Livewire::test(NeedsAttentionWidget::class)
+            ->assertDontSee('likely mis-mapped');
+    }
+
     // ── Blade widgets render (regression: $view must be set, not just getView) ──
 
     public function test_activity_feed_widget_renders(): void

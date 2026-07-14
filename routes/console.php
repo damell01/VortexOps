@@ -60,3 +60,9 @@ Schedule::command('whatnot:import-ledger --days=8')
     ->withoutOverlapping(30);
 
 Schedule::command('whatnot:sync')->hourly()->name('whatnot-sync-hourly')->withoutOverlapping(10);
+
+// Mid-week revenue snapshot (Wednesday) and a Friday nudge for anything still
+// sitting in Pending Review/Approval — so a slow week or a review backlog
+// surfaces before it becomes a scramble at week's end.
+Schedule::command('reports:midweek-report')->weeklyOn(3, '09:00')->name('midweek-report');
+Schedule::command('reports:weekly-review-reminder')->weeklyOn(5, '09:00')->name('weekly-review-reminder');

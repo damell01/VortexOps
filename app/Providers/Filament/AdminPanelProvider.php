@@ -149,98 +149,117 @@ class AdminPanelProvider extends PanelProvider
                     </script>
                     HTML : '',
             )
-            // ── Login page: inject split-screen CSS ──────────────────────────────
+            // ── Login page: full-bleed gradient background + centered glass card ─
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 function () use ($isAuthenticatedAdminView): string {
                     if ($isAuthenticatedAdminView()) return '';
                     return <<<'CSS'
                     <style>
-                    .vx-login-brand{display:none;position:relative;overflow:hidden;background:linear-gradient(155deg,#1a0535 0%,#3b0e72 45%,#6d28d9 100%);flex-direction:column;justify-content:center;flex-shrink:0}
-                    .vx-lb-bubble{position:absolute;border-radius:50%;pointer-events:none}
-                    .vx-lb-bubble-1{width:340px;height:340px;top:-110px;right:-110px;background:rgba(124,58,237,.2)}
-                    .vx-lb-bubble-2{width:200px;height:200px;bottom:-60px;left:-60px;background:rgba(124,58,237,.15)}
-                    .vx-lb-bubble-3{width:110px;height:110px;bottom:28%;right:30px;background:rgba(167,139,250,.12)}
-                    @media(max-width:899px){
-                        .vx-login-brand{display:flex;flex-direction:row;align-items:center;gap:1rem;padding:1.25rem 1.5rem}
-                        .vx-lb-tagline,.vx-lb-features,.vx-lb-footer{display:none!important}
-                        .vx-lb-bubble{display:none}
+                    .fi-simple-layout:has(.vx-login-hero){
+                        position:relative;min-height:100vh;overflow:hidden;
+                        background:radial-gradient(ellipse 90% 60% at 15% 0%,rgba(109,40,217,.5),transparent 60%),
+                                   radial-gradient(ellipse 80% 60% at 100% 100%,rgba(124,58,237,.4),transparent 60%),
+                                   linear-gradient(155deg,#150430 0%,#330d6b 45%,#5b21b6 100%);
                     }
-                    @media(min-width:900px){
-                        .vx-login-brand{display:flex;width:420px;padding:3rem 2.5rem}
-                        .fi-simple-layout:has(.vx-login-brand){display:flex!important;flex-direction:row!important;min-height:100vh}
-                        .fi-simple-layout:has(.vx-login-brand) .fi-simple-main-ctn{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem;background:#f5f3ff}
+                    .fi-simple-layout:has(.vx-login-hero)::before{
+                        content:'';position:absolute;inset:0;pointer-events:none;opacity:.5;
+                        background-image:
+                            repeating-linear-gradient(115deg,transparent 0 60px,rgba(196,181,253,.05) 60px 62px),
+                            repeating-linear-gradient(95deg,transparent 0 90px,rgba(196,181,253,.04) 90px 92px);
                     }
-                    .fi-simple-layout:has(.vx-login-brand) .fi-simple-header{display:none!important}
-                    .fi-simple-layout:has(.vx-login-brand) .fi-simple-main{background:#fff;border-radius:1.25rem;box-shadow:0 4px 40px rgba(109,40,217,.12),0 1px 4px rgba(0,0,0,.06);padding:2.5rem!important;width:100%}
-                    .vx-form-heading{text-align:center;margin-bottom:1.75rem}
-                    .vx-form-heading h2{font-size:1.4rem;font-weight:700;color:#111827;margin:0 0 .3rem}
-                    .vx-form-heading p{font-size:.85rem;color:#6b7280;margin:0}
-                    @media(prefers-color-scheme:dark){
-                        .fi-simple-layout:has(.vx-login-brand) .fi-simple-main-ctn{background:#0f0a1e}
-                        .fi-simple-layout:has(.vx-login-brand) .fi-simple-main{background:#1e1b2e;box-shadow:0 4px 40px rgba(0,0,0,.4)}
-                        .vx-form-heading h2{color:#f1f5f9}
-                        .vx-form-heading p{color:#94a3b8}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main-ctn{
+                        position:relative;z-index:1;background:transparent!important;min-height:100vh;
+                        display:flex;align-items:center;justify-content:center;padding:2rem 1.5rem;
                     }
-                    [data-theme=dark] .fi-simple-layout:has(.vx-login-brand) .fi-simple-main-ctn{background:#0f0a1e}
-                    [data-theme=dark] .fi-simple-layout:has(.vx-login-brand) .fi-simple-main{background:#1e1b2e;box-shadow:0 4px 40px rgba(0,0,0,.4)}
-                    [data-theme=dark] .vx-form-heading h2{color:#f1f5f9}
-                    [data-theme=dark] .vx-form-heading p{color:#94a3b8}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-header{display:none!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main{
+                        background:rgba(30,16,56,.55)!important;
+                        backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+                        border:1px solid rgba(255,255,255,.1);
+                        border-radius:1.25rem;
+                        box-shadow:0 20px 60px rgba(0,0,0,.35);
+                        padding:2.25rem 2.25rem 1.75rem!important;
+                        width:100%;max-width:26rem;
+                    }
+                    .vx-login-hero{position:relative;z-index:1;text-align:center;margin:0 auto 1.75rem;max-width:26rem}
+                    .vx-login-hero-mark{display:flex;align-items:center;justify-content:center;gap:.65rem;margin-bottom:1.25rem}
+                    .vx-login-hero-word{font-size:1.35rem;font-weight:800;color:#fff;letter-spacing:-.3px;line-height:1;text-align:left}
+                    .vx-login-hero-word small{display:block;font-size:.62rem;font-weight:700;color:#c4b5fd;letter-spacing:3px;line-height:1.7}
+                    .vx-login-hero h1{font-size:1.35rem;font-weight:700;color:#fff;margin:0}
+                    .vx-form-heading{text-align:center;margin-bottom:1.5rem}
+                    .vx-form-heading p{font-size:.85rem;color:#c4b5fd;margin:0}
+                    .vx-login-footer{position:relative;z-index:1;text-align:center;margin-top:1.5rem;font-size:.75rem;color:rgba(255,255,255,.35)}
+                    /* Dark-glass form controls */
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main label{color:#e9d5ff!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input{
+                        background:rgba(255,255,255,.06)!important;
+                        border-color:rgba(255,255,255,.14)!important;
+                        color:#fff!important;
+                    }
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input::placeholder{color:rgba(255,255,255,.35)!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input:focus{
+                        border-color:#a78bfa!important;
+                        box-shadow:0 0 0 1px #a78bfa!important;
+                    }
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main .fi-fo-field-wrp-error-message,
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main .fi-fo-field-wrp-hint{color:#c4b5fd!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a{color:#c4b5fd!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a:hover{color:#e9d5ff!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"],
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main .fi-btn[type="submit"]{
+                        background:linear-gradient(90deg,#7c3aed,#a78bfa)!important;
+                        border:none!important;
+                        box-shadow:0 4px 16px rgba(124,58,237,.4)!important;
+                    }
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"]:hover,
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main .fi-btn[type="submit"]:hover{
+                        background:linear-gradient(90deg,#6d28d9,#8b5cf6)!important;
+                    }
                     </style>
                     CSS;
                 },
             )
-            // ── Login page: inject brand panel (left side) ───────────────────────
+            // ── Login page: logo + heading above the card ────────────────────────
             ->renderHook(
                 PanelsRenderHook::SIMPLE_LAYOUT_START,
                 function () use ($isAuthenticatedAdminView): string {
                     if ($isAuthenticatedAdminView()) return '';
                     return <<<'HTML'
-                    <div class="vx-login-brand">
-                        <div class="vx-lb-bubble vx-lb-bubble-1"></div>
-                        <div class="vx-lb-bubble vx-lb-bubble-2"></div>
-                        <div class="vx-lb-bubble vx-lb-bubble-3"></div>
-                        <div style="position:relative;z-index:1;display:flex;flex-direction:column;height:100%">
-                            <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:auto">
-                                <svg viewBox="0 0 100 100" width="54" height="54" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                                    <defs><mask id="vx-lm"><rect width="100" height="100" fill="white"/><rect x="0" y="19.5" width="100" height="9" fill="black"/></mask></defs>
-                                    <path mask="url(#vx-lm)" d="M 23,15 L 77,15 Q 87,15 82,25 L 53,80 Q 50,87 47,80 L 18,25 Q 13,15 23,15 Z" stroke="#f0ece6" stroke-width="5.5" stroke-linejoin="round" fill="none"/>
-                                    <path d="M 30,24 L 70,24 Q 79,24 74.5,32 L 52.5,75 Q 50,81 47.5,75 L 25.5,32 Q 21,24 30,24 Z" stroke="#f0ece6" stroke-width="5" stroke-linejoin="round" fill="none"/>
-                                    <path d="M 23,15 L 77,15" stroke="#f0ece6" stroke-width="5.5" stroke-linecap="round"/>
-                                    <path d="M 30,24 L 70,24" stroke="#f0ece6" stroke-width="5" stroke-linecap="round"/>
-                                </svg>
-                                <div>
-                                    <div style="font-size:1.5rem;font-weight:800;color:#fff;letter-spacing:-.5px;line-height:1">VORTEX</div>
-                                    <div style="font-size:.7rem;font-weight:700;color:#c4b5fd;letter-spacing:4px;line-height:1.6">BREAKS</div>
-                                </div>
-                            </div>
-                            <div class="vx-lb-tagline" style="padding:2.5rem 0">
-                                <div style="font-size:1.35rem;font-weight:700;color:#fff;margin-bottom:.6rem;line-height:1.25">Operations<br>Platform</div>
-                                <div style="color:#c4b5fd;font-size:.83rem;line-height:1.65">Your all-in-one hub for show management, inventory tracking, and streamer payouts.</div>
-                            </div>
-                            <div class="vx-lb-features" style="display:flex;flex-direction:column;gap:.9rem">
-                                <div style="display:flex;align-items:center;gap:.75rem"><div style="width:30px;height:30px;border-radius:7px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">🎬</div><span style="color:#e9d5ff;font-size:.825rem">Show tracking &amp; reconciliation</span></div>
-                                <div style="display:flex;align-items:center;gap:.75rem"><div style="width:30px;height:30px;border-radius:7px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">📦</div><span style="color:#e9d5ff;font-size:.825rem">Inventory management</span></div>
-                                <div style="display:flex;align-items:center;gap:.75rem"><div style="width:30px;height:30px;border-radius:7px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">💰</div><span style="color:#e9d5ff;font-size:.825rem">Streamer payouts</span></div>
-                                <div style="display:flex;align-items:center;gap:.75rem"><div style="width:30px;height:30px;border-radius:7px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">✨</div><span style="color:#e9d5ff;font-size:.825rem">AI-powered assistant</span></div>
-                            </div>
-                            <div class="vx-lb-footer" style="margin-top:2rem;padding-top:1.25rem;border-top:1px solid rgba(255,255,255,.1)">
-                                <div style="color:rgba(255,255,255,.3);font-size:.72rem">Built by DBell Creations</div>
-                            </div>
+                    <div class="vx-login-hero">
+                        <div class="vx-login-hero-mark">
+                            <svg viewBox="0 0 100 100" width="34" height="34" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                                <defs><mask id="vx-lm2"><rect width="100" height="100" fill="white"/><rect x="0" y="19.5" width="100" height="9" fill="black"/></mask></defs>
+                                <path mask="url(#vx-lm2)" d="M 23,15 L 77,15 Q 87,15 82,25 L 53,80 Q 50,87 47,80 L 18,25 Q 13,15 23,15 Z" stroke="#f0ece6" stroke-width="5.5" stroke-linejoin="round" fill="none"/>
+                                <path d="M 30,24 L 70,24 Q 79,24 74.5,32 L 52.5,75 Q 50,81 47.5,75 L 25.5,32 Q 21,24 30,24 Z" stroke="#f0ece6" stroke-width="5" stroke-linejoin="round" fill="none"/>
+                                <path d="M 23,15 L 77,15" stroke="#f0ece6" stroke-width="5.5" stroke-linecap="round"/>
+                                <path d="M 30,24 L 70,24" stroke="#f0ece6" stroke-width="5" stroke-linecap="round"/>
+                            </svg>
+                            <div class="vx-login-hero-word">VORTEX<small>BREAKS</small></div>
                         </div>
+                        <h1>Operations Platform &mdash; Welcome Back</h1>
                     </div>
                     HTML;
                 },
             )
-            // ── Login page: "Welcome back" heading above the form ────────────────
+            // ── Login page: subheading inside the card, above the form ───────────
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
                 fn (): string => <<<'HTML'
                 <div class="vx-form-heading">
-                    <h2>Welcome back</h2>
-                    <p>Sign in to your VortexOps account</p>
+                    <p>Sign in to manage your hub</p>
                 </div>
                 HTML,
+            )
+            // ── Login page: footer credit below the card ─────────────────────────
+            ->renderHook(
+                PanelsRenderHook::SIMPLE_LAYOUT_END,
+                function () use ($isAuthenticatedAdminView): string {
+                    if ($isAuthenticatedAdminView()) return '';
+                    return <<<'HTML'
+                    <div class="vx-login-footer">Built by DBell Creations</div>
+                    HTML;
+                },
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

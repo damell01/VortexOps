@@ -197,7 +197,8 @@ class DashboardWidgetsTest extends TestCase
 
         Livewire::test(RevenuePacingWidget::class)
             ->assertOk()
-            ->assertSee('This Week So Far');
+            ->assertSee('This Week So Far')
+            ->assertSee('Projected This Month');
     }
 
     public function test_revenue_pacing_widget_hidden_for_non_admins(): void

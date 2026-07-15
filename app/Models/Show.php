@@ -545,6 +545,52 @@ class Show extends Model
         ];
     }
 
+    /**
+     * Same idea as weekPacing() but for the month, plus an actual projection:
+     * extrapolating this month's current daily run rate across the rest of the
+     * month. Baseline is the trailing 3 months, each measured through the same
+     * relative day (capped to that month's own length, so pacing on day 31
+     * doesn't break in a 30-day baseline month).
+     *
+     * @return array{this_month_revenue:float, baseline_avg:float, pacing_pct:?float, days_into_month:int, projected_month_total:?float}
+     */
+    public static function monthPacing(): array
+    {
+        $today         = now();
+        $daysIntoMonth = $today->day;
+        $monthStart    = $today->copy()->startOfMonth();
+
+        $revenueThrough = fn (\Illuminate\Support\Carbon $start, \Illuminate\Support\Carbon $end): float =>
+            (float) static::whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
+                ->whereNotIn('status', ['cancelled'])
+                ->inChannelContext()
+                ->sum('gross_revenue');
+
+        $thisMonthRevenue = $revenueThrough($monthStart, $today);
+
+        $baselineRevenues = [];
+        for ($i = 1; $i <= 3; $i++) {
+            $priorStart = $monthStart->copy()->subMonths($i);
+            $priorEnd   = $priorStart->copy()->addDays(min($daysIntoMonth, $priorStart->daysInMonth) - 1);
+            $baselineRevenues[] = $revenueThrough($priorStart, $priorEnd);
+        }
+
+        $baselineAvg = array_sum($baselineRevenues) / count($baselineRevenues);
+        $pacingPct   = $baselineAvg > 0 ? round((($thisMonthRevenue - $baselineAvg) / $baselineAvg) * 100, 1) : null;
+
+        $projectedMonthTotal = $daysIntoMonth > 0
+            ? round(($thisMonthRevenue / $daysIntoMonth) * $today->daysInMonth, 2)
+            : null;
+
+        return [
+            'this_month_revenue'    => round($thisMonthRevenue, 2),
+            'baseline_avg'          => round($baselineAvg, 2),
+            'pacing_pct'            => $pacingPct,
+            'days_into_month'       => $daysIntoMonth,
+            'projected_month_total' => $projectedMonthTotal,
+        ];
+    }
+
     public static function statusLabels(): array
     {
         return [

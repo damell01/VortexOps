@@ -311,6 +311,64 @@ class ShowModelTest extends TestCase
         $this->assertEqualsWithDelta(0.0, $pacing['this_week_revenue'], 0.01);
     }
 
+    // ── Month pacing ─────────────────────────────────────────────────────────
+
+    public function test_month_pacing_computes_pct_vs_trailing_3_month_average(): void
+    {
+        $monthStart = now()->startOfMonth();
+
+        $this->makeShow(['gross_revenue' => 200, 'status' => 'reconciled', 'show_date' => $monthStart->toDateString()]);
+
+        for ($i = 1; $i <= 3; $i++) {
+            $this->makeShow([
+                'gross_revenue' => 100,
+                'status'        => 'reconciled',
+                'show_date'     => $monthStart->copy()->subMonths($i)->toDateString(),
+            ]);
+        }
+
+        $pacing = Show::monthPacing();
+
+        $this->assertEqualsWithDelta(200.0, $pacing['this_month_revenue'], 0.01);
+        $this->assertEqualsWithDelta(100.0, $pacing['baseline_avg'], 0.01);
+        $this->assertEqualsWithDelta(100.0, $pacing['pacing_pct'], 0.1); // 100% ahead
+        $this->assertEquals(now()->day, $pacing['days_into_month']);
+    }
+
+    public function test_month_pacing_null_pct_without_baseline_history(): void
+    {
+        $this->makeShow(['gross_revenue' => 200, 'status' => 'reconciled', 'show_date' => now()->startOfMonth()->toDateString()]);
+
+        $pacing = Show::monthPacing();
+
+        $this->assertEqualsWithDelta(0.0, $pacing['baseline_avg'], 0.01);
+        $this->assertNull($pacing['pacing_pct']);
+    }
+
+    public function test_month_pacing_projects_full_month_from_current_run_rate(): void
+    {
+        $today         = now();
+        $daysIntoMonth = $today->day;
+        $monthStart    = $today->copy()->startOfMonth();
+
+        // Revenue-so-far equals days elapsed → a $1/day run rate.
+        $this->makeShow(['gross_revenue' => $daysIntoMonth, 'status' => 'reconciled', 'show_date' => $monthStart->toDateString()]);
+
+        $pacing = Show::monthPacing();
+
+        $this->assertEqualsWithDelta((float) $today->daysInMonth, $pacing['projected_month_total'], 0.5);
+    }
+
+    public function test_month_pacing_excludes_cancelled_shows(): void
+    {
+        $monthStart = now()->startOfMonth();
+        $this->makeShow(['gross_revenue' => 200, 'status' => 'cancelled', 'show_date' => $monthStart->toDateString()]);
+
+        $pacing = Show::monthPacing();
+
+        $this->assertEqualsWithDelta(0.0, $pacing['this_month_revenue'], 0.01);
+    }
+
     public function test_pipeline_steps_for_cancelled_show_are_skipped(): void
     {
         $show  = $this->makeShow(['status' => 'cancelled']);

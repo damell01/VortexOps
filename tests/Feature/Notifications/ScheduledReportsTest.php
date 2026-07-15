@@ -107,6 +107,25 @@ class ScheduledReportsTest extends TestCase
         Notification::assertNothingSent();
     }
 
+    public function test_midweek_report_includes_pacing_percentage(): void
+    {
+        Notification::fake();
+
+        $weekStart = now()->startOfWeek();
+        $this->makeShow(['status' => 'reconciled', 'gross_revenue' => 500, 'show_date' => $weekStart->toDateString()]);
+        for ($i = 1; $i <= 4; $i++) {
+            $this->makeShow(['status' => 'reconciled', 'gross_revenue' => 100, 'show_date' => $weekStart->copy()->subWeeks($i)->toDateString()]);
+        }
+
+        $this->artisan('reports:midweek-report')->assertSuccessful();
+
+        Notification::assertSentTo(
+            $this->admin,
+            MidweekReportNotification::class,
+            fn (MidweekReportNotification $n) => $n->pacingPct !== null && $n->pacingPct > 0,
+        );
+    }
+
     public function test_midweek_report_excludes_cancelled_shows(): void
     {
         Notification::fake();

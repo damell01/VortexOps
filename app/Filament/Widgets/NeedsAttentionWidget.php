@@ -8,9 +8,11 @@ use App\Filament\Resources\DeductionRequestResource;
 use App\Filament\Resources\InventoryItemResource;
 use App\Filament\Resources\ShowResource;
 use App\Filament\Resources\StreamerLogResource;
+use App\Filament\Resources\StreamerResource;
 use App\Models\DeductionRequest;
 use App\Models\InventoryItem;
 use App\Models\Show;
+use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
 use App\Support\AdminModules;
 use Filament\Widgets\Widget;
@@ -135,6 +137,15 @@ class NeedsAttentionWidget extends Widget
                 'danger',
                 SystemHealth::getUrl(),
             );
+
+            $add(
+                AdminModules::isEnabled('streams'),
+                $this->trendingDownStreamerCount(),
+                'streamers trending down vs. their recent average — worth a check-in',
+                'heroicon-o-arrow-trending-down',
+                'warning',
+                StreamerResource::getUrl(),
+            );
         } catch (\Throwable) {
             // On a partially-migrated install just show what we could gather.
         }
@@ -239,6 +250,20 @@ class NeedsAttentionWidget extends Widget
                         ->whereIn('inventory_movements.movement_type', ['opening', 'return'])
                         ->where('inventory_movements.created_at', '>=', $restockCutoff);
                 })
+                ->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    /** Active streamers whose most recently completed week is down 30%+ vs. their trailing 3-week average. */
+    private function trendingDownStreamerCount(): int
+    {
+        try {
+            return Streamer::where('status', 'active')
+                ->inChannelContext()
+                ->get()
+                ->filter(fn (Streamer $s) => $s->isPerformanceTrendingDown())
                 ->count();
         } catch (\Throwable) {
             return 0;

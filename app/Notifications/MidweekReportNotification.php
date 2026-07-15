@@ -21,6 +21,7 @@ class MidweekReportNotification extends Notification
         public readonly float $grossRevenue,
         public readonly int $unitsSold,
         public readonly string $reportUrl,
+        public readonly ?float $pacingPct = null,
     ) {}
 
     public function via(object $notifiable): array
@@ -28,27 +29,47 @@ class MidweekReportNotification extends Notification
         return ['database', 'mail'];
     }
 
+    private function pacingLine(): ?string
+    {
+        if ($this->pacingPct === null) {
+            return null;
+        }
+
+        $direction = $this->pacingPct >= 0 ? 'ahead of' : 'behind';
+
+        return 'Pacing ' . number_format(abs($this->pacingPct), 1) . "% {$direction} the last 4 weeks' average for this point in the week.";
+    }
+
     public function toMail(object $notifiable): MailMessage
     {
         $gross = number_format($this->grossRevenue, 2);
 
-        return (new MailMessage)
+        $mail = (new MailMessage)
             ->subject("Mid-week report — week of {$this->weekLabel}")
             ->greeting('Mid-week check-in')
             ->line("So far this week ({$this->weekLabel}):")
             ->line("• {$this->showCount} show(s)")
             ->line("• \${$gross} gross revenue")
-            ->line("• {$this->unitsSold} units sold")
-            ->action('View full report', $this->reportUrl);
+            ->line("• {$this->unitsSold} units sold");
+
+        if ($pacing = $this->pacingLine()) {
+            $mail->line($pacing);
+        }
+
+        return $mail->action('View full report', $this->reportUrl);
     }
 
     public function toDatabase(object $notifiable): array
     {
         $gross = number_format($this->grossRevenue, 2);
+        $body  = "{$this->showCount} shows, \${$gross} gross so far this week ({$this->weekLabel}).";
+        if ($pacing = $this->pacingLine()) {
+            $body .= ' ' . $pacing;
+        }
 
         return FilamentNotification::make()
             ->title('Mid-week report')
-            ->body("{$this->showCount} shows, \${$gross} gross so far this week ({$this->weekLabel}).")
+            ->body($body)
             ->icon('heroicon-o-chart-bar')
             ->info()
             ->actions([

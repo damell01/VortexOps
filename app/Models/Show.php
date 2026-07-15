@@ -503,6 +503,48 @@ class Show extends Model
         return $ratio > 2.5 || $ratio < 0.35;
     }
 
+    /**
+     * How this week's revenue-so-far compares to the same point in the last 4
+     * weeks — "are we pacing ahead or behind" rather than a raw dollar figure.
+     * Each trailing week is measured through the same relative day (e.g. if
+     * today is Wednesday, each prior week is summed Mon–Wed too), so a
+     * mid-week comparison is never unfairly stacked against a full week.
+     * Channel-aware like the rest of the reporting surface.
+     *
+     * @return array{this_week_revenue:float, baseline_avg:float, pacing_pct:?float, days_into_week:int}
+     */
+    public static function weekPacing(): array
+    {
+        $today        = now();
+        $daysIntoWeek = $today->dayOfWeekIso; // 1 (Mon) .. 7 (Sun)
+        $weekStart    = $today->copy()->startOfWeek();
+
+        $revenueThrough = fn (\Illuminate\Support\Carbon $start, \Illuminate\Support\Carbon $end): float =>
+            (float) static::whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
+                ->whereNotIn('status', ['cancelled'])
+                ->inChannelContext()
+                ->sum('gross_revenue');
+
+        $thisWeekRevenue = $revenueThrough($weekStart, $today);
+
+        $baselineRevenues = [];
+        for ($i = 1; $i <= 4; $i++) {
+            $priorStart = $weekStart->copy()->subWeeks($i);
+            $priorEnd   = $priorStart->copy()->addDays($daysIntoWeek - 1);
+            $baselineRevenues[] = $revenueThrough($priorStart, $priorEnd);
+        }
+
+        $baselineAvg = array_sum($baselineRevenues) / count($baselineRevenues);
+        $pacingPct   = $baselineAvg > 0 ? round((($thisWeekRevenue - $baselineAvg) / $baselineAvg) * 100, 1) : null;
+
+        return [
+            'this_week_revenue' => round($thisWeekRevenue, 2),
+            'baseline_avg'      => round($baselineAvg, 2),
+            'pacing_pct'        => $pacingPct,
+            'days_into_week'    => $daysIntoWeek,
+        ];
+    }
+
     public static function statusLabels(): array
     {
         return [

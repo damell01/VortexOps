@@ -38,6 +38,7 @@ class SendMidweekReport extends Command
 
         $recipients = $router->getRecipients('midweek_report');
         $weekLabel  = $weekStart->format('M j') . ' – ' . now()->endOfWeek()->format('M j');
+        $pacingPct  = Show::weekPacing()['pacing_pct'];
 
         foreach ($recipients as $user) {
             $user->notify(new MidweekReportNotification(
@@ -46,6 +47,7 @@ class SendMidweekReport extends Command
                 grossRevenue: (float) $shows->sum('gross_revenue'),
                 unitsSold: (int) $shows->sum('units_sold'),
                 reportUrl: Reports::getUrl(),
+                pacingPct: $pacingPct,
             ));
         }
 

@@ -267,6 +267,50 @@ class ShowModelTest extends TestCase
         $this->assertNull(collect($steps)->firstWhere('key', 'fulfillment_reviewed'));
     }
 
+    // ── Week pacing ──────────────────────────────────────────────────────────
+
+    public function test_week_pacing_computes_pct_vs_trailing_4_week_average(): void
+    {
+        $weekStart = now()->startOfWeek();
+
+        $this->makeShow(['gross_revenue' => 200, 'status' => 'reconciled', 'show_date' => $weekStart->toDateString()]);
+
+        for ($i = 1; $i <= 4; $i++) {
+            $this->makeShow([
+                'gross_revenue' => 100,
+                'status'        => 'reconciled',
+                'show_date'     => $weekStart->copy()->subWeeks($i)->toDateString(),
+            ]);
+        }
+
+        $pacing = Show::weekPacing();
+
+        $this->assertEqualsWithDelta(200.0, $pacing['this_week_revenue'], 0.01);
+        $this->assertEqualsWithDelta(100.0, $pacing['baseline_avg'], 0.01);
+        $this->assertEqualsWithDelta(100.0, $pacing['pacing_pct'], 0.1); // 100% ahead
+        $this->assertEquals(now()->dayOfWeekIso, $pacing['days_into_week']);
+    }
+
+    public function test_week_pacing_null_pct_without_baseline_history(): void
+    {
+        $this->makeShow(['gross_revenue' => 200, 'status' => 'reconciled', 'show_date' => now()->startOfWeek()->toDateString()]);
+
+        $pacing = Show::weekPacing();
+
+        $this->assertEqualsWithDelta(0.0, $pacing['baseline_avg'], 0.01);
+        $this->assertNull($pacing['pacing_pct']);
+    }
+
+    public function test_week_pacing_excludes_cancelled_shows(): void
+    {
+        $weekStart = now()->startOfWeek();
+        $this->makeShow(['gross_revenue' => 200, 'status' => 'cancelled', 'show_date' => $weekStart->toDateString()]);
+
+        $pacing = Show::weekPacing();
+
+        $this->assertEqualsWithDelta(0.0, $pacing['this_week_revenue'], 0.01);
+    }
+
     public function test_pipeline_steps_for_cancelled_show_are_skipped(): void
     {
         $show  = $this->makeShow(['status' => 'cancelled']);

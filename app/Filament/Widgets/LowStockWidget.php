@@ -20,6 +20,7 @@ class LowStockWidget extends BaseWidget
             ->query(
                 InventoryItem::query()
                     ->withSum('stock', 'quantity')
+                    ->with('preferredVendor')
                     ->where('is_active', true)
                     ->whereNotNull('reorder_level')
                     ->whereExists(function ($query) {
@@ -52,6 +53,14 @@ class LowStockWidget extends BaseWidget
                     ->label('Reorder At'),
                 TextColumn::make('unit_cost')
                     ->money('USD'),
+                TextColumn::make('suggested_reorder_qty')
+                    ->label('Suggested Reorder')
+                    ->state(fn (InventoryItem $record) => $record->suggestedReorderQuantity())
+                    ->placeholder('—')
+                    ->numeric(decimalPlaces: 0)
+                    ->color('warning')
+                    ->weight('semibold')
+                    ->tooltip('From trailing 30-day sales pace × vendor lead time + a 7-day buffer.'),
             ])
             ->recordUrl(fn ($record) => InventoryItemResource::getUrl('view', ['record' => $record]))
             ->paginated([8, 25, 50])

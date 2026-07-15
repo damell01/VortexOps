@@ -31,6 +31,15 @@ class ProductInsights extends Page
     /** Cap on rows rendered per view — nobody scrolls thousands; show the top. */
     public const ROW_LIMIT = 200;
 
+    /** Trailing window used to estimate daily sales velocity for reorder suggestions. */
+    public const VELOCITY_WINDOW_DAYS = 30;
+
+    /** Assumed order-to-delivery time when a product's vendor has no lead time set. */
+    public const DEFAULT_LEAD_TIME_DAYS = 14;
+
+    /** Extra buffer stock, expressed in days of sales, on top of lead-time demand. */
+    public const SAFETY_STOCK_DAYS = 7;
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-presentation-chart-line';
@@ -90,9 +99,21 @@ class ProductInsights extends Page
             ->whereNotNull('inventory_item_id')
             ->groupBy('inventory_item_id');
 
+        // Separate trailing-window sum (not all-time) so we can estimate a daily
+        // sales velocity for the reorder-quantity suggestion below.
+        $trailingCutoff = now()->subDays(self::VELOCITY_WINDOW_DAYS)->toDateString();
+        $trailingOrders = DB::table('whatnot_show_orders')
+            ->select('inventory_item_id')
+            ->selectRaw('SUM(quantity) as trailing_units_sold')
+            ->whereNotNull('inventory_item_id')
+            ->where('show_date', '>=', $trailingCutoff)
+            ->groupBy('inventory_item_id');
+
         return DB::table('products as p')
             ->leftJoinSub($stock, 'st', 'st.inventory_item_id', '=', 'p.id')
             ->leftJoinSub($orders, 'o', 'o.inventory_item_id', '=', 'p.id')
+            ->leftJoinSub($trailingOrders, 't', 't.inventory_item_id', '=', 'p.id')
+            ->leftJoin('vendors as v', 'v.id', '=', 'p.preferred_vendor_id')
             ->whereRaw('p.is_active = 1 and p.deleted_at is null')
             ->selectRaw('
                 p.id, p.name, p.category,
@@ -101,7 +122,9 @@ class ProductInsights extends Page
                 COALESCE(o.units_sold, 0) as units_sold,
                 COALESCE(o.revenue, 0)    as revenue,
                 COALESCE(o.cogs, 0)       as cogs,
-                o.last_sold_at            as last_sold_at
+                o.last_sold_at            as last_sold_at,
+                COALESCE(t.trailing_units_sold, 0) as trailing_units_sold,
+                v.lead_time_days          as vendor_lead_time_days
             ');
     }
 
@@ -150,6 +173,20 @@ class ProductInsights extends Page
         $available = $unitsSold + $onHand;
         $lastSold  = $r->last_sold_at ? Carbon::parse($r->last_sold_at) : null;
 
+        // Reorder-quantity forecast: daily velocity from trailing sales, projected
+        // across lead time plus a safety buffer, minus what's already on hand.
+        // Null whenever there's no recent sales history to estimate a rate from —
+        // a forecast built on zero data is worse than no forecast.
+        $trailingUnitsSold = (float) ($r->trailing_units_sold ?? 0);
+        $velocity     = round($trailingUnitsSold / self::VELOCITY_WINDOW_DAYS, 2);
+        $leadTimeDays = (int) ($r->vendor_lead_time_days ?? self::DEFAULT_LEAD_TIME_DAYS);
+
+        $daysOfStockRemaining = $velocity > 0 ? round($onHand / $velocity, 1) : null;
+        $reorderPoint         = $velocity > 0 ? $velocity * ($leadTimeDays + self::SAFETY_STOCK_DAYS) : null;
+        $suggestedReorderQty  = ($reorderPoint !== null && $onHand < $reorderPoint)
+            ? (int) ceil($reorderPoint - $onHand)
+            : null;
+
         return [
             'id'              => $r->id,
             'name'            => $r->name,
@@ -169,6 +206,10 @@ class ProductInsights extends Page
             'needs_reorder'   => $unitsSold > 0
                 && $available > 0
                 && round($unitsSold / $available * 100, 1) >= self::REORDER_SELL_THROUGH,
+            'velocity'                => $velocity,
+            'lead_time_days'          => $leadTimeDays,
+            'days_of_stock_remaining' => $daysOfStockRemaining,
+            'suggested_reorder_qty'   => $suggestedReorderQty,
         ];
     }
 

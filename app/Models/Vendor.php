@@ -17,8 +17,13 @@ class Vendor extends Model
         'phone',
         'website',
         'account_number',
+        'lead_time_days',
         'status',
         'notes',
+    ];
+
+    protected $casts = [
+        'lead_time_days' => 'integer',
     ];
 
     protected static function booted(): void

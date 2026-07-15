@@ -193,6 +193,34 @@ class Product extends Model
         return $this->totalQuantity() <= $this->reorder_level;
     }
 
+    /**
+     * Suggested reorder quantity from trailing sales velocity, projected across
+     * the vendor's lead time plus a safety-stock buffer, minus what's already on
+     * hand. Null when there's no recent sales history to estimate a rate from, or
+     * when on-hand stock already covers projected demand — a forecast built on
+     * zero data is worse than no forecast.
+     */
+    public function suggestedReorderQuantity(int $trailingDays = 30, int $safetyDays = 7, int $defaultLeadTimeDays = 14): ?int
+    {
+        $trailingUnitsSold = (float) $this->orders()
+            ->where('show_date', '>=', now()->subDays($trailingDays)->toDateString())
+            ->sum('quantity');
+
+        $velocity = $trailingUnitsSold / $trailingDays;
+        if ($velocity <= 0) {
+            return null;
+        }
+
+        $leadTimeDays = $this->relationLoaded('preferredVendor')
+            ? ($this->preferredVendor?->lead_time_days ?? $defaultLeadTimeDays)
+            : ($this->preferredVendor()->value('lead_time_days') ?? $defaultLeadTimeDays);
+
+        $reorderPoint = $velocity * ($leadTimeDays + $safetyDays);
+        $onHand       = $this->totalQuantity();
+
+        return $onHand < $reorderPoint ? (int) ceil($reorderPoint - $onHand) : null;
+    }
+
     /** Most recent time stock was added to this item (opening or return), or null if never. */
     public function lastRestockedAt(): ?\Illuminate\Support\Carbon
     {

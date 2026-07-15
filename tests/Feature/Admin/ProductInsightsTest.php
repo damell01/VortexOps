@@ -8,6 +8,7 @@ use App\Models\InventoryLocation;
 use App\Models\InventoryStock;
 use App\Models\Show;
 use App\Models\User;
+use App\Models\Vendor;
 use App\Models\WhatnotShowOrder;
 use App\Support\AdminModules;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -109,6 +110,61 @@ class ProductInsightsTest extends TestCase
         $ids = $reorder->getRowsProperty()->pluck('id')->all();
         $this->assertContains($hot->id, $ids);
         $this->assertNotContains($slow->id, $ids);
+    }
+
+    public function test_suggested_reorder_qty_uses_trailing_velocity_and_default_lead_time(): void
+    {
+        $item = InventoryItem::create(['name' => 'Steady Seller', 'unit_cost' => 5, 'is_active' => true]);
+        $this->stock($item, 5);
+        // 30 units sold across the trailing 30-day window → 1 unit/day velocity.
+        $this->sale($item, 30, 5, 300);
+
+        $row = $this->rowFor($item->id);
+
+        $this->assertEqualsWithDelta(1.0, $row['velocity'], 0.01);
+        $this->assertEquals(14, $row['lead_time_days']); // no vendor → default
+        // reorder point = 1/day * (14 + 7 buffer) = 21; on hand 5 → suggest 16.
+        $this->assertEquals(16, $row['suggested_reorder_qty']);
+        $this->assertEqualsWithDelta(5.0, $row['days_of_stock_remaining'], 0.01);
+    }
+
+    public function test_suggested_reorder_qty_uses_vendor_lead_time_when_set(): void
+    {
+        $vendor = Vendor::create(['name' => 'Slow Vendor', 'status' => 'active', 'lead_time_days' => 30]);
+        $item = InventoryItem::create(['name' => 'Vendor Sourced', 'unit_cost' => 5, 'is_active' => true, 'preferred_vendor_id' => $vendor->id]);
+        $this->stock($item, 5);
+        $this->sale($item, 30, 5, 300); // 1/day velocity
+
+        $row = $this->rowFor($item->id);
+
+        $this->assertEquals(30, $row['lead_time_days']);
+        // reorder point = 1/day * (30 + 7) = 37; on hand 5 → suggest 32.
+        $this->assertEquals(32, $row['suggested_reorder_qty']);
+    }
+
+    public function test_suggested_reorder_qty_null_when_no_recent_sales(): void
+    {
+        $item = InventoryItem::create(['name' => 'Stale Velocity', 'unit_cost' => 5, 'is_active' => true]);
+        $this->stock($item, 5);
+        // Sold plenty, but outside the 30-day velocity window — no recent pace to project from.
+        $this->sale($item, 20, 5, 200, now()->subDays(40)->toDateString());
+
+        $row = $this->rowFor($item->id);
+
+        $this->assertEqualsWithDelta(0.0, $row['velocity'], 0.01);
+        $this->assertNull($row['suggested_reorder_qty']);
+        $this->assertNull($row['days_of_stock_remaining']);
+    }
+
+    public function test_suggested_reorder_qty_null_when_stock_already_covers_demand(): void
+    {
+        $item = InventoryItem::create(['name' => 'Well Stocked', 'unit_cost' => 5, 'is_active' => true]);
+        $this->stock($item, 100); // way more than any reasonable reorder point
+        $this->sale($item, 30, 5, 300); // 1/day velocity
+
+        $row = $this->rowFor($item->id);
+
+        $this->assertNull($row['suggested_reorder_qty']);
     }
 
     public function test_dead_stock_view_and_kpis(): void

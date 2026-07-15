@@ -79,6 +79,11 @@ class VendorResource extends Resource
                     TextInput::make('account_number')
                         ->label('Account #')
                         ->maxLength(100),
+                    TextInput::make('lead_time_days')
+                        ->label('Lead Time (days)')
+                        ->helperText('Typical days from order to delivery — feeds reorder suggestions on Product Insights.')
+                        ->numeric()
+                        ->minValue(0),
                     Select::make('status')
                         ->options(Vendor::statusLabels())
                         ->default('active')

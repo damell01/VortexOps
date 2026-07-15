@@ -64,6 +64,7 @@
                         <th class="px-3 py-2 text-right font-medium">Revenue</th>
                         <th class="px-3 py-2 text-right font-medium">Margin</th>
                         <th class="px-3 py-2 text-right font-medium cursor-help" title="Units sold ÷ (units sold + units on hand). High means the product moves fast.">Sell-through</th>
+                        <th class="px-3 py-2 text-right font-medium cursor-help" title="Based on the last {{ \App\Filament\Pages\ProductInsights::VELOCITY_WINDOW_DAYS }} days of sales, projected across the vendor's lead time plus a {{ \App\Filament\Pages\ProductInsights::SAFETY_STOCK_DAYS }}-day safety buffer. Blank when there's no recent sales history to estimate from.">Suggested Reorder</th>
                         <th class="px-3 py-2 text-right font-medium">Capital</th>
                         <th class="px-3 py-2 text-right font-medium">Last Sold</th>
                     </tr>
@@ -94,6 +95,16 @@
                                     <span class="ml-1 text-[10px] font-normal text-amber-500" title="Fast seller running low — consider restocking">↑</span>
                                 @endif
                             </td>
+                            <td class="px-3 py-2 text-right tabular-nums">
+                                @if (is_null($r['suggested_reorder_qty']))
+                                    <span class="text-gray-400">—</span>
+                                @else
+                                    <span class="font-semibold text-amber-600 dark:text-amber-400">{{ number_format($r['suggested_reorder_qty']) }}</span>
+                                    @if (! is_null($r['days_of_stock_remaining']))
+                                        <div class="text-[10px] font-normal text-gray-400">{{ $r['days_of_stock_remaining'] }}d left</div>
+                                    @endif
+                                @endif
+                            </td>
                             <td class="px-3 py-2 text-right tabular-nums text-gray-500 dark:text-gray-400">${{ number_format($r['capital'], 0) }}</td>
                             <td class="px-3 py-2 text-right text-gray-500 dark:text-gray-400">
                                 @if (is_null($r['days_since_sold']))
@@ -105,7 +116,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-3 py-8 text-center text-gray-400">No products match this view.</td>
+                            <td colspan="9" class="px-3 py-8 text-center text-gray-400">No products match this view.</td>
                         </tr>
                     @endforelse
                 </tbody>

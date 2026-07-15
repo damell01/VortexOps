@@ -17,12 +17,13 @@ class NotificationRouter
         'deduction_approved'     => 'admins',
         'weekly_review_reminder' => 'admins',
         'midweek_report'         => 'admins',
+        'system_health'          => 'admins',
     ];
 
     /**
      * Returns the users who should receive a given notification type.
      * Types: low_stock, damaged, show_ready, show_reconciled, show_pending_approval,
-     * weekly_review_reminder, midweek_report
+     * weekly_review_reminder, midweek_report, system_health
      */
     public function getRecipients(string $type): Collection
     {

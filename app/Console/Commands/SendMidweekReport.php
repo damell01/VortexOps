@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Filament\Pages\Reports;
 use App\Models\Show;
 use App\Notifications\MidweekReportNotification;
+use App\Services\AI\OpsDigestService;
 use App\Services\NotificationRouter;
 use Illuminate\Console\Command;
 
@@ -19,7 +20,7 @@ class SendMidweekReport extends Command
 
     protected $description = 'Email/notify admins a revenue snapshot for the week so far';
 
-    public function handle(NotificationRouter $router): int
+    public function handle(NotificationRouter $router, OpsDigestService $digest): int
     {
         $weekStart = now()->startOfWeek();
         $today     = now();
@@ -39,6 +40,7 @@ class SendMidweekReport extends Command
         $recipients = $router->getRecipients('midweek_report');
         $weekLabel  = $weekStart->format('M j') . ' – ' . now()->endOfWeek()->format('M j');
         $pacingPct  = Show::weekPacing()['pacing_pct'];
+        $narrative  = $digest->generate();
 
         foreach ($recipients as $user) {
             $user->notify(new MidweekReportNotification(
@@ -48,6 +50,7 @@ class SendMidweekReport extends Command
                 unitsSold: (int) $shows->sum('units_sold'),
                 reportUrl: Reports::getUrl(),
                 pacingPct: $pacingPct,
+                narrative: $narrative,
             ));
         }
 

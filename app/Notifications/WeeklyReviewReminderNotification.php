@@ -18,6 +18,7 @@ class WeeklyReviewReminderNotification extends Notification
         public readonly int $pendingCount,
         public readonly string $weekLabel,
         public readonly string $reviewUrl,
+        public readonly ?string $narrative = null,
     ) {}
 
     public function via(object $notifiable): array
@@ -27,9 +28,15 @@ class WeeklyReviewReminderNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        $mail = (new MailMessage)
             ->subject("{$this->pendingCount} show(s) need review — week of {$this->weekLabel}")
-            ->greeting('Friday review reminder')
+            ->greeting('Friday review reminder');
+
+        if ($this->narrative) {
+            $mail->line($this->narrative)->line('');
+        }
+
+        return $mail
             ->line("{$this->pendingCount} show(s) from the week of {$this->weekLabel} are still in Pending Review or Pending Approval.")
             ->action('Review shows', $this->reviewUrl)
             ->line('Reviewing before the weekend keeps payouts on schedule.');
@@ -39,7 +46,7 @@ class WeeklyReviewReminderNotification extends Notification
     {
         return FilamentNotification::make()
             ->title('Weekly review reminder')
-            ->body("{$this->pendingCount} show(s) from the week of {$this->weekLabel} still need review.")
+            ->body($this->narrative ?? "{$this->pendingCount} show(s) from the week of {$this->weekLabel} still need review.")
             ->icon('heroicon-o-calendar-days')
             ->warning()
             ->actions([

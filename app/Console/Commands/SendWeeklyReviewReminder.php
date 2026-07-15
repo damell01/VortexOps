@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Filament\Resources\ShowResource;
 use App\Models\Show;
 use App\Notifications\WeeklyReviewReminderNotification;
+use App\Services\AI\OpsDigestService;
 use App\Services\NotificationRouter;
 use Illuminate\Console\Command;
 
@@ -19,7 +20,7 @@ class SendWeeklyReviewReminder extends Command
 
     protected $description = 'Email/notify admins about shows still needing review for the current week';
 
-    public function handle(NotificationRouter $router): int
+    public function handle(NotificationRouter $router, OpsDigestService $digest): int
     {
         $weekStart = now()->startOfWeek();
         $weekEnd   = now()->endOfWeek();
@@ -36,9 +37,10 @@ class SendWeeklyReviewReminder extends Command
         $recipients = $router->getRecipients('weekly_review_reminder');
         $weekLabel  = $weekStart->format('M j') . ' – ' . $weekEnd->format('M j');
         $reviewUrl  = ShowResource::getUrl('index');
+        $narrative  = $digest->generate();
 
         foreach ($recipients as $user) {
-            $user->notify(new WeeklyReviewReminderNotification($pendingCount, $weekLabel, $reviewUrl));
+            $user->notify(new WeeklyReviewReminderNotification($pendingCount, $weekLabel, $reviewUrl, $narrative));
         }
 
         $this->info("Notified {$recipients->count()} user(s) about {$pendingCount} show(s) needing review.");

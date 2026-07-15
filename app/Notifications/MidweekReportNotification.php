@@ -22,6 +22,7 @@ class MidweekReportNotification extends Notification
         public readonly int $unitsSold,
         public readonly string $reportUrl,
         public readonly ?float $pacingPct = null,
+        public readonly ?string $narrative = null,
     ) {}
 
     public function via(object $notifiable): array
@@ -46,8 +47,13 @@ class MidweekReportNotification extends Notification
 
         $mail = (new MailMessage)
             ->subject("Mid-week report — week of {$this->weekLabel}")
-            ->greeting('Mid-week check-in')
-            ->line("So far this week ({$this->weekLabel}):")
+            ->greeting('Mid-week check-in');
+
+        if ($this->narrative) {
+            $mail->line($this->narrative)->line('');
+        }
+
+        $mail->line("So far this week ({$this->weekLabel}):")
             ->line("• {$this->showCount} show(s)")
             ->line("• \${$gross} gross revenue")
             ->line("• {$this->unitsSold} units sold");
@@ -62,8 +68,9 @@ class MidweekReportNotification extends Notification
     public function toDatabase(object $notifiable): array
     {
         $gross = number_format($this->grossRevenue, 2);
-        $body  = "{$this->showCount} shows, \${$gross} gross so far this week ({$this->weekLabel}).";
-        if ($pacing = $this->pacingLine()) {
+        $body  = $this->narrative
+            ?? "{$this->showCount} shows, \${$gross} gross so far this week ({$this->weekLabel}).";
+        if (! $this->narrative && ($pacing = $this->pacingLine())) {
             $body .= ' ' . $pacing;
         }
 

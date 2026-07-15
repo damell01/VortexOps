@@ -78,6 +78,25 @@ class ScheduledReportsTest extends TestCase
         Notification::assertNothingSent();
     }
 
+    public function test_weekly_review_reminder_narrative_null_when_ai_module_off(): void
+    {
+        Notification::fake();
+        $this->makeShow(['status' => 'pending_review']);
+
+        $this->artisan('reports:weekly-review-reminder')->assertSuccessful();
+
+        Notification::assertSentTo(
+            $this->admin,
+            WeeklyReviewReminderNotification::class,
+            fn (WeeklyReviewReminderNotification $n) => $n->narrative === null,
+        );
+    }
+
+    // The AI-narrative-enabled path (OllamaClient mocked and actually generating
+    // text) is covered directly and in isolation by OpsDigestServiceTest — binding
+    // a mock OllamaClient into the container here was found to corrupt Livewire's
+    // test state for unrelated tests later in the same suite run.
+
     // ── Mid-week report ──────────────────────────────────────────────────────
 
     public function test_midweek_report_notifies_admins_with_week_stats(): void
@@ -125,6 +144,25 @@ class ScheduledReportsTest extends TestCase
             fn (MidweekReportNotification $n) => $n->pacingPct !== null && $n->pacingPct > 0,
         );
     }
+
+    public function test_midweek_report_narrative_null_when_ai_module_off(): void
+    {
+        Notification::fake();
+        $this->makeShow(['status' => 'reconciled', 'gross_revenue' => 500, 'units_sold' => 10]);
+
+        $this->artisan('reports:midweek-report')->assertSuccessful();
+
+        Notification::assertSentTo(
+            $this->admin,
+            MidweekReportNotification::class,
+            fn (MidweekReportNotification $n) => $n->narrative === null,
+        );
+    }
+
+    // The AI-narrative-enabled path (OllamaClient mocked and actually generating
+    // text) is covered directly and in isolation by OpsDigestServiceTest — binding
+    // a mock OllamaClient into the container here was found to corrupt Livewire's
+    // test state for unrelated tests later in the same suite run.
 
     public function test_midweek_report_excludes_cancelled_shows(): void
     {

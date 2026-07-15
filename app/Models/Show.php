@@ -519,8 +519,11 @@ class Show extends Model
         $daysIntoWeek = $today->dayOfWeekIso; // 1 (Mon) .. 7 (Sun)
         $weekStart    = $today->copy()->startOfWeek();
 
+        // Upper bound includes a time component: a show_date row dated "today"
+        // is stored with a midnight timestamp, which a bare date-string upper
+        // bound would exclude via lexical comparison on SQLite.
         $revenueThrough = fn (\Illuminate\Support\Carbon $start, \Illuminate\Support\Carbon $end): float =>
-            (float) static::whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
+            (float) static::whereBetween('show_date', [$start->toDateString(), $end->copy()->endOfDay()->toDateTimeString()])
                 ->whereNotIn('status', ['cancelled'])
                 ->inChannelContext()
                 ->sum('gross_revenue');
@@ -560,8 +563,11 @@ class Show extends Model
         $daysIntoMonth = $today->day;
         $monthStart    = $today->copy()->startOfMonth();
 
+        // Upper bound includes a time component: a show_date row dated "today"
+        // is stored with a midnight timestamp, which a bare date-string upper
+        // bound would exclude via lexical comparison on SQLite.
         $revenueThrough = fn (\Illuminate\Support\Carbon $start, \Illuminate\Support\Carbon $end): float =>
-            (float) static::whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
+            (float) static::whereBetween('show_date', [$start->toDateString(), $end->copy()->endOfDay()->toDateTimeString()])
                 ->whereNotIn('status', ['cancelled'])
                 ->inChannelContext()
                 ->sum('gross_revenue');

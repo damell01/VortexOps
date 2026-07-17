@@ -116,4 +116,66 @@ class OpsDigestServiceTest extends TestCase
 
         $this->assertNull(app(OpsDigestService::class)->generate());
     }
+
+    // ── generateForRange (on-demand, arbitrary period) ────────────────────────
+
+    public function test_range_returns_null_when_ai_module_disabled(): void
+    {
+        Setting::set('enabled_admin_modules', json_encode(['streams']));
+        AdminModules::flushMemo();
+        $this->makeThisWeekShow();
+
+        $ollama = Mockery::mock(OllamaClient::class);
+        $ollama->shouldNotReceive('isOnline');
+        $ollama->shouldNotReceive('generate');
+        $this->app->instance(OllamaClient::class, $ollama);
+
+        $this->assertNull(app(OpsDigestService::class)->generateForRange(now()->subDays(30), now()));
+    }
+
+    public function test_range_returns_null_when_nothing_to_summarize(): void
+    {
+        $this->enableAiModule();
+
+        $ollama = Mockery::mock(OllamaClient::class);
+        $ollama->shouldNotReceive('isOnline');
+        $ollama->shouldNotReceive('generate');
+        $this->app->instance(OllamaClient::class, $ollama);
+
+        $this->assertNull(app(OpsDigestService::class)->generateForRange(now()->subDays(30), now()));
+    }
+
+    public function test_range_returns_generated_narrative_when_available(): void
+    {
+        $this->enableAiModule();
+        Show::create([
+            'title' => 'Range Show', 'show_date' => now()->subDays(5)->toDateString(),
+            'status' => 'reconciled', 'gross_revenue' => 500, 'created_by' => $this->creator->id,
+        ]);
+
+        $ollama = Mockery::mock(OllamaClient::class);
+        $ollama->shouldReceive('isOnline')->once()->andReturn(true);
+        $ollama->shouldReceive('generate')->once()->andReturn('Solid period overall.');
+        $this->app->instance(OllamaClient::class, $ollama);
+
+        $result = app(OpsDigestService::class)->generateForRange(now()->subDays(10), now());
+
+        $this->assertSame('Solid period overall.', $result);
+    }
+
+    public function test_range_returns_null_when_ollama_offline(): void
+    {
+        $this->enableAiModule();
+        Show::create([
+            'title' => 'Range Show', 'show_date' => now()->subDays(5)->toDateString(),
+            'status' => 'reconciled', 'gross_revenue' => 500, 'created_by' => $this->creator->id,
+        ]);
+
+        $ollama = Mockery::mock(OllamaClient::class);
+        $ollama->shouldReceive('isOnline')->once()->andReturn(false);
+        $ollama->shouldNotReceive('generate');
+        $this->app->instance(OllamaClient::class, $ollama);
+
+        $this->assertNull(app(OpsDigestService::class)->generateForRange(now()->subDays(10), now()));
+    }
 }

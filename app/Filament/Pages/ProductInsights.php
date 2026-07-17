@@ -7,7 +7,9 @@ use App\Support\AdminModules;
 use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Product profitability, sell-through, and dead-stock analytics — all derived
@@ -80,6 +82,38 @@ class ProductInsights extends Page
         $this->view = $view;
     }
 
+    public function exportCsv(): StreamedResponse
+    {
+        $rows     = $this->rows;
+        $filename = 'product-insights-' . $this->view . '-' . now()->format('Y-m-d') . '.csv';
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, [
+                'Product', 'Category', 'On Hand', 'Units Sold', 'Revenue', 'COGS', 'Margin', 'Margin %',
+                'Sell-through %', 'Suggested Reorder Qty', 'Days of Stock Remaining', 'Capital', 'Days Since Sold',
+            ]);
+            foreach ($rows as $r) {
+                fputcsv($out, [
+                    $r['name'],
+                    $r['category'],
+                    $r['on_hand'],
+                    $r['units_sold'],
+                    number_format($r['revenue'], 2),
+                    number_format($r['cogs'], 2),
+                    number_format($r['margin'], 2),
+                    $r['margin_pct'] !== null ? $r['margin_pct'] : '',
+                    $r['sell_through'] !== null ? $r['sell_through'] : '',
+                    $r['suggested_reorder_qty'] !== null ? $r['suggested_reorder_qty'] : '',
+                    $r['days_of_stock_remaining'] !== null ? $r['days_of_stock_remaining'] : '',
+                    number_format($r['capital'], 2),
+                    $r['days_since_sold'] !== null ? $r['days_since_sold'] : '',
+                ]);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
     /**
      * Per-product aggregate as a query builder subquery — one row per active
      * product with its on-hand, units sold, revenue, COGS, and last-sold date,
@@ -133,6 +167,11 @@ class ProductInsights extends Page
         return now()->subDays(self::DEAD_DAYS)->toDateString();
     }
 
+    private function cacheKey(string $section): string
+    {
+        return "product_insights_{$section}_{$this->view}_" . auth()->id();
+    }
+
     /**
      * Rows for the current view — filtered and sorted in SQL, capped at
      * ROW_LIMIT so we never hydrate or render more than the top slice.
@@ -140,6 +179,14 @@ class ProductInsights extends Page
      * @return Collection<int, array<string, mixed>>
      */
     public function getRowsProperty(): Collection
+    {
+        return Cache::remember($this->cacheKey('rows'), 60, fn () => $this->buildRows());
+    }
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function buildRows(): Collection
     {
         $cutoff = $this->deadCutoff();
         $query  = DB::query()->fromSub($this->aggregateQuery(), 'x');
@@ -221,6 +268,12 @@ class ProductInsights extends Page
      * @return array<string, float|int>
      */
     public function getKpisProperty(): array
+    {
+        return Cache::remember('product_insights_kpis_' . auth()->id(), 60, fn () => $this->buildKpis());
+    }
+
+    /** @return array<string, float|int> */
+    private function buildKpis(): array
     {
         $cutoff = $this->deadCutoff();
 

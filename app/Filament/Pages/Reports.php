@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Models\Show;
+use App\Services\AI\OpsDigestService;
 use App\Support\AdminModules;
 use App\Support\ChannelContext;
 use Filament\Pages\Page;
@@ -44,6 +45,7 @@ class Reports extends Page
     public string $dateFrom  = '';
     public string $dateTo    = '';
     public bool $showAllWeeks = false;
+    public ?string $narrative = null;
 
     public function mount(): void
     {
@@ -67,17 +69,33 @@ class Reports extends Page
         $this->dateFrom  = now()->subDays((int) $days)->toDateString();
         $this->dateTo    = now()->toDateString();
         $this->showAllWeeks = false;
+        $this->narrative = null;
     }
 
     public function applyCustomRange(): void
     {
         $this->period = 'custom';
         $this->showAllWeeks = false;
+        $this->narrative = null;
     }
 
     public function toggleAllWeeks(): void
     {
         $this->showAllWeeks = ! $this->showAllWeeks;
+    }
+
+    public function aiNarrativeEnabled(): bool
+    {
+        return AdminModules::isEnabled('ai');
+    }
+
+    /**
+     * On-demand, not computed — an LLM call is too slow/expensive to run on
+     * every render. Fires only when the owner clicks "Summarize this period".
+     */
+    public function generateNarrative(): void
+    {
+        $this->narrative = app(OpsDigestService::class)->generateForRange($this->periodStart(), $this->periodEnd());
     }
 
     // ── Cache key ────────────────────────────────────────────────────────────
@@ -178,18 +196,40 @@ class Reports extends Page
                 ')
                 ->first();
 
+            $cogs = (float) DB::table('whatnot_show_orders')
+                ->join('shows', 'whatnot_show_orders.show_id', '=', 'shows.id')
+                ->whereBetween('shows.show_date', [$start, $end])
+                ->whereNotIn('shows.status', ['cancelled'])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
+                ->sum('whatnot_show_orders.total_cost');
+
+            $prevCogs = (float) DB::table('whatnot_show_orders')
+                ->join('shows', 'whatnot_show_orders.show_id', '=', 'shows.id')
+                ->whereBetween('shows.show_date', [$start->copy()->subDays($span), $start->copy()->subDay()])
+                ->whereNotIn('shows.status', ['cancelled'])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
+                ->sum('whatnot_show_orders.total_cost');
+
             $trend = fn ($cur, $prev) => $prev > 0 ? round((($cur - $prev) / $prev) * 100, 1) : null;
 
+            $gross  = (float) ($cur->gross ?? 0);
+            $margin = round($gross - $cogs, 2);
+            $prevMargin = round((float) ($prev->gross ?? 0) - $prevCogs, 2);
+
             return [
-                'gross'       => (float) ($cur->gross ?? 0),
-                'net'         => (float) ($cur->net ?? 0),
-                'tips'        => (float) ($cur->tips ?? 0),
-                'paper'       => (float) ($cur->paper ?? 0),
-                'shows'       => (int) ($cur->shows ?? 0),
-                'units'       => (int) ($cur->units ?? 0),
-                'trend_gross' => $trend($cur->gross ?? 0, $prev->gross ?? 0),
-                'trend_net'   => $trend($cur->net ?? 0, $prev->net ?? 0),
-                'trend_shows' => $trend($cur->shows ?? 0, $prev->shows ?? 0),
+                'gross'        => $gross,
+                'net'          => (float) ($cur->net ?? 0),
+                'tips'         => (float) ($cur->tips ?? 0),
+                'paper'        => (float) ($cur->paper ?? 0),
+                'shows'        => (int) ($cur->shows ?? 0),
+                'units'        => (int) ($cur->units ?? 0),
+                'cogs'         => round($cogs, 2),
+                'margin'       => $margin,
+                'margin_pct'   => $gross > 0 ? round($margin / $gross * 100, 1) : null,
+                'trend_gross'  => $trend($cur->gross ?? 0, $prev->gross ?? 0),
+                'trend_net'    => $trend($cur->net ?? 0, $prev->net ?? 0),
+                'trend_shows'  => $trend($cur->shows ?? 0, $prev->shows ?? 0),
+                'trend_margin' => $trend($margin, $prevMargin),
             ];
         });
     }

@@ -40,7 +40,7 @@
         </div>
 
         {{-- View filter chips --}}
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap items-center gap-2">
             @foreach ($views as $key => $label)
                 <button type="button" wire:click="setView('{{ $key }}')"
                     @class([
@@ -51,6 +51,17 @@
                     {{ $label }}
                 </button>
             @endforeach
+
+            <span class="flex-1"></span>
+
+            <a
+                wire:click.prevent="exportCsv"
+                href="#"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition"
+            >
+                <x-heroicon-o-arrow-down-tray class="h-3.5 w-3.5" />
+                Export CSV
+            </a>
         </div>
 
         {{-- Metrics table --}}

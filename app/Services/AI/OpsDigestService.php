@@ -7,6 +7,7 @@ use App\Models\Show;
 use App\Models\Streamer;
 use App\Support\AdminModules;
 use App\Support\ChannelContext;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -50,6 +51,162 @@ class OpsDigestService
 
             return null;
         }
+    }
+
+    /**
+     * On-demand version of generate() for an arbitrary date range (e.g. the
+     * Reports page's period selector), rather than the fixed "this week"
+     * window the scheduled emails use. Trending-down streamers, reorder
+     * count, and pending-review count are current operational state, not
+     * historical to the range, same as they are in the weekly digest.
+     */
+    public function generateForRange(Carbon $start, Carbon $end): ?string
+    {
+        if (! AdminModules::isEnabled('ai')) {
+            return null;
+        }
+
+        try {
+            $snapshot = $this->gatherRangeSnapshot($start, $end);
+
+            if (! $this->hasRangeSignal($snapshot)) {
+                return null;
+            }
+
+            if (! $this->ollama->isOnline()) {
+                return null;
+            }
+
+            $text = trim($this->ollama->generate($this->buildRangePrompt($snapshot), ['timeout' => 30]));
+
+            return $text !== '' ? $text : null;
+        } catch (\Throwable $e) {
+            Log::warning('OpsDigestService: range generation failed — ' . $e->getMessage());
+
+            return null;
+        }
+    }
+
+    /** @return array<string,mixed> */
+    private function gatherRangeSnapshot(Carbon $start, Carbon $end): array
+    {
+        $span      = $start->diffInDays($end) ?: 1;
+        $prevEnd   = $start->copy()->subDay();
+        $prevStart = $prevEnd->copy()->subDays($span);
+        $endBound  = $end->copy()->endOfDay()->toDateTimeString();
+
+        $cur = DB::table('shows')
+            ->whereBetween('show_date', [$start->toDateString(), $endBound])
+            ->whereNotIn('status', ['cancelled'])
+            ->when(ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', ChannelContext::currentId()))
+            ->selectRaw('COUNT(*) as shows, COALESCE(SUM(gross_revenue), 0) as gross')
+            ->first();
+
+        $prevGross = (float) DB::table('shows')
+            ->whereBetween('show_date', [$prevStart->toDateString(), $prevEnd->copy()->endOfDay()->toDateTimeString()])
+            ->whereNotIn('status', ['cancelled'])
+            ->when(ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', ChannelContext::currentId()))
+            ->sum('gross_revenue');
+
+        $gross    = (float) ($cur->gross ?? 0);
+        $trendPct = $prevGross > 0 ? round((($gross - $prevGross) / $prevGross) * 100, 1) : null;
+
+        $topStreamer = DB::table('shows')
+            ->join('show_streamer', 'show_streamer.show_id', '=', 'shows.id')
+            ->join('streamers', 'streamers.id', '=', 'show_streamer.streamer_id')
+            ->where('show_streamer.is_primary', true)
+            ->whereBetween('shows.show_date', [$start->toDateString(), $endBound])
+            ->whereNotIn('shows.status', ['cancelled'])
+            ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
+            ->groupBy('streamers.id', 'streamers.name')
+            ->selectRaw('streamers.name, SUM(shows.gross_revenue) as total')
+            ->orderByDesc('total')
+            ->first();
+
+        $trendingDown = Streamer::where('status', 'active')
+            ->inChannelContext()
+            ->get()
+            ->filter(fn (Streamer $s) => $s->isPerformanceTrendingDown())
+            ->pluck('name')
+            ->all();
+
+        $outlierShows = Show::whereBetween('show_date', [$start->toDateString(), $endBound])
+            ->whereNotIn('status', ['cancelled'])
+            ->inChannelContext()
+            ->with('streamers')
+            ->get()
+            ->filter(fn (Show $s) => $s->isRevenueOutlier())
+            ->map(fn (Show $s) => $s->title ?: 'Untitled show')
+            ->all();
+
+        $pendingReview = Show::whereIn('status', ['pending_review', 'pending_approval'])
+            ->inChannelContext()
+            ->count();
+
+        return [
+            'label'          => $start->format('M j') . ' – ' . $end->format('M j, Y'),
+            'shows'          => (int) ($cur->shows ?? 0),
+            'gross'          => $gross,
+            'trend_pct'      => $trendPct,
+            'top_streamer'   => $topStreamer?->name,
+            'trending_down'  => $trendingDown,
+            'outlier_shows'  => $outlierShows,
+            'reorder_count'  => $this->reorderNeededCount(),
+            'pending_review' => $pendingReview,
+        ];
+    }
+
+    /** @param array<string,mixed> $s */
+    private function hasRangeSignal(array $s): bool
+    {
+        return $s['gross'] > 0
+            || ! empty($s['trending_down'])
+            || ! empty($s['outlier_shows'])
+            || $s['reorder_count'] > 0
+            || $s['pending_review'] > 0;
+    }
+
+    /** @param array<string,mixed> $s */
+    private function buildRangePrompt(array $s): string
+    {
+        $lines = [];
+
+        $lines[] = "Period: {$s['label']} ({$s['shows']} show(s)).";
+        $lines[] = 'Gross revenue: $' . number_format($s['gross'], 2)
+            . ($s['trend_pct'] !== null
+                ? ' (' . ($s['trend_pct'] >= 0 ? '+' : '') . $s['trend_pct'] . '% vs. the prior equal-length period)'
+                : ' (no prior period to compare)');
+
+        if ($s['top_streamer']) {
+            $lines[] = "Top streamer this period: {$s['top_streamer']}.";
+        }
+
+        if (! empty($s['trending_down'])) {
+            $lines[] = 'Streamers currently trending down vs. their own recent average: ' . implode(', ', $s['trending_down']) . '.';
+        }
+
+        if (! empty($s['outlier_shows'])) {
+            $lines[] = 'Shows in this period with unusual revenue (verify the numbers): ' . implode(', ', $s['outlier_shows']) . '.';
+        }
+
+        if ($s['reorder_count'] > 0) {
+            $lines[] = "{$s['reorder_count']} product(s) are currently pacing toward running out before they can be restocked.";
+        }
+
+        if ($s['pending_review'] > 0) {
+            $lines[] = "{$s['pending_review']} show(s) are currently waiting on review/approval.";
+        }
+
+        $data = implode("\n", $lines);
+
+        return <<<PROMPT
+You are writing a short business briefing for the owner of a sports-card livestream sales operation, summarizing a report for a specific date range they selected. Below is the data for that period. Write a 3-4 sentence plain-English summary highlighting what matters most — lead with the most important thing, mention specific names/numbers from the data, and end with anything that needs action. Do not invent numbers or reasons not present in the data. Do not use bullet points or headers — write flowing prose. Do not add a greeting or sign-off.
+
+Data:
+{$data}
+
+Summary:
+PROMPT;
     }
 
     /** @return array<string,mixed> */

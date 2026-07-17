@@ -61,6 +61,25 @@
 
             <span class="flex-1"></span>
 
+            {{-- AI narrative summary --}}
+            @if ($this->aiNarrativeEnabled())
+                <button
+                    type="button"
+                    wire:click="generateNarrative"
+                    wire:loading.attr="disabled"
+                    wire:target="generateNarrative"
+                    class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition disabled:opacity-60"
+                >
+                    <x-heroicon-o-sparkles class="h-3.5 w-3.5" wire:loading.remove wire:target="generateNarrative" />
+                    <svg wire:loading wire:target="generateNarrative" class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                    </svg>
+                    <span wire:loading.remove wire:target="generateNarrative">Summarize this period</span>
+                    <span wire:loading wire:target="generateNarrative">Summarizing…</span>
+                </button>
+            @endif
+
             {{-- CSV export --}}
             <a
                 wire:click.prevent="exportCsv"
@@ -72,21 +91,32 @@
             </a>
         </div>
 
+        @if ($narrative)
+            <div class="rounded-xl border border-indigo-200 bg-indigo-50/60 px-5 py-4 text-sm leading-relaxed text-indigo-900 shadow-sm dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-100">
+                <div class="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-300">
+                    <x-heroicon-o-sparkles class="h-3.5 w-3.5" />
+                    AI Summary
+                </div>
+                {{ $narrative }}
+            </div>
+        @endif
+
         {{-- Revenue KPI tiles --}}
         @php $rev = $this->revenueSummary; @endphp
-        <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+        <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-7">
             @foreach ([
                 ['label' => 'Shows',       'value' => number_format($rev['shows']),          'trend' => $rev['trend_shows'], 'icon' => 'heroicon-o-video-camera',   'accent' => 'border-violet-500'],
                 ['label' => 'Units Sold',  'value' => number_format($rev['units']),           'trend' => null,                'icon' => 'heroicon-o-shopping-bag',   'accent' => 'border-sky-500'],
                 ['label' => 'Gross Rev',   'value' => '$'.number_format($rev['gross'], 0),   'trend' => $rev['trend_gross'], 'icon' => 'heroicon-o-banknotes',      'accent' => 'border-emerald-500'],
                 ['label' => 'Whatnot Net', 'value' => '$'.number_format($rev['net'], 0),     'trend' => $rev['trend_net'],   'icon' => 'heroicon-o-arrow-trending-up','accent' => 'border-green-500'],
+                ['label' => 'Margin',      'value' => '$'.number_format($rev['margin'], 0),  'trend' => $rev['trend_margin'],'icon' => 'heroicon-o-scale',          'accent' => 'border-indigo-500', 'sub' => $rev['margin_pct'] !== null ? $rev['margin_pct'].'% of gross' : null],
                 ['label' => 'Tips',        'value' => '$'.number_format($rev['tips'], 0),    'trend' => null,                'icon' => 'heroicon-o-star',           'accent' => 'border-amber-500'],
                 ['label' => 'Paper Sales', 'value' => '$'.number_format($rev['paper'], 0),   'trend' => null,                'icon' => 'heroicon-o-document-text',  'accent' => 'border-rose-500'],
             ] as $tile)
                 <div class="min-w-0 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900 border-t-2 {{ $tile['accent'] }}">
                     <div class="flex items-center gap-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
                         <x-dynamic-component :component="$tile['icon']" class="h-3.5 w-3.5 shrink-0" />
-                        <span class="truncate">{{ $tile['label'] }}</span>
+                        <span class="truncate" @if(($tile['label'] ?? null) === 'Margin') title="Revenue minus cost of goods sold (COGS) from sold items with a unit cost recorded. Not full business profit — payouts, shipping, and fees aren't subtracted." @endif>{{ $tile['label'] }}</span>
                     </div>
                     <div class="mt-2 truncate text-lg font-bold tabular-nums text-gray-900 dark:text-white sm:text-xl" title="{{ $tile['value'] }}">{{ $tile['value'] }}</div>
                     @if ($tile['trend'] !== null)
@@ -94,8 +124,13 @@
                             {{ $trendIcon($tile['trend']) }} {{ abs($tile['trend']) }}%
                             <span class="font-normal text-gray-400">vs prior period</span>
                         </div>
+                    @elseif (! empty($tile['sub']))
+                        <div class="mt-1 text-xs font-medium text-gray-400">{{ $tile['sub'] }}</div>
                     @else
                         <div class="mt-1 text-xs text-transparent select-none">—</div>
+                    @endif
+                    @if ($tile['trend'] !== null && ! empty($tile['sub']))
+                        <div class="text-[11px] text-gray-400">{{ $tile['sub'] }}</div>
                     @endif
                 </div>
             @endforeach

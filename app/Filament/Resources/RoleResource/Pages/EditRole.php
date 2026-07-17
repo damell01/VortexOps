@@ -13,16 +13,30 @@ class EditRole extends EditRecord
 
     protected function mutateFormDataBeforeFill(array $data): array
     {
-        $data['hidden_pages']   = NavVisibility::hiddenForRole($this->record->name);
-        $data['readonly_pages'] = NavVisibility::readonlyForRole($this->record->name);
+        $data['page_perms'] = RoleResource::pagePermsFormState(
+            NavVisibility::hiddenForRole($this->record->name),
+            NavVisibility::readonlyForRole($this->record->name),
+        );
+
+        return $data;
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        // Same as CreateRole::mutateFormDataBeforeCreate() — page_perms is
+        // virtual, persisted via NavVisibility in afterSave(), and must never
+        // reach Model::update() on Role's wide-open mass assignment.
+        unset($data['page_perms']);
 
         return $data;
     }
 
     protected function afterSave(): void
     {
-        NavVisibility::setHiddenForRole($this->record->name, $this->data['hidden_pages'] ?? []);
-        NavVisibility::setReadonlyForRole($this->record->name, $this->data['readonly_pages'] ?? []);
+        [$hidden, $readonly] = RoleResource::pagePermsToLists($this->data['page_perms'] ?? []);
+
+        NavVisibility::setHiddenForRole($this->record->name, $hidden);
+        NavVisibility::setReadonlyForRole($this->record->name, $readonly);
     }
 
     protected function getHeaderActions(): array

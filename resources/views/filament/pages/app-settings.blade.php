@@ -497,7 +497,8 @@
         </div>
         @endif
 
-        {{-- ── System & Maintenance ────────────────────────────────────────── --}}
+        {{-- ── System & Maintenance (owner / super admin only) ─────────────── --}}
+        @if ($this->canSeeModuleToggles)
         <div wire:key="section-system" x-data="{ open: false }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
 
             <button type="button" @click="open = !open"
@@ -629,8 +630,10 @@
 
             </div>
         </div>
+        @endif
 
-        {{-- ── AI / Ollama ─────────────────────────────────────────────────── --}}
+        {{-- ── AI / Ollama (owner / super admin only) ───────────────────────── --}}
+        @if ($this->canSeeModuleToggles)
         <div wire:key="section-ai-ollama" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
 
             <button type="button" @click="open = !open"
@@ -801,6 +804,7 @@
 
             </div>
         </div>
+        @endif
 
         {{-- ── Shipping Surcharge ──────────────────────────────────────────── --}}
         <div wire:key="section-shipping" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">

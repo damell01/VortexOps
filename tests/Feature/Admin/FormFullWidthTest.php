@@ -76,20 +76,20 @@ class FormFullWidthTest extends TestCase
         $this->assertSectionSpansFullWidth($html, 'vendor-details');
     }
 
-    public function test_adp_employee_id_is_hidden_on_the_create_streamer_form(): void
+    public function test_adp_employee_id_field_does_not_appear_on_create_streamer_form(): void
     {
         Livewire::actingAs($this->admin());
 
         Livewire::test(CreateStreamer::class)
-            ->assertFormFieldIsHidden('adp_employee_id');
+            ->assertDontSee('ADP Employee ID');
     }
 
-    public function test_adp_employee_id_is_visible_on_the_edit_streamer_form(): void
+    public function test_adp_employee_id_field_does_not_appear_on_edit_streamer_form(): void
     {
         Livewire::actingAs($this->admin());
         $streamer = Streamer::create(['name' => 'Test Streamer', 'status' => 'active']);
 
         Livewire::test(EditStreamer::class, ['record' => $streamer->getRouteKey()])
-            ->assertFormFieldIsVisible('adp_employee_id');
+            ->assertDontSee('ADP Employee ID');
     }
 }

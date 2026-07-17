@@ -242,11 +242,6 @@ class StreamerResource extends Resource
                         ->helperText(fn (Get $get) => $get('payout_type') === 'custom_formula'
                             ? 'Has no effect on Custom Formula — check "Tips" in the formula builder below instead.'
                             : null),
-                    TextInput::make('adp_employee_id')
-                        ->label('ADP Employee ID')
-                        ->helperText('ADP is the payroll provider pay runs export to. This is the streamer\'s ID in that system.')
-                        ->maxLength(100)
-                        ->hidden(fn (?Streamer $record) => ! $record?->exists),
                 ]),
 
                 // ── Formula builder: tick the components that make up this streamer's

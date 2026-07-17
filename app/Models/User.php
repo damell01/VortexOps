@@ -87,6 +87,16 @@ class User extends Authenticatable implements FilamentUser
         return $this->isAdmin() || $this->isFulfillmentAdmin();
     }
 
+    /**
+     * The feedback "receiver": triages tickets (status, priority, assignment,
+     * deletion). Deliberately narrower than isAdmin() — a plain 'admin' role
+     * holder is just another submitter/commenter here, same as any other role.
+     */
+    public function canManageFeedback(): bool
+    {
+        return $this->isOwner() || $this->hasRole('super_admin');
+    }
+
     public function isOwner(): bool
     {
         $ownerEmail = config('app.owner_email', 'dbellcreations@gmail.com');

@@ -11,6 +11,9 @@ use App\Models\User;
 use App\Support\AdminModules;
 use App\Support\StatusColor;
 use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
@@ -25,6 +28,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
 class FeedbackTicketResource extends Resource
@@ -56,9 +60,18 @@ class FeedbackTicketResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = Cache::remember('nav_badge:feedback_open', 60, fn () =>
-            FeedbackTicket::whereIn('status', ['open', 'in_progress', 'needs_info'])->count()
-        );
+        $user = auth()->user();
+        $isManager = $user?->canManageFeedback() ?? false;
+        $cacheKey = $isManager ? 'nav_badge:feedback_open' : "nav_badge:feedback_open_{$user?->id}";
+
+        $count = Cache::remember($cacheKey, 60, function () use ($isManager, $user) {
+            $query = FeedbackTicket::whereIn('status', ['open', 'in_progress', 'needs_info']);
+            if (! $isManager) {
+                $query->where('submitted_by', $user?->id);
+            }
+            return $query->count();
+        });
+
         return $count > 0 ? (string) $count : null;
     }
 
@@ -77,14 +90,54 @@ class FeedbackTicketResource extends Resource
         return 'Feedback';
     }
 
+    // Tickets can only come in via the feedback widget/controller, not created
+    // here in the admin UI.
     public static function canCreate(): bool
     {
         return false;
     }
 
+    // Open to any authenticated user (same gate as the feedback widget itself)
+    // rather than the trait's admin-only default — submitters need to reach
+    // their own ticket to comment on it. What each user actually sees within
+    // the resource is then scoped by getEloquentQuery()/canView()/canEdit().
+    protected static function passesModuleAccessCheck(): bool
+    {
+        return auth()->check();
+    }
+
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['submitter', 'assignee']);
+        $query = parent::getEloquentQuery()->with(['submitter', 'assignee']);
+
+        $user = auth()->user();
+        if (! $user?->canManageFeedback()) {
+            $query->where('submitted_by', $user?->id);
+        }
+
+        return $query;
+    }
+
+    public static function canView(Model $record): bool
+    {
+        $user = auth()->user();
+
+        return $user && ($user->canManageFeedback() || $record->submitted_by === $user->id);
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return auth()->user()?->canManageFeedback() ?? false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth()->user()?->canManageFeedback() ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->canManageFeedback() ?? false;
     }
 
     public static function form(Schema $schema): Schema
@@ -203,7 +256,7 @@ class FeedbackTicketResource extends Resource
                     ->label('Start')
                     ->icon('heroicon-o-play')
                     ->color('warning')
-                    ->visible(fn (FeedbackTicket $r) => $r->status === 'open')
+                    ->visible(fn (FeedbackTicket $r) => (auth()->user()?->canManageFeedback() ?? false) && $r->status === 'open')
                     ->action(function (FeedbackTicket $r) {
                         $r->update(['status' => 'in_progress']);
                         Cache::forget('nav_badge:feedback_open');
@@ -214,7 +267,7 @@ class FeedbackTicketResource extends Resource
                     ->label('Resolve')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
-                    ->visible(fn (FeedbackTicket $r) => in_array($r->status, ['open', 'in_progress', 'needs_info']))
+                    ->visible(fn (FeedbackTicket $r) => (auth()->user()?->canManageFeedback() ?? false) && in_array($r->status, ['open', 'in_progress', 'needs_info']))
                     ->action(function (FeedbackTicket $r) {
                         $r->update(['status' => 'resolved', 'resolved_at' => now()]);
                         Cache::forget('nav_badge:feedback_open');
@@ -225,7 +278,7 @@ class FeedbackTicketResource extends Resource
                     ->label('Needs Info')
                     ->icon('heroicon-o-question-mark-circle')
                     ->color('info')
-                    ->visible(fn (FeedbackTicket $r) => in_array($r->status, ['open', 'in_progress']))
+                    ->visible(fn (FeedbackTicket $r) => (auth()->user()?->canManageFeedback() ?? false) && in_array($r->status, ['open', 'in_progress']))
                     ->action(function (FeedbackTicket $r) {
                         $r->update(['status' => 'needs_info']);
                         Cache::forget('nav_badge:feedback_open');
@@ -233,7 +286,16 @@ class FeedbackTicketResource extends Resource
                     }),
 
                 ViewAction::make(),
-                EditAction::make(),
+                EditAction::make()
+                    ->visible(fn (FeedbackTicket $r) => static::canEdit($r)),
+                DeleteAction::make()
+                    ->visible(fn (FeedbackTicket $r) => static::canDelete($r)),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->visible(fn () => static::canDeleteAny()),
+                ]),
             ]);
     }
 

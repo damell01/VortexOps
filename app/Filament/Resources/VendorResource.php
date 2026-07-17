@@ -60,7 +60,7 @@ class VendorResource extends Resource
     {
         return $schema->components([
             Section::make('Vendor Details')->schema([
-                Grid::make(2)->schema([
+                Grid::make(3)->schema([
                     TextInput::make('name')
                         ->required()
                         ->maxLength(255),

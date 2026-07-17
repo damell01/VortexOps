@@ -167,7 +167,7 @@ class StreamerResource extends Resource
                 ]),
 
             Section::make('Basic Information')->schema([
-                Grid::make(2)->schema([
+                Grid::make(3)->schema([
                     TextInput::make('name')
                         ->required()
                         ->maxLength(255),
@@ -189,7 +189,7 @@ class StreamerResource extends Resource
             ]),
 
             Section::make('Payout Configuration')->schema([
-                Grid::make(2)->schema([
+                Grid::make(3)->schema([
                     Select::make('payout_type')
                         ->options(Streamer::payoutTypeLabels())
                         ->required()

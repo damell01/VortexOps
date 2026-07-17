@@ -84,7 +84,7 @@ class PalletResource extends Resource
     {
         return $schema->components([
             Section::make('Pallet Details')->schema([
-                Grid::make(2)->schema([
+                Grid::make(3)->schema([
                     Select::make('vendor_id')
                         ->label('Vendor')
                         ->options(fn () => Vendor::activeOptions())

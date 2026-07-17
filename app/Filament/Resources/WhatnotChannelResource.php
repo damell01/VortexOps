@@ -59,7 +59,7 @@ class WhatnotChannelResource extends Resource
     {
         return $schema->components([
             Section::make('Channel Details')->schema([
-                Grid::make(2)->schema([
+                Grid::make(4)->schema([
                     TextInput::make('name')
                         ->required()
                         ->maxLength(255),

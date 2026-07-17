@@ -41,7 +41,7 @@ class CreateShow extends CreateRecord
                 ->icon('heroicon-o-video-camera')
                 ->description('Basic information about the stream')
                 ->schema([
-                    Grid::make(2)->schema([
+                    Grid::make(3)->schema([
                         DatePicker::make('show_date')
                             ->label('Show Date')
                             ->required()

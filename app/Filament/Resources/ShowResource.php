@@ -142,7 +142,7 @@ class ShowResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Show Details')->columns(2)->schema([
+            Section::make('Show Details')->columns(3)->schema([
                 DatePicker::make('show_date')
                     ->label('Show Date')
                     ->required()

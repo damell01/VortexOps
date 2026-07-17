@@ -667,6 +667,16 @@ class DemoDataSeeder extends Seeder
         $fulfillmentUser->syncRoles([$fulfillmentRole]);
         $show1->fulfillmentUsers()->syncWithoutDetaching([$fulfillmentUser->id]);
 
+        // ── Fulfillment admin login account (sees every channel's fulfillment
+        // work and can use the channel switcher, unlike the scoped fulfillment
+        // account above) ───────────────────────────────────────────────────────
+        $fulfillmentAdminRole = Role::firstOrCreate(['name' => 'fulfillment_admin', 'guard_name' => 'web']);
+        $fulfillmentAdminUser = User::firstOrCreate(
+            ['email' => 'fulfillment-admin@vortexbreaks.com'],
+            ['name' => 'Fulfillment Admin Demo', 'password' => Hash::make('demopassword'), 'email_verified_at' => now()],
+        );
+        $fulfillmentAdminUser->syncRoles([$fulfillmentAdminRole]);
+
         // ── Per-show orders (items sold) ─────────────────────────────────────
         // Drives the Streamer Log items editor, Product Insights (revenue,
         // sell-through), and per-show P&L. Some are pre-mapped to inventory,

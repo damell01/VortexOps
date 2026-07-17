@@ -17,6 +17,8 @@ class WhatnotChannel extends Model
         'status',
         'include_in_import',
         'notes',
+        'logo_path',
+        'display_title',
     ];
 
     protected $casts = [

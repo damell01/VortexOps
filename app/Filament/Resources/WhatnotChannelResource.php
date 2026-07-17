@@ -8,6 +8,7 @@ use App\Filament\Resources\WhatnotChannelResource\Pages;
 use App\Models\WhatnotChannel;
 use App\Support\AdminModules;
 use App\Support\StatusColor;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -21,6 +22,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -82,6 +84,21 @@ class WhatnotChannelResource extends Resource
                     ->rows(3)
                     ->columnSpanFull(),
             ]),
+            Section::make('Branding')
+                ->description('Shown at the top of the app whenever this channel is the active channel in the switcher. Leave blank to keep the default app branding.')
+                ->schema([
+                    FileUpload::make('logo_path')
+                        ->label('Channel Logo')
+                        ->image()
+                        ->disk('public')
+                        ->directory('channel-logos')
+                        ->visibility('public')
+                        ->maxSize(2048),
+                    TextInput::make('display_title')
+                        ->label('Display Title')
+                        ->maxLength(255)
+                        ->placeholder('Defaults to the app name'),
+                ]),
         ]);
     }
 
@@ -90,6 +107,9 @@ class WhatnotChannelResource extends Resource
         return $table
             ->deferLoading()
             ->columns([
+                ImageColumn::make('logo_path')
+                    ->label('')
+                    ->circular(),
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable(),

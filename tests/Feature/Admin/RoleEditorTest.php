@@ -124,11 +124,14 @@ class RoleEditorTest extends TestCase
 
     public function test_core_roles_cannot_be_deleted(): void
     {
-        $admin = Role::create(['name' => 'admin', 'guard_name' => 'web']);
         Livewire::actingAs($this->owner());
 
-        Livewire::test(EditRole::class, ['record' => $admin->getRouteKey()])
-            ->assertActionHidden('delete');
+        foreach (['admin', 'super_admin', 'streamer', 'fulfillment', 'fulfillment_admin'] as $name) {
+            $role = Role::create(['name' => $name, 'guard_name' => 'web']);
+
+            Livewire::test(EditRole::class, ['record' => $role->getRouteKey()])
+                ->assertActionHidden('delete');
+        }
     }
 
     public function test_custom_roles_can_be_deleted(): void

@@ -24,7 +24,7 @@ class UserResource extends Resource
     use HasAdminNavVisibility;
 
     /** Roles only the owner may grant/revoke. */
-    public const PRIVILEGED_ROLES = ['admin', 'super_admin'];
+    public const PRIVILEGED_ROLES = ['admin', 'super_admin', 'fulfillment_admin'];
 
     protected static ?string $model = User::class;
 
@@ -105,7 +105,7 @@ class UserResource extends Resource
                         }
                     })
                     ->preload()
-                    ->helperText('Admin — full access. Streamer — scoped to their own inventory locations.'),
+                    ->helperText('Admin — full access. Streamer — scoped to their own inventory locations. Fulfillment — scoped to their assigned shows. Fulfillment Admin — sees every channel\'s fulfillment work.'),
 
                 Select::make('streamer_id')
                     ->label('Linked Streamer Profile')

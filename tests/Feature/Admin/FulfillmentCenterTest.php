@@ -11,8 +11,10 @@ use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
 use App\Models\User;
+use App\Models\WhatnotChannel;
 use App\Models\WhatnotShowOrder;
 use App\Support\AdminModules;
+use App\Support\ChannelContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -30,6 +32,7 @@ class FulfillmentCenterTest extends TestCase
         Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'fulfillment', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'fulfillment_admin', 'guard_name' => 'web']);
         Setting::set('enabled_admin_modules', json_encode(['streams', 'fulfillment']));
         AdminModules::flushMemo();
         $this->creator = User::factory()->create();
@@ -46,6 +49,13 @@ class FulfillmentCenterTest extends TestCase
     {
         $u = User::factory()->create(['email' => $email]);
         $u->assignRole('fulfillment');
+        return $u;
+    }
+
+    private function fulfillmentAdmin(string $email = 'fulfillment-admin@test.com'): User
+    {
+        $u = User::factory()->create(['email' => $email]);
+        $u->assignRole('fulfillment_admin');
         return $u;
     }
 
@@ -81,6 +91,32 @@ class FulfillmentCenterTest extends TestCase
 
         $plain = User::factory()->create();
         $this->assertFalse($plain->isFulfillment());
+    }
+
+    public function test_is_fulfillment_admin_true_for_fulfillment_admin_role_only(): void
+    {
+        $fulfillmentAdmin = $this->fulfillmentAdmin();
+        $this->assertTrue($fulfillmentAdmin->isFulfillmentAdmin());
+        $this->assertFalse($fulfillmentAdmin->isFulfillment());
+
+        $admin = $this->admin();
+        $admin->assignRole('fulfillment_admin');
+        // Admin takes precedence — isFulfillmentAdmin() excludes admins, same as isFulfillment()/isStreamer().
+        $this->assertFalse($admin->isFulfillmentAdmin());
+
+        $plain = User::factory()->create();
+        $this->assertFalse($plain->isFulfillmentAdmin());
+    }
+
+    public function test_can_switch_channels_true_for_admin_and_fulfillment_admin_only(): void
+    {
+        $this->assertTrue($this->admin()->canSwitchChannels());
+        $this->assertTrue($this->fulfillmentAdmin()->canSwitchChannels());
+        $this->assertFalse($this->fulfillmentUser()->canSwitchChannels());
+
+        $streamerUser = User::factory()->create();
+        $streamerUser->assignRole('streamer');
+        $this->assertFalse($streamerUser->canSwitchChannels());
     }
 
     // ── Show <-> fulfillment user assignment ────────────────────────────────────
@@ -149,6 +185,41 @@ class FulfillmentCenterTest extends TestCase
 
         $this->assertContains($showA->id, $ids);
         $this->assertContains($showB->id, $ids);
+    }
+
+    public function test_fulfillment_admin_sees_all_eligible_shows_regardless_of_assignment(): void
+    {
+        $showA = $this->showWithOrder(['title' => 'A']);
+        $showB = $this->showWithOrder(['title' => 'B']);
+
+        $this->actingAs($this->fulfillmentAdmin());
+        $ids = FulfillmentResource::getEloquentQuery()->pluck('id')->all();
+
+        $this->assertContains($showA->id, $ids);
+        $this->assertContains($showB->id, $ids);
+        $this->assertTrue(FulfillmentResource::canAccess());
+    }
+
+    public function test_channel_scoping_filters_fulfillment_center_for_admin(): void
+    {
+        $breaks   = WhatnotChannel::create(['name' => 'Vortex Breaks', 'status' => 'active']);
+        $collects = WhatnotChannel::create(['name' => 'Vortex Collects', 'status' => 'active']);
+
+        $showBreaks   = $this->showWithOrder(['title' => 'Breaks Show', 'whatnot_channel_id' => $breaks->id]);
+        $showCollects = $this->showWithOrder(['title' => 'Collects Show', 'whatnot_channel_id' => $collects->id]);
+
+        $this->actingAs($this->admin());
+
+        // Unscoped ("All Channels") — sees both.
+        $ids = FulfillmentResource::getEloquentQuery()->pluck('id')->all();
+        $this->assertContains($showBreaks->id, $ids);
+        $this->assertContains($showCollects->id, $ids);
+
+        // Scoped to one channel — only that channel's shows.
+        ChannelContext::setActive($breaks->id);
+        $ids = FulfillmentResource::getEloquentQuery()->pluck('id')->all();
+        $this->assertContains($showBreaks->id, $ids);
+        $this->assertNotContains($showCollects->id, $ids);
     }
 
     public function test_draft_cancelled_and_orderless_shows_are_excluded(): void

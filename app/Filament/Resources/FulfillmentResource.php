@@ -8,6 +8,7 @@ use App\Filament\Resources\FulfillmentResource\Pages;
 use App\Filament\Resources\FulfillmentResource\RelationManagers\FulfillmentOrdersRelationManager;
 use App\Models\Show;
 use App\Support\AdminModules;
+use App\Support\ChannelContext;
 use Filament\Forms\Components\Placeholder;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
@@ -53,7 +54,7 @@ class FulfillmentResource extends Resource
     {
         $user = auth()->user();
 
-        return ($user?->isAdmin() || $user?->isOwner() || $user?->isFulfillment()) ?? false;
+        return ($user?->isAdmin() || $user?->isOwner() || $user?->isFulfillment() || $user?->isFulfillmentAdmin()) ?? false;
     }
 
     public static function getEloquentQuery(): Builder
@@ -61,7 +62,11 @@ class FulfillmentResource extends Resource
         $query = parent::getEloquentQuery()
             ->with(['streamers', 'channel', 'fulfillmentUsers'])
             ->whereNotIn('status', ['draft', 'cancelled'])
-            ->whereHas('orders');
+            ->whereHas('orders')
+            ->when(
+                ChannelContext::isScoped(),
+                fn (Builder $q) => $q->where('whatnot_channel_id', ChannelContext::currentId())
+            );
 
         $user = auth()->user();
         if ($user && $user->isFulfillment() && ! $user->isAdmin()) {
@@ -79,7 +84,7 @@ class FulfillmentResource extends Resource
     {
         $user = auth()->user();
 
-        return ($user?->isAdmin() || $user?->isOwner() || $user?->isFulfillment()) ?? false;
+        return ($user?->isAdmin() || $user?->isOwner() || $user?->isFulfillment() || $user?->isFulfillmentAdmin()) ?? false;
     }
 
     public static function canCreate(): bool

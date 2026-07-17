@@ -24,7 +24,7 @@ class RoleEscalationTest extends TestCase
     {
         parent::setUp();
         config(['app.owner_email' => 'owner@test.com']);
-        foreach (['admin', 'super_admin', 'streamer'] as $r) {
+        foreach (['admin', 'super_admin', 'streamer', 'fulfillment_admin'] as $r) {
             $this->roleId[$r] = Role::firstOrCreate(['name' => $r, 'guard_name' => 'web'])->id;
         }
     }
@@ -78,6 +78,18 @@ class RoleEscalationTest extends TestCase
             ->call('save');
 
         $this->assertTrue($target->fresh()->hasRole('admin'), 'the owner may grant privileged roles');
+    }
+
+    public function test_non_owner_cannot_escalate_a_user_to_fulfillment_admin(): void
+    {
+        $target = User::factory()->create(['email' => 'target4@test.com']);
+        Livewire::actingAs($this->admin());
+
+        Livewire::test(EditUser::class, ['record' => $target->getRouteKey()])
+            ->fillForm(['roles' => [$this->roleId['fulfillment_admin']]])
+            ->call('save');
+
+        $this->assertFalse($target->fresh()->hasRole('fulfillment_admin'), 'fulfillment_admin must not be grantable by a non-owner');
     }
 
     public function test_non_owner_can_still_manage_non_privileged_roles(): void

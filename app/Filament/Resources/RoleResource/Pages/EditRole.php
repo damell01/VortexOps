@@ -29,7 +29,7 @@ class EditRole extends EditRecord
     {
         return [
             DeleteAction::make()
-                ->visible(fn () => ! in_array($this->record->name, ['admin', 'super_admin', 'streamer'])),
+                ->visible(fn () => ! in_array($this->record->name, ['admin', 'super_admin', 'streamer', 'fulfillment', 'fulfillment_admin'])),
         ];
     }
 }

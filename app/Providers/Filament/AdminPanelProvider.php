@@ -3,6 +3,8 @@
 namespace App\Providers\Filament;
 
 use App\Models\Setting;
+use App\Models\WhatnotChannel;
+use App\Support\ChannelContext;
 use Awcodes\QuickCreate\QuickCreatePlugin;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use App\Support\AdminModules;
@@ -45,6 +47,10 @@ class AdminPanelProvider extends PanelProvider
             $primaryColor = '#7c3aed';
         }
 
+        // Both resolved as Closures (not plain strings) so they're evaluated at
+        // render time rather than here at panel-registration time — registration
+        // runs before the session middleware boots, so ChannelContext (session-
+        // backed) would always read as unscoped if resolved eagerly here.
         $panel = $panel
             ->default()
             ->id('admin')
@@ -52,7 +58,9 @@ class AdminPanelProvider extends PanelProvider
             ->login(Login::class)
             ->passwordReset()
             ->profile(isSimple: false)
-            ->brandName($brandName)
+            ->brandName(fn (): string => static::resolveBrandName(ChannelContext::current(), $brandName, $logoPath))
+            ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))
+            ->brandLogoHeight('2.75rem')
             ->font('Inter')
             ->sidebarCollapsibleOnDesktop()
             ->sidebarFullyCollapsibleOnDesktop()
@@ -67,18 +75,6 @@ class AdminPanelProvider extends PanelProvider
                 'warning' => Color::Amber,
                 'danger'  => Color::Rose,
             ]);
-
-        if ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {
-            $panel = $panel
-                ->brandLogo(asset('storage/' . $logoPath))
-                ->brandLogoHeight('2.75rem');
-        } elseif (file_exists(public_path('images/vb-logo-sidebar.svg'))) {
-            // Default to the built-in SVG logo when no custom logo is uploaded
-            $panel = $panel
-                ->brandLogo(asset('images/vb-logo-sidebar.svg'))
-                ->brandLogoHeight('2.75rem')
-                ->brandName('');   // text hidden — logo SVG already contains it
-        }
 
         $isAuthenticatedAdminView = fn (): bool => auth()->check();
         $hasViteManifest = fn (): bool => file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot'));
@@ -133,7 +129,7 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::TOPBAR_START,
-                fn (): string => (auth()->user()?->isAdmin() ?? false)
+                fn (): string => (auth()->user()?->canSwitchChannels() ?? false)
                     ? Blade::render("@livewire('channel-switcher')")
                     : '',
             )
@@ -313,5 +309,41 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ]);
+    }
+
+    /**
+     * Precedence: the active channel's own title, else the global brand name —
+     * except when falling back to the built-in SVG logo (no channel logo, no
+     * global logo), which already contains the wordmark so the text is hidden.
+     */
+    public static function resolveBrandName(?WhatnotChannel $channel, string $brandName, ?string $logoPath): string
+    {
+        if ($channel?->display_title) {
+            return $channel->display_title;
+        }
+
+        if (! $channel?->logo_path && ! $logoPath && file_exists(public_path('images/vb-logo-sidebar.svg'))) {
+            return '';
+        }
+
+        return $brandName;
+    }
+
+    /** Precedence: the active channel's own logo, else the global logo, else the built-in SVG. */
+    public static function resolveBrandLogo(?WhatnotChannel $channel, ?string $logoPath): ?string
+    {
+        if ($channel?->logo_path && file_exists(storage_path('app/public/' . $channel->logo_path))) {
+            return asset('storage/' . $channel->logo_path);
+        }
+
+        if ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {
+            return asset('storage/' . $logoPath);
+        }
+
+        if (file_exists(public_path('images/vb-logo-sidebar.svg'))) {
+            return asset('images/vb-logo-sidebar.svg');
+        }
+
+        return null;
     }
 }

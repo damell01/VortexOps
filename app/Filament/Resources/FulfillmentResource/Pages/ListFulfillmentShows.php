@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\FulfillmentResource\Pages;
 
 use App\Filament\Resources\FulfillmentResource;
+use App\Filament\Widgets\WhatnotSyncStatusWidget;
 use Filament\Resources\Pages\ListRecords;
 
 class ListFulfillmentShows extends ListRecords
@@ -21,5 +22,10 @@ class ListFulfillmentShows extends ListRecords
     protected function getHeaderActions(): array
     {
         return [];
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [WhatnotSyncStatusWidget::class];
     }
 }

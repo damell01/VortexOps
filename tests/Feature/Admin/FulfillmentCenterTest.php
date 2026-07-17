@@ -320,4 +320,52 @@ class FulfillmentCenterTest extends TestCase
         $this->assertNotNull($log->fulfillment_reviewed_at);
         $this->assertEquals($fulfillment->id, $log->fulfillment_reviewed_by);
     }
+
+    // ── Shipping status: label_created + bulk actions ────────────────────────
+
+    public function test_label_created_is_a_valid_shipping_status(): void
+    {
+        $this->assertArrayHasKey('label_created', WhatnotShowOrder::shippingStatusLabels());
+    }
+
+    public function test_bulk_mark_action_updates_shipping_status_on_selected_orders(): void
+    {
+        $show = $this->showWithOrder();
+        $order = $show->orders()->first();
+        $fulfillment = $this->fulfillmentUser();
+        $show->fulfillmentUsers()->attach($fulfillment->id);
+
+        Livewire::actingAs($fulfillment);
+
+        Livewire::test(FulfillmentOrdersRelationManager::class, [
+            'ownerRecord' => $show,
+            'pageClass'   => ViewFulfillmentShow::class,
+        ])
+            ->callTableBulkAction('mark_label_created', [$order->id]);
+
+        $this->assertSame('label_created', $order->fresh()->shipping_status);
+    }
+
+    // ── Sync status widget ───────────────────────────────────────────────────
+
+    public function test_list_page_shows_sync_status_widget(): void
+    {
+        Setting::set('whatnot_last_import_success_at', now()->subMinutes(5)->toISOString());
+        Livewire::actingAs($this->admin());
+
+        Livewire::test(ListFulfillmentShows::class)
+            ->assertOk()
+            ->assertSee('Whatnot Order Data')
+            ->assertSee('Up to date');
+    }
+
+    public function test_list_page_flags_stale_sync(): void
+    {
+        Setting::set('whatnot_last_import_success_at', now()->subHours(3)->toISOString());
+        Livewire::actingAs($this->admin());
+
+        Livewire::test(ListFulfillmentShows::class)
+            ->assertOk()
+            ->assertSee('Running later than usual');
+    }
 }

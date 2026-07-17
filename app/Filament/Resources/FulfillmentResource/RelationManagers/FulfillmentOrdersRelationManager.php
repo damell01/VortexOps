@@ -5,12 +5,16 @@ namespace App\Filament\Resources\FulfillmentResource\RelationManagers;
 use App\Filament\Resources\FulfillmentResource;
 use App\Models\WhatnotShowOrder;
 use App\Support\NavVisibility;
+use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\SelectColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\TextInputColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 
 /**
  * Sold items for this show, scoped to what fulfillment actually needs — item,
@@ -63,6 +67,24 @@ class FulfillmentOrdersRelationManager extends RelationManager
             ])
             ->emptyStateHeading('No items on this show yet')
             ->emptyStateIcon('heroicon-o-shopping-cart')
-            ->paginated([25, 50, 100]);
+            ->paginated([25, 50, 100])
+            ->bulkActions($locked ? [] : [
+                BulkActionGroup::make(
+                    collect(WhatnotShowOrder::shippingStatusLabels())
+                        ->map(fn (string $label, string $status) => BulkAction::make("mark_{$status}")
+                            ->label("Mark {$label}")
+                            ->icon('heroicon-o-check')
+                            ->action(function (Collection $records) use ($status, $label) {
+                                $records->each->update(['shipping_status' => $status]);
+                                Notification::make()
+                                    ->title("{$records->count()} item(s) marked {$label}")
+                                    ->success()
+                                    ->send();
+                            })
+                            ->deselectRecordsAfterCompletion())
+                        ->values()
+                        ->all()
+                ),
+            ]);
     }
 }

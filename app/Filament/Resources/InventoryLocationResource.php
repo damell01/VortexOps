@@ -5,11 +5,14 @@ namespace App\Filament\Resources;
 use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\InventoryLocationResource\Pages;
+use App\Models\DeductionRequestLine;
 use App\Models\InventoryLocation;
 use App\Support\AdminModules;
 use App\Support\ChannelContext;
 use App\Support\StatusColor;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -17,10 +20,13 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Actions\Action as TableAction;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -87,6 +93,30 @@ class InventoryLocationResource extends Resource
             'Type'     => InventoryLocation::typeLabels()[$record->type] ?? $record->type,
             'Streamer' => $record->streamer?->name,
         ]);
+    }
+
+    /**
+     * inventory_stock.inventory_location_id cascade-deletes, so a location still
+     * holding stock can't be removed without silently wiping those stock rows.
+     * deduction_request_lines.inventory_location_id has no delete rule (defaults
+     * to restrict), so a referenced location would otherwise 500 on delete.
+     */
+    public static function canDelete(Model $record): bool
+    {
+        if (! auth()->user()?->isAdmin()) {
+            return false;
+        }
+
+        if ($record->stock()->where('quantity', '>', 0)->exists()) {
+            return false;
+        }
+
+        return ! DeductionRequestLine::where('inventory_location_id', $record->id)->exists();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public static function getNavigationLabel(): string
@@ -184,13 +214,44 @@ class InventoryLocationResource extends Resource
                     ->label('Channel')
                     ->relationship('channel', 'name'),
             ])
+            ->headerActions([
+                TableAction::make('export_csv')
+                    ->label('Export CSV')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->url(fn () => route('export.locations'))
+                    ->openUrlInNewTab(),
+            ])
             ->actions([
                 ViewAction::make(),
                 EditAction::make(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->visible(fn (InventoryLocation $record) => static::canDelete($record))
+                    ->tooltip(fn (InventoryLocation $record) => $record->stock()->where('quantity', '>', 0)->exists()
+                        ? 'Still holds stock — move or zero it out first'
+                        : null),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->action(function (Collection $records): void {
+                            $deletable = $records->filter(fn (InventoryLocation $record) => static::canDelete($record));
+                            $blocked   = $records->count() - $deletable->count();
+
+                            $deletable->each->delete();
+
+                            if ($blocked > 0) {
+                                Notification::make()
+                                    ->title($deletable->count() . ' location(s) deleted')
+                                    ->body("{$blocked} skipped — still hold stock or are referenced by a deduction request.")
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()->title($deletable->count() . ' location(s) deleted')->success()->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ])
             ->striped()

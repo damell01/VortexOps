@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exports\PayoutsExport;
 use App\Exports\ShowsExport;
 use App\Models\InventoryItem;
+use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\Payout;
@@ -52,11 +53,11 @@ class ExportController extends Controller
             $this->row(['Item', 'SKU', 'Category', 'Location', 'Location Type', 'Quantity', 'Avg Cost', 'Stock Value']);
 
             InventoryStock::with(['item', 'location'])
-                ->join('products', 'inventory_stocks.inventory_item_id', '=', 'products.id')
-                ->join('inventory_locations', 'inventory_stocks.inventory_location_id', '=', 'inventory_locations.id')
+                ->join('products', 'inventory_stock.inventory_item_id', '=', 'products.id')
+                ->join('inventory_locations', 'inventory_stock.inventory_location_id', '=', 'inventory_locations.id')
                 ->orderBy('products.name')
                 ->orderBy('inventory_locations.name')
-                ->select('inventory_stocks.*')
+                ->select('inventory_stock.*')
                 ->lazy(500)
                 ->each(function (InventoryStock $stock) {
                     $avgCost = (float) ($stock->item->average_cost > 0 ? $stock->item->average_cost : $stock->item->unit_cost ?? 0);
@@ -103,6 +104,31 @@ class ExportController extends Controller
                     $m->createdByUser->name ?? '',
                 ]);
             });
+        });
+    }
+
+    public function locations(): StreamedResponse
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
+        return $this->streamCsv('locations', function () {
+            $this->row(['Name', 'Type', 'Streamer', 'Channel', 'Status', 'SKUs Stocked', 'Notes']);
+
+            InventoryLocation::with(['streamer', 'channel'])
+                ->withCount('stock')
+                ->orderBy('name')
+                ->lazy(500)
+                ->each(function (InventoryLocation $location) {
+                    $this->row([
+                        $location->name,
+                        InventoryLocation::typeLabels()[$location->type] ?? $location->type,
+                        $location->streamer->name ?? '',
+                        $location->channel->name ?? '',
+                        InventoryLocation::statusLabels()[$location->status] ?? $location->status,
+                        $location->stock_count,
+                        $location->notes ?? '',
+                    ]);
+                });
         });
     }
 

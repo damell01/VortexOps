@@ -38,6 +38,16 @@ class FulfillmentCenterTest extends TestCase
         $this->creator = User::factory()->create();
     }
 
+    protected function tearDown(): void
+    {
+        // The module memo is a static property, not DB state — RefreshDatabase
+        // rolls back the restrictive Setting row above, but without this the
+        // stale memoized slug list leaks into whichever test runs next in the
+        // same process and hides modules (e.g. inventory) it shouldn't.
+        AdminModules::flushMemo();
+        parent::tearDown();
+    }
+
     private function admin(): User
     {
         $u = User::factory()->create(['email' => 'admin@test.com']);

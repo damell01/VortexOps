@@ -27,6 +27,7 @@ Route::middleware(['auth', 'web', 'throttle:6,1'])->prefix('admin/export')->name
     Route::get('inventory-items', [ExportController::class, 'inventoryItems'])->name('inventory-items');
     Route::get('stock-levels',    [ExportController::class, 'stockLevels'])->name('stock-levels');
     Route::get('movement-log',    [ExportController::class, 'movementLog'])->name('movement-log');
+    Route::get('locations',       [ExportController::class, 'locations'])->name('locations');
     Route::get('shows',           [ExportController::class, 'shows'])->name('shows');
     Route::get('payouts',         [ExportController::class, 'payouts'])->name('payouts');
     Route::get('payouts/{payout}/pdf', [ExportController::class, 'payoutPdf'])->name('payout-pdf');

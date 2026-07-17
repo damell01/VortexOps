@@ -19,6 +19,7 @@ use Filament\Schemas\Schema;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -169,6 +170,17 @@ class InventoryStockResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                Filter::make('low_stock')
+                    ->label('Low Stock Only')
+                    ->query(fn (Builder $query) => $query
+                        ->whereExists(function ($q) {
+                            $q->selectRaw('1')
+                                ->from('products')
+                                ->whereColumn('products.id', 'inventory_stock.inventory_item_id')
+                                ->whereNotNull('products.reorder_level')
+                                ->whereColumn('inventory_stock.quantity', '<=', 'products.reorder_level');
+                        })
+                    ),
                 SelectFilter::make('inventory_location_id')
                     ->label('Location')
                     ->relationship('location', 'name'),

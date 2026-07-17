@@ -163,6 +163,7 @@ class StreamerLoanResource extends Resource
             ->actions([
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
+                \Filament\Actions\DeleteAction::make()->iconButton(),
             ]);
     }
 

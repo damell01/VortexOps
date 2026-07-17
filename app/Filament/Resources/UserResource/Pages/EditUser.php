@@ -48,12 +48,21 @@ class EditUser extends EditRecord
     {
         return [
             DeleteAction::make()
-                ->hidden(fn () => $this->record->isSuperAdmin())
+                ->visible(fn () => UserResource::canDelete($this->record))
                 ->before(function (DeleteAction $action) {
+                    // Defense in depth: canDelete() already hides the button for
+                    // these cases, but guard the actual delete call too in case
+                    // it's ever reached via a crafted request.
                     if ($this->record->id === auth()->id()) {
                         \Filament\Notifications\Notification::make()
                             ->title('You cannot delete your own account.')
                             ->warning()
+                            ->send();
+                        $action->cancel();
+                    } elseif (! UserResource::canDelete($this->record)) {
+                        \Filament\Notifications\Notification::make()
+                            ->title('You do not have permission to delete this account.')
+                            ->danger()
                             ->send();
                         $action->cancel();
                     }

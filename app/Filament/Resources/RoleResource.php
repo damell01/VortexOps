@@ -18,6 +18,14 @@ class RoleResource extends Resource
 {
     protected static ?string $model = Role::class;
 
+    /** Default roles the app assumes exist — protected from deletion. */
+    public const CORE_ROLES = ['admin', 'super_admin', 'streamer', 'fulfillment', 'fulfillment_admin'];
+
+    public static function isCoreRole(string $name): bool
+    {
+        return in_array($name, self::CORE_ROLES, true);
+    }
+
     protected static ?string $navigationLabel = 'Roles & Permissions';
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -142,7 +150,12 @@ class RoleResource extends Resource
                     ->label('Guard')
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->defaultSort('name');
+            ->defaultSort('name')
+            ->actions([
+                \Filament\Actions\EditAction::make()->iconButton(),
+                \Filament\Actions\DeleteAction::make()->iconButton()
+                    ->visible(fn (Role $record) => ! static::isCoreRole($record->name)),
+            ]);
     }
 
     public static function getPages(): array

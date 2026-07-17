@@ -64,6 +64,38 @@ class UserResource extends Resource
         return ($user?->isAdmin() || $user?->isOwner()) ?? false;
     }
 
+    /**
+     * Never yourself, never the owner account, and privileged-role holders
+     * (admin/super_admin/fulfillment_admin) only by the owner — mirrors the
+     * role-escalation protection in EditUser/CreateUser: if only the owner
+     * can grant a privileged role, only the owner should be able to remove
+     * the account holding one.
+     */
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $user = auth()->user();
+
+        if (! $user?->isAdmin()) {
+            return false;
+        }
+        if ($record->id === $user->id) {
+            return false;
+        }
+        if ($record->isOwner()) {
+            return false;
+        }
+        if ($record->getRoleNames()->intersect(self::PRIVILEGED_ROLES)->isNotEmpty()) {
+            return $user->isOwner();
+        }
+
+        return true;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
@@ -161,6 +193,8 @@ class UserResource extends Resource
             ->actions([
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
+                DeleteAction::make()->iconButton()
+                    ->visible(fn (User $record) => static::canDelete($record)),
             ])
             ->bulkActions([]);
     }

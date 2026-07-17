@@ -77,6 +77,17 @@ class DeductionRequestResource extends Resource
         return false;
     }
 
+    /** Once approved/processed, a deduction request has already affected a payout — leave it as a record. */
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return (auth()->user()?->isAdmin() ?? false) && ! in_array($record->status, ['approved', 'processed']);
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
@@ -167,6 +178,8 @@ class DeductionRequestResource extends Resource
             ])
             ->actions([
                 ViewAction::make()->label('Review'),
+                \Filament\Actions\DeleteAction::make()->iconButton()
+                    ->visible(fn (DeductionRequest $record) => static::canDelete($record)),
             ])
             ->striped()
             ->persistFiltersInSession()

@@ -136,6 +136,8 @@ class ShowIngestionLogResource extends Resource
             ])
             ->actions([
                 ViewAction::make()->iconButton(),
+                \Filament\Actions\DeleteAction::make()->iconButton()
+                    ->visible(fn (ShowIngestionLog $record) => static::canDelete($record)),
             ]);
     }
 

@@ -8,7 +8,7 @@
             $summaryPct      = $summaryExpected > 0 ? round(($summaryReceived / $summaryExpected) * 100) : 0;
             $summaryDone     = $summaryExpected > 0 && $summaryReceived >= $summaryExpected;
         @endphp
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4 space-y-3">
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm px-6 py-4 space-y-3">
             <div class="flex flex-wrap gap-6">
                 <div>
                     <p class="text-xs text-gray-400 uppercase tracking-wide">Vendor</p>
@@ -20,7 +20,17 @@
                 </div>
                 <div>
                     <p class="text-xs text-gray-400 uppercase tracking-wide">Status</p>
-                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ ucfirst($this->record->status) }}</p>
+                    @php
+                        $palletStatusColors = [
+                            'pending'   => 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400',
+                            'receiving' => 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300',
+                            'received'  => 'bg-sky-100 dark:bg-sky-900 text-sky-700 dark:text-sky-300',
+                            'processed' => 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300',
+                        ];
+                    @endphp
+                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium {{ $palletStatusColors[$this->record->status] ?? 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400' }}">
+                        {{ \App\Models\Pallet::statusLabels()[$this->record->status] ?? ucfirst($this->record->status) }}
+                    </span>
                 </div>
                 <div>
                     <p class="text-xs text-gray-400 uppercase tracking-wide">Lines</p>
@@ -44,7 +54,7 @@
         </div>
 
         {{-- ── Barcode Scanner Input ────────────────────────────────────────── --}}
-        <div class="rounded-xl border-2 border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950 px-6 py-5 space-y-3">
+        <div class="rounded-xl border-2 border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950 shadow-sm px-6 py-5 space-y-3">
             <div class="flex items-center gap-3">
                 <x-heroicon-o-qr-code class="h-5 w-5 text-violet-500" />
                 <h2 class="text-sm font-semibold text-violet-900 dark:text-violet-100">Barcode Scanner</h2>
@@ -83,7 +93,7 @@
             $totalReceived = collect($lineProgress)->sum('received');
             $allDone       = $totalExpected > 0 && $totalReceived >= $totalExpected;
         @endphp
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
 
             {{-- Header with overall progress --}}
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex flex-wrap items-center gap-4">

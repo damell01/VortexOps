@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div class="space-y-6 max-w-3xl">
+    <div class="space-y-6">
 
         {{-- ── Progress stepper ────────────────────────────────────────────── --}}
         @php
@@ -7,7 +7,7 @@
             $stageKeys = array_keys($stages);
             $currentIdx = array_search($stage, $stageKeys);
         @endphp
-        <div class="flex items-center gap-0">
+        <div class="flex items-center gap-0 max-w-3xl mx-auto">
             @foreach ($stages as $key => $label)
                 @php
                     $idx    = array_search($key, $stageKeys);
@@ -37,7 +37,7 @@
              Stage 1 — Upload
         ═══════════════════════════════════════════════════════════════════ --}}
         @if ($stage === 'upload')
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-6 space-y-5">
+            <div class="max-w-3xl mx-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm px-6 py-6 space-y-5">
                 <div>
                     <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Upload Packing Slip</h2>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -159,8 +159,8 @@
              Stage 2 — AI Processing (polls every 3 s)
         ═══════════════════════════════════════════════════════════════════ --}}
         @if ($stage === 'processing')
-            <div wire:poll.3000ms="checkProcessing">
-                <div class="rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950 px-6 py-10 text-center space-y-4">
+            <div wire:poll.3000ms="checkProcessing" class="max-w-3xl mx-auto">
+                <div class="rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950 shadow-sm px-6 py-10 text-center space-y-4">
                     <div class="flex justify-center">
                         <svg class="animate-spin h-10 w-10 text-violet-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -182,12 +182,19 @@
              Stage 3 — Verify & Edit
         ═══════════════════════════════════════════════════════════════════ --}}
         @if ($stage === 'verify')
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-6 space-y-5">
-                <div>
-                    <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Verify Line Items</h2>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        AI found <strong>{{ count($parsedLines) }}</strong> line item(s). Check everything looks right — edit, add, or remove lines before importing.
-                    </p>
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm px-6 py-6 space-y-5">
+                <div class="flex items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Verify Line Items</h2>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            AI found <strong>{{ count($parsedLines) }}</strong> line item(s). Check everything looks right — edit, add, or remove lines before importing.
+                        </p>
+                    </div>
+                    @if (count($parsedLines) > 0)
+                        <span class="hidden sm:inline-flex shrink-0 items-center rounded-full bg-violet-100 dark:bg-violet-900 px-3 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
+                            {{ collect($parsedLines)->filter(fn ($l) => !empty($l['matched_item_id']))->count() }}/{{ count($parsedLines) }} matched
+                        </span>
+                    @endif
                 </div>
 
                 @if (count($parsedLines) === 0)
@@ -296,7 +303,7 @@
                         $totalCost    = collect($parsedLines)->sum(fn ($l) => (float) ($l['unit_cost'] ?? 0) * (int) ($l['case_count'] ?? 0));
                         $matchedCount = collect($parsedLines)->filter(fn ($l) => !empty($l['matched_item_id']))->count();
                     @endphp
-                    <div class="hidden sm:block rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div class="hidden sm:block rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                         {{-- Header --}}
                         <div class="grid grid-cols-12 gap-2 px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700
                                     text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
@@ -463,7 +470,7 @@
              Stage 4 — Done
         ═══════════════════════════════════════════════════════════════════ --}}
         @if ($stage === 'done')
-            <div class="rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 px-6 py-10 text-center space-y-4">
+            <div class="max-w-3xl mx-auto rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 shadow-sm px-6 py-10 text-center space-y-4">
                 <x-heroicon-o-check-circle class="h-12 w-12 mx-auto text-green-500" />
                 <div>
                     <h2 class="text-lg font-semibold text-green-900 dark:text-green-100">Imported</h2>

@@ -144,6 +144,7 @@ class StreamerResource extends Resource
                 ->description('Performance across every show this streamer was on.')
                 ->icon('heroicon-o-trophy')
                 ->visible(fn ($record) => $record?->exists && $record->scorecard()['has_data'])
+                ->columnSpanFull()
                 ->schema([
                     Grid::make(4)->schema([
                         Placeholder::make('sc_shows')
@@ -166,7 +167,7 @@ class StreamerResource extends Resource
                     ]),
                 ]),
 
-            Section::make('Basic Information')->schema([
+            Section::make('Basic Information')->columnSpanFull()->schema([
                 Grid::make(3)->schema([
                     TextInput::make('name')
                         ->required()
@@ -188,7 +189,7 @@ class StreamerResource extends Resource
                 ]),
             ]),
 
-            Section::make('Payout Configuration')->schema([
+            Section::make('Payout Configuration')->columnSpanFull()->schema([
                 Grid::make(3)->schema([
                     Select::make('payout_type')
                         ->options(Streamer::payoutTypeLabels())
@@ -244,7 +245,8 @@ class StreamerResource extends Resource
                     TextInput::make('adp_employee_id')
                         ->label('ADP Employee ID')
                         ->helperText('ADP is the payroll provider pay runs export to. This is the streamer\'s ID in that system.')
-                        ->maxLength(100),
+                        ->maxLength(100)
+                        ->hidden(fn (?Streamer $record) => ! $record?->exists),
                 ]),
 
                 // ── Formula builder: tick the components that make up this streamer's
@@ -308,6 +310,7 @@ class StreamerResource extends Resource
             Section::make('Burden Rate')
                 ->description('Applied to base pay before tips/profit share in Hybrid model. Optional on all models.')
                 ->collapsed()
+                ->columnSpanFull()
                 ->schema([
                     Grid::make(2)->schema([
                         Select::make('burden_rate_type')
@@ -324,7 +327,7 @@ class StreamerResource extends Resource
                     ]),
                 ]),
 
-            Section::make('Owner Fee')->schema([
+            Section::make('Owner Fee')->columnSpanFull()->schema([
                 Grid::make(3)->schema([
                     Select::make('owner_fee_type')
                         ->label('Fee Type')
@@ -348,6 +351,7 @@ class StreamerResource extends Resource
             Section::make('Channel Routing')
                 ->description('Map each channel to a specific bank account for payout splits. The routing_bank_label on each payout is set from this table.')
                 ->collapsed()
+                ->columnSpanFull()
                 ->schema([
                     Repeater::make('channel_routing_rules')
                         ->label('')
@@ -377,7 +381,7 @@ class StreamerResource extends Resource
                         ->defaultItems(0),
                 ]),
 
-            Section::make('Status & Notes')->schema([
+            Section::make('Status & Notes')->columnSpanFull()->schema([
                 Grid::make(2)->schema([
                     Select::make('status')
                         ->options(Streamer::statusLabels())

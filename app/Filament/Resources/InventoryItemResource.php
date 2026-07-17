@@ -100,8 +100,8 @@ class InventoryItemResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Item Details')->schema([
-                Grid::make(2)->schema([
+            Section::make('Item Details')->columnSpanFull()->schema([
+                Grid::make(3)->schema([
                     TextInput::make('sku')
                         ->label('SKU')
                         ->unique(ignoreRecord: true)

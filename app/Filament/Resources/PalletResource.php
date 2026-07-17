@@ -83,7 +83,7 @@ class PalletResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Pallet Details')->schema([
+            Section::make('Pallet Details')->columnSpanFull()->schema([
                 Grid::make(3)->schema([
                     Select::make('vendor_id')
                         ->label('Vendor')
@@ -110,6 +110,7 @@ class PalletResource extends Resource
 
             Section::make('Manifest Lines')
                 ->description('Enter each product line from the pallet manifest. Map each to an inventory item after saving.')
+                ->columnSpanFull()
                 ->schema([
                     Repeater::make('lines')
                         ->relationship('lines')

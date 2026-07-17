@@ -142,7 +142,7 @@ class ShowResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Show Details')->columns(3)->schema([
+            Section::make('Show Details')->columns(3)->columnSpanFull()->schema([
                 DatePicker::make('show_date')
                     ->label('Show Date')
                     ->required()
@@ -211,7 +211,7 @@ class ShowResource extends Resource
                     ->columnSpanFull(),
             ]),
 
-            Section::make('Financials')->columns(3)->schema([
+            Section::make('Financials')->columns(3)->columnSpanFull()->schema([
                 TextInput::make('gross_revenue')
                     ->label('Gross Revenue')
                     ->numeric()
@@ -231,7 +231,7 @@ class ShowResource extends Resource
                     ->default(0),
             ]),
 
-            Section::make('Paper Sales')->columns(3)->schema([
+            Section::make('Paper Sales')->columns(3)->columnSpanFull()->schema([
                 TextInput::make('paper_sales_gross')
                     ->label('Paper Sales Gross')
                     ->numeric()
@@ -256,7 +256,7 @@ class ShowResource extends Resource
                     ->columnSpanFull(),
             ]),
 
-            Section::make('Notes')->schema([
+            Section::make('Notes')->columnSpanFull()->schema([
                 Textarea::make('notes')
                     ->rows(3)
                     ->columnSpanFull(),
@@ -267,6 +267,7 @@ class ShowResource extends Resource
                 ->collapsible()
                 ->collapsed()
                 ->columns(3)
+                ->columnSpanFull()
                 ->schema([
                     TextInput::make('completed_earnings')
                         ->label('Completed Earnings')
@@ -324,6 +325,7 @@ class ShowResource extends Resource
 
             Section::make('Approval Summary')
                 ->visible(fn (?Show $record) => (bool) $record?->latestDeductionRequest)
+                ->columnSpanFull()
                 ->schema([
                     Placeholder::make('approval_status')
                         ->label('Approval Status')
@@ -410,6 +412,7 @@ class ShowResource extends Resource
 
             Section::make('Show Recap')
                 ->visible(fn (?Show $record) => (bool) $record?->payouts?->count())
+                ->columnSpanFull()
                 ->schema([
                     Placeholder::make('payouts_summary')
                         ->label('Payout Summary')
@@ -446,6 +449,7 @@ class ShowResource extends Resource
             Section::make('Engagement')
                 ->description('How the audience engaged — imported with each show.')
                 ->visible(fn (?Show $record) => $record !== null && $record->engagement()['has_data'])
+                ->columnSpanFull()
                 ->schema([
                     Placeholder::make('engagement_card')
                         ->label('')
@@ -489,6 +493,7 @@ class ShowResource extends Resource
             Section::make('P&L Summary')
                 ->description('Profit & Loss: (Whatnot net + tips) − COGS − streamer payouts.')
                 ->visible(fn (?Show $record) => $record !== null)
+                ->columnSpanFull()
                 ->schema([
                     Placeholder::make('pl_card')
                         ->label('')

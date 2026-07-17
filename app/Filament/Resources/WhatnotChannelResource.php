@@ -58,7 +58,7 @@ class WhatnotChannelResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Channel Details')->schema([
+            Section::make('Channel Details')->columnSpanFull()->schema([
                 Grid::make(4)->schema([
                     TextInput::make('name')
                         ->required()
@@ -86,6 +86,7 @@ class WhatnotChannelResource extends Resource
             ]),
             Section::make('Branding')
                 ->description('Shown at the top of the app whenever this channel is the active channel in the switcher. Leave blank to keep the default app branding.')
+                ->columnSpanFull()
                 ->schema([
                     FileUpload::make('logo_path')
                         ->label('Channel Logo')

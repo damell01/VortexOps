@@ -9,12 +9,15 @@ use App\Filament\Resources\StreamerResource\RelationManagers\LoansRelationManage
 use App\Models\Streamer;
 use App\Support\AdminModules;
 use App\Support\ChannelContext;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -87,6 +90,53 @@ class StreamerResource extends Resource
     public static function canDelete($r): bool  { return auth()->user()?->isAdmin() ?? false; }
     public static function canDeleteAny(): bool { return auth()->user()?->isAdmin() ?? false; }
 
+    /** Formula term each builder checkbox contributes, in the order they're joined. */
+    private static function formulaComponents(): array
+    {
+        return [
+            'component_package'      => 'package_rate',
+            'component_profit_share' => '(payout_percentage / 100) * streamer_share_net',
+            'component_hourly'       => 'hourly_rate * show_duration_hours',
+            'component_tips'         => 'tip_share',
+            'component_pwe'          => 'pwe_rate',
+            'component_labels'       => 'label_rate',
+        ];
+    }
+
+    /** Pre-check a builder checkbox on edit if its term already appears in the saved formula. */
+    private static function formulaHasTerm(?Streamer $record, string $term): bool
+    {
+        return $record && str_contains((string) $record->custom_payout_formula, $term);
+    }
+
+    private static function rebuildFormula(Get $get, Set $set): void
+    {
+        $terms = [];
+
+        foreach (static::formulaComponents() as $checkbox => $term) {
+            if ($get($checkbox)) {
+                $terms[] = $term;
+            }
+        }
+
+        $set('custom_payout_formula', implode(' + ', $terms));
+    }
+
+    /**
+     * Pre-checks a builder checkbox from the saved formula on edit. Deliberately
+     * afterStateHydrated(), not default(): default() is silently skipped once a
+     * field's state path already exists in the hydrated array, which it always
+     * does here since none of these checkboxes are real model attributes —
+     * Filament's blanket "fill unmapped fields with null" pass runs first and
+     * already puts a null/false entry in the array under this checkbox's key.
+     */
+    private static function precheckFromFormula(string $term): \Closure
+    {
+        return function (Checkbox $component, ?Streamer $record) use ($term) {
+            $component->state(static::formulaHasTerm($record, $term));
+        };
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
@@ -150,51 +200,109 @@ class StreamerResource extends Resource
                         ->default('weekly')
                         ->required()
                         ->helperText('Regular payout types run weekly; profit share and tips are usually batched monthly instead.'),
-                    // PWE + Labels fields
+                    // PWE + Labels fields (native type)
                     TextInput::make('pwe_rate')
                         ->label('PWE Rate ($ per package)')
                         ->helperText('PWE = Plain White Envelope — the pay per single-card envelope shipped.')
                         ->numeric()
                         ->prefix('$')
                         ->minValue(0)
-                        ->visible(fn ($get) => $get('payout_type') === 'pwe_labels'),
+                        ->visible(fn (Get $get) => $get('payout_type') === 'pwe_labels'
+                            || ($get('payout_type') === 'custom_formula' && $get('component_pwe'))),
                     TextInput::make('label_rate')
                         ->label('Label Rate ($ per label)')
                         ->numeric()
                         ->prefix('$')
                         ->minValue(0)
-                        ->visible(fn ($get) => $get('payout_type') === 'pwe_labels'),
+                        ->visible(fn (Get $get) => $get('payout_type') === 'pwe_labels'
+                            || ($get('payout_type') === 'custom_formula' && $get('component_labels'))),
 
                     // Hybrid fields (also uses hourly_rate and payout_percentage)
                     TextInput::make('hourly_rate')
                         ->numeric()
                         ->prefix('$')
                         ->suffix('/hr')
-                        ->visible(fn ($get) => in_array($get('payout_type'), ['hourly', 'hybrid', 'pwe_labels'])),
+                        ->visible(fn (Get $get) => in_array($get('payout_type'), ['hourly', 'hybrid', 'pwe_labels'])
+                            || ($get('payout_type') === 'custom_formula' && $get('component_hourly'))),
                     TextInput::make('payout_percentage')
                         ->numeric()
                         ->suffix('%')
-                        ->label(fn ($get) => $get('payout_type') === 'hybrid' ? 'Profit Share %' : 'Payout %')
-                        ->visible(fn ($get) => in_array($get('payout_type'), ['profit_share', 'hybrid'])),
+                        ->label(fn (Get $get) => $get('payout_type') === 'hybrid' ? 'Profit Share %' : 'Payout %')
+                        ->visible(fn (Get $get) => in_array($get('payout_type'), ['profit_share', 'hybrid'])
+                            || ($get('payout_type') === 'custom_formula' && $get('component_profit_share'))),
                     TextInput::make('package_rate')
                         ->numeric()
                         ->prefix('$')
-                        ->required(fn ($get) => in_array($get('payout_type'), ['package', 'flat_rate']))
-                        ->visible(fn ($get) => in_array($get('payout_type'), ['package', 'flat_rate'])),
-                    Textarea::make('custom_payout_formula')
-                        ->label('Custom Formula')
-                        ->rows(4)
-                        ->placeholder('streamer_share_net * 0.35 + tip_share')
-                        ->helperText('Supported variables: gross_revenue, whatnot_net, streamer_share_net, units_sold, show_duration_hours, show_duration_minutes, tips, tip_share, payout_percentage, package_rate, hourly_rate, pwe_rate, label_rate. Operators: + - * / and parentheses.')
-                        ->visible(fn ($get) => $get('payout_type') === 'custom_formula')
-                        ->columnSpanFull(),
+                        ->required(fn (Get $get) => in_array($get('payout_type'), ['package', 'flat_rate']))
+                        ->visible(fn (Get $get) => in_array($get('payout_type'), ['package', 'flat_rate'])
+                            || ($get('payout_type') === 'custom_formula' && $get('component_package'))),
                     Toggle::make('include_tips')
-                        ->default(true),
+                        ->default(true)
+                        ->helperText(fn (Get $get) => $get('payout_type') === 'custom_formula'
+                            ? 'Has no effect on Custom Formula — check "Tips" in the formula builder below instead.'
+                            : null),
                     TextInput::make('adp_employee_id')
                         ->label('ADP Employee ID')
                         ->helperText('ADP is the payroll provider pay runs export to. This is the streamer\'s ID in that system.')
                         ->maxLength(100),
                 ]),
+
+                // ── Formula builder: tick the components that make up this streamer's
+                // pay (e.g. Package + Profit Share, or PWE + Labels + Profit Share)
+                // and the formula below is assembled for you. Still a plain editable
+                // textarea underneath — nothing stops hand-editing it directly.
+                Section::make('Formula Builder')
+                    ->description('Tick the pieces that make up this streamer\'s pay — the formula below fills in automatically. You can still edit it by hand after.')
+                    ->visible(fn (Get $get) => $get('payout_type') === 'custom_formula')
+                    ->schema([
+                        Grid::make(3)->schema([
+                            Checkbox::make('component_package')
+                                ->label('Package rate')
+                                ->dehydrated(false)
+                                ->live()
+                                ->afterStateHydrated(static::precheckFromFormula('package_rate'))
+                                ->afterStateUpdated(fn (Get $get, Set $set) => static::rebuildFormula($get, $set)),
+                            Checkbox::make('component_profit_share')
+                                ->label('Profit share %')
+                                ->dehydrated(false)
+                                ->live()
+                                ->afterStateHydrated(static::precheckFromFormula('payout_percentage'))
+                                ->afterStateUpdated(fn (Get $get, Set $set) => static::rebuildFormula($get, $set)),
+                            Checkbox::make('component_hourly')
+                                ->label('Hourly rate')
+                                ->dehydrated(false)
+                                ->live()
+                                ->afterStateHydrated(static::precheckFromFormula('hourly_rate'))
+                                ->afterStateUpdated(fn (Get $get, Set $set) => static::rebuildFormula($get, $set)),
+                            Checkbox::make('component_tips')
+                                ->label('Tips')
+                                ->dehydrated(false)
+                                ->live()
+                                ->afterStateHydrated(static::precheckFromFormula('tip_share'))
+                                ->afterStateUpdated(fn (Get $get, Set $set) => static::rebuildFormula($get, $set)),
+                            Checkbox::make('component_pwe')
+                                ->label('PWE rate')
+                                ->helperText('Flat, once — not multiplied by envelope count.')
+                                ->dehydrated(false)
+                                ->live()
+                                ->afterStateHydrated(static::precheckFromFormula('pwe_rate'))
+                                ->afterStateUpdated(fn (Get $get, Set $set) => static::rebuildFormula($get, $set)),
+                            Checkbox::make('component_labels')
+                                ->label('Label rate')
+                                ->helperText('Flat, once — not multiplied by label count.')
+                                ->dehydrated(false)
+                                ->live()
+                                ->afterStateHydrated(static::precheckFromFormula('label_rate'))
+                                ->afterStateUpdated(fn (Get $get, Set $set) => static::rebuildFormula($get, $set)),
+                        ]),
+
+                        Textarea::make('custom_payout_formula')
+                            ->label('Formula')
+                            ->rows(3)
+                            ->placeholder('streamer_share_net * 0.35 + tip_share')
+                            ->helperText('Auto-filled from the checkboxes above, or write your own. Supported variables: gross_revenue, whatnot_net, streamer_share_net, units_sold, show_duration_hours, show_duration_minutes, tips, tip_share, payout_percentage, package_rate, hourly_rate, pwe_rate, label_rate. Operators: + - * / and parentheses.')
+                            ->columnSpanFull(),
+                    ]),
             ]),
 
             Section::make('Burden Rate')

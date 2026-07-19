@@ -76,12 +76,14 @@ class Product extends Model
 
     public function lots(): HasMany
     {
-        return $this->hasMany(InventoryLot::class);
+        // Explicit FK: the InventoryItem alias would otherwise infer inventory_item_id.
+        return $this->hasMany(InventoryLot::class, 'product_id');
     }
 
     public function identities(): HasMany
     {
-        return $this->hasMany(ProductIdentity::class);
+        // Explicit FK: the InventoryItem alias would otherwise infer inventory_item_id.
+        return $this->hasMany(ProductIdentity::class, 'product_id');
     }
 
     public function palletLines(): HasMany

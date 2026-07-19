@@ -336,7 +336,8 @@ class Reports extends Page
                     COALESCE(SUM(payouts.calculated_payout), 0) as total
                 ')
                 ->groupBy('payouts.status')
-                ->pluck(null, 'status');
+                ->get()
+                ->keyBy('status');
 
             $get = fn ($key) => [
                 'count' => (int) ($rows[$key]->cnt ?? 0),

@@ -1,5 +1,7 @@
 <x-filament-panels::page>
-    @php($movement = $this->record)
+    @php
+        $movement = $this->record;
+    @endphp
 
     <div class="space-y-6">
         <div class="grid gap-6 lg:grid-cols-3">

@@ -50,7 +50,7 @@ class StreamerLoanResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make()->columns(2)->schema([
+            Section::make()->columns(2)->columnSpanFull()->schema([
                 Select::make('streamer_id')
                     ->label('Streamer')
                     ->relationship('streamer', 'name')

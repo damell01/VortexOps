@@ -59,7 +59,7 @@ class FeatureFlagResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make()->schema([
+            Section::make()->columnSpanFull()->schema([
                 Textarea::make('description')
                     ->rows(3)
                     ->columnSpanFull(),

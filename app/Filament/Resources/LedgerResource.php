@@ -71,7 +71,7 @@ class LedgerResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make()->schema([
+            Section::make()->columnSpanFull()->schema([
                 Select::make('type')
                     ->options(LedgerEntry::typeLabels())
                     ->required(),

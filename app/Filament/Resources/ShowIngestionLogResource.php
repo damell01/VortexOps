@@ -58,7 +58,7 @@ class ShowIngestionLogResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Ingestion Details')->schema([
+            Section::make('Ingestion Details')->columnSpanFull()->schema([
                 \Filament\Forms\Components\Placeholder::make('source')
                     ->label('Source')
                     ->content(fn ($record) => $record?->source ?? '—'),

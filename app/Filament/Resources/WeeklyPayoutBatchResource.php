@@ -103,7 +103,7 @@ class WeeklyPayoutBatchResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Pay Run Details')->columns(2)->schema([
+            Section::make('Pay Run Details')->columns(2)->columnSpanFull()->schema([
                 DatePicker::make('week_start')
                     ->label('Week Start (Monday)')
                     ->required(),

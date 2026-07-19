@@ -103,7 +103,7 @@ class InventoryStockResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make()->schema([
+            Section::make()->columnSpanFull()->schema([
                 Grid::make(2)->schema([
                     Select::make('inventory_item_id')
                         ->label('Item')

@@ -143,7 +143,7 @@ class FeedbackTicketResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Ticket Details')->schema([
+            Section::make('Ticket Details')->columnSpanFull()->schema([
                 Grid::make(2)->schema([
                     Select::make('status')
                         ->options(FeedbackTicket::statusLabels())

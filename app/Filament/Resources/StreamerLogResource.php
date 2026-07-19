@@ -87,6 +87,7 @@ class StreamerLogResource extends Resource
         return $schema->components([
             Section::make('Show')
                 ->visible(fn (?StreamerLogEntry $record) => $record !== null)
+                ->columnSpanFull()
                 ->schema([
                     Placeholder::make('show_label')
                         ->label('')
@@ -100,6 +101,7 @@ class StreamerLogResource extends Resource
 
             Section::make('Show Info')
                 ->disabled(fn (?StreamerLogEntry $record) => static::isLockedForCurrentUser($record))
+                ->columnSpanFull()
                 ->schema([
                 Grid::make(2)->schema([
                     Toggle::make('hard_copy')
@@ -130,6 +132,7 @@ class StreamerLogResource extends Resource
 
             Section::make('Revenue & Product Cost')
                 ->disabled(fn (?StreamerLogEntry $record) => static::isLockedForCurrentUser($record))
+                ->columnSpanFull()
                 ->schema([
                 Grid::make(2)->schema([
                     TextInput::make('gross_revenue')
@@ -149,6 +152,7 @@ class StreamerLogResource extends Resource
                 // Streamers can log their info and items, but their pay is set by
                 // an admin — so these fields are read-only for non-admins.
                 ->disabled(fn () => ! (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
+                ->columnSpanFull()
                 ->schema([
                 Grid::make(2)->schema([
                     TextInput::make('profit_share_amount')
@@ -187,6 +191,7 @@ class StreamerLogResource extends Resource
 
             Section::make('Notes')
                 ->disabled(fn (?StreamerLogEntry $record) => static::isLockedForCurrentUser($record))
+                ->columnSpanFull()
                 ->schema([
                 Textarea::make('notes')
                     ->rows(3)

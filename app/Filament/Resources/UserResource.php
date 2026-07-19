@@ -99,7 +99,7 @@ class UserResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Account Details')->columns(2)->schema([
+            Section::make('Account Details')->columns(2)->columnSpanFull()->schema([
                 TextInput::make('name')
                     ->required()
                     ->maxLength(255),
@@ -124,7 +124,7 @@ class UserResource extends Resource
                     ->columnSpanFull(),
             ]),
 
-            Section::make('Roles & Access')->schema([
+            Section::make('Roles & Access')->columnSpanFull()->schema([
                 Select::make('roles')
                     ->multiple()
                     // Options come from the relationship (keyed by id, labelled by

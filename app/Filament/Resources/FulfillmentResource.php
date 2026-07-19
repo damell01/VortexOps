@@ -105,7 +105,7 @@ class FulfillmentResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Show')->columns(3)->schema([
+            Section::make('Show')->columns(3)->columnSpanFull()->schema([
                 Placeholder::make('title')->label('Show')->content(fn (?Show $record) => $record?->title ?: '—'),
                 Placeholder::make('show_date')->label('Date')->content(fn (?Show $record) => $record?->show_date?->format('M j, Y') ?? '—'),
                 Placeholder::make('status')->label('Status')->content(fn (?Show $record) => $record ? (Show::statusLabels()[$record->status] ?? $record->status) : '—'),

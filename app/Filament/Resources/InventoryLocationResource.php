@@ -127,7 +127,7 @@ class InventoryLocationResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Location Details')->schema([
+            Section::make('Location Details')->columnSpanFull()->schema([
                 Grid::make(2)->schema([
                     TextInput::make('name')
                         ->required()

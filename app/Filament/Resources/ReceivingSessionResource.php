@@ -45,7 +45,7 @@ class ReceivingSessionResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Session Details')->schema([
+            Section::make('Session Details')->columnSpanFull()->schema([
                 Grid::make(2)->schema([
                     Select::make('vendor_id')
                         ->label('Vendor')

@@ -109,6 +109,7 @@ class InventoryMovementResource extends Resource
     {
         return $schema->components([
             Section::make('Movement Details')
+                ->columnSpanFull()
                 ->schema([
                     Grid::make(2)->schema([
                         Placeholder::make('created_at')

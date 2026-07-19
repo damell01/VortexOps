@@ -86,6 +86,7 @@ class PayoutResource extends Resource
         return $schema->components([
             Section::make('Payout Summary')
                 ->columns(2)
+                ->columnSpanFull()
                 ->schema([
                     Placeholder::make('show')
                         ->label('Show')
@@ -101,6 +102,7 @@ class PayoutResource extends Resource
                         ->content(fn (Payout $record): string => Payout::statusLabels()[$record->status] ?? $record->status),
                 ]),
             Section::make('Calculation')
+                ->columnSpanFull()
                 ->schema([
                     Grid::make(2)->schema([
                         Placeholder::make('payout_type')

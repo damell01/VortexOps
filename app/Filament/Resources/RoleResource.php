@@ -60,7 +60,7 @@ class RoleResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Role')->columns(2)->schema([
+            Section::make('Role')->columns(2)->columnSpanFull()->schema([
                 TextInput::make('name')
                     ->required()
                     ->maxLength(255)
@@ -73,10 +73,12 @@ class RoleResource extends Resource
             ]),
             Section::make('Page Access')
                 ->description('One row per page, grouped by section — Visible controls whether it shows up in this role\'s sidebar at all; Can Edit controls whether create/edit/delete actions work there (uncheck it alone to leave a page visible but view-only). "Can Edit" is currently enforced on the Fulfillment Center, with more pages adopting the same check over time. The owner always sees and can edit everything, and any other role a user holds that grants access wins.')
+                ->columnSpanFull()
                 ->schema(static::pageAccessSchema()),
             Section::make('Permissions')
                 ->description('Spatie permissions granted to this role (optional).')
                 ->collapsed()
+                ->columnSpanFull()
                 ->schema([
                     CheckboxList::make('permissions')
                         ->relationship('permissions', 'name')

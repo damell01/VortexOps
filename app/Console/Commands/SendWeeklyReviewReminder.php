@@ -25,8 +25,12 @@ class SendWeeklyReviewReminder extends Command
         $weekStart = now()->startOfWeek();
         $weekEnd   = now()->endOfWeek();
 
+        // Upper bound includes a time component: a show_date row dated "today"
+        // is stored with a midnight timestamp, which a bare date-string upper
+        // bound would exclude via lexical comparison on SQLite (see
+        // Show::weekPacing() for the same trap).
         $pendingCount = Show::whereIn('status', ['pending_review', 'pending_approval'])
-            ->whereBetween('show_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
+            ->whereBetween('show_date', [$weekStart->toDateString(), $weekEnd->copy()->endOfDay()->toDateTimeString()])
             ->count();
 
         if ($pendingCount === 0) {

@@ -128,7 +128,7 @@ class AdminPanelProvider extends PanelProvider
                     : Blade::render("@livewire('feedback-widget')"),
             )
             ->renderHook(
-                PanelsRenderHook::TOPBAR_START,
+                PanelsRenderHook::SIDEBAR_NAV_START,
                 fn (): string => (auth()->user()?->canSwitchChannels() ?? false)
                     ? Blade::render("@livewire('channel-switcher')")
                     : '',

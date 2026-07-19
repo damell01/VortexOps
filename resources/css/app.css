@@ -150,6 +150,76 @@ body {
     background-clip: text !important;
 }
 
+/* Channel switcher — sits right under the logo, above the nav groups */
+.vx-channel-switcher {
+    padding: 0.625rem 1rem 0.75rem;
+    border-bottom: 1px solid var(--vxs-border);
+}
+
+.vx-channel-switcher-label {
+    display: block;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--vxs-label);
+    margin-bottom: 0.3125rem;
+}
+
+.vx-channel-switcher-select-wrp {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.vx-channel-switcher-icon {
+    position: absolute;
+    left: 0.5625rem;
+    width: 0.8125rem;
+    height: 0.8125rem;
+    color: var(--vxs-label);
+    pointer-events: none;
+}
+
+.vx-channel-switcher-chevron {
+    position: absolute;
+    right: 0.5rem;
+    width: 0.8125rem;
+    height: 0.8125rem;
+    color: var(--vxs-label);
+    pointer-events: none;
+}
+
+.vx-channel-switcher-select {
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: rgb(255 255 255 / .05);
+    border: 1px solid var(--vxs-border);
+    border-radius: var(--vx-radius-sm);
+    color: var(--vxs-text-hover);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    padding: 0.4375rem 1.75rem 0.4375rem 1.75rem;
+    cursor: pointer;
+    transition: background-color var(--vx-transition), border-color var(--vx-transition);
+}
+
+.vx-channel-switcher-select:hover {
+    background-color: rgb(255 255 255 / .08);
+}
+
+.vx-channel-switcher-select:focus {
+    outline: none;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 2px rgb(124 58 237 / .35);
+}
+
+.vx-channel-switcher-select option {
+    background-color: var(--vxs-bg);
+    color: var(--vxs-text-hover);
+}
+
 .fi-sidebar-nav { padding: 0.375rem 0 0.5rem !important; }
 .fi-sidebar-nav-groups { gap: 0 !important; }
 .fi-sidebar-group-items { padding: 0.0625rem 0 0.1875rem !important; }
@@ -658,7 +728,15 @@ textarea.fi-input { padding: 0.5rem 0.75rem !important; line-height: 1.5 !import
    MODALS
    ═══════════════════════════════════════════ */
 
-.fi-modal {
+/* Target .fi-modal-window, not .fi-modal itself — .fi-modal is the invisible
+   role="dialog" positioning-context wrapper (fi-absolute-positioning-context),
+   not the visible card. .fi-modal-window is the actual dialog. Applying
+   overflow/transform-based animation to the wrapper instead makes it a new
+   containing block for its position:fixed descendants (the overlay + the
+   window itself), which then position/clip relative to the wrapper's own
+   near-zero-height box instead of the viewport — the whole modal renders
+   invisible while still intercepting clicks, freezing the page until reload. */
+.fi-modal-window {
     border-radius: var(--vx-radius-lg) !important;
     border: 1px solid var(--vx-card-border) !important;
     box-shadow: var(--vx-shadow-lg) !important;
@@ -1031,7 +1109,9 @@ button:not(:focus-visible), a:not(:focus-visible), input:not(:focus-visible), se
    ENHANCED MODALS
    ═══════════════════════════════════════════ */
 
-.fi-modal {
+/* See the note above .fi-modal-window's other rule — same reason this can't
+   target .fi-modal itself. */
+.fi-modal-window {
     animation: vx-fade-up 180ms var(--vx-ease) both !important;
 }
 

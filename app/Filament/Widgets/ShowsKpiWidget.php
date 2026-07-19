@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Widgets\Concerns\HasTrend;
 use App\Models\Payout;
 use App\Models\Show;
 use App\Support\AdminModules;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\Cache;
 
 class ShowsKpiWidget extends BaseWidget
 {
+    use HasTrend;
+
     protected static bool $isLazy = true;
     protected static ?int $sort = 0;
 
@@ -24,13 +27,22 @@ class ShowsKpiWidget extends BaseWidget
     {
         $cacheKey = 'widget:shows_kpi:' . (ChannelContext::currentId() ?? 'all');
 
-        [$weekShows, $weekRevenue, $pendingReview, $draftPayoutTotal] =
+        [$weekShows, $weekRevenue, $pendingReview, $draftPayoutTotal, $dailyShows, $dailyRevenue, $priorWeekShows, $priorWeekRevenue] =
             Cache::remember($cacheKey, 120, function () {
                 $weekStart = now()->startOfWeek()->toDateString();
                 $weekEnd   = now()->endOfWeek()->toDateString();
+                // Fair week-over-week comparison: same weekday span last week,
+                // not last week's full total vs. this week's partial-so-far total.
+                $priorWeekStart = now()->subWeek()->startOfWeek()->toDateString();
+                $priorWeekEnd   = now()->subWeek()->toDateString();
 
                 $weekShows    = Show::whereBetween('show_date', [$weekStart, $weekEnd])->inChannelContext()->count();
                 $weekRevenue  = (float) Show::whereBetween('show_date', [$weekStart, $weekEnd])
+                    ->whereNotNull('whatnot_net')
+                    ->inChannelContext()
+                    ->sum('whatnot_net');
+                $priorWeekShows = Show::whereBetween('show_date', [$priorWeekStart, $priorWeekEnd])->inChannelContext()->count();
+                $priorWeekRevenue = (float) Show::whereBetween('show_date', [$priorWeekStart, $priorWeekEnd])
                     ->whereNotNull('whatnot_net')
                     ->inChannelContext()
                     ->sum('whatnot_net');
@@ -39,19 +51,32 @@ class ShowsKpiWidget extends BaseWidget
                     ? (float) Payout::where('status', 'draft')->inChannelContext()->sum('calculated_payout')
                     : 0.0;
 
-                return [$weekShows, $weekRevenue, $pendingReview, $draftPayoutTotal];
+                // Trailing 7 days, oldest first, for the sparkline.
+                $dailyShows   = [];
+                $dailyRevenue = [];
+                for ($i = 6; $i >= 0; $i--) {
+                    $day = now()->subDays($i)->toDateString();
+                    $dailyShows[]   = Show::where('show_date', $day)->inChannelContext()->count();
+                    $dailyRevenue[] = (float) Show::where('show_date', $day)->whereNotNull('whatnot_net')->inChannelContext()->sum('whatnot_net');
+                }
+
+                return [$weekShows, $weekRevenue, $pendingReview, $draftPayoutTotal, $dailyShows, $dailyRevenue, $priorWeekShows, $priorWeekRevenue];
             });
 
         return [
             Stat::make('Shows This Week', $weekShows)
-                ->description(now()->format('M j') . ' – ' . now()->endOfWeek()->format('M j'))
+                ->description(now()->format('M j') . ' – ' . now()->endOfWeek()->format('M j') . $this->trendSuffix($weekShows, $priorWeekShows))
+                ->descriptionIcon($this->trendIcon($weekShows, $priorWeekShows))
+                ->chart($dailyShows)
                 ->icon('heroicon-o-video-camera')
-                ->color('primary'),
+                ->color($this->trendColor($weekShows, $priorWeekShows, 'primary')),
 
             Stat::make('Revenue This Week', '$' . number_format($weekRevenue, 2))
-                ->description('Whatnot net proceeds')
+                ->description('Whatnot net proceeds' . $this->trendSuffix($weekRevenue, $priorWeekRevenue))
+                ->descriptionIcon($this->trendIcon($weekRevenue, $priorWeekRevenue))
+                ->chart($dailyRevenue)
                 ->icon('heroicon-o-banknotes')
-                ->color('success'),
+                ->color($this->trendColor($weekRevenue, $priorWeekRevenue, 'success')),
 
             Stat::make('Pending Review', $pendingReview)
                 ->description($pendingReview > 0 ? 'Shows awaiting streamer assignment' : 'No shows in review queue')

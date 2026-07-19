@@ -87,7 +87,7 @@ class InventoryMovementResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['item', 'fromLocation', 'toLocation', 'createdByUser']);
+        return parent::getEloquentQuery()->with(['item', 'fromLocation', 'toLocation', 'createdByUser'])->inChannelContext();
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool

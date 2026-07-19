@@ -72,7 +72,7 @@ class InventoryStockResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['item', 'location']);
+        return parent::getEloquentQuery()->with(['item', 'location'])->inChannelContext();
     }
 
     public static function getGloballySearchableAttributes(): array

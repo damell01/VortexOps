@@ -386,7 +386,7 @@ class StreamerLogResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['show', 'streamer']);
+        $query = parent::getEloquentQuery()->with(['show', 'streamer'])->inChannelContext();
 
         $user = auth()->user();
         if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {

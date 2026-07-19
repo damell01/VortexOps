@@ -122,26 +122,38 @@ class ProductInsights extends Page
      */
     private function aggregateQuery(): \Illuminate\Database\Query\Builder
     {
+        $isScoped  = \App\Support\ChannelContext::isScoped();
+        $channelId = \App\Support\ChannelContext::currentId();
+
         $stock = DB::table('inventory_stock')
-            ->select('inventory_item_id')
-            ->selectRaw('SUM(quantity) as on_hand')
-            ->groupBy('inventory_item_id');
+            ->select('inventory_stock.inventory_item_id')
+            ->selectRaw('SUM(inventory_stock.quantity) as on_hand')
+            ->when($isScoped, fn ($q) => $q
+                ->join('inventory_locations', 'inventory_locations.id', '=', 'inventory_stock.inventory_location_id')
+                ->where('inventory_locations.whatnot_channel_id', $channelId))
+            ->groupBy('inventory_stock.inventory_item_id');
 
         $orders = DB::table('whatnot_show_orders')
-            ->select('inventory_item_id')
-            ->selectRaw('SUM(quantity) as units_sold, SUM(total_price) as revenue, SUM(total_cost) as cogs, MAX(show_date) as last_sold_at')
-            ->whereNotNull('inventory_item_id')
-            ->groupBy('inventory_item_id');
+            ->select('whatnot_show_orders.inventory_item_id')
+            ->selectRaw('SUM(whatnot_show_orders.quantity) as units_sold, SUM(whatnot_show_orders.total_price) as revenue, SUM(whatnot_show_orders.total_cost) as cogs, MAX(whatnot_show_orders.show_date) as last_sold_at')
+            ->whereNotNull('whatnot_show_orders.inventory_item_id')
+            ->when($isScoped, fn ($q) => $q
+                ->join('shows', 'shows.id', '=', 'whatnot_show_orders.show_id')
+                ->where('shows.whatnot_channel_id', $channelId))
+            ->groupBy('whatnot_show_orders.inventory_item_id');
 
         // Separate trailing-window sum (not all-time) so we can estimate a daily
         // sales velocity for the reorder-quantity suggestion below.
         $trailingCutoff = now()->subDays(self::VELOCITY_WINDOW_DAYS)->toDateString();
         $trailingOrders = DB::table('whatnot_show_orders')
-            ->select('inventory_item_id')
-            ->selectRaw('SUM(quantity) as trailing_units_sold')
-            ->whereNotNull('inventory_item_id')
-            ->where('show_date', '>=', $trailingCutoff)
-            ->groupBy('inventory_item_id');
+            ->select('whatnot_show_orders.inventory_item_id')
+            ->selectRaw('SUM(whatnot_show_orders.quantity) as trailing_units_sold')
+            ->whereNotNull('whatnot_show_orders.inventory_item_id')
+            ->where('whatnot_show_orders.show_date', '>=', $trailingCutoff)
+            ->when($isScoped, fn ($q) => $q
+                ->join('shows', 'shows.id', '=', 'whatnot_show_orders.show_id')
+                ->where('shows.whatnot_channel_id', $channelId))
+            ->groupBy('whatnot_show_orders.inventory_item_id');
 
         return DB::table('products as p')
             ->leftJoinSub($stock, 'st', 'st.inventory_item_id', '=', 'p.id')
@@ -169,7 +181,9 @@ class ProductInsights extends Page
 
     private function cacheKey(string $section): string
     {
-        return "product_insights_{$section}_{$this->view}_" . auth()->id();
+        $channel = \App\Support\ChannelContext::currentId() ?? 'all';
+
+        return "product_insights_{$section}_{$this->view}_{$channel}_" . auth()->id();
     }
 
     /**
@@ -269,7 +283,9 @@ class ProductInsights extends Page
      */
     public function getKpisProperty(): array
     {
-        return Cache::remember('product_insights_kpis_' . auth()->id(), 60, fn () => $this->buildKpis());
+        $channel = \App\Support\ChannelContext::currentId() ?? 'all';
+
+        return Cache::remember("product_insights_kpis_{$channel}_" . auth()->id(), 60, fn () => $this->buildKpis());
     }
 
     /** @return array<string, float|int> */

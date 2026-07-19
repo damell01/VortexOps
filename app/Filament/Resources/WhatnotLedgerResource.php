@@ -145,7 +145,7 @@ class WhatnotLedgerResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with('channel');
+        return parent::getEloquentQuery()->with('channel')->inChannelContext();
     }
 
     public static function getPages(): array

@@ -92,7 +92,8 @@ class DeductionRequestResource extends Resource
     {
         return parent::getEloquentQuery()
             ->with(['show', 'streamer'])
-            ->withSum('lines', 'line_total');
+            ->withSum('lines', 'line_total')
+            ->inChannelContext();
     }
 
     public static function getGloballySearchableAttributes(): array

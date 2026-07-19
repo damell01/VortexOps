@@ -53,6 +53,7 @@ class ShowStatusBoard extends Page
 
         $shows = Show::with(['streamers', 'latestDeductionRequest'])
             ->whereIn('status', array_keys($statuses))
+            ->inChannelContext()
             ->orderBy('show_date', 'desc')
             ->get();
 

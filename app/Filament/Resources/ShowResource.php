@@ -72,7 +72,8 @@ class ShowResource extends Resource
                 'payouts',
             ])
             // Payout aggregate for the Net Margin column, so P&L doesn't N+1.
-            ->withSum('payouts', 'calculated_payout');
+            ->withSum('payouts', 'calculated_payout')
+            ->inChannelContext();
 
         $user = auth()->user();
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {

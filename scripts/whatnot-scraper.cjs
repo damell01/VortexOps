@@ -2015,36 +2015,60 @@ async function extractLedgerFromPage(page) {
     } catch (_) {}
   });
 
-  // ── Bootstrap session cookies (one-time first-run setup) ─────────────────────
+  // ── Bootstrap session cookies (one-time first-run setup + manual re-auth) ────
   // Export cookies from your logged-in browser (Cookie-Editor extension → Export
   // as JSON) and save to storage/whatnot-cookies.json on the server. The scraper
   // loads them here so goto(/signin) redirects to the dashboard — login page
-  // (and its bot detection) is never hit. Once the profile is primed, the file
-  // can be deleted; the persistent context keeps the session alive.
+  // (and its bot detection) is never hit.
+  //
+  // launchPersistentContext's cookie jar accumulates Whatnot's own Set-Cookie
+  // responses across runs — that's how the session actually stays alive past
+  // whatever the original export's lifetime was. Unconditionally re-injecting
+  // the bootstrap file on every run stomped that rotated state back to the
+  // original snapshot each time, which is why cookies were expiring in about a
+  // week instead of the 30-90 days sessions can otherwise last. So: only load
+  // the file when the profile has no session yet, OR when the file itself has
+  // been re-exported (mtime newer than the last time we loaded it) — the second
+  // case is what makes `whatnot:login --cookie-file=...` recovery still work
+  // after the profile's own session eventually does go stale.
+  const _fs = require('fs');
   const _cookiesFile = process.env.WHATNOT_COOKIES_FILE ||
     require('path').join(__dirname, '../storage/whatnot-cookies.json');
-  if (require('fs').existsSync(_cookiesFile)) {
-    try {
-      const _raw = JSON.parse(require('fs').readFileSync(_cookiesFile, 'utf8'));
-      const _sameSiteMap = { no_restriction: 'None', strict: 'Strict', lax: 'Lax' };
-      const _cookies = _raw
-        .filter(c => typeof c.name === 'string' && typeof c.value === 'string')
-        .map(c => ({
-          name:     c.name,
-          value:    c.value,
-          domain:   c.domain || '.whatnot.com',
-          path:     c.path   || '/',
-          expires:  c.expirationDate ?? c.expires ?? -1,
-          httpOnly: Boolean(c.httpOnly),
-          secure:   Boolean(c.secure),
-          sameSite: _sameSiteMap[(c.sameSite || '').toLowerCase()] || 'Lax',
-        }));
-      if (_cookies.length > 0) {
-        await context.addCookies(_cookies);
-        info('loaded', _cookies.length, 'session cookies from', _cookiesFile);
+  const _cookiesLoadedMarker = _cookiesFile + '.loaded-mtime';
+  if (_fs.existsSync(_cookiesFile)) {
+    const _fileMtimeMs = _fs.statSync(_cookiesFile).mtimeMs;
+    const _lastLoadedMtimeMs = _fs.existsSync(_cookiesLoadedMarker)
+      ? Number(_fs.readFileSync(_cookiesLoadedMarker, 'utf8')) || 0
+      : 0;
+    const _existingCookies = await context.cookies('https://www.whatnot.com');
+    const _shouldLoad = _existingCookies.length === 0 || _fileMtimeMs > _lastLoadedMtimeMs;
+
+    if (!_shouldLoad) {
+      info('persistent profile already has', _existingCookies.length, 'whatnot.com cookies and bootstrap file is unchanged — skipping to preserve session refresh');
+    } else {
+      try {
+        const _raw = JSON.parse(_fs.readFileSync(_cookiesFile, 'utf8'));
+        const _sameSiteMap = { no_restriction: 'None', strict: 'Strict', lax: 'Lax' };
+        const _cookies = _raw
+          .filter(c => typeof c.name === 'string' && typeof c.value === 'string')
+          .map(c => ({
+            name:     c.name,
+            value:    c.value,
+            domain:   c.domain || '.whatnot.com',
+            path:     c.path   || '/',
+            expires:  c.expirationDate ?? c.expires ?? -1,
+            httpOnly: Boolean(c.httpOnly),
+            secure:   Boolean(c.secure),
+            sameSite: _sameSiteMap[(c.sameSite || '').toLowerCase()] || 'Lax',
+          }));
+        if (_cookies.length > 0) {
+          await context.addCookies(_cookies);
+          _fs.writeFileSync(_cookiesLoadedMarker, String(_fileMtimeMs));
+          info('loaded', _cookies.length, 'session cookies from', _cookiesFile, _existingCookies.length === 0 ? '(first run)' : '(file re-exported since last load)');
+        }
+      } catch (e) {
+        info('cookie file found but failed to load:', e.message);
       }
-    } catch (e) {
-      info('cookie file found but failed to load:', e.message);
     }
   }
 

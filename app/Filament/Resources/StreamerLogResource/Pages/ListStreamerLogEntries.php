@@ -24,19 +24,19 @@ class ListStreamerLogEntries extends ListRecords
     /** Quick filter presets. The "To Review" count respects per-streamer scoping. */
     public function getTabs(): array
     {
-        return [
+        $tabs = [
             'all' => Tab::make('All'),
 
             'to_review' => Tab::make('To Review')
-                ->modifyQueryUsing(fn (Builder $q) => $q->where('status', 'pending'))
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'pending'))
                 ->badge(StreamerLogResource::getEloquentQuery()->where('status', 'pending')->count())
                 ->badgeColor('warning'),
 
             'reviewed' => Tab::make('Reviewed')
-                ->modifyQueryUsing(fn (Builder $q) => $q->whereIn('status', ['streamer_reviewed', 'admin_approved'])),
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('status', ['streamer_reviewed', 'admin_approved'])),
 
             'approved' => Tab::make('Approved')
-                ->modifyQueryUsing(fn (Builder $q) => $q->where('status', 'admin_approved')),
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'admin_approved')),
         ];
 
         // Fulfillment review only applies to pwe_labels-payout streamers, and only
@@ -50,12 +50,14 @@ class ListStreamerLogEntries extends ListRecords
 
         if ($needsFulfillment > 0) {
             $tabs['needs_fulfillment'] = Tab::make('Needs Fulfillment Review')
-                ->modifyQueryUsing(fn (Builder $q) => $q
+                ->modifyQueryUsing(fn (Builder $query) => $query
                     ->where('status', 'admin_approved')
                     ->whereNull('fulfillment_reviewed_at')
                     ->whereHas('streamer', fn (Builder $sq) => $sq->where('payout_type', 'pwe_labels')))
                 ->badge($needsFulfillment)
                 ->badgeColor('info');
         }
+
+        return $tabs;
     }
 }

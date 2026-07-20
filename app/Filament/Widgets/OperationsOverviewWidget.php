@@ -52,17 +52,21 @@ class OperationsOverviewWidget extends BaseWidget
                     ? (float) WhatnotLedgerEntry::whereBetween('created_date', [$pStart, $pEnd])->inChannelContext()->sum('amount')
                     : 0.0;
 
-                $monthGross = (float) Show::whereBetween('show_date', [$mStart->toDateString(), $mEnd->toDateString()])
+                // Upper bounds include a time component: a show_date row dated on
+                // the boundary day is stored with a midnight timestamp, which a
+                // bare date-string upper bound would exclude via lexical
+                // comparison on SQLite (see Show::weekPacing() for the same trap).
+                $monthGross = (float) Show::whereBetween('show_date', [$mStart->toDateString(), $mEnd->copy()->endOfDay()->toDateTimeString()])
                     ->inChannelContext()
                     ->sum('gross_revenue');
-                $priorMonthGross = (float) Show::whereBetween('show_date', [$pStart->toDateString(), $pEnd->toDateString()])
+                $priorMonthGross = (float) Show::whereBetween('show_date', [$pStart->toDateString(), $pEnd->copy()->endOfDay()->toDateTimeString()])
                     ->inChannelContext()
                     ->sum('gross_revenue');
 
-                $monthOrders = WhatnotShowOrder::whereBetween('show_date', [$mStart->toDateString(), $mEnd->toDateString()])
+                $monthOrders = WhatnotShowOrder::whereBetween('show_date', [$mStart->toDateString(), $mEnd->copy()->endOfDay()->toDateTimeString()])
                     ->inChannelContext()
                     ->count();
-                $priorMonthOrders = WhatnotShowOrder::whereBetween('show_date', [$pStart->toDateString(), $pEnd->toDateString()])
+                $priorMonthOrders = WhatnotShowOrder::whereBetween('show_date', [$pStart->toDateString(), $pEnd->copy()->endOfDay()->toDateTimeString()])
                     ->inChannelContext()
                     ->count();
 
@@ -70,7 +74,7 @@ class OperationsOverviewWidget extends BaseWidget
                 $monthlyGross = [];
                 for ($i = 5; $i >= 0; $i--) {
                     $ms = now()->subMonthsNoOverflow($i)->startOfMonth()->toDateString();
-                    $me = now()->subMonthsNoOverflow($i)->endOfMonth()->toDateString();
+                    $me = now()->subMonthsNoOverflow($i)->endOfMonth()->endOfDay()->toDateTimeString();
                     $monthlyGross[] = (float) Show::whereBetween('show_date', [$ms, $me])->inChannelContext()->sum('gross_revenue');
                 }
 

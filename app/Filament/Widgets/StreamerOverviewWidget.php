@@ -32,7 +32,11 @@ class StreamerOverviewWidget extends BaseWidget
         [$pending, $myShowsMonth, $myGrossMonth, $outstanding] =
             Cache::flexible("widget:streamer_overview:{$streamerId}", [120, 300], function () use ($streamerId) {
                 $mStart = now()->startOfMonth()->toDateString();
-                $mEnd   = now()->endOfMonth()->toDateString();
+                // Upper bound includes a time component: a show_date row dated on
+                // the last day of the month is stored with a midnight timestamp,
+                // which a bare date-string upper bound would exclude via lexical
+                // comparison on SQLite (see Show::weekPacing() for the same trap).
+                $mEnd   = now()->endOfMonth()->endOfDay()->toDateTimeString();
 
                 $pending = StreamerLogEntry::where('streamer_id', $streamerId)
                     ->where('status', 'pending')

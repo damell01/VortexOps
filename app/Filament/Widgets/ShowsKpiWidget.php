@@ -30,11 +30,15 @@ class ShowsKpiWidget extends BaseWidget
         [$weekShows, $weekRevenue, $pendingReview, $draftPayoutTotal, $dailyShows, $dailyRevenue, $priorWeekShows, $priorWeekRevenue] =
             Cache::remember($cacheKey, 120, function () {
                 $weekStart = now()->startOfWeek()->toDateString();
-                $weekEnd   = now()->endOfWeek()->toDateString();
+                // Upper bounds include a time component: a show_date row dated
+                // "today" is stored with a midnight timestamp, which a bare
+                // date-string upper bound would exclude via lexical comparison
+                // on SQLite (see Show::weekPacing() for the same trap).
+                $weekEnd   = now()->endOfWeek()->endOfDay()->toDateTimeString();
                 // Fair week-over-week comparison: same weekday span last week,
                 // not last week's full total vs. this week's partial-so-far total.
                 $priorWeekStart = now()->subWeek()->startOfWeek()->toDateString();
-                $priorWeekEnd   = now()->subWeek()->toDateString();
+                $priorWeekEnd   = now()->subWeek()->endOfDay()->toDateTimeString();
 
                 $weekShows    = Show::whereBetween('show_date', [$weekStart, $weekEnd])->inChannelContext()->count();
                 $weekRevenue  = (float) Show::whereBetween('show_date', [$weekStart, $weekEnd])

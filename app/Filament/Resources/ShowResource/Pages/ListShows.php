@@ -32,15 +32,15 @@ class ListShows extends ListRecords
             'all' => Tab::make('All'),
 
             'needs_review' => Tab::make('Needs Review')
-                ->modifyQueryUsing(fn (Builder $q) => $q->whereIn('status', ['pending_review', 'pending_approval']))
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('status', ['pending_review', 'pending_approval']))
                 ->badge(Show::whereIn('status', ['pending_review', 'pending_approval'])->count())
                 ->badgeColor('warning'),
 
             'this_week' => Tab::make('This Week')
-                ->modifyQueryUsing(fn (Builder $q) => $q->whereBetween('show_date', [$weekStart, $weekEnd])),
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereBetween('show_date', [$weekStart, $weekEnd])),
 
             'unreconciled' => Tab::make('Unreconciled')
-                ->modifyQueryUsing(fn (Builder $q) => $q->whereNotIn('status', ['reconciled', 'closed', 'cancelled'])),
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereNotIn('status', ['reconciled', 'closed', 'cancelled'])),
         ];
 
         // Channel-attribution review is admin-facing and only meaningful once a
@@ -49,7 +49,7 @@ class ListShows extends ListRecords
             $flagged = Show::where('channel_attribution_suspect', true)->count();
             if ($flagged > 0) {
                 $tabs['flagged'] = Tab::make('Channel Review')
-                    ->modifyQueryUsing(fn (Builder $q) => $q->where('channel_attribution_suspect', true))
+                    ->modifyQueryUsing(fn (Builder $query) => $query->where('channel_attribution_suspect', true))
                     ->badge($flagged)
                     ->badgeColor('danger');
             }
@@ -57,7 +57,7 @@ class ListShows extends ListRecords
             $revised = Show::where('financials_revised_after_lock', true)->count();
             if ($revised > 0) {
                 $tabs['revised'] = Tab::make('Financials Revised')
-                    ->modifyQueryUsing(fn (Builder $q) => $q->where('financials_revised_after_lock', true))
+                    ->modifyQueryUsing(fn (Builder $query) => $query->where('financials_revised_after_lock', true))
                     ->badge($revised)
                     ->badgeColor('danger');
             }

@@ -76,8 +76,13 @@ class WhatnotScraper
         // Analytics-nav walks the full channel history one show at a time, so a
         // channel with hundreds of past shows can legitimately run for many
         // minutes. 240s was too short and killed the walk mid-import; allow up to
-        // 20 minutes per channel (scales roughly with --limit).
-        $process = $this->makeProcess($env, timeout: 1200);
+        // 20 minutes per channel at the ~50-show default. That ceiling was never
+        // actually scaled with $limit despite the comment claiming it did — a
+        // --type=full backfill (limit 500) hit the same 1200s wall and got killed
+        // mid-walk. Scale it so a full historical backfill gets proportionally
+        // more time instead of failing on any channel with deep history.
+        $timeoutSeconds = max(1200, (int) ceil($limit / 50) * 1200);
+        $process = $this->makeProcess($env, timeout: $timeoutSeconds);
         $this->withBrowserLock(fn () => $process->run());
 
         $stderr = trim($process->getErrorOutput());

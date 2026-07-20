@@ -54,7 +54,7 @@ class WhatnotSync extends Model
         $this->update(array_merge([
             'status'           => 'completed',
             'finished_at'      => now(),
-            'duration_seconds' => (int) now()->diffInSeconds($this->started_at),
+            'duration_seconds' => (int) now()->diffInSeconds($this->started_at, true),
         ], $counters));
     }
 
@@ -63,7 +63,7 @@ class WhatnotSync extends Model
         $this->update([
             'status'      => 'failed',
             'finished_at' => now(),
-            'duration_seconds' => (int) now()->diffInSeconds($this->started_at),
+            'duration_seconds' => (int) now()->diffInSeconds($this->started_at, true),
             'error_count' => count($errors) ?: 1,
             'errors'      => count($errors) ? $errors : [['message' => $e->getMessage()]],
         ]);

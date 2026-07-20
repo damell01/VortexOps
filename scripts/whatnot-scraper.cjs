@@ -1627,7 +1627,7 @@ async function extractOrdersFromPage(page) {
     // data-testid="orders-N-row"; cells are positional:
     // [Order(title+Order #id), Date, Customer, Items(qty), Sales Channel, Price,
     //  Order Status, Earnings, Actions]. This is the most reliable shape.
-    const testidRows = Array.from(document.querySelectorAll('tbody[data-testid="orders-table-body"] tr, tr[data-testid$="-row"]'));
+    const testidRows = Array.from(document.querySelectorAll('tbody[data-testid="orders-table-body"] tr, tr[data-testid^="orders-"]'));
     if (testidRows.length > 0) {
       const parsePrice = (s) => {
         if (!s) return null;
@@ -1666,6 +1666,45 @@ async function extractOrdersFromPage(page) {
           sales_channel: channel,
           status:      orderStatus || 'completed',
           raw_text:    (tr.innerText || '').replace(/\s+/g, ' ').trim().substring(0, 400),
+        });
+      }
+      if (rows.length > 0) return rows;
+    }
+
+    // Strategy S — Whatnot Shipments tab (/dashboard/shipments). Each shipment gets
+    // its own <tr data-testid="shipments-<id>-row"> carrying buyer/weight/dims/status
+    // inline, but the "Order #N" that ties it back to an existing WhatnotShowOrder
+    // only renders in a nested detail <tr> after the row is expanded — there's an
+    // "Expand All" toggle near the table header that the caller clicks (and waits
+    // on) before this extractor runs. We pair each main row with its immediately
+    // following sibling <tr> when that sibling holds the nested Item/Order # table.
+    const shipmentRows = Array.from(document.querySelectorAll('tr[data-testid^="shipments-"]'));
+    if (shipmentRows.length > 0) {
+      const rows = [];
+      for (const tr of shipmentRows) {
+        const mainText = tr.innerText || '';
+        const buyerLink = tr.querySelector('a[href*="/dashboard/inbox"]');
+        const buyer = buyerLink ? (buyerLink.textContent || '').trim() : null;
+
+        let detailText = '';
+        const next = tr.nextElementSibling;
+        if (next && next.tagName === 'TR' && next.querySelector('table')) {
+          detailText = next.innerText || '';
+        }
+
+        const meta = extractShipmentMeta(mainText + '\n' + detailText);
+        if (!meta.order_id && !buyer) continue;
+
+        rows.push({
+          buyer,
+          item_name:   null,
+          lot_number:  null,
+          quantity:    1,
+          unit_price:  null,
+          total_price: null,
+          status:      'completed',
+          raw_text:    mainText.replace(/\s+/g, ' ').trim().substring(0, 400),
+          ...meta,
         });
       }
       if (rows.length > 0) return rows;
@@ -2397,6 +2436,16 @@ async function extractLedgerFromPage(page) {
 
           let pages = 0;
           while (pages < PAGE_CAP) {
+            // Each shipment row's linked Order # only renders once expanded — click
+            // "Expand All" so every row's nested Item/Order # table is in the DOM
+            // before we read it. Re-run on every page since pagination re-renders
+            // the table collapsed. Safe no-op if the button isn't present.
+            await page.evaluate(() => {
+              const btn = Array.from(document.querySelectorAll('button[aria-label="Expand All"]'))[0];
+              if (btn) btn.click();
+            }).catch(() => {});
+            await page.waitForTimeout(300);
+
             const extracted = await extractOrdersFromPage(page);
             if (extracted && !extracted.fallback && extracted.length) {
               for (const o of normalizeOrders(extracted)) {

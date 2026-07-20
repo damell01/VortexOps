@@ -271,4 +271,41 @@ class ChannelScopingCoverageTest extends TestCase
         $row = $page->rows->firstWhere('id', $item->id);
         $this->assertSame(10, (int) $row['units_sold']);
     }
+
+    // ── Sidebar nav badges (counts, not just list contents) ─────────────────
+    //
+    // ShowResource and DeductionRequestResource's list pages already respect
+    // the active channel, but their sidebar badge counts didn't — a switch
+    // to Channel A still showed the all-channel pending count in the nav,
+    // which is worse than no badge at all since it doesn't match what
+    // clicking through actually shows.
+
+    public function test_show_navigation_badge_respects_active_channel(): void
+    {
+        $this->actingAs($this->owner());
+        $this->makeShow($this->channelA, ['status' => 'pending_review']);
+        $this->makeShow($this->channelB, ['status' => 'pending_review']);
+
+        ChannelContext::setActive($this->channelA->id);
+        $this->assertSame('1', ShowResource::getNavigationBadge());
+
+        ChannelContext::setActive(null);
+        $this->assertSame('2', ShowResource::getNavigationBadge());
+    }
+
+    public function test_deduction_request_navigation_badge_respects_active_channel(): void
+    {
+        $this->actingAs($this->owner());
+        $streamer = Streamer::create(['name' => 'S', 'status' => 'active']);
+        $showA = $this->makeShow($this->channelA);
+        $showB = $this->makeShow($this->channelB);
+        DeductionRequest::create(['show_id' => $showA->id, 'streamer_id' => $streamer->id, 'status' => 'pending']);
+        DeductionRequest::create(['show_id' => $showB->id, 'streamer_id' => $streamer->id, 'status' => 'pending']);
+
+        ChannelContext::setActive($this->channelA->id);
+        $this->assertSame('1', DeductionRequestResource::getNavigationBadge());
+
+        ChannelContext::setActive(null);
+        $this->assertSame('2', DeductionRequestResource::getNavigationBadge());
+    }
 }

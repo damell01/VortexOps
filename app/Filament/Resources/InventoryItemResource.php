@@ -130,8 +130,24 @@ class InventoryItemResource extends Resource
                     TextInput::make('name')
                         ->required()
                         ->maxLength(255),
-                    TextInput::make('category')
-                        ->maxLength(100),
+                    Select::make('category')
+                        ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
+                            ->distinct()->orderBy('category')->pluck('category', 'category')->toArray()))
+                        // category is a plain string column, not a lookup table — a
+                        // freshly created value won't be in the cached options() list
+                        // above yet, so Select's built-in validation (which rejects a
+                        // selection whose label it can't resolve) needs a label
+                        // resolver that works for ANY string, not just known options.
+                        ->getOptionLabelUsing(fn ($value) => $value)
+                        ->searchable()
+                        ->native(false)
+                        ->createOptionForm([
+                            TextInput::make('category')
+                                ->label('New category')
+                                ->required()
+                                ->maxLength(100),
+                        ])
+                        ->createOptionUsing(fn (array $data) => $data['category']),
                     Select::make('preferred_vendor_id')
                         ->label('Preferred Vendor')
                         ->options(fn () => Vendor::activeOptions())

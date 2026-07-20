@@ -101,8 +101,9 @@ class ShowResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = Cache::remember('nav_badge:shows_pending_review', 60, fn () =>
-            \App\Models\Show::where('status', 'pending_review')->count()
+        $channel = \App\Support\ChannelContext::currentId() ?? 'all';
+        $count = Cache::remember("nav_badge:shows_pending_review:{$channel}", 60, fn () =>
+            \App\Models\Show::where('status', 'pending_review')->inChannelContext()->count()
         );
         return $count > 0 ? (string) $count : null;
     }

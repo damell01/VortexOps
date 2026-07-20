@@ -34,4 +34,24 @@ class SystemHealthAiSectionTest extends TestCase
             ->assertSee('AI Stack')
             ->assertSee('Ollama backend');
     }
+
+    /**
+     * getAiHealthProperty() used to call straight into
+     * AiHealthReport::generate() with no exception handling, unlike every
+     * other property on this page. If provider resolution itself throws
+     * (e.g. an unsupported "ai_provider" setting), the page 500'd instead
+     * of showing "AI unhealthy" like it's supposed to.
+     */
+    public function test_page_renders_gracefully_when_the_ai_provider_cannot_be_resolved(): void
+    {
+        \App\Models\Setting::set('ai_provider', 'not_a_real_provider');
+
+        $owner = User::factory()->create(['email' => config('app.owner_email', 'dbellcreations@gmail.com')]);
+        $this->actingAs($owner);
+
+        Livewire::test(SystemHealth::class)
+            ->assertOk()
+            ->assertSee('UNHEALTHY')
+            ->assertSee('Could not resolve the AI provider');
+    }
 }

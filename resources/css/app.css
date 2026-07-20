@@ -1849,6 +1849,17 @@ a.fi-link:hover {
                 margin-left  280ms cubic-bezier(.4,0,.2,1) !important;
 }
 
+/* Filament's fully-collapsible-on-desktop mode has no built-in icon-rail
+   width — the container just shrinks to fit whatever the (unstyled) nav
+   content renders. Without an explicit width it sits around ~190px: icons
+   left-aligned with a big empty gutter, not the tight icon-only rail this
+   whole block is meant to produce. */
+@media (min-width: 1024px) {
+    .fi-sidebar:not(.fi-sidebar-open) {
+        width: 4.25rem !important;
+    }
+}
+
 /* When sidebar is fully collapsed (icon-only) center the icons */
 .fi-sidebar[data-collapsed="true"] .fi-sidebar-item-btn,
 .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-item-btn {

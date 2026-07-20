@@ -135,7 +135,22 @@ class SystemHealth extends Page
      */
     public function getAiHealthProperty(): array
     {
-        return app(\App\AI\Services\AiHealthReport::class)->generate();
+        try {
+            return app(\App\AI\Services\AiHealthReport::class)->generate();
+        } catch (\Throwable $e) {
+            return [
+                'status'           => 'unhealthy',
+                'reachable'        => false,
+                'provider'         => 'unknown',
+                'available_models' => [],
+                'missing_models'   => [],
+                'checks'           => [[
+                    'label'  => 'AI stack',
+                    'state'  => \App\AI\Services\AiHealthReport::CRITICAL,
+                    'detail' => 'Could not resolve the AI provider — ' . $e->getMessage(),
+                ]],
+            ];
+        }
     }
 
     public function getSchedulerStatusProperty(): array

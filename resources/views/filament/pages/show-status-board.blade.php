@@ -19,10 +19,10 @@
             @foreach ($this->getColumns() as $column)
                 @php $count = $column['shows']->count(); @endphp
 
-                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 overflow-hidden flex flex-col">
+                <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 overflow-hidden flex flex-col h-[65vh] min-h-[420px] max-h-[720px]">
 
-                    {{-- Column header --}}
-                    <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between"
+                    {{-- Column header — stays put; only the cards below scroll --}}
+                    <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0"
                          style="border-top: 3px solid {{ $column['color'] }}">
                         <div class="flex items-center gap-2">
                             <span class="text-sm">{{ $column['icon'] }}</span>
@@ -34,8 +34,8 @@
                         @endif
                     </div>
 
-                    {{-- Cards --}}
-                    <div class="flex flex-col gap-2 p-2 min-h-[80px]">
+                    {{-- Cards — this scrolls independently, page height never changes --}}
+                    <div class="flex flex-col gap-2 p-2 min-h-[80px] flex-1 overflow-y-auto">
                         @forelse ($column['shows'] as $show)
                             <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 space-y-2 hover:shadow-sm transition-shadow">
 
@@ -133,6 +133,14 @@
                             </div>
                         @endforelse
                     </div>
+
+                    @if ($column['hiddenOlder'] > 0)
+                        <a href="{{ $this->getReconciledShowsUrl() }}"
+                           class="flex-shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            <x-heroicon-o-archive-box class="h-3.5 w-3.5" />
+                            +{{ $column['hiddenOlder'] }} older than {{ $column['windowDays'] }}d — view all reconciled
+                        </a>
+                    @endif
                 </div>
             @endforeach
         </div>

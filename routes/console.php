@@ -61,6 +61,15 @@ Schedule::command('whatnot:import-ledger --days=8')
 
 Schedule::command('whatnot:sync')->hourly()->name('whatnot-sync-hourly')->withoutOverlapping(10);
 
+// Shipment-detail refresh (weight/dims/carrier/status) for shows with orders still
+// awaiting delivery — a tighter cadence than the hourly full sync above, since
+// fulfillment status is the one thing worth polling fast. :07/:37 keeps it clear
+// of the :00/:15/:22/:30/:45/:52 Whatnot cron slots elsewhere in this file.
+Schedule::command('whatnot:sync-shipments')
+    ->cron('7,37 * * * *')
+    ->name('whatnot-sync-shipments')
+    ->withoutOverlapping(20);
+
 // Mid-week revenue snapshot (Wednesday) and a Friday nudge for anything still
 // sitting in Pending Review/Approval — so a slow week or a review backlog
 // surfaces before it becomes a scramble at week's end.

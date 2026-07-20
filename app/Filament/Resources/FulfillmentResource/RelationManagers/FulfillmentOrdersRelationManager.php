@@ -60,6 +60,28 @@ class FulfillmentOrdersRelationManager extends RelationManager
                     ->label('Tracking #')
                     ->placeholder('—')
                     ->disabled($locked),
+
+                // Populated by the shipments-tab scraper (whatnot:sync-shipments) —
+                // hidden by default since most fulfillment work doesn't need it.
+                TextColumn::make('shipment_weight_oz')
+                    ->label('Weight')
+                    ->formatStateUsing(fn ($state) => $state !== null ? number_format((float) $state, 1) . ' oz' : '—')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('box_dimensions')
+                    ->label('Box')
+                    ->state(fn (WhatnotShowOrder $record) => $record->box_length_in && $record->box_width_in && $record->box_height_in
+                        ? sprintf('%s×%s×%s in', $record->box_length_in, $record->box_width_in, $record->box_height_in)
+                        : null)
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('shipping_carrier')
+                    ->label('Carrier')
+                    ->state(fn (WhatnotShowOrder $record) => trim("{$record->shipping_carrier} {$record->shipping_service}") ?: null)
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('shipping_status')

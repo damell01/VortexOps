@@ -5,6 +5,9 @@
  *   analytics    (default) — scrape per-show analytics from the dashboard, newest first
  *   test         — verify credentials only, output {connected, email}
  *   show-orders  — scrape order/lot list for one show (requires WHATNOT_SHOW_URL)
+ *   orders-batch — scrape orders for many shows in one session (requires WHATNOT_ORDER_SOURCES_FILE)
+ *   shipments-batch — refresh weight/dims/carrier/shipping-status for many shows already
+ *                  imported, from /dashboard/shipments?source=<id> (requires WHATNOT_ORDER_SOURCES_FILE)
  *   shows        — legacy: scrape the /seller/shows list page (less data, kept as fallback)
  *   discover     — 3-phase deep crawl: (1) visit all Seller Hub nav pages, (2) drill into
  *                  individual show detail pages and click each tab (Orders/Lots/Sales/Buyers),
@@ -1668,6 +1671,37 @@ async function extractOrdersFromPage(page) {
       if (rows.length > 0) return rows;
     }
 
+    // Best-effort shipment metadata — weight, box dimensions, and carrier/service —
+    // present only on the Shipments tab (not the Orders tab). Every field is
+    // optional; a row missing all of them just yields an object of nulls, which
+    // the caller drops via array_filter before it ever reaches the DB, so an
+    // unmatched pattern here degrades gracefully instead of breaking anything.
+    function extractShipmentMeta(text) {
+      const weightMatch = text.match(/(\d+(?:\.\d+)?)\s*oz\b/i);
+      const dimsMatch = text.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*in\b/i);
+      const carrierMatch = text.match(/\b(USPS|UPS|FedEx|DHL)\b\s*([A-Za-z][A-Za-z ]{0,30}?)(?=\s{2,}|\s*[\$\n]|$)/i);
+      const orderIdMatch = text.match(/Order\s*#\s*(\d+)/i);
+
+      let shippingStatus = null;
+      if (/needs\s*label/i.test(text)) shippingStatus = 'pending';
+      else if (/label\s*created/i.test(text)) shippingStatus = 'label_created';
+      else if (/\bdelivered\b/i.test(text)) shippingStatus = 'delivered';
+      else if (/\breturned\b/i.test(text)) shippingStatus = 'returned';
+      else if (/\bpacked\b/i.test(text)) shippingStatus = 'packed';
+      else if (/\bshipped\b/i.test(text)) shippingStatus = 'shipped';
+
+      return {
+        order_id: orderIdMatch ? orderIdMatch[1] : null,
+        weight_oz: weightMatch ? parseFloat(weightMatch[1]) : null,
+        box_length_in: dimsMatch ? parseFloat(dimsMatch[1]) : null,
+        box_width_in: dimsMatch ? parseFloat(dimsMatch[2]) : null,
+        box_height_in: dimsMatch ? parseFloat(dimsMatch[3]) : null,
+        shipping_carrier: carrierMatch ? carrierMatch[1].toUpperCase() : null,
+        shipping_service: carrierMatch ? carrierMatch[2].trim() : null,
+        shipping_status_scraped: shippingStatus,
+      };
+    }
+
     function findParentWithText(el, maxLevels = 6) {
       let node = el;
       for (let i = 0; i < maxLevels; i++) {
@@ -1714,6 +1748,7 @@ async function extractOrdersFromPage(page) {
         total_price: prices.length > 1 ? prices.reduce((a, b) => a + b, 0) : (prices[0] || null),
         status:      statusMatch ? statusMatch[1].toLowerCase() : 'completed',
         raw_text:    containerText.replace(/\s+/g, ' ').trim().substring(0, 400),
+        ...extractShipmentMeta(containerText),
       });
     }
 
@@ -1743,6 +1778,7 @@ async function extractOrdersFromPage(page) {
           total_price: prices[0] || null,
           status:      'completed',
           raw_text:    text.replace(/\s+/g, ' ').trim().substring(0, 400),
+          ...extractShipmentMeta(text),
         });
       }
     }
@@ -1772,6 +1808,14 @@ function normalizeOrders(rows) {
       sales_channel: o.sales_channel || null,
       status:        o.status || 'completed',
       raw_text:      o.raw_text || null,
+      // Shipments-tab-only fields — null on ordinary Orders-tab rows.
+      weight_oz:               o.weight_oz ?? null,
+      box_length_in:           o.box_length_in ?? null,
+      box_width_in:            o.box_width_in ?? null,
+      box_height_in:           o.box_height_in ?? null,
+      shipping_carrier:        o.shipping_carrier || null,
+      shipping_service:        o.shipping_service || null,
+      shipping_status_scraped: o.shipping_status_scraped || null,
     }));
 }
 
@@ -2307,6 +2351,83 @@ async function extractLedgerFromPage(page) {
 
       const total = out.reduce((n, s) => n + s.order_count, 0);
       info(`orders-batch: done — ${total} order(s) across ${out.length} show(s)`);
+      writeJsonAndExit(out);
+      return;
+    }
+
+    // ── Mode: shipments-batch ─────────────────────────────────────────────────
+    // Refreshes weight/dimensions/carrier/shipping-status for shows that ALREADY
+    // have orders imported. Unlike orders-batch (which tries the orders table
+    // first and only falls back to shipments when that's empty), this mode goes
+    // straight to /dashboard/shipments?source=<id> every time, since that's the
+    // only view carrying shipment-level detail. Rows without a resolvable
+    // "Order #N" are dropped — merge-matching in persistShowOrders requires it.
+    if (MODE === 'shipments-batch') {
+      const srcFile = process.env.WHATNOT_ORDER_SOURCES_FILE;
+      if (!srcFile || !require('fs').existsSync(srcFile)) {
+        process.stderr.write('Error: WHATNOT_ORDER_SOURCES_FILE (existing JSON) is required for shipments-batch mode\n');
+        process.exit(1);
+      }
+      let sources;
+      try {
+        sources = JSON.parse(require('fs').readFileSync(srcFile, 'utf8'));
+      } catch (e) {
+        process.stderr.write('shipments-batch: failed to parse sources file: ' + e.message + '\n');
+        process.exit(1);
+      }
+      if (!Array.isArray(sources)) sources = [];
+      info(`shipments-batch: ${sources.length} show(s) to refresh shipment data for`);
+
+      const PAGE_CAP = 40;
+      const out = [];
+      for (let i = 0; i < sources.length; i++) {
+        const { live_id, show_key } = sources[i] || {};
+        if (!live_id) { out.push({ show_key, live_id: null, order_count: 0, orders: [] }); continue; }
+
+        const url = `https://www.whatnot.com/dashboard/shipments?source=${live_id}`;
+        const byId = new Map();
+
+        try {
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+          await page.waitForFunction(
+            () => /\$[\d,]+\.?\d*/.test(document.body.innerText || ''),
+            { timeout: 7000 }
+          ).catch(() => {});
+          await page.waitForTimeout(400);
+
+          let pages = 0;
+          while (pages < PAGE_CAP) {
+            const extracted = await extractOrdersFromPage(page);
+            if (extracted && !extracted.fallback && extracted.length) {
+              for (const o of normalizeOrders(extracted)) {
+                // Only rows we can match back to an existing order are useful here.
+                if (o.order_id) byId.set(o.order_id, o);
+              }
+            } else if (pages === 0 && DEBUG) {
+              info(`shipments-batch: [${i + 1}/${sources.length}] no rows on ${url.replace('https://www.whatnot.com', '')} — text: ${((extracted && extracted.text) || '').replace(/\s+/g, ' ').substring(0, 140)}`);
+            }
+            const advanced = await page.evaluate(() => {
+              const svg = document.querySelector('svg[aria-label="Next page"]');
+              let btn = svg ? svg.closest('button') : null;
+              if (!btn) btn = document.querySelector('button[aria-label="Next page"]');
+              if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') { btn.click(); return true; }
+              return false;
+            }).catch(() => false);
+            pages++;
+            if (!advanced) break;
+            await page.waitForTimeout(700);
+          }
+        } catch (navErr) {
+          info(`shipments-batch: [${i + 1}/${sources.length}] nav error: ${navErr.message.substring(0, 100)}`);
+        }
+
+        const orders = [...byId.values()];
+        info(`shipments-batch: [${i + 1}/${sources.length}] show ${show_key} live_id=${live_id} → ${orders.length} shipment row(s)`);
+        out.push({ show_key, live_id, order_count: orders.length, orders });
+      }
+
+      const total = out.reduce((n, s) => n + s.order_count, 0);
+      info(`shipments-batch: done — ${total} shipment row(s) across ${out.length} show(s)`);
       writeJsonAndExit(out);
       return;
     }

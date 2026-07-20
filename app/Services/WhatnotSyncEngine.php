@@ -201,6 +201,35 @@ class WhatnotSyncEngine
         return compact('created', 'updated');
     }
 
+    /**
+     * Refresh weight/dims/carrier/shipping-status for shows in this channel that
+     * still have an unresolved shipment (no status yet, or not delivered/returned).
+     * Deliberately separate from syncChannel() — this is meant to run far more
+     * often (every 30 min) since shipment status is the one thing that changes
+     * fast during active fulfillment, while show/order import stays hourly.
+     *
+     * @return array{updated: int, skipped_shows: int, shows_checked: int}
+     */
+    public function syncShipmentUpdatesForChannel(WhatnotChannel $channel, int $limit = 50): array
+    {
+        $shows = Show::where('whatnot_channel_id', $channel->id)
+            ->whereNotNull('detail_url')
+            ->whereHas('orders', fn ($q) => $q
+                ->whereNull('shipping_status')
+                ->orWhereNotIn('shipping_status', ['delivered', 'returned']))
+            ->orderByDesc('show_date')
+            ->limit($limit)
+            ->get();
+
+        if ($shows->isEmpty()) {
+            return ['updated' => 0, 'skipped_shows' => 0, 'shows_checked' => 0];
+        }
+
+        $result = $this->scraper->refreshShipmentsForShows($shows, $channel->whatnot_username);
+
+        return array_merge($result, ['shows_checked' => $shows->count()]);
+    }
+
     private function buildSummary(WhatnotChannel $channel, array $counters): array
     {
         return array_merge($counters, [

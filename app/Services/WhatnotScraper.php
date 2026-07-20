@@ -287,17 +287,19 @@ class WhatnotScraper
     {
         $created = 0;
         $skipped = 0;
+        $updated = 0;
 
         // Default each new order's location to the show's streamer's own inventory
         // location, so the streamer's Items editor is pre-filled with their location.
         $defaultLocationId = $show->defaultInventoryLocation()?->id;
 
-        // Pre-load all existing order IDs and fallback keys in two queries instead of one per row
-        $existingOrderIds = WhatnotShowOrder::where('show_id', $show->id)
+        // Pre-load existing orders keyed by whatnot_order_id — needed as full models
+        // (not just an existence set) so a shipments-batch row carrying weight/dims/
+        // carrier can be merged onto the matching record instead of just skipped.
+        $existingByOrderId = WhatnotShowOrder::where('show_id', $show->id)
             ->whereNotNull('whatnot_order_id')
-            ->pluck('whatnot_order_id')
-            ->flip()
-            ->toArray();
+            ->get()
+            ->keyBy('whatnot_order_id');
 
         $existingFallbackKeys = WhatnotShowOrder::where('show_id', $show->id)
             ->whereNull('whatnot_order_id')
@@ -307,25 +309,30 @@ class WhatnotScraper
             ->toArray();
 
         foreach ($rows as $row) {
+            $orderId = $row['order_id'] ?? null;
+
+            if ($orderId && $existingByOrderId->has($orderId)) {
+                if ($this->mergeShipmentFields($existingByOrderId->get($orderId), $row)) {
+                    $updated++;
+                } else {
+                    $skipped++;
+                }
+                continue;
+            }
+
             if (empty($row['buyer']) && empty($row['item_name'])) {
                 $skipped++;
                 continue;
             }
 
-            $orderId = $row['order_id'] ?? null;
-
-            if ($orderId) {
-                $existing = isset($existingOrderIds[$orderId]);
-            } else {
-                $key      = ($row['buyer'] ?? '') . '|' . ($row['item_name'] ?? '') . '|' . ($row['lot_number'] ?? '');
-                $existing = isset($existingFallbackKeys[$key]);
+            if (! $orderId) {
+                $key = ($row['buyer'] ?? '') . '|' . ($row['item_name'] ?? '') . '|' . ($row['lot_number'] ?? '');
+                if (isset($existingFallbackKeys[$key])) {
+                    $skipped++;
+                    continue;
+                }
                 // Guard against duplicate rows within this same batch
                 $existingFallbackKeys[$key] = true;
-            }
-
-            if ($existing) {
-                $skipped++;
-                continue;
             }
 
             WhatnotShowOrder::create([
@@ -350,10 +357,103 @@ class WhatnotScraper
         Log::info('WhatnotScraper persistShowOrders complete', [
             'show_id' => $show->id,
             'created' => $created,
+            'updated' => $updated,
             'skipped' => $skipped,
         ]);
 
-        return compact('created', 'skipped');
+        return compact('created', 'skipped', 'updated');
+    }
+
+    /**
+     * Merge shipment metadata (weight/dims/carrier/shipping status) from a
+     * scraped row onto an already-persisted order. Only non-null incoming
+     * fields are applied, and shipping_status never regresses to an earlier
+     * stage — guards against a stale/cached shipments-page scrape overwriting
+     * a status ops already advanced manually. Returns true if anything changed.
+     */
+    private function mergeShipmentFields(WhatnotShowOrder $order, array $row): bool
+    {
+        $fields = array_filter([
+            'shipment_weight_oz' => $row['weight_oz'] ?? null,
+            'box_length_in'      => $row['box_length_in'] ?? null,
+            'box_width_in'       => $row['box_width_in'] ?? null,
+            'box_height_in'      => $row['box_height_in'] ?? null,
+            'shipping_carrier'   => $row['shipping_carrier'] ?? null,
+            'shipping_service'   => $row['shipping_service'] ?? null,
+            'shipping_status'    => $row['shipping_status_scraped'] ?? null,
+        ], fn ($v) => $v !== null && $v !== '');
+
+        if (empty($fields)) {
+            return false;
+        }
+
+        if (isset($fields['shipping_status'])) {
+            $rank         = array_flip(array_keys(WhatnotShowOrder::shippingStatusLabels()));
+            $incomingRank = $rank[$fields['shipping_status']] ?? 0;
+            $currentRank  = $order->shipping_status ? ($rank[$order->shipping_status] ?? 0) : -1;
+
+            if ($incomingRank < $currentRank) {
+                unset($fields['shipping_status']);
+            }
+        }
+
+        if (empty($fields)) {
+            return false;
+        }
+
+        $fields['shipment_synced_at'] = now();
+        $order->update($fields);
+
+        return true;
+    }
+
+    /**
+     * Refresh shipment metadata (weight/dims/carrier/status) for a batch of shows
+     * that already have orders imported. Shows with no resolvable livestream id
+     * are skipped (counted, not errored) — resolves against the same
+     * "/dashboard/live/<uuid>" / "?source=<uuid>" pattern used elsewhere.
+     *
+     * @param  \Illuminate\Support\Collection<int,Show>  $shows
+     * @return array{updated: int, skipped_shows: int}
+     */
+    public function refreshShipmentsForShows(\Illuminate\Support\Collection $shows, ?string $channelUsername = null, bool $debug = false): array
+    {
+        $sources = [];
+        $byKey   = [];
+        foreach ($shows as $show) {
+            $liveId = $this->extractLiveIdFromUrl($show->detail_url);
+            if (! $liveId) {
+                continue;
+            }
+            $sources[] = ['live_id' => $liveId, 'show_key' => $show->id];
+            $byKey[$show->id] = $show;
+        }
+
+        $skippedShows = $shows->count() - count($sources);
+
+        if (empty($sources)) {
+            return ['updated' => 0, 'skipped_shows' => $skippedShows];
+        }
+
+        try {
+            $shipmentsByShow = $this->fetchShipmentsForShows($sources, $channelUsername, $debug);
+        } catch (\Throwable $e) {
+            // Shipment refresh is best-effort — never blow up the caller over it.
+            Log::error('WhatnotScraper: shipments refresh failed — ' . $e->getMessage());
+            return ['updated' => 0, 'skipped_shows' => $shows->count()];
+        }
+
+        $updated = 0;
+        foreach ($shipmentsByShow as $showKey => $rows) {
+            $show = $byKey[$showKey] ?? null;
+            if (! $show || empty($rows)) {
+                continue;
+            }
+            $res = $this->persistShowOrders($show, $rows);
+            $updated += $res['updated'] ?? 0;
+        }
+
+        return ['updated' => $updated, 'skipped_shows' => $skippedShows];
     }
 
     /**
@@ -364,16 +464,43 @@ class WhatnotScraper
      */
     public function fetchOrdersForShows(array $sources, ?string $channelUsername = null, bool $debug = false): array
     {
+        return $this->runBatchScrape('orders-batch', $sources, $channelUsername, $debug);
+    }
+
+    /**
+     * Refresh weight/dimensions/carrier/shipping-status for shows that already
+     * have orders imported, scraping /dashboard/shipments?source=<id> directly.
+     * Returned rows are merge-only — persistShowOrders() updates existing orders
+     * matched by whatnot_order_id and never creates new ones from this source.
+     *
+     * @param  array<int,array{live_id:string, show_key:int|string}>  $sources
+     * @return array<int|string, array<int,array<string,mixed>>>  map of show_key => shipment rows
+     */
+    public function fetchShipmentsForShows(array $sources, ?string $channelUsername = null, bool $debug = false): array
+    {
+        return $this->runBatchScrape('shipments-batch', $sources, $channelUsername, $debug);
+    }
+
+    /**
+     * Shared driver for the orders-batch and shipments-batch scraper modes —
+     * both take the same [{live_id, show_key}] input and return the same
+     * {show_key => rows} shape, differing only in which Whatnot page they scrape.
+     *
+     * @param  array<int,array{live_id:string, show_key:int|string}>  $sources
+     * @return array<int|string, array<int,array<string,mixed>>>
+     */
+    private function runBatchScrape(string $mode, array $sources, ?string $channelUsername, bool $debug): array
+    {
         if (empty($sources)) {
             return [];
         }
 
-        $srcFile = tempnam(sys_get_temp_dir(), 'wn-orders-') . '.json';
+        $srcFile = tempnam(sys_get_temp_dir(), 'wn-' . $mode . '-') . '.json';
         file_put_contents($srcFile, json_encode(array_values($sources)));
 
         $env = $this->baseEnv($debug);
-        $env['WHATNOT_MODE']                = 'orders-batch';
-        $env['WHATNOT_ORDER_SOURCES_FILE']  = $srcFile;
+        $env['WHATNOT_MODE']               = $mode;
+        $env['WHATNOT_ORDER_SOURCES_FILE'] = $srcFile;
         if ($channelUsername) {
             $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
         }
@@ -390,14 +517,14 @@ class WhatnotScraper
             $stdout = trim($process->getOutput());
 
             if ($stderr) {
-                Log::channel('stack')->warning('WhatnotScraper orders-batch stderr', ['output' => $stderr]);
+                Log::channel('stack')->warning("WhatnotScraper {$mode} stderr", ['output' => $stderr]);
                 if ($debug) {
                     fwrite(STDERR, $stderr . "\n");
                 }
             }
 
             if (! $process->isSuccessful() || empty($stdout)) {
-                Log::warning('WhatnotScraper orders-batch produced no usable output', [
+                Log::warning("WhatnotScraper {$mode} produced no usable output", [
                     'exit' => $process->getExitCode(),
                 ]);
                 return [];
@@ -405,7 +532,7 @@ class WhatnotScraper
 
             $data = json_decode($stdout, true);
             if (json_last_error() !== JSON_ERROR_NONE || ! is_array($data)) {
-                Log::warning('WhatnotScraper orders-batch returned invalid JSON', ['error' => json_last_error_msg()]);
+                Log::warning("WhatnotScraper {$mode} returned invalid JSON", ['error' => json_last_error_msg()]);
                 return [];
             }
 

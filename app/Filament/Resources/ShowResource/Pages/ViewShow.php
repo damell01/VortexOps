@@ -160,7 +160,31 @@ class ViewShow extends ViewRecord
                         $show->update(['status' => 'pending_review']);
                     }
 
-                    // Aggregate orders by item name and create a line per distinct item
+                    // Group by lot_number — the identifier Whatnot actually gives
+                    // reliably ("Lot #123"), not item_name. Whatnot listings often
+                    // carry no real product description at all, and the old
+                    // groupBy('item_name') silently dropped every order with an
+                    // empty item_name instead of creating a line for it — lots
+                    // with no lot_number either (rare) still get their own line via
+                    // the per-order fallback key, so nothing is ever lost.
+                    $groupKey = fn ($o) => $o->lot_number !== null
+                        ? "lot:{$o->lot_number}"
+                        : ($o->item_name ? 'name:' . strtolower(trim($o->item_name)) : "order:{$o->id}");
+
+                    $label = function ($o) {
+                        if ($o->lot_number === null) {
+                            return $o->item_name ?: "Order #{$o->id}";
+                        }
+
+                        // Skip item_name when it's just another generic restatement
+                        // of the lot number itself ("Item #123", "Lot 123") —
+                        // Whatnot often has nothing more descriptive than that.
+                        $isGenericRestatement = $o->item_name
+                            && preg_match('/^\s*(item|lot)\s*#?\s*' . preg_quote((string) $o->lot_number, '/') . '\s*$/i', $o->item_name);
+
+                        return 'Lot #' . $o->lot_number . ($o->item_name && ! $isGenericRestatement ? " — {$o->item_name}" : '');
+                    };
+
                     $existingDescriptions = $dr->lines->pluck('raw_description')
                         ->map(fn ($d) => strtolower(trim($d)))
                         ->all();
@@ -168,13 +192,15 @@ class ViewShow extends ViewRecord
                     $defaultLocation = $show->defaultInventoryLocation();
 
                     $created = 0;
-                    foreach ($show->orders->filter(fn ($o) => ! empty($o->item_name))->groupBy('item_name') as $itemName => $group) {
-                        if (in_array(strtolower(trim($itemName)), $existingDescriptions)) {
+                    foreach ($show->orders->groupBy($groupKey) as $group) {
+                        $description = $label($group->first());
+
+                        if (in_array(strtolower(trim($description)), $existingDescriptions)) {
                             continue;
                         }
                         DeductionRequestLine::create([
                             'deduction_request_id'  => $dr->id,
-                            'raw_description'       => $itemName,
+                            'raw_description'       => $description,
                             'quantity_suggested'    => $group->sum('quantity'),
                             'quantity_approved'     => $group->sum('quantity'),
                             'unit_cost_snapshot'    => 0,

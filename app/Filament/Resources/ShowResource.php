@@ -31,6 +31,8 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Filament\QueryBuilder\Constraints\DateConstraint;
 use Filament\QueryBuilder\Constraints\NumberConstraint;
@@ -144,7 +146,46 @@ class ShowResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Show Details')->columns(3)->columnSpanFull()->schema([
+            Tabs::make('show_tabs')
+                ->columnSpanFull()
+                ->persistTab()
+                ->tabs([
+                    Tab::make('Overview')
+                        ->icon('heroicon-o-information-circle')
+                        ->schema([
+                            static::showDetailsSection(),
+                            static::notesSection(),
+                        ]),
+
+                    Tab::make('Financials')
+                        ->icon('heroicon-o-banknotes')
+                        ->schema([
+                            static::financialsSection(),
+                            static::paperSalesSection(),
+                            static::plSummarySection(),
+                        ]),
+
+                    Tab::make('Analytics')
+                        ->icon('heroicon-o-chart-bar')
+                        ->schema([
+                            static::whatnotAnalyticsSection(),
+                            static::engagementSection(),
+                            static::showRecapSection(),
+                        ]),
+
+                    Tab::make('Approval')
+                        ->icon('heroicon-o-clipboard-document-check')
+                        ->visible(fn (?Show $record) => (bool) $record?->latestDeductionRequest)
+                        ->schema([
+                            static::approvalSummarySection(),
+                        ]),
+                ]),
+        ]);
+    }
+
+    private static function showDetailsSection(): Section
+    {
+        return Section::make('Show Details')->columns(3)->columnSpanFull()->schema([
                 DatePicker::make('show_date')
                     ->label('Show Date')
                     ->required()
@@ -211,9 +252,21 @@ class ShowResource extends Resource
                     ->required()
                     ->visible(fn () => auth()->user()?->isOwner())
                     ->columnSpanFull(),
-            ]),
+            ]);
+    }
 
-            Section::make('Financials')->columns(3)->columnSpanFull()->schema([
+    private static function notesSection(): Section
+    {
+        return Section::make('Notes')->columnSpanFull()->schema([
+            Textarea::make('notes')
+                ->rows(3)
+                ->columnSpanFull(),
+        ]);
+    }
+
+    private static function financialsSection(): Section
+    {
+        return Section::make('Financials')->columns(3)->columnSpanFull()->schema([
                 TextInput::make('gross_revenue')
                     ->label('Gross Revenue')
                     ->numeric()
@@ -231,9 +284,12 @@ class ShowResource extends Resource
                     ->numeric()
                     ->prefix('$')
                     ->default(0),
-            ]),
+            ]);
+    }
 
-            Section::make('Paper Sales')->columns(3)->columnSpanFull()->schema([
+    private static function paperSalesSection(): Section
+    {
+        return Section::make('Paper Sales')->columns(3)->columnSpanFull()->schema([
                 TextInput::make('paper_sales_gross')
                     ->label('Paper Sales Gross')
                     ->numeric()
@@ -256,15 +312,12 @@ class ShowResource extends Resource
                     ->rows(2)
                     ->nullable()
                     ->columnSpanFull(),
-            ]),
+            ]);
+    }
 
-            Section::make('Notes')->columnSpanFull()->schema([
-                Textarea::make('notes')
-                    ->rows(3)
-                    ->columnSpanFull(),
-            ]),
-
-            Section::make('Whatnot Analytics')
+    private static function whatnotAnalyticsSection(): Section
+    {
+        return Section::make('Whatnot Analytics')
                 ->description('Populated automatically during import. Values can be corrected manually.')
                 ->collapsible()
                 ->collapsed()
@@ -323,10 +376,12 @@ class ShowResource extends Resource
                         ->url()
                         ->nullable()
                         ->columnSpanFull(),
-                ]),
+                ]);
+    }
 
-            Section::make('Approval Summary')
-                ->visible(fn (?Show $record) => (bool) $record?->latestDeductionRequest)
+    private static function approvalSummarySection(): Section
+    {
+        return Section::make('Approval Summary')
                 ->columnSpanFull()
                 ->schema([
                     Placeholder::make('approval_status')
@@ -410,9 +465,12 @@ class ShowResource extends Resource
                                 ? '$' . number_format((float) $request->lines->sum('line_total'), 2)
                                 : '$0.00';
                         }),
-                ]),
+                ]);
+    }
 
-            Section::make('Show Recap')
+    private static function showRecapSection(): Section
+    {
+        return Section::make('Show Recap')
                 ->visible(fn (?Show $record) => (bool) $record?->payouts?->count())
                 ->columnSpanFull()
                 ->schema([
@@ -446,9 +504,12 @@ class ShowResource extends Resource
                                 })
                                 ->implode("\n");
                         }),
-                ]),
+                ]);
+    }
 
-            Section::make('Engagement')
+    private static function engagementSection(): Section
+    {
+        return Section::make('Engagement')
                 ->description('How the audience engaged — imported with each show.')
                 ->visible(fn (?Show $record) => $record !== null && $record->engagement()['has_data'])
                 ->columnSpanFull()
@@ -490,9 +551,12 @@ class ShowResource extends Resource
                                 </div>
                             ");
                         }),
-                ]),
+                ]);
+    }
 
-            Section::make('P&L Summary')
+    private static function plSummarySection(): Section
+    {
+        return Section::make('P&L Summary')
                 ->description('Profit & Loss: (Whatnot net + tips) − COGS − streamer payouts.')
                 ->visible(fn (?Show $record) => $record !== null)
                 ->columnSpanFull()
@@ -542,8 +606,7 @@ class ShowResource extends Resource
                                 </div>
                             ");
                         }),
-                ]),
-        ]);
+                ]);
     }
 
     public static function table(Table $table): Table

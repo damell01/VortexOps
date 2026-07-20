@@ -2,10 +2,14 @@
 
 namespace Tests\Feature\Shows;
 
+use App\Models\Show;
 use App\Models\User;
 use App\Models\WhatnotChannel;
 use App\Models\WhatnotSync;
+use App\Services\WhatnotScraper;
+use App\Services\WhatnotSyncEngine;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Mockery;
 use Tests\TestCase;
 
 /**
@@ -55,5 +59,38 @@ class WhatnotSyncTest extends TestCase
 
         $this->assertGreaterThanOrEqual(0, $sync->refresh()->duration_seconds);
         $this->assertEquals('failed', $sync->status);
+    }
+
+    /**
+     * Regression: syncOrdersForChannel() returned compact('errors', 'errorCount')
+     * + ['errors' => $errorCount] — PHP's array union operator keeps the LEFT
+     * side's value on a key collision, so 'errors' stayed the (array) error-detail
+     * list instead of being overwritten by the int count. syncChannel() then did
+     * $counters['error_count'] += $orderResult['errors'], adding an array to an
+     * int — a TypeError that crashed every channel sync the moment it reached the
+     * order-sync step, even when zero errors actually occurred.
+     */
+    public function test_sync_channel_completes_without_type_error_during_order_sync(): void
+    {
+        $channel = WhatnotChannel::create(['name' => 'Chan', 'status' => 'active']);
+        $show    = Show::create([
+            'title'              => 'Test Show',
+            'show_date'          => '2026-07-01',
+            'status'             => 'pending_review',
+            'created_by'         => 1,
+            'whatnot_channel_id' => $channel->id,
+            'detail_url'         => 'https://www.whatnot.com/live/x/11111111-1111-1111-1111-111111111111',
+        ]);
+
+        $scraper = Mockery::mock(WhatnotScraper::class);
+        $scraper->shouldReceive('importShows')->once()->andReturn(['created' => 0, 'updated' => 0]);
+        $scraper->shouldReceive('importShowOrders')->once()->with(Mockery::on(fn ($s) => $s->id === $show->id))
+            ->andReturn(['created' => 1, 'skipped' => 0, 'updated' => 0]);
+
+        $engine = new WhatnotSyncEngine($scraper);
+        $sync   = $engine->syncChannel($channel, 'full');
+
+        $this->assertEquals('completed', $sync->status);
+        $this->assertEquals(0, $sync->error_count);
     }
 }

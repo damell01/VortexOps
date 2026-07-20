@@ -34,7 +34,7 @@ class WhatnotSyncEngine
     /**
      * Run a sync for a single channel and record it in whatnot_syncs.
      */
-    public function syncChannel(WhatnotChannel $channel, string $type = 'incremental'): WhatnotSync
+    public function syncChannel(WhatnotChannel $channel, string $type = 'incremental', ?callable $onProgress = null): WhatnotSync
     {
         $sync = WhatnotSync::create([
             'whatnot_channel_id' => $channel->id,
@@ -66,13 +66,17 @@ class WhatnotSyncEngine
                 default        => (int) config('vortex.whatnot.limit', 50),
             };
 
-            $showResult = $this->scraper->importShows(channel: $channel, limit: $limit);
+            $showResult = $this->scraper->importShows(channel: $channel, limit: $limit, onProgress: $onProgress);
             $counters['shows_created'] = $showResult['created'];
             $counters['shows_updated'] = $showResult['updated'];
 
+            if ($onProgress) {
+                $onProgress("shows: {$showResult['created']} created, {$showResult['updated']} updated — scraping orders next");
+            }
+
             // 2 — sync orders for shows that have a detail_url but no orders yet
             //     (or all shows in full/last_30_days modes)
-            $orderResult = $this->syncOrdersForChannel($channel, $type, $errors);
+            $orderResult = $this->syncOrdersForChannel($channel, $type, $errors, $onProgress);
             $counters['orders_created'] += $orderResult['created'];
             $counters['orders_updated'] += $orderResult['updated'];
             $counters['error_count']    += $orderResult['errors'];
@@ -103,7 +107,7 @@ class WhatnotSyncEngine
     /**
      * Sync orders for all shows in a channel that have a detail_url.
      */
-    private function syncOrdersForChannel(WhatnotChannel $channel, string $type, array &$errors): array
+    private function syncOrdersForChannel(WhatnotChannel $channel, string $type, array &$errors, ?callable $onProgress = null): array
     {
         $query = Show::where('whatnot_channel_id', $channel->id)
             ->whereNotNull('detail_url');
@@ -123,21 +127,35 @@ class WhatnotSyncEngine
         $created = 0;
         $updated = 0;
         $errorCount = 0;
+        $total = $shows->count();
 
-        foreach ($shows as $show) {
+        foreach ($shows as $i => $show) {
+            if ($onProgress) {
+                $onProgress("orders: [" . ($i + 1) . "/{$total}] scraping \"{$show->title}\" (#{$show->id})…");
+            }
             try {
                 $result = $this->scraper->importShowOrders($show);
                 $created += $result['created'];
                 // Mark as synced
                 $show->update(['last_synced_at' => now()]);
+                if ($onProgress) {
+                    $onProgress("orders: [" . ($i + 1) . "/{$total}] \"{$show->title}\" → {$result['created']} order(s) created");
+                }
             } catch (\Throwable $e) {
                 Log::warning("WhatnotSyncEngine: order sync failed for show #{$show->id} — {$e->getMessage()}");
                 $errors[] = ['show_id' => $show->id, 'message' => $e->getMessage()];
                 $errorCount++;
+                if ($onProgress) {
+                    $onProgress("orders: [" . ($i + 1) . "/{$total}] \"{$show->title}\" → ERROR: {$e->getMessage()}");
+                }
             }
         }
 
-        return compact('created', 'updated', 'errors', 'errorCount') + ['errors' => $errorCount];
+        return [
+            'created' => $created,
+            'updated' => $updated,
+            'errors'  => $errorCount,
+        ];
     }
 
     /**
@@ -189,14 +207,17 @@ class WhatnotSyncEngine
             }
         }
 
-        // Back-fill whatnot_buyer_id on orders that don't have it yet
-        DB::statement('
-            UPDATE whatnot_show_orders o
-            JOIN whatnot_buyers b ON b.username = o.buyer_username
-            SET o.whatnot_buyer_id = b.id
-            WHERE o.whatnot_buyer_id IS NULL
-              AND o.buyer_username IS NOT NULL
-        ');
+        // Back-fill whatnot_buyer_id on orders that don't have it yet — nothing to
+        // join against if this channel has no buyer usernames at all yet.
+        if ($usernames->isNotEmpty()) {
+            DB::statement('
+                UPDATE whatnot_show_orders o
+                JOIN whatnot_buyers b ON b.username = o.buyer_username
+                SET o.whatnot_buyer_id = b.id
+                WHERE o.whatnot_buyer_id IS NULL
+                  AND o.buyer_username IS NOT NULL
+            ');
+        }
 
         return compact('created', 'updated');
     }

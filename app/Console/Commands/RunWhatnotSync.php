@@ -44,9 +44,11 @@ class RunWhatnotSync extends Command
             return self::SUCCESS;
         }
 
+        $onProgress = fn (string $line) => $this->line("      <fg=gray>{$line}</>");
+
         if ($channel) {
             $this->info("Running {$type} sync for channel: {$channel->name} (@{$channel->whatnot_username})…");
-            $sync = $engine->syncChannel($channel, $type);
+            $sync = $engine->syncChannel($channel, $type, $onProgress);
             $this->printSyncResult($sync->toArray());
         } else {
             $channels = WhatnotChannel::where('include_in_import', true)->where('status', 'active')->get();
@@ -60,7 +62,7 @@ class RunWhatnotSync extends Command
 
             foreach ($channels as $ch) {
                 $this->line("  → {$ch->name} (@{$ch->whatnot_username})");
-                $sync = $engine->syncChannel($ch, $type);
+                $sync = $engine->syncChannel($ch, $type, $onProgress);
                 $this->printSyncResult($sync->toArray(), "    ");
             }
         }

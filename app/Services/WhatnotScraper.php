@@ -63,7 +63,7 @@ class WhatnotScraper
      *
      * @throws \RuntimeException on login/nav failures
      */
-    public function fetchShows(int $limit = 50, bool $debug = false, ?string $channelUsername = null): array
+    public function fetchShows(int $limit = 50, bool $debug = false, ?string $channelUsername = null, ?callable $onProgress = null): array
     {
         $env = $this->baseEnv($debug);
         $env['WHATNOT_MODE']  = 'analytics';
@@ -83,7 +83,14 @@ class WhatnotScraper
         // more time instead of failing on any channel with deep history.
         $timeoutSeconds = max(1200, (int) ceil($limit / 50) * 1200);
         $process = $this->makeProcess($env, timeout: $timeoutSeconds);
-        $this->withBrowserLock(fn () => $process->run());
+
+        $this->withBrowserLock(function () use ($process, $onProgress) {
+            if ($onProgress) {
+                $this->streamProcess($process, $onProgress);
+            } else {
+                $process->run();
+            }
+        });
 
         $stderr = trim($process->getErrorOutput());
         $stdout = trim($process->getOutput());
@@ -734,6 +741,31 @@ class WhatnotScraper
     }
 
     /**
+     * Run a process non-blocking, polling stderr and forwarding each line to
+     * $onProgress as it arrives — the live-output counterpart to $process->run().
+     * Still leaves getOutput()/getErrorOutput() fully populated afterward since
+     * Symfony Process buffers regardless of polling.
+     */
+    private function streamProcess(Process $process, callable $onProgress): void
+    {
+        $process->start();
+        while ($process->isRunning()) {
+            if ($err = $process->getIncrementalErrorOutput()) {
+                foreach (explode("\n", trim($err)) as $line) {
+                    if ($line !== '') $onProgress($line);
+                }
+            }
+            usleep(200_000);
+        }
+        // drain any remaining stderr after process exits
+        if ($err = $process->getIncrementalErrorOutput()) {
+            foreach (explode("\n", trim($err)) as $line) {
+                if ($line !== '') $onProgress($line);
+            }
+        }
+    }
+
+    /**
      * Serialize every Chromium-launching task behind one shared lock.
      *
      * All whatnot:* work (shows, orders, ledger, discover, cookie dumps) drives
@@ -774,9 +806,9 @@ class WhatnotScraper
      * Fetch shows and upsert them into the shows table for one channel.
      * Returns counts: ['created' => n, 'updated' => n, 'skipped' => n].
      */
-    public function importShows(?WhatnotChannel $channel = null, int $limit = 50, bool $debug = false, bool $withOrders = true): array
+    public function importShows(?WhatnotChannel $channel = null, int $limit = 50, bool $debug = false, bool $withOrders = true, ?callable $onProgress = null): array
     {
-        $rows = $this->fetchShows($limit, $debug, $channel?->whatnot_username);
+        $rows = $this->fetchShows($limit, $debug, $channel?->whatnot_username, $onProgress);
 
         $created = 0;
         $updated = 0;
@@ -1069,21 +1101,7 @@ class WhatnotScraper
 
         $this->withBrowserLock(function () use ($process, $onProgress) {
             if ($onProgress) {
-                $process->start();
-                while ($process->isRunning()) {
-                    if ($err = $process->getIncrementalErrorOutput()) {
-                        foreach (explode("\n", trim($err)) as $line) {
-                            if ($line !== '') $onProgress($line);
-                        }
-                    }
-                    usleep(200_000);
-                }
-                // drain any remaining stderr after process exits
-                if ($err = $process->getIncrementalErrorOutput()) {
-                    foreach (explode("\n", trim($err)) as $line) {
-                        if ($line !== '') $onProgress($line);
-                    }
-                }
+                $this->streamProcess($process, $onProgress);
             } else {
                 $process->run();
             }
@@ -1138,20 +1156,7 @@ class WhatnotScraper
 
         $this->withBrowserLock(function () use ($process, $onProgress) {
             if ($onProgress) {
-                $process->start();
-                while ($process->isRunning()) {
-                    if ($err = $process->getIncrementalErrorOutput()) {
-                        foreach (explode("\n", trim($err)) as $line) {
-                            if ($line !== '') $onProgress($line);
-                        }
-                    }
-                    usleep(200_000);
-                }
-                if ($err = $process->getIncrementalErrorOutput()) {
-                    foreach (explode("\n", trim($err)) as $line) {
-                        if ($line !== '') $onProgress($line);
-                    }
-                }
+                $this->streamProcess($process, $onProgress);
             } else {
                 $process->run();
             }

@@ -21,8 +21,13 @@ class SyncWhatnotShipmentsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries   = 1;
-    public int $timeout = 600;
+    public int $tries = 1;
+    // runBatchScrape() scales up to min(3600, 300 + shows*15) — up to 50 shows
+    // per channel here means up to 1050s for the scrape alone, exceeding a
+    // 600s job timeout and getting this killed mid-run by the queue worker
+    // (same stale-lock/orphaned-Chromium risk as RunWhatnotSyncJob). Give it
+    // room for the full 3600s ceiling plus buffer.
+    public int $timeout = 3900;
 
     public function __construct(public readonly ?int $channelId = null) {}
 

@@ -773,8 +773,14 @@ class WhatnotScraper
      * profile and produce garbage/empty scrapes, so import/orders/ledger — run
      * from cron, Filament, or the CLI — must take turns. The callback holds the
      * lock only while the browser process runs; DB persistence happens after it
-     * is released. TTL (30 min) safely exceeds the longest process timeout
-     * (1200 s) so a crashed run can't wedge the lock forever.
+     * is released. TTL must safely exceed the longest process timeout any
+     * caller can pass to makeProcess() so a crashed run can't wedge the lock
+     * forever — but if the TTL is SHORTER than a legitimate still-running
+     * process, the lock auto-expires mid-operation and lets a second process
+     * start a competing Chromium instance against the same profile, which is
+     * its own (worse) way to corrupt things. Longest known caller today is
+     * fetchShows() with type=full (500 shows): up to 12000s. Keep this
+     * comfortably above that.
      *
      * @template T
      * @param  callable():T  $fn
@@ -782,7 +788,7 @@ class WhatnotScraper
      */
     protected function withBrowserLock(callable $fn, int $waitSeconds = 1200)
     {
-        $lock = Cache::lock('whatnot:browser', 1800);
+        $lock = Cache::lock('whatnot:browser', 13800);
 
         try {
             // block() waits up to $waitSeconds for the lock, throwing on timeout.

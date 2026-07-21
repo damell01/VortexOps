@@ -40,6 +40,7 @@ use Filament\QueryBuilder\Constraints\SelectConstraint;
 use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\QueryBuilder;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -739,6 +740,19 @@ class ShowResource extends Resource
                     ->visible(fn () => auth()->user()?->isAdmin() ?? false),
             ])
             ->filters([
+                // Active by default: the scraper imports upcoming/scheduled shows
+                // too, but day-to-day work happens on shows that already streamed.
+                // Untick the filter to see future-dated shows.
+                Filter::make('hide_upcoming')
+                    ->label('Hide upcoming shows')
+                    ->toggle()
+                    ->default()
+                    ->query(fn (Builder $query): Builder => $query->where(
+                        fn (Builder $q) => $q
+                            ->whereNull('show_date')
+                            ->orWhere('show_date', '<=', now()->endOfDay())
+                    )),
+
                 SelectFilter::make('status')
                     ->options(Show::statusLabels())
                     ->multiple(),

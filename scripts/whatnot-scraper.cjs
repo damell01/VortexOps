@@ -503,7 +503,9 @@ async function switchToChannel(page, channelName) {
   await debugShot(page, 'role-switch-01-pre');
   info('switchToChannel: current URL before switch:', page.url());
 
-  const SWITCH_ROLE_SEL = '#team-invite-switch-role-anchor';
+  // Confirmed July 2026 (real markup): no id at all — it's an h4 with class ogVNN
+  // reading "Switch Role", inside a div.eCoev[role="presentation"] menu row.
+  const SWITCH_ROLE_SEL = 'div.eCoev h4.ogVNN';
 
   // The Switch Role button is inside the profile drawer — invisible until
   // the avatar button in the top-nav is clicked. Try the avatar first, then
@@ -636,27 +638,47 @@ async function switchToChannel(page, channelName) {
   const roleListText = await page.evaluate(() => (document.body.innerText || '').substring(0, 600)).catch(() => '');
   info('switchToChannel: role list text:', roleListText.substring(0, 400));
 
-  // Try multiple name variants — handles cases where the caller passes
-  // "VortexBreaks" (camelCase) but the UI shows "Vortex Breaks" (spaced).
-  const nameVariants = [...new Set([
-    channelName,
-    channelName.replace(/([a-z])([A-Z])/g, '$1 $2'),   // VortexBreaks → Vortex Breaks
-    channelName.replace(/([A-Z])/g, ' $1').trim(),      // ABCBreaks → A B C Breaks
-  ])];
+  // Confirmed July 2026 (real markup): the account switcher is a plain HTML form
+  // (POST /api/v1/auth/switch-role), one <button formaction="/api/v1/auth/switch-role"
+  // name="id" value="<globalId>"> per account, with the username shown lowercase and
+  // unspaced (e.g. "vortexbreaks", not "Vortex Breaks"). Match on that directly instead
+  // of guessing spaced/camelCase variants — case-insensitive since getByText is
+  // case-sensitive by default and the UI casing may not match whatever the DB has.
+  const SWITCH_ROLE_BUTTON_SEL = 'button[formaction="/api/v1/auth/switch-role"]';
+  const targetKey = channelName.replace(/[^a-z0-9]/gi, '').toLowerCase();
 
   let target = null;
-  for (const variant of nameVariants) {
-    const loc = page.getByText(variant, { exact: false }).first();
-    if (await loc.isVisible().catch(() => false)) {
-      info(`switchToChannel: found channel option matching "${variant}"`);
-      target = loc;
+  const roleButtons = await page.$$(SWITCH_ROLE_BUTTON_SEL).catch(() => []);
+  for (const btn of roleButtons) {
+    const btnText = await btn.innerText().catch(() => '');
+    if (btnText.replace(/[^a-z0-9]/gi, '').toLowerCase().includes(targetKey)) {
+      info(`switchToChannel: found channel option matching "${channelName}" (button text: ${btnText.replace(/\s+/g, ' ').trim()})`);
+      target = btn;
       break;
+    }
+  }
+
+  // Fall back to the old spaced/camelCase text-match in case the account-switcher
+  // markup isn't the one currently sampled (older accounts, different UI variant).
+  if (!target) {
+    const nameVariants = [...new Set([
+      channelName,
+      channelName.replace(/([a-z])([A-Z])/g, '$1 $2'),   // VortexBreaks → Vortex Breaks
+      channelName.replace(/([A-Z])/g, ' $1').trim(),      // ABCBreaks → A B C Breaks
+    ])];
+    for (const variant of nameVariants) {
+      const loc = page.getByText(new RegExp(variant.replace(/[^a-z0-9]/gi, '.?'), 'i')).first();
+      if (await loc.isVisible().catch(() => false)) {
+        info(`switchToChannel: found channel option matching "${variant}" (fallback text search)`);
+        target = loc;
+        break;
+      }
     }
   }
 
   if (!target) {
     await debugShot(page, 'role-switch-failed-channel');
-    info(`switchToChannel: WARNING — channel "${channelName}" (variants: ${nameVariants.join(', ')}) not found in role list`);
+    info(`switchToChannel: WARNING — channel "${channelName}" not found among switch-role buttons or in role list`);
     info('switchToChannel: role list text was:', roleListText.substring(0, 300));
     return;
   }

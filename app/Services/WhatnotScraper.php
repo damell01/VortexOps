@@ -268,7 +268,7 @@ class WhatnotScraper
      *
      * @return array{created: int, skipped: int}
      */
-    public function importShowOrders(Show $show, bool $debug = false): array
+    public function importShowOrders(Show $show, bool $debug = false, ?callable $onProgress = null): array
     {
         $liveId = $this->extractLiveIdFromUrl($show->detail_url);
         if (! $liveId) {
@@ -283,6 +283,7 @@ class WhatnotScraper
             [['live_id' => $liveId, 'show_key' => $show->id]],
             $show->channel?->whatnot_username,
             $debug,
+            $onProgress,
         );
 
         return $this->persistShowOrders($show, $ordersByShow[$show->id] ?? []);
@@ -474,9 +475,9 @@ class WhatnotScraper
      * @param  array<int,array{live_id:string, show_key:int|string}>  $sources
      * @return array<int|string, array<int,array<string,mixed>>>  map of show_key => order rows
      */
-    public function fetchOrdersForShows(array $sources, ?string $channelUsername = null, bool $debug = false): array
+    public function fetchOrdersForShows(array $sources, ?string $channelUsername = null, bool $debug = false, ?callable $onProgress = null): array
     {
-        return $this->runBatchScrape('orders-batch', $sources, $channelUsername, $debug);
+        return $this->runBatchScrape('orders-batch', $sources, $channelUsername, $debug, $onProgress);
     }
 
     /**
@@ -488,9 +489,9 @@ class WhatnotScraper
      * @param  array<int,array{live_id:string, show_key:int|string}>  $sources
      * @return array<int|string, array<int,array<string,mixed>>>  map of show_key => shipment rows
      */
-    public function fetchShipmentsForShows(array $sources, ?string $channelUsername = null, bool $debug = false): array
+    public function fetchShipmentsForShows(array $sources, ?string $channelUsername = null, bool $debug = false, ?callable $onProgress = null): array
     {
-        return $this->runBatchScrape('shipments-batch', $sources, $channelUsername, $debug);
+        return $this->runBatchScrape('shipments-batch', $sources, $channelUsername, $debug, $onProgress);
     }
 
     /**
@@ -501,7 +502,7 @@ class WhatnotScraper
      * @param  array<int,array{live_id:string, show_key:int|string}>  $sources
      * @return array<int|string, array<int,array<string,mixed>>>
      */
-    private function runBatchScrape(string $mode, array $sources, ?string $channelUsername, bool $debug): array
+    private function runBatchScrape(string $mode, array $sources, ?string $channelUsername, bool $debug, ?callable $onProgress = null): array
     {
         if (empty($sources)) {
             return [];
@@ -523,7 +524,13 @@ class WhatnotScraper
 
         try {
             $process = $this->makeProcess($env, timeout: $timeout);
-            $this->withBrowserLock(fn () => $process->run());
+            $this->withBrowserLock(function () use ($process, $onProgress) {
+                if ($onProgress) {
+                    $this->streamProcess($process, $onProgress);
+                } else {
+                    $process->run();
+                }
+            });
 
             $stderr = trim($process->getErrorOutput());
             $stdout = trim($process->getOutput());

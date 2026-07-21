@@ -51,7 +51,11 @@ class ImportWhatnotOrders extends Command
             $this->line("Importing orders for: {$show->title} ({$show->show_date?->format('Y-m-d')})");
 
             try {
-                $result = $scraper->importShowOrders($show, $debug);
+                $result = $scraper->importShowOrders(
+                    $show,
+                    $debug,
+                    onProgress: fn (string $line) => $this->line("  <fg=gray>{$line}</>"),
+                );
                 $this->info("  ✓ {$result['created']} created, {$result['skipped']} skipped");
                 $totalCreated += $result['created'];
                 $totalSkipped += $result['skipped'];

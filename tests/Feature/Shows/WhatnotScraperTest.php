@@ -478,7 +478,7 @@ class WhatnotScraperTest extends TestCase
                 parent::__construct();
             }
 
-            public function fetchOrdersForShows(array $sources, ?string $channelUsername = null, bool $debug = false): array
+            public function fetchOrdersForShows(array $sources, ?string $channelUsername = null, bool $debug = false, ?callable $onProgress = null): array
             {
                 return $this->stubOrders;
             }

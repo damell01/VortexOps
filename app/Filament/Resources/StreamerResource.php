@@ -189,6 +189,37 @@ class StreamerResource extends Resource
                 ]),
             ]),
 
+            // Not model attributes — CreateStreamer pulls these out before the
+            // Streamer row is saved and creates the linked User in afterCreate.
+            Section::make('Login Account')
+                ->description('Optionally create a login so this streamer can sign in and see their own shows, payouts, and inventory.')
+                ->columnSpanFull()
+                ->visible(fn (string $operation): bool => $operation === 'create')
+                ->schema([
+                    Grid::make(3)->schema([
+                        Toggle::make('create_login')
+                            ->label('Create a login for this streamer')
+                            ->live()
+                            ->inline(false),
+                        TextInput::make('login_email')
+                            ->label('Login Email')
+                            ->email()
+                            ->maxLength(255)
+                            ->unique(table: 'users', column: 'email')
+                            ->visible(fn (Get $get): bool => (bool) $get('create_login'))
+                            ->required(fn (Get $get): bool => (bool) $get('create_login'))
+                            ->helperText('The email the streamer will sign in with.'),
+                        TextInput::make('login_password')
+                            ->label('Password')
+                            ->password()
+                            ->revealable()
+                            ->minLength(8)
+                            ->maxLength(255)
+                            ->visible(fn (Get $get): bool => (bool) $get('create_login'))
+                            ->required(fn (Get $get): bool => (bool) $get('create_login')),
+                    ]),
+                ]),
+
             Section::make('Payout Configuration')->columnSpanFull()->schema([
                 Grid::make(3)->schema([
                     Select::make('payout_type')

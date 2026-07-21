@@ -26,6 +26,14 @@ class UserResource extends Resource
     /** Roles only the owner may grant/revoke. */
     public const PRIVILEGED_ROLES = ['admin', 'super_admin', 'fulfillment_admin'];
 
+    /**
+     * Roles nobody may grant from the UI — not even the owner. The owner
+     * account's powers come from the email check (User::isOwner()), so no
+     * new super admins should ever be minted here; existing holders are
+     * left untouched.
+     */
+    public const UNGRANTABLE_ROLES = ['super_admin'];
+
     protected static ?string $model = User::class;
 
     public static function getNavigationGroup(): string|\UnitEnum|null
@@ -130,8 +138,10 @@ class UserResource extends Resource
                     // Options come from the relationship (keyed by id, labelled by
                     // name). Only the owner sees the privileged roles, so other
                     // admins can manage non-privileged roles (e.g. streamer) but
-                    // cannot create more admins. Enforced again on save below.
+                    // cannot create more admins. super_admin is never offered to
+                    // anyone. Enforced again on save below.
                     ->relationship('roles', 'name', modifyQueryUsing: function ($query) {
+                        $query->whereNotIn('name', UserResource::UNGRANTABLE_ROLES);
                         if (! (auth()->user()?->isOwner() ?? false)) {
                             $query->whereNotIn('name', UserResource::PRIVILEGED_ROLES);
                         }

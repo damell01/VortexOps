@@ -207,7 +207,13 @@ class ImportWhatnotShows extends Command
             $this->info("Importing channel: {$channel->name} (@{$channel->whatnot_username})…");
 
             try {
-                $result = $scraper->importShows(channel: $channel, limit: $limit, debug: $debug, withOrders: $withOrders);
+                $result = $scraper->importShows(
+                    channel: $channel,
+                    limit: $limit,
+                    debug: $debug,
+                    withOrders: $withOrders,
+                    onProgress: fn (string $line) => $this->line("  <fg=gray>{$line}</>"),
+                );
             } catch (\RuntimeException $e) {
                 $this->error($e->getMessage());
                 $this->printTroubleshootingHints($e->getMessage());
@@ -238,7 +244,13 @@ class ImportWhatnotShows extends Command
             foreach ($channels as $channel) {
                 $this->line("  → {$channel->name} (@{$channel->whatnot_username})");
                 try {
-                    $result = $scraper->importShows(channel: $channel, limit: $limit, debug: $debug, withOrders: $withOrders);
+                    $result = $scraper->importShows(
+                        channel: $channel,
+                        limit: $limit,
+                        debug: $debug,
+                        withOrders: $withOrders,
+                        onProgress: fn (string $line) => $this->line("    <fg=gray>{$line}</>"),
+                    );
                     $orders = $result['ordersCreated'] ?? 0;
                     $totals['created'] += $result['created'];
                     $totals['updated'] += $result['updated'];

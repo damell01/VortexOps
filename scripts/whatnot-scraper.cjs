@@ -523,13 +523,18 @@ async function switchToChannel(page, channelName) {
   // Confirmed July 2026: button:has([style*="--avatar-size"]) opens the seller sidebar
   // and triggers seller GraphQL calls even in buyer mode on the logged-in homepage.
   const avatarTriggers = [
+    // Confirmed July 2026 (real markup): the actual top-nav trigger is a bare
+    // <img alt="avatar" src="..."> with no wrapping button/aria-label/data-testid —
+    // none of the selectors below matched it. Click the image directly; the click
+    // bubbles to whatever handler (self or ancestor) opens the drawer.
+    'img[alt="avatar"]',
     'button:has([style*="--avatar-size"])',
     '[data-testid*="avatar"]',
     '[data-testid*="profile"]',
     'button[aria-label*="profile" i]',
     'button[aria-label*="account" i]',
     // Radix/headless menu triggers expose aria-haspopup — the profile menu that
-    // holds #team-invite-switch-role-anchor is one of these.
+    // holds the "Switch Role" item is one of these.
     'button[aria-haspopup="menu"]',
     'button[aria-haspopup="dialog"]',
     'button[aria-haspopup="true"]',

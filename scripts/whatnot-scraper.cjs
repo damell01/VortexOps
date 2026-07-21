@@ -3288,7 +3288,14 @@ async function extractLedgerFromPage(page) {
 
       for (const candidate of analyticsUrlCandidates) {
         log(`trying URL: ${candidate}`);
-        await page.goto(candidate, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        // Uncaught net::ERR_ABORTED here crashed the whole scrape (confirmed
+        // live): switchToChannel()'s role-switch is a real HTML form POST that
+        // triggers its own browser navigation, which can still be settling
+        // when this explicit goto() fires right after — Chromium aborts the
+        // newer request. Non-fatal: page.url() below still reflects wherever
+        // we actually landed, and the loop just tries the next candidate if
+        // this one didn't stick.
+        await page.goto(candidate, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
         // Wait for the SPA to fire its data-fetch API calls before we read anything.
         // networkidle (no network activity for 500ms) is more reliable than a fixed delay.
         await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
@@ -3303,7 +3310,7 @@ async function extractLedgerFromPage(page) {
           // Re-run channel switch after re-login
           if (CHANNEL_NAME) await switchToChannel(page, CHANNEL_NAME);
           // Retry this candidate
-          await page.goto(candidate, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          await page.goto(candidate, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
           await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
           await page.waitForTimeout(1000);
           currentUrl = page.url();

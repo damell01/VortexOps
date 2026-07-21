@@ -64,7 +64,10 @@ class HideUpcomingShowsFilterTest extends TestCase
             'status' => 'draft', 'created_by' => $creator->id,
         ]);
 
+        // The default Past 7 Days tab also excludes future shows, so switch to
+        // All — this test is about the filter, not the tab.
         Livewire::test(ListShows::class)
+            ->set('activeTab', 'all')
             ->loadTable()
             ->removeTableFilter('hide_upcoming')
             ->assertOk()

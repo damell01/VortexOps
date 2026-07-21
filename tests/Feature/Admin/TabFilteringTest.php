@@ -50,7 +50,7 @@ class TabFilteringTest extends TestCase
         Show::create(['title' => 'Reconciled', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $creator->id]);
         Show::create(['title' => 'Pending', 'show_date' => now()->toDateString(), 'status' => 'pending_review', 'created_by' => $creator->id]);
 
-        foreach (['all', 'needs_review', 'this_week', 'unreconciled'] as $tabKey) {
+        foreach (['past_7_days', 'all', 'needs_review', 'this_week', 'unreconciled'] as $tabKey) {
             Livewire::test(ListShows::class)->set('activeTab', $tabKey)->assertOk();
         }
     }
@@ -66,6 +66,20 @@ class TabFilteringTest extends TestCase
         $this->assertSame(1, $tabs['needs_review']->modifyQuery(Show::query())->count());
         $this->assertSame(1, $tabs['unreconciled']->modifyQuery(Show::query())->count());
         $this->assertSame(2, $tabs['all']->modifyQuery(Show::query())->count());
+    }
+
+    public function test_past_7_days_is_the_default_tab_and_scopes_to_the_recent_window(): void
+    {
+        $creator = User::factory()->create();
+        Show::create(['title' => 'Yesterday', 'show_date' => now()->subDay()->toDateString(), 'status' => 'pending_review', 'created_by' => $creator->id]);
+        Show::create(['title' => 'Ten Days Ago', 'show_date' => now()->subDays(10)->toDateString(), 'status' => 'pending_review', 'created_by' => $creator->id]);
+        Show::create(['title' => 'Next Month', 'show_date' => now()->addMonth()->toDateString(), 'status' => 'draft', 'created_by' => $creator->id]);
+
+        $this->assertSame('past_7_days', (new ListShows())->getDefaultActiveTab());
+
+        $tab = (new ListShows())->getTabs()['past_7_days'];
+        $titles = $tab->modifyQuery(Show::query())->pluck('title')->all();
+        $this->assertSame(['Yesterday'], $titles, 'the default view is only shows that streamed in the last 7 days');
     }
 
     public function test_every_streamer_log_tab_renders_without_error(): void

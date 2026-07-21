@@ -109,8 +109,10 @@ class WhatnotSyncEngine
      */
     private function syncOrdersForChannel(WhatnotChannel $channel, string $type, array &$errors, ?callable $onProgress = null): array
     {
+        // Future-dated (scheduled) shows can't have orders yet — skip them.
         $query = Show::where('whatnot_channel_id', $channel->id)
-            ->whereNotNull('detail_url');
+            ->whereNotNull('detail_url')
+            ->where('show_date', '<=', now()->endOfDay());
 
         // In incremental mode, only shows without any orders yet (or synced > 7 days ago)
         if ($type === 'incremental') {

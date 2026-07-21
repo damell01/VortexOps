@@ -22,6 +22,11 @@ class ListShows extends ListRecords
         return 'Shows import automatically from Whatnot. Net Margin shows profit per show; use the tabs to focus on what needs review.';
     }
 
+    public function getDefaultActiveTab(): string|int|null
+    {
+        return 'past_7_days';
+    }
+
     /** Saved-view chips above the table — quick one-tap filter presets. */
     public function getTabs(): array
     {
@@ -29,6 +34,17 @@ class ListShows extends ListRecords
         $weekEnd   = now()->endOfWeek()->toDateString();
 
         $tabs = [
+            // Default view: the working set. Day-to-day reviewing happens on
+            // shows that streamed in the last 7 days — yesterday, a few hours
+            // ago — not the full multi-year history. Upper bound carries a time
+            // component (see OperationsOverviewWidget for the SQLite lexical-
+            // comparison trap with bare date strings).
+            'past_7_days' => Tab::make('Past 7 Days')
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereBetween('show_date', [
+                    now()->subDays(7)->toDateString(),
+                    now()->endOfDay()->toDateTimeString(),
+                ])),
+
             'all' => Tab::make('All'),
 
             'needs_review' => Tab::make('Needs Review')

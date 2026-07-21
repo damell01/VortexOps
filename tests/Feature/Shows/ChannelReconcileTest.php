@@ -52,6 +52,7 @@ class ChannelReconcileTest extends TestCase
         Livewire::actingAs($this->adminUser);
 
         Livewire::test(ListShows::class)
+            ->set('activeTab', 'all')
             ->callTableAction('confirm_channel', $show, data: [
                 'whatnot_channel_id' => $b->id,
             ]);
@@ -70,6 +71,7 @@ class ChannelReconcileTest extends TestCase
         Livewire::actingAs($this->adminUser);
 
         Livewire::test(ListShows::class)
+            ->set('activeTab', 'all')
             ->callTableBulkAction('clear_attribution_flag', [$show1->getKey(), $show2->getKey()]);
 
         foreach ([$show1, $show2] as $show) {

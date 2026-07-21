@@ -20,7 +20,10 @@ class ImportWhatnotOrders extends Command
     {
         $debug = (bool) $this->option('debug');
 
-        $query = Show::whereNotNull('detail_url');
+        // Future-dated (scheduled) shows can't have orders yet — and since this
+        // walks newest-first, they'd be scraped before any real show. Skip them.
+        $query = Show::whereNotNull('detail_url')
+            ->where('show_date', '<=', now()->endOfDay());
 
         if ($showId = $this->option('show')) {
             $query->where('id', $showId);

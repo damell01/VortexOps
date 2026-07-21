@@ -92,10 +92,25 @@ class Reports extends Page
     /**
      * On-demand, not computed — an LLM call is too slow/expensive to run on
      * every render. Fires only when the owner clicks "Summarize this period".
+     * Cached for an hour per period/channel so a re-click (or another admin
+     * asking for the same window) returns instantly instead of re-running a
+     * 30-second generation for identical inputs.
      */
     public function generateNarrative(): void
     {
+        $key = $this->cacheKey('narrative');
+
+        $cached = Cache::get($key);
+        if ($cached !== null) {
+            $this->narrative = $cached;
+            return;
+        }
+
         $this->narrative = app(OpsDigestService::class)->generateForRange($this->periodStart(), $this->periodEnd());
+
+        if ($this->narrative !== null) {
+            Cache::put($key, $this->narrative, 3600);
+        }
     }
 
     // ── Cache key ────────────────────────────────────────────────────────────

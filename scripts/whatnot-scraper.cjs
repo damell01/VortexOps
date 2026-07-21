@@ -987,14 +987,17 @@ async function extractShowsListFromDom(page) {
     }
 
     // Pass 1: standard show URL patterns (e.g. "Open show" → /dashboard/live/<uuid>)
-    // Whatnot show URL patterns: /live/<user>/<id>, /show/<id>, /seller/shows/<id>,
-    // /dashboard/shows/<id>, /dashboard/live/<id>
+    // Whatnot show URL patterns: /live/<user>/<id>, /live/<id> (confirmed July 2026 —
+    // the real pattern on /dashboard/lives and /dashboard/home is this single-segment
+    // form, not /live/<user>/<id>; the two-segment regex below never matched it),
+    // /show/<id>, /seller/shows/<id>, /dashboard/shows/<id>, /dashboard/live/<id>
     for (const a of document.querySelectorAll('a[href]')) {
       const href = a.getAttribute('href') || '';
       const isKnownNonShow = /\/dashboard\/lives?\/(new|setup|edit|clone|schedule|preview|analytics)(?:[?#]|$)/i.test(href) ||
                              /\/account\/live\/[^/]+\/clone/.test(href);
       if (isKnownNonShow) continue;
       if (!(/\/live\/[^/]+\/[^/?#\s]+(?=[?#]|$)/.test(href) ||
+            /\/live\/[\w-]+(?=[?#]|$)/.test(href) ||
             /\/show\/[\w-]+(?=[?#]|$)/.test(href) ||
             /\/seller\/shows\/[\w-]+(?=[?#]|$)/.test(href) ||
             /\/dashboard\/shows\/[\w-]+(?=[?#]|$)/.test(href) ||

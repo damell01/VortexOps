@@ -2211,6 +2211,11 @@ async function extractLedgerFromPage(page) {
         process.stderr.write('COOKIE_TEST_FAILED: redirected to login page — cookies are missing, expired, or invalid.\n');
         process.stderr.write('URL: ' + url + '\n');
         process.stderr.write('PAGE: ' + bodyText + '\n');
+        // Close (not exit) so the persistent profile's on-disk cookie store gets
+        // whatever the bootstrap load actually set, flushed properly — an abrupt
+        // process.exit() can kill Chromium before it writes newly-set cookies to
+        // disk, so the NEXT launch silently sees stale pre-import state.
+        await context.close().catch(() => {});
         process.exit(1);
       }
 
@@ -2218,6 +2223,7 @@ async function extractLedgerFromPage(page) {
       if (pageText.trim().length < 50) {
         process.stderr.write('COOKIE_TEST_FAILED: seller hub loaded but page appears empty — bot detection may still be active.\n');
         process.stderr.write('URL: ' + url + '\n');
+        await context.close().catch(() => {});
         process.exit(1);
       }
 
@@ -2249,6 +2255,10 @@ async function extractLedgerFromPage(page) {
       }
 
       process.stdout.write(JSON.stringify({ ok: true, url, page_length: pageText.length }) + '\n');
+      // Close cleanly so Chromium flushes the (possibly just-updated) cookie jar
+      // to the persistent profile's on-disk store before the process dies —
+      // see the note above the failure-path exits for why this matters.
+      await context.close().catch(() => {});
       process.exit(0);
     }
 

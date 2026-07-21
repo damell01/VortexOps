@@ -3636,6 +3636,18 @@ async function extractLedgerFromPage(page) {
           info('shows-list: no seed UUID found for analytics-nav — falling back to DOM/API extraction');
         }
 
+        // scrapeViaAnalyticsPage() just walked this same `page` away to
+        // /account/analytics?...&live_id=<last show> — extractShowsListFromDom
+        // needs to be back on the shows-list page (where the 145 links we already
+        // scrolled through live), not on a single show's analytics view, which
+        // has no show list in its DOM at all. Navigate back before extracting.
+        if (page.url() !== currentPageUrl) {
+          info(`shows-list DOM: navigating back to ${currentPageUrl} (currently on ${page.url()})`);
+          await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+          await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
+          await page.waitForTimeout(1000);
+        }
+
         // DOM extraction runs FIRST on list pages — GetDashboardLivestreamsByUserId is
         // scoped to the logged-in user as host, so it misses shows hosted by other
         // channel streamers. The DOM renders ALL channel shows after scrolling.

@@ -3614,12 +3614,21 @@ async function extractLedgerFromPage(page) {
           const normalized = analyticsShows
             .slice(0, LIMIT)
             .filter(s => s.title || s.show_date || s.gross_revenue !== null);
-          if (normalized.length > 0) {
-            info(`analytics-nav: returned ${normalized.length} shows`);
+          const withResolvedId = normalized.filter(s => s.detail_url).length;
+          // Titles/dates alone aren't "usable" here — detail_url (the resolved
+          // live_id) is what lets order/shipment scraping find this show later.
+          // Confirmed July 2026: the GraphQL-response id-harvesting inside
+          // scrapeViaAnalyticsPage can come back completely empty (0 ids matched
+          // by title or date) while titles/dates still extract fine, so a
+          // titles-only check let a fully id-less batch through and skipped the
+          // DOM list fallback below, which pulls id+title+date directly from the
+          // Past-tab show links and doesn't depend on GraphQL response shape.
+          if (normalized.length > 0 && withResolvedId > 0) {
+            info(`analytics-nav: returned ${normalized.length} shows (${withResolvedId} with a resolved id)`);
             writeJsonAndExit(normalized);
             return;
           }
-          info('analytics-nav: produced no usable shows — falling back to DOM/API extraction');
+          info(`analytics-nav: produced ${normalized.length} shows but ${withResolvedId} with a resolved id — falling back to DOM/API extraction`);
         } else {
           info('shows-list: no seed UUID found for analytics-nav — falling back to DOM/API extraction');
         }

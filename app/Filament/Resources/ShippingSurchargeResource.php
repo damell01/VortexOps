@@ -58,6 +58,9 @@ class ShippingSurchargeResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No surcharges')
+            ->emptyStateDescription('Add shipping surcharges to pass carrier fees through to payouts.')
+            ->emptyStateIcon('heroicon-o-truck')
             ->columns([
                 TextColumn::make('show.show_date')
                     ->label('Show Date')

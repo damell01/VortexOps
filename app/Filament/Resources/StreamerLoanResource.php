@@ -104,6 +104,11 @@ class StreamerLoanResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->persistFiltersInSession()
+            ->deferLoading()
+            ->emptyStateHeading('No loans')
+            ->emptyStateDescription('Streamer loans and advances are tracked and repaid here.')
+            ->emptyStateIcon('heroicon-o-currency-dollar')
             ->columns([
                 TextColumn::make('streamer.name')
                     ->label('Streamer')

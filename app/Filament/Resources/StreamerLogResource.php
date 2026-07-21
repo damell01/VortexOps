@@ -203,6 +203,9 @@ class StreamerLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No log entries')
+            ->emptyStateDescription('Streamer show logs land here for review and approval.')
+            ->emptyStateIcon('heroicon-o-clipboard-document-list')
             ->columns([
                 TextColumn::make('show.show_date')
                     ->label('Date')

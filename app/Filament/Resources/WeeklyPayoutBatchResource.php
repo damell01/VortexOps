@@ -122,6 +122,9 @@ class WeeklyPayoutBatchResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No payout batches')
+            ->emptyStateDescription('Weekly batches are created when payouts are grouped for payment.')
+            ->emptyStateIcon('heroicon-o-queue-list')
             ->columns([
                 TextColumn::make('week_start')
                     ->label('Week Of')

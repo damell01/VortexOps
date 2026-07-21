@@ -70,6 +70,10 @@ class FeatureFlagResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->persistFiltersInSession()
+            ->emptyStateHeading('No feature flags')
+            ->emptyStateDescription('Create a flag to gate experimental features per role or user.')
+            ->emptyStateIcon('heroicon-o-flag')
             ->columns([
                 TextColumn::make('label')
                     ->searchable()

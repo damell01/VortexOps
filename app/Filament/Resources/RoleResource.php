@@ -258,6 +258,10 @@ class RoleResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->striped()
+            ->emptyStateHeading('No roles')
+            ->emptyStateDescription('Create a role to group permissions for your team.')
+            ->emptyStateIcon('heroicon-o-shield-check')
             ->columns([
                 TextColumn::make('name')
                     ->searchable()

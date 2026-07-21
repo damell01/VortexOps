@@ -150,6 +150,9 @@ class InventoryMovementResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No stock movements yet')
+            ->emptyStateDescription('Receipts, transfers, and adjustments are logged here automatically.')
+            ->emptyStateIcon('heroicon-o-arrows-right-left')
             ->columns([
                 TextColumn::make('created_at')
                     ->label('Date & Time')

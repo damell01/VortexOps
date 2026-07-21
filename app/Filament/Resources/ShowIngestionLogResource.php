@@ -87,6 +87,11 @@ class ShowIngestionLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->persistFiltersInSession()
+            ->deferLoading()
+            ->emptyStateHeading('No ingestion logs')
+            ->emptyStateDescription('Whatnot import runs are logged here with their results.')
+            ->emptyStateIcon('heroicon-o-arrow-down-tray')
             ->columns([
                 TextColumn::make('show.title')
                     ->label('Show')

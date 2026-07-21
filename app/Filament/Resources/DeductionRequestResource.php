@@ -122,6 +122,9 @@ class DeductionRequestResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No deduction requests')
+            ->emptyStateDescription('Streamer deduction requests will land here for review.')
+            ->emptyStateIcon('heroicon-o-receipt-percent')
             ->columns([
                 TextColumn::make('show.title')
                     ->label('Show')

@@ -103,6 +103,9 @@ class LedgerResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No ledger entries')
+            ->emptyStateDescription('Financial entries appear here as shows are reconciled.')
+            ->emptyStateIcon('heroicon-o-book-open')
             ->columns([
                 TextColumn::make('transaction_date')
                     ->date()

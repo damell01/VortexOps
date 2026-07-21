@@ -119,6 +119,8 @@ class FulfillmentResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->striped()
+            ->persistFiltersInSession()
             ->columns([
                 TextColumn::make('show_date')
                     ->label('Date')

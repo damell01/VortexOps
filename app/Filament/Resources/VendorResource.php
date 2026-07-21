@@ -97,6 +97,7 @@ class VendorResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->persistFiltersInSession()
             ->columns([
                 TextColumn::make('name')
                     ->searchable()

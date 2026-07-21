@@ -38,6 +38,11 @@ class FeedbackTicketResource extends Resource
     protected static string $moduleSlug  = 'operations';
     protected static ?string $model = FeedbackTicket::class;
 
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['title'];
+    }
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-chat-bubble-bottom-center-text';
@@ -175,6 +180,10 @@ class FeedbackTicketResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->persistFiltersInSession()
+            ->emptyStateHeading('No feedback yet')
+            ->emptyStateDescription('Bug reports and feature requests from the team will appear here.')
+            ->emptyStateIcon('heroicon-o-chat-bubble-left-right')
             ->deferLoading()
             ->striped()
             ->paginationPageOptions([10, 25, 50])

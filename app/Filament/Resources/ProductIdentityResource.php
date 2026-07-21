@@ -59,6 +59,7 @@ class ProductIdentityResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->persistFiltersInSession()
             ->modifyQueryUsing(fn ($query) => $query->where('type', ProductIdentity::TYPE_ALIAS)->with(['product', 'vendor', 'confirmedByUser']))
             ->columns([
                 TextColumn::make('value')

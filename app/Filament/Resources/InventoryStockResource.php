@@ -129,6 +129,9 @@ class InventoryStockResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No stock on hand')
+            ->emptyStateDescription('Receive a pallet to populate stock levels.')
+            ->emptyStateIcon('heroicon-o-cube')
             ->deferLoading()
             ->columns([
                 TextColumn::make('item.name')

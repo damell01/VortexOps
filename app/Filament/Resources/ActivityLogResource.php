@@ -154,6 +154,9 @@ class ActivityLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No activity yet')
+            ->emptyStateDescription('User and system actions are logged here as people work.')
+            ->emptyStateIcon('heroicon-o-clock')
             ->deferLoading()
             ->columns([
                 TextColumn::make('id')

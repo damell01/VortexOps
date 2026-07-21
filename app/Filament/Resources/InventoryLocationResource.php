@@ -164,6 +164,9 @@ class InventoryLocationResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No locations yet')
+            ->emptyStateDescription('Create a location to start tracking where stock lives.')
+            ->emptyStateIcon('heroicon-o-map-pin')
             ->deferLoading()
             ->columns([
                 TextColumn::make('name')

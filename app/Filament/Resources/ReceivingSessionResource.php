@@ -75,6 +75,12 @@ class ReceivingSessionResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->striped()
+            ->persistFiltersInSession()
+            ->deferLoading()
+            ->emptyStateHeading('No receiving sessions')
+            ->emptyStateDescription('Start a session from the Receive page to log incoming stock.')
+            ->emptyStateIcon('heroicon-o-inbox-arrow-down')
             ->columns([
                 TextColumn::make('id')
                     ->label('#')

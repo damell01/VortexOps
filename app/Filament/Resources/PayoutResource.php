@@ -150,6 +150,9 @@ class PayoutResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No payouts yet')
+            ->emptyStateDescription('Payouts are generated when shows are reconciled.')
+            ->emptyStateIcon('heroicon-o-banknotes')
             ->columns([
                 TextColumn::make('show.show_date')
                     ->label('Show Date')

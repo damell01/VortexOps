@@ -64,6 +64,12 @@ class WhatnotLedgerResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->striped()
+            ->persistFiltersInSession()
+            ->deferLoading()
+            ->emptyStateHeading('No Whatnot ledger entries')
+            ->emptyStateDescription('Entries arrive via the nightly ledger import from Whatnot.')
+            ->emptyStateIcon('heroicon-o-document-currency-dollar')
             ->defaultSort('created_date', 'desc')
             ->columns([
                 TextColumn::make('created_date')

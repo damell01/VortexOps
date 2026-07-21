@@ -36,6 +36,11 @@ class UserResource extends Resource
 
     protected static ?string $model = User::class;
 
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'email'];
+    }
+
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
         return 'Settings';
@@ -163,6 +168,9 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No users found')
+            ->emptyStateDescription('Use the Create button to add a teammate or streamer login.')
+            ->emptyStateIcon('heroicon-o-users')
             ->deferLoading()
             ->columns([
                 TextColumn::make('name')

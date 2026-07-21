@@ -42,6 +42,11 @@ class PalletResource extends Resource
 
     protected static ?string $model = Pallet::class;
 
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['reference'];
+    }
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-inbox-stack';

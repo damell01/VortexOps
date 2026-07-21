@@ -35,6 +35,11 @@ class WhatnotChannelResource extends Resource
 
     protected static ?string $model = WhatnotChannel::class;
 
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'whatnot_username'];
+    }
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-tv';
@@ -106,6 +111,9 @@ class WhatnotChannelResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No channels')
+            ->emptyStateDescription('Add your Whatnot channels to start importing shows.')
+            ->emptyStateIcon('heroicon-o-tv')
             ->deferLoading()
             ->columns([
                 ImageColumn::make('logo_path')

@@ -3575,6 +3575,18 @@ async function extractLedgerFromPage(page) {
         await page.waitForTimeout(800);
         await debugShot(page, '06-shows-list-scrolled');
 
+        // Capture the DOM list HERE, while still on the fully-scrolled "Past"
+        // tab, not after the analytics-nav detour below. That detour navigates
+        // this same `page` away to /account/analytics?... and, if it falls
+        // through to the DOM fallback, re-navigating back to currentPageUrl
+        // reloads the page fresh on its DEFAULT tab (confirmed live: 535
+        // scrolled-through links collapsed to 1, matching whatever the default
+        // tab happens to show) — the Past-tab click + scroll state doesn't
+        // survive a fresh page load. Grabbing it now avoids needing to replay
+        // any of that.
+        const listShowsFromPastTab = await extractShowsListFromDom(page);
+        info('shows-list DOM (pre-analytics): found', listShowsFromPastTab.length, 'show links on', currentPageUrl);
+
         // ── PRIMARY: analytics-page navigation (channel-scoped, gets ALL shows) ──
         // /dashboard/lives renders show action buttons ("Open show", "See Analytics")
         // as <button> elements with onClick handlers — NOT <a> tags — so link-based
@@ -3643,23 +3655,10 @@ async function extractLedgerFromPage(page) {
           info('shows-list: no seed UUID found for analytics-nav — falling back to DOM/API extraction');
         }
 
-        // scrapeViaAnalyticsPage() just walked this same `page` away to
-        // /account/analytics?...&live_id=<last show> — extractShowsListFromDom
-        // needs to be back on the shows-list page (where the 145 links we already
-        // scrolled through live), not on a single show's analytics view, which
-        // has no show list in its DOM at all. Navigate back before extracting.
-        if (page.url() !== currentPageUrl) {
-          info(`shows-list DOM: navigating back to ${currentPageUrl} (currently on ${page.url()})`);
-          await page.goto(currentPageUrl, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
-          await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
-          await page.waitForTimeout(1000);
-        }
-
-        // DOM extraction runs FIRST on list pages — GetDashboardLivestreamsByUserId is
-        // scoped to the logged-in user as host, so it misses shows hosted by other
-        // channel streamers. The DOM renders ALL channel shows after scrolling.
-        const listShows = await extractShowsListFromDom(page);
-        info('shows-list DOM: found', listShows.length, 'show links on', currentPageUrl);
+        // Use the list captured before the analytics-nav detour — see the
+        // comment above that capture for why we don't re-extract here.
+        const listShows = listShowsFromPastTab;
+        info('shows-list DOM: using', listShows.length, 'show link(s) captured before analytics-nav ran');
         if (listShows.length > 0) {
           info('shows-list DOM: first 3 raw results:', JSON.stringify(
             listShows.slice(0, 3).map(s => ({ title: s.title, show_date: s.show_date, detail_url: s.detail_url }))

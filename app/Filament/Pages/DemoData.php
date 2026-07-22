@@ -88,6 +88,41 @@ class DemoData extends Page
                         ->success()
                         ->send();
                 }),
+
+            Action::make('clear')
+                ->label('Clear demo / test data')
+                ->icon('heroicon-o-trash')
+                ->color('danger')
+                ->requiresConfirmation()
+                ->modalHeading('Clear demo / test data')
+                ->modalDescription('Permanently deletes ALL shows, Whatnot orders, inventory, pallets, payouts, and related records. Users, streamers, vendors, Whatnot channels, and settings are NOT touched. This cannot be undone.')
+                ->modalSubmitActionLabel('Clear it')
+                ->action(function (): void {
+                    if (! static::canAccess()) {
+                        Notification::make()->title('You do not have permission to clear data')->danger()->send();
+
+                        return;
+                    }
+
+                    try {
+                        Artisan::call('demo:clear', ['--force' => true]);
+                    } catch (\Throwable $e) {
+                        Notification::make()
+                            ->title('Clear failed')
+                            ->body($e->getMessage())
+                            ->danger()
+                            ->persistent()
+                            ->send();
+
+                        return;
+                    }
+
+                    Notification::make()
+                        ->title('Demo data cleared')
+                        ->body('Shows, orders, inventory, pallets, and payouts are gone. Users, streamers, vendors, channels, and settings were kept.')
+                        ->success()
+                        ->send();
+                }),
         ];
     }
 }

@@ -64,5 +64,27 @@
         <p class="text-xs text-gray-400">
             The seeder only adds records that don't already exist, so pressing the button again is safe — it won't duplicate data.
         </p>
+
+        {{-- What "Clear demo / test data" removes --}}
+        <section>
+            <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Clear demo / test data</h2>
+            <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                Use this while testing show scraping/imports to wipe operational records back to a clean slate without losing your logins or channel setup.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50/50 dark:bg-red-900/10 p-4">
+                    <p class="font-semibold text-red-800 dark:text-red-400 mb-1.5">Deleted</p>
+                    <p class="text-sm text-red-700 dark:text-red-300 leading-relaxed">
+                        Shows, Whatnot orders, streamer log entries, deduction requests, payouts &amp; batches, inventory (stock, lots, cases, movements, locations), pallets &amp; receiving sessions, ledger entries, time entries, streamer loans, and AI logs/tasks.
+                    </p>
+                </div>
+                <div class="rounded-xl border border-green-200 dark:border-green-900/40 bg-green-50/50 dark:bg-green-900/10 p-4">
+                    <p class="font-semibold text-green-800 dark:text-green-400 mb-1.5">Kept</p>
+                    <p class="text-sm text-green-700 dark:text-green-300 leading-relaxed">
+                        Users, streamers, vendors, Whatnot channels, and all settings.
+                    </p>
+                </div>
+            </div>
+        </section>
     </div>
 </x-filament-panels::page>

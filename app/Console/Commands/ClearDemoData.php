@@ -55,7 +55,11 @@ class ClearDemoData extends Command
         }
 
         $this->info('Clearing demo data…');
-        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
+        // SQLite (used for tests and sometimes local dev) doesn't understand
+        // MySQL's SET FOREIGN_KEY_CHECKS syntax — it has its own PRAGMA for this.
+        $isSqlite = DB::connection()->getDriverName() === 'sqlite';
+        DB::statement($isSqlite ? 'PRAGMA foreign_keys = OFF' : 'SET FOREIGN_KEY_CHECKS=0');
 
         $cleared = 0;
         foreach ($this->tables as $table) {
@@ -67,7 +71,7 @@ class ClearDemoData extends Command
             }
         }
 
-        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        DB::statement($isSqlite ? 'PRAGMA foreign_keys = ON' : 'SET FOREIGN_KEY_CHECKS=1');
 
         $this->newLine();
         $this->info("Done. {$cleared} tables cleared.");

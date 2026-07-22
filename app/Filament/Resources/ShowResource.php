@@ -417,23 +417,9 @@ class ShowResource extends Resource
                                 return new \Illuminate\Support\HtmlString('<span style="color:#9ca3af;font-size:13px">No mapped items yet.</span>');
                             }
                             $lines = $request->lines->load('inventoryItem', 'location');
-                            $stageBadge = function (?string $stage): string {
-                                $map = [
-                                    'alias'     => ['Alias',     '#d1fae5','#065f46','#6ee7b7'],
-                                    'fuzzy'     => ['Fuzzy',     '#dbeafe','#1e40af','#93c5fd'],
-                                    'embedding' => ['Embedding', '#ede9fe','#5b21b6','#c4b5fd'],
-                                    'llm'       => ['LLM',       '#fef3c7','#92400e','#fcd34d'],
-                                ];
-                                if (! $stage || ! isset($map[$stage])) {
-                                    return '<span style="color:#9ca3af;font-size:10px">—</span>';
-                                }
-                                [$label, $bg, $color, $border] = $map[$stage];
-                                return "<span style=\"display:inline-flex;padding:1px 7px;border-radius:9999px;background:{$bg};color:{$color};border:1px solid {$border};font-size:10px;font-weight:700\">{$label}</span>";
-                            };
                             $rows = $lines->map(fn ($line) =>
                                 '<tr style="border-bottom:1px solid #f3f4f6">' .
                                 '<td style="padding:5px 10px;font-size:12px;color:#374151">' . e($line->inventoryItem?->name ?? '—') . '</td>' .
-                                '<td style="padding:5px 10px">' . $stageBadge($line->match_stage ?? null) . '</td>' .
                                 '<td style="padding:5px 10px;font-size:12px;text-align:right;color:#374151">' . number_format((float)$line->quantity_approved, 0) . '</td>' .
                                 '<td style="padding:5px 10px;font-size:12px;color:#6b7280">' . e($line->location?->name ?? '—') . '</td>' .
                                 '<td style="padding:5px 10px;font-size:12px;text-align:right;font-weight:600;color:#111827">$' . number_format((float)$line->line_total, 2) . '</td>' .
@@ -444,7 +430,6 @@ class ShowResource extends Resource
                                 <table style=\"width:100%;border-collapse:collapse\">
                                     <thead><tr style=\"background:#f9fafb\">
                                         <th style=\"padding:5px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase\">Item</th>
-                                        <th style=\"padding:5px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase\">Stage</th>
                                         <th style=\"padding:5px 10px;text-align:right;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase\">Qty</th>
                                         <th style=\"padding:5px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase\">Location</th>
                                         <th style=\"padding:5px 10px;text-align:right;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase\">COGS</th>

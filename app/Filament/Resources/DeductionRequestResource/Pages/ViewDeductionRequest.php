@@ -115,14 +115,6 @@ class ViewDeductionRequest extends EditRecord
                         }),
                 ]),
 
-            Section::make('AI Mapping Notes')
-                ->visible(fn () => ! empty($request->ai_mapping_notes))
-                ->schema([
-                    Placeholder::make('ai_mapping_notes')
-                        ->label('')
-                        ->content($request->ai_mapping_notes ?? ''),
-                ]),
-
             Section::make('Rejection Reason')
                 ->visible(fn () => $request->status === 'rejected' && ! empty($request->rejection_reason))
                 ->schema([
@@ -142,36 +134,12 @@ class ViewDeductionRequest extends EditRecord
                                 return new HtmlString('<p style="color:#9ca3af;font-size:13px">No lines yet.</p>');
                             }
 
-                            $stageBadge = function (?string $stage): string {
-                                $map = [
-                                    'alias'     => ['Alias',     '#d1fae5','#065f46','#6ee7b7'],
-                                    'fuzzy'     => ['Fuzzy',     '#dbeafe','#1e40af','#93c5fd'],
-                                    'embedding' => ['Embedding', '#ede9fe','#5b21b6','#c4b5fd'],
-                                    'llm'       => ['LLM',       '#fef3c7','#92400e','#fcd34d'],
-                                ];
-                                if (! $stage || ! isset($map[$stage])) {
-                                    return '<span style="color:#9ca3af;font-size:11px">—</span>';
-                                }
-                                [$label, $bg, $color, $border] = $map[$stage];
-                                return "<span style=\"display:inline-flex;align-items:center;padding:1px 8px;border-radius:9999px;background:{$bg};color:{$color};border:1px solid {$border};font-size:10px;font-weight:700;letter-spacing:0.04em\">{$label}</span>";
-                            };
-
-                            $confColor = fn (?string $c): string => match ($c) {
-                                'high'   => '#059669',
-                                'medium' => '#d97706',
-                                'low'    => '#dc2626',
-                                default  => '#6b7280',
-                            };
-
-                            $rows = $lines->map(function (DeductionRequestLine $line) use ($stageBadge, $confColor): string {
+                            $rows = $lines->map(function (DeductionRequestLine $line): string {
                                 $desc     = e($line->raw_description ?? '—');
                                 $item     = e($line->inventoryItem?->name ?? '');
                                 $itemCell = $item
                                     ? "<span style=\"font-weight:600;color:#111827\">{$item}</span>"
                                     : '<span style="color:#dc2626;font-weight:600">⚠ Unmatched</span>';
-                                $stage  = $stageBadge($line->match_stage);
-                                $conf   = ucfirst($line->ai_confidence ?? '—');
-                                $cColor = $confColor($line->ai_confidence);
                                 $qty    = number_format((float) $line->quantity_approved, 0);
                                 $cost   = '$' . number_format((float) $line->unit_cost_snapshot, 2);
                                 $total  = '$' . number_format((float) $line->line_total, 2);
@@ -180,33 +148,24 @@ class ViewDeductionRequest extends EditRecord
                                 return "<tr style=\"{$rowBg}border-bottom:1px solid #f3f4f6\">
                                     <td style=\"padding:6px 10px;font-size:12px;color:#374151;max-width:220px;word-break:break-word\">{$desc}</td>
                                     <td style=\"padding:6px 10px;font-size:12px\">{$itemCell}</td>
-                                    <td style=\"padding:6px 10px\">{$stage}</td>
-                                    <td style=\"padding:6px 10px;font-size:11px;color:{$cColor};font-weight:600\">{$conf}</td>
                                     <td style=\"padding:6px 10px;font-size:12px;text-align:right;color:#374151\">{$qty}</td>
                                     <td style=\"padding:6px 10px;font-size:12px;text-align:right;color:#374151\">{$cost}</td>
                                     <td style=\"padding:6px 10px;font-size:12px;text-align:right;font-weight:600;color:#111827\">{$total}</td>
                                 </tr>";
                             })->join('');
 
-                            $totalCogs   = '$' . number_format((float) $lines->sum('line_total'), 2);
-                            $matched     = $lines->whereNotNull('inventory_item_id')->count();
-                            $total       = $lines->count();
-                            $unmatched   = $total - $matched;
-                            $highCount   = $lines->where('ai_confidence', 'high')->count();
-                            $medCount    = $lines->where('ai_confidence', 'medium')->count();
-                            $lowCount    = $lines->where('ai_confidence', 'low')->count();
-                            $manualCount = $lines->where('ai_confidence', 'manual')->count();
+                            $totalCogs = '$' . number_format((float) $lines->sum('line_total'), 2);
+                            $matched   = $lines->whereNotNull('inventory_item_id')->count();
+                            $total     = $lines->count();
+                            $unmatched = $total - $matched;
 
-                            $confBadges = '';
-                            if ($highCount)   $confBadges .= "<span style=\"display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:9999px;background:#d1fae5;color:#065f46;border:1px solid #6ee7b7;font-size:10px;font-weight:700\">High&nbsp;{$highCount}</span> ";
-                            if ($medCount)    $confBadges .= "<span style=\"display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:9999px;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;font-size:10px;font-weight:700\">Medium&nbsp;{$medCount}</span> ";
-                            if ($lowCount)    $confBadges .= "<span style=\"display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;border:1px solid #fca5a5;font-size:10px;font-weight:700\">Low&nbsp;{$lowCount}</span> ";
-                            if ($manualCount) $confBadges .= "<span style=\"display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:9999px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;font-size:10px;font-weight:700\">Manual&nbsp;{$manualCount}</span> ";
-                            if ($unmatched)   $confBadges .= "<span style=\"display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;font-size:10px;font-weight:700\">⚠ Unmatched&nbsp;{$unmatched}</span> ";
+                            $unmatchedBadge = $unmatched
+                                ? "<span style=\"display:inline-flex;align-items:center;gap:3px;padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;font-size:10px;font-weight:700\">⚠ Unmatched&nbsp;{$unmatched}</span>"
+                                : '';
 
                             return new HtmlString("
                                 <div style=\"margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:6px\">
-                                    {$confBadges}
+                                    {$unmatchedBadge}
                                     <span style=\"margin-left:auto;font-size:11px;color:#6b7280\">{$matched}/{$total} matched · Total COGS: <strong style=\"color:#111827\">{$totalCogs}</strong></span>
                                 </div>
                                 <div style=\"overflow-x:auto;border:1px solid #e5e7eb;border-radius:8px\">
@@ -215,8 +174,6 @@ class ViewDeductionRequest extends EditRecord
                                         <tr style=\"background:#f9fafb\">
                                             <th style=\"padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em\">Raw Description</th>
                                             <th style=\"padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em\">Matched Item</th>
-                                            <th style=\"padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em\">Stage</th>
-                                            <th style=\"padding:6px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em\">Conf.</th>
                                             <th style=\"padding:6px 10px;text-align:right;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em\">Qty</th>
                                             <th style=\"padding:6px 10px;text-align:right;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em\">Unit Cost</th>
                                             <th style=\"padding:6px 10px;text-align:right;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em\">Total</th>
@@ -237,9 +194,6 @@ class ViewDeductionRequest extends EditRecord
                                 'inventory_item_name'   => $line->inventoryItem?->name,
                                 'inventory_location_id' => $line->inventory_location_id,
                                 'raw_description'       => $line->raw_description,
-                                'ai_confidence'         => $line->ai_confidence,
-                                'ai_reason'             => $line->ai_reason,
-                                'match_stage'           => $line->match_stage,
                                 'quantity_suggested'    => (float) $line->quantity_suggested,
                                 'quantity_approved'     => (float) $line->quantity_approved,
                                 'unit_cost_snapshot'    => (float) $line->unit_cost_snapshot,
@@ -247,7 +201,7 @@ class ViewDeductionRequest extends EditRecord
                             ])->all();
                         })
                         ->schema([
-                            Grid::make(12)->schema([
+                            Grid::make(8)->schema([
                                 Select::make('inventory_item_id')
                                     ->label('Item')
                                     ->options(InventoryItem::where('is_active', true)->pluck('name', 'id'))
@@ -263,31 +217,6 @@ class ViewDeductionRequest extends EditRecord
                                     ->required()
                                     ->columnSpan(3)
                                     ->disabled(! $editable),
-
-                                Select::make('ai_confidence')
-                                    ->label('Confidence')
-                                    ->options(DeductionRequestLine::confidenceLabels())
-                                    ->columnSpan(2)
-                                    ->disabled(),
-
-                                Placeholder::make('match_stage')
-                                    ->label('Stage')
-                                    ->columnSpan(2)
-                                    ->content(function ($state): HtmlString {
-                                        $map = [
-                                            'alias'     => ['label' => 'Alias',     'bg' => '#d1fae5', 'color' => '#065f46', 'border' => '#6ee7b7'],
-                                            'fuzzy'     => ['label' => 'Fuzzy',     'bg' => '#dbeafe', 'color' => '#1e40af', 'border' => '#93c5fd'],
-                                            'embedding' => ['label' => 'Embedding', 'bg' => '#ede9fe', 'color' => '#5b21b6', 'border' => '#c4b5fd'],
-                                            'llm'       => ['label' => 'LLM',       'bg' => '#fef3c7', 'color' => '#92400e', 'border' => '#fcd34d'],
-                                        ];
-                                        if (! $state || ! isset($map[$state])) {
-                                            return new HtmlString('<span style="color:#9ca3af;font-size:12px">—</span>');
-                                        }
-                                        $s = $map[$state];
-                                        return new HtmlString(
-                                            "<span style=\"display:inline-flex;align-items:center;padding:2px 10px;border-radius:9999px;background:{$s['bg']};color:{$s['color']};border:1px solid {$s['border']};font-size:11px;font-weight:600;letter-spacing:0.04em\">{$s['label']}</span>"
-                                        );
-                                    }),
                             ]),
 
                             Grid::make(4)->schema([
@@ -313,18 +242,12 @@ class ViewDeductionRequest extends EditRecord
                                     ->numeric()
                                     ->disabled(),
                             ]),
-
-                            TextInput::make('ai_reason')
-                                ->label('AI Reason')
-                                ->disabled()
-                                ->columnSpanFull(),
                         ])
                         ->itemLabel(function (array $state): string {
                             $desc = $state['raw_description'] ?? '?';
                             $item = $state['inventory_item_name'] ?? null;
-                            $stage = $state['match_stage'] ? " [{$state['match_stage']}]" : '';
                             return $item
-                                ? "{$desc} → {$item}{$stage}"
+                                ? "{$desc} → {$item}"
                                 : "⚠ {$desc} — Unmatched";
                         })
                         ->collapsible()

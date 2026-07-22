@@ -101,14 +101,6 @@
                     </button>
                 </div>
 
-                @php
-                    $badgeColors = [
-                        'high'   => 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-                        'medium' => 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300',
-                        'low'    => 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
-                    ];
-                @endphp
-
                 {{-- Mobile: card view --}}
                 <div class="divide-y divide-gray-100 dark:divide-gray-800 lg:hidden">
                     @foreach ($this->breakdown as $row)
@@ -123,9 +115,6 @@
                                         <p class="text-xs text-amber-500">Unmatched — not in inventory catalogue</p>
                                     @endif
                                 </div>
-                                <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0 {{ $badgeColors[$row['confidence']] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
-                                    {{ ucfirst($row['confidence'] ?? '—') }}
-                                </span>
                             </div>
                             <div class="grid grid-cols-3 gap-2 text-xs">
                                 <div>
@@ -163,7 +152,6 @@
                             <tr>
                                 <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Sold As</th>
                                 <th class="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Inventory Item</th>
-                                <th class="text-center px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Confidence</th>
                                 <th class="text-right px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Approved Qty</th>
                                 <th class="text-right px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Current Stock</th>
                                 <th class="text-right px-3 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Deducted</th>
@@ -189,11 +177,6 @@
                                                 Unmatched
                                             </span>
                                         @endif
-                                    </td>
-                                    <td class="px-3 py-3 text-center">
-                                        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium {{ $badgeColors[$row['confidence']] ?? 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300' }}">
-                                            {{ ucfirst($row['confidence']) }}
-                                        </span>
                                     </td>
                                     <td class="px-3 py-3 text-right font-mono tabular-nums text-sm text-gray-800 dark:text-gray-200">
                                         {{ number_format($row['qty_approved']) }}
@@ -241,7 +224,7 @@
                         </tbody>
                         <tfoot class="bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
                             <tr>
-                                <td colspan="3" class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                                <td colspan="2" class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
                                     Totals — {{ $this->totalLines }} lines
                                 </td>
                                 <td class="px-3 py-3 text-right font-mono text-sm font-semibold text-gray-800 dark:text-gray-200">

@@ -736,12 +736,17 @@ textarea.fi-input { padding: 0.5rem 0.75rem !important; line-height: 1.5 !import
    window itself), which then position/clip relative to the wrapper's own
    near-zero-height box instead of the viewport — the whole modal renders
    invisible while still intercepting clicks, freezing the page until reload. */
+/* overflow-y stays auto (not hidden) — Filament's own default makes
+   .fi-modal-window the scroll container for slide-overs (e.g. the
+   notifications panel) and for tall centered modals. Forcing it to hidden
+   silently clips content with no way to scroll to the rest of it. */
 .fi-modal-window {
     border-radius: var(--vx-radius-lg) !important;
     border: 1px solid var(--vx-card-border) !important;
     box-shadow: var(--vx-shadow-lg) !important;
     background-color: var(--vx-card-bg) !important;
-    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
 }
 
 .fi-modal-heading {

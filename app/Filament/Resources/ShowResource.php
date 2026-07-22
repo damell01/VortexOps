@@ -792,12 +792,34 @@ class ShowResource extends Resource
                     ]),
             ])
             ->actions([
-                TableAction::make('view_deduction')
-                    ->label(fn (Show $record) => $record->status === 'pending_approval' ? 'Review Approval' : 'View Approval')
-                    ->icon('heroicon-o-clipboard-document-check')
-                    ->color('info')
-                    ->visible(fn (Show $record) => in_array($record->status, ['pending_approval', 'reconciled', 'closed']))
-                    ->url(fn (Show $record) => DeductionRequestResource::getUrl('index', ['tableFilters[show_id][value]' => $record->id])),
+                // One obvious, status-driven "what do I do with this show" button so
+                // admins scanning the list don't have to open each row to find it.
+                // pending_review/mapping route into the show itself, where the actual
+                // map/raise-deduction actions already live (ViewShow) — kept there
+                // rather than duplicated here so the logic has one home. Everything
+                // past that (pending_approval onward) has a real approval request to
+                // review, so it goes straight there instead.
+                TableAction::make('next_step')
+                    ->label(fn (Show $record) => match ($record->status) {
+                        'pending_review'   => 'Map Items',
+                        'mapping'          => 'Continue Mapping',
+                        'pending_approval' => 'Review Approval',
+                        'reconciled', 'closed' => 'View Approval',
+                        default => 'Review',
+                    })
+                    ->icon(fn (Show $record) => $record->status === 'pending_approval'
+                        ? 'heroicon-o-clipboard-document-check'
+                        : 'heroicon-o-arrow-right-circle')
+                    ->color(fn (Show $record) => match ($record->status) {
+                        'pending_review', 'mapping' => 'warning',
+                        'pending_approval' => 'info',
+                        default => 'gray',
+                    })
+                    ->visible(fn (Show $record) => (auth()->user()?->isAdmin() ?? false)
+                        && in_array($record->status, ['pending_review', 'mapping', 'pending_approval', 'reconciled', 'closed']))
+                    ->url(fn (Show $record) => in_array($record->status, ['pending_approval', 'reconciled', 'closed'])
+                        ? DeductionRequestResource::getUrl('index', ['tableFilters[show_id][value]' => $record->id])
+                        : ShowResource::getUrl('view', ['record' => $record])),
 
                 TableAction::make('cancel_show')
                     ->label('Cancel')

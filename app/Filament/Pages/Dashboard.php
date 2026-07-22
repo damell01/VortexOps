@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\FulfillmentNeedsAttentionWidget;
 use App\Filament\Widgets\NeedsAttentionWidget;
 use App\Filament\Widgets\OperationsOverviewWidget;
 use App\Filament\Widgets\RecentShowsWidget;
@@ -33,6 +34,8 @@ class Dashboard extends BaseDashboard
             // Admin/owner overview (each gates itself via canView()).
             ShowsKpiWidget::class,
             NeedsAttentionWidget::class,
+            // Fulfillment / fulfillment_admin's own "what needs me today" list.
+            FulfillmentNeedsAttentionWidget::class,
             OperationsOverviewWidget::class,
             RecentShowsWidget::class,
         ];

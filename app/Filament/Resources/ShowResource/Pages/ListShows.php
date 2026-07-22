@@ -12,6 +12,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 
 class ListShows extends ListRecords
 {
@@ -49,7 +50,9 @@ class ListShows extends ListRecords
 
             'needs_review' => Tab::make('Needs Review')
                 ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('status', ['pending_review', 'pending_approval']))
-                ->badge(Show::whereIn('status', ['pending_review', 'pending_approval'])->count())
+                ->badge(Cache::remember('tab_badge:shows_needs_review', 30, fn () =>
+                    Show::whereIn('status', ['pending_review', 'pending_approval'])->count()
+                ))
                 ->badgeColor('warning'),
 
             'this_week' => Tab::make('This Week')
@@ -62,7 +65,11 @@ class ListShows extends ListRecords
         // Channel-attribution review is admin-facing and only meaningful once a
         // flagged show exists.
         if (auth()->user()?->isAdmin()) {
-            $flagged = Show::where('channel_attribution_suspect', true)->count();
+            // Short TTL — these are tab badges, not the source of truth, and this
+            // runs on every page mount (even before deferred table data loads).
+            $flagged = Cache::remember('tab_badge:shows_channel_review', 30, fn () =>
+                Show::where('channel_attribution_suspect', true)->count()
+            );
             if ($flagged > 0) {
                 $tabs['flagged'] = Tab::make('Channel Review')
                     ->modifyQueryUsing(fn (Builder $query) => $query->where('channel_attribution_suspect', true))
@@ -70,7 +77,9 @@ class ListShows extends ListRecords
                     ->badgeColor('danger');
             }
 
-            $revised = Show::where('financials_revised_after_lock', true)->count();
+            $revised = Cache::remember('tab_badge:shows_financials_revised', 30, fn () =>
+                Show::where('financials_revised_after_lock', true)->count()
+            );
             if ($revised > 0) {
                 $tabs['revised'] = Tab::make('Financials Revised')
                     ->modifyQueryUsing(fn (Builder $query) => $query->where('financials_revised_after_lock', true))

@@ -27,4 +27,30 @@ class ModalCssRegressionTest extends TestCase
             'Found a rule targeting the bare .fi-modal selector — this must target .fi-modal-window instead (see class doc comment).'
         );
     }
+
+    /**
+     * Filament's own default CSS makes .fi-modal-window the scroll container
+     * for slide-overs (the notifications panel included) and tall centered
+     * modals. `overflow: hidden !important` on that selector silently clips
+     * content with no way to scroll to the rest of it — confirmed live: the
+     * notification bell's dropdown couldn't be scrolled to see older
+     * notifications. Horizontal clipping for rounded corners is fine;
+     * vertical must stay auto.
+     */
+    public function test_app_css_never_hides_overflow_on_fi_modal_window(): void
+    {
+        $css = file_get_contents(resource_path('css/app.css'));
+
+        preg_match_all('/\.fi-modal-window\s*\{([^}]*)\}/', $css, $matches);
+
+        $this->assertNotEmpty($matches[1], 'Expected at least one .fi-modal-window rule block in app.css.');
+
+        foreach ($matches[1] as $block) {
+            $this->assertDoesNotMatchRegularExpression(
+                '/overflow(-y)?\s*:\s*hidden/',
+                $block,
+                'Found overflow(-y): hidden on .fi-modal-window — this breaks scrolling inside slide-overs like the notifications panel.'
+            );
+        }
+    }
 }

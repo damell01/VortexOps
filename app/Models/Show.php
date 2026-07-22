@@ -104,6 +104,9 @@ class Show extends Model
         'shipping_surcharge_total' => 'decimal:2',
     ];
 
+    /** Per-instance memo — the table calls profitAndLoss() twice per row (state + tooltip). */
+    private ?array $profitAndLossCache = null;
+
     /**
      * Per-show profit & loss — the single source of truth for the P&L Summary
      * card and the Net Margin column. Margin = (Whatnot net + tips) − approved
@@ -116,6 +119,10 @@ class Show extends Model
      */
     public function profitAndLoss(): array
     {
+        if ($this->profitAndLossCache !== null) {
+            return $this->profitAndLossCache;
+        }
+
         $gross = (float) $this->gross_revenue;
         $net   = (float) $this->whatnot_net;
         $tips  = (float) $this->tips;
@@ -139,7 +146,7 @@ class Show extends Model
         $base   = $net + $tips;
         $margin = round($base - $cogs - $payouts, 2);
 
-        return [
+        return $this->profitAndLossCache = [
             'gross'      => round($gross, 2),
             'net'        => round($net, 2),
             'tips'       => round($tips, 2),
@@ -186,6 +193,13 @@ class Show extends Model
 
     protected static function booted(): void
     {
+        // Model::clearBootedModels() (called between tests by Laravel's test
+        // TestCase::tearDown()) re-triggers booted() on next use — reset the
+        // request-scoped outlier cache here too, or a test's static cache entry
+        // would otherwise outlive the RefreshDatabase reset and serve stale data
+        // to the next test that happens to reuse the same streamer id.
+        static::$priorRevenuesCache = [];
+
         // Stamp status_changed_at whenever the show enters a new status (and on
         // create), so the pipeline board can show accurate time-in-status.
         static::creating(function (Show $show) {
@@ -469,6 +483,17 @@ class Show extends Model
      * Requires at least 5 prior shows for the same streamer, to avoid false
      * positives on thin history.
      */
+    /**
+     * Request-scoped cache of each streamer's recent-revenue pool, keyed by
+     * streamer id. The Shows table renders many rows for the same streamer per
+     * page and previously re-ran this query once per row (twice, since both
+     * the column's ->color() and ->description() called this) — this shares
+     * one query per streamer per request instead.
+     *
+     * @var array<int,\Illuminate\Support\Collection<int,float>>
+     */
+    protected static array $priorRevenuesCache = [];
+
     public function isRevenueOutlier(): bool
     {
         if ($this->gross_revenue === null) {
@@ -480,14 +505,15 @@ class Show extends Model
             return false;
         }
 
-        $priorRevenues = static::whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamer->id))
-            ->where('id', '!=', $this->id)
+        $pool = static::$priorRevenuesCache[$streamer->id] ??= static::whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamer->id))
             ->whereNotIn('status', ['cancelled', 'draft'])
             ->whereNotNull('gross_revenue')
             ->orderByDesc('show_date')
-            ->limit(10)
-            ->pluck('gross_revenue')
+            ->limit(20)
+            ->pluck('gross_revenue', 'id')
             ->map(fn ($v) => (float) $v);
+
+        $priorRevenues = $pool->except([$this->id])->take(10);
 
         if ($priorRevenues->count() < 5) {
             return false;

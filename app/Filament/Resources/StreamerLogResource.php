@@ -59,7 +59,9 @@ class StreamerLogResource extends Resource
             return false;
         }
 
-        return $user?->isAdmin() || $user?->isStreamer();
+        // fulfillment_admin needs in: they're the ones who action the
+        // "Fulfillment Reviewed" step below for PWE + Labels streamers.
+        return $user?->isAdmin() || $user?->isStreamer() || $user?->isFulfillmentAdmin();
     }
 
     public static function shouldRegisterNavigation(): bool
@@ -333,7 +335,7 @@ class StreamerLogResource extends Resource
                     ->icon('heroicon-o-truck')
                     ->color('info')
                     ->visible(fn (StreamerLogEntry $record) => $record->needsFulfillmentReview()
-                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
+                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner() || auth()->user()?->isFulfillmentAdmin()))
                     ->requiresConfirmation()
                     ->modalHeading('Confirm fulfillment review')
                     ->modalDescription('Confirms the PWE and label counts above are correct for this payout-type streamer, after the streamer and admin review are already done.')

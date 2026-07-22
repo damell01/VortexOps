@@ -231,7 +231,7 @@ class ViewShow extends ViewRecord
                 )
                 ->requiresConfirmation()
                 ->modalHeading('Raise a Manual Deduction Request')
-                ->modalDescription('This creates a blank deduction request for this show that you can fill in manually. Use this when AI mapping is not needed.')
+                ->modalDescription('This creates a blank deduction request for this show — use it when there\'s no imported order data to map from, and you\'ll add each line item yourself.')
                 ->action(function () {
                     $dr = DeductionRequest::create([
                         'show_id'     => $this->record->id,

@@ -399,8 +399,8 @@ class ShowResource extends Resource
                         ->content(function (?Show $record): string {
                             return match ($record?->status) {
                                 'draft' => 'Finish entering show details, then assign streamers and revenue.',
-                                'pending_review' => 'Run AI mapping to build the approval packet.',
-                                'mapping' => 'AI mapping is in progress. Ops will be notified when review is ready.',
+                                'pending_review' => 'The streamer adds items sold from their log, or map items manually below to build the approval packet.',
+                                'mapping' => 'A deduction request has been raised — add or edit its line items, then move it to approval.',
                                 'pending_approval' => 'Review the mapped lines and approve the deduction request.',
                                 'reconciled' => 'Inventory is reconciled. Review payouts and close the show when ready.',
                                 'closed' => 'This show is fully complete.',

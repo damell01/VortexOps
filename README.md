@@ -129,7 +129,7 @@ The Shows list carries a per-show **Net Margin** column (Whatnot net + tips − 
 
 ### Show Pipeline — Status Board
 
-A Kanban view of shows moving through the ops pipeline (Pending Review → AI Mapping → Pending Approval → Reconciled). Each card shows a **time-in-status** aging badge — grey when fresh, amber at 3+ days, red at 7+ — so shows stuck in the reconcile pipeline stand out at a glance.
+A Kanban view of shows moving through the ops pipeline (Pending Review → Mapping → Pending Approval → Reconciled). Each card shows a **time-in-status** aging badge — grey when fresh, amber at 3+ days, red at 7+ — so shows stuck in the reconcile pipeline stand out at a glance.
 
 | Desktop | Mobile |
 |---|---|
@@ -297,7 +297,7 @@ Dev (super admin): `dev@vortexbreaks.com` / `devpassword`
 
 Demo data includes 3 streamers, 8 inventory items, stock across all locations, 3 shows at different stages (reconciled / pending approval / draft), deduction requests, payouts, and 2 weekly pay run batches.
 
-To run the queue worker (required for AI mapping and low-stock notifications):
+To run the queue worker (required for pallet-manifest AI mapping, notifications, and Whatnot sync jobs):
 
 ```bash
 php artisan queue:work
@@ -393,11 +393,10 @@ pending_approval ──► Ops reviews/edits deduction lines in the approval UI
 
 ## Deduction Requests
 
-Each show generates one `DeductionRequest` (one per streamer at the time of AI mapping). The request contains one or more `DeductionRequestLine` records, each representing one inventory item to be deducted.
+Each show generates one `DeductionRequest` (one per streamer, raised manually or via items the streamer adds to their log). The request contains one or more `DeductionRequestLine` records, each representing one inventory item to be deducted.
 
 **Approval UI** (`/admin/deduction-requests/{id}`):
 - Shows the full show summary (revenue, units sold, streamer)
-- Displays AI mapping notes and confidence levels per line
 - Ops can edit quantity approved, unit cost, and item/location per line
 - Ops can add or remove lines manually
 - Approve button persists all edits, then calls `InventoryService::deductStock()` for each approved line
@@ -957,7 +956,7 @@ app/
 │   │   ├── LogViewer.php              # log file browser with level filter + search
 │   │   └── WhatnotSyncPage.php        # sync dashboard: trigger syncs, view sync history
 │   ├── Resources/
-│   │   ├── ShowResource.php            # show CRUD + AI mapping action + QueryBuilder filters
+│   │   ├── ShowResource.php            # show CRUD + status-driven next-step action + QueryBuilder filters
 │   │   ├── DeductionRequestResource/
 │   │   │   └── Pages/ViewDeductionRequest.php   # approval/reject UI
 │   │   ├── FeedbackTicketResource/

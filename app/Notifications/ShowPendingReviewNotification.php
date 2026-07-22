@@ -26,7 +26,7 @@ class ShowPendingReviewNotification extends Notification
             ->title($isStreamer ? 'A show is ready for your items' : 'Show Pending Review')
             ->body($isStreamer
                 ? "\"{$this->show->title}\" is ready — add the items you sold and their costs."
-                : "Show \"{$this->show->title}\" has entered Pending Review and is ready for AI mapping or manual assignment.")
+                : "Show \"{$this->show->title}\" has entered Pending Review and is ready for item mapping.")
             ->icon('heroicon-o-clipboard-document-list')
             ->warning()
             ->actions([

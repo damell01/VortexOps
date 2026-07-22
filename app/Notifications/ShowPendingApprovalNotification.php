@@ -21,7 +21,7 @@ class ShowPendingApprovalNotification extends Notification
 
         return [
             'title' => 'Show Ready for Approval',
-            'body' => "Show \"{$this->show->title}\" finished AI mapping and is ready for approval with {$lineCount} mapped line(s).",
+            'body' => "Show \"{$this->show->title}\" is ready for approval with {$lineCount} mapped line(s).",
             'show_id' => $this->show->id,
             'deduction_request_id' => $request?->id,
             'icon' => 'heroicon-o-clipboard-document-check',

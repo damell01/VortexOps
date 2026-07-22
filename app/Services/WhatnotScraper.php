@@ -859,6 +859,8 @@ class WhatnotScraper
                 'whatnot_channel_id'    => $channel?->id,
                 'title'                 => $lookupTitle,
                 'show_date'             => $lookupDate,
+                'start_time'            => $row['start_time'] ?? null,
+                'end_time'              => $row['end_time'] ?? null,
                 'show_duration'         => $row['show_duration'] ?? null,
                 'gross_revenue'         => $row['gross_revenue'] ?? null,
                 'whatnot_net'           => $row['whatnot_net'] ?? null,
@@ -882,6 +884,7 @@ class WhatnotScraper
             if ($existing) {
                 $updateFields = array_intersect_key($payload, array_flip([
                     'gross_revenue', 'whatnot_net', 'tips', 'units_sold', 'show_duration', 'detail_url',
+                    'start_time', 'end_time',
                     'completed_earnings', 'avg_order_value', 'giveaway_spend', 'giveaways_count',
                     'buyers_count', 'first_time_buyers', 'returning_buyers', 'shares_count',
                     'max_concurrent_viewers', 'total_views', 'avg_order_rating',

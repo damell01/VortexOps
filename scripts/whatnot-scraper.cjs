@@ -261,6 +261,39 @@ function parseDateString(str) {
   return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
 }
 
+// Parse "7/1/2026, 7:42 PM CDT" → "19:42:00" (24h HH:MM:SS for a MySQL TIME column).
+// The show's actual stream start time — Whatnot renders it right alongside the
+// date on the analytics page, but parseDateString above discards it.
+function parseTimeString(str) {
+  if (!str) return null;
+  const m = str.match(/(\d{1,2}):(\d{2})\s*([AaPp][Mm])/);
+  if (!m) return null;
+  let hour = parseInt(m[1], 10);
+  const minute = m[2];
+  const isPM = /p/i.test(m[3]);
+  if (isPM && hour !== 12) hour += 12;
+  if (!isPM && hour === 12) hour = 0;
+  return `${String(hour).padStart(2, '0')}:${minute}:00`;
+}
+
+// Extract HH:MM:SS from an ISO-8601 datetime string ("2026-07-01T19:42:00Z" → "19:42:00").
+function parseTimeFromIso(str) {
+  const m = (str || '').match(/T(\d{2}):(\d{2})/);
+  return m ? `${m[1]}:${m[2]}:00` : null;
+}
+
+// Add a duration (minutes) to a "HH:MM:SS" time string, wrapping past midnight.
+// Used to derive end_time from start_time + Show Duration since Whatnot doesn't
+// expose a separate "stream ended at" value anywhere we've found.
+function addMinutesToTime(timeStr, minutes) {
+  if (!timeStr || minutes == null) return null;
+  const [h, m] = timeStr.split(':').map(Number);
+  let total = ((h * 60 + m + minutes) % 1440 + 1440) % 1440;
+  const hh = Math.floor(total / 60);
+  const mm = total % 60;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`;
+}
+
 function parseInteger(str) {
   if (!str || str === 'N/A') return null;
   const cleaned = str.replace(/[^0-9]/g, '');
@@ -1111,11 +1144,15 @@ function normalizeApiShow(s) {
 
   const rawDate = String(find('date', 'show_date', 'started_at', 'startTime', 'start_time', 'created_at', 'scheduled_at', 'scheduledAt') || '');
   const showDate = rawDate.includes('T') ? rawDate.substring(0, 10) : parseDateString(rawDate);
+  const startTime = rawDate.includes('T') ? parseTimeFromIso(rawDate) : parseTimeString(rawDate);
+  const durationMin = parseDurationToMinutes(String(find('duration', 'show_duration', 'duration_minutes') || ''));
 
   return {
     title:                  find('title', 'show_title', 'name', 'show_name') || null,
     show_date:              showDate,
     show_date_raw:          rawDate || null,
+    start_time:             startTime,
+    end_time:               startTime && durationMin ? addMinutesToTime(startTime, durationMin) : null,
     detail_url:             find('url', 'detail_url', 'show_url', 'permalink', 'livestreamUrl', 'livestream_url', 'link') ||
                             (s.id ? `https://www.whatnot.com/dashboard/live/${s.id}` : null),
     gross_revenue:          parseMoney(String(find('gross_revenue', 'gross', 'revenue', 'sales', 'estimated_sales', 'total_sales') || '')),
@@ -1575,6 +1612,8 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
     // then the response-harvested id matched by title, then by date. The URL's
     // live_id is stale and never used here.
     const showDate = parseDateString(dateText);
+    const startTime = parseTimeString(dateText);
+    const showDurationMin = parseDurationToMinutes(get('Show Duration'));
     const resolvedLiveId = showLiveId
       || idByTitle.get(normTitle(title))
       || (showDate ? idByDate.get(showDate) : null)
@@ -1584,6 +1623,10 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
       title,
       show_date:               showDate,
       show_date_raw:           dateText,
+      start_time:              startTime,
+      // Whatnot doesn't expose a separate "stream ended at" value anywhere we've
+      // found — derive it from the start time + the show's own reported duration.
+      end_time:                startTime && showDurationMin ? addMinutesToTime(startTime, showDurationMin) : null,
       // detail_url is built from the REAL livestream id (per-show request capture
       // or response-harvested by title/date) — not the stale URL live_id. null when
       // no id resolved. This id also drives per-show order import.
@@ -1600,7 +1643,7 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
       first_time_buyers:       parseInteger(get('First Time Buyers')),
       returning_buyers:        parseInteger(get('Returning Buyers')),
       shares_count:            parseInteger(get('Shares')),
-      show_duration:           parseDurationToMinutes(get('Show Duration')),
+      show_duration:           showDurationMin,
       max_concurrent_viewers:  parseInteger(get('Max Concurrent Viewers')),
       total_views:             parseInteger(get('Total Views')),
       avg_order_rating:        parseMoney(get('Average Order Rating')),

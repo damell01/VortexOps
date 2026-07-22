@@ -165,6 +165,20 @@ class WhatnotScraperTest extends TestCase
         $this->assertEquals('draft', $show->status);
     }
 
+    public function test_import_persists_start_and_end_time(): void
+    {
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow([
+            'start_time' => '19:00:00',
+            'end_time'   => '20:30:00',
+        ])]));
+
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Test Break Show')->first();
+        $this->assertEquals('19:00:00', $show->start_time);
+        $this->assertEquals('20:30:00', $show->end_time);
+    }
+
     public function test_import_updates_financial_fields_on_existing_show(): void
     {
         Show::create([

@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\Setting;
 use App\Models\WhatnotChannel;
 use App\Services\WhatnotSyncEngine;
 use Illuminate\Bus\Queueable;
@@ -37,16 +38,32 @@ class SyncWhatnotShipmentsJob implements ShouldQueue
             ? WhatnotChannel::where('id', $this->channelId)->get()
             : WhatnotChannel::where('include_in_import', true)->where('status', 'active')->get();
 
+        $totalUpdated = 0;
+        $totalChecked = 0;
+        $errors       = [];
+
         foreach ($channels as $channel) {
             try {
                 $result = $engine->syncShipmentUpdatesForChannel($channel);
+                $totalUpdated += $result['updated'];
+                $totalChecked += $result['shows_checked'];
                 Log::info(
                     "SyncWhatnotShipmentsJob: channel \"{$channel->name}\" — " .
                     "{$result['updated']} order(s) updated across {$result['shows_checked']} show(s) checked"
                 );
             } catch (\Throwable $e) {
+                $errors[] = $channel->name;
                 Log::error("SyncWhatnotShipmentsJob: channel \"{$channel->name}\" failed — {$e->getMessage()}");
             }
         }
+
+        // Heartbeat so the Sync Dashboard can show when shipments last refreshed —
+        // mirrors the whatnot_last_import_success_at pattern used for show imports.
+        Setting::set('whatnot_last_shipment_sync_at', now()->toISOString());
+        Setting::set('whatnot_last_shipment_sync_summary', json_encode([
+            'updated'       => $totalUpdated,
+            'shows_checked' => $totalChecked,
+            'errors'        => $errors,
+        ]));
     }
 }

@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Shows;
 
+use App\Jobs\SyncWhatnotShipmentsJob;
+use App\Models\Setting;
 use App\Models\Show;
 use App\Models\User;
 use App\Models\WhatnotChannel;
@@ -198,5 +200,30 @@ class WhatnotShipmentSyncTest extends TestCase
         $result = $engine->syncShipmentUpdatesForChannel($channel);
 
         $this->assertEquals(['updated' => 0, 'skipped_shows' => 0, 'shows_checked' => 0], $result);
+    }
+
+    // ── SyncWhatnotShipmentsJob heartbeat ─────────────────────────────────────
+
+    public function test_job_records_a_last_sync_heartbeat_for_the_dashboard(): void
+    {
+        $channel = WhatnotChannel::create([
+            'name' => 'Chan', 'status' => 'active', 'include_in_import' => true,
+        ]);
+
+        $engine = Mockery::mock(WhatnotSyncEngine::class);
+        $engine->expects('syncShipmentUpdatesForChannel')
+            ->once()
+            ->andReturn(['updated' => 3, 'skipped_shows' => 0, 'shows_checked' => 5]);
+        $this->app->instance(WhatnotSyncEngine::class, $engine);
+
+        $this->assertNull(Setting::get('whatnot_last_shipment_sync_at'));
+
+        (new SyncWhatnotShipmentsJob())->handle($engine);
+
+        $this->assertNotNull(Setting::get('whatnot_last_shipment_sync_at'));
+        $summary = json_decode(Setting::get('whatnot_last_shipment_sync_summary'), true);
+        $this->assertEquals(3, $summary['updated']);
+        $this->assertEquals(5, $summary['shows_checked']);
+        $this->assertEquals([], $summary['errors']);
     }
 }

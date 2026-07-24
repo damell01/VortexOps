@@ -47,13 +47,19 @@ class OllamaClient
      */
     public function generate(string $prompt, array $options = []): string
     {
+        // array_filter()'s default callback drops any falsy value — including a
+        // literal `false` — so a bare array_filter() here silently strips
+        // 'stream' => false from the payload. Ollama then defaults to streaming
+        // (multi-line NDJSON), which json_decode() can't parse as one document,
+        // so this always returned empty content despite a 200 response. Filter
+        // on null only, so false/0 survive while genuinely-absent options don't.
         $response = Http::timeout($options['timeout'] ?? 60)
             ->post("{$this->baseUrl}/api/generate", array_filter([
                 'model'  => $options['model'] ?? $this->defaultModel,
                 'prompt' => $prompt,
                 'stream' => false,
                 'format' => $options['format'] ?? null,
-            ]));
+            ], fn ($v) => $v !== null));
 
         if (! $response->successful()) {
             throw new \RuntimeException("Ollama generate HTTP {$response->status()}: {$response->body()}");
@@ -69,6 +75,8 @@ class OllamaClient
      */
     public function chat(array $messages, array $options = []): string
     {
+        // See the comment in generate() — same array_filter() pitfall strips
+        // 'stream' => false here too.
         $response = Http::timeout($options['timeout'] ?? 120)
             ->post("{$this->baseUrl}/api/chat", array_filter([
                 'model'   => $options['model'] ?? $this->defaultModel,
@@ -76,7 +84,7 @@ class OllamaClient
                 'stream'  => false,
                 'format'  => $options['format'] ?? null,
                 'options' => $options['ollama_options'] ?? null,
-            ]));
+            ], fn ($v) => $v !== null));
 
         if (! $response->successful()) {
             throw new \RuntimeException("Ollama chat HTTP {$response->status()}: {$response->body()}");
@@ -100,7 +108,7 @@ class OllamaClient
                 'messages'=> $messages,
                 'stream'  => true,
                 'options' => $options['ollama_options'] ?? null,
-            ]));
+            ], fn ($v) => $v !== null));
 
         if (! $response->successful()) {
             throw new \RuntimeException("Ollama stream HTTP {$response->status()}");

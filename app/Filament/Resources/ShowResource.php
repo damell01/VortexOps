@@ -16,6 +16,7 @@ use App\Support\StatusColor;
 use Filament\Actions\Action as TableAction;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -62,8 +63,32 @@ class ShowResource extends Resource
 
     public static function canCreate(): bool    { return auth()->user()?->isAdmin() ?? false; }
     public static function canEdit($r): bool    { return auth()->user()?->isAdmin() ?? false; }
-    public static function canDelete($r): bool  { return auth()->user()?->isAdmin() ?? false; }
     public static function canDeleteAny(): bool { return auth()->user()?->isAdmin() ?? false; }
+
+    /**
+     * deduction_requests, shipping_surcharges, streamer_log_entries,
+     * show_streamer, and show_fulfillment_user all cascadeOnDelete on
+     * show_id — deleting a show with any of those would silently wipe the
+     * entire deduction/COGS trail, shipping surcharges, and log history
+     * instead of erroring. orders/payouts/ingestion_logs are nullOnDelete
+     * (not destroyed, but orphaned) — block on those too so a show with
+     * real imported sales or payout history can't just vanish. In practice
+     * this only ever allows deleting a still-empty draft show.
+     */
+    public static function canDelete($r): bool
+    {
+        if (! (auth()->user()?->isAdmin() ?? false)) {
+            return false;
+        }
+
+        return ! $r->orders()->exists()
+            && ! $r->deductionRequests()->exists()
+            && ! $r->payouts()->exists()
+            && ! $r->shippingSurcharges()->exists()
+            && ! $r->streamers()->exists()
+            && ! $r->streamerLogEntry()->exists()
+            && ! $r->fulfillmentUsers()->exists();
+    }
 
     public static function getEloquentQuery(): Builder
     {
@@ -858,6 +883,12 @@ class ShowResource extends Resource
 
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->visible(fn (Show $record) => static::canDelete($record))
+                    ->tooltip(fn (Show $record) => static::canDelete($record)
+                        ? null
+                        : 'Has orders, deduction requests, payouts, or streamers attached — only an empty draft show can be deleted.'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
@@ -881,7 +912,24 @@ class ShowResource extends Resource
                         ->action(fn (Collection $records) => $records->each->update(['financials_revised_after_lock' => false]))
                         ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make()
-                        ->visible(fn () => auth()->user()?->isAdmin()),
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->action(function (Collection $records): void {
+                            $deletable = $records->filter(fn (Show $record) => static::canDelete($record));
+                            $blocked   = $records->count() - $deletable->count();
+
+                            $deletable->each->delete();
+
+                            if ($blocked > 0) {
+                                Notification::make()
+                                    ->title($deletable->count() . ' show(s) deleted')
+                                    ->body("{$blocked} skipped — not an empty draft show.")
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()->title($deletable->count() . ' show(s) deleted')->success()->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ]);
     }

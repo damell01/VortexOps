@@ -23,6 +23,7 @@ use Filament\Schemas\Schema;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -53,6 +54,23 @@ class InventoryItemResource extends Resource
     // Global search does substring LIKE, which can't use an index; cap results
     // low so ⌘K stays cheap on a very large catalogue.
     protected static int $globalSearchResultsLimit = 15;
+
+    /**
+     * InventoryItem (Product) is soft-deletable, so this never destroys
+     * stock/movement history the way a hard delete would — but still block
+     * while it holds real stock so it can't silently vanish from pickers
+     * while units are still on hand.
+     */
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return (auth()->user()?->isAdmin() ?? false)
+            && ! $record->stock()->where('quantity', '>', 0)->exists();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
 
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
@@ -286,6 +304,10 @@ class InventoryItemResource extends Resource
             ->actions([
                 ViewAction::make(),
                 EditAction::make(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->visible(fn (InventoryItem $record) => static::canDelete($record))
+                    ->tooltip(fn (InventoryItem $record) => static::canDelete($record) ? null : 'Still holds stock — move or zero it out first.'),
                 ActionGroup::make([
                     Action::make('add_stock')
                         ->label('Add Stock')
@@ -443,7 +465,24 @@ class InventoryItemResource extends Resource
             ->bulkActions([
                 BulkActionGroup::make([
                     ExportBulkAction::make(),
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records): void {
+                            $deletable = $records->filter(fn (InventoryItem $record) => static::canDelete($record));
+                            $blocked   = $records->count() - $deletable->count();
+
+                            $deletable->each->delete();
+
+                            if ($blocked > 0) {
+                                Notification::make()
+                                    ->title($deletable->count() . ' item(s) deleted')
+                                    ->body("{$blocked} skipped — still hold stock.")
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()->title($deletable->count() . ' item(s) deleted')->success()->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ])
             ->striped()

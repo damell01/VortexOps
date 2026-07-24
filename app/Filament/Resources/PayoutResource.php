@@ -11,6 +11,7 @@ use App\Support\AdminModules;
 use App\Support\StatusColor;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Placeholder;
 use Filament\Notifications\Notification;
@@ -60,6 +61,22 @@ class PayoutResource extends Resource
     public static function canCreate(): bool
     {
         return false;
+    }
+
+    /**
+     * Nothing references payouts.id via FK, so deleting one is never
+     * destructive to other tables — but once approved/paid it represents a
+     * real financial decision that shouldn't quietly disappear. Only a
+     * still-draft payout (not yet reviewed) is fair game.
+     */
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return (auth()->user()?->isAdmin() ?? false) && $record->status === 'draft';
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public static function getGloballySearchableAttributes(): array
@@ -262,6 +279,10 @@ class PayoutResource extends Resource
             ])
             ->actions([
                 ViewAction::make()->iconButton(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->visible(fn (Payout $record) => static::canDelete($record))
+                    ->tooltip(fn (Payout $record) => static::canDelete($record) ? null : 'Only a draft payout can be deleted — approve/paid records are kept.'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
@@ -308,6 +329,26 @@ class PayoutResource extends Resource
                                 ->send();
                         })
                         ->visible(fn () => auth()->user()?->isAdmin()),
+                    BulkAction::make('delete_drafts')
+                        ->label('Delete Drafts')
+                        ->icon('heroicon-o-trash')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalDescription('Only draft payouts are deleted; approved or paid ones are skipped so nothing already committed is lost.')
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
+                            $deletable = $records->filter(fn (Payout $record) => static::canDelete($record));
+                            $blocked   = $records->count() - $deletable->count();
+
+                            $deletable->each->delete();
+
+                            Notification::make()
+                                ->title($deletable->count() . ' draft payout(s) deleted')
+                                ->body($blocked > 0 ? "{$blocked} skipped — not a draft." : null)
+                                ->success()
+                                ->send();
+                        })
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->deselectRecordsAfterCompletion(),
                     ExportBulkAction::make(),
                 ]),
             ]);

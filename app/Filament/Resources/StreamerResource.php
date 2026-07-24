@@ -6,6 +6,8 @@ use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\StreamerResource\Pages;
 use App\Filament\Resources\StreamerResource\RelationManagers\LoansRelationManager;
+use App\Models\DeductionRequest;
+use App\Models\ShippingSurcharge;
 use App\Models\Streamer;
 use App\Support\AdminModules;
 use App\Support\ChannelContext;
@@ -23,14 +25,18 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 
 class StreamerResource extends Resource
 {
@@ -87,8 +93,29 @@ class StreamerResource extends Resource
     // Streamers cannot manage other streamers
     public static function canCreate(): bool    { return auth()->user()?->isAdmin() ?? false; }
     public static function canEdit($r): bool    { return auth()->user()?->isAdmin() ?? false; }
-    public static function canDelete($r): bool  { return auth()->user()?->isAdmin() ?? false; }
     public static function canDeleteAny(): bool { return auth()->user()?->isAdmin() ?? false; }
+
+    /**
+     * Payouts and deduction_requests have no delete rule on streamer_id
+     * (defaults to restrict) — deleting a streamer with either would 500.
+     * show_streamer, streamer_loans, shipping_surcharges, and
+     * streamer_log_entries all cascade on delete — allowing it there would
+     * silently wipe show attribution, loan, surcharge, and log history
+     * instead of erroring. Block delete whenever any of that exists.
+     */
+    public static function canDelete(Model $record): bool
+    {
+        if (! auth()->user()?->isAdmin()) {
+            return false;
+        }
+
+        return ! $record->shows()->exists()
+            && ! $record->payouts()->exists()
+            && ! $record->loans()->exists()
+            && ! $record->streamerLogEntries()->exists()
+            && ! DeductionRequest::where('streamer_id', $record->id)->exists()
+            && ! ShippingSurcharge::where('streamer_id', $record->id)->exists();
+    }
 
     /** Formula term each builder checkbox contributes, in the order they're joined. */
     private static function formulaComponents(): array
@@ -503,11 +530,34 @@ class StreamerResource extends Resource
             ->actions([
                 ViewAction::make(),
                 EditAction::make(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->visible(fn (Streamer $record) => static::canDelete($record))
+                    ->tooltip(fn (Streamer $record) => static::canDelete($record)
+                        ? null
+                        : 'Has shows, payouts, loans, surcharges, or log entries — can\'t be deleted while those exist.'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
                     ExportBulkAction::make(),
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->action(function (Collection $records): void {
+                            $deletable = $records->filter(fn (Streamer $record) => static::canDelete($record));
+                            $blocked   = $records->count() - $deletable->count();
+
+                            $deletable->each->delete();
+
+                            if ($blocked > 0) {
+                                Notification::make()
+                                    ->title($deletable->count() . ' streamer(s) deleted')
+                                    ->body("{$blocked} skipped — still have shows, payouts, loans, surcharges, or log entries.")
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()->title($deletable->count() . ' streamer(s) deleted')->success()->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ])
             ->striped()

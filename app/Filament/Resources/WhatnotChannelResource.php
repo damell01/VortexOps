@@ -18,14 +18,18 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 
 class WhatnotChannelResource extends Resource
 {
@@ -108,6 +112,24 @@ class WhatnotChannelResource extends Resource
         ]);
     }
 
+    /**
+     * shows/streamers/inventory_locations/whatnot_syncs all nullOnDelete on
+     * whatnot_channel_id — no cascade destruction, but deleting a channel
+     * that's still attributed on shows or streamers would silently orphan
+     * that attribution across the business. Block while either exists.
+     */
+    public static function canDelete(Model $record): bool
+    {
+        return (auth()->user()?->isAdmin() ?? false)
+            && ! $record->shows()->exists()
+            && ! $record->streamers()->exists();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -152,10 +174,31 @@ class WhatnotChannelResource extends Resource
             ->actions([
                 ViewAction::make(),
                 EditAction::make(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->visible(fn (WhatnotChannel $record) => static::canDelete($record))
+                    ->tooltip(fn (WhatnotChannel $record) => static::canDelete($record) ? null : 'Has shows or streamers attributed to it — can\'t be deleted while those exist.'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->action(function (Collection $records): void {
+                            $deletable = $records->filter(fn (WhatnotChannel $record) => static::canDelete($record));
+                            $blocked   = $records->count() - $deletable->count();
+
+                            $deletable->each->delete();
+
+                            if ($blocked > 0) {
+                                Notification::make()
+                                    ->title($deletable->count() . ' channel(s) deleted')
+                                    ->body("{$blocked} skipped — still have shows or streamers attributed.")
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()->title($deletable->count() . ' channel(s) deleted')->success()->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ])
             ->striped()

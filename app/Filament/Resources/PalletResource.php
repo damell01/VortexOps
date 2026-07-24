@@ -25,6 +25,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
@@ -32,6 +33,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 
 class PalletResource extends Resource
@@ -41,6 +43,23 @@ class PalletResource extends Resource
     protected static string $moduleSlug  = 'purchasing';
 
     protected static ?string $model = Pallet::class;
+
+    /**
+     * Pallet is soft-deletable, so deleting one never fires the cascade
+     * on pallet_lines/inventory_cases (soft delete is an UPDATE, not a real
+     * DELETE — the FK trigger never runs). Still block once any cases have
+     * actually been received, so a receiving session in progress can't
+     * vanish out from under whoever's scanning it.
+     */
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return (auth()->user()?->isAdmin() ?? false) && $record->receivedCasesCount() === 0;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
 
     public static function getGloballySearchableAttributes(): array
     {
@@ -237,9 +256,32 @@ class PalletResource extends Resource
                     ->visible(fn (Pallet $record) => in_array($record->status, ['pending', 'receiving'])),
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->visible(fn (Pallet $record) => static::canDelete($record))
+                    ->tooltip(fn (Pallet $record) => static::canDelete($record) ? null : 'Cases have already been received on this pallet.'),
             ])
             ->bulkActions([
-                BulkActionGroup::make([DeleteBulkAction::make()]),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->action(function (Collection $records): void {
+                            $deletable = $records->filter(fn (Pallet $record) => static::canDelete($record));
+                            $blocked   = $records->count() - $deletable->count();
+
+                            $deletable->each->delete();
+
+                            if ($blocked > 0) {
+                                Notification::make()
+                                    ->title($deletable->count() . ' pallet(s) deleted')
+                                    ->body("{$blocked} skipped — cases already received.")
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()->title($deletable->count() . ' pallet(s) deleted')->success()->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ]),
             ])
             ->defaultSort('received_date', 'desc')
             ->striped()

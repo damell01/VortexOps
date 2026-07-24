@@ -16,12 +16,16 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 
 class VendorResource extends Resource
 {
@@ -49,6 +53,22 @@ class VendorResource extends Resource
     public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'email', 'contact_name'];
+    }
+
+    /**
+     * Soft-deletable and every FK to vendors (pallets, product_identities,
+     * receiving_sessions) is nullOnDelete — no data is destroyed either way.
+     * Still block while it has pallets so historical PO vendor attribution
+     * isn't silently orphaned by a stray delete.
+     */
+    public static function canDelete(Model $record): bool
+    {
+        return (auth()->user()?->isAdmin() ?? false) && ! $record->pallets()->exists();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
@@ -137,9 +157,32 @@ class VendorResource extends Resource
             ->actions([
                 ViewAction::make(),
                 EditAction::make(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->visible(fn (Vendor $record) => static::canDelete($record))
+                    ->tooltip(fn (Vendor $record) => static::canDelete($record) ? null : 'Has pallets on record — can\'t be deleted while those exist.'),
             ])
             ->bulkActions([
-                BulkActionGroup::make([DeleteBulkAction::make()]),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->action(function (Collection $records): void {
+                            $deletable = $records->filter(fn (Vendor $record) => static::canDelete($record));
+                            $blocked   = $records->count() - $deletable->count();
+
+                            $deletable->each->delete();
+
+                            if ($blocked > 0) {
+                                Notification::make()
+                                    ->title($deletable->count() . ' vendor(s) deleted')
+                                    ->body("{$blocked} skipped — still have pallets on record.")
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()->title($deletable->count() . ' vendor(s) deleted')->success()->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ]),
             ])
             ->defaultSort('name')
             ->striped();

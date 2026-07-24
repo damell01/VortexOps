@@ -138,6 +138,34 @@ class AdminModules
         static::$memoizedSlugs = null;
     }
 
+    /**
+     * Quick-select presets for a phased rollout — one click to jump the enabled
+     * module set to a known stage instead of hand-checking boxes each time.
+     * Slugs are normalized against definitions() at read time by the caller.
+     *
+     * @return array<string, array{label: string, description: string, slugs: array<int,string>}>
+     */
+    public static function presets(): array
+    {
+        return [
+            'basics' => [
+                'label'       => 'Month 1 — Basics',
+                'description' => 'Just shows, payouts, and inventory — everything else stays hidden.',
+                'slugs'       => ['streams', 'payouts', 'inventory'],
+            ],
+            'standard' => [
+                'label'       => 'Standard Ops',
+                'description' => 'Basics plus purchasing/receiving, operations, and reporting.',
+                'slugs'       => static::defaultEnabledSlugs(),
+            ],
+            'everything' => [
+                'label'       => 'Everything',
+                'description' => 'All modules enabled, including AI and timekeeping.',
+                'slugs'       => array_keys(static::definitions()),
+            ],
+        ];
+    }
+
     // ── Navigation helpers ────────────────────────────────────────────────────
 
     /**

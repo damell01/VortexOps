@@ -173,6 +173,34 @@ class AppSettings extends Page
         return ($user?->isOwner() || $user?->isSuperAdmin()) ?? false;
     }
 
+    /**
+     * @return array<string, array{label: string, description: string, slugs: array<int,string>}>
+     */
+    public function getModulePresetsProperty(): array
+    {
+        return AdminModules::presets();
+    }
+
+    /**
+     * Jump the (unsaved) enabled_modules selection to a named preset — still
+     * requires hitting Save Changes to persist, same as hand-checking boxes.
+     */
+    public function applyModulePreset(string $preset): void
+    {
+        if (! (auth()->user()?->isOwner())) {
+            Notification::make()->title('Access denied')->danger()->send();
+            return;
+        }
+
+        $slugs = AdminModules::presets()[$preset]['slugs'] ?? null;
+
+        if ($slugs === null) {
+            return;
+        }
+
+        $this->enabled_modules = AdminModules::normalizeEnabledSlugs($slugs);
+    }
+
     protected function getHeaderActions(): array
     {
         return [

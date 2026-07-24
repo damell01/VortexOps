@@ -127,4 +127,31 @@ class AdminModulesTest extends TestCase
         $this->assertEquals('Streams', AdminModules::navigationGroupFor('streams'));
         $this->assertEquals('Payouts & Pay Runs', AdminModules::navigationGroupFor('payouts'));
     }
+
+    public function test_presets_only_reference_real_module_slugs(): void
+    {
+        $valid = array_keys(AdminModules::definitions());
+
+        foreach (AdminModules::presets() as $key => $preset) {
+            foreach ($preset['slugs'] as $slug) {
+                $this->assertContains($slug, $valid, "Preset '{$key}' references unknown module '{$slug}'");
+            }
+        }
+    }
+
+    public function test_basics_preset_is_shows_payouts_and_inventory_only(): void
+    {
+        $this->assertEqualsCanonicalizing(
+            ['streams', 'payouts', 'inventory'],
+            AdminModules::presets()['basics']['slugs']
+        );
+    }
+
+    public function test_everything_preset_covers_every_definition(): void
+    {
+        $this->assertEqualsCanonicalizing(
+            array_keys(AdminModules::definitions()),
+            AdminModules::presets()['everything']['slugs']
+        );
+    }
 }

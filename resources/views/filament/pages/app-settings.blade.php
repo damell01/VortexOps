@@ -160,6 +160,22 @@
             </button>
 
             <div x-show="open" class="border-t border-gray-200 dark:border-gray-700 px-6 py-4 space-y-3">
+                @if (auth()->user()?->isOwner())
+                    <div class="flex flex-wrap items-center gap-2 pb-1">
+                        <span class="text-xs font-medium text-gray-400 mr-1">Quick select:</span>
+                        @foreach ($this->modulePresets as $key => $preset)
+                            <button
+                                type="button"
+                                wire:click="applyModulePreset('{{ $key }}')"
+                                title="{{ $preset['description'] }}"
+                                class="inline-flex items-center rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                            >
+                                {{ $preset['label'] }}
+                            </button>
+                        @endforeach
+                        <span class="text-xs text-gray-400">— still requires Save Changes below.</span>
+                    </div>
+                @endif
                 @foreach ($this->availableModules as $slug => $module)
                     @php
                         $moduleEnabled = in_array($slug, $enabled_modules);

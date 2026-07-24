@@ -374,9 +374,23 @@ async function performLogin(page, email, password) {
   const url = page.url();
   info('post-login URL:', url);
   if (url.includes('/login') || url.includes('/signin') || url.includes('/auth') || url.includes('/verify')) {
-    const pageText = await page.textContent('body').catch(() => '');
+    // innerText (not textContent) — textContent includes raw <script> tag
+    // source, so a page still showing unrendered bot-detection loader scripts
+    // (Kasada/Source Defense) gets misread as real page text, and a stray word
+    // like "invalid" buried in that JS spuriously triggers the wrong branch
+    // below. innerText only reflects what's actually rendered/visible.
+    const pageText = await page.evaluate(() => (document.body.innerText || '').trim()).catch(() => '');
     const snippet  = pageText.replace(/\s+/g, ' ').trim().substring(0, 400);
     info('post-login page text:', snippet);
+
+    if (pageText.length < 100) {
+      await debugShot(page, 'post-login-blocked');
+      throw new Error(
+        `Login page never rendered real content after submitting (still on ${url}, only ${pageText.length} visible chars). ` +
+        `This is almost always bot-detection (Kasada/Source Defense) blocking the automated login, not a bad password. ` +
+        `Use a cookie bootstrap instead: php artisan whatnot:login --cookie-file=<cookies exported from a real logged-in browser session>.`
+      );
+    }
     if (pageText.toLowerCase().includes('incorrect') || pageText.toLowerCase().includes('invalid') ||
         pageText.toLowerCase().includes('wrong') || pageText.toLowerCase().includes('not found')) {
       throw new Error(`Login failed — credentials rejected by Whatnot. Page said: ${snippet.substring(0, 200)}`);

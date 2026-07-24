@@ -2,6 +2,10 @@
 
 namespace App\Services\AI;
 
+use App\AI\DTOs\AiMessage;
+use App\AI\Enums\AiTask;
+use App\AI\Prompts\PromptLibrary;
+use App\AI\Services\AiGateway;
 use App\Filament\Pages\ProductInsights;
 use App\Models\Show;
 use App\Models\Streamer;
@@ -13,18 +17,23 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Turns the same numbers already in the Friday/Wednesday ops emails into a
- * 3-4 sentence plain-English summary via the local Ollama model — "pacing
- * 12% ahead, driven mostly by X; two streamers are down; three products need
- * reordering" instead of a wall of figures.
+ * 3-4 sentence plain-English summary via AiGateway — "pacing 12% ahead,
+ * driven mostly by X; two streamers are down; three products need
+ * reordering" instead of a wall of figures. Runs as the Reasoning task, so
+ * it gets whichever model/provider Settings has configured for
+ * quality-over-speed work, not the fast/chat model.
  *
  * Best-effort throughout: returns null (numbers-only email, no narrative)
- * whenever the AI module is off, there's nothing worth summarizing, Ollama
- * is unreachable, or generation fails for any reason. Never blocks or
- * breaks the underlying notification.
+ * whenever the AI module is off, there's nothing worth summarizing, the
+ * provider is unreachable, or generation fails for any reason. Never blocks
+ * or breaks the underlying notification.
  */
 class OpsDigestService
 {
-    public function __construct(private readonly OllamaClient $ollama) {}
+    public function __construct(
+        private readonly AiGateway $gateway,
+        private readonly PromptLibrary $prompts,
+    ) {}
 
     public function generate(): ?string
     {
@@ -39,13 +48,19 @@ class OpsDigestService
                 return null;
             }
 
-            if (! $this->ollama->isOnline()) {
+            if (! $this->gateway->isHealthy()) {
                 return null;
             }
 
-            $text = trim($this->ollama->generate($this->buildPrompt($snapshot), ['timeout' => 30]));
+            $response = $this->gateway->chat(
+                AiTask::Reasoning,
+                [AiMessage::user($this->prompts->opsDigest($snapshot))],
+                ['timeout' => 30],
+            );
 
-            return $text !== '' ? $text : null;
+            $text = trim($response->content);
+
+            return $response->success && $text !== '' ? $text : null;
         } catch (\Throwable $e) {
             Log::warning('OpsDigestService: generation failed — ' . $e->getMessage());
 
@@ -73,13 +88,19 @@ class OpsDigestService
                 return null;
             }
 
-            if (! $this->ollama->isOnline()) {
+            if (! $this->gateway->isHealthy()) {
                 return null;
             }
 
-            $text = trim($this->ollama->generate($this->buildRangePrompt($snapshot), ['timeout' => 30]));
+            $response = $this->gateway->chat(
+                AiTask::Reasoning,
+                [AiMessage::user($this->prompts->opsDigestForRange($snapshot))],
+                ['timeout' => 30],
+            );
 
-            return $text !== '' ? $text : null;
+            $text = trim($response->content);
+
+            return $response->success && $text !== '' ? $text : null;
         } catch (\Throwable $e) {
             Log::warning('OpsDigestService: range generation failed — ' . $e->getMessage());
 
@@ -164,49 +185,6 @@ class OpsDigestService
             || ! empty($s['outlier_shows'])
             || $s['reorder_count'] > 0
             || $s['pending_review'] > 0;
-    }
-
-    /** @param array<string,mixed> $s */
-    private function buildRangePrompt(array $s): string
-    {
-        $lines = [];
-
-        $lines[] = "Period: {$s['label']} ({$s['shows']} show(s)).";
-        $lines[] = 'Gross revenue: $' . number_format($s['gross'], 2)
-            . ($s['trend_pct'] !== null
-                ? ' (' . ($s['trend_pct'] >= 0 ? '+' : '') . $s['trend_pct'] . '% vs. the prior equal-length period)'
-                : ' (no prior period to compare)');
-
-        if ($s['top_streamer']) {
-            $lines[] = "Top streamer this period: {$s['top_streamer']}.";
-        }
-
-        if (! empty($s['trending_down'])) {
-            $lines[] = 'Streamers currently trending down vs. their own recent average: ' . implode(', ', $s['trending_down']) . '.';
-        }
-
-        if (! empty($s['outlier_shows'])) {
-            $lines[] = 'Shows in this period with unusual revenue (verify the numbers): ' . implode(', ', $s['outlier_shows']) . '.';
-        }
-
-        if ($s['reorder_count'] > 0) {
-            $lines[] = "{$s['reorder_count']} product(s) are currently pacing toward running out before they can be restocked.";
-        }
-
-        if ($s['pending_review'] > 0) {
-            $lines[] = "{$s['pending_review']} show(s) are currently waiting on review/approval.";
-        }
-
-        $data = implode("\n", $lines);
-
-        return <<<PROMPT
-You are writing a short business briefing for the owner of a sports-card livestream sales operation, summarizing a report for a specific date range they selected. Below is the data for that period. Write a 3-4 sentence plain-English summary highlighting what matters most — lead with the most important thing, mention specific names/numbers from the data, and end with anything that needs action. Do not invent numbers or reasons not present in the data. Do not use bullet points or headers — write flowing prose. Do not add a greeting or sign-off.
-
-Data:
-{$data}
-
-Summary:
-PROMPT;
     }
 
     /** @return array<string,mixed> */
@@ -320,52 +298,4 @@ PROMPT;
         return $count;
     }
 
-    /** @param array<string,mixed> $s */
-    private function buildPrompt(array $s): string
-    {
-        $lines = [];
-
-        $lines[] = 'Revenue so far this week: $' . number_format($s['week_revenue'], 2)
-            . ($s['week_pacing_pct'] !== null
-                ? ' (' . ($s['week_pacing_pct'] >= 0 ? '+' : '') . $s['week_pacing_pct'] . '% vs. the trailing 4-week average for this point in the week)'
-                : ' (no trailing average yet to compare)');
-
-        if ($s['top_streamer']) {
-            $lines[] = "Top streamer this week: {$s['top_streamer']}.";
-        }
-
-        if ($s['month_projected'] !== null) {
-            $lines[] = 'Projected month total: $' . number_format($s['month_projected'], 2)
-                . ($s['month_pacing_pct'] !== null
-                    ? ' (' . ($s['month_pacing_pct'] >= 0 ? '+' : '') . $s['month_pacing_pct'] . '% vs. the trailing 3-month average)'
-                    : '');
-        }
-
-        if (! empty($s['trending_down'])) {
-            $lines[] = 'Streamers trending down vs. their own recent average: ' . implode(', ', $s['trending_down']) . '.';
-        }
-
-        if (! empty($s['outlier_shows'])) {
-            $lines[] = 'Shows with unusual revenue this week (verify the numbers): ' . implode(', ', $s['outlier_shows']) . '.';
-        }
-
-        if ($s['reorder_count'] > 0) {
-            $lines[] = "{$s['reorder_count']} product(s) are pacing toward running out before they can be restocked.";
-        }
-
-        if ($s['pending_review'] > 0) {
-            $lines[] = "{$s['pending_review']} show(s) are still waiting on review/approval.";
-        }
-
-        $data = implode("\n", $lines);
-
-        return <<<PROMPT
-You are writing a short business briefing for the owner of a sports-card livestream sales operation. Below is this week's operational data. Write a 3-4 sentence plain-English summary highlighting what matters most — lead with the most important thing, mention specific names/numbers from the data, and end with anything that needs action. Do not invent numbers or reasons not present in the data. Do not use bullet points or headers — write flowing prose. Do not add a greeting or sign-off.
-
-Data:
-{$data}
-
-Summary:
-PROMPT;
-    }
 }

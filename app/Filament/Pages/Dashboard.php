@@ -6,7 +6,6 @@ use App\Filament\Widgets\FulfillmentNeedsAttentionWidget;
 use App\Filament\Widgets\NeedsAttentionWidget;
 use App\Filament\Widgets\OperationsOverviewWidget;
 use App\Filament\Widgets\RecentShowsWidget;
-use App\Filament\Widgets\SetupChecklistWidget;
 use App\Filament\Widgets\ShowsKpiWidget;
 use App\Filament\Widgets\StreamerOverviewWidget;
 use App\Filament\Widgets\StreamerShowsToReviewWidget;
@@ -26,8 +25,6 @@ class Dashboard extends BaseDashboard
         }
 
         return [
-            // First-run onboarding (auto-hides once complete/dismissed).
-            SetupChecklistWidget::class,
             // Streamer-scoped overview + actionable to-do list (streamers only).
             StreamerOverviewWidget::class,
             StreamerShowsToReviewWidget::class,

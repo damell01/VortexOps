@@ -2,16 +2,19 @@
 
 namespace Tests\Feature\Admin;
 
+use App\AI\Contracts\AIProvider;
 use App\Filament\Pages\ProductInsights;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryStock;
+use App\Models\Setting;
 use App\Models\Show;
 use App\Models\User;
 use App\Models\Vendor;
 use App\Models\WhatnotShowOrder;
 use App\Support\AdminModules;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -31,6 +34,20 @@ class ProductInsightsTest extends TestCase
         $this->actingAs($u);
         $this->show = Show::create(['title' => 'S', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $u->id]);
         $this->loc  = InventoryLocation::create(['name' => 'Main']);
+    }
+
+    /**
+     * test_summarize_button_populates_the_narrative() narrows
+     * enabled_admin_modules; Setting::set() forgets the cache key at write
+     * time, but RefreshDatabase doesn't roll the cache store back, so that
+     * narrowed value would otherwise leak into whichever test runs next in
+     * this PHPUnit process. Forget it again post-test.
+     */
+    protected function tearDown(): void
+    {
+        Cache::forget('setting:enabled_admin_modules');
+        AdminModules::flushMemo();
+        parent::tearDown();
     }
 
     private function stock(InventoryItem $item, float $qty): void
@@ -183,5 +200,38 @@ class ProductInsightsTest extends TestCase
             ->set('view', 'dead_stock')
             ->assertSee('Dead Weight')
             ->assertSee('$40'); // inventory value / dead value KPI
+    }
+
+    public function test_summarize_button_populates_the_narrative(): void
+    {
+        Setting::set('enabled_admin_modules', json_encode(['streams', 'inventory', 'ai']));
+        AdminModules::flushMemo();
+
+        Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        $admin = User::factory()->create(['email' => 'summarizer@test.com']);
+        $admin->assignRole('admin');
+        config(['app.owner_email' => 'owner@test.com']);
+
+        $item = InventoryItem::create(['name' => 'Summarized Item', 'unit_cost' => 5, 'is_active' => true]);
+        $this->stock($item, 10);
+        $this->sale($item, 2, 5, 20);
+
+        $fake = new class implements AIProvider {
+            public function name(): string { return 'fake'; }
+            public function chat(array $m, string $model, array $o = []): string { return 'Catalogue is healthy.'; }
+            public function stream(array $m, string $model, array $o = []): \Generator { yield ''; }
+            public function vision(string $p, string $i, string $model, array $o = []): string { return ''; }
+            public function embed(string $t, string $model): ?array { return null; }
+            public function listModels(): array { return []; }
+            public function isHealthy(): bool { return true; }
+        };
+        $this->app->instance(AIProvider::class, $fake);
+
+        Livewire::actingAs($admin);
+        Livewire::test(ProductInsights::class)
+            ->assertSee('Summarize catalogue')
+            ->call('generateNarrative')
+            ->assertSet('narrative', 'Catalogue is healthy.')
+            ->assertSee('Catalogue is healthy.');
     }
 }

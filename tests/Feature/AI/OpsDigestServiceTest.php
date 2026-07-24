@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\AI\OpsDigestService;
 use App\Support\AdminModules;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class OpsDigestServiceTest extends TestCase
@@ -22,6 +23,21 @@ class OpsDigestServiceTest extends TestCase
         parent::setUp();
         $this->creator = User::factory()->create();
         $this->actingAs($this->creator);
+    }
+
+    /**
+     * Setting::set('enabled_admin_modules', ...) forgets the cache key at
+     * write time, but RefreshDatabase only rolls back the DB — the cache
+     * store isn't request/test-scoped, so a narrowed module list written
+     * here would otherwise leak into whatever test runs next in the same
+     * PHPUnit process and 403 it. Forget the key again post-test so the
+     * next reader re-queries the (rolled-back) DB instead of a stale cache.
+     */
+    protected function tearDown(): void
+    {
+        Cache::forget('setting:enabled_admin_modules');
+        AdminModules::flushMemo();
+        parent::tearDown();
     }
 
     private function enableAiModule(): void

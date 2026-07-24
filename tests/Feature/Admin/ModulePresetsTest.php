@@ -6,6 +6,7 @@ use App\Filament\Pages\AppSettings;
 use App\Models\User;
 use App\Support\AdminModules;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -29,6 +30,11 @@ class ModulePresetsTest extends TestCase
 
     protected function tearDown(): void
     {
+        // AdminModules::flushMemo() alone only clears the static in-process
+        // memo — Setting::get()'s own cache()->remember() layer underneath
+        // it isn't test-scoped, so a saved preset here could otherwise leak
+        // into whatever test runs next in this PHPUnit process.
+        Cache::forget('setting:enabled_admin_modules');
         AdminModules::flushMemo();
         parent::tearDown();
     }

@@ -3,7 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasAdminNavVisibility;
+use App\Services\AI\ProductInsightsDigestService;
 use App\Support\AdminModules;
+use App\Support\ChannelContext;
 use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -23,6 +25,8 @@ class ProductInsights extends Page
 
     /** @var 'all'|'best_margin'|'dead_stock'|'never_sold'|'reorder' */
     public string $view = 'best_margin';
+
+    public ?string $narrative = null;
 
     /** Days without a sale before on-hand stock counts as "dead". */
     public const DEAD_DAYS = 90;
@@ -80,6 +84,36 @@ class ProductInsights extends Page
     public function setView(string $view): void
     {
         $this->view = $view;
+    }
+
+    public function aiNarrativeEnabled(): bool
+    {
+        return AdminModules::isEnabled('ai');
+    }
+
+    /**
+     * On-demand, not computed on every render — same rationale as
+     * Reports::generateNarrative(). Cached for an hour per channel; not keyed
+     * by $this->view since the narrative spans all views internally
+     * (ProductInsightsDigestService looks at best_margin/dead_stock/reorder
+     * regardless of which tab is currently selected).
+     */
+    public function generateNarrative(): void
+    {
+        $channel = ChannelContext::currentId() ?? 'all';
+        $key     = "product_insights_narrative_{$channel}_" . auth()->id();
+
+        $cached = Cache::get($key);
+        if ($cached !== null) {
+            $this->narrative = $cached;
+            return;
+        }
+
+        $this->narrative = app(ProductInsightsDigestService::class)->generate();
+
+        if ($this->narrative !== null) {
+            Cache::put($key, $this->narrative, 3600);
+        }
     }
 
     public function exportCsv(): StreamedResponse

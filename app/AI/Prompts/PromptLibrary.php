@@ -131,4 +131,52 @@ final class PromptLibrary
         Summary:
         PROMPT;
     }
+
+    /**
+     * Turns a Product Insights snapshot (catalogue-wide KPIs plus top margin,
+     * dead-stock, and reorder items) into an instruction for a 3-4 sentence
+     * plain-English inventory briefing. Used by ProductInsightsDigestService.
+     *
+     * @param array<string,mixed> $snapshot
+     */
+    public function productInsights(array $snapshot): string
+    {
+        $lines = [];
+
+        $lines[] = 'Catalogue: ' . number_format($snapshot['active_skus']) . ' active SKU(s), '
+            . number_format($snapshot['sold_skus']) . ' have sold.';
+        $lines[] = 'Total inventory value on hand: $' . number_format($snapshot['inventory_value'], 2) . '.';
+        $lines[] = 'Dead stock (no sale in ' . $snapshot['dead_days'] . ' days): $' . number_format($snapshot['dead_value'], 2) . ' tied up.';
+
+        if (! empty($snapshot['top_margin'])) {
+            $items = array_map(fn ($r) => "{$r['name']} (\${$this->money($r['margin'])} margin)", $snapshot['top_margin']);
+            $lines[] = 'Best margin performers: ' . implode(', ', $items) . '.';
+        }
+
+        if (! empty($snapshot['top_dead'])) {
+            $items = array_map(fn ($r) => "{$r['name']} (\${$this->money($r['capital'])}, " . ($r['days_since_sold'] !== null ? "{$r['days_since_sold']} days since last sale" : 'never sold') . ')', $snapshot['top_dead']);
+            $lines[] = 'Biggest dead-stock items: ' . implode(', ', $items) . '.';
+        }
+
+        if (! empty($snapshot['top_reorder'])) {
+            $items = array_map(fn ($r) => "{$r['name']} (suggest {$r['suggested_qty']} more)", $snapshot['top_reorder']);
+            $lines[] = 'Products pacing toward running out: ' . implode(', ', $items) . '.';
+        }
+
+        $data = implode("\n", $lines);
+
+        return <<<PROMPT
+        You are writing a short inventory briefing for the owner of a sports-card livestream sales operation. Below is a snapshot of their product catalogue's financial and stock health. Write a 3-4 sentence plain-English summary highlighting what matters most — lead with the most important thing, mention specific product names/numbers from the data, and end with anything that needs action (e.g. reordering a fast seller, clearing dead stock). Do not invent numbers, products, or reasons not present in the data. Do not use bullet points or headers — write flowing prose. Do not add a greeting or sign-off.
+
+        Data:
+        {$data}
+
+        Summary:
+        PROMPT;
+    }
+
+    private function money(float $amount): string
+    {
+        return number_format($amount, 2);
+    }
 }

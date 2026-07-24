@@ -54,6 +54,25 @@
 
             <span class="flex-1"></span>
 
+            {{-- AI narrative summary --}}
+            @if ($this->aiNarrativeEnabled())
+                <button
+                    type="button"
+                    wire:click="generateNarrative"
+                    wire:loading.attr="disabled"
+                    wire:target="generateNarrative"
+                    class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition disabled:opacity-60"
+                >
+                    <x-heroicon-o-sparkles class="h-3.5 w-3.5" wire:loading.remove wire:target="generateNarrative" />
+                    <svg wire:loading wire:target="generateNarrative" class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                    </svg>
+                    <span wire:loading.remove wire:target="generateNarrative">Summarize catalogue</span>
+                    <span wire:loading wire:target="generateNarrative">Summarizing…</span>
+                </button>
+            @endif
+
             <a
                 wire:click.prevent="exportCsv"
                 href="#"
@@ -63,6 +82,16 @@
                 Export CSV
             </a>
         </div>
+
+        @if ($narrative)
+            <div class="rounded-xl border border-indigo-200 bg-indigo-50/60 px-5 py-4 text-sm leading-relaxed text-indigo-900 shadow-sm dark:border-indigo-500/20 dark:bg-indigo-500/10 dark:text-indigo-100">
+                <div class="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-300">
+                    <x-heroicon-o-sparkles class="h-3.5 w-3.5" />
+                    AI Summary
+                </div>
+                {{ $narrative }}
+            </div>
+        @endif
 
         {{-- Metrics table --}}
         <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-white/10">

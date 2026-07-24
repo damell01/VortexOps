@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Models\Setting;
 use App\Support\AdminModules;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class AdminModulesTest extends TestCase
@@ -14,11 +15,17 @@ class AdminModulesTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Cache::forget('setting:enabled_admin_modules');
         AdminModules::flushMemo();
     }
 
     protected function tearDown(): void
     {
+        // flushMemo() alone only clears the static in-process memo —
+        // Setting::get()'s own cache()->remember() layer isn't test-scoped,
+        // so a value this class wrote could otherwise leak into whatever
+        // test runs next in this PHPUnit process.
+        Cache::forget('setting:enabled_admin_modules');
         AdminModules::flushMemo();
         parent::tearDown();
     }

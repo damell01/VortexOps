@@ -146,7 +146,7 @@ class OpsDigestServiceTest extends TestCase
 
         $this->assertTrue($fake->chatCalled);
         $this->assertSame('llama3.1:8b', $fake->lastChat['model']);
-        $this->assertSame(30, $fake->lastChat['options']['timeout']);
+        $this->assertSame(90, $fake->lastChat['options']['timeout']);
     }
 
     public function test_returns_null_when_generation_throws(): void

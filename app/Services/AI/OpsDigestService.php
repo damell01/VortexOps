@@ -30,6 +30,16 @@ use Illuminate\Support\Facades\Log;
  */
 class OpsDigestService
 {
+    /**
+     * This only ever runs as a scheduled background job or an on-demand
+     * report click — never a hot page load — so there's no reason to keep it
+     * tight. CPU-only Ollama inference for a full multi-sentence summary
+     * (vs. a short one-off reply) has been observed taking right up to and
+     * past 30s on modest hardware; give it real room instead of failing
+     * generations that were still in progress.
+     */
+    private const GENERATION_TIMEOUT_SECONDS = 90;
+
     public function __construct(
         private readonly AiGateway $gateway,
         private readonly PromptLibrary $prompts,
@@ -55,7 +65,7 @@ class OpsDigestService
             $response = $this->gateway->chat(
                 AiTask::Reasoning,
                 [AiMessage::user($this->prompts->opsDigest($snapshot))],
-                ['timeout' => 30],
+                ['timeout' => self::GENERATION_TIMEOUT_SECONDS],
             );
 
             $text = trim($response->content);
@@ -95,7 +105,7 @@ class OpsDigestService
             $response = $this->gateway->chat(
                 AiTask::Reasoning,
                 [AiMessage::user($this->prompts->opsDigestForRange($snapshot))],
-                ['timeout' => 30],
+                ['timeout' => self::GENERATION_TIMEOUT_SECONDS],
             );
 
             $text = trim($response->content);

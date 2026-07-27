@@ -1188,6 +1188,106 @@ function normalizeApiShow(s) {
   };
 }
 
+// ── Launch Chromium and attach via CDP-over-TCP ─────────────────────────────
+// launchPersistentContext() always spawns Chromium with --remote-debugging-pipe
+// for its control channel, which relies on inherited fd 3/4. In some restrictive
+// container environments that pipe handshake never completes: Chromium starts
+// fine (confirmed independently with a plain --remote-debugging-port launch)
+// but Playwright times out waiting on the pipe and force-kills the process,
+// which surfaces as an opaque "signal=SIGTRAP" crash. TCP-based CDP works in
+// that same environment, so here we spawn Chromium ourselves with a dynamic
+// debugging port and attach via connectOverCDP() instead — everything
+// downstream still gets a normal Playwright BrowserContext.
+async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
+  const { spawn } = require('child_process');
+  const {
+    args = [], userAgent, viewport, locale, extraHTTPHeaders, env: extraEnv = {},
+  } = opts;
+
+  const chromeArgs = [
+    ...args,
+    '--headless',
+    '--remote-debugging-port=0',
+    `--user-data-dir=${userDataDir}`,
+    ...(userAgent ? [`--user-agent=${userAgent}`] : []),
+    ...(locale ? [`--lang=${locale}`] : []),
+    'about:blank',
+  ];
+
+  const child = spawn(CHROMIUM_PATH, chromeArgs, {
+    env: { ...process.env, HOME: '/tmp', ...extraEnv },
+    stdio: ['ignore', 'ignore', 'pipe'],
+  });
+
+  const wsEndpoint = await new Promise((resolve, reject) => {
+    let buf = '';
+    function cleanup() {
+      clearTimeout(timer);
+      child.stderr.off('data', onData);
+      child.off('exit', onExit);
+      child.off('error', onError);
+    }
+    function onData(chunk) {
+      buf += chunk.toString();
+      const m = buf.match(/DevTools listening on (ws:\/\/\S+)/);
+      if (m) { cleanup(); resolve(m[1]); }
+    }
+    function onExit(code, signal) {
+      cleanup();
+      reject(new Error(`Chromium exited before DevTools listener was ready (code=${code} signal=${signal})`));
+    }
+    function onError(err) {
+      cleanup();
+      reject(err);
+    }
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('Timed out waiting for Chromium DevTools listener'));
+    }, 15000);
+    child.stderr.on('data', onData);
+    child.once('exit', onExit);
+    child.once('error', onError);
+  });
+
+  // Keep draining stderr so a long scraping session (analytics mode can run
+  // 20+ minutes) doesn't fill the OS pipe buffer and stall Chromium once our
+  // one-time listener above is gone.
+  child.stderr.on('data', () => {});
+
+  const port = new URL(wsEndpoint).port;
+  const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
+
+  let context = browser.contexts()[0];
+  for (let i = 0; i < 20 && !context; i++) {
+    await new Promise(r => setTimeout(r, 100));
+    context = browser.contexts()[0];
+  }
+  if (!context) {
+    child.kill('SIGKILL');
+    throw new Error('No browser context available after connectOverCDP');
+  }
+
+  if (extraHTTPHeaders) await context.setExtraHTTPHeaders(extraHTTPHeaders).catch(() => {});
+  if (viewport) {
+    for (const page of context.pages()) await page.setViewportSize(viewport).catch(() => {});
+    context.on('page', (page) => { page.setViewportSize(viewport).catch(() => {}); });
+  }
+
+  // Every existing context.close() call site in this file should also reap the
+  // OS process we spawned — a CDP-connected context's close() only disconnects
+  // the session, it doesn't own (and won't kill) the underlying browser.
+  const originalClose = context.close.bind(context);
+  context.close = async (...closeArgs) => {
+    try {
+      await originalClose(...closeArgs);
+    } finally {
+      if (!child.killed) child.kill('SIGTERM');
+    }
+  };
+
+  return context;
+}
+
 // ── ws-explore standalone (no browser) ───────────────────────────────────────
 // Called before launchPersistentContext so the shared profile lock is never
 // needed. Launches a temporary Playwright browser, navigates to the seller hub,
@@ -1237,10 +1337,7 @@ async function runWsExploreStandalone(cookiesFilePath) {
   const topicsJoined = new Set();
   const httpCaptures = [];  // declared here so it's in scope after the try/finally
 
-  const tempContext = await chromium.launchPersistentContext(tempDir, {
-    executablePath: CHROMIUM_PATH,
-    headless:       true,
-    env: { ...process.env, HOME: '/tmp' },
+  const tempContext = await launchPersistentContextViaCdp(tempDir, {
     args: ['--no-sandbox', '--no-zygote', '--disable-dev-shm-usage', '--disable-gpu',
            '--disable-crash-reporter', '--crash-dumps-dir=/tmp'],
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
@@ -2023,10 +2120,7 @@ async function extractLedgerFromPage(page) {
   require('fs').mkdirSync(USER_DATA_DIR, { recursive: true });
   info('browser profile dir:', USER_DATA_DIR);
 
-  const context = await chromium.launchPersistentContext(USER_DATA_DIR, {
-    executablePath: CHROMIUM_PATH,
-    headless:       true,
-    env: { ...process.env, HOME: '/tmp' },
+  const context = await launchPersistentContextViaCdp(USER_DATA_DIR, {
     args: [
       '--no-sandbox',
       '--no-zygote',
@@ -2039,7 +2133,7 @@ async function extractLedgerFromPage(page) {
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
     viewport:  { width: 1280, height: 900 },
     locale:    'en-US',
-    timezoneId: 'America/Chicago',
+    env:       { TZ: 'America/Chicago' },
     // Client Hints headers must match the UA — inconsistency is a detection signal
     extraHTTPHeaders: {
       'sec-ch-ua':          '"Chromium";v="128", "Google Chrome";v="128", "Not-A.Brand";v="99"',
@@ -2047,10 +2141,12 @@ async function extractLedgerFromPage(page) {
       'sec-ch-ua-platform': '"Windows"',
       'Accept-Language':    'en-US,en;q=0.9',
     },
-    // In discover mode, block service workers so that fetch() calls go through the real
-    // network instead of being served from the SW cache (which bypasses page.on('response')).
-    // Other modes leave SWs enabled so session/auth SWs keep working normally.
-    ...(MODE === 'discover' ? { serviceWorkers: 'block' } : {}),
+    // NOTE: discover mode previously passed serviceWorkers: 'block' here (so
+    // fetch() calls hit the real network instead of the SW cache, which
+    // bypasses page.on('response')). That's a launchPersistentContext-only
+    // option with no equivalent once the context already exists — connectOverCDP
+    // attaches to a context Chromium created itself — so discover mode may miss
+    // some SW-cached responses now. Every other mode is unaffected.
   });
 
   // Mask automation signals that trigger bot detection on sites like Whatnot.

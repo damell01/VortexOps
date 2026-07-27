@@ -1208,6 +1208,11 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
     ...args,
     '--headless',
     '--remote-debugging-port=0',
+    // Chrome ≥111 enforces an Origin/Host allowlist on the DevTools WebSocket
+    // and silently drops connections that fail it — surfaces as a bare "socket
+    // hang up" with no useful error from either side. This is a local loopback
+    // connection we're deliberately making ourselves, so wildcard it.
+    '--remote-allow-origins=*',
     `--user-data-dir=${userDataDir}`,
     ...(userAgent ? [`--user-agent=${userAgent}`] : []),
     ...(locale ? [`--lang=${locale}`] : []),

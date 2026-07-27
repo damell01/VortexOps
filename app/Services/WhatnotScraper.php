@@ -757,6 +757,13 @@ class WhatnotScraper
     {
         $process->start();
         while ($process->isRunning()) {
+            // isRunning() alone never enforces the timeout set via setTimeout() —
+            // only wait()/run() do that internally. This manual polling loop bypasses
+            // both, so without this call a wedged child process (network stall, a
+            // page that never reaches networkidle) runs forever instead of throwing
+            // ProcessTimedOutException like every non-streaming scraper call does.
+            $process->checkTimeout();
+
             if ($err = $process->getIncrementalErrorOutput()) {
                 foreach (explode("\n", trim($err)) as $line) {
                     if ($line !== '') $onProgress($line);

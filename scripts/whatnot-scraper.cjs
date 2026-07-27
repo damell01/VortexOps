@@ -1241,7 +1241,7 @@ async function runWsExploreStandalone(cookiesFilePath) {
     executablePath: CHROMIUM_PATH,
     headless:       true,
     env: { ...process.env, HOME: '/tmp' },
-    args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
+    args: ['--no-sandbox', '--no-zygote', '--disable-dev-shm-usage', '--disable-gpu',
            '--disable-crash-reporter', '--crash-dumps-dir=/tmp'],
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
     viewport:  { width: 1280, height: 900 },
@@ -2029,6 +2029,7 @@ async function extractLedgerFromPage(page) {
     env: { ...process.env, HOME: '/tmp' },
     args: [
       '--no-sandbox',
+      '--no-zygote',
       '--disable-dev-shm-usage',
       '--disable-crash-reporter',
       '--crash-dumps-dir=/tmp',

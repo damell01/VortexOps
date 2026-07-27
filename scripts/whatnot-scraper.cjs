@@ -1260,7 +1260,27 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
   child.stderr.on('data', () => {});
 
   const port = new URL(wsEndpoint).port;
-  const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
+
+  // The "DevTools listening" line can print fractionally before the WebSocket
+  // handler is actually ready to accept connections (observed on a resource-
+  // throttled container: a manual curl attempt a few seconds later succeeded
+  // cleanly with a proper 101 handshake, while connecting immediately here
+  // got a bare "socket hang up"). Retry with a short backoff instead of
+  // assuming the very first attempt lands.
+  let browser, lastConnectError;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 500));
+    try {
+      browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
+      break;
+    } catch (e) {
+      lastConnectError = e;
+    }
+  }
+  if (!browser) {
+    child.kill('SIGKILL');
+    throw lastConnectError;
+  }
 
   let context = browser.contexts()[0];
   for (let i = 0; i < 20 && !context; i++) {

@@ -1259,6 +1259,14 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
   // one-time listener above is gone.
   child.stderr.on('data', () => {});
 
+  // The startup-readiness listeners above are removed once wsEndpoint resolves,
+  // so without this, Chromium dying later (mid-connect-retry, or mid-scrape)
+  // shows up only as an opaque ECONNREFUSED/socket-hang-up with no indication
+  // of why the process actually went away. Always log it, not just under DEBUG.
+  child.on('exit', (code, signal) => {
+    info(`WARNING: chromium process exited unexpectedly (pid=${child.pid} code=${code} signal=${signal})`);
+  });
+
   const port = new URL(wsEndpoint).port;
 
   // The "DevTools listening" line can print fractionally before the WebSocket

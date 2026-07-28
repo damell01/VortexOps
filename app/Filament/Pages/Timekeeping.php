@@ -84,12 +84,19 @@ class Timekeeping extends Page
         ];
     }
 
+    private function canSeeTeamEntries(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->isOwner() || $user?->isAdmin()) ?? false;
+    }
+
     public function getEntriesProperty()
     {
         $query = TimeEntry::with('user')
             ->orderByDesc('clocked_in_at');
 
-        if (! auth()->user()?->isOwner()) {
+        if (! $this->canSeeTeamEntries()) {
             $query->where('user_id', auth()->id());
         }
 
@@ -98,7 +105,7 @@ class Timekeeping extends Page
 
     public function getTeamSummaryProperty(): array
     {
-        if (! auth()->user()?->isOwner()) {
+        if (! $this->canSeeTeamEntries()) {
             return [];
         }
 
@@ -179,7 +186,7 @@ class Timekeeping extends Page
             ->whereNotNull('clocked_out_at')
             ->orderByDesc('clocked_in_at');
 
-        if (! auth()->user()?->isOwner()) {
+        if (! $this->canSeeTeamEntries()) {
             $query->where('user_id', auth()->id());
         }
 

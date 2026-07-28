@@ -60,7 +60,9 @@ class RoleResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Role')->columns(2)->columnSpanFull()->schema([
+            Section::make('Role')
+                ->description('"admin" and "super_admin" get full access to every record automatically — that\'s built into the app. "streamer" and "fulfillment" are also built in: they always see only their own shows/payouts or only their assigned shows, no matter what you check below. A brand-new custom role name starts from scratch — it only sees what you explicitly grant it via Page Access and Permissions below, and any page whose data isn\'t already role-aware (most are admin/owner-only under the hood) will need code changes before a custom role can safely use it — ask if you want a specific page opened up.')
+                ->columns(2)->columnSpanFull()->schema([
                 TextInput::make('name')
                     ->required()
                     ->maxLength(255)

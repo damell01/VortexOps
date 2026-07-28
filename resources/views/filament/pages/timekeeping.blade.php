@@ -6,6 +6,7 @@
         $team    = $this->teamSummary;
         $isIn    = $this->isClockedIn;
         $user    = auth()->user();
+        $seesTeam = ($user?->isOwner() || $user?->isAdmin()) ?? false;
     @endphp
 
     <div class="space-y-6 max-w-4xl">
@@ -171,7 +172,7 @@
                     <table class="w-full text-sm min-w-[480px]">
                         <thead>
                             <tr class="border-b border-gray-100 dark:border-gray-700 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                @if ($user->isOwner())
+                                @if ($seesTeam)
                                     <th class="px-6 py-3">Who</th>
                                 @endif
                                 <th class="px-6 py-3">Date</th>
@@ -184,7 +185,7 @@
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                             @foreach ($entries as $e)
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                                    @if ($user->isOwner())
+                                    @if ($seesTeam)
                                         <td class="px-6 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
                                             {{ $e->user->name ?? '—' }}
                                         </td>

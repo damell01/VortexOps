@@ -6,14 +6,20 @@
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Streamer</label>
-                    <select
-                        wire:model.live="streamerId"
-                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
-                        <option value="">— Select a streamer —</option>
-                        @foreach($this->streamersList as $streamer)
-                            <option value="{{ $streamer->id }}">{{ $streamer->name }}</option>
-                        @endforeach
-                    </select>
+                    @if($this->isSelfService)
+                        <div class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
+                            {{ $this->selectedStreamer?->name ?? 'Your profile' }}
+                        </div>
+                    @else
+                        <select
+                            wire:model.live="streamerId"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                            <option value="">— Select a streamer —</option>
+                            @foreach($this->streamersList as $streamer)
+                                <option value="{{ $streamer->id }}">{{ $streamer->name }}</option>
+                            @endforeach
+                        </select>
+                    @endif
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Date From</label>

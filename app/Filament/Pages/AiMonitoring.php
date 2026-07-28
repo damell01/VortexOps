@@ -6,6 +6,7 @@ use App\AI\Services\AiUsageReport;
 use App\AI\Services\LearningService;
 use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Support\AdminModules;
+use App\Support\NavVisibility;
 use Filament\Pages\Page;
 
 /**
@@ -40,7 +41,9 @@ class AiMonitoring extends Page
     {
         $user = auth()->user();
 
-        return AdminModules::isEnabled('ai') && (($user?->isAdmin() || $user?->isOwner()) ?? false);
+        return AdminModules::isEnabled('ai')
+            && ! NavVisibility::isHiddenForUser(static::class, $user)
+            && (($user?->isAdmin() || $user?->isOwner()) ?? false);
     }
 
     // Owner-facing diagnostic; keep it out of admins' nav but URL-reachable.

@@ -6,6 +6,7 @@ use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Services\AI\ProductInsightsDigestService;
 use App\Support\AdminModules;
 use App\Support\ChannelContext;
+use App\Support\NavVisibility;
 use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -68,7 +69,11 @@ class ProductInsights extends Page
 
     public static function canAccess(): bool
     {
-        return (auth()->user()?->isAdmin() ?? false) && AdminModules::isEnabled('inventory');
+        $user = auth()->user();
+
+        return AdminModules::isEnabled('inventory')
+            && ! NavVisibility::isHiddenForUser(static::class, $user)
+            && (bool) $user?->isAdmin();
     }
 
     public function getView(): string

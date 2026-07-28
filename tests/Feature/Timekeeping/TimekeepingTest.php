@@ -179,7 +179,7 @@ class TimekeepingTest extends TestCase
 
     // ── entry scoping ─────────────────────────────────────────────────────────
 
-    public function test_admin_sees_only_their_own_entries(): void
+    public function test_admin_sees_the_whole_teams_entries(): void
     {
         $other = User::factory()->create();
 
@@ -191,8 +191,7 @@ class TimekeepingTest extends TestCase
         $component = Livewire::test(Timekeeping::class);
         $entries   = $component->instance()->getEntriesProperty();
 
-        $this->assertEquals(1, $entries->total());
-        $this->assertEquals($this->admin->id, $entries->first()->user_id);
+        $this->assertEquals(2, $entries->total());
     }
 
     public function test_owner_sees_all_entries(): void
@@ -208,7 +207,7 @@ class TimekeepingTest extends TestCase
         $this->assertEquals(2, $entries->total());
     }
 
-    public function test_team_summary_only_returned_for_owner(): void
+    public function test_team_summary_returned_for_owner_and_admin(): void
     {
         // Anchor inside the current week so the summary's week filter can't drop
         // it when the suite runs just after midnight on the first day of the week.
@@ -217,7 +216,7 @@ class TimekeepingTest extends TestCase
 
         $this->actingAs($this->admin);
         $adminSummary = Livewire::test(Timekeeping::class)->instance()->getTeamSummaryProperty();
-        $this->assertEmpty($adminSummary);
+        $this->assertNotEmpty($adminSummary);
 
         $this->actingAs($this->owner);
         $ownerSummary = Livewire::test(Timekeeping::class)->instance()->getTeamSummaryProperty();

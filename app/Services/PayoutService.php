@@ -28,10 +28,21 @@ class PayoutService
             ->get()
             ->keyBy('streamer_id');
 
+        // Prefer the pivot's actual is_primary flag. Shows that predate that
+        // flag (or where detectStreamers() never set one) have no streamer
+        // flagged primary at all — fall back to treating the first attached
+        // streamer as primary so solo-streamer shows and older data keep
+        // computing exactly as before.
+        $hasExplicitPrimary = $streamers->contains(fn (Streamer $s) => (bool) ($s->pivot->is_primary ?? false));
+
         foreach ($streamers as $index => $streamer) {
             $existing = $existingPayouts->get($streamer->id);
 
-            $result = $this->computeStreamerPayout($streamer, $show, $streamers->count(), $index === 0);
+            $isPrimary = $hasExplicitPrimary
+                ? (bool) ($streamer->pivot->is_primary ?? false)
+                : $index === 0;
+
+            $result = $this->computeStreamerPayout($streamer, $show, $streamers->count(), $isPrimary);
 
             $payout = $existing
                 ? $existing->fill($result)
@@ -52,7 +63,14 @@ class PayoutService
         $netRevenue    = (float) $show->whatnot_net;
         $grossRevenue  = (float) $show->gross_revenue;
         $tips          = (float) $show->tips;
-        $streamerShare = $streamerCount > 1 ? $netRevenue / $streamerCount : $netRevenue;
+        // On a collab show, the primary streamer keeps the full revenue share
+        // for profit-share-based calculations (profit_share, hybrid's profit
+        // component, custom_formula's streamer_share_net) — splitting with
+        // collaborators is handled manually outside the system, not by
+        // dividing it automatically. Non-primary streamers' other payout
+        // components (hourly, PWE/labels, package, flat rate) are unaffected,
+        // since none of those read $streamerShare.
+        $streamerShare = ($isPrimary || $streamerCount <= 1) ? $netRevenue : 0.0;
         $tipShare      = $streamerCount > 0 ? round($tips / $streamerCount, 2) : 0;
         // Give any sub-cent rounding remainder to the primary streamer (e.g. $10 ÷ 3 = $3.33×3 = $9.99; primary gets $3.34)
         if ($isPrimary && $streamerCount > 1 && $tips > 0) {
@@ -75,11 +93,14 @@ class PayoutService
             case 'profit_share':
                 $pct              = (float) $streamer->payout_percentage / 100;
                 $calculatedPayout = round($streamerShare * $pct, 2);
+                $notPrimaryNote   = $streamerCount > 1 && ! $isPrimary
+                    ? ' — non-primary on collab show, revenue share goes to the primary streamer; split manually outside VortexOps'
+                    : '';
                 if ($streamer->include_tips) {
                     $calculatedPayout += $tipShare;
-                    $calculationNotes  = "Profit share {$streamer->payout_percentage}% of \${$streamerShare} + \${$tipShare} tips";
+                    $calculationNotes  = "Profit share {$streamer->payout_percentage}% of \${$streamerShare} + \${$tipShare} tips{$notPrimaryNote}";
                 } else {
-                    $calculationNotes = "Profit share {$streamer->payout_percentage}% of \${$streamerShare}";
+                    $calculationNotes = "Profit share {$streamer->payout_percentage}% of \${$streamerShare}{$notPrimaryNote}";
                 }
                 break;
 

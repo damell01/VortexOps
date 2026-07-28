@@ -184,7 +184,7 @@ class PayoutServiceTest extends TestCase
         $this->assertEquals(50.00, (float) $payouts[0]->calculated_payout); // 25 * 2 hours
     }
 
-    public function test_multiple_streamers_split_revenue(): void
+    public function test_primary_streamer_keeps_full_share_on_collab_show(): void
     {
         $s1 = $this->makeStreamer(['name' => 'Streamer 1', 'payout_type' => 'profit_share', 'payout_percentage' => 50]);
         $s2 = $this->makeStreamer(['name' => 'Streamer 2', 'payout_type' => 'profit_share', 'payout_percentage' => 50]);
@@ -192,13 +192,33 @@ class PayoutServiceTest extends TestCase
         $this->show->streamers()->attach($s1->id, ['is_primary' => true]);
         $this->show->streamers()->attach($s2->id, ['is_primary' => false]);
 
-        $payouts = $this->service->calculateForShow($this->show);
+        $payouts = collect($this->service->calculateForShow($this->show))->keyBy('streamer_id');
 
         $this->assertCount(2, $payouts);
-        // Each streamer gets 50% of half the revenue (900/2=450), so 450 * 0.50 = 225 each
-        foreach ($payouts as $payout) {
-            $this->assertEquals(225.00, (float) $payout->calculated_payout);
-        }
+        // Collab shows don't auto-split revenue — the primary streamer gets
+        // the full share (900 * 0.50 = 450) and splitting with collaborators
+        // is handled manually outside VortexOps, so the non-primary streamer
+        // gets $0 from this system.
+        $this->assertEquals(450.00, (float) $payouts[$s1->id]->calculated_payout);
+        $this->assertEquals(0.00, (float) $payouts[$s2->id]->calculated_payout);
+    }
+
+    public function test_multiple_streamers_without_a_primary_flag_falls_back_to_first_attached(): void
+    {
+        // Data that predates the is_primary flag (or detectStreamers() never
+        // set one) shouldn't suddenly zero out every non-first streamer's
+        // payout — fall back to treating the first attached streamer as
+        // primary so old shows keep computing the way they always did.
+        $s1 = $this->makeStreamer(['name' => 'Streamer 1', 'payout_type' => 'profit_share', 'payout_percentage' => 50]);
+        $s2 = $this->makeStreamer(['name' => 'Streamer 2', 'payout_type' => 'profit_share', 'payout_percentage' => 50]);
+
+        $this->show->streamers()->attach($s1->id);
+        $this->show->streamers()->attach($s2->id);
+
+        $payouts = collect($this->service->calculateForShow($this->show))->keyBy('streamer_id');
+
+        $this->assertEquals(450.00, (float) $payouts[$s1->id]->calculated_payout);
+        $this->assertEquals(0.00, (float) $payouts[$s2->id]->calculated_payout);
     }
 
     public function test_returns_empty_when_no_streamers(): void

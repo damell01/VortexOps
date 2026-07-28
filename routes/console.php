@@ -75,3 +75,11 @@ Schedule::command('whatnot:sync-shipments')
 // surfaces before it becomes a scramble at week's end.
 Schedule::command('reports:midweek-report')->weeklyOn(3, '09:00')->name('midweek-report');
 Schedule::command('reports:weekly-review-reminder')->weeklyOn(5, '09:00')->name('weekly-review-reminder');
+
+// End-of-day inventory valuation snapshot, per channel + combined — the source
+// data for monthly average-value-vs-sales reporting (a live query only ever
+// shows the current moment, not a trend).
+Schedule::command('inventory:snapshot-value')
+    ->dailyAt('23:50')
+    ->name('inventory-snapshot-value')
+    ->withoutOverlapping();

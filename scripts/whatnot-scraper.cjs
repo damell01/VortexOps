@@ -1231,6 +1231,29 @@ function killAndWait(child, signal = 'SIGTERM', timeoutMs = 5000) {
   });
 }
 
+// Unconditionally kill anything already running against this profile dir
+// before we launch into it. This file's own withBrowserLock() (PHP side)
+// guarantees only one whatnot:* command is ever legitimately in flight at a
+// time, so by the time we get here, ANYTHING still alive against this exact
+// profile is leftover garbage from a previous crashed/orphaned run — not a
+// process we need to coexist with. Matches Chromium's own -f pattern
+// (user-data-dir=<path>), which every renderer/utility/GPU-helper child
+// process inherits on its command line too, not just the top-level browser
+// process — one pkill reaps the whole stale tree regardless of how it was
+// orphaned (killAndWait's process-group kill only helps for processes THIS
+// script spawned; this also cleans up ones a cron/queue run before it left
+// behind, e.g. from before that fix existed, or from a hard host-level kill
+// that bypassed our cleanup entirely).
+function killStaleProcessesForProfile(userDataDir) {
+  const { execSync } = require('child_process');
+  try {
+    execSync(`pkill -9 -f "user-data-dir=${userDataDir}"`, { stdio: 'ignore' });
+    info(`killed stale chromium process(es) already using profile: ${userDataDir}`);
+  } catch (e) {
+    // pkill exits 1 when nothing matched, which is the common/expected case — not an error.
+  }
+}
+
 // If a prior Chromium against this profile got killed hard enough (SIGKILL
 // from an external timeout, OOM, etc.) that it never reached its own cleanup,
 // its SingletonLock survives and every subsequent launch fails immediately
@@ -1284,6 +1307,7 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
     args = [], userAgent, viewport, locale, extraHTTPHeaders, env: extraEnv = {},
   } = opts;
 
+  killStaleProcessesForProfile(userDataDir);
   clearStaleSingletonLock(userDataDir);
 
   const chromeArgs = [

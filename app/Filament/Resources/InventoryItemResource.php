@@ -19,6 +19,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -325,9 +326,16 @@ class InventoryItemResource extends Resource
                                 ->minValue(0.01)
                                 ->label('Quantity to Add'),
                             Select::make('movement_type')
-                                ->options(['opening' => 'Opening Stock', 'adjustment' => 'Adjustment', 'return' => 'Return'])
+                                ->options(['opening' => 'Opening Stock / Restock', 'adjustment' => 'Adjustment', 'return' => 'Return'])
                                 ->default('opening')
+                                ->live()
                                 ->required(),
+                            TextInput::make('unit_cost')
+                                ->label('Unit Cost ($)')
+                                ->numeric()
+                                ->minValue(0)
+                                ->visible(fn (Get $get) => $get('movement_type') === 'opening')
+                                ->helperText('Blends into this item\'s weighted average cost. Leave blank to add stock without changing the average.'),
                             Textarea::make('reason')->rows(2),
                         ])
                         ->action(function (InventoryItem $record, array $data): void {
@@ -337,7 +345,10 @@ class InventoryItemResource extends Resource
                                 $location,
                                 (float) $data['quantity'],
                                 $data['movement_type'],
-                                $data['reason'] ?? null
+                                $data['reason'] ?? null,
+                                isset($data['unit_cost']) && $data['unit_cost'] !== null && $data['unit_cost'] !== ''
+                                    ? (float) $data['unit_cost']
+                                    : null,
                             );
                             Notification::make()->title('Stock added successfully')->success()->send();
                         }),

@@ -13,6 +13,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
+use Filament\Schemas\Components\Utilities\Get;
 
 class ViewInventoryItem extends Page
 {
@@ -172,9 +173,16 @@ class ViewInventoryItem extends Page
                         ->required()
                         ->minValue(0.01),
                     Select::make('movement_type')
-                        ->options(['opening' => 'Opening Stock', 'adjustment' => 'Adjustment', 'return' => 'Return'])
+                        ->options(['opening' => 'Opening Stock / Restock', 'adjustment' => 'Adjustment', 'return' => 'Return'])
                         ->default('opening')
+                        ->live()
                         ->required(),
+                    TextInput::make('unit_cost')
+                        ->label('Unit Cost ($)')
+                        ->numeric()
+                        ->minValue(0)
+                        ->visible(fn (Get $get) => $get('movement_type') === 'opening')
+                        ->helperText('Blends into this item\'s weighted average cost. Leave blank to add stock without changing the average.'),
                     Textarea::make('reason')->rows(2),
                 ])
                 ->action(function (array $data): void {
@@ -184,7 +192,10 @@ class ViewInventoryItem extends Page
                         $location,
                         (float) $data['quantity'],
                         $data['movement_type'],
-                        $data['reason'] ?? null
+                        $data['reason'] ?? null,
+                        isset($data['unit_cost']) && $data['unit_cost'] !== null && $data['unit_cost'] !== ''
+                            ? (float) $data['unit_cost']
+                            : null,
                     );
                     Notification::make()->title('Stock added')->success()->send();
                     $this->record->load('stock.location');

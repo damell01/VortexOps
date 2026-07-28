@@ -1195,22 +1195,39 @@ function normalizeApiShow(s) {
   };
 }
 
+// Signal the whole process group, not just the single PID Node handed us.
+// Chromium forks its own renderer/utility/GPU-helper processes as separate
+// OS processes we never get a handle to — signaling only `child`'s PID can
+// kill the top-level browser process while leaving those orphaned, still
+// holding the profile dir open (which is exactly what caused every
+// subsequent launch to see the SingletonLock as "genuinely still in use").
+// Requires spawn({ detached: true }), which makes child.pid the group id too.
+function killProcessGroup(child, signal) {
+  try {
+    process.kill(-child.pid, signal);
+  } catch (e) {
+    // Group kill fails if the child was never a group leader, or the group's
+    // leader already exited — fall back to the single PID we hold directly.
+    try { child.kill(signal); } catch (_e) {}
+  }
+}
+
 // Send a kill signal and wait for the OS process to actually exit — sending
-// the signal alone (child.kill()) returns immediately, which isn't enough
-// when a caller needs the profile's SingletonLock to be verifiably released
-// before proceeding (e.g. launching the next channel's Chromium against the
-// same persistent profile dir).
+// the signal alone returns immediately, which isn't enough when a caller
+// needs the profile's SingletonLock to be verifiably released before
+// proceeding (e.g. launching the next channel's Chromium against the same
+// persistent profile dir).
 function killAndWait(child, signal = 'SIGTERM', timeoutMs = 5000) {
   if (child.killed || child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
   return new Promise((resolve) => {
     const forceTimer = setTimeout(() => {
-      child.kill('SIGKILL');
+      killProcessGroup(child, 'SIGKILL');
     }, timeoutMs);
     child.once('exit', () => {
       clearTimeout(forceTimer);
       resolve();
     });
-    child.kill(signal);
+    killProcessGroup(child, signal);
   });
 }
 
@@ -1287,6 +1304,12 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
   const child = spawn(CHROMIUM_PATH, chromeArgs, {
     env: { ...process.env, HOME: '/tmp', ...extraEnv },
     stdio: ['ignore', 'ignore', 'pipe'],
+    // Make this process the leader of its own process group so killAndWait()
+    // can signal the whole Chromium tree (renderer/utility/GPU helper
+    // processes it forks internally aren't tracked by our `child` handle —
+    // killing only that single PID orphans them, and they keep the profile
+    // dir's SingletonLock effectively alive even after "our" process exits).
+    detached: true,
   });
 
   const wsEndpoint = await new Promise((resolve, reject) => {

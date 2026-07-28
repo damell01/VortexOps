@@ -54,16 +54,15 @@ class ReceivingService
     {
         $pallet->load(['lines.inventoryItem', 'lines.cases']);
 
-        $code = strtolower(trim($code));
+        // Product::findByScan() also checks product_identities, so a SKU with
+        // several barcodes registered (e.g. different vendor packaging for a
+        // restock) resolves to the same line here — this used to only compare
+        // against the item's single barcode/sku column directly.
+        $scannedItem = Product::findByScan(trim($code));
 
-        $line = $pallet->lines->first(function (PalletLine $line) use ($code) {
-            $item = $line->inventoryItem;
-            if (! $item) {
-                return false;
-            }
-            return ($item->barcode && strtolower($item->barcode) === $code)
-                || ($item->sku && strtolower($item->sku) === $code);
-        });
+        $line = $scannedItem
+            ? $pallet->lines->first(fn (PalletLine $line) => $line->inventory_item_id === $scannedItem->id)
+            : null;
 
         if (! $line) {
             throw new RuntimeException("No line in this pallet matches \"{$code}\". Check the item's SKU or barcode.");

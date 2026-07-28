@@ -229,8 +229,15 @@ function writeJsonAndExit(value) {
 async function debugShot(page, name) {
   if (!DEBUG) return;
   const p = `/tmp/whatnot-debug-${name}.png`;
-  await page.screenshot({ path: p, fullPage: false });
-  log(`screenshot saved: ${p}`);
+  try {
+    await page.screenshot({ path: p, fullPage: false });
+    log(`screenshot saved: ${p}`);
+  } catch (e) {
+    // A failed diagnostic screenshot (stale file left by a different user,
+    // disk full, etc.) must never take down the run it's trying to help
+    // debug — log it and move on.
+    info(`WARNING: debug screenshot failed for "${name}": ${e.message}`);
+  }
 }
 
 function parseMoney(str) {

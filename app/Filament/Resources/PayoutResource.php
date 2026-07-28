@@ -34,7 +34,9 @@ use Illuminate\Support\Facades\Cache;
 
 class PayoutResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess, HasAdminNavVisibility {
+        HasModuleAccess::shouldRegisterNavigation as private moduleShouldRegisterNavigation;
+    }
 
     protected static string $moduleSlug  = 'payouts';
 
@@ -42,6 +44,25 @@ class PayoutResource extends Resource
 
     // Streamers can access their own payouts; row scoping handles filtering
     protected static function passesModuleAccessCheck(): bool { return true; }
+
+    // Admins now use the "Payouts" nav item under WeeklyPayoutBatchResource
+    // (week → streamer → shows) instead of this flat list — hide this one
+    // from their nav so there's only one "Payouts" entry, but keep the
+    // module-toggle/per-role checks HasModuleAccess already provides (this
+    // method would otherwise fully shadow the trait's, silently dropping
+    // that gating for everyone). Streamers still need this: it's their only
+    // nav path to their own payout history (row-scoped above), since the
+    // batch view is admin-only. Direct links here (e.g. PendingPayoutsWidget)
+    // keep working regardless — this only hides the sidebar entry, not the
+    // resource itself.
+    public static function shouldRegisterNavigation(): bool
+    {
+        if (! static::moduleShouldRegisterNavigation()) {
+            return false;
+        }
+
+        return ! (auth()->user()?->isAdmin() ?? false);
+    }
 
     public static function getNavigationIcon(): string|\BackedEnum|null
     {

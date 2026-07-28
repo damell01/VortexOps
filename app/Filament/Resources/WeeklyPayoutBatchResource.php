@@ -71,6 +71,16 @@ class WeeklyPayoutBatchResource extends Resource
         return 'Pay Runs';
     }
 
+    // The nav item itself reads "Payouts" — the individual entity stays "Pay
+    // Run" in breadcrumbs/page titles ("View Pay Run", "New Pay Run"), since
+    // that's what it actually is; the old flat Payouts resource is hidden
+    // from navigation (still reachable via direct links) so there's only
+    // one "Payouts" entry in the sidebar.
+    public static function getNavigationLabel(): string
+    {
+        return 'Payouts';
+    }
+
     protected static function passesModuleAccessCheck(): bool
     {
         return auth()->user()?->isAdmin() ?? false;

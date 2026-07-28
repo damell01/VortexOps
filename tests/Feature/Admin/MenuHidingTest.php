@@ -6,6 +6,7 @@ use App\Filament\Resources\LedgerResource;
 use App\Filament\Resources\PayoutResource;
 use App\Filament\Resources\ShowResource;
 use App\Filament\Resources\StreamerLogResource;
+use App\Filament\Resources\WeeklyPayoutBatchResource;
 use App\Models\Setting;
 use App\Models\User;
 use App\Support\AdminModules;
@@ -54,11 +55,39 @@ class MenuHidingTest extends TestCase
         $this->actingAs($this->admin());
 
         $this->setModules(['streams', 'inventory']); // payouts OFF
-        $this->assertFalse(PayoutResource::shouldRegisterNavigation(), 'Payouts should hide when its module is off');
+        // Admins use WeeklyPayoutBatchResource ("Payouts" in nav) now — see
+        // test_flat_payout_resource_is_always_hidden_from_admins below for
+        // why the old flat PayoutResource isn't the right example here anymore.
+        $this->assertFalse(WeeklyPayoutBatchResource::shouldRegisterNavigation(), 'Payouts should hide when its module is off');
         $this->assertTrue(ShowResource::shouldRegisterNavigation(), 'Shows stays visible (streams on)');
 
         $this->setModules(['streams', 'inventory', 'payouts']); // payouts ON
-        $this->assertTrue(PayoutResource::shouldRegisterNavigation());
+        $this->assertTrue(WeeklyPayoutBatchResource::shouldRegisterNavigation());
+    }
+
+    public function test_flat_payout_resource_is_always_hidden_from_admins(): void
+    {
+        $this->actingAs($this->admin());
+        $this->setModules(array_keys(AdminModules::definitions()));
+
+        // Admins now use WeeklyPayoutBatchResource's "Payouts" nav item
+        // instead — the old flat list stays hidden for them regardless of
+        // module state, so there's only one "Payouts" entry in the sidebar.
+        $this->assertFalse(PayoutResource::shouldRegisterNavigation());
+    }
+
+    public function test_flat_payout_resource_still_visible_to_streamers_when_module_enabled(): void
+    {
+        Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
+        $streamerUser = User::factory()->create(['email' => 'payout-streamer@test.com']);
+        $streamerUser->assignRole('streamer');
+        $this->actingAs($streamerUser);
+
+        $this->setModules(['streams', 'inventory']); // payouts OFF
+        $this->assertFalse(PayoutResource::shouldRegisterNavigation(), 'Still respects the module toggle');
+
+        $this->setModules(array_keys(AdminModules::definitions())); // payouts ON
+        $this->assertTrue(PayoutResource::shouldRegisterNavigation(), 'Streamers still see their own payouts — no equivalent under the batch view');
     }
 
     // ── NavVisibility: per-role fine-tuning within an enabled module ────────────
@@ -124,7 +153,9 @@ class MenuHidingTest extends TestCase
 
         $this->setModules(array_keys(AdminModules::definitions()));
 
-        $this->assertTrue(PayoutResource::shouldRegisterNavigation());
+        // Owner counts as admin (User::isAdmin() includes isOwner()) — same
+        // "always hidden for admins" rule as test_disabling_a_module_hides_its_resource_for_a_client.
+        $this->assertTrue(WeeklyPayoutBatchResource::shouldRegisterNavigation());
         $this->assertTrue(ShowResource::shouldRegisterNavigation());
         $this->assertTrue(LedgerResource::canAccess());
         $this->assertTrue(StreamerLogResource::canAccess());

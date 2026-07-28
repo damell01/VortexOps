@@ -432,61 +432,78 @@
             @vite('resources/js/barcode-scanner.js')
         @endif
         <script type="module">
-        (async function () {
-            if (!('BarcodeDetector' in window)) return;
-
-            const btn       = document.getElementById('camera-scan-btn');
-            const container = document.getElementById('camera-container');
-            const video     = document.getElementById('camera-video');
-            const stopBtn   = document.getElementById('camera-stop-btn');
-
-            if (!btn) return;
-            btn.classList.remove('hidden');
-
-            let stream    = null;
-            let detector  = null;
-            let scanning  = false;
-            let rafHandle = null;
-
-            btn.addEventListener('click', async () => {
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                    video.srcObject = stream;
-                    await video.play();
-                    container.classList.remove('hidden');
-                    btn.classList.add('hidden');
-                    detector = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code', 'data_matrix', 'itf'] });
-                    scanning = true;
-                    detectLoop();
-                } catch {
-                    alert('Camera access denied or unavailable.');
+        (function () {
+            // Filament runs this panel in SPA mode (wire:navigate), and this
+            // script lives inside the page's own Livewire-rendered content —
+            // navigating here from elsewhere in the app doesn't reliably
+            // re-run an inline <script> the way a hard page load does. Rerun
+            // setup on every SPA navigation, not just the first parse.
+            async function setup() {
+                // The polyfill script tag above is a separate module load;
+                // give it a brief window to finish rather than a one-shot
+                // check that permanently gives up if it hasn't landed yet.
+                for (let i = 0; i < 10 && !('BarcodeDetector' in window); i++) {
+                    await new Promise(r => setTimeout(r, 50));
                 }
-            });
+                if (!('BarcodeDetector' in window)) return;
 
-            stopBtn.addEventListener('click', stopCamera);
+                const btn       = document.getElementById('camera-scan-btn');
+                const container = document.getElementById('camera-container');
+                const video     = document.getElementById('camera-video');
+                const stopBtn   = document.getElementById('camera-stop-btn');
 
-            function stopCamera() {
-                scanning = false;
-                if (rafHandle) cancelAnimationFrame(rafHandle);
-                if (stream) stream.getTracks().forEach(t => t.stop());
-                video.srcObject = null;
-                container.classList.add('hidden');
+                if (!btn || btn.dataset.scannerBound === '1') return;
+                btn.dataset.scannerBound = '1';
                 btn.classList.remove('hidden');
+
+                let stream    = null;
+                let detector  = null;
+                let scanning  = false;
+                let rafHandle = null;
+
+                btn.addEventListener('click', async () => {
+                    try {
+                        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                        video.srcObject = stream;
+                        await video.play();
+                        container.classList.remove('hidden');
+                        btn.classList.add('hidden');
+                        detector = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code', 'data_matrix', 'itf'] });
+                        scanning = true;
+                        detectLoop();
+                    } catch {
+                        alert('Camera access denied or unavailable.');
+                    }
+                });
+
+                stopBtn.addEventListener('click', stopCamera);
+
+                function stopCamera() {
+                    scanning = false;
+                    if (rafHandle) cancelAnimationFrame(rafHandle);
+                    if (stream) stream.getTracks().forEach(t => t.stop());
+                    video.srcObject = null;
+                    container.classList.add('hidden');
+                    btn.classList.remove('hidden');
+                }
+
+                async function detectLoop() {
+                    if (!scanning) return;
+                    try {
+                        const barcodes = await detector.detect(video);
+                        if (barcodes.length > 0) {
+                            const code = barcodes[0].rawValue;
+                            stopCamera();
+                            @this.set('scanInput', code).then(() => @this.call('submitScan'));
+                            return;
+                        }
+                    } catch { /* continue */ }
+                    rafHandle = requestAnimationFrame(detectLoop);
+                }
             }
 
-            async function detectLoop() {
-                if (!scanning) return;
-                try {
-                    const barcodes = await detector.detect(video);
-                    if (barcodes.length > 0) {
-                        const code = barcodes[0].rawValue;
-                        stopCamera();
-                        @this.set('scanInput', code).then(() => @this.call('submitScan'));
-                        return;
-                    }
-                } catch { /* continue */ }
-                rafHandle = requestAnimationFrame(detectLoop);
-            }
+            setup();
+            document.addEventListener('livewire:navigated', setup);
         })();
         </script>
     @endif

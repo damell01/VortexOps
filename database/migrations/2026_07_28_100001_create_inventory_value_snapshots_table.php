@@ -19,7 +19,12 @@ return new class extends Migration
             $table->unsignedInteger('total_items')->default(0);
             $table->timestamps();
 
-            $table->unique(['snapshot_date', 'whatnot_channel_id']);
+            // Explicit short name — the auto-generated one
+            // ("inventory_value_snapshots_snapshot_date_whatnot_channel_id_unique",
+            // 68 chars) exceeds MySQL's 64-char identifier limit and fails the
+            // ALTER TABLE ADD UNIQUE statement Laravel issues for it separately
+            // from CREATE TABLE (the table itself still gets created either way).
+            $table->unique(['snapshot_date', 'whatnot_channel_id'], 'inv_value_snapshots_date_channel_unique');
             $table->index('snapshot_date');
         });
     }

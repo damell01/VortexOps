@@ -89,7 +89,7 @@ class PalletResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $count = Cache::remember('nav_badge:pallets_active', 60, fn () =>
-            Pallet::whereIn('status', ['pending', 'receiving'])->count()
+            Pallet::whereIn('status', ['pending', 'shipped', 'receiving'])->count()
         );
         return $count > 0 ? (string) $count : null;
     }
@@ -128,6 +128,15 @@ class PalletResource extends Resource
                         ->options(Pallet::statusLabels())
                         ->default('pending')
                         ->required(),
+                ]),
+                Grid::make(3)->schema([
+                    TextInput::make('carrier')
+                        ->maxLength(255),
+                    TextInput::make('tracking_number')
+                        ->maxLength(255)
+                        ->copyable(),
+                    DatePicker::make('expected_delivery_date')
+                        ->label('Expected Delivery'),
                 ]),
                 Textarea::make('notes')->rows(2)->columnSpanFull(),
             ]),
@@ -217,6 +226,18 @@ class PalletResource extends Resource
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn ($state) => StatusColor::for($state)),
+                TextColumn::make('tracking_number')
+                    ->label('Tracking')
+                    ->copyable()
+                    ->placeholder('—')
+                    ->description(fn (Pallet $record) => $record->carrier)
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('expected_delivery_date')
+                    ->label('Expected')
+                    ->date('M j, Y')
+                    ->placeholder('—')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('lines_count')
                     ->label('Lines')
                     ->sortable(),
@@ -242,18 +263,38 @@ class PalletResource extends Resource
                     ->options(fn () => Vendor::activeOptions()),
             ])
             ->actions([
+                Action::make('mark_shipped')
+                    ->label('Mark Shipped')
+                    ->icon('heroicon-o-truck')
+                    ->color('info')
+                    ->visible(fn (Pallet $record) => $record->status === 'pending')
+                    ->form([
+                        TextInput::make('carrier')->maxLength(255),
+                        TextInput::make('tracking_number')->maxLength(255),
+                        DatePicker::make('expected_delivery_date')->label('Expected Delivery'),
+                    ])
+                    ->action(function (Pallet $record, array $data): void {
+                        $record->update([
+                            'status'                  => 'shipped',
+                            'carrier'                 => $data['carrier'] ?? null,
+                            'tracking_number'         => $data['tracking_number'] ?? null,
+                            'expected_delivery_date'  => $data['expected_delivery_date'] ?? null,
+                            'shipped_at'              => now(),
+                        ]);
+                        Notification::make()->title('Marked as shipped')->success()->send();
+                    }),
                 Action::make('receive')
                     ->label('Receive')
                     ->icon('heroicon-o-inbox-arrow-down')
                     ->color('success')
                     ->url(fn (Pallet $record) => static::getUrl('receive', ['record' => $record]))
-                    ->visible(fn (Pallet $record) => in_array($record->status, ['pending', 'receiving'])),
+                    ->visible(fn (Pallet $record) => in_array($record->status, ['pending', 'shipped', 'receiving'])),
                 Action::make('import_manifest')
                     ->label('Import Manifest')
                     ->icon('heroicon-o-document-arrow-up')
                     ->color('info')
                     ->url(fn (Pallet $record) => static::getUrl('import-manifest', ['record' => $record]))
-                    ->visible(fn (Pallet $record) => in_array($record->status, ['pending', 'receiving'])),
+                    ->visible(fn (Pallet $record) => in_array($record->status, ['pending', 'shipped', 'receiving'])),
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
                 DeleteAction::make()

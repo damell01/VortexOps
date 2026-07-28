@@ -20,14 +20,20 @@ class Pallet extends Model
         'reference',
         'received_date',
         'status',
+        'carrier',
+        'tracking_number',
+        'expected_delivery_date',
+        'shipped_at',
         'total_cost',
         'notes',
         'created_by',
     ];
 
     protected $casts = [
-        'received_date' => 'date',
-        'total_cost'    => 'decimal:2',
+        'received_date'           => 'date',
+        'expected_delivery_date'  => 'date',
+        'shipped_at'              => 'datetime',
+        'total_cost'              => 'decimal:2',
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -79,6 +85,7 @@ class Pallet extends Model
     {
         return [
             'pending'    => 'Pending',
+            'shipped'    => 'Shipped',
             'receiving'  => 'Receiving',
             'received'   => 'Received',
             'processed'  => 'Processed',

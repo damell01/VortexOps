@@ -30,7 +30,7 @@ class ViewPallet extends ViewRecord
                 ->icon('heroicon-o-inbox-arrow-down')
                 ->color('success')
                 ->url(fn () => PalletResource::getUrl('receive', ['record' => $this->getRecord()]))
-                ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'receiving'])),
+                ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'shipped', 'receiving'])),
 
             Action::make('receive_all')
                 ->label('Bulk Receive All')
@@ -50,14 +50,14 @@ class ViewPallet extends ViewRecord
                         Notification::make()->title($e->getMessage())->danger()->send();
                     }
                 })
-                ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'receiving'])),
+                ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'shipped', 'receiving'])),
 
             Action::make('upload_manifest')
                 ->label('Upload Manifest')
                 ->icon('heroicon-o-document-arrow-up')
                 ->color('violet')
                 ->url(fn () => PalletResource::getUrl('import-manifest', ['record' => $this->getRecord()]))
-                ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'receiving'])),
+                ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'shipped', 'receiving'])),
 
             Action::make('map_line')
                 ->label('Map Line to Item')

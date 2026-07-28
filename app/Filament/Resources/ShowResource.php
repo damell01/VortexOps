@@ -949,6 +949,7 @@ class ShowResource extends Resource
             'view'      => Pages\ViewShow::route('/{record}'),
             'edit'      => Pages\EditShow::route('/{record}/edit'),
             'inventory' => Pages\ShowInventoryBreakdown::route('/{record}/inventory'),
+            'add-items' => Pages\AddShowItems::route('/{record}/add-items'),
         ];
     }
 }

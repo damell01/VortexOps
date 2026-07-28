@@ -84,6 +84,28 @@ class ViewShow extends ViewRecord
                 ->url(fn () => route('export.show-pl-pdf', ['show' => $this->record->id]))
                 ->openUrlInNewTab(),
 
+            // Kept as its own top-level button (not buried in the "More actions"
+            // dropdown below) since streamers — not just ops — need to reach this
+            // quickly during/after a show to log what went out, without needing
+            // to enter cost.
+            Action::make('add_items')
+                ->label('Add Items')
+                ->icon('heroicon-o-plus-circle')
+                ->color('primary')
+                ->visible(function (): bool {
+                    $user = auth()->user();
+                    if (in_array($this->record->status, ['cancelled', 'closed'])) {
+                        return false;
+                    }
+                    if ($user?->isAdmin()) {
+                        return true;
+                    }
+                    return ($user?->isStreamer() ?? false)
+                        && $user->streamer
+                        && $this->record->streamers->contains('id', $user->streamer->id);
+                })
+                ->url(fn () => ShowResource::getUrl('add-items', ['record' => $this->record])),
+
             // Secondary/contextual actions live in a "More actions" dropdown so the
             // header row never overflows (12 buttons inline was cutting off the last
             // ones and forcing horizontal scroll). Each action keeps its own

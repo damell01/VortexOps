@@ -1214,6 +1214,43 @@ function killAndWait(child, signal = 'SIGTERM', timeoutMs = 5000) {
   });
 }
 
+// If a prior Chromium against this profile got killed hard enough (SIGKILL
+// from an external timeout, OOM, etc.) that it never reached its own cleanup,
+// its SingletonLock survives and every subsequent launch fails immediately
+// with exit code 21 (RESULT_CODE_NORMAL_EXIT_PROCESS_NOTIFICATION_FAILED) —
+// this file's own killAndWait() prevents that going forward, but can't help
+// with locks left by whatever killed things before that existed. Chrome's
+// SingletonLock is a symlink to "<hostname>-<pid>"; only clear it if that pid
+// isn't actually alive, so a genuinely-running instance is never disturbed.
+function clearStaleSingletonLock(userDataDir) {
+  const fs = require('fs');
+  const path = require('path');
+  const lockPath = path.join(userDataDir, 'SingletonLock');
+  let target;
+  try {
+    target = fs.readlinkSync(lockPath);
+  } catch {
+    return;
+  }
+  const m = target.match(/-(\d+)$/);
+  const pid = m ? parseInt(m[1], 10) : null;
+  let alive = false;
+  if (pid) {
+    try {
+      process.kill(pid, 0);
+      alive = true;
+    } catch (e) {
+      alive = e.code === 'EPERM'; // exists but not ours to signal — still alive
+    }
+  }
+  if (!alive) {
+    info(`clearing stale SingletonLock (pid ${pid} not running): ${lockPath}`);
+    for (const f of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+      fs.rmSync(path.join(userDataDir, f), { force: true });
+    }
+  }
+}
+
 // ── Launch Chromium and attach via CDP-over-TCP ─────────────────────────────
 // launchPersistentContext() always spawns Chromium with --remote-debugging-pipe
 // for its control channel, which relies on inherited fd 3/4. In some restrictive
@@ -1229,6 +1266,8 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
   const {
     args = [], userAgent, viewport, locale, extraHTTPHeaders, env: extraEnv = {},
   } = opts;
+
+  clearStaleSingletonLock(userDataDir);
 
   const chromeArgs = [
     ...args,

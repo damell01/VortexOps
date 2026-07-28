@@ -1195,6 +1195,25 @@ function normalizeApiShow(s) {
   };
 }
 
+// Send a kill signal and wait for the OS process to actually exit — sending
+// the signal alone (child.kill()) returns immediately, which isn't enough
+// when a caller needs the profile's SingletonLock to be verifiably released
+// before proceeding (e.g. launching the next channel's Chromium against the
+// same persistent profile dir).
+function killAndWait(child, signal = 'SIGTERM', timeoutMs = 5000) {
+  if (child.killed || child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
+  return new Promise((resolve) => {
+    const forceTimer = setTimeout(() => {
+      child.kill('SIGKILL');
+    }, timeoutMs);
+    child.once('exit', () => {
+      clearTimeout(forceTimer);
+      resolve();
+    });
+    child.kill(signal);
+  });
+}
+
 // ── Launch Chromium and attach via CDP-over-TCP ─────────────────────────────
 // launchPersistentContext() always spawns Chromium with --remote-debugging-pipe
 // for its control channel, which relies on inherited fd 3/4. In some restrictive
@@ -1293,7 +1312,7 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
     }
   }
   if (!browser) {
-    child.kill('SIGKILL');
+    await killAndWait(child, 'SIGKILL');
     throw lastConnectError;
   }
 
@@ -1303,7 +1322,7 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
     context = browser.contexts()[0];
   }
   if (!context) {
-    child.kill('SIGKILL');
+    await killAndWait(child, 'SIGKILL');
     throw new Error('No browser context available after connectOverCDP');
   }
 
@@ -1316,12 +1335,22 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
   // Every existing context.close() call site in this file should also reap the
   // OS process we spawned — a CDP-connected context's close() only disconnects
   // the session, it doesn't own (and won't kill) the underlying browser.
+  //
+  // Waiting for the actual OS exit (not just sending the signal) matters: modes
+  // that import multiple channels/shows in one run launch a fresh Chromium
+  // against the SAME persistent profile dir once per channel, sequentially.
+  // If close() returned as soon as SIGTERM was sent, the next channel's launch
+  // could race the previous Chromium's shutdown and find its SingletonLock
+  // still held — Chromium then exits immediately with code 21
+  // (RESULT_CODE_NORMAL_EXIT_PROCESS_NOTIFICATION_FAILED, "another instance
+  // is already using this profile") instead of ever reaching the DevTools
+  // listener. Blocking here until the process is actually gone closes that race.
   const originalClose = context.close.bind(context);
   context.close = async (...closeArgs) => {
     try {
       await originalClose(...closeArgs);
     } finally {
-      if (!child.killed) child.kill('SIGTERM');
+      await killAndWait(child);
     }
   };
 

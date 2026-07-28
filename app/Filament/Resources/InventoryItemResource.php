@@ -495,7 +495,9 @@ class InventoryItemResource extends Resource
 
     public static function getRelations(): array
     {
-        return [];
+        return [
+            \App\Filament\Resources\InventoryItemResource\RelationManagers\BarcodesRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

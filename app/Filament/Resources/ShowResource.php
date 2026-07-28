@@ -651,6 +651,15 @@ class ShowResource extends Resource
                     ->badge()
                     ->separator(', '),
 
+                TextColumn::make('show_duration')
+                    ->label('Duration')
+                    ->formatStateUsing(fn (?int $state): string => $state
+                        ? sprintf('%dh %dm', intdiv($state, 60), $state % 60)
+                        : '—')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->summarize(Sum::make()->label('Total Hours')->formatStateUsing(fn ($state) => number_format(((float) $state) / 60, 1) . 'h')),
+
                 TextColumn::make('gross_revenue')
                     ->label('Gross Revenue')
                     ->money('USD')

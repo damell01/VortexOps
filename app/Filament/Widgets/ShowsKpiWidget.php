@@ -27,7 +27,7 @@ class ShowsKpiWidget extends BaseWidget
     {
         $cacheKey = 'widget:shows_kpi:' . (ChannelContext::currentId() ?? 'all');
 
-        [$weekShows, $weekRevenue, $pendingReview, $draftPayoutTotal, $dailyShows, $dailyRevenue, $priorWeekShows, $priorWeekRevenue] =
+        [$weekShows, $weekRevenue, $pendingReview, $draftPayoutTotal, $dailyShows, $dailyRevenue, $priorWeekShows, $priorWeekRevenue, $weekHours, $priorWeekHours] =
             Cache::remember($cacheKey, 120, function () {
                 $weekStart = now()->startOfWeek()->toDateString();
                 // Upper bounds include a time component: a show_date row dated
@@ -50,6 +50,13 @@ class ShowsKpiWidget extends BaseWidget
                     ->whereNotNull('whatnot_net')
                     ->inChannelContext()
                     ->sum('whatnot_net');
+                $weekHours = (float) Show::whereBetween('show_date', [$weekStart, $weekEnd])
+                    ->inChannelContext()
+                    ->sum('show_duration') / 60;
+                $priorWeekHours = (float) Show::whereBetween('show_date', [$priorWeekStart, $priorWeekEnd])
+                    ->inChannelContext()
+                    ->sum('show_duration') / 60;
+
                 $pendingReview = Show::where('status', 'pending_review')->inChannelContext()->count();
                 $draftPayoutTotal = AdminModules::isEnabled('payouts')
                     ? (float) Payout::where('status', 'draft')->inChannelContext()->sum('calculated_payout')
@@ -64,7 +71,7 @@ class ShowsKpiWidget extends BaseWidget
                     $dailyRevenue[] = (float) Show::where('show_date', $day)->whereNotNull('whatnot_net')->inChannelContext()->sum('whatnot_net');
                 }
 
-                return [$weekShows, $weekRevenue, $pendingReview, $draftPayoutTotal, $dailyShows, $dailyRevenue, $priorWeekShows, $priorWeekRevenue];
+                return [$weekShows, $weekRevenue, $pendingReview, $draftPayoutTotal, $dailyShows, $dailyRevenue, $priorWeekShows, $priorWeekRevenue, $weekHours, $priorWeekHours];
             });
 
         return [
@@ -74,6 +81,12 @@ class ShowsKpiWidget extends BaseWidget
                 ->chart($dailyShows)
                 ->icon('heroicon-o-video-camera')
                 ->color($this->trendColor($weekShows, $priorWeekShows, 'primary')),
+
+            Stat::make('Stream Hours This Week', number_format($weekHours, 1))
+                ->description('Across all shows' . $this->trendSuffix($weekHours, $priorWeekHours))
+                ->descriptionIcon($this->trendIcon($weekHours, $priorWeekHours))
+                ->icon('heroicon-o-clock')
+                ->color($this->trendColor($weekHours, $priorWeekHours, 'primary')),
 
             Stat::make('Revenue This Week', '$' . number_format($weekRevenue, 2))
                 ->description('Whatnot net proceeds' . $this->trendSuffix($weekRevenue, $priorWeekRevenue))

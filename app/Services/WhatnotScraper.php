@@ -717,7 +717,7 @@ class WhatnotScraper
         // Always default to /opt/pw-browsers (the shared install location) when the var
         // isn't set in the web-server environment.
         if (! isset($env['PLAYWRIGHT_BROWSERS_PATH'])) {
-            $pwPath = env('PLAYWRIGHT_BROWSERS_PATH');
+            $pwPath = config('vortex.whatnot.playwright_browsers_path');
             $env['PLAYWRIGHT_BROWSERS_PATH'] = $pwPath ?: '/opt/pw-browsers';
         }
 
@@ -725,7 +725,7 @@ class WhatnotScraper
         // skips the fs.existsSync check (which fails when the binary lives under /root/).
         // Precedence: explicit .env var > marker file written by artisan whatnot:setup-chromium
         if (! isset($env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'])) {
-            $explicit = env('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH');
+            $explicit = config('vortex.whatnot.playwright_chromium_executable');
             if ($explicit) {
                 $env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'] = $explicit;
             } else {

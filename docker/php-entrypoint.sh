@@ -57,6 +57,16 @@ if [ -f artisan ]; then
       delay=$((delay * 2))
     done
   fi
+
+  # Config/route/view/event caching cuts per-request overhead significantly
+  # for a Filament admin panel with this many resources — without it, every
+  # request (including every Livewire action round-trip) re-parses every
+  # config file and re-discovers Filament's whole component tree from disk.
+  # Safe to run on every container start: optimize:clear first in case the
+  # image carries stale cached files from a different deploy, then optimize
+  # regenerates the caches fresh against this container's actual runtime env.
+  php artisan optimize:clear
+  php artisan optimize
 fi
 
 exec "$@"

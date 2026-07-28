@@ -63,7 +63,7 @@ class WhatnotSetupChromium extends Command
     private function scanShared(): ?string
     {
         $sharedRoots = array_filter([
-            env('PLAYWRIGHT_BROWSERS_PATH'),
+            config('vortex.whatnot.playwright_browsers_path'),
             '/opt/pw-browsers',
             '/usr/local/lib/playwright',
             '/var/www/.cache/ms-playwright',

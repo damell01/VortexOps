@@ -45,6 +45,13 @@ class WhatnotScraperTest extends TestCase
         $process->allows('getErrorOutput')->andReturn($stderr);
         $process->allows('isSuccessful')->andReturn($exitCode === 0);
 
+        // Streaming path (used whenever an onProgress callback is passed) drives
+        // the process via start()/isRunning() instead of the blocking run().
+        $process->allows('start')->andReturnNull();
+        $process->allows('isRunning')->andReturn(false);
+        $process->allows('checkTimeout')->andReturnNull();
+        $process->allows('getIncrementalErrorOutput')->andReturn('');
+
         $scraper = Mockery::mock(WhatnotScraper::class)
             ->makePartial()
             ->shouldAllowMockingProtectedMethods();
@@ -404,6 +411,58 @@ class WhatnotScraperTest extends TestCase
         $counts = $scraper->importShows($this->channel);
 
         $this->assertEquals(['created' => 0, 'updated' => 0, 'skipped' => 0, 'ordersCreated' => 0], $counts);
+    }
+
+    // ── Live progress output ──────────────────────────────────────────────────
+
+    public function test_import_streams_a_created_line_for_a_new_show(): void
+    {
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow()]));
+
+        $lines = [];
+        $scraper->importShows($this->channel, onProgress: function (string $line) use (&$lines) {
+            $lines[] = $line;
+        });
+
+        $this->assertTrue(collect($lines)->contains(fn ($l) => str_starts_with($l, 'Fetched 1 show(s)')));
+        $this->assertTrue(collect($lines)->contains(fn ($l) => str_contains($l, 'Created: "Test Break Show"')));
+        $this->assertTrue(collect($lines)->contains(fn ($l) => str_starts_with($l, 'Shows done: 1 created, 0 updated, 0 skipped')));
+    }
+
+    public function test_import_streams_an_updated_line_for_an_existing_show(): void
+    {
+        Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'              => 'Test Break Show',
+            'show_date'          => '2026-06-15',
+            'gross_revenue'      => 1000.00,
+            'import_source'      => 'auto_whatnot',
+            'status'             => 'draft',
+            'created_by'         => 1,
+        ]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow(['gross_revenue' => 1500.00])]));
+
+        $lines = [];
+        $scraper->importShows($this->channel, onProgress: function (string $line) use (&$lines) {
+            $lines[] = $line;
+        });
+
+        $this->assertTrue(collect($lines)->contains(fn ($l) => str_contains($l, 'Updated: "Test Break Show"')));
+    }
+
+    public function test_import_streams_a_matched_streamer_note_on_create(): void
+    {
+        Streamer::create(['name' => 'Josh', 'status' => 'active', 'include_tips' => false]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow(['title' => 'Josh Break Night'])]));
+
+        $lines = [];
+        $scraper->importShows($this->channel, onProgress: function (string $line) use (&$lines) {
+            $lines[] = $line;
+        });
+
+        $this->assertTrue(collect($lines)->contains(fn ($l) => str_contains($l, 'matched streamer: Josh')));
     }
 
     // ── Ingestion log ─────────────────────────────────────────────────────────

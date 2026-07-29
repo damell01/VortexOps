@@ -860,6 +860,10 @@ class WhatnotScraper
         $updated = 0;
         $skipped = 0;
 
+        if ($onProgress) {
+            $onProgress(sprintf('Fetched %d show(s) from Whatnot — importing…', count($rows)));
+        }
+
         // Collect (Show, livestream id) pairs so we can batch-scrape their orders
         // in a single session after all shows are persisted.
         $orderTargets = [];
@@ -873,6 +877,9 @@ class WhatnotScraper
                     'error_message' => 'Scraped row had no title or show_date — could not identify the show.',
                     'raw_payload'   => $row,
                 ]);
+                if ($onProgress) {
+                    $onProgress('Skipped: row had no title or show date');
+                }
                 continue;
             }
 
@@ -973,8 +980,14 @@ class WhatnotScraper
                         'status'      => 'success',
                         'raw_payload' => $row,
                     ]);
+                    if ($onProgress) {
+                        $onProgress("Updated: \"{$existing->title}\" ({$lookupDate}) — " . implode(', ', array_keys($updateFields)));
+                    }
                 } else {
                     $skipped++;
+                    if ($onProgress) {
+                        $onProgress("Unchanged: \"{$existing->title}\" ({$lookupDate}) — already up to date");
+                    }
                 }
                 $showModel = $existing;
 
@@ -994,6 +1007,9 @@ class WhatnotScraper
                         'error_message' => 'Scraped row had a title but no show_date (required) — show was not created.',
                         'raw_payload'   => $row,
                     ]);
+                    if ($onProgress) {
+                        $onProgress("Skipped: \"{$lookupTitle}\" has no show_date — cannot create");
+                    }
                     continue;
                 }
                 $show = Show::create(array_merge($payload, ['status' => 'draft', 'created_by' => auth()->id() ?? 1]));
@@ -1006,6 +1022,13 @@ class WhatnotScraper
                     'status'      => 'success',
                     'raw_payload' => $row,
                 ]);
+                if ($onProgress) {
+                    $show->load('streamers');
+                    $streamerNote = $show->streamers->isNotEmpty()
+                        ? ' → matched streamer: ' . $show->streamers->pluck('name')->join(', ')
+                        : '';
+                    $onProgress("Created: \"{$show->title}\" ({$lookupDate}){$streamerNote}");
+                }
             }
 
             // Auto-create the streamer's log entry for this show so they land
@@ -1019,9 +1042,19 @@ class WhatnotScraper
             }
         }
 
+        if ($onProgress) {
+            $onProgress("Shows done: {$created} created, {$updated} updated, {$skipped} skipped.");
+        }
+
         $ordersCreated = 0;
         if ($withOrders && ! empty($orderTargets)) {
-            $ordersCreated = $this->importOrdersForTargets($orderTargets, $channel?->whatnot_username, $debug);
+            if ($onProgress) {
+                $onProgress(sprintf('Scraping orders for %d show(s)…', count($orderTargets)));
+            }
+            $ordersCreated = $this->importOrdersForTargets($orderTargets, $channel?->whatnot_username, $debug, $onProgress);
+            if ($onProgress) {
+                $onProgress("Orders done: {$ordersCreated} order(s) created.");
+            }
         }
 
         Log::info('WhatnotScraper import complete', [
@@ -1076,7 +1109,7 @@ class WhatnotScraper
      * @param  array<int,array{show: Show, live_id: string}>  $targets
      * @return int  total orders created across all shows
      */
-    private function importOrdersForTargets(array $targets, ?string $channelUsername, bool $debug): int
+    private function importOrdersForTargets(array $targets, ?string $channelUsername, bool $debug, ?callable $onProgress = null): int
     {
         $sources = [];
         $byKey   = [];
@@ -1087,7 +1120,7 @@ class WhatnotScraper
         }
 
         try {
-            $ordersByShow = $this->fetchOrdersForShows($sources, $channelUsername, $debug);
+            $ordersByShow = $this->fetchOrdersForShows($sources, $channelUsername, $debug, $onProgress);
         } catch (\Throwable $e) {
             // Order scraping is best-effort — never fail the whole show import over it.
             Log::error('WhatnotScraper: batched order scrape failed — ' . $e->getMessage());
@@ -1113,11 +1146,18 @@ class WhatnotScraper
                     'scraped'  => count($rows),
                     'expected' => $expected,
                 ]);
+                if ($onProgress) {
+                    $onProgress("Orders skipped for \"{$show->title}\" — scraped count far exceeds expected, likely unfiltered");
+                }
                 continue;
             }
 
             $res = $this->persistShowOrders($show, $rows);
             $ordersCreated += $res['created'];
+
+            if ($onProgress) {
+                $onProgress("Orders for \"{$show->title}\": {$res['created']} created, {$res['skipped']} skipped" . (($res['updated'] ?? 0) > 0 ? ", {$res['updated']} updated" : ''));
+            }
         }
 
         return $ordersCreated;

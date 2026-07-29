@@ -40,7 +40,7 @@
                         </p>
                         @if ($isIn && $entry)
                             <p class="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
-                                Since {{ $entry->clocked_in_at->format('g:i A') }}
+                                Since {{ $this->formatTimeInUserTz($entry->clocked_in_at) }}
                                 @if ($stats['in_progress'] > 0)
                                     &mdash; {{ \App\Models\TimeEntry::formatMinutes($stats['in_progress']) }} elapsed
                                 @endif
@@ -244,11 +244,11 @@
                                         {{ $e->clocked_in_at->format('M j, Y') }}
                                     </td>
                                     <td class="px-6 py-3 tabular-nums text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                                        {{ $e->clocked_in_at->format('g:i A') }}
+                                        {{ $this->formatTimeInUserTz($e->clocked_in_at) }}
                                     </td>
                                     <td class="px-6 py-3 tabular-nums whitespace-nowrap">
                                         @if ($e->clocked_out_at)
-                                            <span class="text-gray-600 dark:text-gray-300">{{ $e->clocked_out_at->format('g:i A') }}</span>
+                                            <span class="text-gray-600 dark:text-gray-300">{{ $this->formatTimeInUserTz($e->clocked_out_at) }}</span>
                                         @else
                                             <span class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
                                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>

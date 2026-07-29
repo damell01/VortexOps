@@ -294,16 +294,19 @@ class Timekeeping extends Page
 
         $entries = $query->get();
 
-        return response()->streamDownload(function () use ($entries) {
+        $userTz = $this->userTimezone();
+        return response()->streamDownload(function () use ($entries, $userTz) {
             $out = fopen('php://output', 'w');
             fputcsv($out, ['User', 'Date', 'Clocked In', 'Clocked Out', 'Duration (minutes)', 'Hours', 'Notes']);
             foreach ($entries as $entry) {
                 $minutes = (int) $entry->clocked_in_at->diffInMinutes($entry->clocked_out_at);
+                $inTz = $entry->clocked_in_at->setTimezone($userTz);
+                $outTz = $entry->clocked_out_at->setTimezone($userTz);
                 fputcsv($out, [
                     $entry->user?->name ?? 'Unknown',
-                    $entry->clocked_in_at->format('Y-m-d'),
-                    $entry->clocked_in_at->format('Y-m-d H:i:s'),
-                    $entry->clocked_out_at->format('Y-m-d H:i:s'),
+                    $inTz->format('Y-m-d'),
+                    $inTz->format('Y-m-d H:i:s'),
+                    $outTz->format('Y-m-d H:i:s'),
                     $minutes,
                     round($minutes / 60, 2),
                     $entry->notes ?? '',
@@ -311,5 +314,15 @@ class Timekeeping extends Page
             }
             fclose($out);
         }, 'time-entries-' . now()->format('Y-m-d') . '.csv', ['Content-Type' => 'text/csv']);
+    }
+
+    public function userTimezone(): string
+    {
+        return auth()->user()?->timezone ?? 'UTC';
+    }
+
+    public function formatTimeInUserTz(Carbon $time): string
+    {
+        return $time->setTimezone($this->userTimezone())->format('g:i A');
     }
 }

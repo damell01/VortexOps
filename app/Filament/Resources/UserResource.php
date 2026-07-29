@@ -9,6 +9,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use DateTimeZone;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -71,6 +72,12 @@ class UserResource extends Resource
         return parent::getEloquentQuery()->with(['roles', 'streamer']);
     }
 
+    private static function getTimezoneOptions(): array
+    {
+        $timezones = DateTimeZone::listIdentifiers();
+        return array_combine($timezones, $timezones);
+    }
+
     public static function canAccess(): bool
     {
         $user = auth()->user();
@@ -122,6 +129,12 @@ class UserResource extends Resource
                     ->required()
                     ->unique(ignoreRecord: true)
                     ->maxLength(255),
+
+                Select::make('timezone')
+                    ->label('Timezone')
+                    ->options(static::getTimezoneOptions())
+                    ->default('UTC')
+                    ->searchable(),
 
                 TextInput::make('password')
                     ->password()

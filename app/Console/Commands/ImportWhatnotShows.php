@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\WhatnotChannel;
 use App\Services\WhatnotScraper;
 use Illuminate\Console\Command;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 
 class ImportWhatnotShows extends Command
 {
@@ -212,7 +213,7 @@ class ImportWhatnotShows extends Command
                     limit: $limit,
                     debug: $debug,
                     withOrders: $withOrders,
-                    onProgress: fn (string $line) => $this->line("  <fg=gray>{$line}</>"),
+                    onProgress: fn (string $line) => $this->line("  <fg=gray>" . OutputFormatter::escape($line) . "</>"),
                 );
             } catch (\RuntimeException $e) {
                 $this->error($e->getMessage());
@@ -249,7 +250,7 @@ class ImportWhatnotShows extends Command
                         limit: $limit,
                         debug: $debug,
                         withOrders: $withOrders,
-                        onProgress: fn (string $line) => $this->line("    <fg=gray>{$line}</>"),
+                        onProgress: fn (string $line) => $this->line("    <fg=gray>" . OutputFormatter::escape($line) . "</>"),
                     );
                     $orders = $result['ordersCreated'] ?? 0;
                     $totals['created'] += $result['created'];

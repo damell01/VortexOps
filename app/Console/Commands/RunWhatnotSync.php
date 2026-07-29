@@ -6,6 +6,7 @@ use App\Jobs\RunWhatnotSyncJob;
 use App\Models\WhatnotChannel;
 use App\Services\WhatnotSyncEngine;
 use Illuminate\Console\Command;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 
 class RunWhatnotSync extends Command
 {
@@ -44,7 +45,7 @@ class RunWhatnotSync extends Command
             return self::SUCCESS;
         }
 
-        $onProgress = fn (string $line) => $this->line("      <fg=gray>{$line}</>");
+        $onProgress = fn (string $line) => $this->line("      <fg=gray>" . OutputFormatter::escape($line) . "</>");
 
         if ($channel) {
             $this->info("Running {$type} sync for channel: {$channel->name} (@{$channel->whatnot_username})…");

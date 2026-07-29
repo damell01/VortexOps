@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Show;
 use App\Services\WhatnotScraper;
 use Illuminate\Console\Command;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 
 class ImportWhatnotOrders extends Command
 {
@@ -48,13 +49,13 @@ class ImportWhatnotOrders extends Command
         $totalSkipped = 0;
 
         foreach ($shows as $show) {
-            $this->line("Importing orders for: {$show->title} ({$show->show_date?->format('Y-m-d')})");
+            $this->line("Importing orders for: " . OutputFormatter::escape((string) $show->title) . " ({$show->show_date?->format('Y-m-d')})");
 
             try {
                 $result = $scraper->importShowOrders(
                     $show,
                     $debug,
-                    onProgress: fn (string $line) => $this->line("  <fg=gray>{$line}</>"),
+                    onProgress: fn (string $line) => $this->line("  <fg=gray>" . OutputFormatter::escape($line) . "</>"),
                 );
                 $this->info("  ✓ {$result['created']} created, {$result['skipped']} skipped");
                 $totalCreated += $result['created'];

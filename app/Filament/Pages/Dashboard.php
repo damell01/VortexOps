@@ -10,6 +10,7 @@ use App\Filament\Widgets\ShowsKpiWidget;
 use App\Filament\Widgets\StreamerOverviewWidget;
 use App\Filament\Widgets\StreamerShowsToReviewWidget;
 use App\Models\Setting;
+use App\Support\ChannelContext;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 class Dashboard extends BaseDashboard
@@ -77,6 +78,9 @@ class Dashboard extends BaseDashboard
             return 'Use the navigation on the left to explore the enabled modules below.';
         }
 
-        return 'Overview of Vortex Breaks operations · ' . now()->format('l, F j, Y');
+        $channel     = ChannelContext::current();
+        $channelName = $channel?->display_title ?: $channel?->name;
+
+        return 'Overview of ' . ($channelName ?: 'Vortex Breaks') . ' operations · ' . now()->format('l, F j, Y');
     }
 }

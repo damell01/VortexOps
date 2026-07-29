@@ -17,12 +17,11 @@ class HowItWorks extends Page
     protected static ?string $title = 'How It Works';
     protected static ?string $navigationLabel = 'How It Works';
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-academic-cap';
-    protected static ?int $navigationSort = 1;
 
-    public static function getNavigationGroup(): string|\UnitEnum|null
-    {
-        return 'Settings';
-    }
+    // Ungrouped (no getNavigationGroup() override) and sorted ahead of the
+    // Dashboard (which sorts at -2) so it's the very first item in the sidebar
+    // — not tucked under Settings where a new teammate would never find it.
+    protected static ?int $navigationSort = -3;
 
     public static function canAccess(): bool
     {

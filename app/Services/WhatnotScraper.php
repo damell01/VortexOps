@@ -84,13 +84,18 @@ class WhatnotScraper
         $timeoutSeconds = max(1200, (int) ceil($limit / 50) * 1200);
         $process = $this->makeProcess($env, timeout: $timeoutSeconds);
 
+        // Wait-for-lock needs to scale the same way the process timeout above
+        // does — a --type=full run queued behind another long-running full
+        // sync could legitimately need to wait more than the 1200s default,
+        // and failing that wait isn't meaningfully different from the run
+        // itself timing out.
         $this->withBrowserLock(function () use ($process, $onProgress) {
             if ($onProgress) {
                 $this->streamProcess($process, $onProgress);
             } else {
                 $process->run();
             }
-        });
+        }, waitSeconds: $timeoutSeconds);
 
         $stderr = trim($process->getErrorOutput());
         $stdout = trim($process->getOutput());
@@ -809,15 +814,25 @@ class WhatnotScraper
             $lock->block($waitSeconds);
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
             throw new \RuntimeException(
-                'Timed out waiting for the shared Whatnot browser lock — another import/orders/ledger task is still running.',
+                'Timed out waiting for the shared Whatnot browser lock — another import/orders/ledger task is still ' .
+                'running, OR a previous run was killed (pkill -9, Ctrl+C, OOM) before it could release the lock ' .
+                'cleanly, leaving it stuck for up to its TTL. Check `ps aux | grep whatnot-scraper` first — if ' .
+                'nothing real is running, clear it with `php artisan whatnot:unlock`.',
                 0,
                 $e
             );
         }
 
+        // A process killed with SIGKILL never reaches the finally block below,
+        // so the lock would otherwise sit "held" for its full TTL even though
+        // nothing is actually running. Track the holder's PID so whatnot:unlock
+        // can tell a genuinely stuck lock apart from a still-running one.
+        Cache::put('whatnot:browser:holder_pid', getmypid(), 13800);
+
         try {
             return $fn();
         } finally {
+            Cache::forget('whatnot:browser:holder_pid');
             $lock->release();
         }
     }

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Show;
+use App\Models\ShowIngestionLog;
 use App\Models\StreamerLogEntry;
 use App\Models\WhatnotChannel;
 use App\Models\WhatnotLedgerEntry;
@@ -843,7 +844,17 @@ class WhatnotScraper
      */
     public function importShows(?WhatnotChannel $channel = null, int $limit = 50, bool $debug = false, bool $withOrders = true, ?callable $onProgress = null): array
     {
-        $rows = $this->fetchShows($limit, $debug, $channel?->whatnot_username, $onProgress);
+        try {
+            $rows = $this->fetchShows($limit, $debug, $channel?->whatnot_username, $onProgress);
+        } catch (\Throwable $e) {
+            ShowIngestionLog::create([
+                'source'        => 'whatnot',
+                'status'        => 'failed',
+                'error_message' => $e->getMessage(),
+                'raw_payload'   => ['channel' => $channel?->name, 'limit' => $limit],
+            ]);
+            throw $e;
+        }
 
         $created = 0;
         $updated = 0;
@@ -856,6 +867,12 @@ class WhatnotScraper
         foreach ($rows as $row) {
             if (empty($row['title']) && empty($row['show_date'])) {
                 $skipped++;
+                ShowIngestionLog::create([
+                    'source'        => 'whatnot',
+                    'status'        => 'failed',
+                    'error_message' => 'Scraped row had no title or show_date — could not identify the show.',
+                    'raw_payload'   => $row,
+                ]);
                 continue;
             }
 
@@ -950,6 +967,12 @@ class WhatnotScraper
                 if (! empty($updateFields)) {
                     $existing->update($updateFields);
                     $updated++;
+                    ShowIngestionLog::create([
+                        'show_id'     => $existing->id,
+                        'source'      => 'whatnot',
+                        'status'      => 'success',
+                        'raw_payload' => $row,
+                    ]);
                 } else {
                     $skipped++;
                 }
@@ -965,12 +988,24 @@ class WhatnotScraper
                 // show_date is NOT NULL with no default — skip creation rather than crash
                 if (! $lookupDate) {
                     $skipped++;
+                    ShowIngestionLog::create([
+                        'source'        => 'whatnot',
+                        'status'        => 'failed',
+                        'error_message' => 'Scraped row had a title but no show_date (required) — show was not created.',
+                        'raw_payload'   => $row,
+                    ]);
                     continue;
                 }
                 $show = Show::create(array_merge($payload, ['status' => 'draft', 'created_by' => auth()->id() ?? 1]));
                 $show->detectStreamers();
                 $created++;
                 $showModel = $show;
+                ShowIngestionLog::create([
+                    'show_id'     => $show->id,
+                    'source'      => 'whatnot',
+                    'status'      => 'success',
+                    'raw_payload' => $row,
+                ]);
             }
 
             // Auto-create the streamer's log entry for this show so they land

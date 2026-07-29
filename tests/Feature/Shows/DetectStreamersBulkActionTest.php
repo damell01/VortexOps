@@ -70,4 +70,42 @@ class DetectStreamersBulkActionTest extends TestCase
         $this->assertCount(1, $alreadyMapped->fresh()->streamers);
         $this->assertEquals('Diamo', $alreadyMapped->fresh()->streamers->first()->name);
     }
+
+    public function test_header_action_detects_streamers_across_all_unmapped_shows_without_selection(): void
+    {
+        Streamer::create(['name' => 'Josh', 'status' => 'active', 'include_tips' => false]);
+        $otherStreamer = Streamer::create(['name' => 'Diamo', 'status' => 'active', 'include_tips' => false]);
+
+        $unmapped      = $this->show('Josh Break Night');
+        $noMatch       = $this->show('Completely Unrelated Title');
+        $alreadyMapped = $this->show('Josh Break Night');
+        $alreadyMapped->streamers()->attach($otherStreamer->id, ['is_primary' => true]);
+
+        Livewire::actingAs($this->adminUser);
+
+        Livewire::test(ListShows::class)
+            ->callAction('detect_streamers_all');
+
+        $this->assertCount(1, $unmapped->fresh()->streamers);
+        $this->assertEquals('Josh', $unmapped->fresh()->streamers->first()->name);
+
+        $this->assertCount(0, $noMatch->fresh()->streamers);
+
+        // Already-mapped show is untouched — the header action only targets
+        // shows with zero streamers attached.
+        $this->assertCount(1, $alreadyMapped->fresh()->streamers);
+        $this->assertEquals('Diamo', $alreadyMapped->fresh()->streamers->first()->name);
+    }
+
+    public function test_header_action_is_not_visible_to_non_admins(): void
+    {
+        $streamerRole = Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
+        $nonAdmin = User::factory()->create(['email' => 'streamer-user@test.com']);
+        $nonAdmin->assignRole($streamerRole);
+
+        Livewire::actingAs($nonAdmin);
+
+        Livewire::test(ListShows::class)
+            ->assertActionHidden('detect_streamers_all');
+    }
 }

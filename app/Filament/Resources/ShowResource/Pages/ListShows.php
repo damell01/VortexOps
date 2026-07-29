@@ -130,6 +130,33 @@ class ListShows extends ListRecords
                     }
                 }),
 
+            Action::make('detect_streamers_all')
+                ->label('Detect Streamers')
+                ->icon('heroicon-o-user-circle')
+                ->color('gray')
+                ->visible(fn () => auth()->user()?->isAdmin())
+                ->requiresConfirmation()
+                ->modalHeading('Detect Streamers')
+                ->modalDescription('Matches every show with no streamer attached against the active streamer roster and attaches any high-confidence match. This also runs automatically on every Whatnot import — use this button to catch any that were missed (e.g. a streamer added to the roster after their show was already imported).')
+                ->modalSubmitActionLabel('Run Detection')
+                ->action(function () {
+                    $shows = Show::whereDoesntHave('streamers')->get();
+                    $matched = 0;
+
+                    foreach ($shows as $show) {
+                        $suggestions = $show->detectStreamers();
+                        if (collect($suggestions)->contains('confidence', 'high')) {
+                            $matched++;
+                        }
+                    }
+
+                    Notification::make()
+                        ->title('Streamer detection complete')
+                        ->body("{$matched} of {$shows->count()} unmapped show(s) matched.")
+                        ->success()
+                        ->send();
+                }),
+
             Action::make('export_excel')
                 ->label('Export Excel')
                 ->icon('heroicon-o-arrow-down-tray')

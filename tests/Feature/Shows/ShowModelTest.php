@@ -379,4 +379,58 @@ class ShowModelTest extends TestCase
             $this->assertSame('skipped', $this->stepStatus($steps, $key), "Expected step '{$key}' to be skipped");
         }
     }
+
+    // ── detectStreamers() ────────────────────────────────────────────────────
+
+    private function makeStreamer(string $name): Streamer
+    {
+        return Streamer::create(['name' => $name, 'status' => 'active', 'include_tips' => false]);
+    }
+
+    public function test_short_name_does_not_false_positive_inside_a_longer_similar_name(): void
+    {
+        $this->makeStreamer('Ty');
+        $tyler = $this->makeStreamer('Tyler');
+
+        $show = $this->makeShow(['title' => 'Tyler Break Night']);
+        $suggestions = $show->detectStreamers();
+
+        $names = collect($suggestions)->pluck('streamer_name')->all();
+        $this->assertEquals(['Tyler'], $names, '"Ty" should not match as a substring of "Tyler"');
+
+        $show->refresh();
+        $this->assertCount(1, $show->streamers);
+        $this->assertEquals($tyler->id, $show->streamers->first()->id);
+    }
+
+    public function test_short_name_still_matches_when_it_genuinely_stands_alone(): void
+    {
+        $ty = $this->makeStreamer('Ty');
+        $this->makeStreamer('Tyler');
+
+        $show = $this->makeShow(['title' => 'Ty & Luna Break Night']);
+        $suggestions = $show->detectStreamers();
+
+        $names = collect($suggestions)->pluck('streamer_name')->all();
+        $this->assertEquals(['Ty'], $names);
+
+        $show->refresh();
+        $this->assertCount(1, $show->streamers);
+        $this->assertEquals($ty->id, $show->streamers->first()->id);
+    }
+
+    public function test_detects_multiple_genuinely_distinct_streamers_in_one_title(): void
+    {
+        $josh   = $this->makeStreamer('Josh');
+        $daniel = $this->makeStreamer('Daniel');
+
+        $show = $this->makeShow(['title' => 'Josh and Daniel Break Night']);
+        $suggestions = $show->detectStreamers();
+
+        $names = collect($suggestions)->pluck('streamer_name')->sort()->values()->all();
+        $this->assertEquals(['Daniel', 'Josh'], $names);
+
+        $show->refresh();
+        $this->assertCount(2, $show->streamers);
+    }
 }

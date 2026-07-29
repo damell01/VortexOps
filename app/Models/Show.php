@@ -304,10 +304,19 @@ class Show extends Model
 
         $suggestions = [];
 
+        // Word-boundary match, not a bare substring check — "Ty" is a plain
+        // str_contains() hit inside "Tyler" (its first two letters), which
+        // was wrongly attaching both "Ty" and "Tyler" to any show titled
+        // with "Tyler" in it. \b requires Ty to stand alone (surrounded by
+        // non-word characters or the string edges), so "Tyler" no longer
+        // matches "Ty" while "Ty & Luna" or "Ty's show" still do.
+        $matchesWholeWord = fn (string $needle, string $haystack): bool =>
+            $needle !== '' && preg_match('/\b' . preg_quote($needle, '/') . '\b/u', $haystack) === 1;
+
         foreach (Streamer::where('status', 'active')->get(['id', 'name']) as $streamer) {
             $lowerName = strtolower($streamer->name);
 
-            if (str_contains($title, $lowerName)) {
+            if ($matchesWholeWord($lowerName, $title)) {
                 $suggestions[] = [
                     'streamer_id'   => $streamer->id,
                     'streamer_name' => $streamer->name,
@@ -319,7 +328,7 @@ class Show extends Model
 
             // Check each word of the name (4+ chars to skip short words like "The", "a")
             foreach (explode(' ', $lowerName) as $part) {
-                if (strlen($part) >= 4 && str_contains($title, $part)) {
+                if (strlen($part) >= 4 && $matchesWholeWord($part, $title)) {
                     $suggestions[] = [
                         'streamer_id'   => $streamer->id,
                         'streamer_name' => $streamer->name,

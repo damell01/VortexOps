@@ -41,6 +41,26 @@ class InventoryLocationResource extends Resource
 
     protected static ?string $navigationParentItem = 'Inventory Items';
 
+    // View-only for streamers — the row scoping below already limited them to
+    // their own + shared locations, but the access gate never actually let
+    // them in to see it.
+    protected static function passesModuleAccessCheck(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->isAdmin() || $user?->isOwner() || $user?->isStreamer()) ?? false;
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     // Streamers see only their own locations + shared locations (no streamer assigned)
     public static function getEloquentQuery(): Builder
     {

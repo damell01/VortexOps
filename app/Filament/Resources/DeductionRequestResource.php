@@ -91,10 +91,17 @@ class DeductionRequestResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->with(['show', 'streamer'])
             ->withSum('lines', 'line_total')
             ->inChannelContext();
+
+        $user = auth()->user();
+        if ($user && $user->isStreamer() && ! $user->isAdmin()) {
+            $query->where('streamer_id', $user->streamer?->id ?? 0);
+        }
+
+        return $query;
     }
 
     public static function getGloballySearchableAttributes(): array

@@ -2,8 +2,12 @@
 
 namespace Tests\Feature\Streamers;
 
+use App\Filament\Resources\DeductionRequestResource;
+use App\Filament\Resources\InventoryLocationResource;
 use App\Filament\Resources\PayoutResource;
 use App\Filament\Resources\ShowResource;
+use App\Models\DeductionRequest;
+use App\Models\InventoryLocation;
 use App\Models\Payout;
 use App\Models\Setting;
 use App\Models\Show;
@@ -88,5 +92,53 @@ class StreamerRowScopingTest extends TestCase
         $payouts = PayoutResource::getEloquentQuery()->get();
         $this->assertCount(1, $payouts, 'streamer should only see their own payout in PayoutResource');
         $this->assertEquals($myStreamer->id, $payouts->first()->streamer_id);
+    }
+
+    public function test_streamer_only_sees_their_own_deduction_requests(): void
+    {
+        $channel = WhatnotChannel::create(['name' => 'Breaks', 'status' => 'active']);
+        $show    = Show::create([
+            'whatnot_channel_id' => $channel->id,
+            'title'              => 'Some Show',
+            'show_date'          => now()->toDateString(),
+            'status'             => 'reconciled',
+        ]);
+
+        $me = User::factory()->create();
+        $me->assignRole('streamer');
+        $myStreamer    = Streamer::create(['name' => 'Me', 'status' => 'active', 'include_tips' => false, 'user_id' => $me->id]);
+        $otherStreamer = Streamer::create(['name' => 'Other', 'status' => 'active', 'include_tips' => false]);
+
+        DeductionRequest::create(['show_id' => $show->id, 'streamer_id' => $myStreamer->id, 'status' => 'draft']);
+        DeductionRequest::create(['show_id' => $show->id, 'streamer_id' => $otherStreamer->id, 'status' => 'draft']);
+
+        $this->actingAs($me);
+
+        $requests = DeductionRequestResource::getEloquentQuery()->get();
+        $this->assertCount(1, $requests, 'streamer should only see their own deduction requests');
+        $this->assertEquals($myStreamer->id, $requests->first()->streamer_id);
+    }
+
+    public function test_streamer_can_access_and_only_sees_their_own_or_shared_inventory_locations(): void
+    {
+        $me = User::factory()->create();
+        $me->assignRole('streamer');
+        $myStreamer    = Streamer::create(['name' => 'Me', 'status' => 'active', 'include_tips' => false, 'user_id' => $me->id]);
+        $otherStreamer = Streamer::create(['name' => 'Other', 'status' => 'active', 'include_tips' => false]);
+
+        $myLocation     = InventoryLocation::create(['name' => 'My Bin', 'streamer_id' => $myStreamer->id]);
+        $sharedLocation = InventoryLocation::create(['name' => 'Warehouse']);
+        $otherLocation  = InventoryLocation::create(['name' => 'Other Bin', 'streamer_id' => $otherStreamer->id]);
+
+        $this->actingAs($me);
+
+        $this->assertTrue(InventoryLocationResource::canAccess(), 'streamer should be able to reach Inventory Locations');
+        $this->assertFalse(InventoryLocationResource::canCreate(), 'streamer should not be able to create locations');
+        $this->assertFalse(InventoryLocationResource::canEdit($myLocation), 'streamer should not be able to edit locations');
+
+        $locations = InventoryLocationResource::getEloquentQuery()->get();
+        $names     = $locations->pluck('name')->sort()->values()->all();
+
+        $this->assertEqualsCanonicalizing(['My Bin', 'Warehouse'], $names, 'streamer sees their own + shared locations, not another streamer\'s');
     }
 }

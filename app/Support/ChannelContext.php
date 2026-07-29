@@ -16,6 +16,18 @@ class ChannelContext
 {
     private const SESSION_KEY = 'active_whatnot_channel_id';
 
+    /**
+     * current()/currentId()/isScoped() are called from dozens of resources,
+     * widgets, and services — often several times on a single page (once per
+     * widget's canView(), once per getEloquentQuery(), once for the brand
+     * name, ...). Without memoizing, each of those was a fresh
+     * "select * from whatnot_channels where id = ?" round trip; on a
+     * dashboard load with 7+ widgets that's 15-30+ identical queries just to
+     * answer "which channel is active" over and over. One query per request.
+     */
+    private static bool $memoized = false;
+    private static ?WhatnotChannel $currentMemo = null;
+
     /** @return Collection<int, WhatnotChannel> */
     public static function available(): Collection
     {
@@ -24,13 +36,16 @@ class ChannelContext
 
     public static function current(): ?WhatnotChannel
     {
-        $id = session(self::SESSION_KEY);
-
-        if (! $id) {
-            return null;
+        if (self::$memoized) {
+            return self::$currentMemo;
         }
 
-        return WhatnotChannel::find($id);
+        $id = session(self::SESSION_KEY);
+
+        self::$currentMemo = $id ? WhatnotChannel::find($id) : null;
+        self::$memoized     = true;
+
+        return self::$currentMemo;
     }
 
     public static function currentId(): ?int
@@ -46,6 +61,8 @@ class ChannelContext
 
     public static function setActive(?int $channelId): void
     {
+        self::flushMemo();
+
         if ($channelId === null) {
             session()->forget(self::SESSION_KEY);
 
@@ -53,5 +70,11 @@ class ChannelContext
         }
 
         session([self::SESSION_KEY => $channelId]);
+    }
+
+    public static function flushMemo(): void
+    {
+        self::$memoized    = false;
+        self::$currentMemo = null;
     }
 }

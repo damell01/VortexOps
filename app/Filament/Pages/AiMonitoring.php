@@ -57,6 +57,11 @@ class AiMonitoring extends Page
         return 'filament.pages.ai-monitoring';
     }
 
+    public function getSubheading(): ?string
+    {
+        return 'Read-only observability for the AI stack — call volume, success rate, latency, recent failures, and what the matcher has learned.';
+    }
+
     public function setDays(int $days): void
     {
         $this->days = in_array($days, [1, 7, 30], true) ? $days : 7;

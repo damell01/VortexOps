@@ -47,6 +47,15 @@ class StreamerStatement extends Page
         return 'filament.pages.streamer-statement';
     }
 
+    public function getSubheading(): ?string
+    {
+        $user = auth()->user();
+
+        return (($user?->isAdmin()) ?? false)
+            ? 'Pick a streamer and date range for a printable payout breakdown, show by show.'
+            : 'Your payout breakdown, show by show — pick a date range and print it if you need a copy.';
+    }
+
     public ?int $streamerId = null;
     public string $dateFrom = '';
     public string $dateTo   = '';

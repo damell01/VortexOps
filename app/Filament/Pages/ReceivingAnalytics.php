@@ -35,6 +35,11 @@ class ReceivingAnalytics extends Page
         return 'filament.pages.receiving-analytics';
     }
 
+    public function getSubheading(): ?string
+    {
+        return 'How receiving is going — speed, accuracy, and a scorecard of your top vendors.';
+    }
+
     /** Exports the top-vendors table — the closest thing here to a per-vendor scorecard. */
     public function exportCsv(): StreamedResponse
     {

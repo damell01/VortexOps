@@ -44,6 +44,11 @@ class LogViewer extends Page
 
     public function getView(): string { return 'filament.pages.log-viewer'; }
 
+    public function getSubheading(): ?string
+    {
+        return 'Raw Laravel log files — useful for tracing down an error a user reported.';
+    }
+
     // ── Log file discovery ────────────────────────────────────────────────────
 
     public function logFiles(): array

@@ -52,6 +52,11 @@ class StreamerAnalytics extends Page
         return 'filament.pages.streamer-analytics';
     }
 
+    public function getSubheading(): ?string
+    {
+        return 'Compare streamers side by side — revenue, margin, hours, and payout, over a date range you pick.';
+    }
+
     public string $dateFrom = '';
     public string $dateTo   = '';
     public string $activeTab = 'overview';

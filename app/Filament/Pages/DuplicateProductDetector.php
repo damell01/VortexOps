@@ -37,6 +37,11 @@ class DuplicateProductDetector extends Page
         return 'filament.pages.duplicate-product-detector';
     }
 
+    public function getSubheading(): ?string
+    {
+        return 'Finds likely duplicate products (same name, close SKU, etc.) so you can merge them before they split stock and sales across two catalogue entries.';
+    }
+
     // ── State ──────────────────────────────────────────────────────────────────
 
     public bool $scanning = false;

@@ -27,6 +27,11 @@ class ShowStatusBoard extends Page
         return 'filament.pages.show-status-board';
     }
 
+    public function getSubheading(): ?string
+    {
+        return 'Every show moving through the pipeline — Pending Review → Mapping → Pending Approval → Reconciled — with how long each has sat there.';
+    }
+
     public function getTitle(): string
     {
         return 'Show Pipeline';

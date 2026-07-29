@@ -27,6 +27,11 @@ class ReceivingGuide extends Page
         return 'filament.pages.receiving-guide';
     }
 
+    public function getSubheading(): ?string
+    {
+        return 'A walkthrough of the receiving workflow — from creating a pallet to scanning it fully received.';
+    }
+
     // Active tab for the guide sections
     public string $tab = 'workflow';
 

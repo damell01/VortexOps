@@ -46,6 +46,11 @@ class InventoryScanner extends Page
         return 'filament.pages.inventory-scanner';
     }
 
+    public function getSubheading(): ?string
+    {
+        return 'Three modes, one scanner: Look Up checks stock on an item, Quick Add credits stock as you scan, Receive Pallet works through an incoming shipment. Works with a Bluetooth/USB scanner or your phone\'s camera.';
+    }
+
     // ── Mode ──────────────────────────────────────────────────────────────────
 
     /** 'lookup' | 'quickadd' | 'receive' */

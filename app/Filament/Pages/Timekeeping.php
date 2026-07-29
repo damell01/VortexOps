@@ -49,6 +49,15 @@ class Timekeeping extends Page
         return 'heroicon-o-clock';
     }
 
+    public function getSubheading(): ?string
+    {
+        $user = auth()->user();
+
+        return (($user?->isAdmin() || $user?->isOwner()) ?? false)
+            ? 'Clock in/out, and see the whole team\'s hours below.'
+            : 'Clock in/out here — you only ever see your own entries.';
+    }
+
     public function getView(): string
     {
         return 'filament.pages.timekeeping';

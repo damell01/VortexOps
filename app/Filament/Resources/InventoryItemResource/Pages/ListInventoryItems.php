@@ -10,6 +10,11 @@ class ListInventoryItems extends ListRecords
 {
     protected static string $resource = InventoryItemResource::class;
 
+    public function getSubheading(): ?string
+    {
+        return 'The product catalogue — SKUs, barcodes, reorder levels, and current stock. Cost updates automatically (weighted average) every time you receive inventory.';
+    }
+
     protected function getHeaderActions(): array
     {
         return [CreateAction::make()];

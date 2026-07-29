@@ -10,6 +10,11 @@ class ListReceivingSessions extends ListRecords
 {
     protected static string $resource = ReceivingSessionResource::class;
 
+    public function getSubheading(): ?string
+    {
+        return 'A record of each barcode-scan session used while receiving a pallet.';
+    }
+
     protected function getHeaderActions(): array
     {
         return [

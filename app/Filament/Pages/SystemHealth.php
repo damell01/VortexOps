@@ -48,6 +48,11 @@ class SystemHealth extends Page
         return 'filament.pages.system-health';
     }
 
+    public function getSubheading(): ?string
+    {
+        return 'Diagnostic checks — queue, database, storage, and scraper connectivity — for confirming the app is actually healthy, not just running.';
+    }
+
     // ── Metrics ───────────────────────────────────────────────────────────────
 
     public function getDbStatusProperty(): array

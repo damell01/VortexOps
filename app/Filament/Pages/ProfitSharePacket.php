@@ -45,6 +45,11 @@ class ProfitSharePacket extends Page
         return 'filament.pages.profit-share-packet';
     }
 
+    public function getSubheading(): ?string
+    {
+        return 'A printable packet of every profit-share streamer\'s numbers for a month — for handing off to ADP or bookkeeping.';
+    }
+
     public string $month    = '';
     public string $dateMode = 'month';  // 'month' | 'custom'
     public string $dateFrom = '';

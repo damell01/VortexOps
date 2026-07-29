@@ -35,4 +35,9 @@ class HorizonDashboard extends Page
     {
         return 'filament.pages.horizon-dashboard';
     }
+
+    public function getSubheading(): ?string
+    {
+        return 'Background job queue status — what\'s running, what\'s failed, and how backed up things are.';
+    }
 }

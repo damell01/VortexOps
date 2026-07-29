@@ -380,12 +380,14 @@ class StreamerResource extends Resource
                     ]),
                 ]),
 
-            Section::make('Owner Fee')->columnSpanFull()->schema([
+            Section::make('Vortex Fee')
+                ->description('Leave blank to use the global default set in Settings → Vortex Fee. Set a type here to override it for just this streamer.')
+                ->columnSpanFull()->schema([
                 Grid::make(3)->schema([
                     Select::make('owner_fee_type')
                         ->label('Fee Type')
                         ->options(Streamer::ownerFeeTypeLabels())
-                        ->placeholder('No owner fee')
+                        ->placeholder('Use global default')
                         ->nullable()
                         ->live(),
                     TextInput::make('owner_fee_value')

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Payout;
+use App\Models\Setting;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WeeklyPayoutBatch;
@@ -205,14 +206,21 @@ class PayoutService
                 break;
         }
 
-        // Owner fee — calculated against the gross payout before deduction
-        $ownerFeeDeducted = 0;
-        if ($streamer->owner_fee_type && (float) $streamer->owner_fee_value > 0) {
-            $ownerFeeDeducted = $streamer->owner_fee_type === 'percentage'
-                ? round($calculatedPayout * ((float) $streamer->owner_fee_value / 100), 2)
-                : (float) $streamer->owner_fee_value;
+        // Owner fee — calculated against the gross payout before deduction.
+        // A streamer's own fee override always wins; if they don't have one
+        // set, fall back to the global default from Settings so the owner
+        // doesn't have to configure the same fee on every streamer by hand.
+        [$feeType, $feeValue, $feeDeductFromPayout] = $streamer->owner_fee_type
+            ? [$streamer->owner_fee_type, (float) $streamer->owner_fee_value, $streamer->owner_fee_deduct_from_payout]
+            : $this->defaultOwnerFee();
 
-            if ($streamer->owner_fee_deduct_from_payout) {
+        $ownerFeeDeducted = 0;
+        if ($feeType && $feeValue > 0) {
+            $ownerFeeDeducted = $feeType === 'percentage'
+                ? round($calculatedPayout * ($feeValue / 100), 2)
+                : $feeValue;
+
+            if ($feeDeductFromPayout) {
                 $calculatedPayout = max(0, round($calculatedPayout - $ownerFeeDeducted, 2));
                 $calculationNotes .= " − \${$ownerFeeDeducted} owner fee";
             }
@@ -230,6 +238,28 @@ class PayoutService
             'calculation_notes'    => $calculationNotes,
             'routing_bank_label'   => $this->resolveRoutingLabel($streamer, $show),
             'status'               => 'draft',
+        ];
+    }
+
+    /**
+     * The global owner-fee fallback, set once in Settings instead of on every
+     * streamer. Returns [type, value, deductFromPayout]; type is null when no
+     * default is configured.
+     *
+     * @return array{0: ?string, 1: float, 2: bool}
+     */
+    private function defaultOwnerFee(): array
+    {
+        $type = Setting::get('default_owner_fee_type', '');
+
+        if (! in_array($type, ['percentage', 'flat'], true)) {
+            return [null, 0.0, false];
+        }
+
+        return [
+            $type,
+            (float) Setting::get('default_owner_fee_value', 0),
+            (bool) Setting::get('default_owner_fee_deduct_from_payout', true),
         ];
     }
 

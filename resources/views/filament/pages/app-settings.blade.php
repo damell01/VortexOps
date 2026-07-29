@@ -836,6 +836,49 @@
             </div>
         </div>
 
+        {{-- ── Vortex Fee (default) ────────────────────────────────────────── --}}
+        <div wire:key="section-owner-fee" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+
+            <button type="button" @click="open = !open"
+                class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <x-heroicon-o-banknotes class="h-5 w-5 text-emerald-500 shrink-0" />
+                <div class="flex-1 min-w-0">
+                    <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Vortex Fee</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Default fee applied to a streamer's payout — used unless that streamer has their own override set</p>
+                </div>
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
+            </button>
+
+            <div x-show="open" class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 space-y-4">
+                <p class="text-xs text-gray-500 dark:text-gray-400">Applies to every streamer who doesn't have their own fee type set on their profile (Streamers → edit → Vortex Fee section). A streamer-level override always wins over this default.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fee Type</label>
+                        <select wire:model.live="default_owner_fee_type"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                            <option value="">No default fee</option>
+                            <option value="percentage">Percentage (%)</option>
+                            <option value="flat">Flat Amount ($)</option>
+                        </select>
+                    </div>
+                    @if ($default_owner_fee_type)
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $default_owner_fee_type === 'flat' ? 'Fee Amount ($)' : 'Fee Percentage (%)' }}</label>
+                            <input wire:model.blur="default_owner_fee_value" type="number" step="0.01" min="0" placeholder="0.00"
+                                class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        </div>
+                        <div class="flex items-end pb-2">
+                            <label class="inline-flex items-center gap-2 cursor-pointer">
+                                <input wire:model="default_owner_fee_deduct_from_payout" type="checkbox"
+                                    class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500">
+                                <span class="text-sm text-gray-700 dark:text-gray-300">Deduct from payout</span>
+                            </label>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+
         {{-- Validation errors --}}
         @if ($errors->any())
             <div class="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 px-4 py-3">

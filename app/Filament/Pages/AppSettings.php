@@ -75,6 +75,15 @@ class AppSettings extends Page
     public string $shipping_surcharge_rate      = '4.00';
     public string $shipping_surcharge_threshold = '500.00';
 
+    // ── Vortex Fee (default) ─────────────────────────────────────────────────
+    // Applied to a streamer's payout when that streamer doesn't have their own
+    // fee override set on their profile — set here once instead of on every
+    // streamer individually. A streamer-level override always wins.
+
+    public ?string $default_owner_fee_type             = null; // null|'percentage'|'flat'
+    public string  $default_owner_fee_value             = '';
+    public bool    $default_owner_fee_deduct_from_payout = true;
+
     // ── AI / Ollama ──────────────────────────────────────────────────────────
 
     public string $ai_provider              = 'ollama';
@@ -139,6 +148,11 @@ class AppSettings extends Page
 
         $this->shipping_surcharge_rate      = Setting::get('shipping_surcharge_rate', '4.00');
         $this->shipping_surcharge_threshold = Setting::get('shipping_surcharge_threshold', '500.00');
+
+        $defaultOwnerFeeType = Setting::get('default_owner_fee_type', '');
+        $this->default_owner_fee_type              = in_array($defaultOwnerFeeType, ['percentage', 'flat'], true) ? $defaultOwnerFeeType : null;
+        $this->default_owner_fee_value              = Setting::get('default_owner_fee_value', '');
+        $this->default_owner_fee_deduct_from_payout = (bool) Setting::get('default_owner_fee_deduct_from_payout', true);
 
         $this->ai_provider             = Setting::get('ai_provider', config('ai.default_provider', 'ollama'));
         $this->ollama_base_url         = Setting::get('ollama_base_url', config('services.ollama.url', 'http://localhost:11434'));
@@ -240,6 +254,8 @@ class AppSettings extends Page
             'notify_show_reconciled_users.*'   => 'integer|exists:users,id',
             'shipping_surcharge_rate'          => 'required|numeric|min:0',
             'shipping_surcharge_threshold'     => 'required|numeric|min:0',
+            'default_owner_fee_type'           => 'nullable|in:percentage,flat',
+            'default_owner_fee_value'          => 'nullable|numeric|min:0',
             'ai_temperature'                   => 'required|numeric|min:0|max:2',
             'ai_max_tokens'                    => 'required|integer|min:1|max:32768',
             'ai_provider'                      => 'required|in:ollama,openai',
@@ -275,6 +291,10 @@ class AppSettings extends Page
 
         Setting::set('shipping_surcharge_rate',      $this->shipping_surcharge_rate);
         Setting::set('shipping_surcharge_threshold', $this->shipping_surcharge_threshold);
+
+        Setting::set('default_owner_fee_type',              $this->default_owner_fee_type ?? '');
+        Setting::set('default_owner_fee_value',              $this->default_owner_fee_type ? $this->default_owner_fee_value : '');
+        Setting::set('default_owner_fee_deduct_from_payout', $this->default_owner_fee_deduct_from_payout ? '1' : '0');
 
         Setting::set('ai_provider',             in_array($this->ai_provider, ['ollama', 'openai'], true) ? $this->ai_provider : 'ollama');
         Setting::set('ollama_base_url',         rtrim(trim($this->ollama_base_url), '/') ?: 'http://localhost:11434');

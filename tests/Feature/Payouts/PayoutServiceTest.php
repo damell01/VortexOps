@@ -174,6 +174,58 @@ class PayoutServiceTest extends TestCase
         $this->assertEquals(36.00, (float) $payouts[0]->owner_fee_deducted);
     }
 
+    public function test_global_default_owner_fee_applies_when_streamer_has_no_override(): void
+    {
+        \App\Models\Setting::set('default_owner_fee_type', 'percentage');
+        \App\Models\Setting::set('default_owner_fee_value', 10);
+        \App\Models\Setting::set('default_owner_fee_deduct_from_payout', '1');
+
+        $streamer = $this->makeStreamer([
+            'payout_type'       => 'profit_share',
+            'payout_percentage' => 40,
+        ]);
+        $this->show->streamers()->attach($streamer->id, ['is_primary' => true]);
+
+        $payouts = $this->service->calculateForShow($this->show);
+
+        // Same math as the explicit-override test above, but via the global default.
+        $this->assertEquals(324.00, (float) $payouts[0]->calculated_payout);
+        $this->assertEquals(36.00, (float) $payouts[0]->owner_fee_deducted);
+    }
+
+    public function test_streamer_level_fee_override_wins_over_global_default(): void
+    {
+        \App\Models\Setting::set('default_owner_fee_type', 'percentage');
+        \App\Models\Setting::set('default_owner_fee_value', 10);
+        \App\Models\Setting::set('default_owner_fee_deduct_from_payout', '1');
+
+        $streamer = $this->makeStreamer([
+            'payout_type'                  => 'profit_share',
+            'payout_percentage'            => 40,
+            'owner_fee_type'               => 'flat',
+            'owner_fee_value'              => 5,
+            'owner_fee_deduct_from_payout' => true,
+        ]);
+        $this->show->streamers()->attach($streamer->id, ['is_primary' => true]);
+
+        $payouts = $this->service->calculateForShow($this->show);
+
+        // base: 900 * 0.40 = 360, minus the streamer's own $5 flat fee (not the 10% default)
+        $this->assertEquals(355.00, (float) $payouts[0]->calculated_payout);
+        $this->assertEquals(5.00, (float) $payouts[0]->owner_fee_deducted);
+    }
+
+    public function test_no_fee_deducted_when_neither_streamer_nor_global_default_is_set(): void
+    {
+        $streamer = $this->makeStreamer(['payout_type' => 'profit_share', 'payout_percentage' => 40]);
+        $this->show->streamers()->attach($streamer->id, ['is_primary' => true]);
+
+        $payouts = $this->service->calculateForShow($this->show);
+
+        $this->assertEquals(360.00, (float) $payouts[0]->calculated_payout);
+        $this->assertEquals(0.0, (float) $payouts[0]->owner_fee_deducted);
+    }
+
     public function test_hourly_payout(): void
     {
         $streamer = $this->makeStreamer(['payout_type' => 'hourly', 'hourly_rate' => 25]);

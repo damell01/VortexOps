@@ -59,7 +59,17 @@ Schedule::command('whatnot:import-ledger --days=8')
     ->name('whatnot-ledger-daily')
     ->withoutOverlapping(30);
 
-Schedule::command('whatnot:sync')->hourly()->name('whatnot-sync-hourly')->withoutOverlapping(10);
+// Full comprehensive sync: shows + orders + shipments + ledger in one go
+// Run every 2 hours to pull everything at once (no limit on shows for first run)
+Schedule::command('whatnot:sync-all --limit=500')
+    ->cron('0 */2 * * *')
+    ->name('whatnot-sync-all')
+    ->withoutOverlapping(90)
+    ->onSuccess(fn () => Setting::set('whatnot_sync_all_last_success', now()->toISOString()))
+    ->onFailure(fn () => Setting::set('whatnot_sync_all_last_failure', now()->toISOString()));
+
+// Alternative: Keep individual commands for more granular control
+// Schedule::command('whatnot:sync')->hourly()->name('whatnot-sync-hourly')->withoutOverlapping(10);
 
 // Shipment-detail refresh (weight/dims/carrier/status) for shows with orders still
 // awaiting delivery — a tighter cadence than the hourly full sync above, since

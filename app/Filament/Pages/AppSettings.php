@@ -8,6 +8,7 @@ use App\Models\WhatnotChannel;
 use App\Services\WhatnotScraper;
 use App\Support\AdminModules;
 use Filament\Actions\Action;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Artisan;
@@ -485,26 +486,46 @@ class AppSettings extends Page
         }
     }
 
-    public function clearDemoData(): void
+    /**
+     * Deletes real production data just as readily as seeded demo rows — the
+     * name is a holdover from when this only ran in demo environments. A
+     * native browser confirm() is too easy to click through on reflex, so
+     * this requires typing DELETE into a form field before it'll run.
+     */
+    public function clearDemoDataAction(): Action
     {
-        if (! (auth()->user()?->isOwner())) {
-            Notification::make()->title('Access denied')->danger()->send();
-            return;
-        }
-
-        try {
-            Artisan::call('demo:clear', ['--force' => true]);
-            $output = trim(Artisan::output());
-            $this->lastCommandOutput = $output ?: 'Demo data cleared.';
-            Notification::make()
-                ->title('Demo data cleared')
-                ->body('All shows, inventory, pallets, and payouts have been removed.')
-                ->success()
-                ->send();
-        } catch (\Throwable $e) {
-            $this->lastCommandOutput = $e->getMessage();
-            Notification::make()->title('Clear failed')->body($e->getMessage())->danger()->send();
-        }
+        return Action::make('clearDemoData')
+            ->label('Clear Demo Data')
+            ->icon('heroicon-o-fire')
+            ->color('danger')
+            ->visible(fn () => auth()->user()?->isOwner() ?? false)
+            ->requiresConfirmation()
+            ->modalHeading('Clear ALL operational data?')
+            ->modalDescription('This permanently deletes every show, order, deduction request, payout, pay run, ledger entry, time entry, and inventory record — real data included, not just seeded demo rows. Users, streamers, vendors, Whatnot channels, and settings are kept. This cannot be undone.')
+            ->modalSubmitActionLabel('Delete everything')
+            ->form([
+                TextInput::make('confirm')
+                    ->label('Type DELETE to confirm')
+                    ->required()
+                    ->rules(['in:DELETE'])
+                    ->validationMessages(['confirm.in' => 'You must type DELETE exactly to confirm.'])
+                    ->autocomplete('off'),
+            ])
+            ->action(function () {
+                try {
+                    Artisan::call('demo:clear', ['--force' => true]);
+                    $output = trim(Artisan::output());
+                    $this->lastCommandOutput = $output ?: 'Demo data cleared.';
+                    Notification::make()
+                        ->title('Demo data cleared')
+                        ->body('All shows, inventory, pallets, and payouts have been removed.')
+                        ->success()
+                        ->send();
+                } catch (\Throwable $e) {
+                    $this->lastCommandOutput = $e->getMessage();
+                    Notification::make()->title('Clear failed')->body($e->getMessage())->danger()->send();
+                }
+            });
     }
 
     public function runMigrations(): void

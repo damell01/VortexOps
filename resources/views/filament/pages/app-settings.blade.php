@@ -611,26 +611,11 @@
                 <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                         <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Clear Demo Data</p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Permanently removes all shows, inventory, pallets, payouts, and related records. Users, streamers, vendors, channels, and settings are kept.</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Permanently removes all shows, inventory, pallets, payouts, and related records — real data included, not just seeded demo rows. Users, streamers, vendors, channels, and settings are kept.</p>
                     </div>
-                    <button
-                        wire:click="clearDemoData"
-                        wire:loading.attr="disabled"
-                        wire:target="clearDemoData"
-                        wire:confirm="This will permanently delete ALL shows, inventory, pallets, and payouts. Are you sure?"
-                        type="button"
-                        class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-red-400 dark:border-red-600 bg-red-50 dark:bg-red-950 px-3 py-2 text-sm font-medium text-red-700 dark:text-red-300 shadow-sm hover:bg-red-100 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        <span wire:loading.remove wire:target="clearDemoData"><x-heroicon-o-fire class="h-4 w-4" /></span>
-                        <span wire:loading wire:target="clearDemoData">
-                            <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                            </svg>
-                        </span>
-                        <span wire:loading.remove wire:target="clearDemoData">Clear Demo Data</span>
-                        <span wire:loading wire:target="clearDemoData">Clearing…</span>
-                    </button>
+                    <div class="shrink-0">
+                        {{ $this->clearDemoDataAction }}
+                    </div>
                 </div>
                 @endif
 

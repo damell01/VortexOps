@@ -954,6 +954,13 @@ class WhatnotScraper
                     $skipped++;
                 }
                 $showModel = $existing;
+
+                // Catches shows that slipped through a prior import without a
+                // match (e.g. the streamer roster didn't have them yet at the
+                // time) — try again on every re-scrape until one sticks.
+                if ($showModel->streamers()->count() === 0) {
+                    $showModel->detectStreamers();
+                }
             } else {
                 // show_date is NOT NULL with no default — skip creation rather than crash
                 if (! $lookupDate) {

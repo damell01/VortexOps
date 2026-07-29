@@ -3,6 +3,7 @@
 namespace Tests\Feature\Shows;
 
 use App\Models\Show;
+use App\Models\Streamer;
 use App\Models\User;
 use App\Models\WhatnotChannel;
 use App\Models\WhatnotShowOrder;
@@ -208,6 +209,50 @@ class WhatnotScraperTest extends TestCase
         $this->assertEquals(1500.00, (float) $show->gross_revenue);
         $this->assertEquals(40, $show->units_sold);
         $this->assertEquals('reconciled', $show->status); // status not overwritten
+    }
+
+    public function test_import_attaches_a_streamer_to_a_new_show_when_the_title_matches(): void
+    {
+        Streamer::create(['name' => 'Josh', 'status' => 'active', 'include_tips' => false]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow([
+            'title' => 'Josh Break Night',
+        ])]));
+
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Josh Break Night')->first();
+        $this->assertCount(1, $show->streamers);
+        $this->assertEquals('Josh', $show->streamers->first()->name);
+    }
+
+    public function test_import_retries_streamer_detection_on_an_existing_show_with_no_streamer(): void
+    {
+        $existing = Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'              => 'Josh Break Night',
+            'show_date'          => '2026-06-15',
+            'gross_revenue'      => 1000.00,
+            'import_source'      => 'auto_whatnot',
+            'status'             => 'draft',
+            'created_by'         => 1,
+        ]);
+        $this->assertCount(0, $existing->streamers);
+
+        // The streamer didn't exist yet at the time of the first import — it
+        // does now, so a re-scrape should catch the match this time.
+        Streamer::create(['name' => 'Josh', 'status' => 'active', 'include_tips' => false]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow([
+            'title'         => 'Josh Break Night',
+            'gross_revenue' => 1500.00,
+        ])]));
+
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Josh Break Night')->first();
+        $this->assertCount(1, $show->streamers);
+        $this->assertEquals('Josh', $show->streamers->first()->name);
     }
 
     public function test_import_flags_financials_revised_when_locked_show_numbers_change(): void

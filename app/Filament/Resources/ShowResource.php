@@ -920,6 +920,36 @@ class ShowResource extends Resource
                         ->modalDescription('Clear the financials-revised flag on the selected shows without further action.')
                         ->action(fn (Collection $records) => $records->each->update(['financials_revised_after_lock' => false]))
                         ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('detect_streamers')
+                        ->label('Detect Streamers')
+                        ->icon('heroicon-o-user-circle')
+                        ->color('gray')
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->requiresConfirmation()
+                        ->modalDescription('Matches each selected show\'s title against the active streamer roster and attaches any high-confidence match. Shows that already have a streamer attached are skipped.')
+                        ->action(function (Collection $records): void {
+                            $matched = 0;
+                            $skipped = 0;
+
+                            foreach ($records as $show) {
+                                if ($show->streamers()->count() > 0) {
+                                    $skipped++;
+                                    continue;
+                                }
+
+                                $suggestions = $show->detectStreamers();
+                                if (collect($suggestions)->contains('confidence', 'high')) {
+                                    $matched++;
+                                }
+                            }
+
+                            Notification::make()
+                                ->title('Streamer detection complete')
+                                ->body("{$matched} show(s) matched. " . ($skipped > 0 ? "{$skipped} already had a streamer and were skipped." : 'None already had a streamer assigned.'))
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make()
                         ->visible(fn () => auth()->user()?->isAdmin())
                         ->action(function (Collection $records): void {

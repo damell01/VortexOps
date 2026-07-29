@@ -6,6 +6,7 @@ use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Models\TimeEntry;
 use App\Models\User;
+use App\Models\WeeklyPayoutBatch;
 use App\Support\AdminModules;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -69,6 +70,24 @@ class Timekeeping extends Page
     public int    $page = 1;
     public int    $perPage = 15;
 
+    /** 'this_week' | 'last_week' | 'pay_period' | 'this_month' | 'custom' — admin team-hours view only. */
+    public string $periodMode = 'this_week';
+    public string $periodFrom = '';
+    public string $periodTo   = '';
+
+    public function setPeriodMode(string $mode): void
+    {
+        $this->periodMode = in_array($mode, ['this_week', 'last_week', 'pay_period', 'this_month', 'custom'], true)
+            ? $mode
+            : 'this_week';
+
+        if ($mode === 'custom' && ! $this->periodFrom) {
+            [$from, $to]      = $this->resolvedPeriod();
+            $this->periodFrom = $from;
+            $this->periodTo   = $to;
+        }
+    }
+
     // ── Computed ─────────────────────────────────────────────────────────────
 
     public function getOpenEntryProperty(): ?TimeEntry
@@ -114,6 +133,42 @@ class Timekeeping extends Page
         return ($user?->isOwner() || $user?->isAdmin()) ?? false;
     }
 
+    /** @return array{0: string, 1: string} [from, to] as date strings. */
+    private function resolvedPeriod(): array
+    {
+        return match ($this->periodMode) {
+            'last_week'  => [now()->subWeek()->startOfWeek()->toDateString(), now()->subWeek()->endOfWeek()->toDateString()],
+            'this_month' => [now()->startOfMonth()->toDateString(), now()->toDateString()],
+            'pay_period' => $this->currentPayPeriod(),
+            'custom'     => [
+                $this->periodFrom ?: now()->startOfWeek()->toDateString(),
+                $this->periodTo   ?: now()->toDateString(),
+            ],
+            default => [now()->startOfWeek()->toDateString(), now()->toDateString()], // this_week
+        };
+    }
+
+    /** The pay run week covering today, if one exists yet — else the current calendar week. */
+    private function currentPayPeriod(): array
+    {
+        $today = now()->toDateString();
+
+        $batch = WeeklyPayoutBatch::where('week_start', '<=', $today)
+            ->where('week_end', '>=', $today)
+            ->first();
+
+        return $batch
+            ? [$batch->week_start->toDateString(), $batch->week_end->toDateString()]
+            : [now()->startOfWeek()->toDateString(), now()->endOfWeek()->toDateString()];
+    }
+
+    public function getPeriodLabelProperty(): string
+    {
+        [$from, $to] = $this->resolvedPeriod();
+
+        return Carbon::parse($from)->format('M j') . ' – ' . Carbon::parse($to)->format('M j, Y');
+    }
+
     public function getEntriesProperty()
     {
         $query = TimeEntry::with('user')
@@ -126,24 +181,33 @@ class Timekeeping extends Page
         return $query->paginate($this->perPage, ['*'], 'page', $this->page);
     }
 
-    public function getTeamSummaryProperty(): array
+    /**
+     * Hourly team's hours for the selected period, grouped by person — the
+     * "who worked how much this pay period" view admins actually need.
+     * Admins/owner are excluded here; they're not the hourly workers this
+     * summary is for (their own entries still show in the History table).
+     *
+     * @return array<int, array{name: string, minutes: int, entries: int}>
+     */
+    public function getTeamHoursProperty(): array
     {
         if (! $this->canSeeTeamEntries()) {
             return [];
         }
 
-        $weekStart = now()->startOfWeek()->toDateString();
+        [$from, $to] = $this->resolvedPeriod();
+        $toDateTime  = Carbon::parse($to)->endOfDay();
 
         return TimeEntry::with('user')
             ->whereNotNull('clocked_out_at')
-            ->whereDate('clocked_in_at', '>=', $weekStart)
+            ->whereBetween('clocked_in_at', [$from, $toDateTime])
             ->get(['user_id', 'clocked_in_at', 'clocked_out_at'])
+            ->filter(fn ($e) => $e->user && ! $e->user->isAdmin() && ! $e->user->isOwner())
             ->groupBy('user_id')
-            ->map(fn ($entries, $userId) => [
+            ->map(fn ($entries) => [
                 'name'    => $entries->first()->user->name ?? 'Unknown',
-                'minutes' => $entries->sum(
-                    fn ($e) => (int) $e->clocked_in_at->diffInMinutes($e->clocked_out_at)
-                ),
+                'minutes' => $entries->sum(fn ($e) => (int) $e->clocked_in_at->diffInMinutes($e->clocked_out_at)),
+                'entries' => $entries->count(),
             ])
             ->sortByDesc('minutes')
             ->values()
@@ -201,6 +265,21 @@ class Timekeeping extends Page
         if ($this->page > 1) {
             $this->page--;
         }
+    }
+
+    public function exportTeamHoursCsv(): StreamedResponse
+    {
+        $rows       = $this->teamHours;
+        [$from, $to] = $this->resolvedPeriod();
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Name', 'Hours', 'Minutes', 'Entries']);
+            foreach ($rows as $r) {
+                fputcsv($out, [$r['name'], round($r['minutes'] / 60, 2), $r['minutes'], $r['entries']]);
+            }
+            fclose($out);
+        }, "team-hours-{$from}-to-{$to}.csv", ['Content-Type' => 'text/csv']);
     }
 
     public function exportCsv(): StreamedResponse

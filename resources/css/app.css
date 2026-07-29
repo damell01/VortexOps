@@ -784,8 +784,24 @@ textarea.fi-input { padding: 0.5rem 0.75rem !important; line-height: 1.5 !import
     border: 1px solid var(--vx-card-border) !important;
     box-shadow: var(--vx-shadow-md) !important;
     background-color: var(--vx-card-bg) !important;
-    overflow: hidden !important;
     padding: 0.25rem !important;
+}
+
+/* Rounded-corner clipping only for simple (non-scrollable) dropdowns — Filament
+   gives filter/column/grouping panels a maxHeight + .fi-scrollable so their
+   content scrolls instead of being cut off when it's taller than the
+   viewport (e.g. a filter panel with several rules on a phone). An
+   unconditional "overflow: hidden !important" here defeats that entirely,
+   regardless of CSS specificity, since !important always wins — that was
+   silently clipping the Filters/Columns panels on mobile. */
+.fi-dropdown-panel:not(.fi-scrollable) {
+    overflow: hidden !important;
+}
+
+.fi-dropdown-panel.fi-scrollable {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
 }
 
 .fi-dropdown-list-item {

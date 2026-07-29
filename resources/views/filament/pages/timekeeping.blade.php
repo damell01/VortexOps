@@ -3,10 +3,18 @@
         $entry   = $this->openEntry;
         $stats   = $this->stats;
         $entries = $this->entries;
-        $team    = $this->teamSummary;
+        $team    = $this->teamHours;
         $isIn    = $this->isClockedIn;
         $user    = auth()->user();
         $seesTeam = ($user?->isOwner() || $user?->isAdmin()) ?? false;
+
+        $periodOptions = [
+            'this_week'  => 'This Week',
+            'last_week'  => 'Last Week',
+            'pay_period' => 'Current Pay Period',
+            'this_month' => 'This Month',
+            'custom'     => 'Custom Range',
+        ];
     @endphp
 
     <div class="space-y-6 max-w-4xl">
@@ -114,31 +122,73 @@
             @endforeach
         </div>
 
-        {{-- ── Team Summary (owner only) ───────────────────────────────────── --}}
-        @if (count($team) > 0)
+        {{-- ── Team Hours (admin/owner) ────────────────────────────────────── --}}
+        @if ($seesTeam)
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800">
-                    <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Team Hours — This Week</h2>
-                </div>
-                <div class="divide-y divide-gray-100 dark:divide-gray-800">
-                    @foreach ($team as $member)
-                        @php $pct = $team[0]['minutes'] > 0 ? round(($member['minutes'] / $team[0]['minutes']) * 100) : 0; @endphp
-                        <div class="px-6 py-3 flex items-center gap-4">
-                            <div class="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0">
-                                <span class="text-xs font-bold text-violet-600 dark:text-violet-400">{{ strtoupper(substr($member['name'], 0, 1)) }}</span>
-                            </div>
-                            <span class="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100 min-w-0 truncate">{{ $member['name'] }}</span>
-                            <div class="hidden sm:flex items-center gap-2 w-32">
-                                <div class="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
-                                    <div class="h-1.5 rounded-full bg-violet-500" style="width: {{ $pct }}%"></div>
-                                </div>
-                            </div>
-                            <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 tabular-nums shrink-0">
-                                {{ \App\Models\TimeEntry::formatMinutes($member['minutes']) }}
-                            </span>
+                <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800 space-y-3">
+                    <div class="flex items-center justify-between gap-3 flex-wrap">
+                        <div>
+                            <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Team Hours</h2>
+                            <p class="text-xs text-gray-400 mt-0.5">{{ $this->periodLabel }} — non-admin/hourly workers only</p>
                         </div>
-                    @endforeach
+                        @if (count($team) > 0)
+                            <a
+                                wire:click.prevent="exportTeamHoursCsv"
+                                href="#"
+                                class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition"
+                            >
+                                <x-heroicon-o-arrow-down-tray class="h-3 w-3" />
+                                Export CSV
+                            </a>
+                        @endif
+                    </div>
+
+                    {{-- Period picker --}}
+                    <div class="flex flex-wrap items-center gap-2">
+                        @foreach ($periodOptions as $mode => $label)
+                            <button
+                                wire:click="setPeriodMode('{{ $mode }}')"
+                                type="button"
+                                class="rounded-full px-3 py-1 text-xs font-medium transition-colors {{ $periodMode === $mode ? 'bg-violet-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700' }}"
+                            >{{ $label }}</button>
+                        @endforeach
+                    </div>
+
+                    @if ($periodMode === 'custom')
+                        <div class="flex items-center gap-2">
+                            <input wire:model.live="periodFrom" type="date"
+                                class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                            <span class="text-xs text-gray-400">to</span>
+                            <input wire:model.live="periodTo" type="date"
+                                class="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-1.5 text-xs text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                        </div>
+                    @endif
                 </div>
+
+                @if (count($team) === 0)
+                    <div class="px-6 py-8 text-center text-sm text-gray-400">No hours logged by the team for this period.</div>
+                @else
+                    <div class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @foreach ($team as $member)
+                            @php $pct = $team[0]['minutes'] > 0 ? round(($member['minutes'] / $team[0]['minutes']) * 100) : 0; @endphp
+                            <div class="px-6 py-3 flex items-center gap-4">
+                                <div class="w-6 h-6 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center shrink-0">
+                                    <span class="text-xs font-bold text-violet-600 dark:text-violet-400">{{ strtoupper(substr($member['name'], 0, 1)) }}</span>
+                                </div>
+                                <span class="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100 min-w-0 truncate">{{ $member['name'] }}</span>
+                                <span class="text-xs text-gray-400 shrink-0">{{ $member['entries'] }} {{ $member['entries'] === 1 ? 'entry' : 'entries' }}</span>
+                                <div class="hidden sm:flex items-center gap-2 w-32">
+                                    <div class="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+                                        <div class="h-1.5 rounded-full bg-violet-500" style="width: {{ $pct }}%"></div>
+                                    </div>
+                                </div>
+                                <span class="text-sm font-semibold text-gray-900 dark:text-gray-100 tabular-nums shrink-0">
+                                    {{ \App\Models\TimeEntry::formatMinutes($member['minutes']) }}
+                                </span>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
             </div>
         @endif
 

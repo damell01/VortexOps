@@ -229,19 +229,58 @@ class TimekeepingTest extends TestCase
         $this->assertEquals(2, $entries->total());
     }
 
-    public function test_team_summary_returned_for_owner_and_admin(): void
+    public function test_team_hours_returned_for_owner_and_admin(): void
     {
-        // Anchor inside the current week so the summary's week filter can't drop
-        // it when the suite runs just after midnight on the first day of the week.
+        // Anchor inside the current week so the "this week" default filter
+        // can't drop it when the suite runs just after midnight on Sunday.
         $in = now()->startOfWeek()->addHours(6);
-        TimeEntry::create(['user_id' => $this->admin->id, 'clocked_in_at' => $in, 'clocked_out_at' => $in->copy()->addHour()]);
+        TimeEntry::create(['user_id' => $this->regular->id, 'clocked_in_at' => $in, 'clocked_out_at' => $in->copy()->addHour()]);
 
         $this->actingAs($this->admin);
-        $adminSummary = Livewire::test(Timekeeping::class)->instance()->getTeamSummaryProperty();
-        $this->assertNotEmpty($adminSummary);
+        $adminView = Livewire::test(Timekeeping::class)->instance()->getTeamHoursProperty();
+        $this->assertNotEmpty($adminView);
+        $this->assertEquals($this->regular->name, $adminView[0]['name']);
 
         $this->actingAs($this->owner);
-        $ownerSummary = Livewire::test(Timekeeping::class)->instance()->getTeamSummaryProperty();
-        $this->assertNotEmpty($ownerSummary);
+        $ownerView = Livewire::test(Timekeeping::class)->instance()->getTeamHoursProperty();
+        $this->assertNotEmpty($ownerView);
+    }
+
+    public function test_team_hours_excludes_admin_and_owner_entries(): void
+    {
+        $in = now()->startOfWeek()->addHours(6);
+        TimeEntry::create(['user_id' => $this->admin->id, 'clocked_in_at' => $in, 'clocked_out_at' => $in->copy()->addHour()]);
+        TimeEntry::create(['user_id' => $this->owner->id, 'clocked_in_at' => $in, 'clocked_out_at' => $in->copy()->addHour()]);
+
+        $this->actingAs($this->admin);
+        $teamHours = Livewire::test(Timekeeping::class)->instance()->getTeamHoursProperty();
+
+        $this->assertEmpty($teamHours, 'Team Hours is for hourly/non-admin workers, not admins clocking their own time');
+    }
+
+    public function test_pay_period_preset_uses_the_covering_weekly_payout_batch(): void
+    {
+        $batchStart = now()->subDays(2)->toDateString();
+        $batchEnd   = now()->addDays(4)->toDateString();
+        \App\Models\WeeklyPayoutBatch::create([
+            'week_start' => $batchStart,
+            'week_end'   => $batchEnd,
+            'status'     => 'draft',
+        ]);
+
+        TimeEntry::create([
+            'user_id'        => $this->regular->id,
+            'clocked_in_at'  => now()->subDay(),
+            'clocked_out_at' => now()->subDay()->addHour(),
+        ]);
+
+        $this->actingAs($this->admin);
+        $component = Livewire::test(Timekeeping::class)->call('setPeriodMode', 'pay_period');
+
+        $teamHours = $component->instance()->getTeamHoursProperty();
+        $this->assertNotEmpty($teamHours);
+
+        $label = $component->instance()->getPeriodLabelProperty();
+        $this->assertStringContainsString(\Illuminate\Support\Carbon::parse($batchStart)->format('M j'), $label);
     }
 }

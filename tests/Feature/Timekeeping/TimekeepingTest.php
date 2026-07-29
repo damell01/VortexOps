@@ -62,6 +62,28 @@ class TimekeepingTest extends TestCase
         $this->assertFalse(Timekeeping::canAccess());
     }
 
+    public function test_streamer_and_fulfillment_roles_can_access_timekeeping(): void
+    {
+        Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'fulfillment', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'fulfillment_admin', 'guard_name' => 'web']);
+
+        $streamer = User::factory()->create();
+        $streamer->assignRole('streamer');
+        $this->actingAs($streamer);
+        $this->assertTrue(Timekeeping::canAccess());
+
+        $fulfillment = User::factory()->create();
+        $fulfillment->assignRole('fulfillment');
+        $this->actingAs($fulfillment);
+        $this->assertTrue(Timekeeping::canAccess());
+
+        $fulfillmentAdmin = User::factory()->create();
+        $fulfillmentAdmin->assignRole('fulfillment_admin');
+        $this->actingAs($fulfillmentAdmin);
+        $this->assertTrue(Timekeeping::canAccess());
+    }
+
     public function test_admin_cannot_access_when_module_disabled(): void
     {
         Setting::set('enabled_admin_modules', json_encode([]));

@@ -44,6 +44,29 @@
     @endphp
 
     <div class="space-y-8">
+        {{-- What do I do? (role-specific) --}}
+        <section>
+            <div class="flex items-center gap-2 mb-4">
+                <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">What do I do?</h2>
+                <span class="inline-flex items-center rounded-full bg-primary-100 dark:bg-primary-500/15 px-2.5 py-0.5 text-xs font-medium text-primary-600 dark:text-primary-400">
+                    You're: {{ $this->myRoleGuide['label'] }}
+                </span>
+            </div>
+            <div class="space-y-3">
+                @foreach ($this->myRoleGuide['items'] as $item)
+                    <div class="flex gap-4 rounded-xl border border-primary-200 dark:border-primary-500/20 bg-primary-50/50 dark:bg-primary-500/5 p-4">
+                        <div class="shrink-0 h-8 w-8 rounded-lg bg-primary-100 dark:bg-primary-500/15 flex items-center justify-center">
+                            <x-heroicon-o-check class="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                        </div>
+                        <div class="min-w-0">
+                            <p class="font-semibold text-gray-900 dark:text-gray-100">{{ $item['title'] }}</p>
+                            <p class="text-sm text-gray-600 dark:text-gray-300 mt-0.5 leading-relaxed">{!! $item['body'] !!}</p>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </section>
+
         {{-- The core loop --}}
         <section>
             <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">The show-to-payout loop</h2>

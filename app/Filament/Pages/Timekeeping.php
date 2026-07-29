@@ -20,6 +20,20 @@ class Timekeeping extends Page
     protected static string $moduleSlug  = 'timekeeping';
     protected static ?string $title = 'Timekeeping';
 
+    // Anyone who might need to clock in/out gets in — rows are already scoped
+    // to "my own entries only" for everyone except admin/owner (see
+    // canSeeTeamEntries() below), so this is safe to open beyond admin.
+    protected static function passesModuleAccessCheck(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->isAdmin()
+            || $user?->isOwner()
+            || $user?->isStreamer()
+            || $user?->isFulfillment()
+            || $user?->isFulfillmentAdmin()) ?? false;
+    }
+
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
         return AdminModules::navigationGroupFor('timekeeping');

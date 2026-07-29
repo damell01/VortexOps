@@ -461,6 +461,15 @@
                 let scanning  = false;
                 let rafHandle = null;
 
+                // The polyfill (zxing-wasm, used on iOS Safari / Firefox — no native
+                // BarcodeDetector there) is built around static image sources, not a
+                // live <video> element. Feeding it the video directly either throws
+                // or silently never matches, depending on the device. Drawing the
+                // current frame to a canvas first is the compatible pattern that
+                // works for both the native implementation and the polyfill.
+                const canvas = document.createElement('canvas');
+                const ctx    = canvas.getContext('2d', { willReadFrequently: true });
+
                 btn.addEventListener('click', async () => {
                     try {
                         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -490,14 +499,22 @@
                 async function detectLoop() {
                     if (!scanning) return;
                     try {
-                        const barcodes = await detector.detect(video);
-                        if (barcodes.length > 0) {
-                            const code = barcodes[0].rawValue;
-                            stopCamera();
-                            @this.set('scanInput', code).then(() => @this.call('submitScan'));
-                            return;
+                        if (video.videoWidth > 0 && video.videoHeight > 0) {
+                            canvas.width  = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                            const barcodes = await detector.detect(canvas);
+                            if (barcodes.length > 0) {
+                                const code = barcodes[0].rawValue;
+                                stopCamera();
+                                @this.set('scanInput', code).then(() => @this.call('submitScan'));
+                                return;
+                            }
                         }
-                    } catch { /* continue */ }
+                    } catch (err) {
+                        console.error('[barcode-scanner] detect() failed:', err);
+                    }
                     rafHandle = requestAnimationFrame(detectLoop);
                 }
             }

@@ -39,8 +39,6 @@ class InventoryLocationResource extends Resource
 
     protected static ?string $model = InventoryLocation::class;
 
-    protected static ?string $navigationParentItem = 'Inventory Items';
-
     // View-only for streamers — the row scoping below already limited them to
     // their own + shared locations, but the access gate never actually let
     // them in to see it.

@@ -33,8 +33,6 @@ class InventoryStockResource extends Resource
 
     protected static ?string $model = InventoryStock::class;
 
-    protected static ?string $navigationParentItem = 'Inventory Items';
-
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-chart-bar';

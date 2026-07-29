@@ -26,8 +26,6 @@ class ShowIngestionLogResource extends Resource
     protected static string $moduleSlug  = 'streams';
     protected static ?string $model = ShowIngestionLog::class;
 
-    protected static ?string $navigationParentItem = 'Import';
-
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-arrow-down-tray'; }
     public static function getNavigationGroup(): string|\UnitEnum|null  { return AdminModules::navigationGroupFor('streams'); }
     public static function getNavigationSort(): ?int                     { return 4; }

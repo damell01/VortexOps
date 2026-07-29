@@ -30,8 +30,6 @@ class InventoryMovementResource extends Resource
 
     protected static ?string $model = InventoryMovement::class;
 
-    protected static ?string $navigationParentItem = 'Inventory Items';
-
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-arrow-path';

@@ -11,4 +11,20 @@
             </button>
         </div>
     </form>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Auto-detect timezone from browser
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const tzInput = document.querySelector('select[name="timezone"]');
+            if (tzInput && tzInput.value === 'UTC') {
+                // Only auto-fill if still at default UTC
+                tzInput.value = tz;
+                // Trigger Livewire update
+                if (window.Livewire) {
+                    window.Livewire.find(tzInput.closest('[wire\\:id]')?._x_id)?.updateModelValue('timezone', tz);
+                }
+            }
+        });
+    </script>
 </x-filament-panels::page>

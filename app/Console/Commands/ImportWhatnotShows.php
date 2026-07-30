@@ -194,6 +194,9 @@ class ImportWhatnotShows extends Command
             return self::SUCCESS;
         }
 
+        // Auto-cleanup any stale locks before we run
+        $this->cleanupStaleLock();
+
         if ($channelOpt = $this->option('channel')) {
             // Single-channel mode
             $channel = is_numeric($channelOpt)
@@ -289,5 +292,21 @@ class ImportWhatnotShows extends Command
             $this->line('  php artisan whatnot:import --debug');
             $this->line('Screenshots saved to /tmp/whatnot-debug-*.png');
         }
+    }
+
+    private function cleanupStaleLock(): void
+    {
+        $pid = \Illuminate\Support\Facades\Cache::get('whatnot:browser:holder_pid');
+
+        if ($pid && ! $this->pidIsAlive((int) $pid)) {
+            \Illuminate\Support\Facades\Cache::lock('whatnot:browser')->forceRelease();
+            \Illuminate\Support\Facades\Cache::forget('whatnot:browser:holder_pid');
+            $this->info("🔓 Cleaned up stale lock (PID {$pid} not alive)");
+        }
+    }
+
+    private function pidIsAlive(int $pid): bool
+    {
+        return is_dir("/proc/{$pid}");
     }
 }

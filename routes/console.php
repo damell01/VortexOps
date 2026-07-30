@@ -10,12 +10,12 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::call(fn () => Setting::set('scheduler_last_heartbeat', now()->toISOString()))->everyMinute()->name('scheduler-heartbeat')->withoutOverlapping();
-// Enqueue a heartbeat job every minute; a live worker stamps worker_last_heartbeat
+Schedule::call(fn () => Setting::set('scheduler_last_heartbeat', now()->toISOString()))->everyFiveMinutes()->name('scheduler-heartbeat')->withoutOverlapping();
+// Enqueue a heartbeat job every 5 minutes; a live worker stamps worker_last_heartbeat
 // when it runs, so the System Health page can tell whether the queue is being drained.
-Schedule::job(new WorkerHeartbeat)->everyMinute()->name('worker-heartbeat')->withoutOverlapping();
+Schedule::job(new WorkerHeartbeat)->everyFiveMinutes()->name('worker-heartbeat')->withoutOverlapping();
 Schedule::command('db:backup')->dailyAt('02:00');
-Schedule::command('health:check --notify')->everyFifteenMinutes();
+Schedule::command('health:check --notify')->everyThirtyMinutes();
 
 // Keep append-only tables from growing forever.
 // AI telemetry: prune interactions older than 30 days (see AiInteraction::prunable()).
@@ -34,7 +34,7 @@ Schedule::command('activitylog:clean')
 // withoutOverlapping keeps runs from stacking / colliding on the shared browser
 // profile — critical since every whatnot:* command drives the same Chromium profile.
 Schedule::command('whatnot:import --limit=15')
-    ->cron('*/15 * * * *')
+    ->cron('*/30 * * * *')
     ->name('whatnot-import-recent')
     ->withoutOverlapping(30)
     // Track import health: stamp a success timestamp so the dashboard and the
@@ -76,7 +76,7 @@ Schedule::command('whatnot:sync-all --limit=500')
 // fulfillment status is the one thing worth polling fast. :07/:37 keeps it clear
 // of the :00/:15/:22/:30/:45/:52 Whatnot cron slots elsewhere in this file.
 Schedule::command('whatnot:sync-shipments')
-    ->cron('7,37 * * * *')
+    ->cron('37 * * * *')
     ->name('whatnot-sync-shipments')
     ->withoutOverlapping(20);
 

@@ -19,10 +19,25 @@ class WhatnotBackfill extends Page implements HasForms
 {
     use InteractsWithForms;
 
-    protected static ?string $navigationIcon = 'heroicon-o-arrow-down-tray';
-    protected static string $view = 'filament.pages.whatnot-backfill';
-    protected static ?int $navigationSort = 5;
-    protected static ?string $navigationGroup = 'Admin';
+    public function getView(): string
+    {
+        return 'filament.pages.whatnot-backfill';
+    }
+
+    public static function getNavigationIcon(): ?string
+    {
+        return 'heroicon-o-arrow-down-tray';
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Admin';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 5;
+    }
 
     public string $command = 'sync-all';
     public int $limit = 500;
@@ -35,11 +50,6 @@ class WhatnotBackfill extends Page implements HasForms
     public bool $isRunning = false;
 
     public function mount(): void
-    {
-        $this->authorize();
-    }
-
-    protected function authorize(): void
     {
         if (! auth()->user()?->isOwner()) {
             abort(403, 'Only the owner can access this page.');

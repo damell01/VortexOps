@@ -890,6 +890,14 @@ class ShowResource extends Resource
                         Notification::make()->title('Revision flag cleared')->success()->send();
                     }),
 
+                TableAction::make('open_log')
+                    ->label('Log')
+                    ->icon('heroicon-o-document-text')
+                    ->color('info')
+                    ->visible(fn () => auth()->check())
+                    ->action(fn (Show $record) => null)
+                    ->iconButton(),
+
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
                 DeleteAction::make()

@@ -13,10 +13,16 @@ use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
+use Livewire\Attributes\On;
 
 class ListShows extends ListRecords
 {
     protected static string $resource = ShowResource::class;
+
+    public function getView(): string
+    {
+        return 'filament.resources.show-resource.pages.list-shows';
+    }
 
     public function getSubheading(): ?string
     {
@@ -89,6 +95,12 @@ class ListShows extends ListRecords
         }
 
         return $tabs;
+    }
+
+    #[\Livewire\Attributes\On('open-show')]
+    public function openShowLog(Show $show): void
+    {
+        $this->dispatch('open-show', $show);
     }
 
     protected function getHeaderActions(): array

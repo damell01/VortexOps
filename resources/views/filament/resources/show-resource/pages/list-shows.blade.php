@@ -1,10 +1,6 @@
-@extends(\Filament\Support\Facades\FilamentView::getDefaultLayout())
-
-@section('content')
+<x-filament-panels::page>
     @yield('content')
-@endsection
 
-@push('scripts')
     <div id="show-log-panel-container">
         <livewire:show-streamer-log-panel />
     </div>
@@ -23,4 +19,4 @@
             }
         });
     </script>
-@endpush
+</x-filament-panels::page>

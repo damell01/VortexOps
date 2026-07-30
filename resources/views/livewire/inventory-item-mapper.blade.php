@@ -1,5 +1,6 @@
-@if ($isOpen && $order)
-    <div class="fixed inset-0 z-40 overflow-hidden">
+<div>
+    @if ($isOpen && $order)
+        <div class="fixed inset-0 z-40 overflow-hidden">
         <!-- Backdrop -->
         <div class="absolute inset-0 bg-black/50" wire:click="closeMapper()"></div>
 
@@ -101,4 +102,5 @@
             </div>
         </div>
     </div>
-@endif
+    @endif
+</div>

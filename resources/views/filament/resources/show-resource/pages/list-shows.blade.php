@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    @yield('content')
+    {{ $this->table }}
 
     <div id="show-log-panel-container">
         <livewire:show-streamer-log-panel />

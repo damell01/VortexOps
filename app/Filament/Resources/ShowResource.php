@@ -7,6 +7,7 @@ use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\ShowResource\Pages;
 use App\Filament\Resources\ShowResource\RelationManagers\OrdersRelationManager;
 use App\Filament\Resources\ShowResource\RelationManagers\ChangeLogsRelationManager;
+use App\Filament\Resources\ShowResource\RelationManagers\ShipmentsRelationManager;
 use App\Models\DeductionRequest;
 use App\Models\Show;
 use App\Models\Streamer;
@@ -986,6 +987,7 @@ class ShowResource extends Resource
     {
         return [
             OrdersRelationManager::class,
+            ShipmentsRelationManager::class,
             ChangeLogsRelationManager::class,
         ];
     }

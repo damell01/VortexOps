@@ -26,7 +26,7 @@
                         type="button"
                         wire:click="clear"
                         color="gray"
-                        icon="heroicon-m-trash-2"
+                        icon="heroicon-m-trash"
                     >
                         Clear Log
                     </x-filament::button>

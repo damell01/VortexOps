@@ -117,8 +117,7 @@ class WhatnotBackfill extends Page implements HasForms
                     ->disabled()
                     ->rows(15)
                     ->default('Ready to run. Click "Start Import" to begin.'),
-            ])
-            ->statePath('data');
+            ]);
     }
 
     protected function getFormActions(): array

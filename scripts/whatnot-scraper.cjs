@@ -2885,6 +2885,21 @@ async function extractLedgerFromPage(page) {
     if (MODE === 'shipments-live') {
       info('shipments-live: navigating to /dashboard/lives to discover shows');
       await page.goto(URLS.dashboardLives, { waitUntil: 'domcontentloaded', timeout: 25000 });
+      await page.waitForTimeout(800);
+
+      // Click on "Past" tab to see completed shows
+      info('shipments-live: clicking "Past" tab to view completed shows');
+      await page.evaluate(() => {
+        const tabs = Array.from(document.querySelectorAll('button, [role="tab"], a'));
+        const pastTab = tabs.find(el => /\bpast\b/i.test(el.textContent || ''));
+        if (pastTab) {
+          pastTab.click();
+          return true;
+        }
+        return false;
+      }).catch(() => {});
+
+      await page.waitForTimeout(1000);
       await page.waitForFunction(
         () => document.querySelectorAll('a[href*="/dashboard/live/"], a[href*="/live/"]').length > 0,
         { timeout: 10000 }

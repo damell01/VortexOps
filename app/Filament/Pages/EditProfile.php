@@ -4,15 +4,17 @@ namespace App\Filament\Pages;
 
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Form;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
 use Filament\Pages\Page;
 use Filament\Notifications\Notification;
-use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use DateTimeZone;
 
-class EditProfile extends Page
+class EditProfile extends Page implements HasForms
 {
+    use InteractsWithForms;
+
     protected static ?string $title = 'Edit Profile';
 
     protected static bool $shouldRegisterNavigation = false;
@@ -29,26 +31,24 @@ class EditProfile extends Page
         $this->form->fill(auth()->user()->attributesToArray());
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
-                Section::make('Account Details')->columns(1)->columnSpanFull()->schema([
-                    TextInput::make('name')
-                        ->required()
-                        ->maxLength(255),
+                TextInput::make('name')
+                    ->required()
+                    ->maxLength(255),
 
-                    TextInput::make('email')
-                        ->email()
-                        ->required()
-                        ->maxLength(255),
+                TextInput::make('email')
+                    ->email()
+                    ->required()
+                    ->maxLength(255),
 
-                    Select::make('timezone')
-                        ->label('Timezone')
-                        ->options($this->getTimezoneOptions())
-                        ->default('UTC')
-                        ->searchable(),
-                ]),
+                Select::make('timezone')
+                    ->label('Timezone')
+                    ->options($this->getTimezoneOptions())
+                    ->default('UTC')
+                    ->searchable(),
             ])
             ->model(auth()->user())
             ->statePath('data');

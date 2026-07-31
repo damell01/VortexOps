@@ -8,8 +8,6 @@ use App\Models\WhatnotShowOrder;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
-use Filament\Forms\Components\Grid;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -251,34 +249,26 @@ class ItemsSoldRelationManager extends RelationManager
                     ->icon('heroicon-o-cube')
                     ->disabled($locked)
                     ->color('info')
-                    ->modalHeading('Map Inventory Item')
-                    ->modalDescription('Select an existing item or create a new one')
-                    ->modalWidth('6xl')
+                    ->modalHeading('Select Inventory Item')
+                    ->modalDescription('Choose from your inventory or create a new item')
                     ->form([
                         Select::make('inventory_item_id')
-                            ->label('Select Item')
+                            ->label('Inventory Item')
                             ->options(function () {
-                                $items = InventoryItem::query()->where('is_active', true)->orderBy('name')->get();
+                                $items = InventoryItem::query()->where('is_active', true)->get();
                                 return $items->mapWithKeys(function ($item) {
                                     $stock = $item->stock->sum('quantity_on_hand') ?? 0;
                                     $cost = $item->unit_cost ? " • \${$item->unit_cost}" : '';
-                                    $sku = $item->sku ? " [{$item->sku}]" : '';
-                                    $label = "{$item->name}{$sku} (Stock: {$stock}){$cost}";
+                                    $label = "{$item->name} (Stock: {$stock}){$cost}";
                                     return [$item->id => $label];
                                 })->toArray();
                             })
                             ->searchable()
-                            ->placeholder('Search items...')
                             ->columnSpanFull(),
 
                         TextInput::make('new_item_name')
                             ->label('Or create new item (name)')
                             ->placeholder('Item name...')
-                            ->columnSpanFull(),
-
-                        TextInput::make('new_item_sku')
-                            ->label('SKU (leave blank for auto)')
-                            ->placeholder('Auto-generated')
                             ->columnSpanFull(),
 
                         TextInput::make('new_item_cost')
@@ -290,10 +280,8 @@ class ItemsSoldRelationManager extends RelationManager
                     ])
                     ->action(function (array $data, WhatnotShowOrder $record): void {
                         if ($data['new_item_name'] ?? null) {
-                            $sku = $data['new_item_sku'] ?: self::generateSku();
                             $item = InventoryItem::create([
                                 'name' => $data['new_item_name'],
-                                'sku' => $sku,
                                 'unit_cost' => $data['new_item_cost'] ?? null,
                                 'is_active' => true,
                             ]);
@@ -301,7 +289,7 @@ class ItemsSoldRelationManager extends RelationManager
 
                             Notification::make()
                                 ->title('✓ Item created')
-                                ->body("\"{$item->name}\" (SKU: {$sku}) added to inventory and mapped.")
+                                ->body("\"{$item->name}\" added to inventory and mapped.")
                                 ->success()
                                 ->send();
                         } elseif ($data['inventory_item_id'] ?? null) {

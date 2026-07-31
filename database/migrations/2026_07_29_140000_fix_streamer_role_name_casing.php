@@ -21,8 +21,8 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Use BINARY to force case-sensitive comparison (MySQL is case-insensitive by default)
-        $role = DB::table('roles')->whereRaw('BINARY name = ?', ['Streamer'])->first();
+        // Use COLLATE BINARY for case-sensitive comparison (MySQL is case-insensitive by default; SQLite is case-sensitive by default)
+        $role = DB::table('roles')->whereRaw('name COLLATE BINARY = ?', ['Streamer'])->first();
 
         if (! $role) {
             return; // already fixed, or was never miscased on this environment
@@ -31,7 +31,7 @@ return new class extends Migration
         // Don't clobber a genuine pre-existing lowercase "streamer" role —
         // bail loudly rather than silently merging/losing data.
         $existingLowercase = DB::table('roles')
-            ->whereRaw('BINARY name = ?', ['streamer'])
+            ->whereRaw('name COLLATE BINARY = ?', ['streamer'])
             ->where('guard_name', $role->guard_name)
             ->exists();
 

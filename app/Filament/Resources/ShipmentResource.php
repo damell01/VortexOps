@@ -3,32 +3,47 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Resources\ShipmentResource\Pages;
 use App\Models\Shipment;
 use App\Models\Show;
-use Filament\Forms\Form;
+use App\Support\AdminModules;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\TrashedFilter;
-use Filament\Tables\Actions\ViewAction;
-use Filament\Pages\Page;
 
 class ShipmentResource extends Resource
 {
     use HasModuleAccess;
 
     protected static ?string $model = Shipment::class;
-    protected static ?string $moduleSlug = 'streams';
-    protected static ?string $navigationIcon = 'heroicon-o-truck';
-    protected static ?string $navigationLabel = 'Shipments';
-    protected static ?string $navigationGroup = 'Whatnot';
-    protected static ?int $navigationSort = 3;
+    protected static string $moduleSlug = 'streams';
 
-    public static function form(Form $form): Form
+    public static function getNavigationIcon(): ?string
     {
-        return $form
+        return 'heroicon-o-truck';
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Shipments';
+    }
+
+    public static function getNavigationGroup(): string|\UnitEnum|null
+    {
+        return AdminModules::navigationGroupFor('streams');
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 40;
+    }
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema
             ->schema([
                 // Read-only view of shipment data
             ]);
@@ -164,7 +179,7 @@ class ShipmentResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListShipments::class,
+            'index' => Pages\ListShipments::route('/'),
         ];
     }
 }

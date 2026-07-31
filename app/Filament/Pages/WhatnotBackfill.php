@@ -39,6 +39,11 @@ class WhatnotBackfill extends Page implements HasForms
         return 5;
     }
 
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->isOwner() ?? false;
+    }
+
     public string $command = 'sync-all';
     public int $limit = 500;
     public int $days = 8;

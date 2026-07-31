@@ -252,99 +252,48 @@ class ItemsSoldRelationManager extends RelationManager
                     ->disabled($locked)
                     ->color('info')
                     ->modalHeading('Map Inventory Item')
-                    ->modalDescription('Select an existing item from your inventory or quickly add a new one')
+                    ->modalDescription('Select an existing item or create a new one')
                     ->modalWidth('6xl')
                     ->form([
-                        Grid::make(3)->schema([
-                            Select::make('inventory_item_id')
-                                ->label('Select Existing Item')
-                                ->options(function () use ($show) {
-                                    $items = InventoryItem::query()->where('is_active', true)->orderBy('name')->get();
-                                    return $items->mapWithKeys(function ($item) {
-                                        $stock = $item->stock->sum('quantity_on_hand') ?? 0;
-                                        $cost = $item->unit_cost ? " • \${$item->unit_cost}" : '';
-                                        $sku = $item->sku ? " [{$item->sku}]" : '';
-                                        $label = "{$item->name}{$sku} (Stock: {$stock}){$cost}";
-                                        return [$item->id => $label];
-                                    })->toArray();
-                                })
-                                ->searchable()
-                                ->placeholder('Search and select...')
-                                ->columnSpanFull()
-                                ->helperText('Choose from your inventory or add a new item below'),
+                        Select::make('inventory_item_id')
+                            ->label('Select Item')
+                            ->options(function () {
+                                $items = InventoryItem::query()->where('is_active', true)->orderBy('name')->get();
+                                return $items->mapWithKeys(function ($item) {
+                                    $stock = $item->stock->sum('quantity_on_hand') ?? 0;
+                                    $cost = $item->unit_cost ? " • \${$item->unit_cost}" : '';
+                                    $sku = $item->sku ? " [{$item->sku}]" : '';
+                                    $label = "{$item->name}{$sku} (Stock: {$stock}){$cost}";
+                                    return [$item->id => $label];
+                                })->toArray();
+                            })
+                            ->searchable()
+                            ->placeholder('Search items...')
+                            ->columnSpanFull(),
 
-                            TextInput::make('barcode_or_upc')
-                                ->label('Scan Barcode/UPC')
-                                ->placeholder('Scan or enter...')
-                                ->columnSpanFull(),
+                        TextInput::make('new_item_name')
+                            ->label('Or create new item (name)')
+                            ->placeholder('Item name...')
+                            ->columnSpanFull(),
 
-                            TextInput::make('new_item_name')
-                                ->label('Or Create New Item: Name')
-                                ->placeholder('Item name...')
-                                ->columnSpan(2),
+                        TextInput::make('new_item_sku')
+                            ->label('SKU (leave blank for auto)')
+                            ->placeholder('Auto-generated')
+                            ->columnSpanFull(),
 
-                            TextInput::make('new_item_sku')
-                                ->label('SKU')
-                                ->placeholder('Auto-generated')
-                                ->columnSpan(1),
-
-                            TextInput::make('new_item_barcode')
-                                ->label('Barcode/UPC')
-                                ->placeholder('Optional...')
-                                ->columnSpan(2),
-
-                            TextInput::make('new_item_cost')
-                                ->label('Cost ($)')
-                                ->numeric()
-                                ->minValue(0)
-                                ->step(0.01)
-                                ->placeholder('0.00')
-                                ->columnSpan(1),
-
-                            Select::make('new_item_location')
-                                ->label('Default Location')
-                                ->options(function () use ($show) {
-                                    $streamer = $show?->primaryStreamer();
-                                    $own = $streamer
-                                        ? $streamer->inventoryLocations()->orderBy('name')->pluck('name', 'id')->toArray()
-                                        : [];
-                                    return ! empty($own)
-                                        ? $own
-                                        : InventoryLocation::query()->orderBy('name')->pluck('name', 'id')->toArray();
-                                })
-                                ->placeholder('Location...')
-                                ->columnSpanFull(),
-
-                            TextInput::make('quantity_mapped')
-                                ->label('Quantity')
-                                ->numeric()
-                                ->minValue(1)
-                                ->default(1)
-                                ->columnSpan(1),
-
-                            Select::make('location_id')
-                                ->label('Pick Location')
-                                ->options(function () use ($show) {
-                                    $streamer = $show?->primaryStreamer();
-                                    $own = $streamer
-                                        ? $streamer->inventoryLocations()->orderBy('name')->pluck('name', 'id')->toArray()
-                                        : [];
-                                    return ! empty($own)
-                                        ? $own
-                                        : InventoryLocation::query()->orderBy('name')->pluck('name', 'id')->toArray();
-                                })
-                                ->placeholder('Location...')
-                                ->columnSpan(2),
-                        ]),
+                        TextInput::make('new_item_cost')
+                            ->label('Cost ($) — optional')
+                            ->numeric()
+                            ->minValue(0)
+                            ->step(0.01)
+                            ->columnSpanFull(),
                     ])
                     ->action(function (array $data, WhatnotShowOrder $record): void {
-                        // Create new item if name provided
                         if ($data['new_item_name'] ?? null) {
                             $sku = $data['new_item_sku'] ?: self::generateSku();
                             $item = InventoryItem::create([
                                 'name' => $data['new_item_name'],
                                 'sku' => $sku,
-                                'barcode' => $data['new_item_barcode'] ?? null,
                                 'unit_cost' => $data['new_item_cost'] ?? null,
                                 'is_active' => true,
                             ]);
@@ -355,9 +304,7 @@ class ItemsSoldRelationManager extends RelationManager
                                 ->body("\"{$item->name}\" (SKU: {$sku}) added to inventory and mapped.")
                                 ->success()
                                 ->send();
-                        }
-                        // Use existing item
-                        elseif ($data['inventory_item_id'] ?? null) {
+                        } elseif ($data['inventory_item_id'] ?? null) {
                             $item = InventoryItem::find($data['inventory_item_id']);
                             $record->update(['inventory_item_id' => $item->id]);
 

@@ -253,6 +253,37 @@ class WhatnotSyncEngine
         return array_merge($result, ['shows_checked' => $shows->count()]);
     }
 
+    public function syncShipmentsFromLivePage(WhatnotChannel $channel): array
+    {
+        $result = $this->scraper->fetchShipmentsFromLivePage($channel->whatnot_username);
+
+        $updated = 0;
+        foreach ($result as $liveId => $rows) {
+            // Match by livestream ID to find the show
+            $show = Show::where('whatnot_channel_id', $channel->id)
+                ->where('detail_url', 'like', "%$liveId%")
+                ->orWhereRaw("JSON_EXTRACT(raw_import_payload, '$.id') = ?", [$liveId])
+                ->first();
+
+            if (!$show) {
+                \Log::debug("WhatnotSyncEngine: no show found for livestream $liveId, skipping shipment sync");
+                continue;
+            }
+
+            if (empty($rows)) {
+                continue;
+            }
+
+            $orderRes = $this->scraper->persistShowOrders($show, $rows);
+            $updated += $orderRes['updated'] ?? 0;
+
+            $shipmentRes = $this->scraper->persistShipments($show, $rows);
+            $updated += $shipmentRes['created'] ?? 0;
+        }
+
+        return ['updated' => $updated, 'shows_synced' => count($result)];
+    }
+
     private function buildSummary(WhatnotChannel $channel, array $counters): array
     {
         return array_merge($counters, [

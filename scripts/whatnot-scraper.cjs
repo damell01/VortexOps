@@ -8,6 +8,8 @@
  *   orders-batch — scrape orders for many shows in one session (requires WHATNOT_ORDER_SOURCES_FILE)
  *   shipments-batch — refresh weight/dims/carrier/shipping-status for many shows already
  *                  imported, from /dashboard/shipments?source=<id> (requires WHATNOT_ORDER_SOURCES_FILE)
+ *   shipments-live  — discover shows from /dashboard/lives and scrape shipments for each
+ *                  (no sources file needed; discovers UUIDs on demand)
  *   shows        — legacy: scrape the /seller/shows list page (less data, kept as fallback)
  *   discover     — 3-phase deep crawl: (1) visit all Seller Hub nav pages, (2) drill into
  *                  individual show detail pages and click each tab (Orders/Lots/Sales/Buyers),
@@ -2871,6 +2873,93 @@ async function extractLedgerFromPage(page) {
 
       const total = out.reduce((n, s) => n + s.order_count, 0);
       info(`shipments-batch: done — ${total} shipment row(s) across ${out.length} show(s)`);
+      writeJsonAndExit(out);
+      return;
+    }
+
+    // ── Mode: shipments-live ──────────────────────────────────────────────────
+    // Discovers shows from /dashboard/lives and scrapes shipments for each,
+    // extracting livestream UUIDs directly from the page (no sources file needed).
+    // Useful when shows don't have stored livestream IDs.
+    if (MODE === 'shipments-live') {
+      info('shipments-live: navigating to /dashboard/lives to discover shows');
+      await page.goto(URLS.dashboardLives, { waitUntil: 'domcontentloaded', timeout: 25000 });
+      await page.waitForFunction(
+        () => document.querySelectorAll('a[href*="/dashboard/live/"], a[href*="/live/"]').length > 0,
+        { timeout: 10000 }
+      ).catch(() => {});
+      await page.waitForTimeout(500);
+
+      // Extract livestream UUIDs from the live shows page.
+      // Pattern: href="/dashboard/live/38c4c01d-a1a8-4ee1-9aca-fc51e814742a"
+      const liveIds = await page.evaluate(() => {
+        const seen = new Set();
+        const ids = [];
+        for (const a of document.querySelectorAll('a[href]')) {
+          const href = a.getAttribute('href') || '';
+          const m = href.match(/\/(?:dashboard\/)?live\/([\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12})/i);
+          if (m && !seen.has(m[1])) {
+            seen.add(m[1]);
+            ids.push(m[1]);
+          }
+        }
+        return ids;
+      });
+
+      info(`shipments-live: discovered ${liveIds.length} unique show(s) from /dashboard/lives`);
+
+      const PAGE_CAP = 40;
+      const out = [];
+      for (let i = 0; i < liveIds.length; i++) {
+        const live_id = liveIds[i];
+        const url = `https://www.whatnot.com/dashboard/shipments?source=${live_id}`;
+        const byId = new Map();
+
+        try {
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+          await page.waitForFunction(
+            () => /\$[\d,]+\.?\d*/.test(document.body.innerText || ''),
+            { timeout: 7000 }
+          ).catch(() => {});
+          await page.waitForTimeout(400);
+
+          let pages = 0;
+          while (pages < PAGE_CAP) {
+            await page.evaluate(() => {
+              const btn = Array.from(document.querySelectorAll('button[aria-label="Expand All"]'))[0];
+              if (btn) btn.click();
+            }).catch(() => {});
+            await page.waitForTimeout(300);
+
+            const extracted = await extractOrdersFromPage(page);
+            if (extracted && !extracted.fallback && extracted.length) {
+              for (const o of normalizeOrders(extracted)) {
+                if (o.order_id) byId.set(o.order_id, o);
+              }
+            }
+
+            const advanced = await page.evaluate(() => {
+              const svg = document.querySelector('svg[aria-label="Next page"]');
+              let btn = svg ? svg.closest('button') : null;
+              if (!btn) btn = document.querySelector('button[aria-label="Next page"]');
+              if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') { btn.click(); return true; }
+              return false;
+            }).catch(() => false);
+            pages++;
+            if (!advanced) break;
+            await page.waitForTimeout(700);
+          }
+        } catch (navErr) {
+          info(`shipments-live: [${i + 1}/${liveIds.length}] nav error: ${navErr.message.substring(0, 100)}`);
+        }
+
+        const orders = [...byId.values()];
+        info(`shipments-live: [${i + 1}/${liveIds.length}] live_id=${live_id} → ${orders.length} shipment row(s)`);
+        out.push({ live_id, order_count: orders.length, orders });
+      }
+
+      const total = out.reduce((n, s) => n + s.order_count, 0);
+      info(`shipments-live: done — ${total} shipment row(s) across ${out.length} show(s)`);
       writeJsonAndExit(out);
       return;
     }

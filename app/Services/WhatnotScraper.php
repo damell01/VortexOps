@@ -616,6 +616,18 @@ class WhatnotScraper
     }
 
     /**
+     * Discover shows from /dashboard/lives and scrape shipments for each.
+     * Does not require pre-extracted livestream IDs — discovers them on demand
+     * by visiting the live shows page. Returns shipment rows keyed by livestream_id.
+     *
+     * @return array<string, array<int,array<string,mixed>>>  map of live_id => shipment rows
+     */
+    public function fetchShipmentsFromLivePage(?string $channelUsername = null, bool $debug = false, ?callable $onProgress = null): array
+    {
+        return $this->runSimpleScrape('shipments-live', $channelUsername, $debug, $onProgress);
+    }
+
+    /**
      * Shared driver for the orders-batch and shipments-batch scraper modes —
      * both take the same [{live_id, show_key}] input and return the same
      * {show_key => rows} shape, differing only in which Whatnot page they scrape.
@@ -688,6 +700,69 @@ class WhatnotScraper
             return $map;
         } finally {
             @unlink($srcFile);
+        }
+    }
+
+    /**
+     * Run a scraper mode that doesn't require pre-extracted sources (e.g., shipments-live).
+     * The scraper discovers its own data on the page.
+     *
+     * @return array<string, array<int,array<string,mixed>>>  map of live_id => rows
+     */
+    private function runSimpleScrape(string $mode, ?string $channelUsername, bool $debug, ?callable $onProgress = null): array
+    {
+        $env = $this->baseEnv($debug);
+        $env['WHATNOT_MODE'] = $mode;
+        if ($channelUsername) {
+            $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
+        }
+
+        $timeout = 3600; // 1 hour max for discovery modes
+
+        try {
+            $process = $this->makeProcess($env, timeout: $timeout);
+            $this->withBrowserLock(function () use ($process, $onProgress) {
+                if ($onProgress) {
+                    $this->streamProcess($process, $onProgress);
+                } else {
+                    $process->run();
+                }
+            });
+
+            $stderr = trim($process->getErrorOutput());
+            $stdout = trim($process->getOutput());
+
+            if ($stderr) {
+                Log::channel('stack')->warning("WhatnotScraper {$mode} stderr", ['output' => $stderr]);
+                if ($debug) {
+                    fwrite(STDERR, $stderr . "\n");
+                }
+            }
+
+            if (!$process->isSuccessful() || empty($stdout)) {
+                Log::warning("WhatnotScraper {$mode} produced no usable output", [
+                    'exit' => $process->getExitCode(),
+                ]);
+                return [];
+            }
+
+            $data = json_decode($stdout, true);
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($data)) {
+                Log::warning("WhatnotScraper {$mode} returned invalid JSON", ['error' => json_last_error_msg()]);
+                return [];
+            }
+
+            $map = [];
+            foreach ($data as $entry) {
+                $key = $entry['live_id'] ?? null;
+                if ($key === null) {
+                    continue;
+                }
+                $map[$key] = $entry['orders'] ?? [];
+            }
+
+            return $map;
+        } finally {
         }
     }
 

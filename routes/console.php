@@ -29,11 +29,11 @@ Schedule::command('activitylog:clean')
     ->name('clean-activity-log')
     ->withoutOverlapping();
 // Frequent "catch the stream that just ended" import: the analytics walk starts
-// at the newest show, so a small limit grabs just-ended shows quickly (dedup
-// updates existing ones). Imports each show's orders in the same browser session.
+// at the newest show, so a larger limit grabs more shows for comprehensive updates.
+// Imports each show's orders in the same browser session.
 // withoutOverlapping keeps runs from stacking / colliding on the shared browser
 // profile — critical since every whatnot:* command drives the same Chromium profile.
-Schedule::command('whatnot:import --limit=15')
+Schedule::command('whatnot:import --limit=200')
     ->cron('*/30 * * * *')
     ->name('whatnot-import-recent')
     ->withoutOverlapping(30)
@@ -51,17 +51,25 @@ Schedule::command('whatnot:import-orders --new-only')
     ->name('whatnot-import-orders-backfill')
     ->withoutOverlapping(30);
 
-// Daily Whatnot ledger pull — grabs the last 8 days so late-completing entries
-// are caught (dedup keeps re-scraped rows from duplicating). Runs at :52, clear
-// of the imports above, so it never contends for the browser profile.
-Schedule::command('whatnot:import-ledger --days=8')
+// Daily Whatnot ledger pull — grabs the last 30 days for comprehensive financial data
+// (dedup keeps re-scraped rows from duplicating). Runs at :52, clear of the imports above,
+// so it never contends for the browser profile.
+Schedule::command('whatnot:import-ledger --days=30')
     ->cron('52 4 * * *')
     ->name('whatnot-ledger-daily')
     ->withoutOverlapping(30);
 
+// Weekly historical backfill: Deep pull of past 365 days for ledger + comprehensive show/order data
+// Runs Sunday at 01:00 AM to avoid peak hours. This ensures you have a full year of financial
+// and operational history. Use --limit=0 for unlimited shows to backfill complete historical data.
+Schedule::command('whatnot:import-ledger --days=1825')
+    ->cron('0 1 * * 0')
+    ->name('whatnot-ledger-backfill-annual')
+    ->withoutOverlapping(120);
+
 // Full comprehensive sync: shows + orders + shipments + ledger in one go
-// Run every 2 hours to pull everything at once (no limit on shows for first run)
-Schedule::command('whatnot:sync-all --limit=500')
+// Run every 2 hours to pull everything at once (high limit to capture all recent activity)
+Schedule::command('whatnot:sync-all --limit=0')
     ->cron('0 */2 * * *')
     ->name('whatnot-sync-all')
     ->withoutOverlapping(90)

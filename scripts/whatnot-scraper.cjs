@@ -2057,16 +2057,36 @@ async function extractOrdersFromPage(page) {
     function extractShipmentMeta(text) {
       const weightMatch = text.match(/(\d+(?:\.\d+)?)\s*oz\b/i);
       const dimsMatch = text.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*in\b/i);
-      const carrierMatch = text.match(/\b(USPS|UPS|FedEx|DHL)\b\s*([A-Za-z][A-Za-z ]{0,30}?)(?=\s{2,}|\s*[\$\n]|$)/i);
+
+      // Carrier regex — match "USPS", "UPS", "FedEx", "DHL" followed by service name.
+      // Accept service names with spaces, dashes, slashes (e.g. "Ground Advantage", "2nd Day Air")
+      const carrierMatch = text.match(/\b(USPS|UPS|FedEx|DHL)\b\s*([A-Za-z\d\s\-/]*[A-Za-z\d])?/i);
+
+      // Tracking number — USPS: 20-22 digits; UPS/FedEx: 12+ digits. Look for bare numbers
+      // that match carrier patterns, or numbers labeled as "tracking" / "tracking #" / "label"
+      let trackingNumber = null;
+      const trackingLabeled = text.match(/(?:tracking\s*#?|label\s*#?)\s*([0-9]{12,})/i);
+      if (trackingLabeled) {
+        trackingNumber = trackingLabeled[1];
+      } else if (carrierMatch) {
+        // Fall back to looking for long digit sequences after carrier name
+        const afterCarrier = text.substring(text.indexOf(carrierMatch[0]) + carrierMatch[0].length);
+        const digitsMatch = afterCarrier.match(/[\s\-]*([0-9]{12,})/);
+        if (digitsMatch) trackingNumber = digitsMatch[1];
+      }
+
       const orderIdMatch = text.match(/Order\s*#\s*(\d+)/i);
 
       let shippingStatus = null;
-      if (/needs\s*label/i.test(text)) shippingStatus = 'pending';
+      if (/ready\s*to\s*ship/i.test(text)) shippingStatus = 'ready_to_ship';
+      else if (/needs?\s*label/i.test(text)) shippingStatus = 'pending';
       else if (/label\s*created/i.test(text)) shippingStatus = 'label_created';
       else if (/\bdelivered\b/i.test(text)) shippingStatus = 'delivered';
       else if (/\breturned\b/i.test(text)) shippingStatus = 'returned';
       else if (/\bpacked\b/i.test(text)) shippingStatus = 'packed';
       else if (/\bshipped\b/i.test(text)) shippingStatus = 'shipped';
+      else if (/in\s*transit/i.test(text)) shippingStatus = 'in_transit';
+      else if (/out\s*for\s*delivery/i.test(text)) shippingStatus = 'out_for_delivery';
 
       return {
         order_id: orderIdMatch ? orderIdMatch[1] : null,
@@ -2075,8 +2095,9 @@ async function extractOrdersFromPage(page) {
         box_width_in: dimsMatch ? parseFloat(dimsMatch[2]) : null,
         box_height_in: dimsMatch ? parseFloat(dimsMatch[3]) : null,
         shipping_carrier: carrierMatch ? carrierMatch[1].toUpperCase() : null,
-        shipping_service: carrierMatch ? carrierMatch[2].trim() : null,
+        shipping_service: carrierMatch && carrierMatch[2] ? carrierMatch[2].trim() : null,
         shipping_status_scraped: shippingStatus,
+        tracking_number: trackingNumber,
       };
     }
 

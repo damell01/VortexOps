@@ -291,6 +291,11 @@ class Show extends Model
         return $this->hasOne(StreamerLogEntry::class);
     }
 
+    public function changeLogs(): HasMany
+    {
+        return $this->hasMany(ShowChangeLog::class)->latest();
+    }
+
     /**
      * Match the show title against active streamer names and auto-attach high-confidence matches.
      * Stores results in ai_streamer_suggestion. Returns the suggestions array.

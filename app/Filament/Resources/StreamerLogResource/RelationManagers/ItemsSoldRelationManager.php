@@ -8,17 +8,19 @@ use App\Models\WhatnotShowOrder;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
+use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
-use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Grid as SchemaGrid;
 use Filament\Schemas\Schema;
-use Filament\Tables\Columns\SelectColumn;
+use Filament\Tables\Actions\Action as TableAction;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\TextInputColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * The items sold on the log entry's show, editable straight from the Streamer
@@ -78,7 +80,7 @@ class ItemsSoldRelationManager extends RelationManager
         $show = $this->getOwnerRecord()->show;
 
         return $schema->components([
-            Grid::make(2)->schema([
+            SchemaGrid::make(2)->schema([
                 Select::make('inventory_item_id')
                     ->label('Item')
                     ->options(fn () => self::streamerInventoryOptions($show))
@@ -148,29 +150,12 @@ class ItemsSoldRelationManager extends RelationManager
                     ->visibleFrom('md')
                     ->summarize(Sum::make()->label('Total')->money('USD')),
 
-                SelectColumn::make('inventory_item_id')
+                TextColumn::make('inventoryItem.name')
                     ->label('Inventory Item')
-                    ->options(fn () => self::streamerInventoryOptions($show))
-                    ->selectablePlaceholder('— map item —')
-                    ->width('220px')
-                    ->disabled($locked)
-                    ->afterStateUpdated(function ($state): void {
-                        // Smart-monitoring nudge: catches the common mis-mapping where a
-                        // streamer picks the wrong (visually similar) item — one with no
-                        // real stock to have sold from.
-                        if (! $state) {
-                            return;
-                        }
-
-                        $item = InventoryItem::find($state);
-                        if ($item && $item->hasBeenOutOfStockFor(14)) {
-                            Notification::make()
-                                ->title('This item shows no stock')
-                                ->body("\"{$item->name}\" has had zero stock for 14+ days. Double-check this is the right item before submitting.")
-                                ->warning()
-                                ->send();
-                        }
-                    }),
+                    ->placeholder('— map item —')
+                    ->weight('bold')
+                    ->color('primary')
+                    ->width('200px'),
 
                 SelectColumn::make('inventory_location_id')
                     ->label('Location')
@@ -249,6 +234,66 @@ class ItemsSoldRelationManager extends RelationManager
                     }),
             ])
             ->recordActions([
+                TableAction::make('selectInventoryItem')
+                    ->label('Select')
+                    ->icon('heroicon-o-cube')
+                    ->disabled($locked)
+                    ->color('info')
+                    ->modalHeading('Select Inventory Item')
+                    ->form([
+                        Select::make('inventory_item_id')
+                            ->label('Item')
+                            ->options(fn () => self::streamerInventoryOptions($show))
+                            ->searchable()
+                            ->required()
+                            ->columnSpanFull(),
+
+                        TextInput::make('new_item_name')
+                            ->label('Or create new item')
+                            ->placeholder('Item name...')
+                            ->helperText('Name + cost below, then save.')
+                            ->columnSpanFull(),
+
+                        TextInput::make('new_item_cost')
+                            ->label('Cost ($)')
+                            ->numeric()
+                            ->minValue(0)
+                            ->visible(fn ($get) => ! empty($get('new_item_name')))
+                            ->columnSpanFull(),
+                    ])
+                    ->action(function (array $data, WhatnotShowOrder $record): void {
+                        if ($data['new_item_name'] ?? null) {
+                            $item = InventoryItem::create([
+                                'name' => $data['new_item_name'],
+                                'unit_cost' => $data['new_item_cost'] ?? null,
+                                'is_active' => true,
+                            ]);
+                            $record->update(['inventory_item_id' => $item->id]);
+
+                            Notification::make()
+                                ->title('Item created and mapped')
+                                ->body("\"{$item->name}\" added to inventory.")
+                                ->success()
+                                ->send();
+                        } elseif ($data['inventory_item_id'] ?? null) {
+                            $item = InventoryItem::find($data['inventory_item_id']);
+                            $record->update(['inventory_item_id' => $item->id]);
+
+                            if ($item && $item->hasBeenOutOfStockFor(14)) {
+                                Notification::make()
+                                    ->title('⚠️ Low stock warning')
+                                    ->body("\"{$item->name}\" has had zero stock for 14+ days.")
+                                    ->warning()
+                                    ->send();
+                            }
+
+                            Notification::make()
+                                ->title('Item mapped')
+                                ->success()
+                                ->send();
+                        }
+                    }),
+
                 // Only manually-added rows (no whatnot_order_id) can be removed —
                 // imported order lines stay as the source of truth for the show.
                 DeleteAction::make()

@@ -2925,11 +2925,23 @@ async function extractLedgerFromPage(page) {
 
           let pages = 0;
           while (pages < PAGE_CAP) {
+            // Click Expand All and wait for nested rows to render (up to 2 seconds)
             await page.evaluate(() => {
               const btn = Array.from(document.querySelectorAll('button[aria-label="Expand All"]'))[0];
               if (btn) btn.click();
             }).catch(() => {});
-            await page.waitForTimeout(300);
+
+            // Wait for expanded content to render
+            await page.waitForFunction(
+              () => {
+                const expandedRows = document.querySelectorAll('tr[data-testid^="shipments-"] + tr');
+                return expandedRows.length > 0;
+              },
+              { timeout: 2000 }
+            ).catch(() => {
+              // If no expanded rows found, that's ok — page might have no shipments
+            });
+            await page.waitForTimeout(500);
 
             const extracted = await extractOrdersFromPage(page);
             if (extracted && !extracted.fallback && extracted.length) {

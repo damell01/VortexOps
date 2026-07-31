@@ -2014,11 +2014,10 @@ async function extractOrdersFromPage(page) {
 
     // Strategy S — Whatnot Shipments tab (/dashboard/shipments). Each shipment gets
     // its own <tr data-testid="shipments-<id>-row"> carrying buyer/weight/dims/status
-    // inline, but the "Order #N" that ties it back to an existing WhatnotShowOrder
-    // only renders in a nested detail <tr> after the row is expanded — there's an
-    // "Expand All" toggle near the table header that the caller clicks (and waits
-    // on) before this extractor runs. We pair each main row with its immediately
-    // following sibling <tr> when that sibling holds the nested Item/Order # table.
+    // inline. The "Order #N" that ties it back to an existing WhatnotShowOrder only
+    // renders in a nested detail <tr> after the row is expanded, but if Expand All
+    // doesn't work, we still extract shipment metadata (weight, dims, carrier, tracking,
+    // status) from the main row for manual matching.
     const shipmentRows = Array.from(document.querySelectorAll('tr[data-testid^="shipments-"]'));
     if (shipmentRows.length > 0) {
       const rows = [];
@@ -2034,7 +2033,9 @@ async function extractOrdersFromPage(page) {
         }
 
         const meta = extractShipmentMeta(mainText + '\n' + detailText);
-        if (!meta.order_id && !buyer) continue;
+        // Include row if it has buyer or any shipment metadata (weight, carrier, tracking, etc.)
+        const hasShipmentData = meta.weight_oz || meta.shipping_carrier || meta.tracking_number;
+        if (!buyer && !meta.order_id && !hasShipmentData) continue;
 
         rows.push({
           buyer,

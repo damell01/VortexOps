@@ -739,6 +739,7 @@ async function switchToChannel(page, channelName) {
     await debugShot(page, 'role-switch-failed-channel');
     info(`switchToChannel: WARNING — channel "${channelName}" not found among switch-role buttons or in role list`);
     info('switchToChannel: role list text was:', roleListText.substring(0, 300));
+    info('switchToChannel: proceeding with current channel since target channel is not available');
     return;
   }
 
@@ -2012,11 +2013,9 @@ async function extractOrdersFromPage(page) {
 
     // Strategy S — Whatnot Shipments tab (/dashboard/shipments). Each shipment gets
     // its own <tr data-testid="shipments-<id>-row"> carrying buyer/weight/dims/status
-    // inline, but the "Order #N" that ties it back to an existing WhatnotShowOrder
-    // only renders in a nested detail <tr> after the row is expanded — there's an
-    // "Expand All" toggle near the table header that the caller clicks (and waits
-    // on) before this extractor runs. We pair each main row with its immediately
-    // following sibling <tr> when that sibling holds the nested Item/Order # table.
+    // inline. The row may have nested detail data in a following <tr>, OR all data
+    // may be in individual <td> cells in the main row (newer structure). Extract
+    // from both locations to handle either layout.
     const shipmentRows = Array.from(document.querySelectorAll('tr[data-testid^="shipments-"]'));
     if (shipmentRows.length > 0) {
       const rows = [];
@@ -2025,10 +2024,18 @@ async function extractOrdersFromPage(page) {
         const buyerLink = tr.querySelector('a[href*="/dashboard/inbox"]');
         const buyer = buyerLink ? (buyerLink.textContent || '').trim() : null;
 
+        // Collect all text from cells for both old (nested table) and new (inline cells) structures
         let detailText = '';
+        const tds = Array.from(tr.querySelectorAll('td'));
+        if (tds.length > 0) {
+          // Extract individual cell contents (new structure)
+          detailText = tds.map(td => (td.innerText || td.textContent || '').trim()).filter(Boolean).join(' ');
+        }
+
+        // Also check for nested detail row (old structure)
         const next = tr.nextElementSibling;
         if (next && next.tagName === 'TR' && next.querySelector('table')) {
-          detailText = next.innerText || '';
+          detailText += '\n' + (next.innerText || '');
         }
 
         const meta = extractShipmentMeta(mainText + '\n' + detailText);
@@ -2057,7 +2064,10 @@ async function extractOrdersFromPage(page) {
     function extractShipmentMeta(text) {
       const weightMatch = text.match(/(\d+(?:\.\d+)?)\s*oz\b/i);
       const dimsMatch = text.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*in\b/i);
-      const carrierMatch = text.match(/\b(USPS|UPS|FedEx|DHL)\b\s*([A-Za-z][A-Za-z ]{0,30}?)(?=\s{2,}|\s*[\$\n]|$)/i);
+      // Carrier detection: match "USPS Ground Advantage", "UPS 2nd Day", "FedEx Home", etc.
+      // Service name may contain hyphens/spaces up to ~40 chars and may be followed by newline/space/price.
+      const carrierMatch = text.match(/\b(USPS|UPS|FedEx|DHL)\b\s*([A-Za-z][A-Za-z0-9\- ]{0,40}?)(?=\s{1,}[^\sA-Za-z]|\s*[\n$]|$)/i) ||
+                           text.match(/\b(USPS|UPS|FedEx|DHL)\s+([A-Za-z][A-Za-z ]{0,30})/i);
       const orderIdMatch = text.match(/Order\s*#\s*(\d+)/i);
 
       let shippingStatus = null;
@@ -2162,7 +2172,23 @@ async function extractOrdersFromPage(page) {
     }
 
     if (results.length === 0) {
-      return { fallback: true, html: document.body.innerHTML.substring(0, 6000), text: document.body.innerText.substring(0, 3000) };
+      // Debug: log when no results found and available data on page
+      const pageText = document.body.innerText || '';
+      const hasShipmentRows = document.querySelectorAll('tr[data-testid^="shipments-"]').length > 0;
+      const hasOrderRows = document.querySelectorAll('tr[data-testid^="orders-"]').length > 0;
+      const hasPrices = /\$[\d,]+\.?\d*/.test(pageText);
+      return {
+        fallback: true,
+        html: document.body.innerHTML.substring(0, 6000),
+        text: pageText.substring(0, 3000),
+        debug: {
+          hasShipmentRows,
+          hasOrderRows,
+          hasPrices,
+          shipmentRowCount: document.querySelectorAll('tr[data-testid^="shipments-"]').length,
+          trRowCount: document.querySelectorAll('tr').length,
+        }
+      };
     }
     return results;
   });

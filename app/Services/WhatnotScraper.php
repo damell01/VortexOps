@@ -972,6 +972,7 @@ class WhatnotScraper
                 }
 
                 if (! empty($updateFields)) {
+                    $existing->trackChanges($updateFields, 'whatnot_import');
                     $existing->update($updateFields);
                     $updated++;
                     ShowIngestionLog::create([

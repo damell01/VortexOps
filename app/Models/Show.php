@@ -297,6 +297,39 @@ class Show extends Model
     }
 
     /**
+     * Log changes for specific fields before updating the model.
+     * Call this before updating the model to track what changed.
+     */
+    public function trackChanges(array $newValues, string $source = 'manual'): self
+    {
+        $fieldsToTrack = ['gross_revenue', 'whatnot_net', 'whatnot_fees', 'tips', 'status', 'show_date', 'units_sold'];
+
+        foreach ($newValues as $field => $newValue) {
+            if (! in_array($field, $fieldsToTrack)) {
+                continue;
+            }
+
+            $oldValue = $this->{$field};
+
+            // Skip if value hasn't actually changed
+            if ((string) $oldValue === (string) $newValue) {
+                continue;
+            }
+
+            ShowChangeLog::create([
+                'show_id' => $this->id,
+                'field_name' => $field,
+                'old_value' => is_scalar($oldValue) ? (string) $oldValue : json_encode($oldValue),
+                'new_value' => is_scalar($newValue) ? (string) $newValue : json_encode($newValue),
+                'changed_by' => auth()->user()?->email ?? 'system',
+                'source' => $source,
+            ]);
+        }
+
+        return $this;
+    }
+
+    /**
      * Match the show title against active streamer names and auto-attach high-confidence matches.
      * Stores results in ai_streamer_suggestion. Returns the suggestions array.
      */

@@ -959,6 +959,35 @@ class ShowResource extends Resource
                                 ->send();
                         })
                         ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('change_status')
+                        ->label('Change Status')
+                        ->icon('heroicon-o-arrow-path')
+                        ->color('info')
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->form([
+                            Select::make('status')
+                                ->label('New Status')
+                                ->options([
+                                    'draft' => 'Draft',
+                                    'pending_review' => 'Pending Review',
+                                    'mapping' => 'Mapping',
+                                    'pending_approval' => 'Pending Approval',
+                                    'reconciled' => 'Reconciled',
+                                    'closed' => 'Closed',
+                                    'cancelled' => 'Cancelled',
+                                ])
+                                ->required(),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $records->each->update(['status' => $data['status']]);
+
+                            Notification::make()
+                                ->title('Status updated')
+                                ->body("{$records->count()} show(s) updated to {$data['status']}.")
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make()
                         ->visible(fn () => auth()->user()?->isAdmin())
                         ->action(function (Collection $records): void {

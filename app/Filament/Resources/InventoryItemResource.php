@@ -119,89 +119,117 @@ class InventoryItemResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Item Details')->columnSpanFull()->schema([
-                Grid::make(3)->schema([
-                    TextInput::make('sku')
-                        ->label('SKU')
-                        ->unique(ignoreRecord: true)
-                        ->maxLength(100)
-                        ->default(fn () => 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4)))
-                        ->helperText('Auto-generated — edit to customize')
-                        ->suffixAction(
-                            \Filament\Actions\Action::make('regenerate_sku')
-                                ->icon('heroicon-o-arrow-path')
-                                ->tooltip('Generate new SKU')
-                                ->action(function (\Filament\Forms\Set $set) {
-                                    $set('sku', 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4)));
-                                })
-                        ),
-                    TextInput::make('barcode')
-                        ->label('Barcode')
-                        ->unique(ignoreRecord: true)
-                        ->maxLength(100)
-                        ->helperText('Bluetooth scanner types directly here. Tap 📷 to use camera.')
-                        ->suffixAction(
-                            \Filament\Actions\Action::make('scan_camera')
-                                ->icon('heroicon-o-camera')
-                                ->tooltip('Scan with camera')
-                                ->alpineClickHandler("\$dispatch('open-camera-scanner')")
-                        ),
-                    TextInput::make('name')
-                        ->required()
-                        ->maxLength(255),
-                    Select::make('category')
-                        ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
-                            ->distinct()->orderBy('category')->pluck('category', 'category')->toArray()))
-                        // category is a plain string column, not a lookup table — a
-                        // freshly created value won't be in the cached options() list
-                        // above yet, so Select's built-in validation (which rejects a
-                        // selection whose label it can't resolve) needs a label
-                        // resolver that works for ANY string, not just known options.
-                        ->getOptionLabelUsing(fn ($value) => $value)
-                        ->searchable()
-                        ->native(false)
-                        ->createOptionForm([
-                            TextInput::make('category')
-                                ->label('New category')
-                                ->required()
-                                ->maxLength(100),
-                        ])
-                        ->createOptionUsing(fn (array $data) => $data['category']),
-                    Select::make('preferred_vendor_id')
-                        ->label('Preferred Vendor')
-                        ->options(fn () => Vendor::activeOptions())
-                        ->searchable()
-                        ->nullable()
-                        ->placeholder('No preferred vendor'),
-                    TextInput::make('unit_cost')
-                        ->label('List Unit Cost ($)')
-                        ->numeric()
-                        ->prefix('$')
-                        ->required()
-                        ->default(0)
-                        ->helperText('Used as fallback when no receipts exist.'),
-                    TextInput::make('average_cost')
-                        ->label('Average Cost ($)')
-                        ->numeric()
-                        ->prefix('$')
-                        ->default(0)
-                        ->helperText('Auto-calculated from receiving. Edit to override.')
-                        ->step(0.0001),
-                    TextInput::make('reorder_level')
-                        ->numeric()
-                        ->minValue(0)
-                        ->label('Reorder Level (units)'),
-                    Toggle::make('is_active')
-                        ->label('Active')
-                        ->default(true),
+            Section::make('Item Identification')
+                ->description('Name, SKU, and barcode for tracking and scanning')
+                ->columnSpanFull()
+                ->schema([
+                    Grid::make(3)->schema([
+                        TextInput::make('name')
+                            ->required()
+                            ->maxLength(255)
+                            ->label('Item Name')
+                            ->placeholder('e.g., 2024 Topps Chrome Box')
+                            ->columnSpan(2),
+                        Toggle::make('is_active')
+                            ->label('Active')
+                            ->default(true)
+                            ->columnSpan(1)
+                            ->helperText('Inactive items won\'t appear in dropdowns'),
+                        TextInput::make('sku')
+                            ->label('SKU')
+                            ->unique(ignoreRecord: true)
+                            ->maxLength(100)
+                            ->default(fn () => 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4)))
+                            ->helperText('Auto-generated — edit to customize')
+                            ->columnSpan(2)
+                            ->suffixAction(
+                                \Filament\Actions\Action::make('regenerate_sku')
+                                    ->icon('heroicon-o-arrow-path')
+                                    ->tooltip('Generate new SKU')
+                                    ->action(function (\Filament\Forms\Set $set) {
+                                        $set('sku', 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4)));
+                                    })
+                            ),
+                        TextInput::make('barcode')
+                            ->label('Barcode/UPC')
+                            ->unique(ignoreRecord: true)
+                            ->maxLength(100)
+                            ->helperText('Bluetooth scanner input. Camera scan not yet available.')
+                            ->columnSpan(1),
+                    ]),
                 ]),
-                Textarea::make('description')
-                    ->rows(2)
-                    ->columnSpanFull(),
-                Textarea::make('notes')
-                    ->rows(2)
-                    ->columnSpanFull(),
-            ]),
+
+            Section::make('Classification & Sourcing')
+                ->description('Organize and track inventory by category and vendor')
+                ->columnSpanFull()
+                ->schema([
+                    Grid::make(2)->schema([
+                        Select::make('category')
+                            ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
+                                ->distinct()->orderBy('category')->pluck('category', 'category')->toArray()))
+                            ->getOptionLabelUsing(fn ($value) => $value)
+                            ->searchable()
+                            ->native(false)
+                            ->placeholder('Select or create category...')
+                            ->createOptionForm([
+                                TextInput::make('category')
+                                    ->label('New category')
+                                    ->required()
+                                    ->maxLength(100),
+                            ])
+                            ->createOptionUsing(fn (array $data) => $data['category'])
+                            ->helperText('Group items by type (e.g., Sports Cards, Autographs)'),
+                        Select::make('preferred_vendor_id')
+                            ->label('Preferred Vendor')
+                            ->options(fn () => Vendor::activeOptions())
+                            ->searchable()
+                            ->nullable()
+                            ->placeholder('No preferred vendor'),
+                    ]),
+                ]),
+
+            Section::make('Pricing & Inventory Levels')
+                ->description('Set costs and reorder points')
+                ->columnSpanFull()
+                ->schema([
+                    Grid::make(2)->schema([
+                        TextInput::make('unit_cost')
+                            ->label('List Unit Cost ($)')
+                            ->numeric()
+                            ->prefix('$')
+                            ->required()
+                            ->default(0)
+                            ->step(0.01)
+                            ->helperText('Fallback cost when no receipts exist'),
+                        TextInput::make('average_cost')
+                            ->label('Avg Cost ($)')
+                            ->numeric()
+                            ->prefix('$')
+                            ->default(0)
+                            ->step(0.0001)
+                            ->helperText('Auto-calculated from receiving history'),
+                        TextInput::make('reorder_level')
+                            ->numeric()
+                            ->minValue(0)
+                            ->label('Reorder Level (units)')
+                            ->placeholder('0')
+                            ->helperText('Alert when stock drops below this'),
+                    ]),
+                ]),
+
+            Section::make('Notes & Description')
+                ->description('Additional details about this item')
+                ->columnSpanFull()
+                ->schema([
+                    Textarea::make('description')
+                        ->rows(3)
+                        ->placeholder('Brand, set, year, condition, or other details...')
+                        ->columnSpanFull(),
+                    Textarea::make('notes')
+                        ->rows(2)
+                        ->placeholder('Internal notes for your team...')
+                        ->columnSpanFull(),
+                ]),
         ]);
     }
 
@@ -212,46 +240,61 @@ class InventoryItemResource extends Resource
                 TextColumn::make('sku')
                     ->label('SKU')
                     ->searchable()
+                    ->sortable()
                     ->copyable()
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->weight('semibold'),
+                TextColumn::make('name')
+                    ->searchable()
+                    ->sortable()
+                    ->weight('semibold')
+                    ->description(fn ($record) => $record->description),
+                TextColumn::make('category')
+                    ->searchable()
+                    ->sortable()
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->toggleable(),
+                TextColumn::make('stock_sum_quantity')
+                    ->label('Stock')
+                    ->numeric(decimalPlaces: 0)
+                    ->default(0)
+                    ->sortable()
+                    ->summarize(Sum::make()->label('Total'))
+                    ->color(fn ($record) => match (true) {
+                        (int) ($record->stock_sum_quantity ?? 0) <= 0 => 'danger',
+                        isset($record->reorder_level) && (int) ($record->stock_sum_quantity ?? 0) <= (int) $record->reorder_level => 'warning',
+                        default => 'success'
+                    })
+                    ->weight(fn ($record) => (int) ($record->stock_sum_quantity ?? 0) <= 0 ? 'bold' : 'normal')
+                    ->icon(fn ($record) => match (true) {
+                        (int) ($record->stock_sum_quantity ?? 0) <= 0 => 'heroicon-o-exclamation-triangle',
+                        isset($record->reorder_level) && (int) ($record->stock_sum_quantity ?? 0) <= (int) $record->reorder_level => 'heroicon-o-exclamation-circle',
+                        default => 'heroicon-o-check-circle'
+                    }),
+                TextColumn::make('reorder_level')
+                    ->label('Reorder At')
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('average_cost')
+                    ->label('Avg Cost')
+                    ->money('USD')
+                    ->sortable()
+                    ->toggleable()
+                    ->description(fn ($record) => $record->total_units_received > 0
+                        ? '(' . number_format((float) $record->total_units_received, 0) . ' units)'
+                        : null),
+                IconColumn::make('is_active')
+                    ->boolean()
+                    ->label('Active')
+                    ->toggleable(),
                 TextColumn::make('barcode')
                     ->label('Barcode')
                     ->searchable()
                     ->copyable()
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('name')
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('category')
-                    ->searchable()
-                    ->badge()
-                    ->color('gray')
-                    ->placeholder('—'),
-                TextColumn::make('unit_cost')
-                    ->label('List Cost')
-                    ->money('USD')
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('average_cost')
-                    ->label('Avg Cost')
-                    ->money('USD')
-                    ->sortable()
-                    ->description(fn ($record) => $record->total_units_received > 0
-                        ? number_format((float) $record->total_units_received, 0) . ' units received'
-                        : null),
-                TextColumn::make('stock_sum_quantity')
-                    ->label('Total Qty')
-                    ->numeric(decimalPlaces: 0)
-                    ->default(0)
-                    ->sortable()
-                    ->summarize(Sum::make()->label('Total Units')),
-                TextColumn::make('reorder_level')
-                    ->label('Reorder At')
-                    ->placeholder('—'),
-                IconColumn::make('is_active')
-                    ->boolean()
-                    ->label('Active'),
                 TextColumn::make('updated_at')
                     ->dateTime('M j, Y g:i A')
                     ->sortable()
@@ -303,17 +346,18 @@ class InventoryItemResource extends Resource
                     ]),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()->label('View'),
+                EditAction::make()->label('Edit'),
                 DeleteAction::make()
                     ->iconButton()
                     ->visible(fn (InventoryItem $record) => static::canDelete($record))
-                    ->tooltip(fn (InventoryItem $record) => static::canDelete($record) ? null : 'Still holds stock — move or zero it out first.'),
+                    ->tooltip(fn (InventoryItem $record) => static::canDelete($record) ? 'Delete item' : 'Still holds stock — move or zero it out first.'),
                 ActionGroup::make([
                     Action::make('add_stock')
                         ->label('Add Stock')
                         ->icon('heroicon-o-plus-circle')
                         ->color('success')
+                        ->description('Add units to a location (opening stock, restock, or return)')
                         ->form([
                             Select::make('location_id')
                                 ->label('Location')
@@ -357,6 +401,7 @@ class InventoryItemResource extends Resource
                         ->label('Transfer Stock')
                         ->icon('heroicon-o-arrows-right-left')
                         ->color('info')
+                        ->description('Move units between locations')
                         ->form([
                             Select::make('from_location_id')
                                 ->label('From Location')
@@ -386,6 +431,7 @@ class InventoryItemResource extends Resource
                         ->label('Adjust Inventory')
                         ->icon('heroicon-o-pencil-square')
                         ->color('warning')
+                        ->description('Set exact quantity for a location (count discrepancy)')
                         ->form([
                             Select::make('location_id')
                                 ->label('Location')
@@ -412,6 +458,7 @@ class InventoryItemResource extends Resource
                         ->label('Mark Damaged')
                         ->icon('heroicon-o-exclamation-triangle')
                         ->color('danger')
+                        ->description('Move damaged units to damaged inventory location')
                         ->form([
                             Select::make('from_location_id')
                                 ->label('From Location')
@@ -440,6 +487,7 @@ class InventoryItemResource extends Resource
                         ->label('Move to Returns')
                         ->icon('heroicon-o-arrow-uturn-left')
                         ->color('gray')
+                        ->description('Move units to returns/RMA location')
                         ->form([
                             Select::make('from_location_id')
                                 ->label('From Location')

@@ -286,6 +286,11 @@ class Show extends Model
         return $this->hasMany(ShippingSurcharge::class);
     }
 
+    public function shipments(): HasMany
+    {
+        return $this->hasMany(Shipment::class);
+    }
+
     public function streamerLogEntry(): HasOne
     {
         return $this->hasOne(StreamerLogEntry::class);

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Shipment;
 use App\Models\Show;
 use App\Models\ShowIngestionLog;
 use App\Models\StreamerLogEntry;
@@ -384,6 +385,115 @@ class WhatnotScraper
     }
 
     /**
+     * Persist individual shipment records for a show from scraped shipment data.
+     * Creates new Shipment records and updates existing ones by tracking number.
+     *
+     * @return array{created: int, updated: int, skipped: int}
+     */
+    public function persistShipments(Show $show, array $rows): array
+    {
+        $created = 0;
+        $updated = 0;
+        $skipped = 0;
+
+        $existingByTracking = Shipment::where('show_id', $show->id)
+            ->whereNotNull('tracking_number')
+            ->get()
+            ->keyBy('tracking_number');
+
+        foreach ($rows as $row) {
+            $trackingNumber = $row['tracking_number'] ?? null;
+
+            if (! $trackingNumber) {
+                $skipped++;
+                continue;
+            }
+
+            if ($existingByTracking->has($trackingNumber)) {
+                $shipment = $existingByTracking->get($trackingNumber);
+                $updateData = array_filter([
+                    'buyer_username'     => $row['buyer'] ?? null,
+                    'item_count'         => $row['quantity'] ?? null,
+                    'shipping_cost'      => $row['total_price'] ?? null,
+                    'weight_oz'          => $row['weight_oz'] ?? null,
+                    'dimensions_json'    => $this->parseDimensions($row),
+                    'status'             => $row['shipping_status_scraped'] ?? null,
+                    'carrier'            => $row['shipping_carrier'] ?? null,
+                    'insurance_added'    => $this->detectInsuranceAdded($row),
+                    'signature_required' => $this->detectSignatureRequired($row),
+                    'raw_payload'        => $row,
+                ], fn ($v) => $v !== null && $v !== '');
+
+                if (! empty($updateData)) {
+                    $shipment->update($updateData);
+                    $updated++;
+                }
+                continue;
+            }
+
+            Shipment::create([
+                'show_id'            => $show->id,
+                'whatnot_order_id'   => $row['order_id'] ?? null,
+                'buyer_username'     => $row['buyer'] ?? null,
+                'created_at_whatnot' => $show->show_date,
+                'item_count'         => $row['quantity'] ?? null,
+                'shipping_cost'      => $row['total_price'] ?? null,
+                'weight_oz'          => $row['weight_oz'] ?? null,
+                'dimensions_json'    => $this->parseDimensions($row),
+                'status'             => $row['shipping_status_scraped'] ?? null,
+                'carrier'            => $row['shipping_carrier'] ?? null,
+                'tracking_number'    => $trackingNumber,
+                'insurance_added'    => $this->detectInsuranceAdded($row),
+                'signature_required' => $this->detectSignatureRequired($row),
+                'raw_payload'        => $row,
+            ]);
+
+            $created++;
+        }
+
+        Log::info('WhatnotScraper persistShipments complete', [
+            'show_id' => $show->id,
+            'created' => $created,
+            'updated' => $updated,
+            'skipped' => $skipped,
+        ]);
+
+        return compact('created', 'updated', 'skipped');
+    }
+
+    /**
+     * Parse box dimensions from raw row data into a structured format.
+     */
+    private function parseDimensions(array $row): ?array
+    {
+        $dims = array_filter([
+            'length_in' => $row['box_length_in'] ?? null,
+            'width_in'  => $row['box_width_in'] ?? null,
+            'height_in' => $row['box_height_in'] ?? null,
+        ], fn ($v) => $v !== null);
+
+        return ! empty($dims) ? $dims : null;
+    }
+
+    /**
+     * Detect if insurance was added from raw row data.
+     */
+    private function detectInsuranceAdded(array $row): bool
+    {
+        $text = ($row['raw_text'] ?? '') . ' ' . implode(' ', $row);
+        return (bool) preg_match('/insurance\s+added/i', $text);
+    }
+
+    /**
+     * Detect if signature was required from raw row data.
+     */
+    private function detectSignatureRequired(array $row): bool
+    {
+        $text = ($row['raw_text'] ?? '') . ' ' . implode(' ', $row);
+        return (bool) preg_match('/signature\s+required/i', $text);
+    }
+
+    /**
      * Merge shipment metadata (weight/dims/carrier/shipping status) from a
      * scraped row onto an already-persisted order. Only non-null incoming
      * fields are applied, and shipping_status never regresses to an earlier
@@ -468,8 +578,13 @@ class WhatnotScraper
             if (! $show || empty($rows)) {
                 continue;
             }
-            $res = $this->persistShowOrders($show, $rows);
-            $updated += $res['updated'] ?? 0;
+            // Update orders with shipment metadata
+            $orderRes = $this->persistShowOrders($show, $rows);
+            $updated += $orderRes['updated'] ?? 0;
+
+            // Also create individual Shipment records
+            $shipmentRes = $this->persistShipments($show, $rows);
+            $updated += $shipmentRes['created'] ?? 0;
         }
 
         return ['updated' => $updated, 'skipped_shows' => $skippedShows];
@@ -1048,6 +1163,7 @@ class WhatnotScraper
         }
 
         $ordersCreated = 0;
+        $shipmentsCreated = 0;
         if ($withOrders && ! empty($orderTargets)) {
             if ($onProgress) {
                 $onProgress(sprintf('Scraping orders for %d show(s)…', count($orderTargets)));
@@ -1056,17 +1172,29 @@ class WhatnotScraper
             if ($onProgress) {
                 $onProgress("Orders done: {$ordersCreated} order(s) created.");
             }
+
+            // Also scrape shipment data for shows that have orders
+            if ($onProgress) {
+                $onProgress(sprintf('Scraping shipments for %d show(s)…', count($orderTargets)));
+            }
+            $showsWithOrders = collect($orderTargets)->pluck('show')->unique('id');
+            $shipmentResults = $this->refreshShipmentsForShows($showsWithOrders, $channel?->whatnot_username, $debug);
+            $shipmentsCreated = $shipmentResults['updated'] ?? 0;
+            if ($onProgress) {
+                $onProgress("Shipments done: {$shipmentsCreated} shipment(s) imported.");
+            }
         }
 
         Log::info('WhatnotScraper import complete', [
-            'channel'        => $channel?->name,
-            'created'        => $created,
-            'updated'        => $updated,
-            'skipped'        => $skipped,
-            'orders_created' => $ordersCreated,
+            'channel'          => $channel?->name,
+            'created'          => $created,
+            'updated'          => $updated,
+            'skipped'          => $skipped,
+            'orders_created'   => $ordersCreated,
+            'shipments_created' => $shipmentsCreated,
         ]);
 
-        return compact('created', 'updated', 'skipped', 'ordersCreated');
+        return compact('created', 'updated', 'skipped', 'ordersCreated', 'shipmentsCreated');
     }
 
     /**

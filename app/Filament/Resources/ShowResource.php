@@ -959,34 +959,23 @@ class ShowResource extends Resource
                                 ->send();
                         })
                         ->deselectRecordsAfterCompletion(),
-                    BulkAction::make('change_status')
-                        ->label('Change Status')
-                        ->icon('heroicon-o-arrow-path')
-                        ->color('info')
+                    BulkAction::make('mark_reconciled')
+                        ->label('Mark as Reconciled')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
                         ->visible(fn () => auth()->user()?->isAdmin())
-                        ->form([
-                            Select::make('status')
-                                ->label('New Status')
-                                ->options([
-                                    'draft' => 'Draft',
-                                    'pending_review' => 'Pending Review',
-                                    'mapping' => 'Mapping',
-                                    'pending_approval' => 'Pending Approval',
-                                    'reconciled' => 'Reconciled',
-                                    'closed' => 'Closed',
-                                    'cancelled' => 'Cancelled',
-                                ])
-                                ->required(),
-                        ])
-                        ->action(function (Collection $records, array $data): void {
-                            $records->each->update(['status' => $data['status']]);
-
-                            Notification::make()
-                                ->title('Status updated')
-                                ->body("{$records->count()} show(s) updated to {$data['status']}.")
-                                ->success()
-                                ->send();
-                        })
+                        ->requiresConfirmation()
+                        ->modalDescription('Mark the selected shows as reconciled.')
+                        ->action(fn (Collection $records) => $records->each->update(['status' => 'reconciled']))
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('mark_closed')
+                        ->label('Mark as Closed')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->requiresConfirmation()
+                        ->modalDescription('Mark the selected shows as closed.')
+                        ->action(fn (Collection $records) => $records->each->update(['status' => 'closed']))
                         ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make()
                         ->visible(fn () => auth()->user()?->isAdmin())

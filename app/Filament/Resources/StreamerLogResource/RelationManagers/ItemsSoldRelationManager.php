@@ -240,25 +240,32 @@ class ItemsSoldRelationManager extends RelationManager
                     ->disabled($locked)
                     ->color('info')
                     ->modalHeading('Select Inventory Item')
+                    ->modalDescription('Choose from your inventory or create a new item')
                     ->form([
                         Select::make('inventory_item_id')
-                            ->label('Item')
-                            ->options(fn () => self::streamerInventoryOptions($show))
+                            ->label('Inventory Item')
+                            ->options(function () use ($show) {
+                                $items = InventoryItem::query()->where('is_active', true)->get();
+                                return $items->mapWithKeys(function ($item) {
+                                    $stock = $item->stock->sum('quantity_on_hand') ?? 0;
+                                    $cost = $item->unit_cost ? " • \${$item->unit_cost}" : '';
+                                    $label = "{$item->name} (Stock: {$stock}){$cost}";
+                                    return [$item->id => $label];
+                                })->toArray();
+                            })
                             ->searchable()
-                            ->required()
                             ->columnSpanFull(),
 
                         TextInput::make('new_item_name')
-                            ->label('Or create new item')
+                            ->label('Or create new item (name)')
                             ->placeholder('Item name...')
-                            ->helperText('Name + cost below, then save.')
                             ->columnSpanFull(),
 
                         TextInput::make('new_item_cost')
-                            ->label('Cost ($)')
+                            ->label('Cost ($) — optional')
                             ->numeric()
                             ->minValue(0)
-                            ->visible(fn ($get) => ! empty($get('new_item_name')))
+                            ->step(0.01)
                             ->columnSpanFull(),
                     ])
                     ->action(function (array $data, WhatnotShowOrder $record): void {
@@ -271,8 +278,8 @@ class ItemsSoldRelationManager extends RelationManager
                             $record->update(['inventory_item_id' => $item->id]);
 
                             Notification::make()
-                                ->title('Item created and mapped')
-                                ->body("\"{$item->name}\" added to inventory.")
+                                ->title('✓ Item created')
+                                ->body("\"{$item->name}\" added to inventory and mapped.")
                                 ->success()
                                 ->send();
                         } elseif ($data['inventory_item_id'] ?? null) {
@@ -285,12 +292,12 @@ class ItemsSoldRelationManager extends RelationManager
                                     ->body("\"{$item->name}\" has had zero stock for 14+ days.")
                                     ->warning()
                                     ->send();
+                            } else {
+                                Notification::make()
+                                    ->title('✓ Item mapped')
+                                    ->success()
+                                    ->send();
                             }
-
-                            Notification::make()
-                                ->title('Item mapped')
-                                ->success()
-                                ->send();
                         }
                     }),
 

@@ -10,6 +10,7 @@ use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Tables\Columns\SelectColumn;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Grid as SchemaGrid;
@@ -160,12 +161,26 @@ class ItemsSoldRelationManager extends RelationManager
                     ->visibleFrom('md')
                     ->summarize(Sum::make()->label('Total')->money('USD')),
 
-                TextColumn::make('inventoryItem.name')
+                SelectColumn::make('inventory_item_id')
                     ->label('Inventory Item')
-                    ->placeholder('— map item —')
-                    ->weight('bold')
-                    ->color('primary')
-                    ->width('200px'),
+                    ->options(fn () => self::streamerInventoryOptions($show))
+                    ->selectablePlaceholder('— map item —')
+                    ->width('220px')
+                    ->disabled($locked)
+                    ->afterStateUpdated(function ($state): void {
+                        if (! $state) {
+                            return;
+                        }
+
+                        $item = InventoryItem::find($state);
+                        if ($item && $item->hasBeenOutOfStockFor(14)) {
+                            Notification::make()
+                                ->title('This item shows no stock')
+                                ->body("\"{$item->name}\" has had zero stock for 14+ days. Double-check this is the right item before submitting.")
+                                ->warning()
+                                ->send();
+                        }
+                    }),
 
                 SelectColumn::make('inventory_location_id')
                     ->label('Location')
@@ -244,73 +259,6 @@ class ItemsSoldRelationManager extends RelationManager
                     }),
             ])
             ->recordActions([
-                TableAction::make('selectInventoryItem')
-                    ->label('Select')
-                    ->icon('heroicon-o-cube')
-                    ->disabled($locked)
-                    ->color('info')
-                    ->modalHeading('Select Inventory Item')
-                    ->modalDescription('Choose from your inventory or create a new item')
-                    ->form([
-                        Select::make('inventory_item_id')
-                            ->label('Inventory Item')
-                            ->options(function () {
-                                $items = InventoryItem::query()->where('is_active', true)->get();
-                                return $items->mapWithKeys(function ($item) {
-                                    $stock = $item->stock->sum('quantity_on_hand') ?? 0;
-                                    $cost = $item->unit_cost ? " • \${$item->unit_cost}" : '';
-                                    $label = "{$item->name} (Stock: {$stock}){$cost}";
-                                    return [$item->id => $label];
-                                })->toArray();
-                            })
-                            ->searchable()
-                            ->columnSpanFull(),
-
-                        TextInput::make('new_item_name')
-                            ->label('Or create new item (name)')
-                            ->placeholder('Item name...')
-                            ->columnSpanFull(),
-
-                        TextInput::make('new_item_cost')
-                            ->label('Cost ($) — optional')
-                            ->numeric()
-                            ->minValue(0)
-                            ->step(0.01)
-                            ->columnSpanFull(),
-                    ])
-                    ->action(function (array $data, WhatnotShowOrder $record): void {
-                        if ($data['new_item_name'] ?? null) {
-                            $item = InventoryItem::create([
-                                'name' => $data['new_item_name'],
-                                'unit_cost' => $data['new_item_cost'] ?? null,
-                                'is_active' => true,
-                            ]);
-                            $record->update(['inventory_item_id' => $item->id]);
-
-                            Notification::make()
-                                ->title('✓ Item created')
-                                ->body("\"{$item->name}\" added to inventory and mapped.")
-                                ->success()
-                                ->send();
-                        } elseif ($data['inventory_item_id'] ?? null) {
-                            $item = InventoryItem::find($data['inventory_item_id']);
-                            $record->update(['inventory_item_id' => $item->id]);
-
-                            if ($item && $item->hasBeenOutOfStockFor(14)) {
-                                Notification::make()
-                                    ->title('⚠️ Low stock warning')
-                                    ->body("\"{$item->name}\" has had zero stock for 14+ days.")
-                                    ->warning()
-                                    ->send();
-                            } else {
-                                Notification::make()
-                                    ->title('✓ Item mapped')
-                                    ->success()
-                                    ->send();
-                            }
-                        }
-                    }),
-
                 // Only manually-added rows (no whatnot_order_id) can be removed —
                 // imported order lines stay as the source of truth for the show.
                 DeleteAction::make()

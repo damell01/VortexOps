@@ -1128,7 +1128,9 @@ class WhatnotScraper
                     }
                     continue;
                 }
-                $show = Show::create(array_merge($payload, ['status' => 'draft', 'created_by' => auth()->id() ?? 1]));
+                // Set status to 'mapping' if units were sold (items need mapping), otherwise 'draft' (no items/test show)
+                $status = ($payload['units_sold'] ?? 0) > 0 ? 'mapping' : 'draft';
+                $show = Show::create(array_merge($payload, ['status' => $status, 'created_by' => auth()->id() ?? 1]));
                 $show->detectStreamers();
                 $created++;
                 $showModel = $show;

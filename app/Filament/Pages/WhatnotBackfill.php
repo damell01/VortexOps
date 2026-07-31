@@ -6,7 +6,6 @@ use Filament\Pages\Page;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Schemas\Schema;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -65,66 +64,59 @@ class WhatnotBackfill extends Page implements HasForms
     {
         return $schema
             ->schema([
-                Section::make('Whatnot Data Backfill')
-                    ->description('Run import jobs to sync shows, orders, shipments, and ledger data.')
-                    ->columns(2)
-                    ->schema([
-                        Select::make('command')
-                            ->label('Command')
-                            ->options([
-                                'sync-all' => 'Full Sync (Shows → Orders → Shipments → Ledger)',
-                                'import' => 'Import Shows Only',
-                                'import-orders' => 'Import Orders Only',
-                                'sync-shipments' => 'Sync Shipments Only',
-                                'import-ledger' => 'Import Ledger Only',
-                            ])
-                            ->default('sync-all')
-                            ->live()
-                            ->columnSpanFull(),
+                Select::make('command')
+                    ->label('Command')
+                    ->options([
+                        'sync-all' => 'Full Sync (Shows → Orders → Shipments → Ledger)',
+                        'import' => 'Import Shows Only',
+                        'import-orders' => 'Import Orders Only',
+                        'sync-shipments' => 'Sync Shipments Only',
+                        'import-ledger' => 'Import Ledger Only',
+                    ])
+                    ->default('sync-all')
+                    ->live(),
 
-                        TextInput::make('limit')
-                            ->label('Show Limit (for import/sync-all)')
-                            ->numeric()
-                            ->default(500)
-                            ->minValue(1)
-                            ->maxValue(5000)
-                            ->visible(fn ($get) => in_array($get('command'), ['sync-all', 'import'])),
+                TextInput::make('limit')
+                    ->label('Show Limit (for import/sync-all)')
+                    ->numeric()
+                    ->default(500)
+                    ->minValue(1)
+                    ->maxValue(5000)
+                    ->visible(fn ($get) => in_array($get('command'), ['sync-all', 'import'])),
 
-                        TextInput::make('days')
-                            ->label('Days Back (for ledger)')
-                            ->numeric()
-                            ->default(8)
-                            ->minValue(1)
-                            ->maxValue(365)
-                            ->visible(fn ($get) => in_array($get('command'), ['import-ledger', 'sync-all'])),
+                TextInput::make('days')
+                    ->label('Days Back (for ledger)')
+                    ->numeric()
+                    ->default(8)
+                    ->minValue(1)
+                    ->maxValue(365)
+                    ->visible(fn ($get) => in_array($get('command'), ['import-ledger', 'sync-all'])),
 
-                        Toggle::make('noOrders')
-                            ->label('Skip Orders (faster show import)')
-                            ->default(false)
-                            ->visible(fn ($get) => $get('command') === 'import'),
+                Toggle::make('noOrders')
+                    ->label('Skip Orders (faster show import)')
+                    ->default(false)
+                    ->visible(fn ($get) => $get('command') === 'import'),
 
-                        Toggle::make('skipOrders')
-                            ->label('Skip Orders')
-                            ->default(false)
-                            ->visible(fn ($get) => $get('command') === 'sync-all'),
+                Toggle::make('skipOrders')
+                    ->label('Skip Orders')
+                    ->default(false)
+                    ->visible(fn ($get) => $get('command') === 'sync-all'),
 
-                        Toggle::make('skipShipments')
-                            ->label('Skip Shipments')
-                            ->default(false)
-                            ->visible(fn ($get) => $get('command') === 'sync-all'),
+                Toggle::make('skipShipments')
+                    ->label('Skip Shipments')
+                    ->default(false)
+                    ->visible(fn ($get) => $get('command') === 'sync-all'),
 
-                        Toggle::make('skipLedger')
-                            ->label('Skip Ledger')
-                            ->default(false)
-                            ->visible(fn ($get) => $get('command') === 'sync-all'),
+                Toggle::make('skipLedger')
+                    ->label('Skip Ledger')
+                    ->default(false)
+                    ->visible(fn ($get) => $get('command') === 'sync-all'),
 
-                        Textarea::make('output')
-                            ->label('Output Log')
-                            ->disabled()
-                            ->rows(15)
-                            ->columnSpanFull()
-                            ->default('Ready to run. Click "Start Import" to begin.'),
-                    ]),
+                Textarea::make('output')
+                    ->label('Output Log')
+                    ->disabled()
+                    ->rows(15)
+                    ->default('Ready to run. Click "Start Import" to begin.'),
             ])
             ->statePath('data');
     }

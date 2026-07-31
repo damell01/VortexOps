@@ -20,6 +20,7 @@ class ShipmentResource extends Resource
 
     protected static ?string $model = Shipment::class;
     protected static string $moduleSlug = 'streams';
+    protected static string|\UnitEnum|null $navigationGroup = null;
 
     public static function getNavigationIcon(): ?string
     {

@@ -154,6 +154,25 @@ class DeductionRequestResource extends Resource
                     ->formatStateUsing(fn ($state) => DeductionRequest::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => StatusColor::for($state)),
 
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (DeductionRequest $record): string => match ($record->status) {
+                        'pending' => 'Review costs & approve',
+                        'approved' => 'Ready for payout',
+                        'processed' => 'Complete',
+                        'rejected' => 'Fix & resubmit',
+                        default => 'Review',
+                    })
+                    ->badge()
+                    ->color(fn (DeductionRequest $record): string => match ($record->status) {
+                        'pending' => 'warning',
+                        'approved' => 'info',
+                        'processed' => 'success',
+                        'rejected' => 'danger',
+                        default => 'gray',
+                    })
+                    ->visible(fn () => auth()->user()?->isAdmin()),
+
                 TextColumn::make('lines_count')
                     ->counts('lines')
                     ->label('Lines'),

@@ -194,7 +194,9 @@ class StreamerResource extends Resource
                     ]),
                 ]),
 
-            Section::make('Basic Information')->columnSpanFull()->schema([
+            Section::make('Basic Information')
+                ->description('Streamer name, contact info, and assigned channel.')
+                ->columnSpanFull()->schema([
                 Grid::make(3)->schema([
                     TextInput::make('name')
                         ->required()
@@ -247,7 +249,9 @@ class StreamerResource extends Resource
                     ]),
                 ]),
 
-            Section::make('Payout Configuration')->columnSpanFull()->schema([
+            Section::make('Payout Configuration')
+                ->description('Set how this streamer is paid — payout type, rates, and payment cadence.')
+                ->columnSpanFull()->schema([
                 Grid::make(3)->schema([
                     Select::make('payout_type')
                         ->options(Streamer::payoutTypeLabels())

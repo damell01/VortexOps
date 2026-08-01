@@ -123,6 +123,7 @@ class PayoutResource extends Resource
     {
         return $schema->components([
             Section::make('Payout Summary')
+                ->description('Overview of the show and streamer for this payout.')
                 ->columns(2)
                 ->columnSpanFull()
                 ->schema([
@@ -140,6 +141,7 @@ class PayoutResource extends Resource
                         ->content(fn (Payout $record): string => Payout::statusLabels()[$record->status] ?? $record->status),
                 ]),
             Section::make('Calculation')
+                ->description('Breakdown of how this payout was calculated — revenue, tips, deductions, and final amount.')
                 ->columnSpanFull()
                 ->schema([
                     Grid::make(2)->schema([

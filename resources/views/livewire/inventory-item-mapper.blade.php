@@ -9,10 +9,11 @@
                 <!-- Header -->
                 <div class="sticky top-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4 flex items-center justify-between z-10">
                     <h3 id="mapper-title" class="text-lg font-semibold text-gray-900 dark:text-white">Map Inventory</h3>
-                    <button wire:click="closeMapper()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                    <button wire:click="closeMapper()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 group relative" title="Close (Esc)">
                         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
+                        <span class="absolute bottom-full right-0 mb-2 px-2 py-1 text-xs bg-gray-900 text-white rounded whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">Close (Esc)</span>
                     </button>
                 </div>
 
@@ -90,12 +91,26 @@
                 </div>
 
                 <!-- Footer -->
-                <div class="sticky bottom-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4 flex gap-3">
-                    <button wire:click="closeMapper()" class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                <div class="sticky bottom-0 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4 flex gap-3 z-10">
+                    <button
+                        wire:click="closeMapper()"
+                        wire:loading.attr="disabled"
+                        class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed">
                         Cancel
                     </button>
-                    <button wire:click="mapItem()" class="flex-1 px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition">
-                        Map Item
+                    <button
+                        wire:click="mapItem()"
+                        wire:loading.attr="disabled"
+                        class="flex-1 px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg wire:loading.remove class="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        <svg wire:loading class="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span wire:loading.remove>Map Item</span>
+                        <span wire:loading>Mapping...</span>
                     </button>
                 </div>
             </div>

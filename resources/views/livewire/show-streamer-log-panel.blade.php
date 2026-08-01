@@ -12,10 +12,11 @@
                         <h2 id="panel-title" class="text-lg font-semibold text-gray-900 dark:text-white">{{ $show->title }}</h2>
                         <p class="text-sm text-gray-500 dark:text-gray-400">{{ $show->show_date?->format('M j, Y') }} • {{ $show->channel->name }}</p>
                     </div>
-                    <button wire:click="closePanel()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                    <button wire:click="closePanel()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 group relative" title="Close (Esc)">
                         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
+                        <span class="absolute bottom-full right-0 mb-2 px-2 py-1 text-xs bg-gray-900 text-white rounded whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20">Close (Esc)</span>
                     </button>
                 </div>
 

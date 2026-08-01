@@ -232,6 +232,21 @@ class StreamerLogResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn ($state) => StreamerLogEntry::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => StatusColor::for($state)),
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (StreamerLogEntry $record): string => match ($record->status) {
+                        'pending' => 'Add items & costs',
+                        'streamer_reviewed' => 'Admin review pending',
+                        'admin_approved' => 'Payout ready' . ($record->needsFulfillmentReview() ? ' (needs fulfillment review)' : ''),
+                        default => 'Review',
+                    })
+                    ->badge()
+                    ->color(fn (StreamerLogEntry $record): string => match ($record->status) {
+                        'pending' => 'warning',
+                        'streamer_reviewed' => 'info',
+                        'admin_approved' => 'success',
+                        default => 'gray',
+                    }),
                 TextColumn::make('hours_streamed')
                     ->label('Hours')
                     ->numeric(),

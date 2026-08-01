@@ -151,6 +151,20 @@ class StreamerLoanResource extends Resource
                         default    => 'gray',
                     }),
 
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (StreamerLoan $record): string => match ($record->status) {
+                        'active' => 'Track repayments',
+                        'paid_off' => 'Complete ✓',
+                        default => 'Review',
+                    })
+                    ->badge()
+                    ->color(fn (StreamerLoan $record): string => match ($record->status) {
+                        'active' => 'warning',
+                        'paid_off' => 'success',
+                        default => 'gray',
+                    }),
+
                 TextColumn::make('created_at')
                     ->dateTime('M j, Y')
                     ->sortable()

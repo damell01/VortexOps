@@ -1,15 +1,14 @@
 <div>
     @if ($isOpen && $order)
-        <div class="fixed inset-0 z-40 overflow-hidden">
+        <div class="fixed inset-0 z-50 overflow-hidden flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-labelledby="mapper-title">
         <!-- Backdrop -->
         <div class="absolute inset-0 bg-black/50" wire:click="closeMapper()"></div>
 
         <!-- Modal -->
-        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div class="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full mx-4 pointer-events-auto max-h-[90vh] overflow-y-auto">
+        <div class="relative bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
                 <!-- Header -->
-                <div class="sticky top-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4 flex items-center justify-between">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Map Inventory</h3>
+                <div class="sticky top-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4 flex items-center justify-between z-10">
+                    <h3 id="mapper-title" class="text-lg font-semibold text-gray-900 dark:text-white">Map Inventory</h3>
                     <button wire:click="closeMapper()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
                         <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>

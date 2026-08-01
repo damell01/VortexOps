@@ -1,15 +1,15 @@
 <div>
     @if ($isOpen && $show)
-        <div class="fixed inset-0 z-50 overflow-hidden">
+        <div class="fixed inset-0 z-50 overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="panel-title">
             <!-- Backdrop -->
             <div class="absolute inset-0 bg-black/50" wire:click="closePanel()"></div>
 
             <!-- Panel -->
             <div class="absolute right-0 top-0 h-full w-full max-w-2xl bg-white dark:bg-gray-900 shadow-xl overflow-y-auto">
                 <!-- Header -->
-                <div class="sticky top-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4 flex items-center justify-between">
+                <div class="sticky top-0 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-4 flex items-center justify-between z-10">
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ $show->title }}</h2>
+                        <h2 id="panel-title" class="text-lg font-semibold text-gray-900 dark:text-white">{{ $show->title }}</h2>
                         <p class="text-sm text-gray-500 dark:text-gray-400">{{ $show->show_date?->format('M j, Y') }} • {{ $show->channel->name }}</p>
                     </div>
                     <button wire:click="closePanel()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">

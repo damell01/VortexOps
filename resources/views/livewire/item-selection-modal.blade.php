@@ -1,8 +1,7 @@
-<div class="fixed inset-0 z-50 overflow-y-auto animate-fade-in">
-    <div class="flex min-h-screen items-center justify-center bg-black/50 px-4 py-12 backdrop-blur-sm animate-fade-in transition-colors duration-300">
-        <div class="w-full max-w-4xl transform rounded-2xl bg-white dark:bg-gray-900 shadow-2xl transition-all animate-scale-in">
+<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm animate-fade-in transition-colors duration-300 p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="w-full max-w-4xl max-h-[90vh] transform rounded-2xl bg-white dark:bg-gray-900 shadow-2xl transition-all animate-scale-in flex flex-col">
             <!-- Header -->
-            <div class="sticky top-0 z-10 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-cyan-500 px-6 py-6 text-white rounded-t-2xl">
+            <div id="modal-title" class="flex-shrink-0 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-cyan-500 px-6 py-6 text-white rounded-t-2xl">
                 <div class="flex items-center justify-between mb-4">
                     <div>
                         <h2 class="text-2xl font-bold">Select Inventory Item</h2>
@@ -42,7 +41,7 @@
             </div>
 
             <!-- Content Area -->
-            <div class="max-h-96 overflow-y-auto p-6">
+            <div class="flex-grow overflow-y-auto p-6">
                 @if(empty($search) && !$isSearching)
                     <div id="recentSearches" style="display: none;">
                         <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Recent Searches</h3>
@@ -138,7 +137,7 @@
 
             <!-- Footer with Cost and Location -->
             @if($selectedItemId)
-                <div class="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-6 py-6 rounded-b-2xl">
+                <div class="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-6 py-6 rounded-b-2xl">
                     <div class="grid gap-4 sm:grid-cols-3">
                         <!-- Item Selected Indicator -->
                         <div>

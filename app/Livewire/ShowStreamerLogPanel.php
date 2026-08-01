@@ -39,6 +39,21 @@ class ShowStreamerLogPanel extends Component
         $this->dispatch('open-inventory-mapper', orderId: $orderId);
     }
 
+    public function markReadyForFulfillment(): void
+    {
+        if (!$this->show) return;
+
+        $unmappedCount = $this->show->orders()->whereNull('inventory_item_id')->count();
+        if ($unmappedCount > 0) {
+            $this->dispatch('notify', type: 'warning', message: "Cannot mark ready: {$unmappedCount} items still need mapping.");
+            return;
+        }
+
+        $this->show->update(['fulfillment_ready' => true]);
+        $this->dispatch('notify', type: 'success', message: 'Show marked ready for fulfillment!');
+        $this->closePanel();
+    }
+
     public function render()
     {
         return view('livewire.show-streamer-log-panel', [

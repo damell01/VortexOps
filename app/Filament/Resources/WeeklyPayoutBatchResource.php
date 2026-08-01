@@ -159,6 +159,22 @@ class WeeklyPayoutBatchResource extends Resource
                     ->formatStateUsing(fn ($state) => WeeklyPayoutBatch::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => StatusColor::for($state)),
 
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (WeeklyPayoutBatch $record): string => match ($record->status) {
+                        'draft' => 'Review & approve',
+                        'approved' => 'Finalize & pay',
+                        'finalized' => 'Complete',
+                        default => 'Review',
+                    })
+                    ->badge()
+                    ->color(fn (WeeklyPayoutBatch $record): string => match ($record->status) {
+                        'draft' => 'warning',
+                        'approved' => 'info',
+                        'finalized' => 'success',
+                        default => 'gray',
+                    }),
+
                 TextColumn::make('finalizedBy.name')
                     ->label('Finalized By')
                     ->default('—')

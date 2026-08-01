@@ -99,42 +99,47 @@ function updateFieldValidation(field, isValid, errorMessage) {
     wrapper.querySelectorAll('.validation-feedback, .validation-icon').forEach(el => el.remove());
 
     if (!isValid) {
-        // Add error icon
+        // Add error icon with animation
         const icon = document.createElement('span');
-        icon.className = 'validation-icon absolute right-3 top-3 text-red-500';
+        icon.className = 'validation-icon absolute right-3 top-3 text-red-500 animate-bounce';
         icon.innerHTML = '❌';
         if (field.offsetParent) { // Check if visible
             field.parentElement.style.position = 'relative';
             field.parentElement.appendChild(icon);
         }
 
-        // Add error message
+        // Add error message with animation
         if (errorMessage) {
             const msg = document.createElement('p');
-            msg.className = 'validation-feedback text-sm text-red-600 dark:text-red-400 mt-1 animate-fade-in';
+            msg.className = 'validation-feedback text-sm text-red-600 dark:text-red-400 mt-1 animate-fade-in transition-all duration-200';
             msg.textContent = errorMessage;
             wrapper.appendChild(msg);
         }
 
-        // Add red border
-        field.classList.add('border-red-500');
-        field.classList.remove('border-green-500');
+        // Add red border with shadow
+        field.classList.add('border-red-500', 'ring-1', 'ring-red-500/20');
+        field.classList.remove('border-green-500', 'ring-green-500/20');
+        // Add red background tint
+        field.style.backgroundColor = 'rgba(239, 68, 68, 0.02)';
     } else if (field.value?.trim()) {
         // Add success icon only if field has content
         const icon = document.createElement('span');
-        icon.className = 'validation-icon absolute right-3 top-3 text-green-500';
+        icon.className = 'validation-icon absolute right-3 top-3 text-green-500 animate-scale-in';
         icon.innerHTML = '✓';
         if (field.offsetParent) {
             field.parentElement.style.position = 'relative';
             field.parentElement.appendChild(icon);
         }
 
-        // Add green border
-        field.classList.add('border-green-500');
-        field.classList.remove('border-red-500');
+        // Add green border with shadow
+        field.classList.add('border-green-500', 'ring-1', 'ring-green-500/20');
+        field.classList.remove('border-red-500', 'ring-red-500/20');
+        // Add green background tint
+        field.style.backgroundColor = 'rgba(34, 197, 94, 0.02)';
     } else {
-        // Reset borders
-        field.classList.remove('border-red-500', 'border-green-500');
+        // Reset borders and background
+        field.classList.remove('border-red-500', 'border-green-500', 'ring-1', 'ring-red-500/20', 'ring-green-500/20');
+        field.style.backgroundColor = '';
     }
 }
 

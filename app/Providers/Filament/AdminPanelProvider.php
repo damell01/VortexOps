@@ -145,6 +145,20 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn () => ! $isAuthenticatedAdminView()
                     ? ''
+                    : Blade::render(<<<'HTML'
+                    <script>
+                    document.addEventListener('DOMContentLoaded', () => {
+                        // Show keyboard shortcuts hint in console
+                        const shortcuts = 'Press ? to see keyboard shortcuts';
+                        console.info('%c' + shortcuts, 'color: #7c3aed; font-size: 12px; font-weight: bold;');
+                    });
+                    </script>
+                    HTML),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
                     : view('filament.components.camera-barcode-scanner'),
             )
             ->renderHook(

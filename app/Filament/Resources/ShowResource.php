@@ -630,6 +630,7 @@ class ShowResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->extraAttributes(['data-sticky-header' => 'true'])
             ->columns([
                 TextColumn::make('show_date')
                     ->label('Date')

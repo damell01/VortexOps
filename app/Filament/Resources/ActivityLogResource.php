@@ -157,6 +157,7 @@ class ActivityLogResource extends Resource
             ->emptyStateHeading('No activity yet')
             ->emptyStateDescription('User and system actions are logged here as people work.')
             ->emptyStateIcon('heroicon-o-clock')
+            ->extraAttributes(['data-sticky-header' => 'true'])
             ->deferLoading()
             ->columns([
                 TextColumn::make('id')

@@ -141,6 +141,7 @@ class ItemsSoldRelationManager extends RelationManager
             ->recordTitleAttribute('item_name')
             ->defaultSort('lot_number')
             ->striped()
+            ->extraAttributes(['data-sticky-header' => 'true'])
             ->rowClasses(fn ($record) => ! $record->inventory_item_id
                 ? 'bg-red-50 dark:bg-red-950/20 border-l-4 border-red-500'
                 : '')
@@ -148,8 +149,14 @@ class ItemsSoldRelationManager extends RelationManager
                 // On phones the table slims down to what a streamer actually edits
                 // (item, qty, mapping, cost); context columns return at md+ so the
                 // row fits without sideways scrolling on a narrow screen.
-                TextColumn::make('lot_number')->label('Lot #')->width('72px')->placeholder('—')
-                    ->visibleFrom('md')->toggleable(),
+                TextColumn::make('lot_number')
+                    ->label('Lot #')
+                    ->width('72px')
+                    ->placeholder('—')
+                    ->visibleFrom('md')
+                    ->toggleable()
+                    ->formatStateUsing(fn ($state) => $state ? view('components.copy-badge', ['value' => $state, 'display' => $state])->render() : '—')
+                    ->html(),
 
                 TextColumn::make('item_name')->label('Item')->wrap()->placeholder('—'),
 

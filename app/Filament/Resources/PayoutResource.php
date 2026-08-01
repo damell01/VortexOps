@@ -193,6 +193,7 @@ class PayoutResource extends Resource
             ->emptyStateHeading('No payouts yet')
             ->emptyStateDescription('Payouts are generated when shows are reconciled.')
             ->emptyStateIcon('heroicon-o-banknotes')
+            ->extraAttributes(['data-sticky-header' => 'true'])
             ->columns([
                 TextColumn::make('show.show_date')
                     ->label('Show Date')

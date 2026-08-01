@@ -219,6 +219,7 @@ class StreamerLogResource extends Resource
             ->emptyStateHeading('No log entries')
             ->emptyStateDescription('Streamer show logs land here for review and approval.')
             ->emptyStateIcon('heroicon-o-clipboard-document-list')
+            ->extraAttributes(['data-sticky-header' => 'true'])
             ->columns([
                 TextColumn::make('show.show_date')
                     ->label('Date')

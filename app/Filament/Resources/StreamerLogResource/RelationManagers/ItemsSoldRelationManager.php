@@ -140,6 +140,10 @@ class ItemsSoldRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('item_name')
             ->defaultSort('lot_number')
+            ->striped()
+            ->rowClasses(fn ($record) => ! $record->inventory_item_id
+                ? 'bg-red-50 dark:bg-red-950/20 border-l-4 border-red-500'
+                : '')
             ->columns([
                 // On phones the table slims down to what a streamer actually edits
                 // (item, qty, mapping, cost); context columns return at md+ so the
@@ -163,8 +167,9 @@ class ItemsSoldRelationManager extends RelationManager
 
                 SelectColumn::make('inventory_item_id')
                     ->label('Inventory Item')
+                    ->description('Click to match this sale to your inventory')
                     ->options(fn () => self::streamerInventoryOptions($show))
-                    ->selectablePlaceholder('— map item —')
+                    ->selectablePlaceholder('⚠ Choose item')
                     ->width('220px')
                     ->disabled($locked)
                     ->afterStateUpdated(function ($state): void {
@@ -199,12 +204,21 @@ class ItemsSoldRelationManager extends RelationManager
                     ->disabled($locked),
 
                 TextInputColumn::make('unit_cost')
-                    ->label('Unit Cost')->type('number')->rules(['nullable', 'numeric', 'min:0'])->width('110px')
-                    ->disabled($locked),
+                    ->label('Unit Cost ($)')
+                    ->type('number')
+                    ->rules(['nullable', 'numeric', 'min:0'])
+                    ->width('110px')
+                    ->disabled($locked)
+                    ->color('info'),
 
-                TextColumn::make('total_cost')->label('Total Cost')->money('USD')->placeholder('—')->weight('bold')
+                TextColumn::make('total_cost')
+                    ->label('Total Cost')
+                    ->money('USD')
+                    ->placeholder('—')
+                    ->weight('bold')
+                    ->color('info')
                     ->visibleFrom('md')
-                    ->summarize(Sum::make()->label('Total')->money('USD')),
+                    ->summarize(Sum::make()->label('Total Cost')->money('USD')),
             ])
             ->heading(fn () => static::mappingProgress($show))
             ->headerActions([
@@ -267,6 +281,9 @@ class ItemsSoldRelationManager extends RelationManager
             ->emptyStateHeading('No items yet')
             ->emptyStateDescription('Items sold import automatically once this show\'s orders are pulled from Whatnot, or add one yourself with "Add Item".')
             ->emptyStateIcon('heroicon-o-shopping-cart')
-            ->paginated([25, 50, 100]);
+            ->paginated([25, 50, 100])
+            ->after(fn () => ! $locked && $show?->orders->isNotEmpty() && $show->orders()->whereNull('inventory_item_id')->exists()
+                ? view('components.items-sold-help', ['total' => $show->orders->count(), 'mapped' => $show->orders()->whereNotNull('inventory_item_id')->count()])
+                : null);
     }
 }

@@ -150,9 +150,37 @@ class FulfillmentResource extends Resource
 
                 TextColumn::make('shipping_progress')
                     ->label('Shipping Progress')
-                    ->state(fn (Show $record): string => static::shippingProgressLabel($record))
+                    ->state(fn (Show $record): string => {
+                        $total = $record->orders()->count();
+                        if ($total === 0) return '—';
+                        $shipped = $record->orders()->whereIn('shipping_status', ['shipped', 'delivered'])->count();
+                        $percent = intval(($shipped / $total) * 100);
+                        return "{$shipped}/{$total} ({$percent}%)";
+                    })
                     ->badge()
                     ->color(fn (Show $record): string => static::isFullyShipped($record) ? 'success' : 'warning'),
+                TextColumn::make('fulfillment_next_action')
+                    ->label('Next Action')
+                    ->state(fn (Show $record): string => {
+                        $total = $record->orders()->count();
+                        if ($total === 0) return 'No items';
+                        $shipped = $record->orders()->whereIn('shipping_status', ['shipped', 'delivered'])->count();
+                        $ready = $record->orders()->where('shipping_status', 'ready_to_ship')->count();
+
+                        return match (true) {
+                            $shipped === $total => 'Complete ✓',
+                            $ready > 0 => "Ship {$ready} items",
+                            default => 'Prepare items',
+                        };
+                    })
+                    ->badge()
+                    ->color(fn (Show $record): string => {
+                        $total = $record->orders()->count();
+                        if ($total === 0) return 'gray';
+                        $shipped = $record->orders()->whereIn('shipping_status', ['shipped', 'delivered'])->count();
+
+                        return $shipped === $total ? 'success' : 'warning';
+                    }),
             ])
             ->filters([
                 SelectFilter::make('status')

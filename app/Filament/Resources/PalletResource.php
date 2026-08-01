@@ -107,7 +107,9 @@ class PalletResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Pallet Details')->columnSpanFull()->schema([
+            Section::make('Pallet Details')
+                ->description('Vendor, purchase order, and shipment information')
+                ->columnSpanFull()->schema([
                 Grid::make(3)->schema([
                     Select::make('vendor_id')
                         ->label('Vendor')

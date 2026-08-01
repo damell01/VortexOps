@@ -26,7 +26,22 @@ class EditStreamerLogEntry extends EditRecord
         }
 
         if ($record->status === 'pending') {
-            return 'Map the items you sold to inventory, fill in your costs, then use "Streamer Reviewed" on the list to submit.';
+            $total = $record->show?->orders()->count() ?? 0;
+            $mapped = $record->show?->orders()->whereNotNull('inventory_item_id')->count() ?? 0;
+
+            $mappingProgress = $total > 0
+                ? "{$mapped}/{$total} items mapped"
+                : 'No items to map';
+
+            return "Step 1: Map items → Step 2: Fill costs → Step 3: Review. {$mappingProgress}";
+        }
+
+        if ($record->status === 'streamer_reviewed') {
+            return 'Waiting for admin review. Your data has been submitted.';
+        }
+
+        if ($record->status === 'admin_approved' && $record->needsFulfillmentReview()) {
+            return 'Pending fulfillment team review of PWE/label counts.';
         }
 
         return null;

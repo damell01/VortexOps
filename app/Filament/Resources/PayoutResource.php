@@ -253,6 +253,23 @@ class PayoutResource extends Resource
                     ->formatStateUsing(fn ($state) => Payout::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => StatusColor::for($state)),
 
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (Payout $record): string => match ($record->status) {
+                        'draft' => 'Review & approve',
+                        'approved' => 'Mark as paid',
+                        'paid' => 'Done',
+                        default => 'Review',
+                    })
+                    ->badge()
+                    ->color(fn (Payout $record): string => match ($record->status) {
+                        'draft' => 'warning',
+                        'approved' => 'info',
+                        'paid' => 'success',
+                        default => 'gray',
+                    })
+                    ->visible(fn () => auth()->user()?->isAdmin()),
+
                 TextColumn::make('calculation_notes')
                     ->label('How Calculated')
                     ->toggleable(isToggledHiddenByDefault: true),

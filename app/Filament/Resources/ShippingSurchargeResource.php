@@ -92,6 +92,15 @@ class ShippingSurchargeResource extends Resource
                     ->boolean()
                     ->trueColor('success')
                     ->falseColor('warning'),
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (ShippingSurcharge $record): string => $record->deducted_from_payout
+                        ? 'Complete ✓'
+                        : 'Apply to payout')
+                    ->badge()
+                    ->color(fn (ShippingSurcharge $record): string => $record->deducted_from_payout
+                        ? 'success'
+                        : 'info'),
             ])
             ->filters([
                 SelectFilter::make('streamer_id')

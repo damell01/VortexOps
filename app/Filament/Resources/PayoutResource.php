@@ -249,9 +249,11 @@ class PayoutResource extends Resource
                     ->formatStateUsing(fn ($state): string => $state ? $state->format('M j') : 'Unbatched'),
 
                 TextColumn::make('status')
-                    ->badge()
-                    ->formatStateUsing(fn ($state) => Payout::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => StatusColor::for($state)),
+                    ->formatStateUsing(fn ($state) => view('components.status-badge', [
+                        'status' => $state,
+                        'label' => Payout::statusLabels()[$state] ?? ucfirst(str_replace('_', ' ', $state)),
+                    ])->render())
+                    ->html(),
 
                 TextColumn::make('next_action')
                     ->label('Next Action')

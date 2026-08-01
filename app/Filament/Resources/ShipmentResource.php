@@ -81,15 +81,13 @@ class ShipmentResource extends Resource
                     ->label('Carrier')
                     ->color('primary'),
 
-                BadgeColumn::make('status')
+                TextColumn::make('status')
                     ->label('Status')
-                    ->color(fn (string $state) => match ($state) {
-                        'Ready to Ship' => 'warning',
-                        'Shipped' => 'info',
-                        'Delivered' => 'success',
-                        default => 'gray',
-                    })
-                    ->formatStateUsing(fn (string $state) => str_replace('_', ' ', ucwords($state))),
+                    ->formatStateUsing(fn (string $state) => view('components.status-badge', [
+                        'status' => $state,
+                        'label' => str_replace('_', ' ', ucwords($state)),
+                    ])->render())
+                    ->html(),
 
                 TextColumn::make('next_action')
                     ->label('Next Action')

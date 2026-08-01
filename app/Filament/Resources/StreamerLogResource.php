@@ -229,9 +229,11 @@ class StreamerLogResource extends Resource
                     ->placeholder('—')
                     ->toggleable(),
                 TextColumn::make('status')
-                    ->badge()
-                    ->formatStateUsing(fn ($state) => StreamerLogEntry::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => StatusColor::for($state)),
+                    ->formatStateUsing(fn ($state) => view('components.status-badge', [
+                        'status' => $state,
+                        'label' => StreamerLogEntry::statusLabels()[$state] ?? ucfirst(str_replace('_', ' ', $state)),
+                    ])->render())
+                    ->html(),
                 TextColumn::make('next_action')
                     ->label('Next Action')
                     ->state(fn (StreamerLogEntry $record): string => match ($record->status) {

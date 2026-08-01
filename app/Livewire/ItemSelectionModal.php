@@ -69,6 +69,14 @@ class ItemSelectionModal extends Component
         return $query->orderBy('name')->limit(20)->get();
     }
 
+    public function updatedSearch($value): void
+    {
+        if (strlen($value) >= 2) {
+            // Track search in client-side history via dispatch
+            $this->dispatch('trackSearch', query: $value);
+        }
+    }
+
     public function selectItem($itemId): void
     {
         $item = InventoryItem::find($itemId);

@@ -30,6 +30,7 @@
                         placeholder="Search by item name, SKU, or barcode..."
                         class="w-full rounded-lg bg-white/90 py-3 pl-10 pr-4 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50"
                         autofocus
+                        @onfocus="document.dispatchEvent(new CustomEvent('showRecentSearches'))"
                     >
                 </div>
             </div>
@@ -37,13 +38,25 @@
             <!-- Content Area -->
             <div class="max-h-96 overflow-y-auto p-6">
                 @if(empty($search))
-                    <div class="flex flex-col items-center justify-center py-12 text-center">
-                        <svg class="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                        </svg>
-                        <h3 class="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">Start searching</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Type at least 2 characters to search your inventory</p>
+                    <div id="recentSearches" style="display: none;">
+                        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Recent Searches</h3>
+                        <div id="recentSearchList" class="space-y-2 mb-6"></div>
                     </div>
+
+                    <div id="favoriteItems" style="display: none;">
+                        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Favorites</h3>
+                        <div id="favoritesList" class="space-y-2 mb-6"></div>
+                    </div>
+
+                    @if(true)
+                        <div class="flex flex-col items-center justify-center py-12 text-center">
+                            <svg class="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                            </svg>
+                            <h3 class="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">Start searching</h3>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Type at least 2 characters to search your inventory</p>
+                        </div>
+                    @endif
                 @elseif(count($searchResults) === 0)
                     <div class="flex flex-col items-center justify-center py-12 text-center">
                         <svg class="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,13 +84,21 @@
                                             @endif
                                         </div>
                                     </div>
-                                    @if($selectedItemId === $item->id)
-                                        <div class="flex-shrink-0">
+                                    <div class="flex-shrink-0 flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onclick="event.stopPropagation(); window.favorites?.toggle({{ $item->id }}, '{{ addslashes($item->name) }}')"
+                                            class="favorite-btn text-xl opacity-60 hover:opacity-100 transition"
+                                            data-item-id="{{ $item->id }}"
+                                        >
+                                            <span class="favorite-icon">☆</span>
+                                        </button>
+                                        @if($selectedItemId === $item->id)
                                             <svg class="h-6 w-6 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                                             </svg>
-                                        </div>
-                                    @endif
+                                        @endif
+                                    </div>
                                 </div>
                                 <div class="mt-3 flex items-center justify-between text-sm">
                                     <span class="text-gray-600 dark:text-gray-400">
@@ -162,3 +183,91 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.querySelector('input[wire\\:model\\.live="search"]');
+    const contentArea = document.querySelector('.max-h-96');
+
+    // Update favorite star icons
+    function updateFavoriteIcons() {
+        document.querySelectorAll('.favorite-btn').forEach(btn => {
+            const itemId = btn.dataset.itemId;
+            const isFavorite = window.favorites?.isFavorite?.(parseInt(itemId));
+            const icon = btn.querySelector('.favorite-icon');
+            if (icon) {
+                icon.textContent = isFavorite ? '★' : '☆';
+            }
+        });
+    }
+
+    // Show recent searches and favorites when search is empty
+    function updateEmptyState() {
+        const recentSearchesDiv = document.getElementById('recentSearches');
+        const favoritesDiv = document.getElementById('favoriteItems');
+        const emptyState = contentArea?.querySelector('.flex.flex-col.items-center');
+
+        if (!searchInput?.value) {
+            // Get recent searches
+            const searches = window.searchHistory?.getAll?.() || [];
+            const recentList = document.getElementById('recentSearchList');
+
+            if (recentList && searches.length > 0) {
+                recentList.innerHTML = searches
+                    .slice(0, 5)
+                    .map(query => `
+                        <button type="button" onclick="document.querySelector('input[wire\\\\:model\\\\.live=\\\"search\\\"]').value='${query.replace(/'/g, "\\'")}; document.querySelector('input[wire\\\\:model\\\\.live=\\\"search\\\"]').dispatchEvent(new Event('input', { bubbles: true }));"
+                            class="block w-full text-left px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition text-sm"
+                        >
+                            🕐 ${query}
+                        </button>
+                    `).join('');
+                recentSearchesDiv.style.display = 'block';
+            }
+
+            // Get favorites
+            const favorites = window.favorites?.getAll?.() || [];
+            const favoritesList = document.getElementById('favoritesList');
+            if (favoritesList && favorites.length > 0) {
+                favoritesList.innerHTML = favorites
+                    .slice(0, 5)
+                    .map(fav => `
+                        <button type="button" onclick="document.querySelector('input[wire\\\\:model\\\\.live=\\\"search\\\"]').value='${fav.label.replace(/'/g, "\\'")}; document.querySelector('input[wire\\\\:model\\\\.live=\\\"search\\\"]').dispatchEvent(new Event('input', { bubbles: true }));"
+                            class="block w-full text-left px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-gray-700 dark:text-gray-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition text-sm border border-amber-200 dark:border-amber-800/50"
+                        >
+                            ★ ${fav.label}
+                        </button>
+                    `).join('');
+                favoritesDiv.style.display = 'block';
+            }
+        } else {
+            recentSearchesDiv.style.display = 'none';
+            favoritesDiv.style.display = 'none';
+        }
+
+        updateFavoriteIcons();
+    }
+
+    // Listen for search changes
+    searchInput?.addEventListener('input', updateEmptyState);
+
+    // Initial update
+    updateEmptyState();
+
+    // Update favorite icons when favorites change
+    window.addEventListener('storage', updateFavoriteIcons);
+
+    // Handle trackSearch event from Livewire
+    window.addEventListener('trackSearch', (e) => {
+        if (e.detail.query) {
+            window.searchHistory?.add?.(e.detail.query);
+            updateEmptyState();
+        }
+    });
+
+    // Listen for livewire updates
+    Livewire.hook('commit', () => {
+        setTimeout(updateFavoriteIcons, 100);
+    });
+});
+</script>

@@ -114,25 +114,30 @@ class StreamerLogResource extends Resource
                         ->label('Hours Streamed')
                         ->numeric()
                         ->step(0.25)
-                        ->helperText('Total time you were on stream — used for payout calculation'),
+                        ->helperText('Total time you were on stream — used for payout calculation')
+                        ->extraAttributes(['data-validation' => json_encode(['min' => 0, 'minMessage' => 'Hours must be at least 0'])]),
                     TextInput::make('number_of_shipments')
                         ->label('Number of Shipments')
                         ->integer()
-                        ->helperText('Total shipments sent for this show'),
+                        ->helperText('Total shipments sent for this show')
+                        ->extraAttributes(['data-validation' => json_encode(['min' => 0, 'minMessage' => 'Shipments must be at least 0'])]),
                     TextInput::make('number_of_packages_over_500')
                         ->label('Packages Over $500')
                         ->helperText('Shipments over $500 value — these incur an extra shipping surcharge')
-                        ->integer(),
+                        ->integer()
+                        ->extraAttributes(['data-validation' => json_encode(['min' => 0])]),
                     TextInput::make('pwe_count')
                         ->label('PWE Count')
                         ->helperText('Packages shipped PWE (PostagePaidEnvelope) — affects your payout')
                         ->integer()
-                        ->visible(fn (?StreamerLogEntry $record) => $record?->streamer?->payout_type === 'pwe_labels'),
+                        ->visible(fn (?StreamerLogEntry $record) => $record?->streamer?->payout_type === 'pwe_labels')
+                        ->extraAttributes(['data-validation' => json_encode(['min' => 0])]),
                     TextInput::make('label_count')
                         ->label('Label-Only Count')
                         ->helperText('Packages with label only (no PWE) — used to calculate your shipping pay')
                         ->integer()
-                        ->visible(fn (?StreamerLogEntry $record) => $record?->streamer?->payout_type === 'pwe_labels'),
+                        ->visible(fn (?StreamerLogEntry $record) => $record?->streamer?->payout_type === 'pwe_labels')
+                        ->extraAttributes(['data-validation' => json_encode(['min' => 0])]),
                 ]),
             ]),
 
@@ -146,12 +151,14 @@ class StreamerLogResource extends Resource
                         ->label('Gross Revenue')
                         ->numeric()
                         ->prefix('$')
-                        ->helperText('Auto-filled from show data — update if you need to correct it'),
+                        ->helperText('Auto-filled from show data — update if you need to correct it')
+                        ->extraAttributes(['data-validation' => json_encode(['min' => 0, 'minMessage' => 'Revenue must be at least 0'])]),
                     TextInput::make('product_cost')
                         ->label('Product Cost Total')
                         ->numeric()
                         ->prefix('$')
-                        ->helperText('Sum of wholesale costs for all items you sold (from your inventory records)'),
+                        ->helperText('Sum of wholesale costs for all items you sold (from your inventory records)')
+                        ->extraAttributes(['data-validation' => json_encode(['min' => 0, 'minMessage' => 'Cost must be at least 0'])]),
                 ]),
             ]),
 

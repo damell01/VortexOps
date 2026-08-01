@@ -139,6 +139,12 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn () => ! $isAuthenticatedAdminView()
                     ? ''
+                    : view('components.toast-container'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
                     : view('filament.components.camera-barcode-scanner'),
             )
             ->renderHook(

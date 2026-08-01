@@ -6,6 +6,8 @@ use App\Filament\Resources\StreamerLogResource;
 use App\Models\StreamerLogEntry;
 use App\Services\ShippingSurchargeService;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Support\Enums\MaxWidth;
+use Illuminate\Support\HtmlString;
 
 class EditStreamerLogEntry extends EditRecord
 {
@@ -113,5 +115,18 @@ class EditStreamerLogEntry extends EditRecord
                 "Auto from streamer log #{$record->id}",
             );
         }
+    }
+
+    public function getBreadcrumbs(): array
+    {
+        $breadcrumbs = [
+            route('filament.admin.resources.streamer-log-resource.index') => 'Streamer Logs',
+        ];
+
+        if ($this->record->show) {
+            $breadcrumbs[null] = $this->record->show->title ?: 'Untitled Show';
+        }
+
+        return $breadcrumbs;
     }
 }

@@ -150,7 +150,7 @@ class FulfillmentResource extends Resource
 
                 TextColumn::make('shipping_progress')
                     ->label('Shipping Progress')
-                    ->state(fn (Show $record): string => {
+                    ->state(function (Show $record): string {
                         $total = $record->orders()->count();
                         if ($total === 0) return '—';
                         $shipped = $record->orders()->whereIn('shipping_status', ['shipped', 'delivered'])->count();
@@ -161,7 +161,7 @@ class FulfillmentResource extends Resource
                     ->color(fn (Show $record): string => static::isFullyShipped($record) ? 'success' : 'warning'),
                 TextColumn::make('fulfillment_next_action')
                     ->label('Next Action')
-                    ->state(fn (Show $record): string => {
+                    ->state(function (Show $record): string {
                         $total = $record->orders()->count();
                         if ($total === 0) return 'No items';
                         $shipped = $record->orders()->whereIn('shipping_status', ['shipped', 'delivered'])->count();
@@ -174,7 +174,7 @@ class FulfillmentResource extends Resource
                         };
                     })
                     ->badge()
-                    ->color(fn (Show $record): string => {
+                    ->color(function (Show $record): string {
                         $total = $record->orders()->count();
                         if ($total === 0) return 'gray';
                         $shipped = $record->orders()->whereIn('shipping_status', ['shipped', 'delivered'])->count();

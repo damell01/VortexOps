@@ -232,7 +232,7 @@ class PalletResource extends Resource
                     ->color(fn ($state) => StatusColor::for($state)),
                 TextColumn::make('receiving_progress')
                     ->label('Receiving Progress')
-                    ->state(fn (Pallet $record): string => {
+                    ->state(function (Pallet $record): string {
                         $total = $record->totalCasesCount();
                         $received = $record->receivedCasesCount();
                         $percent = $total > 0 ? intval(($received / $total) * 100) : 0;

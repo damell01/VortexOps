@@ -695,6 +695,25 @@ class ShowResource extends Resource
                     ->formatStateUsing(fn ($state) => Show::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => StatusColor::for($state)),
 
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (Show $record): string => match ($record->status) {
+                        'pending_review' => 'Map items to inventory',
+                        'mapping' => 'Continue mapping → Review approval',
+                        'pending_approval' => 'Review & approve costs',
+                        'reconciled' => 'Calculate payout',
+                        'closed' => 'Done',
+                        default => 'Review',
+                    })
+                    ->badge()
+                    ->color(fn (Show $record): string => match ($record->status) {
+                        'pending_review', 'mapping' => 'warning',
+                        'pending_approval' => 'info',
+                        'reconciled' => 'warning',
+                        'closed' => 'success',
+                        default => 'gray',
+                    }),
+
                 TextColumn::make('latestDeductionRequest.status')
                     ->label('Approval')
                     ->badge()

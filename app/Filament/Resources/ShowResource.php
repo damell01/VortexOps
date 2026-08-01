@@ -212,7 +212,9 @@ class ShowResource extends Resource
 
     private static function showDetailsSection(): Section
     {
-        return Section::make('Show Details')->columns(3)->columnSpanFull()->schema([
+        return Section::make('Show Details')
+            ->description('Core information about this show — date, channel, title, and status.')
+            ->columns(3)->columnSpanFull()->schema([
                 DatePicker::make('show_date')
                     ->label('Show Date')
                     ->required()
@@ -293,7 +295,9 @@ class ShowResource extends Resource
 
     private static function financialsSection(): Section
     {
-        return Section::make('Financials')->columns(3)->columnSpanFull()->schema([
+        return Section::make('Financials')
+            ->description('Revenue from this show — gross, net from Whatnot, and tips received.')
+            ->columns(3)->columnSpanFull()->schema([
                 TextInput::make('gross_revenue')
                     ->label('Gross Revenue')
                     ->numeric()
@@ -316,7 +320,9 @@ class ShowResource extends Resource
 
     private static function paperSalesSection(): Section
     {
-        return Section::make('Paper Sales')->columns(3)->columnSpanFull()->schema([
+        return Section::make('Paper Sales')
+            ->description('Manual paper sales or off-platform sales logged during the show.')
+            ->columns(3)->columnSpanFull()->schema([
                 TextInput::make('paper_sales_gross')
                     ->label('Paper Sales Gross')
                     ->numeric()

@@ -102,37 +102,42 @@ class StreamerLogResource extends Resource
                 ]),
 
             Section::make('Show Info')
+                ->description('Record key metrics from your show — hours streamed, shipments, and package counts.')
                 ->disabled(fn (?StreamerLogEntry $record) => static::isLockedForCurrentUser($record))
                 ->columnSpanFull()
                 ->schema([
                 Grid::make(2)->schema([
                     Toggle::make('hard_copy')
-                        ->label('Hard Copy (physical log filed)'),
+                        ->label('Hard Copy (physical log filed)')
+                        ->helperText('Check if you filed a physical log sheet for this show'),
                     TextInput::make('hours_streamed')
                         ->label('Hours Streamed')
                         ->numeric()
-                        ->step(0.25),
+                        ->step(0.25)
+                        ->helperText('Total time you were on stream — used for payout calculation'),
                     TextInput::make('number_of_shipments')
                         ->label('Number of Shipments')
-                        ->integer(),
+                        ->integer()
+                        ->helperText('Total shipments sent for this show'),
                     TextInput::make('number_of_packages_over_500')
                         ->label('Packages Over $500')
-                        ->helperText('Triggers shipping surcharge')
+                        ->helperText('Shipments over $500 value — these incur an extra shipping surcharge')
                         ->integer(),
                     TextInput::make('pwe_count')
                         ->label('PWE Count')
-                        ->helperText('Packages shipped PWE — used for payout')
+                        ->helperText('Packages shipped PWE (PostagePaidEnvelope) — affects your payout')
                         ->integer()
                         ->visible(fn (?StreamerLogEntry $record) => $record?->streamer?->payout_type === 'pwe_labels'),
                     TextInput::make('label_count')
                         ->label('Label-Only Count')
-                        ->helperText('Packages shipped with a label only — used for payout')
+                        ->helperText('Packages with label only (no PWE) — used to calculate your shipping pay')
                         ->integer()
                         ->visible(fn (?StreamerLogEntry $record) => $record?->streamer?->payout_type === 'pwe_labels'),
                 ]),
             ]),
 
             Section::make('Revenue & Product Cost')
+                ->description('Enter revenue and product costs. Your profit is calculated from these numbers.')
                 ->disabled(fn (?StreamerLogEntry $record) => static::isLockedForCurrentUser($record))
                 ->columnSpanFull()
                 ->schema([
@@ -141,18 +146,17 @@ class StreamerLogResource extends Resource
                         ->label('Gross Revenue')
                         ->numeric()
                         ->prefix('$')
-                        ->helperText('Auto-filled from show — override if needed'),
+                        ->helperText('Auto-filled from show data — update if you need to correct it'),
                     TextInput::make('product_cost')
                         ->label('Product Cost Total')
                         ->numeric()
                         ->prefix('$')
-                        ->helperText('Total wholesale cost of products sold (from calculations sheet)'),
+                        ->helperText('Sum of wholesale costs for all items you sold (from your inventory records)'),
                 ]),
             ]),
 
             Section::make('Pay Breakdown')
-                // Streamers can log their info and items, but their pay is set by
-                // an admin — so these fields are read-only for non-admins.
+                ->description('Your earnings breakdown calculated by admins. Review these numbers for accuracy.')
                 ->disabled(fn () => ! (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
                 ->columnSpanFull()
                 ->schema([

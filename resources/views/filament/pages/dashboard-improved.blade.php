@@ -256,5 +256,8 @@
                 </div>
             </div>
         @endif
+
+        {{-- Detailed Workflow Guide --}}
+        <x-workflow-guide></x-workflow-guide>
     </div>
 </x-filament-panels::page>

@@ -64,9 +64,10 @@ class AdminPanelProvider extends PanelProvider
             ->font('Inter')
             ->sidebarCollapsibleOnDesktop()
             ->sidebarFullyCollapsibleOnDesktop()
+            // Mobile-optimized: 6xl on desktop, full width on mobile
             ->maxContentWidth(\Filament\Support\Enums\Width::Full)
-            ->globalSearchKeyBindings(['mod+k'])
-            ->globalSearchDebounce('300ms')
+            ->globalSearchKeyBindings(['mod+k', '/'])
+            ->globalSearchDebounce('200ms')
             ->colors([
                 'primary' => Color::hex($primaryColor),
                 'gray'    => Color::Zinc,
@@ -121,12 +122,13 @@ class AdminPanelProvider extends PanelProvider
                     ]);
                 },
             )
-            ->renderHook(
-                PanelsRenderHook::BODY_END,
-                fn (): string => ! $isAuthenticatedAdminView()
-                    ? ''
-                    : Blade::render("@livewire('feedback-widget')"),
-            )
+            // Feedback widget disabled — was causing login modals and UX friction
+            // ->renderHook(
+            //     PanelsRenderHook::BODY_END,
+            //     fn (): string => ! $isAuthenticatedAdminView()
+            //         ? ''
+            //         : Blade::render("@livewire('feedback-widget')"),
+            // )
             ->renderHook(
                 PanelsRenderHook::SIDEBAR_NAV_START,
                 fn (): string => (auth()->user()?->canSwitchChannels() ?? false)

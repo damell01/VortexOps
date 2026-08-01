@@ -155,9 +155,23 @@ class InventoryStockResource extends Resource
                     ->badge()
                     ->color('info'),
                 TextColumn::make('quantity')
+                    ->label('Quantity')
                     ->numeric(decimalPlaces: 0)
                     ->sortable()
-                    ->color(fn ($record) => $record->item?->reorder_level !== null && $record->quantity <= $record->item->reorder_level ? 'danger' : null),
+                    ->weight('bold')
+                    ->icon(fn ($record) => match (true) {
+                        (int)$record->quantity <= 0 => 'heroicon-o-exclamation-triangle',
+                        $record->item?->reorder_level !== null && (int)$record->quantity <= (int)$record->item->reorder_level => 'heroicon-o-exclamation-circle',
+                        default => null
+                    })
+                    ->color(fn ($record) => match (true) {
+                        (int)$record->quantity <= 0 => 'danger',
+                        $record->item?->reorder_level !== null && (int)$record->quantity <= (int)$record->item->reorder_level => 'warning',
+                        default => 'success'
+                    })
+                    ->description(fn ($record) => $record->item?->reorder_level
+                        ? "(reorder at {$record->item->reorder_level})"
+                        : null),
                 TextColumn::make('item.unit_cost')
                     ->label('Unit Cost')
                     ->money('USD'),

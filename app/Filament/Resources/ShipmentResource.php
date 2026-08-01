@@ -91,6 +91,22 @@ class ShipmentResource extends Resource
                     })
                     ->formatStateUsing(fn (string $state) => str_replace('_', ' ', ucwords($state))),
 
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (Shipment $record): string => match ($record->status) {
+                        'Ready to Ship' => 'Pack & ship',
+                        'Shipped' => 'In transit',
+                        'Delivered' => 'Delivered ✓',
+                        default => 'Review',
+                    })
+                    ->badge()
+                    ->color(fn (Shipment $record): string => match ($record->status) {
+                        'Ready to Ship' => 'warning',
+                        'Shipped' => 'info',
+                        'Delivered' => 'success',
+                        default => 'gray',
+                    }),
+
                 TextColumn::make('item_count')
                     ->label('Items')
                     ->numeric()

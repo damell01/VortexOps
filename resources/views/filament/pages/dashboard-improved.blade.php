@@ -1,7 +1,7 @@
 <x-filament-panels::page>
-    <div class="space-y-6">
+    <div class="space-y-6 animate-fade-in">
         {{-- Quick Status Cards --}}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in-up">
             @if(auth()->user()?->isStreamer() && !auth()->user()?->isAdmin())
                 {{-- Streamer: Shows Awaiting Action --}}
                 <div class="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl p-6 shadow-sm hover:shadow-md transition">

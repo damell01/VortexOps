@@ -18,7 +18,7 @@
     $label = $label ?? ucfirst(str_replace('_', ' ', $status));
 @endphp
 
-<span class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border rounded-full {{ $colorClasses }} cursor-help group relative"
+<span class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium border rounded-full {{ $colorClasses }} cursor-help group relative transition-all duration-200 hover:shadow-md"
       title="{{ $description }}">
     <span class="text-base">{{ $icon }}</span>
     <span>{{ $label }}</span>

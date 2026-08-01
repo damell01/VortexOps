@@ -1,0 +1,269 @@
+/* Smooth page transitions */
+@layer components {
+    /* Fade-in animation for page load */
+    .animate-page-in {
+        @apply animate-fade-in;
+    }
+
+    /* Modal animations */
+    .animate-modal-in {
+        @apply animate-fade-in;
+    }
+
+    .animate-modal-backdrop {
+        @apply animate-fade-in;
+    }
+
+    /* Section animations */
+    .animate-section-in {
+        @apply animate-fade-in-up;
+    }
+
+    /* Smooth grow animation */
+    .animate-grow-in {
+        @apply animate-scale-in;
+    }
+
+    /* Smooth shrink animation */
+    .animate-shrink-out {
+        animation: shrinkOut 0.3s ease-out forwards;
+    }
+
+    /* Card hover animations */
+    .group:hover .animate-on-hover {
+        @apply animate-fade-in;
+    }
+
+    /* Badge pulse animation */
+    .animate-badge-pulse {
+        animation: badgePulse 2s ease-in-out infinite;
+    }
+
+    /* Button press animation */
+    .animate-button-press {
+        @apply transition-all duration-150;
+    }
+
+    .animate-button-press:active {
+        @apply scale-95;
+    }
+
+    /* Progress bar smooth fill */
+    .animate-progress-fill {
+        @apply transition-all duration-500 ease-out;
+    }
+
+    /* Slide animations */
+    .animate-slide-in-from-left {
+        animation: slideInFromLeft 0.4s ease-out;
+    }
+
+    .animate-slide-in-from-right {
+        animation: slideInFromRight 0.4s ease-out;
+    }
+
+    .animate-slide-out-to-left {
+        animation: slideOutToLeft 0.3s ease-in;
+    }
+
+    .animate-slide-out-to-right {
+        animation: slideOutToRight 0.3s ease-in;
+    }
+
+    /* Bounce animations */
+    .animate-bounce-in {
+        animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+
+    /* Loading skeleton animation */
+    .animate-pulse-skeleton {
+        animation: pulseSkeleton 2s ease-in-out infinite;
+    }
+}
+
+/* Animation keyframes */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes shrinkOut {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+}
+
+@keyframes slideInFromLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideInFromRight {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOutToLeft {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+}
+
+@keyframes slideOutToRight {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+}
+
+@keyframes bounceIn {
+    0% {
+        opacity: 0;
+        transform: scale(0.3);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+    70% {
+        transform: scale(0.9);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes badgePulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+@keyframes pulseSkeleton {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Smooth transitions for all interactive elements */
+button,
+a,
+input,
+select,
+textarea {
+    @apply transition-colors duration-200;
+}
+
+/* Smooth color transitions */
+.transition-colors-smooth {
+    @apply transition-colors duration-300;
+}
+
+/* Smooth transform transitions */
+.transition-transform-smooth {
+    @apply transition-transform duration-300;
+}
+
+/* Smooth all transitions */
+.transition-smooth {
+    @apply transition-all duration-300;
+}
+
+/* Mobile-specific animations */
+@media (max-width: 768px) {
+    /* Reduce animation duration on mobile for snappier feel */
+    .animate-page-in {
+        animation-duration: 0.2s;
+    }
+
+    .animate-modal-in {
+        animation-duration: 0.3s;
+    }
+
+    /* Reduce motion for accessibility */
+    @media (prefers-reduced-motion: reduce) {
+        * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+}
+
+/* Accessibility: Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

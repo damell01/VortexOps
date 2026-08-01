@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 @import 'driver.js/dist/driver.css';
 @import 'mobile-responsive.css';
+@import 'animations.css';
+@import 'mobile-enhancements.css';
 
 [x-cloak] { display: none !important; }
 

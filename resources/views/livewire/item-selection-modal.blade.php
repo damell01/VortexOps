@@ -1,6 +1,6 @@
-<div class="fixed inset-0 z-50 overflow-y-auto">
-    <div class="flex min-h-screen items-center justify-center bg-black/50 px-4 py-12 backdrop-blur-sm">
-        <div class="w-full max-w-4xl transform rounded-2xl bg-white dark:bg-gray-900 shadow-2xl transition-all">
+<div class="fixed inset-0 z-50 overflow-y-auto animate-fade-in">
+    <div class="flex min-h-screen items-center justify-center bg-black/50 px-4 py-12 backdrop-blur-sm animate-fade-in transition-colors duration-300">
+        <div class="w-full max-w-4xl transform rounded-2xl bg-white dark:bg-gray-900 shadow-2xl transition-all animate-scale-in">
             <!-- Header -->
             <div class="sticky top-0 z-10 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-cyan-500 px-6 py-6 text-white rounded-t-2xl">
                 <div class="flex items-center justify-between mb-4">

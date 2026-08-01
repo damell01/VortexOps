@@ -5,7 +5,7 @@
     $isAdmin = $user?->isAdmin();
 @endphp
 
-<div class="mt-8 space-y-6">
+<div class="mt-8 space-y-6 animate-fade-in-up">
     @if($isStreamer)
         <!-- Streamer Workflow Guide -->
         <div class="overflow-hidden rounded-xl bg-white dark:bg-gray-900 shadow-lg">

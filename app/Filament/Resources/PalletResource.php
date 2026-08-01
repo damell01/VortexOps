@@ -101,7 +101,9 @@ class PalletResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['vendor'])->withCount('lines');
+        return parent::getEloquentQuery()
+            ->with(['vendor', 'lines', 'cases'])
+            ->withCount('lines');
     }
 
     public static function form(Schema $schema): Schema
@@ -228,6 +230,33 @@ class PalletResource extends Resource
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn ($state) => StatusColor::for($state)),
+                TextColumn::make('receiving_progress')
+                    ->label('Receiving Progress')
+                    ->state(fn (Pallet $record): string => {
+                        $total = $record->totalCasesCount();
+                        $received = $record->receivedCasesCount();
+                        $percent = $total > 0 ? intval(($received / $total) * 100) : 0;
+                        return "{$received}/{$total} cases ({$percent}%)";
+                    })
+                    ->visible(fn (Pallet $record) => in_array($record->status, ['receiving', 'received', 'processed'])),
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (Pallet $record): string => match ($record->status) {
+                        'pending' => 'Enter manifest lines',
+                        'shipped' => 'Receive pallet',
+                        'receiving' => 'Continue receiving cases',
+                        'received' => 'Mark as processed',
+                        'processed' => 'Complete',
+                        default => 'Review',
+                    })
+                    ->badge()
+                    ->color(fn (Pallet $record): string => match ($record->status) {
+                        'pending', 'shipped' => 'warning',
+                        'receiving' => 'info',
+                        'received' => 'success',
+                        'processed' => 'success',
+                        default => 'gray',
+                    }),
                 TextColumn::make('tracking_number')
                     ->label('Tracking')
                     ->copyable()

@@ -79,7 +79,9 @@ class VendorResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Vendor Details')->columnSpanFull()->schema([
+            Section::make('Vendor Details')
+                ->description('Supplier information and contact details')
+                ->columnSpanFull()->schema([
                 Grid::make(3)->schema([
                     TextInput::make('name')
                         ->required()

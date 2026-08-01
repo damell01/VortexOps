@@ -33,18 +33,59 @@ class EditStreamerLogEntry extends EditRecord
                 ? "{$mapped}/{$total} items mapped"
                 : 'No items to map';
 
-            return "Step 1: Map items → Step 2: Fill costs → Step 3: Review. {$mappingProgress}";
+            return "Step 1 of 3: Map items → Fill costs → Review. {$mappingProgress}";
         }
 
         if ($record->status === 'streamer_reviewed') {
-            return 'Waiting for admin review. Your data has been submitted.';
+            return 'Step 2 of 3: Waiting for admin review. Your data has been submitted.';
         }
 
         if ($record->status === 'admin_approved' && $record->needsFulfillmentReview()) {
-            return 'Pending fulfillment team review of PWE/label counts.';
+            return 'Step 3 of 3: Pending fulfillment team review of PWE/label counts.';
         }
 
         return null;
+    }
+
+    public function getHeadingHtml(): string
+    {
+        /** @var StreamerLogEntry $record */
+        $record = $this->record;
+        $show = $record->show;
+
+        $progressData = match($record->status) {
+            'pending' => [
+                'current' => 1,
+                'total' => 3,
+                'steps' => ['Map Items', 'Fill Costs', 'Review'],
+            ],
+            'streamer_reviewed' => [
+                'current' => 2,
+                'total' => 3,
+                'steps' => ['Map Items', 'Admin Review', 'Complete'],
+            ],
+            'admin_approved' => [
+                'current' => 3,
+                'total' => 3,
+                'steps' => ['Map Items', 'Admin Review', 'Complete'],
+            ],
+            default => [
+                'current' => 1,
+                'total' => 3,
+                'steps' => ['Map Items', 'Admin Review', 'Complete'],
+            ],
+        };
+
+        $progressHtml = view('components.workflow-progress', $progressData)->render();
+
+        return <<<HTML
+            <div>
+                <h1 class="text-3xl font-bold">{{ $show?->title ?? 'Streamer Log' }}</h1>
+                <div class="mt-4">
+                    {$progressHtml}
+                </div>
+            </div>
+        HTML;
     }
 
     protected function afterSave(): void

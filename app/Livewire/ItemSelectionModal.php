@@ -23,6 +23,7 @@ class ItemSelectionModal extends Component
     public float $unitCost = 0;
     public ?Show $show = null;
     public ?WhatnotShowOrder $order = null;
+    public bool $isSearching = false;
 
     public function mount(?int $orderId = null, ?int $showId = null): void
     {

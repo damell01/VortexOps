@@ -26,18 +26,24 @@
                     </div>
                     <input
                         type="text"
-                        wire:model.live="search"
+                        wire:model.live.debounce-300ms="search"
                         placeholder="Search by item name, SKU, or barcode..."
                         class="w-full rounded-lg bg-white/90 py-3 pl-10 pr-4 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50"
                         autofocus
                         @onfocus="document.dispatchEvent(new CustomEvent('showRecentSearches'))"
                     >
+                    <div wire:loading class="absolute inset-y-0 right-0 flex items-center pr-3">
+                        <svg class="animate-spin h-5 w-5 text-white/60" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
                 </div>
             </div>
 
             <!-- Content Area -->
             <div class="max-h-96 overflow-y-auto p-6">
-                @if(empty($search))
+                @if(empty($search) && !$isSearching)
                     <div id="recentSearches" style="display: none;">
                         <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Recent Searches</h3>
                         <div id="recentSearchList" class="space-y-2 mb-6"></div>
@@ -57,6 +63,20 @@
                             <p class="text-sm text-gray-500 dark:text-gray-400">Type at least 2 characters to search your inventory</p>
                         </div>
                     @endif
+                @elseif($isSearching)
+                    <div class="space-y-3">
+                        @for($i = 0; $i < 3; $i++)
+                            <div class="rounded-lg border-2 border-gray-200 dark:border-gray-700 p-4 animate-pulse">
+                                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+                                <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-3"></div>
+                                <div class="flex gap-2">
+                                    <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                                    <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-20"></div>
+                                </div>
+                            </div>
+                        @endfor
+                    </div>
+
                 @elseif(count($searchResults) === 0)
                     <div class="flex flex-col items-center justify-center py-12 text-center">
                         <svg class="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

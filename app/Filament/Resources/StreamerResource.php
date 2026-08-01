@@ -440,6 +440,32 @@ class StreamerResource extends Resource
                         ->defaultItems(0),
                 ]),
 
+            Section::make('Inventory Access Control')
+                ->description('Control which inventory locations this streamer can access when mapping items. Leave empty to allow access to all locations.')
+                ->collapsed()
+                ->columnSpanFull()
+                ->schema([
+                    Repeater::make('inventoryLocations')
+                        ->label('Allowed Inventory Locations')
+                        ->relationship('inventoryLocations')
+                        ->schema([
+                            Select::make('name')
+                                ->label('Location')
+                                ->options(fn () => \App\Models\InventoryLocation::where('is_active', true)
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                    ->toArray())
+                                ->searchable()
+                                ->required(),
+                        ])
+                        ->columns(1)
+                        ->addActionLabel('Add Location')
+                        ->reorderable()
+                        ->collapsible()
+                        ->helperText('Streamers will see items from these locations first when mapping sold items.')
+                        ->columnSpanFull(),
+                ]),
+
             Section::make('Status & Notes')->columnSpanFull()->schema([
                 Grid::make(2)->schema([
                     Select::make('status')

@@ -273,6 +273,21 @@ class ItemsSoldRelationManager extends RelationManager
                     }),
             ])
             ->recordActions([
+                // Quick map action opens full-screen modal for better UX
+                TableAction::make('quick_map')
+                    ->label('Map Item')
+                    ->icon('heroicon-o-pencil')
+                    ->color('primary')
+                    ->visible(fn (WhatnotShowOrder $record) => ! $locked)
+                    ->modalContent(fn (WhatnotShowOrder $record) => view('livewire.item-selection-modal', [
+                        'orderId' => $record->id,
+                        'order' => $record,
+                        'show' => $show,
+                    ]))
+                    ->modalHeading('Quick Item Mapping')
+                    ->modalWidth('4xl')
+                    ->action(fn () => null), // handled by livewire
+
                 // Only manually-added rows (no whatnot_order_id) can be removed —
                 // imported order lines stay as the source of truth for the show.
                 DeleteAction::make()

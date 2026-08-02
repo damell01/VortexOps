@@ -16,9 +16,113 @@ Full end-to-end walkthrough at 1440 × 900 — every workflow, every page, every
 
 ---
 
-## Screenshots
+## User Roles & Permissions
 
-Auto-captured by the Playwright UI tour and stored in [`tests/Browser/screenshots/`](tests/Browser/screenshots/). Each row shows the **desktop** view (1440 × 900) alongside the **mobile** view (390 × 844). Regenerate any time with `npx playwright test`.
+VortexOps has three distinct roles with scoped access:
+
+### 1. Super Admin (`super_admin`)
+
+**Access:** Everything, including role assignment and dangerous operations.  
+**Use case:** Dev/operations team only. Don't assign to production users.
+
+| Feature | Access |
+|---------|--------|
+| All resources (full CRUD) | ✅ |
+| Settings & configuration | ✅ |
+| User management & role assignment | ✅ |
+| Activity log viewer | ✅ |
+| Log viewer | ✅ |
+| Whatnot sync dashboard | ✅ |
+| Clear logs / dangerous actions | ✅ |
+
+**Default test account:** `dev@vortexbreaks.com` / `devpassword`
+
+---
+
+### 2. Admin (`admin`)
+
+**Access:** Full platform access, no role management.  
+**Use case:** Operations team — they drive the business workflows.
+
+| Feature | Access |
+|---------|--------|
+| Shows (create/edit/manage all) | ✅ |
+| Streamers (view + edit profiles) | ✅ |
+| Payouts (calculate + approve pay runs) | ✅ |
+| Inventory (all operations + adjustments) | ✅ |
+| Pallets & receiving (full workflow) | ✅ |
+| Deduction requests (approve/reject) | ✅ |
+| Whatnot channels + sync control | ✅ |
+| User management | ✅ |
+| Activity log viewer | ✅ |
+| Log viewer | ✅ |
+| Settings | Subset (can't disable modules) |
+
+**Permissions:** `admin` role (Spatie Laravel Permission v7)
+
+**Default test account:** `admin@vortexbreaks.com` / `password`
+
+---
+
+### 3. Streamer (`streamer`)
+
+**Access:** Limited self-service view of their own data.  
+**Use case:** Streamers log into the platform to see their own shows, payouts, and balances.
+
+| Feature | Access |
+|---------|--------|
+| Shows (view own only, scoped to their shows) | ✅ |
+| Add items to show logs (manual mapping) | ✅ |
+| View own payouts | ✅ |
+| View payout history | ✅ |
+| Inventory items (read-only list) | ✅ |
+| Inventory locations (own + shared only) | ✅ |
+| Movement log (view only) | ✅ |
+| Deduction requests (view own only) | ✅ |
+| **Cannot:** Create shows, manage payouts, access admin settings, assign roles | ❌ |
+
+**Setup:** Link a Streamer profile to a User record via the user form. Inventory scope applies automatically.
+
+**Test account example:** `streamer@example.com` / `password` (must be linked to a Streamer profile)
+
+---
+
+## Screenshots & Role-Based Views
+
+All screenshots are auto-captured by the **Playwright UI tour** (`tests/Browser/screenshot-tour.spec.ts`) and stored in [`tests/Browser/screenshots/`](tests/Browser/screenshots/). Each row shows the **desktop** view (1440 × 900) alongside the **mobile** view (390 × 844).
+
+### Regenerate Screenshots
+
+To capture fresh screenshots of all functionality across all user roles:
+
+```bash
+# Start the development server
+php artisan serve --port=8000 &
+
+# Clear caches
+php artisan config:clear && php artisan cache:clear
+
+# Run the Playwright tour (all roles, all pages, desktop + mobile, 14 test suites)
+npx playwright test tests/Browser/screenshot-tour.spec.ts --project=chromium
+
+# Results saved to tests/Browser/screenshots/{desktop,mobile}/
+```
+
+The tour tests 14 different scenarios:
+1. **Authentication** — Login page empty/filled
+2. **Owner Dashboard** — Full dashboard with stats and dark mode
+3. **Shows Resource** — List, search, filters, detail view
+4. **Streamers Resource** — List and detail view
+5. **Payouts Resource** — List, filters, grouping, detail view
+6. **Inventory Resources** — Items, locations, stock, movements
+7. **Pallets & Receiving** — List and detail workflows
+8. **Vendors & Settings** — Configuration pages
+9. **Admin Experience** — Admin-only features
+10. **Streamer Experience** — Scoped streamer view
+11. **Modals & Actions** — Create, edit, delete workflows
+12. **Responsive Design** — Tablet and small mobile testing
+13. **Toast Notifications** — Success, error, warning messages
+14. **Dark Mode** — Light/dark theme consistency
 
 ---
 
@@ -255,6 +359,100 @@ Features: select which log file to view, filter by level (debug/info/warning/err
 ### Mobile — Sidebar
 
 ![Mobile sidebar open](tests/Browser/screenshots/mobile/43-sidebar-open.png)
+
+---
+
+## Interactive UI Components & Actions
+
+All major workflows are supported by interactive modals, buttons, and real-time feedback. Below are the key components tested in the screenshot tour:
+
+### Modals & Dialogs
+
+| Component | Where | What it does |
+|-----------|-------|-------------|
+| **Create Modal** | Every resource list | Opens form to create new record |
+| **Edit Modal** | Every resource detail | Opens form to edit existing record |
+| **Delete Confirmation** | Action menu | Confirms destructive action |
+| **Item Selection Modal** | Deduction requests | Multi-select inventory items |
+| **Stock Adjustment Modal** | Inventory detail | Quick adjust quantity |
+| **Payout Approval Modal** | Payout list | Review + approve payout |
+| **Manifest Upload Modal** | Pallet create | Upload packing slip for AI parsing |
+
+### Buttons & Actions
+
+| Action Type | Behavior |
+|------------|----------|
+| **Create** | Opens create modal, saves on submit |
+| **Edit** | Opens edit modal with current data |
+| **Delete** | Shows confirmation before deleting |
+| **Bulk Actions** | Select rows, apply action to multiple |
+| **State Transitions** | Changes record status with validation |
+| **Export/Download** | Downloads data in requested format |
+| **Filters & Search** | Real-time table filtering |
+
+### Notifications
+
+| Type | Style | Duration |
+|------|-------|----------|
+| **Success** | Green ✅ | Auto-dismiss 3s |
+| **Error** | Red ❌ | Manual close |
+| **Warning** | Amber ⚠️ | Auto-dismiss 5s |
+| **Info** | Blue ℹ️ | Auto-dismiss 4s |
+
+All notifications use `window.showToast()` and appear in fixed top-right corner.
+
+### Dark Mode
+
+- ✅ Toggle in navbar (saves to session)
+- ✅ Respects system preference on first visit
+- ✅ All components styled for both themes
+- ✅ High contrast for accessibility
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `?` | Show shortcuts (console) |
+| `Ctrl+K` | Global search |
+| `Escape` | Close modal |
+| `Ctrl+Enter` | Submit form |
+
+---
+
+## Testing Checklist
+
+Quick checklist to verify all functionality works:
+
+### Authentication
+- [ ] Login/logout works
+- [ ] Invalid credentials rejected
+- [ ] Sessions persist
+
+### Resources (Shows, Payouts, Inventory, etc.)
+- [ ] List pages load
+- [ ] Create/edit/delete modals work
+- [ ] Search and filters work
+- [ ] Forms validate correctly
+- [ ] Success/error messages appear
+
+### Mobile & Responsive
+- [ ] Desktop view (1440×900)
+- [ ] Mobile view (390×844)
+- [ ] Tablet view (768×1024)
+- [ ] No horizontal scroll
+- [ ] Touch-friendly buttons
+
+### User Roles
+- [ ] Super Admin sees everything
+- [ ] Admin restricted from role management
+- [ ] Streamer only sees own data
+- [ ] Unauthorized pages redirect
+
+### Accessibility
+- [ ] Keyboard navigation works
+- [ ] Dark mode readable
+- [ ] Focus indicators visible
+- [ ] ARIA labels present
 
 ---
 

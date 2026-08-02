@@ -80,6 +80,7 @@ function cameraScanner() {
         showManual: false,
         targetInput: null,
         statusText: 'Starting camera…',
+        lastDetectionTime: 0,
 
         async open() {
             this.isOpen = true;
@@ -99,7 +100,21 @@ function cameraScanner() {
                 this.stream = await navigator.mediaDevices.getUserMedia({
                     video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
                 });
-                this.$refs.video.srcObject = this.stream;
+
+                const video = this.$refs.video;
+                video.srcObject = this.stream;
+
+                // Wait for video to be ready
+                await new Promise(resolve => {
+                    const checkReady = () => {
+                        if (video.readyState >= 2) { // HAVE_CURRENT_DATA or better
+                            resolve();
+                        } else {
+                            setTimeout(checkReady, 50);
+                        }
+                    };
+                    checkReady();
+                });
 
                 if ('BarcodeDetector' in window) {
                     const formats = await BarcodeDetector.getSupportedFormats();
@@ -125,17 +140,37 @@ function cameraScanner() {
         },
 
         startScanLoop() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            const video = this.$refs.video;
+
             const tick = async () => {
-                if (!this.isOpen || !this.detector || !this.$refs.video) return;
+                if (!this.isOpen || !this.detector || !video) return;
+
                 try {
-                    const barcodes = await this.detector.detect(this.$refs.video);
-                    if (barcodes.length > 0) {
-                        this.onBarcodeDetected(barcodes[0].rawValue);
-                        return;
+                    if (video.readyState >= video.HAVE_CURRENT_DATA && video.videoWidth > 0 && video.videoHeight > 0) {
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        ctx.drawImage(video, 0, 0);
+
+                        const barcodes = await this.detector.detect(canvas);
+                        if (barcodes && barcodes.length > 0) {
+                            // Throttle to prevent rapid re-detections
+                            const now = Date.now();
+                            if (now - this.lastDetectionTime > 500) {
+                                this.lastDetectionTime = now;
+                                this.onBarcodeDetected(barcodes[0].rawValue);
+                                return;
+                            }
+                        }
                     }
-                } catch (_) {}
+                } catch (e) {
+                    console.error('[barcode-scanner] detect error:', e);
+                }
+
                 this.scanLoop = requestAnimationFrame(tick);
             };
+
             this.scanLoop = requestAnimationFrame(tick);
         },
 

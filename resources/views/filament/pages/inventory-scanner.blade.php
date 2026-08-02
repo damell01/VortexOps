@@ -451,6 +451,7 @@
                 const container = document.getElementById('camera-container');
                 const video     = document.getElementById('camera-video');
                 const stopBtn   = document.getElementById('camera-stop-btn');
+                const input     = document.querySelector('input[wire\\:model="scanInput"]');
 
                 if (!btn || btn.dataset.scannerBound === '1') return;
                 btn.dataset.scannerBound = '1';
@@ -460,6 +461,7 @@
                 let detector  = null;
                 let scanning  = false;
                 let rafHandle = null;
+                let lastDetectionTime = 0;
 
                 // The polyfill (zxing-wasm, used on iOS Safari / Firefox — no native
                 // BarcodeDetector there) is built around static image sources, not a
@@ -472,16 +474,45 @@
 
                 btn.addEventListener('click', async () => {
                     try {
-                        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                        stream = await navigator.mediaDevices.getUserMedia({
+                            video: {
+                                facingMode: 'environment',
+                                width: { ideal: 1280 },
+                                height: { ideal: 720 }
+                            }
+                        });
                         video.srcObject = stream;
-                        await video.play();
                         container.classList.remove('hidden');
                         btn.classList.add('hidden');
-                        detector = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code', 'data_matrix', 'itf'] });
+
+                        // Wait for video to be ready
+                        await new Promise(resolve => {
+                            const checkReady = () => {
+                                if (video.readyState >= video.HAVE_CURRENT_DATA) {
+                                    resolve();
+                                } else {
+                                    setTimeout(checkReady, 50);
+                                }
+                            };
+                            checkReady();
+                        });
+
+                        // Get supported formats
+                        let formats = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'];
+                        try {
+                            const supported = await window.BarcodeDetector.getSupportedFormats();
+                            if (supported && supported.length > 0) {
+                                formats = supported;
+                            }
+                        } catch (e) {
+                            console.warn('Could not get supported formats, using defaults:', e);
+                        }
+
+                        detector = new window.BarcodeDetector({ formats });
                         scanning = true;
                         detectLoop();
-                    } catch {
-                        alert('Camera access denied or unavailable.');
+                    } catch (e) {
+                        alert('Camera error: ' + e.message);
                     }
                 });
 
@@ -497,24 +528,33 @@
                 }
 
                 async function detectLoop() {
-                    if (!scanning) return;
+                    if (!scanning || !detector) return;
+
                     try {
-                        if (video.videoWidth > 0 && video.videoHeight > 0) {
+                        // Ensure video has current frame data
+                        if (video.readyState >= video.HAVE_CURRENT_DATA && video.videoWidth > 0 && video.videoHeight > 0) {
                             canvas.width  = video.videoWidth;
                             canvas.height = video.videoHeight;
-                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            ctx.drawImage(video, 0, 0);
 
                             const barcodes = await detector.detect(canvas);
-                            if (barcodes.length > 0) {
-                                const code = barcodes[0].rawValue;
-                                stopCamera();
-                                @this.set('scanInput', code).then(() => @this.call('submitScan'));
-                                return;
+                            if (barcodes && barcodes.length > 0) {
+                                // Throttle detections to every 500ms
+                                const now = Date.now();
+                                if (now - lastDetectionTime > 500) {
+                                    lastDetectionTime = now;
+                                    const code = barcodes[0].rawValue;
+                                    console.log('[barcode-scanner] Detected:', code);
+                                    stopCamera();
+                                    @this.set('scanInput', code).then(() => @this.call('submitScan'));
+                                    return;
+                                }
                             }
                         }
                     } catch (err) {
                         console.error('[barcode-scanner] detect() failed:', err);
                     }
+
                     rafHandle = requestAnimationFrame(detectLoop);
                 }
             }

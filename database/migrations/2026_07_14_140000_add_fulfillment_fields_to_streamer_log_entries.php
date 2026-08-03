@@ -38,7 +38,12 @@ return new class extends Migration
                 $table->dropColumn('fulfillment_reviewed_at');
             }
             if (Schema::hasColumn('streamer_log_entries', 'fulfillment_reviewed_by')) {
-                $table->dropForeign(['fulfillment_reviewed_by']);
+                // Only drop foreign key if it exists
+                try {
+                    $table->dropForeign(['fulfillment_reviewed_by']);
+                } catch (\Exception $e) {
+                    // Foreign key may not exist if migration failed partway
+                }
                 $table->dropColumn('fulfillment_reviewed_by');
             }
             foreach (['pwe_count', 'label_count'] as $column) {

@@ -42,7 +42,6 @@ class DashboardImproved extends Dashboard
             ];
         } elseif ($user?->isFulfillment() && ! $user->isAdmin()) {
             $widgets = [
-                FulfillmentNeedsAttentionWidget::class,
                 RecentShowsWidget::class,
                 ShowsKpiWidget::class,
             ];

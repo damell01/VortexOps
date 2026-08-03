@@ -10,7 +10,7 @@
                         <span class="bg-amber-500 text-white rounded-full px-3 py-1 text-sm font-semibold">{{ $pendingShows ?? 0 }}</span>
                     </div>
                     <p class="text-sm text-amber-800 mb-4">Shows that need items mapped and costs entered</p>
-                    <a href="{{ route('filament.admin.resources.streamer_log_entries.index', ['tableFilters[status][value]' => 'pending']) }}"
+                    <a href="{{ route('filament.admin.resources.streamer_log.index', ['tableFilters[status][value]' => 'pending']) }}"
                        class="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-lg font-medium transition">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
@@ -148,117 +148,6 @@
                 </div>
             @endif
         </div>
-
-        {{-- Workflow Steps (Role-Specific) --}}
-        @if(auth()->user()?->isStreamer() && !auth()->user()?->isAdmin())
-            <div class="bg-gradient-to-r from-blue-500 via-blue-400 to-cyan-400 rounded-xl p-8 text-white shadow-lg">
-                <h2 class="text-2xl font-bold mb-6">Your Streaming Workflow</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <!-- Step 1 -->
-                    <div class="bg-white/20 backdrop-blur-sm rounded-lg p-6 border-2 border-white/40">
-                        <div class="flex items-center gap-3 mb-4">
-                            <div class="bg-white/40 rounded-full w-10 h-10 flex items-center justify-center font-bold text-lg">1</div>
-                            <h3 class="text-lg font-bold">Review Show</h3>
-                        </div>
-                        <p class="text-sm text-blue-50">Your show was imported. Click on it to see the items that were sold.</p>
-                    </div>
-
-                    <!-- Step 2 -->
-                    <div class="bg-white/20 backdrop-blur-sm rounded-lg p-6 border-2 border-white/40">
-                        <div class="flex items-center gap-3 mb-4">
-                            <div class="bg-white/40 rounded-full w-10 h-10 flex items-center justify-center font-bold text-lg">2</div>
-                            <h3 class="text-lg font-bold">Map Items</h3>
-                        </div>
-                        <p class="text-sm text-blue-50">Match each sold item to your inventory. Use our full-screen modal for quick searching.</p>
-                    </div>
-
-                    <!-- Step 3 -->
-                    <div class="bg-white/20 backdrop-blur-sm rounded-lg p-6 border-2 border-white/40">
-                        <div class="flex items-center gap-3 mb-4">
-                            <div class="bg-white/40 rounded-full w-10 h-10 flex items-center justify-center font-bold text-lg">3</div>
-                            <h3 class="text-lg font-bold">Approve & Submit</h3>
-                        </div>
-                        <p class="text-sm text-blue-50">Review the costs and submit for admin approval. Your payout will be calculated.</p>
-                    </div>
-                </div>
-            </div>
-        @elseif(auth()->user()?->isFulfillment() && !auth()->user()?->isAdmin())
-            <div class="bg-gradient-to-r from-orange-500 via-orange-400 to-red-400 rounded-xl p-8 text-white shadow-lg">
-                <h2 class="text-2xl font-bold mb-6">Your Fulfillment Workflow</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <!-- Step 1 -->
-                    <div class="bg-white/20 backdrop-blur-sm rounded-lg p-6 border-2 border-white/40">
-                        <div class="flex items-center gap-3 mb-4">
-                            <div class="bg-white/40 rounded-full w-10 h-10 flex items-center justify-center font-bold text-lg">1</div>
-                            <h3 class="text-lg font-bold">View Shows</h3>
-                        </div>
-                        <p class="text-sm text-orange-50">Check your Fulfillment Center to see shows ready for packing.</p>
-                    </div>
-
-                    <!-- Step 2 -->
-                    <div class="bg-white/20 backdrop-blur-sm rounded-lg p-6 border-2 border-white/40">
-                        <div class="flex items-center gap-3 mb-4">
-                            <div class="bg-white/40 rounded-full w-10 h-10 flex items-center justify-center font-bold text-lg">2</div>
-                            <h3 class="text-lg font-bold">Pack & Ship</h3>
-                        </div>
-                        <p class="text-sm text-orange-50">Pack items and update shipping statuses. Add tracking numbers as you go.</p>
-                    </div>
-
-                    <!-- Step 3 -->
-                    <div class="bg-white/20 backdrop-blur-sm rounded-lg p-6 border-2 border-white/40">
-                        <div class="flex items-center gap-3 mb-4">
-                            <div class="bg-white/40 rounded-full w-10 h-10 flex items-center justify-center font-bold text-lg">3</div>
-                            <h3 class="text-lg font-bold">Track Delivery</h3>
-                        </div>
-                        <p class="text-sm text-orange-50">Monitor shipments and mark as delivered when customers receive items.</p>
-                    </div>
-                </div>
-            </div>
-        @elseif(auth()->user()?->isAdmin())
-            <div class="bg-gradient-to-r from-purple-500 via-purple-400 to-pink-400 rounded-xl p-8 text-white shadow-lg">
-                <h2 class="text-2xl font-bold mb-6">Admin Operations Overview</h2>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    <!-- Streams -->
-                    <div class="bg-white/20 backdrop-blur-sm rounded-lg p-6 border-2 border-white/40">
-                        <div class="flex items-center gap-3 mb-4">
-                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4z"/></svg>
-                            <h3 class="text-lg font-bold">Streams</h3>
-                        </div>
-                        <p class="text-sm text-purple-50">Review shows, map items, and approve streamer submissions.</p>
-                    </div>
-
-                    <!-- Inventory -->
-                    <div class="bg-white/20 backdrop-blur-sm rounded-lg p-6 border-2 border-white/40">
-                        <div class="flex items-center gap-3 mb-4">
-                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V4a2 2 0 00-2-2H6z" clip-rule="evenodd"/></svg>
-                            <h3 class="text-lg font-bold">Inventory</h3>
-                        </div>
-                        <p class="text-sm text-purple-50">Manage items, receive pallets, and track stock levels.</p>
-                    </div>
-
-                    <!-- Payouts -->
-                    <div class="bg-white/20 backdrop-blur-sm rounded-lg p-6 border-2 border-white/40">
-                        <div class="flex items-center gap-3 mb-4">
-                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M8.16 5.314l4.897-4.897a1 1 0 011.415 0l4.897 4.897a1 1 0 01-1.415 1.415L13 4.828V10a1 1 0 11-2 0V4.828l-3.793 3.793a1 1 0 01-1.415-1.415z"/></svg>
-                            <h3 class="text-lg font-bold">Payouts</h3>
-                        </div>
-                        <p class="text-sm text-purple-50">Process and track streamer payments and batches.</p>
-                    </div>
-
-                    <!-- Fulfillment -->
-                    <div class="bg-white/20 backdrop-blur-sm rounded-lg p-6 border-2 border-white/40">
-                        <div class="flex items-center gap-3 mb-4">
-                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/></svg>
-                            <h3 class="text-lg font-bold">Fulfillment</h3>
-                        </div>
-                        <p class="text-sm text-purple-50">Oversee order packing, shipping, and delivery tracking.</p>
-                    </div>
-                </div>
-            </div>
-        @endif
-
-        {{-- Detailed Workflow Guide --}}
-        <x-workflow-guide></x-workflow-guide>
 
         {{-- Dashboard Widgets --}}
         <x-filament-widgets::widgets

@@ -27,11 +27,13 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use App\Filament\Concerns\HasAdminNavVisibility;
+use App\Filament\Concerns\HasModuleAccess;
 
 class StreamerLogResource extends Resource
 {
-    use HasAdminNavVisibility;
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'streams';
 
     protected static ?string $model = StreamerLogEntry::class;
 
@@ -50,6 +52,11 @@ class StreamerLogResource extends Resource
     public static function getNavigationSort(): ?int
     {
         return 40;
+    }
+
+    public static function getSlug(): string
+    {
+        return 'streamer-logs';
     }
 
     public static function canAccess(): bool

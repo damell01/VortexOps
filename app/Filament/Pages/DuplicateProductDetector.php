@@ -3,7 +3,6 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Models\DeductionRequestLine;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
@@ -19,7 +18,7 @@ use Illuminate\Support\Facades\Log;
 
 class DuplicateProductDetector extends Page
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'purchasing';
     protected static ?string $title = 'Duplicate Detector';

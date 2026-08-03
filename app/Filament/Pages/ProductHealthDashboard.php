@@ -3,7 +3,6 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Models\Product;
 use App\Models\ProductIdentity;
 use App\Models\ReceivingSession;
@@ -13,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 
 class ProductHealthDashboard extends Page
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'purchasing';
     protected static ?string $title = 'Catalog Intelligence';

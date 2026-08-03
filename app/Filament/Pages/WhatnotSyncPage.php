@@ -2,7 +2,6 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Concerns\HasModuleAccess;
 use App\Jobs\RunWhatnotSyncJob;
 use App\Jobs\SyncWhatnotShipmentsJob;
@@ -15,7 +14,7 @@ use Filament\Pages\Page;
 
 class WhatnotSyncPage extends Page
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'streams';
 

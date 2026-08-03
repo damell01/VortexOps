@@ -3,7 +3,6 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Models\Show;
 use App\Services\AI\OpsDigestService;
 use App\Support\AdminModules;
@@ -16,7 +15,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class Reports extends Page
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'reporting';
     protected static ?string $title = 'Reports & Analytics';

@@ -237,7 +237,7 @@ class PalletResource extends Resource
                         $percent = $total > 0 ? intval(($received / $total) * 100) : 0;
                         return "{$received}/{$total} cases ({$percent}%)";
                     })
-                    ->visible(fn (Pallet $record) => in_array($record->status, ['receiving', 'received', 'processed'])),
+                    ->visible(fn (?Pallet $record) => $record && in_array($record->status, ['receiving', 'received', 'processed'])),
                 TextColumn::make('next_action')
                     ->label('Next Action')
                     ->state(fn (Pallet $record): string => match ($record->status) {

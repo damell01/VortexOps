@@ -120,7 +120,7 @@ class EditStreamerLogEntry extends EditRecord
     public function getBreadcrumbs(): array
     {
         $breadcrumbs = [
-            route('filament.admin.resources.streamer-log-resource.index') => 'Streamer Logs',
+            route('filament.admin.resources.streamer-logs.index') => 'Streamer Logs',
         ];
 
         if ($this->record->show) {

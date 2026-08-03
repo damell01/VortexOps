@@ -15,6 +15,13 @@ class SetupRoleVisibility extends Command
     {
         $this->info('Setting up role visibility defaults...');
 
+        // Find the actual role names in the database (case-sensitive)
+        $streamerRole = \Spatie\Permission\Models\Role::where('name', 'like', '%streamer%')->first();
+        $fulfillmentRole = \Spatie\Permission\Models\Role::where('name', 'like', '%fulfillment%')->first();
+
+        $streamerRoleName = $streamerRole?->name ?? 'streamer';
+        $fulfillmentRoleName = $fulfillmentRole?->name ?? 'fulfillment';
+
         // Streamer role — only sees their own shows/payouts and inventory
         $streamerHidden = [
             'App\Filament\Resources\ShowResource',
@@ -41,8 +48,8 @@ class SetupRoleVisibility extends Command
             'App\Filament\Pages\HorizonDashboard',
         ];
 
-        NavVisibility::setHiddenForRole('streamer', $streamerHidden);
-        $this->line('✓ Streamer role: ' . count($streamerHidden) . ' pages hidden');
+        NavVisibility::setHiddenForRole($streamerRoleName, $streamerHidden);
+        $this->line('✓ ' . $streamerRoleName . ' role: ' . count($streamerHidden) . ' pages hidden');
 
         // Fulfillment role — sees fulfillment center and shipments, limited inventory
         $fulfillmentHidden = [
@@ -74,8 +81,8 @@ class SetupRoleVisibility extends Command
             'App\Filament\Pages\HorizonDashboard',
         ];
 
-        NavVisibility::setHiddenForRole('fulfillment', $fulfillmentHidden);
-        $this->line('✓ Fulfillment role: ' . count($fulfillmentHidden) . ' pages hidden');
+        NavVisibility::setHiddenForRole($fulfillmentRoleName, $fulfillmentHidden);
+        $this->line('✓ ' . $fulfillmentRoleName . ' role: ' . count($fulfillmentHidden) . ' pages hidden');
 
         // Clear memo so changes take effect immediately
         NavVisibility::flushMemo();

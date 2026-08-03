@@ -414,7 +414,6 @@
                 @endforeach
 
             </div>
-        @endif
 
         @else
 

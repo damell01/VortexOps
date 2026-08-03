@@ -551,7 +551,7 @@
                                     const code = barcodes[0].rawValue;
                                     console.log('[barcode-scanner] Detected:', code);
                                     stopCamera();
-                                    @this.set('scanInput', code).then(() => @this.call('submitScan'));
+                                    @@this.set('scanInput', code).then(() => @@this.call('submitScan'));
                                     return;
                                 }
                             }

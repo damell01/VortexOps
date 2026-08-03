@@ -20,7 +20,19 @@ trait HasModuleAccess
 
     public static function shouldRegisterNavigation(): bool
     {
-        return AdminModules::isEnabled(static::$moduleSlug);
+        $user = auth()->user();
+
+        // Check module is enabled
+        if (! AdminModules::isEnabled(static::$moduleSlug)) {
+            return false;
+        }
+
+        // Check role visibility (owner always sees everything)
+        if ($user && ! $user->isOwner() && NavVisibility::isHiddenForUser(static::class, $user)) {
+            return false;
+        }
+
+        return true;
     }
 
     protected static function passesModuleAccessCheck(): bool

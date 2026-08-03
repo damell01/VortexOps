@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\FulfillmentResource\Pages;
 use App\Filament\Resources\FulfillmentResource\RelationManagers\FulfillmentOrdersRelationManager;
@@ -26,7 +25,7 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class FulfillmentResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static ?string $model = Show::class;
     protected static string $moduleSlug = 'fulfillment';

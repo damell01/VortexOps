@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\DeductionRequestResource\Pages;
 use App\Models\DeductionRequest;
 use App\Support\AdminModules;
@@ -19,7 +18,7 @@ use Illuminate\Support\Facades\Cache;
 
 class DeductionRequestResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'streams';
 

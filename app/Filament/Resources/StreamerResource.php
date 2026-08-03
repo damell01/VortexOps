@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\StreamerResource\Pages;
 use App\Filament\Resources\StreamerResource\RelationManagers\LoansRelationManager;
 use App\Models\DeductionRequest;
@@ -40,7 +39,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class StreamerResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'operations';
 

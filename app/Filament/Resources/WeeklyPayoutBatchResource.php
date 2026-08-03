@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\WeeklyPayoutBatchResource\Pages;
 use App\Filament\Resources\WeeklyPayoutBatchResource\RelationManagers;
 use App\Models\WeeklyPayoutBatch;
@@ -27,7 +26,7 @@ use Illuminate\Support\Facades\Cache;
 
 class WeeklyPayoutBatchResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'payouts';
 

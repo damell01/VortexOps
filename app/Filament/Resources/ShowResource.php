@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\ShowResource\Pages;
 use App\Filament\Resources\ShowResource\RelationManagers\OrdersRelationManager;
 use App\Filament\Resources\ShowResource\RelationManagers\ChangeLogsRelationManager;
@@ -53,7 +52,7 @@ use Illuminate\Support\Facades\Cache;
 
 class ShowResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'streams';
 

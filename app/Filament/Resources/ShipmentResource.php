@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\ShipmentResource\Pages;
 use App\Models\Shipment;
@@ -17,7 +16,7 @@ use Filament\Tables\Filters\SelectFilter;
 
 class ShipmentResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static ?string $model = Shipment::class;
     protected static string $moduleSlug = 'streams';

@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\InventoryStockResource\Pages;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
@@ -27,7 +26,7 @@ use Illuminate\Support\Facades\Cache;
 
 class InventoryStockResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'inventory';
 

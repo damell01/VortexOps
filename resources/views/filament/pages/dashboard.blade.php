@@ -80,7 +80,7 @@
                     </h3>
                     <ul class="space-y-2 text-sm">
                         <li><a href="{{ route('filament.admin.resources.inventory-items.index') }}" class="text-green-600 hover:text-green-800 font-medium">→ All Items</a></li>
-                        <li><a href="{{ route('filament.admin.resources.inventory-stock.index') }}" class="text-green-600 hover:text-green-800 font-medium">→ Stock Levels</a></li>
+                        <li><a href="{{ route('filament.admin.resources.inventory-stocks.index') }}" class="text-green-600 hover:text-green-800 font-medium">→ Stock Levels</a></li>
                         <li><a href="{{ route('filament.admin.resources.pallets.index') }}" class="text-green-600 hover:text-green-800 font-medium">→ Receiving Pallets</a></li>
                     </ul>
                 </div>

@@ -2,12 +2,20 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\FulfillmentNeedsAttentionWidget;
+use App\Filament\Widgets\NeedsAttentionWidget;
+use App\Filament\Widgets\OperationsOverviewWidget;
+use App\Filament\Widgets\RecentShowsWidget;
+use App\Filament\Widgets\ShowsKpiWidget;
+use App\Filament\Widgets\StreamerOverviewWidget;
+use App\Filament\Widgets\StreamerShowsToReviewWidget;
 use App\Models\DeductionRequest;
 use App\Models\Payout;
 use App\Models\Shipment;
 use App\Models\StreamerLogEntry;
 use App\Models\Show;
 use App\Models\InventoryItem;
+use App\Models\Setting;
 use Filament\Pages\Dashboard;
 
 class DashboardImproved extends Dashboard
@@ -15,6 +23,23 @@ class DashboardImproved extends Dashboard
     public function getView(): string
     {
         return 'filament.pages.dashboard-improved';
+    }
+
+    public function getWidgets(): array
+    {
+        if ((bool) Setting::get('demo_mode', false)) {
+            return [];
+        }
+
+        return [
+            StreamerOverviewWidget::class,
+            StreamerShowsToReviewWidget::class,
+            FulfillmentNeedsAttentionWidget::class,
+            NeedsAttentionWidget::class,
+            OperationsOverviewWidget::class,
+            RecentShowsWidget::class,
+            ShowsKpiWidget::class,
+        ];
     }
 
     public function getViewData(): array

@@ -163,6 +163,12 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : view('components.quick-actions'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
                 fn (): string => file_exists(public_path('sw.js')) ? <<<'HTML'
                     <script>
                     if ('serviceWorker' in navigator) {

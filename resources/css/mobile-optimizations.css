@@ -1,0 +1,217 @@
+/**
+ * VortexOps Mobile & UX Optimizations
+ * Ensures snappy, touch-friendly interactions across all devices
+ */
+
+/* ── Touch-friendly button sizing ────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Ensure minimum 44×44px tap targets (iOS guideline) */
+    button,
+    a[role="button"],
+    [role="checkbox"],
+    [role="radio"],
+    .cursor-pointer {
+        min-height: 44px;
+        min-width: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Add comfortable spacing around buttons */
+    .fi-btn {
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+    }
+
+    /* Full-width buttons on mobile */
+    .fi-page-heading button {
+        width: 100%;
+    }
+}
+
+/* ── Reduced motion respect ─────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ── Optimized scrolling performance ────────────────────────────────── */
+.fi-sidebar,
+.fi-content,
+[role="region"] {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+}
+
+/* Prevent layout shift during scroll */
+html {
+    scroll-padding-top: 4rem;
+}
+
+/* ── Keyboard focus visibility ──────────────────────────────────────── */
+:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+/* Hide focus for mouse users (show for keyboard) */
+:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* ── Form input optimizations ──────────────────────────────────────── */
+@media (max-width: 768px) {
+    input,
+    textarea,
+    select {
+        font-size: 16px !important; /* Prevents zoom on iOS */
+        padding: 0.75rem;
+        min-height: 44px;
+    }
+
+    input[type="checkbox"],
+    input[type="radio"] {
+        min-width: 20px;
+        min-height: 20px;
+    }
+
+    /* Stack form fields on mobile */
+    .fi-form-fields-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* ── Table responsiveness ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+    /* Horizontal scroll on small screens */
+    .fi-resource-table-wrapper {
+        -webkit-overflow-scrolling: touch;
+        overflow-x: auto;
+    }
+
+    /* Make table cells more readable on mobile */
+    .fi-resource-table td,
+    .fi-resource-table th {
+        padding: 1rem 0.75rem;
+        font-size: 0.875rem;
+    }
+}
+
+/* ── Loading state optimization ────────────────────────────────────── */
+.fi-loading-indicator {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* GPU acceleration for smooth animations */
+.fi-modal,
+.fi-dropdown,
+[x-cloak] {
+    will-change: transform, opacity;
+    transform: translateZ(0);
+}
+
+/* ── Tap feedback ──────────────────────────────────────────────────── */
+@media (pointer: coarse) {
+    button:active,
+    a:active {
+        opacity: 0.7;
+    }
+}
+
+/* ── Dark mode smooth transitions ──────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+    html {
+        color-scheme: dark;
+    }
+
+    /* Smooth color transitions on theme toggle */
+    body,
+    html,
+    .fi-body,
+    .fi-sidebar {
+        transition: background-color 200ms ease, color 200ms ease;
+    }
+}
+
+/* ── Improved readability on mobile ────────────────────────────────── */
+@media (max-width: 640px) {
+    body {
+        font-size: 16px;
+    }
+
+    .fi-page-heading h1 {
+        font-size: 1.5rem;
+    }
+
+    .fi-page-heading .fi-body-subheading {
+        font-size: 0.875rem;
+    }
+}
+
+/* ── Link target size on mobile ────────────────────────────────────── */
+@media (max-width: 768px) {
+    a {
+        min-height: 44px;
+        display: inline-block;
+        padding: 0.5rem 0.75rem;
+    }
+
+    /* Don't apply to icon-only links */
+    a[title]:not(.fi-icon-btn) {
+        padding: 0.75rem;
+    }
+}
+
+/* ── Viewport meta tag helpers ─────────────────────────────────────── */
+@viewport {
+    width: device-width;
+    initial-scale: 1.0;
+    maximum-scale: 5.0;
+    user-scalable: yes;
+}
+
+/* ── Safe area insets (notch support) ──────────────────────────────── */
+@supports (padding: max(0px)) {
+    .fi-sidebar,
+    .fi-navbar {
+        padding-left: max(1rem, env(safe-area-inset-left));
+        padding-right: max(1rem, env(safe-area-inset-right));
+    }
+
+    .fi-navbar-top {
+        padding-top: max(0.5rem, env(safe-area-inset-top));
+    }
+}
+
+/* ── Input autofill styling ────────────────────────────────────────── */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 30px white inset !important;
+    box-shadow: 0 0 0 30px white inset !important;
+}
+
+input:-webkit-autofill {
+    -webkit-text-fill-color: #333 !important;
+}
+
+@media (prefers-color-scheme: dark) {
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus {
+        -webkit-box-shadow: 0 0 0 30px #1f2937 inset !important;
+    }
+
+    input:-webkit-autofill {
+        -webkit-text-fill-color: #f3f4f6 !important;
+    }
+}

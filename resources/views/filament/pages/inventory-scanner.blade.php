@@ -206,11 +206,16 @@
 
         {{-- Empty state --}}
         @if (! $result && ! $errorMessage)
-            <div class="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-8 py-12 text-center space-y-2">
-                <x-heroicon-o-qr-code class="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600" />
-                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Scan or type to look up any item</p>
-                <p class="text-xs text-gray-400 dark:text-gray-500">Works with Bluetooth scanners, USB scanners, or the camera button on supported browsers</p>
-            </div>
+            <x-empty-state
+                :icon="'<x-heroicon-o-qr-code class=\"h-12 w-12\" />'"
+                title="Ready to Scan"
+                description="Point your scanner at any item barcode or type the SKU to look up inventory details, stock levels, and recent movements."
+            >
+                <div class="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                    <p>💡 <strong>Pro tip:</strong> Use the camera button for quick hands-free scanning</p>
+                    <p>⚡ Works with Bluetooth scanners, USB scanners, or your phone's camera</p>
+                </div>
+            </x-empty-state>
         @endif
 
         @endif {{-- end lookup mode --}}

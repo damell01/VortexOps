@@ -1,6 +1,17 @@
 <x-filament-panels::page>
     <div class="space-y-6">
 
+        {{-- ── Quick Steps Guide ──────────────────────────────────────────── --}}
+        <x-page-steps
+            :steps="[
+                ['label' => 'Review Pallet', 'description' => 'Check vendor & items'],
+                ['label' => 'Map Lines', 'description' => 'Link items to inventory'],
+                ['label' => 'Receive Items', 'description' => 'Scan barcodes'],
+                ['label' => 'Confirm', 'description' => 'Finalize receipt'],
+            ]"
+            :currentStep="$this->record->status === 'received' ? 4 : ($this->record->status === 'receiving' ? 3 : 2)"
+        />
+
         {{-- ── Pallet Summary ──────────────────────────────────────────────── --}}
         @php
             $summaryExpected = collect($lineProgress)->sum('case_count');

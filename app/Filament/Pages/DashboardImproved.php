@@ -31,15 +31,31 @@ class DashboardImproved extends Dashboard
             return [];
         }
 
-        return [
-            StreamerOverviewWidget::class,
-            StreamerShowsToReviewWidget::class,
-            FulfillmentNeedsAttentionWidget::class,
-            NeedsAttentionWidget::class,
-            OperationsOverviewWidget::class,
-            RecentShowsWidget::class,
-            ShowsKpiWidget::class,
-        ];
+        $user = auth()->user();
+        $widgets = [];
+
+        if ($user?->isStreamer() && ! $user->isAdmin()) {
+            $widgets = [
+                StreamerOverviewWidget::class,
+                StreamerShowsToReviewWidget::class,
+                RecentShowsWidget::class,
+            ];
+        } elseif ($user?->isFulfillment() && ! $user->isAdmin()) {
+            $widgets = [
+                FulfillmentNeedsAttentionWidget::class,
+                RecentShowsWidget::class,
+                ShowsKpiWidget::class,
+            ];
+        } elseif ($user?->isAdmin() || $user?->isOwner()) {
+            $widgets = [
+                NeedsAttentionWidget::class,
+                OperationsOverviewWidget::class,
+                RecentShowsWidget::class,
+                ShowsKpiWidget::class,
+            ];
+        }
+
+        return $widgets;
     }
 
     public function getViewData(): array

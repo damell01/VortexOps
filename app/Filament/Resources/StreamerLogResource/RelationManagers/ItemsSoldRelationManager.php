@@ -88,7 +88,7 @@ class ItemsSoldRelationManager extends RelationManager
     /** Form for manually adding an item the streamer sold that wasn't auto-imported from Whatnot. */
     public function form(Schema $schema): Schema
     {
-        $show = $this->getOwnerRecord()->show;
+        $show = $this->getOwnerRecord()?->show;
 
         return $schema->components([
             SchemaGrid::make(2)->schema([
@@ -133,9 +133,9 @@ class ItemsSoldRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         $owner  = $this->getOwnerRecord();
-        $show   = $owner->show;
+        $show   = $owner?->show;
         // Once the entry is approved, a streamer can only view its items.
-        $locked = \App\Filament\Resources\StreamerLogResource::isLockedForCurrentUser($owner);
+        $locked = $owner ? \App\Filament\Resources\StreamerLogResource::isLockedForCurrentUser($owner) : false;
 
         return $table
             ->recordTitleAttribute('item_name')

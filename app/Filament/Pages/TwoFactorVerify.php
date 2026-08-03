@@ -27,7 +27,7 @@ class TwoFactorVerify extends Page
         // If they don't have 2FA enabled or already verified, skip
         $user = Auth::user();
         if (! $user || ! $user->two_factor_confirmed_at || session('vx_2fa_verified')) {
-            $this->redirect(route('filament.admin.pages.dashboard'));
+            $this->redirect(route('filament.admin.pages.dashboard-improved'));
         }
     }
 
@@ -76,6 +76,6 @@ class TwoFactorVerify extends Page
     private function markVerified(): void
     {
         session(['vx_2fa_verified' => true]);
-        $this->redirect(route('filament.admin.pages.dashboard'));
+        $this->redirect(route('filament.admin.pages.dashboard-improved'));
     }
 }

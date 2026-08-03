@@ -39,23 +39,23 @@ class ListStreamerLogEntries extends ListRecords
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'admin_approved')),
         ];
 
-        // Fulfillment review only applies to pwe_labels-payout streamers, and only
-        // once admin_approved — shown as its own tab so it doesn't get lost among
-        // every other approved entry.
-        $needsFulfillment = StreamerLogResource::getEloquentQuery()
-            ->where('status', 'admin_approved')
-            ->whereNull('fulfillment_reviewed_at')
-            ->whereHas('streamer', fn (Builder $q) => $q->where('payout_type', 'pwe_labels'))
-            ->count();
+        // Fulfillment review tab — only show if column exists and there are items
+        if (\Illuminate\Support\Facades\Schema::hasColumn('streamer_log_entries', 'fulfillment_reviewed_at')) {
+            $needsFulfillment = StreamerLogResource::getEloquentQuery()
+                ->where('status', 'admin_approved')
+                ->whereNull('fulfillment_reviewed_at')
+                ->whereHas('streamer', fn (Builder $q) => $q->where('payout_type', 'pwe_labels'))
+                ->count();
 
-        if ($needsFulfillment > 0) {
-            $tabs['needs_fulfillment'] = Tab::make('Needs Fulfillment Review')
-                ->modifyQueryUsing(fn (Builder $query) => $query
-                    ->where('status', 'admin_approved')
-                    ->whereNull('fulfillment_reviewed_at')
-                    ->whereHas('streamer', fn (Builder $sq) => $sq->where('payout_type', 'pwe_labels')))
-                ->badge($needsFulfillment)
-                ->badgeColor('info');
+            if ($needsFulfillment > 0) {
+                $tabs['needs_fulfillment'] = Tab::make('Needs Fulfillment Review')
+                    ->modifyQueryUsing(fn (Builder $query) => $query
+                        ->where('status', 'admin_approved')
+                        ->whereNull('fulfillment_reviewed_at')
+                        ->whereHas('streamer', fn (Builder $sq) => $sq->where('payout_type', 'pwe_labels')))
+                    ->badge($needsFulfillment)
+                    ->badgeColor('info');
+            }
         }
 
         return $tabs;

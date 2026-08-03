@@ -54,7 +54,7 @@ class StreamerLogResource extends Resource
         return 40;
     }
 
-    public static function getSlug(): string
+    public static function getSlug(?\Filament\Panel $panel = null): string
     {
         return 'streamer-logs';
     }

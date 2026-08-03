@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\ProductIdentityResource\Pages;
 use App\Models\InventoryItem;
 use App\Models\ProductIdentity;
@@ -20,6 +21,7 @@ use Illuminate\Support\Collection;
 
 class ProductIdentityResource extends Resource
 {
+    use HasAdminNavVisibility;
     protected static ?string $model = ProductIdentity::class;
 
     protected static ?string $navigationLabel = 'Alias Manager';

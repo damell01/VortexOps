@@ -10,13 +10,7 @@
                         <span class="bg-amber-500 text-white rounded-full px-3 py-1 text-sm font-semibold">{{ $pendingShows ?? 0 }}</span>
                     </div>
                     <p class="text-sm text-amber-800 mb-4">Shows that need items mapped and costs entered</p>
-                    <a href="{{ route('filament.admin.resources.streamer_log.index', ['tableFilters[status][value]' => 'pending']) }}"
-                       class="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2.5 rounded-lg font-medium transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                        </svg>
-                        Get Started →
-                    </a>
+                    <p class="text-xs text-amber-600">Check your Streamer Log in the sidebar to view and process shows</p>
                 </div>
 
                 {{-- Streamer: Pending Payouts --}}

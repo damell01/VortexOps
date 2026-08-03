@@ -31,7 +31,8 @@ class PayoutsRelationManager extends RelationManager
 
     public function form(Schema $schema): Schema
     {
-        $batchStatus = $this->getOwnerRecord()->status ?? 'draft';
+        $batch       = $this->getOwnerRecord();
+        $batchStatus = $batch?->status ?? 'draft';
         $isLocked    = $batchStatus !== 'draft';
 
         return $schema->components([
@@ -103,6 +104,9 @@ class PayoutsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         $batch = $this->getOwnerRecord();
+        if (!$batch) {
+            return $table->recordTitleAttribute('id');
+        }
 
         return $table
             ->recordTitleAttribute('id')

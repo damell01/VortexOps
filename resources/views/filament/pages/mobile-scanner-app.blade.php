@@ -1,55 +1,57 @@
 <x-filament-panels::page>
-    <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
-        <!-- Hidden scan input for form submission -->
-        <input type="hidden" wire:model="scanInput" id="scanInput">
-
-        <!-- Mode Selector (Top Navigation) -->
-        <div class="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col safe-area-inset-bottom" style="height: 100dvh;">
+        <!-- Mode Selector (Top Navigation) - Mobile First -->
+        <div class="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-md safe-area-inset-top">
             <div class="grid grid-cols-3 gap-0">
                 <button
                     wire:click="$set('mode', 'receive')"
                     @click="document.getElementById('scanInput').focus()"
-                    class="flex-1 py-4 px-2 font-semibold text-center transition {{ $mode === 'receive' ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' }}"
+                    class="flex-1 py-5 px-3 font-semibold text-center transition active:opacity-75 touch-manipulation {{ $mode === 'receive' ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' }}"
+                    style="min-height: 60px; display: flex; flex-direction: column; justify-content: center; align-items: center;"
                 >
-                    <div class="text-lg">📦</div>
-                    <div class="text-xs mt-1">Receive</div>
+                    <div class="text-2xl">📦</div>
+                    <div class="text-sm mt-1 font-medium">Receive</div>
                 </button>
                 <button
                     wire:click="$set('mode', 'quickadd')"
                     @click="document.getElementById('scanInput').focus()"
-                    class="flex-1 py-4 px-2 font-semibold text-center transition {{ $mode === 'quickadd' ? 'bg-green-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' }}"
+                    class="flex-1 py-5 px-3 font-semibold text-center transition active:opacity-75 touch-manipulation {{ $mode === 'quickadd' ? 'bg-green-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' }}"
+                    style="min-height: 60px; display: flex; flex-direction: column; justify-content: center; align-items: center;"
                 >
-                    <div class="text-lg">➕</div>
-                    <div class="text-xs mt-1">Add Stock</div>
+                    <div class="text-2xl">➕</div>
+                    <div class="text-sm mt-1 font-medium">Add Stock</div>
                 </button>
                 <button
                     wire:click="$set('mode', 'lookup')"
                     @click="document.getElementById('scanInput').focus()"
-                    class="flex-1 py-4 px-2 font-semibold text-center transition {{ $mode === 'lookup' ? 'bg-purple-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' }}"
+                    class="flex-1 py-5 px-3 font-semibold text-center transition active:opacity-75 touch-manipulation {{ $mode === 'lookup' ? 'bg-purple-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' }}"
+                    style="min-height: 60px; display: flex; flex-direction: column; justify-content: center; align-items: center;"
                 >
-                    <div class="text-lg">🔍</div>
-                    <div class="text-xs mt-1">Lookup</div>
+                    <div class="text-2xl">🔍</div>
+                    <div class="text-sm mt-1 font-medium">Lookup</div>
                 </button>
             </div>
         </div>
 
         <!-- Main Content Area -->
-        <div class="flex-1 overflow-y-auto pb-24">
+        <div class="flex-1 overflow-y-auto" style="padding-bottom: 120px;">
             <!-- Camera Section -->
             <div class="bg-gray-900 p-4">
-                <div id="cameraContainer" class="bg-gray-800 rounded-lg border-2 border-gray-700 aspect-video flex flex-col items-center justify-center text-white">
-                    <video id="cameraFeed" class="w-full h-full rounded-lg object-cover hidden"></video>
-                    <div id="cameraPlaceholder" class="text-center">
-                        <div class="text-5xl mb-2">📷</div>
-                        <p class="text-sm">Point camera at barcode</p>
+                <div id="cameraContainer" class="bg-gray-800 rounded-lg border-2 border-gray-700 w-full flex flex-col items-center justify-center text-white" style="aspect-ratio: 16/9; min-height: 240px;">
+                    <video id="cameraFeed" class="w-full h-full rounded-lg object-cover hidden" style="aspect-ratio: 16/9;"></video>
+                    <div id="cameraPlaceholder" class="text-center w-full">
+                        <div class="text-6xl mb-2">📷</div>
+                        <p class="text-base mb-4">Point camera at barcode</p>
                         <button
                             id="startCameraBtn"
                             type="button"
-                            class="mt-3 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded text-sm transition"
+                            class="bg-blue-500 hover:bg-blue-600 active:opacity-75 text-white font-bold px-6 rounded text-base transition touch-manipulation inline-flex items-center justify-center"
+                            style="min-height: 48px; min-width: 140px;"
                         >
                             Start Camera
                         </button>
-                        <p id="cameraStatus" class="text-xs text-gray-400 mt-2">Ready to scan</p>
+                        <p id="cameraStatus" class="text-xs text-gray-400 mt-3">Ready to scan</p>
                     </div>
                 </div>
             </div>
@@ -77,7 +79,8 @@
                             @if($activePalletId)
                                 <button
                                     wire:click="startReceiving"
-                                    class="w-full mt-3 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition text-lg"
+                                    class="w-full mt-3 bg-blue-500 hover:bg-blue-600 active:opacity-75 text-white font-bold px-4 rounded-lg transition text-base touch-manipulation"
+                                    style="min-height: 52px; display: flex; align-items: center; justify-content: center;"
                                 >
                                     ▶ Start Receiving
                                 </button>
@@ -88,8 +91,8 @@
                     <!-- Active Session Display -->
                     @if($activeSessionId)
                         <div class="bg-green-50 dark:bg-green-950 border-2 border-green-400 dark:border-green-600 rounded-lg p-4">
-                            <div class="flex items-center justify-between mb-3">
-                                <div>
+                            <div class="flex items-center justify-between mb-3 gap-3">
+                                <div class="flex-1">
                                     <p class="text-sm text-green-700 dark:text-green-300">Session Active</p>
                                     <p class="text-2xl font-bold text-green-900 dark:text-green-100">
                                         {{ count($sessionItems) }} items scanned
@@ -97,7 +100,8 @@
                                 </div>
                                 <button
                                     wire:click="endSession"
-                                    class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded text-sm transition"
+                                    class="bg-red-500 hover:bg-red-600 active:opacity-75 text-white font-bold px-4 rounded text-base transition touch-manipulation whitespace-nowrap"
+                                    style="min-height: 44px; display: flex; align-items: center; justify-content: center;"
                                 >
                                     ⊗ End
                                 </button>
@@ -152,10 +156,11 @@
                         <label class="block text-sm font-semibold text-green-900 dark:text-green-100 mb-2">
                             Quantity to Add
                         </label>
-                        <div class="flex gap-2 mb-2">
+                        <div class="flex gap-3 mb-2">
                             <button
                                 wire:click="$set('qaQty', (float)$qaQty - 1)"
-                                class="bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-white font-bold py-2 px-4 rounded text-lg w-14"
+                                class="bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-white font-bold rounded text-2xl active:opacity-75 touch-manipulation flex items-center justify-center"
+                                style="min-width: 48px; min-height: 48px;"
                             >
                                 −
                             </button>
@@ -163,11 +168,13 @@
                                 type="number"
                                 wire:model="qaQty"
                                 step="0.01"
-                                class="flex-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-center text-lg font-semibold text-gray-900 dark:text-white"
+                                class="flex-1 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded px-4 py-3 text-center text-lg font-semibold text-gray-900 dark:text-white focus:border-green-500 focus:ring-2 focus:ring-green-300 touch-manipulation"
+                                style="min-height: 48px;"
                             >
                             <button
                                 wire:click="$set('qaQty', (float)$qaQty + 1)"
-                                class="bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-white font-bold py-2 px-4 rounded text-lg w-14"
+                                class="bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-white font-bold rounded text-2xl active:opacity-75 touch-manipulation flex items-center justify-center"
+                                style="min-width: 48px; min-height: 48px;"
                             >
                                 +
                             </button>
@@ -200,19 +207,22 @@
             <!-- Item Detail Modal Overlay -->
             @if($showItemDetail && $scannedItem)
                 <div
-                    class="fixed inset-0 bg-black/50 dark:bg-black/70 z-50 flex items-center justify-center p-4"
+                    class="fixed inset-0 bg-black/50 dark:bg-black/70 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 touch-manipulation"
                     @click="$wire.closeItemDetail()"
+                    style="top: 0; left: 0; right: 0; bottom: 0;"
                 >
                     <div
-                        class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-sm w-full max-h-96 overflow-y-auto"
+                        class="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-lg shadow-2xl w-full sm:max-w-sm max-h-96 overflow-y-auto"
                         @click.stop
+                        style="max-height: 80vh;"
                     >
                         <!-- Close Button -->
                         <div class="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
                             <h3 class="font-bold text-lg text-gray-900 dark:text-white">Item Details</h3>
                             <button
                                 wire:click="closeItemDetail"
-                                class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 text-2xl leading-none"
+                                class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 text-3xl leading-none w-10 h-10 flex items-center justify-center active:opacity-75 touch-manipulation"
+                                style="min-width: 44px; min-height: 44px;"
                             >
                                 ✕
                             </button>
@@ -288,10 +298,11 @@
                         </div>
 
                         <!-- Action Buttons -->
-                        <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                        <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
                             <button
                                 wire:click="closeItemDetail"
-                                class="w-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-bold py-3 rounded-lg transition"
+                                class="w-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 active:opacity-75 text-gray-900 dark:text-white font-bold py-4 rounded-lg transition touch-manipulation"
+                                style="min-height: 48px;"
                             >
                                 Close & Scan Next
                             </button>
@@ -302,21 +313,18 @@
         </div>
 
         <!-- Fixed Bottom Scanner Input -->
-        <div class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 shadow-lg">
-            <!-- Hidden input for scanning -->
+        <div class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t-2 border-gray-200 dark:border-gray-700 p-4 shadow-2xl safe-area-inset-bottom z-30" style="max-height: 120px;">
             <input
                 type="text"
                 id="scanInput"
                 wire:model.live="scanInput"
                 wire:keydown.enter="submitScan"
                 placeholder="Scan barcode..."
-                class="w-full text-center bg-gray-100 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 text-lg font-semibold text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-gray-600"
+                class="w-full text-center bg-gray-100 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 text-base font-semibold text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:bg-white dark:focus:bg-gray-600 touch-manipulation"
+                style="min-height: 48px; font-size: 16px;"
                 autofocus
                 autocomplete="off"
             >
-            <p class="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
-                Press Enter to submit or scan barcode
-            </p>
         </div>
     </div>
 

@@ -450,7 +450,7 @@ class StreamerResource extends Resource
                         ->schema([
                             Select::make('name')
                                 ->label('Location')
-                                ->options(fn () => \App\Models\InventoryLocation::where('is_active', true)
+                                ->options(fn () => \App\Models\InventoryLocation::where('status', 'active')
                                     ->orderBy('name')
                                     ->pluck('name', 'id')
                                     ->toArray())

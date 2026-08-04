@@ -482,6 +482,7 @@
             {{-- Scan Input --}}
             <div class="flex gap-3 items-center">
                 <input
+                    id="quickadd-barcode"
                     wire:model="scanInput"
                     wire:keydown.enter="submitScan"
                     type="text"
@@ -490,6 +491,11 @@
                     autocomplete="off"
                     class="flex-1 rounded-lg border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 font-mono"
                 />
+                <button type="button"
+                    onclick="window.dispatchEvent(new Event('open-camera-scanner'))"
+                    class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 whitespace-nowrap">
+                    <x-heroicon-o-video-camera class="h-4 w-4 inline -mt-0.5" />
+                </button>
                 <button wire:click="submitScan" type="button"
                     class="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700">
                     Add

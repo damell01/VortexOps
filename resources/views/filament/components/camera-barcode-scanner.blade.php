@@ -189,15 +189,38 @@ function cameraScanner() {
         fillInput(value) {
             window.dispatchEvent(new CustomEvent('barcode-scanned', { detail: { value } }));
 
+            // Priority: target input (was focused when scanner opened), then barcode field, then first input
             const input = this.targetInput
+                || document.querySelector('input#quickadd-barcode')
                 || document.querySelector('input[id*="barcode"]')
-                || document.querySelector('input[name*="barcode"]');
+                || document.querySelector('input[name*="barcode"]')
+                || document.querySelector('input[x-model*="scanInput"]')
+                || document.querySelector('input[x-model="scanInput"]');
 
             if (input) {
-                const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
-                setter ? setter.call(input, value) : (input.value = value);
-                input.dispatchEvent(new Event('input', { bubbles: true }));
-                input.dispatchEvent(new Event('change', { bubbles: true }));
+                // For Livewire inputs, update both the value and trigger the model binding
+                if (input.hasAttribute('x-model') || input.hasAttribute('wire:model')) {
+                    // Get the actual input element property setter
+                    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+                    if (setter) setter.call(input, value);
+                    else input.value = value;
+
+                    // Trigger all necessary events for Livewire/Alpine to pick up the change
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+                    // For Alpine.js x-model binding
+                    if (window.Alpine) {
+                        input.dispatchEvent(new Event('alpine:updated', { bubbles: true }));
+                    }
+                } else {
+                    input.value = value;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                // Focus back to the input for convenience
+                setTimeout(() => input.focus(), 100);
             }
         },
 

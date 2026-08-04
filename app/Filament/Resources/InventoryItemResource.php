@@ -154,8 +154,18 @@ class InventoryItemResource extends Resource
                             ->label('Barcode/UPC')
                             ->unique(ignoreRecord: true)
                             ->maxLength(100)
-                            ->helperText('Bluetooth scanner input. Camera scan not yet available.')
-                            ->columnSpan(1),
+                            ->helperText('Scan with camera, Bluetooth scanner, or type manually')
+                            ->columnSpan(1)
+                            ->suffixAction(
+                                \Filament\Actions\Action::make('scan_barcode')
+                                    ->icon('heroicon-o-video-camera')
+                                    ->tooltip('Open camera scanner')
+                                    ->action(fn () => null) // Handled by inline JS
+                                    ->extraAttributes([
+                                        'onclick' => "window.dispatchEvent(new Event('open-camera-scanner'))",
+                                        'type' => 'button',
+                                    ])
+                            ),
                     ]),
                 ]),
 

@@ -185,6 +185,23 @@ body {
         bottom: 0;
     }
 
+    /* Modal close button - ensure proper size */
+    .fi-modal-close-btn,
+    .fi-modal-header button {
+        min-height: 44px !important;
+        min-width: 44px !important;
+        padding: 8px !important;
+        touch-action: manipulation;
+    }
+
+    /* Modal footer action buttons */
+    .fi-modal-footer-actions button,
+    .fi-modal-actions button {
+        min-height: 48px !important;
+        padding: 12px 16px !important;
+        touch-action: manipulation;
+    }
+
     /* Action buttons in tables */
     .fi-table-actions {
         display: flex;
@@ -193,8 +210,10 @@ body {
     }
 
     .fi-table-actions-button {
-        min-width: 36px;
-        min-height: 36px;
+        min-width: 44px !important;
+        min-height: 44px !important;
+        padding: 8px !important;
+        touch-action: manipulation;
     }
 
     /* Breadcrumbs */
@@ -270,9 +289,78 @@ body {
 
     /* Dropdowns and selects */
     select, .fi-select {
+        min-height: 44px;
         padding: 12px;
         border-radius: 8px;
+        font-size: 16px;
+        touch-action: manipulation;
     }
+
+    /* Checkboxes - wrap in larger clickable area */
+    input[type="checkbox"],
+    input[type="radio"] {
+        min-width: 20px;
+        min-height: 20px;
+        cursor: pointer;
+        accent-color: #7c3aed;
+    }
+
+    /* Label wrapping checkboxes/radios - make full area clickable */
+    label:has(input[type="checkbox"]),
+    label:has(input[type="radio"]) {
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+        padding: 8px 12px;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+        touch-action: manipulation;
+        border-radius: 6px;
+        transition: background-color 0.2s ease;
+    }
+
+    label:has(input[type="checkbox"]):active,
+    label:has(input[type="radio"]):active {
+        background-color: rgba(124, 58, 237, 0.08);
+    }
+
+    /* Toggle switches - increase height */
+    input[type="checkbox"][role="switch"],
+    .fi-toggle-input,
+    [class*="toggle"] {
+        min-height: 24px;
+        min-width: 44px;
+    }
+
+    /* Badge and pill sizing */
+    .badge, .badge-pill, .fi-badge {
+        min-height: 32px;
+        padding: 6px 12px !important;
+        display: inline-flex;
+        align-items: center;
+        font-size: 13px;
+        touch-action: manipulation;
+    }
+
+    /* Icon sizing for interactive elements */
+    button svg,
+    a svg,
+    [role="button"] svg {
+        min-width: 20px;
+        min-height: 20px;
+    }
+
+    /* Small icons that are decorative stay small, but interactive ones larger */
+    .fi-icon-btn svg {
+        min-width: 24px;
+        min-height: 24px;
+    }
+
+    /* Improve spacing between clickable elements */
+    .gap-0\.5 { gap: 8px !important; }
+    .gap-1 { gap: 8px !important; }
+    .gap-2 { gap: 12px !important; }
 
     /* Max width for content areas */
     .fi-main-container {
@@ -535,5 +623,100 @@ body {
 
     .mobile-landscape-only {
         display: block;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* ADDITIONAL MOBILE IMPROVEMENTS - pagination, filters, actions */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+    /* Pagination buttons - ensure clickable */
+    .fi-pagination button,
+    .fi-pagination a {
+        min-height: 40px !important;
+        min-width: 40px !important;
+        padding: 8px 12px !important;
+        touch-action: manipulation;
+    }
+
+    /* Filter and search buttons */
+    .fi-ta-header-toolbar button,
+    .fi-ta-filter-button,
+    .fi-ta-search-button,
+    .fi-ta-column-toggle-button {
+        min-height: 44px !important;
+        padding: 8px 12px !important;
+        touch-action: manipulation;
+    }
+
+    /* Inline action buttons in tables */
+    .fi-ta-record-actions button,
+    .fi-ta-inline-actions button {
+        min-height: 44px !important;
+        min-width: 44px !important;
+        padding: 8px !important;
+        touch-action: manipulation;
+    }
+
+    /* Bulk action buttons */
+    .fi-ta-bulk-actions button {
+        min-height: 48px !important;
+        padding: 12px 16px !important;
+        touch-action: manipulation;
+    }
+
+    /* Modal close button - ensure proper size */
+    .fi-modal-close-btn,
+    .fi-modal-header button[type="button"] {
+        min-height: 44px !important;
+        min-width: 44px !important;
+        padding: 8px !important;
+        touch-action: manipulation;
+    }
+
+    /* Modal footer action buttons */
+    .fi-modal-footer-actions button,
+    .fi-modal-actions button {
+        min-height: 48px !important;
+        padding: 12px 16px !important;
+        touch-action: manipulation;
+    }
+
+    /* Ensure resource header actions are clickable */
+    .fi-header-actions-ctn button,
+    .fi-header-actions button {
+        min-height: 44px !important;
+        padding: 8px 12px !important;
+        touch-action: manipulation;
+    }
+
+    /* Dropdown list items */
+    .fi-dropdown-list-item {
+        min-height: 40px !important;
+        padding: 8px 12px !important;
+        touch-action: manipulation;
+    }
+
+    /* Global search result items */
+    .fi-global-search-result {
+        min-height: 44px !important;
+        padding: 8px 12px !important;
+        touch-action: manipulation;
+    }
+
+    /* Sidebar items with larger touch targets */
+    .fi-sidebar-item-btn {
+        min-height: 44px !important;
+        touch-action: manipulation;
+    }
+
+    /* Expand/collapse buttons */
+    .fi-section-collapse-btn,
+    [role="button"][aria-expanded] {
+        min-height: 44px !important;
+        min-width: 44px !important;
+        padding: 8px !important;
+        touch-action: manipulation;
     }
 }

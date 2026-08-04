@@ -25,7 +25,7 @@
                     <select
                         id="inventory_item_id"
                         wire:model="inventory_item_id"
-                        class="fi-select-input block w-full rounded-lg border-none bg-white py-2 px-3 text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20"
+                        class="fi-select-input block w-full rounded-lg border-none bg-white py-3 px-4 text-base text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20"
                     >
                         <option value="">Select an item…</option>
                         @foreach ($this->inventoryItems as $id => $name)
@@ -43,7 +43,7 @@
                         min="1"
                         step="1"
                         wire:model="quantity"
-                        class="fi-input block w-full rounded-lg border-none bg-white py-2 px-3 text-sm text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20"
+                        class="fi-input block w-full rounded-lg border-none bg-white py-3 px-4 text-base text-gray-950 shadow-sm ring-1 ring-gray-950/10 focus:ring-2 focus:ring-primary-600 dark:bg-white/5 dark:text-white dark:ring-white/20"
                     />
                     @error('quantity') <p class="text-xs text-danger-600 mt-1">{{ $message }}</p> @enderror
                 </div>

@@ -263,7 +263,7 @@
                                 @if (!empty($line['matched_item_id']))
                                     <div class="flex flex-col gap-1">
                                         <div class="flex items-center gap-1.5 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 px-2.5 py-1.5">
-                                            <x-heroicon-o-check-circle class="h-3.5 w-3.5 flex-shrink-0 text-green-600 dark:text-green-400" />
+                                            <x-heroicon-o-check-circle class="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />
                                             <span class="text-xs font-medium text-green-700 dark:text-green-300 truncate">{{ $line['matched_item_name'] }}</span>
                                         </div>
                                         @if ($conf || $stg)
@@ -280,14 +280,14 @@
                                 @else
                                     <div class="space-y-1.5">
                                         <div class="flex items-center gap-1.5 rounded-md bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5">
-                                            <x-heroicon-o-question-mark-circle class="h-3.5 w-3.5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                                            <x-heroicon-o-question-mark-circle class="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
                                             <span class="text-xs font-medium text-amber-700 dark:text-amber-300">No inventory match</span>
                                         </div>
-                                        <label class="flex items-center gap-2 px-2.5 py-1 cursor-pointer">
+                                        <label class="flex items-center gap-2 px-3 py-2 cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                                             <input
                                                 wire:model="parsedLines.{{ $i }}.create_new_item"
                                                 type="checkbox"
-                                                class="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500"
+                                                class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500 cursor-pointer"
                                             />
                                             <span class="text-xs text-gray-600 dark:text-gray-400">Create new inventory item</span>
                                         </label>
@@ -356,26 +356,26 @@
                                             class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                                         />
                                     </div>
-                                    <div class="col-span-2 flex flex-col gap-0.5">
+                                    <div class="col-span-2 flex flex-col gap-2">
                                         @php $conf = $line['match_confidence'] ?? ''; $stg = $line['match_stage'] ?? ''; @endphp
                                         @if (!empty($line['matched_item_id']))
-                                            <span class="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900 px-2 py-0.5 text-[11px] font-medium text-green-700 dark:text-green-300 max-w-full">
-                                                <x-heroicon-o-check-circle class="h-3 w-3 flex-shrink-0" />
+                                            <span class="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900 px-3 py-1 text-[11px] font-medium text-green-700 dark:text-green-300 max-w-full">
+                                                <x-heroicon-o-check-circle class="h-4 w-4 flex-shrink-0" />
                                                 <span class="truncate">{{ $line['matched_item_name'] }}</span>
                                             </span>
                                             @if ($conf || $stg)
                                                 <div class="flex items-center gap-1">
                                                     @if ($conf)
-                                                        <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium {{ $conf === 'high' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : ($conf === 'medium' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500') }}">{{ ucfirst($conf) }}</span>
+                                                        <span class="inline-flex items-center rounded px-2 py-1 text-[9px] font-medium {{ $conf === 'high' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : ($conf === 'medium' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500') }}">{{ ucfirst($conf) }}</span>
                                                     @endif
                                                     @if ($stg)
-                                                        <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300">{{ $stg }}</span>
+                                                        <span class="inline-flex items-center rounded px-2 py-1 text-[9px] font-medium bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300">{{ $stg }}</span>
                                                     @endif
                                                 </div>
                                             @endif
                                         @else
                                             <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                                                <x-heroicon-o-question-mark-circle class="h-3 w-3 flex-shrink-0" />
+                                                <x-heroicon-o-question-mark-circle class="h-4 w-4 flex-shrink-0" />
                                                 No match
                                             </span>
                                         @endif

@@ -14,6 +14,12 @@ class Pallet extends Model
 {
     use LogsActivity, SoftDeletes;
 
+    const STAGE_CREATED = 'created';
+    const STAGE_STAGED = 'staged';
+    const STAGE_RECEIVING = 'receiving';
+    const STAGE_RECEIVED = 'received';
+    const STAGE_PROCESSED = 'processed';
+
     protected $fillable = [
         'vendor_id',
         'receiving_session_id',
@@ -27,12 +33,20 @@ class Pallet extends Model
         'total_cost',
         'notes',
         'created_by',
+        'stage',
+        'packing_slip_path',
+        'staged_at',
+        'receiving_started_at',
+        'line_items_total',
+        'line_items_received',
     ];
 
     protected $casts = [
         'received_date'           => 'date',
         'expected_delivery_date'  => 'date',
         'shipped_at'              => 'datetime',
+        'staged_at'               => 'datetime',
+        'receiving_started_at'    => 'datetime',
         'total_cost'              => 'decimal:2',
     ];
 
@@ -64,6 +78,16 @@ class Pallet extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function scannerSessions(): HasMany
+    {
+        return $this->hasMany(ScannerReceivingSession::class);
+    }
+
+    public function packingSlips(): HasMany
+    {
+        return $this->hasMany(PalletPackingSlip::class);
     }
 
     public function totalCasesCount(): int

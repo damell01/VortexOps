@@ -113,6 +113,19 @@ class InventoryScanner extends Page
     public array   $selectedMatchedItems = []; // Selected matched items to apply
     public array   $selectedSuggestedItems = []; // Selected suggested items to create
 
+    // ── Manual Pallet Line Entry ───────────────────────────────────────────
+
+    public bool    $showManualLineEntry = false; // Show manual item entry form
+    public string  $manualItemSearch = '';      // Item search/selection
+    public ?int    $manualItemId = null;        // Selected item ID
+    public ?int    $manualLocationId = null;    // Selected location ID
+    public string  $manualCaseCount = '1';      // Number of cases
+    public string  $manualQtyPerCase = '1';     // Units per case
+    public string  $manualUnitCost = '';        // Optional unit cost
+    public string  $manualPreflightCost = '';   // Optional preflight cost
+    public string  $manualDescription = '';     // Custom description
+    public ?array  $manualItemOptions = null;   // Search results for item picker
+
     // ── Boot ──────────────────────────────────────────────────────────────────
 
     public function mount(): void
@@ -509,6 +522,136 @@ class InventoryScanner extends Page
         $this->packingSlipAnalysis = null;
         $this->selectedSuggestedItems = [];
         $this->selectedMatchedItems = [];
+    }
+
+    public function openManualLineEntry(): void
+    {
+        if (! $this->stagingPalletId) {
+            Notification::make()
+                ->title('Error')
+                ->body('Stage a pallet first before adding items.')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        $this->showManualLineEntry = true;
+        $this->resetManualLineForm();
+        $this->manualLocationId = $this->qaLocationId ?: InventoryLocation::orderBy('name')->value('id');
+    }
+
+    public function searchManualItems(): void
+    {
+        $search = trim($this->manualItemSearch);
+        if (strlen($search) < 2) {
+            $this->manualItemOptions = null;
+            return;
+        }
+
+        $this->manualItemOptions = InventoryItem::where(function ($q) use ($search) {
+            $q->where('name', 'like', "%{$search}%")
+              ->orWhere('sku', 'like', "%{$search}%")
+              ->orWhere('barcode', 'like', "%{$search}%");
+        })
+        ->limit(10)
+        ->get(['id', 'name', 'sku', 'barcode', 'unit_cost'])
+        ->map(fn ($item) => [
+            'id' => $item->id,
+            'name' => $item->name,
+            'sku' => $item->sku,
+            'barcode' => $item->barcode,
+            'unit_cost' => (float) $item->unit_cost,
+        ])
+        ->toArray();
+    }
+
+    public function selectManualItem(int $itemId): void
+    {
+        $item = InventoryItem::find($itemId);
+        if ($item) {
+            $this->manualItemId = $item->id;
+            $this->manualItemSearch = $item->name;
+            $this->manualItemOptions = null;
+            if (! $this->manualUnitCost) {
+                $this->manualUnitCost = (string) ((float) $item->unit_cost ?: '');
+            }
+        }
+    }
+
+    public function addManualLine(): void
+    {
+        if (! $this->stagingPalletId || ! $this->manualItemId || ! $this->manualLocationId) {
+            Notification::make()
+                ->title('Error')
+                ->body('Item, location, and pallet are required.')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        try {
+            $pallet = Pallet::find($this->stagingPalletId);
+            $item = InventoryItem::find($this->manualItemId);
+            $location = InventoryLocation::find($this->manualLocationId);
+
+            if (! $pallet || ! $item || ! $location) {
+                throw new RuntimeException('Pallet, item, or location not found.');
+            }
+
+            $caseCount = (int) $this->manualCaseCount ?: 1;
+            $qtyPerCase = (float) $this->manualQtyPerCase ?: 1;
+            $unitCost = (float) $this->manualUnitCost ?: 0;
+            $preflightCost = (float) $this->manualPreflightCost ?: 0;
+
+            PalletLine::create([
+                'pallet_id' => $pallet->id,
+                'line_number' => $pallet->lines()->max('line_number') + 1 ?? 1,
+                'description' => $this->manualDescription ?: $item->name,
+                'vendor_description' => $this->manualDescription ?: $item->name,
+                'inventory_item_id' => $item->id,
+                'inventory_location_id' => $location->id,
+                'case_count' => $caseCount,
+                'quantity_per_case' => $qtyPerCase,
+                'unit_cost' => $unitCost,
+                'preflight_cost' => $preflightCost,
+                'line_status' => 'pending',
+            ]);
+
+            Notification::make()
+                ->title('Item Added')
+                ->body($item->name . ' added as pending item.')
+                ->success()
+                ->send();
+
+            $this->resetManualLineForm();
+            $this->showManualLineEntry = false;
+            $this->refreshPalletProgress();
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Error')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function cancelManualLineEntry(): void
+    {
+        $this->showManualLineEntry = false;
+        $this->resetManualLineForm();
+    }
+
+    private function resetManualLineForm(): void
+    {
+        $this->manualItemSearch = '';
+        $this->manualItemId = null;
+        $this->manualLocationId = $this->qaLocationId ?: InventoryLocation::orderBy('name')->value('id');
+        $this->manualCaseCount = '1';
+        $this->manualQtyPerCase = '1';
+        $this->manualUnitCost = '';
+        $this->manualPreflightCost = '';
+        $this->manualDescription = '';
+        $this->manualItemOptions = null;
     }
 
     private function createStagedPallet(): Pallet

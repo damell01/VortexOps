@@ -564,6 +564,15 @@
                 Receive All Items at Once
             </button>
             @endif
+
+            {{-- Manual Item Entry (for staged pallets without packing slip) --}}
+            @if($stagingPalletId && !$showPackingSlipAnalysis)
+            <button wire:click="openManualLineEntry" type="button"
+                class="w-full rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500">
+                <x-heroicon-o-plus class="h-4 w-4 inline -mt-0.5 mr-2" />
+                Add Item Manually
+            </button>
+            @endif
         </div>
 
         {{-- Pending Items Summary --}}
@@ -781,6 +790,150 @@
                     </button>
                     <button
                         wire:click="$set('showCostAdjust', false)"
+                        type="button"
+                        class="flex-1 rounded-lg bg-gray-200 dark:bg-gray-700 px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+        @endif
+
+        {{-- Manual Line Entry Modal --}}
+        @if($showManualLineEntry && $stagingPalletId)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+            <div class="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-900">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                        <x-heroicon-o-plus-circle class="h-5 w-5 text-amber-600" />
+                        Add Item to Pallet
+                    </h3>
+                </div>
+
+                <div class="px-6 py-4 space-y-4">
+                    {{-- Item Search/Selection --}}
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Item *</label>
+                        <div class="relative">
+                            <input
+                                type="text"
+                                wire:model.debounce-300ms="manualItemSearch"
+                                wire:keyup="searchManualItems"
+                                placeholder="Search by name, SKU, or barcode…"
+                                class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
+                            />
+                            @if($manualItemOptions && !empty($manualItemOptions))
+                            <div class="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-10">
+                                @foreach($manualItemOptions as $opt)
+                                <button
+                                    type="button"
+                                    wire:click="selectManualItem({{ $opt['id'] }})"
+                                    class="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+                                >
+                                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $opt['name'] }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                                        @if($opt['sku']){{ 'SKU: ' . $opt['sku'] }}@endif
+                                        @if($opt['barcode']) • {{ 'UPC: ' . $opt['barcode'] }}@endif
+                                    </p>
+                                </button>
+                                @endforeach
+                            </div>
+                            @endif
+                        </div>
+                        @if($manualItemId)
+                        <p class="text-xs text-green-600 dark:text-green-400 mt-1">✓ Item selected</p>
+                        @endif
+                    </div>
+
+                    {{-- Location Selection --}}
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Location *</label>
+                        <select
+                            wire:model="manualLocationId"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
+                        >
+                            <option value="">Select location…</option>
+                            @foreach($this->getLocationsProperty() as $loc)
+                            <option value="{{ $loc->id }}">{{ $loc->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    {{-- Case Count --}}
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Case Count</label>
+                        <input
+                            type="number"
+                            wire:model="manualCaseCount"
+                            min="1"
+                            step="1"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
+                        />
+                    </div>
+
+                    {{-- Quantity per Case --}}
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Units per Case</label>
+                        <input
+                            type="number"
+                            wire:model="manualQtyPerCase"
+                            min="0.01"
+                            step="0.01"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
+                        />
+                    </div>
+
+                    {{-- Unit Cost (Optional) --}}
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Unit Cost ($) — Optional</label>
+                        <input
+                            type="number"
+                            wire:model="manualUnitCost"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
+                        />
+                    </div>
+
+                    {{-- Preflight Cost (Optional) --}}
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Preflight Cost ($) — Optional</label>
+                        <input
+                            type="number"
+                            wire:model="manualPreflightCost"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
+                        />
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Cost estimate from vendor documentation</p>
+                    </div>
+
+                    {{-- Description (Optional) --}}
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Description — Optional</label>
+                        <input
+                            type="text"
+                            wire:model="manualDescription"
+                            placeholder="Notes or custom description…"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
+                        />
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-2 sticky bottom-0 bg-white dark:bg-gray-900">
+                    <button
+                        wire:click="addManualLine"
+                        type="button"
+                        class="flex-1 rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                        <x-heroicon-o-check class="h-4 w-4 inline -mt-0.5 mr-1" />
+                        Add Item
+                    </button>
+                    <button
+                        wire:click="cancelManualLineEntry"
                         type="button"
                         class="flex-1 rounded-lg bg-gray-200 dark:bg-gray-700 px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600"
                     >

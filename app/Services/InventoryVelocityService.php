@@ -59,9 +59,7 @@ class InventoryVelocityService
      */
     public function getRankedByVelocity(int $daysPeriod = 30): array
     {
-        $items = InventoryItem::query()
-            ->where('status', 'active')
-            ->get();
+        $items = InventoryItem::query()->get();
 
         $velocities = $items->map(fn ($item) => $this->calculateItemVelocity($item, $daysPeriod))
             ->sortByDesc('daily_velocity')

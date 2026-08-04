@@ -35,9 +35,14 @@ class MobileScannerApp extends Page
         return 'Mobile Scanner';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationSort(): ?int
     {
-        return 1;
+        return 999;
     }
 
     public function getView(): string

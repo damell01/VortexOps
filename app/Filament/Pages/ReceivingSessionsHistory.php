@@ -31,6 +31,11 @@ class ReceivingSessionsHistory extends Page implements HasTable
         return 'heroicon-o-clock';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationLabel(): string
     {
         return 'Session History';
@@ -38,7 +43,7 @@ class ReceivingSessionsHistory extends Page implements HasTable
 
     public static function getNavigationSort(): ?int
     {
-        return 8;
+        return 999;
     }
 
     public function getView(): string

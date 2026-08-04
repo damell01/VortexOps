@@ -29,6 +29,11 @@ class CostAdjustmentHistory extends Page implements HasTable
         return 'heroicon-o-arrow-trending-up';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationLabel(): string
     {
         return 'Cost History';
@@ -36,7 +41,7 @@ class CostAdjustmentHistory extends Page implements HasTable
 
     public static function getNavigationSort(): ?int
     {
-        return 5;
+        return 999;
     }
 
     public function getView(): string
@@ -107,8 +112,7 @@ class CostAdjustmentHistory extends Page implements HasTable
 
                 TextColumn::make('notes')
                     ->label('Notes')
-                    ->limit(50)
-                    ->expandableLabelFalse(),
+                    ->limit(50),
             ])
             ->filters([
                 // Filters can be added here

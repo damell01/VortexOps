@@ -32,6 +32,11 @@ class PalletReceivingHistory extends Page implements HasTable
         return 'heroicon-o-inbox-stack';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationLabel(): string
     {
         return 'Pallet History';
@@ -39,7 +44,7 @@ class PalletReceivingHistory extends Page implements HasTable
 
     public static function getNavigationSort(): ?int
     {
-        return 9;
+        return 999;
     }
 
     public function getView(): string

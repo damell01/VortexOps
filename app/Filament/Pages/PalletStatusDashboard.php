@@ -26,12 +26,12 @@ class PalletStatusDashboard extends Page
 
     public static function getNavigationLabel(): string
     {
-        return 'Pallet Tracking';
+        return 'Tracking & History';
     }
 
     public static function getNavigationSort(): ?int
     {
-        return 2;
+        return 3;
     }
 
     public function getView(): string
@@ -41,7 +41,7 @@ class PalletStatusDashboard extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Track all pallets from vendor order through receiving and processing';
+        return 'Track pallet status, receiving history, cost adjustments, and session logs. Everything in one place.';
     }
 
     public function getPendingPalletsProperty()

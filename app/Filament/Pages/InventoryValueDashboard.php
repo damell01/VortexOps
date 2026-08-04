@@ -28,12 +28,12 @@ class InventoryValueDashboard extends Page
 
     public static function getNavigationLabel(): string
     {
-        return 'Value Dashboard';
+        return 'Analytics & Insights';
     }
 
     public static function getNavigationSort(): ?int
     {
-        return 4;
+        return 2;
     }
 
     public function getView(): string
@@ -43,7 +43,7 @@ class InventoryValueDashboard extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Real-time inventory value analytics and insights';
+        return 'Real-time inventory metrics, value analytics, velocity trends, and stock insights.';
     }
 
     // ── Computed Properties ────────────────────────────────────────────────────
@@ -57,7 +57,7 @@ class InventoryValueDashboard extends Page
 
     public function getValueByLocationProperty(): array
     {
-        $locations = InventoryLocation::with(['stocks' => fn ($q) => $q->with('item')])
+        $locations = InventoryLocation::with(['stock' => fn ($q) => $q->with('item')])
             ->where('status', 'active')
             ->orderBy('name')
             ->get();
@@ -67,8 +67,8 @@ class InventoryValueDashboard extends Page
         return $locations->map(fn ($loc) => [
             'name'  => $loc->name,
             'type'  => $loc->type,
-            'count' => $loc->stocks->count(),
-            'value' => $loc->stocks->sum(fn ($stock) => $costService->calculateInventoryValue($stock->item)),
+            'count' => $loc->stock->count(),
+            'value' => $loc->stock->sum(fn ($stock) => $costService->calculateInventoryValue($stock->item)),
         ])->values()->toArray();
     }
 

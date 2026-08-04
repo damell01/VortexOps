@@ -47,6 +47,11 @@ class ProductInsights extends Page
     /** Extra buffer stock, expressed in days of sales, on top of lead-time demand. */
     public const SAFETY_STOCK_DAYS = 7;
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-presentation-chart-line';

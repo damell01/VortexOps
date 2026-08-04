@@ -24,6 +24,11 @@ class InventoryVelocityAnalytics extends Page
         return 'heroicon-o-bolt';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationLabel(): string
     {
         return 'Velocity Analytics';
@@ -31,7 +36,7 @@ class InventoryVelocityAnalytics extends Page
 
     public static function getNavigationSort(): ?int
     {
-        return 7;
+        return 999;
     }
 
     public function getView(): string

@@ -39,12 +39,12 @@ class InventoryScanner extends Page
 
     public static function getNavigationLabel(): string
     {
-        return 'Scan Inventory';
+        return 'Inventory Operations';
     }
 
     public static function getNavigationSort(): ?int
     {
-        return 3;
+        return 1;
     }
 
     public function getView(): string
@@ -54,7 +54,7 @@ class InventoryScanner extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Four modes: Look Up checks stock & costs, Quick Add scans to add stock, Receive Pallet tracks incoming shipments, Stage Pallet pre-stages for receiving. Works with scanners or phone camera.';
+        return 'Add new orders, receive pallets, and adjust inventory. Use the camera button to scan barcodes—no menu searching needed.';
     }
 
     // ── Mode ──────────────────────────────────────────────────────────────────

@@ -33,6 +33,11 @@ class InventoryReconciliation extends Page implements HasForms
         return 'heroicon-o-check-circle';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationLabel(): string
     {
         return 'Reconciliation';
@@ -40,7 +45,7 @@ class InventoryReconciliation extends Page implements HasForms
 
     public static function getNavigationSort(): ?int
     {
-        return 6;
+        return 999;
     }
 
     public function getView(): string

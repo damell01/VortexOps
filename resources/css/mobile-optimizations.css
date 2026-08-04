@@ -27,11 +27,12 @@ body {
 
 @media (max-width: 640px) {
     /* Larger touch targets (minimum 44x44px) */
-    button, a[role="button"], .btn, [role="button"] {
+    button, a[role="button"], .btn, [role="button"], .fi-btn {
         min-height: 44px;
         min-width: 44px;
         padding: 12px 16px;
         font-size: 1rem;
+        touch-action: manipulation;
     }
 
     /* Form inputs */
@@ -39,38 +40,37 @@ body {
         min-height: 44px;
         font-size: 16px;
         padding: 12px 12px;
+        touch-action: manipulation;
     }
 
-    /* Filament sidebar adjustments */
+    /* Filament sidebar adjustments - force off-screen initially */
     .fi-sidebar {
-        position: fixed;
-        left: -100%;
-        top: 0;
-        height: 100vh;
-        width: 80vw;
-        max-width: 320px;
-        z-index: 40;
-        background: white;
-        box-shadow: 2px 0 8px rgba(0,0,0,0.15);
-        transition: left 0.3s ease;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
+        position: fixed !important;
+        left: -100% !important;
+        top: 0 !important;
+        height: 100vh !important;
+        width: 80vw !important;
+        max-width: 320px !important;
+        z-index: 40 !important;
+        background: white !important;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.15) !important;
+        transition: left 0.3s ease !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
     }
 
+    /* Sidebar visible state */
     .fi-sidebar.open {
-        left: 0;
+        left: 0 !important;
     }
 
-    .fi-sidebar-open .fi-sidebar {
-        left: 0;
-    }
-
-    /* Mobile menu toggle */
+    /* Topbar adjustments for mobile menu button */
     .fi-topbar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 16px;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 12px 16px !important;
+        gap: 8px !important;
     }
 
     .fi-topbar-section {
@@ -79,20 +79,26 @@ body {
         align-items: center;
     }
 
-    /* Mobile menu button */
+    /* Mobile menu button - make clickable */
     .mobile-menu-toggle {
-        display: flex;
-        width: 44px;
-        height: 44px;
-        padding: 0;
-        justify-content: center;
-        align-items: center;
-        background: transparent;
-        border: none;
-        color: #4c1d95;
-        font-size: 24px;
-        cursor: pointer;
-        z-index: 41;
+        display: flex !important;
+        width: 44px !important;
+        height: 44px !important;
+        padding: 0 !important;
+        justify-content: center !important;
+        align-items: center !important;
+        background: transparent !important;
+        border: none !important;
+        color: #4c1d95 !important;
+        font-size: 24px !important;
+        cursor: pointer !important;
+        z-index: 41 !important;
+        touch-action: manipulation !important;
+        flex-shrink: 0;
+    }
+
+    .mobile-menu-toggle:active {
+        opacity: 0.7;
     }
 
     /* Backdrop for sidebar */
@@ -104,24 +110,41 @@ body {
         z-index: 39;
     }
 
+    .fi-sidebar-backdrop.open,
     .fi-sidebar-open .fi-sidebar-backdrop {
-        display: block;
+        display: block !important;
     }
 
     /* Tables responsive */
     .fi-table-container {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        position: relative;
     }
 
     .fi-table {
         min-width: 100%;
+        border-collapse: collapse;
     }
 
     .fi-table th,
     .fi-table td {
         padding: 12px 8px;
         font-size: 13px;
+        touch-action: manipulation;
+    }
+
+    /* Ensure clickable cells are touch-friendly */
+    .fi-table tbody tr {
+        cursor: pointer;
+    }
+
+    .fi-table tbody td a,
+    .fi-table tbody td button {
+        display: inline-block;
+        min-height: 44px;
+        min-width: 44px;
+        padding: 8px 12px;
     }
 
     /* Forms */
@@ -242,6 +265,62 @@ body {
 
     .fi-page-content {
         padding: 16px;
+        touch-action: manipulation;
+    }
+
+    /* Ensure all links are clickable */
+    a {
+        touch-action: manipulation;
+    }
+
+    /* Fix overlapping elements and z-index issues */
+    .fi-modal {
+        touch-action: manipulation;
+    }
+
+    .fi-modal-actions {
+        display: grid;
+        gap: 8px;
+    }
+
+    .fi-modal-actions button {
+        min-height: 48px;
+        padding: 12px 16px;
+    }
+
+    /* Ensure badges and small elements stay clickable */
+    .fi-badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 32px;
+        min-width: 32px;
+        padding: 6px 12px;
+    }
+
+    /* Fix resource list items to be fully clickable */
+    .fi-resource-list-item {
+        display: block;
+        padding: 12px;
+        text-decoration: none;
+        touch-action: manipulation;
+    }
+
+    .fi-resource-list-item:active {
+        opacity: 0.8;
+    }
+
+    /* Ensure form actions are large enough */
+    .fi-form-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        margin-top: 20px;
+    }
+
+    .fi-form-actions button {
+        min-height: 48px;
+        padding: 12px 16px;
+        font-size: 1rem;
     }
 
     /* Tabs */

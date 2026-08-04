@@ -96,6 +96,12 @@ class AdminPanelProvider extends PanelProvider
             ))
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
+                fn (): string => <<<'HTML'
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+                HTML,
+            )
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
                 fn (): string => ! $hasViteManifest()
                     ? ''
                     : ($isAuthenticatedAdminView()
@@ -151,6 +157,86 @@ class AdminPanelProvider extends PanelProvider
                         const shortcuts = 'Press ? to see keyboard shortcuts';
                         console.info('%c' + shortcuts, 'color: #7c3aed; font-size: 12px; font-weight: bold;');
                     });
+                    </script>
+                    HTML),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : Blade::render(<<<'HTML'
+                    <div class="fi-sidebar-backdrop" style="display: none;"></div>
+                    <script>
+                    window.addEventListener('load', () => setupMobileMenu());
+
+                    function setupMobileMenu() {
+                        // Only setup on mobile
+                        if (window.innerWidth > 640) return;
+
+                        const sidebar = document.querySelector('.fi-sidebar');
+                        const topbar = document.querySelector('.fi-topbar');
+                        const backdrop = document.querySelector('.fi-sidebar-backdrop');
+
+                        if (!sidebar || !topbar) return;
+
+                        // Create and inject menu toggle button
+                        let toggleBtn = document.querySelector('.mobile-menu-toggle');
+                        if (!toggleBtn) {
+                            toggleBtn = document.createElement('button');
+                            toggleBtn.className = 'mobile-menu-toggle';
+                            toggleBtn.type = 'button';
+                            toggleBtn.setAttribute('aria-label', 'Toggle menu');
+                            toggleBtn.innerHTML = '☰';
+                            topbar.insertBefore(toggleBtn, topbar.firstChild);
+                        }
+
+                        // Toggle menu on button click
+                        toggleBtn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleSidebar();
+                        });
+
+                        // Close menu when clicking links
+                        sidebar.addEventListener('click', (e) => {
+                            if (e.target.closest('a')) {
+                                closeSidebar();
+                            }
+                        });
+
+                        // Close menu on backdrop click
+                        if (backdrop) {
+                            backdrop.addEventListener('click', closeSidebar);
+                        }
+
+                        // Close menu on Escape
+                        document.addEventListener('keydown', (e) => {
+                            if (e.key === 'Escape') closeSidebar();
+                        });
+
+                        function toggleSidebar() {
+                            const isOpen = sidebar.style.left === '0px' || sidebar.classList.contains('open');
+                            if (isOpen) {
+                                closeSidebar();
+                            } else {
+                                openSidebar();
+                            }
+                        }
+
+                        function openSidebar() {
+                            sidebar.style.left = '0';
+                            sidebar.classList.add('open');
+                            if (backdrop) backdrop.style.display = 'block';
+                            document.body.style.overflow = 'hidden';
+                        }
+
+                        function closeSidebar() {
+                            sidebar.style.left = '-100%';
+                            sidebar.classList.remove('open');
+                            if (backdrop) backdrop.style.display = 'none';
+                            document.body.style.overflow = '';
+                        }
+                    }
                     </script>
                     HTML),
             )

@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\FulfillmentNeedsAttentionWidget;
+use App\Filament\Widgets\InventorySummaryWidget;
 use App\Filament\Widgets\NeedsAttentionWidget;
 use App\Filament\Widgets\OperationsOverviewWidget;
 use App\Filament\Widgets\RecentShowsWidget;
@@ -48,6 +49,7 @@ class DashboardImproved extends Dashboard
         } elseif ($user?->isAdmin() || $user?->isOwner()) {
             $widgets = [
                 NeedsAttentionWidget::class,
+                InventorySummaryWidget::class,
                 OperationsOverviewWidget::class,
                 RecentShowsWidget::class,
                 ShowsKpiWidget::class,

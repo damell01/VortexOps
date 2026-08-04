@@ -101,11 +101,6 @@
                                             <x-heroicon-o-clipboard-document-check class="h-3.5 w-3.5" />
                                             Review Approval
                                         </a>
-                                    @elseif ($column['status'] === 'mapping')
-                                        <span class="inline-flex items-center gap-1 text-[11px] text-violet-600 dark:text-violet-400">
-                                            <x-heroicon-o-sparkles class="h-3.5 w-3.5" />
-                                            AI running…
-                                        </span>
                                     @else
                                         <a href="{{ $this->getShowUrl($show) }}"
                                            class="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:underline">

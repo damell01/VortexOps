@@ -16,13 +16,13 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Auto-detect timezone from browser
             const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            const tzInput = document.querySelector('select[name="timezone"]');
-            if (tzInput && tzInput.value === 'UTC') {
-                // Only auto-fill if still at default UTC
-                tzInput.value = tz;
-                // Trigger Livewire update
-                if (window.Livewire) {
-                    window.Livewire.find(tzInput.closest('[wire\\:id]')?._x_id)?.updateModelValue('timezone', tz);
+            const tzInput = document.querySelector('select[name="data.timezone"]');
+            if (tzInput) {
+                if (tzInput.value === 'UTC' || !tzInput.value) {
+                    // Auto-fill with detected timezone
+                    tzInput.value = tz;
+                    // Trigger change event for Livewire 3
+                    tzInput.dispatchEvent(new Event('change', { bubbles: true }));
                 }
             }
         });

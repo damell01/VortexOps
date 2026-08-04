@@ -19,6 +19,21 @@
 
     <div class="space-y-6 max-w-4xl">
 
+        {{-- ── Timezone Notice ──────────────────────────────────────────────── --}}
+        @php
+            $userTz = $this->userTimezone();
+            $isDefaultTz = $userTz === 'UTC';
+        @endphp
+        @if ($isDefaultTz)
+            <div class="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 flex items-start gap-3">
+                <x-heroicon-o-exclamation-triangle class="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div>
+                    <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">Timezone not set</p>
+                    <p class="text-xs text-amber-800 dark:text-amber-200 mt-0.5">Your times are showing in UTC. <a href="{{ route('filament.admin.pages.edit-profile') }}" class="underline font-medium hover:no-underline">Update your timezone</a> to see times in your local timezone.</p>
+                </div>
+            </div>
+        @endif
+
         {{-- ── Clock In / Out Card ──────────────────────────────────────────── --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
 

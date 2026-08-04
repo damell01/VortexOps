@@ -18,7 +18,10 @@ class InventoryReport extends Page
 
     protected static ?string $title = 'Inventory Report';
 
-    protected string $view = 'filament.pages.inventory-report';
+    public function getView(): string
+    {
+        return 'filament.pages.inventory-report';
+    }
 
     public static function getNavigationIcon(): string
     {

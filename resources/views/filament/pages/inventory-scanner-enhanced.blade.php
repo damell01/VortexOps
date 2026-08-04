@@ -46,10 +46,28 @@
         {{-- ════════════════════════════════════════════════════════════════════ --}}
         @if($mode === 'stage')
 
+        {{-- Workflow Guide --}}
+        <div class="rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 px-6 py-4 mb-6">
+            <div class="flex items-start gap-3">
+                <x-heroicon-o-light-bulb class="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div class="text-sm text-blue-900 dark:text-blue-100">
+                    <p class="font-semibold mb-2">📦 Pre-Receiving Workflow</p>
+                    <ol class="space-y-1 text-xs ml-4 list-decimal">
+                        <li><strong>Stage pallet:</strong> Enter vendor & PO info, optionally upload packing slip</li>
+                        <li><strong>Add items:</strong> Upload packing slip (AI-parsed) or manually add items one-by-one</li>
+                        <li><strong>Preflight costs:</strong> Optional cost estimates from vendor docs (doesn't affect real cost yet)</li>
+                        <li><strong>Pending status:</strong> Items sit in "pending" state, doesn't count toward actual inventory</li>
+                        <li><strong>Receive items:</strong> Switch to Receive mode, scan items to confirm arrival & add to inventory</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
         <div class="rounded-xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 px-6 py-5 space-y-4">
             <div class="flex items-center gap-3 mb-4">
                 <x-heroicon-o-inbox-stack class="h-5 w-5 text-amber-600" />
-                <h2 class="text-sm font-semibold text-amber-900 dark:text-amber-100">Stage New Pallet for Receiving</h2>
+                <h2 class="text-sm font-semibold text-amber-900 dark:text-amber-100">1️⃣ Stage New Pallet for Receiving</h2>
+                <span class="text-xs text-amber-700 dark:text-amber-300 ml-auto">Step 1 of 3</span>
             </div>
 
             {{-- Vendor Selection --}}
@@ -87,12 +105,17 @@
 
             {{-- Packing Slip Upload --}}
             <div class="border-2 border-dashed border-amber-300 dark:border-amber-600 rounded-lg p-4">
-                <label class="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-2">Packing Slip (Optional)</label>
+                <label class="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-2">
+                    📄 Packing Slip (Optional)
+                    <span class="text-amber-600 dark:text-amber-400">— Upload PDF or image for AI parsing</span>
+                </label>
+                <p class="text-xs text-gray-600 dark:text-gray-400 mb-3">Upload vendor packing slip (PDF/image) and we'll AI-extract items, quantities, and costs. Or skip this and manually add items.</p>
                 <div class="text-center">
                     @if($stagingPackingSlipFile)
                         <div class="space-y-2">
                             <x-heroicon-o-check-circle class="h-8 w-8 text-green-500 mx-auto" />
                             <p class="text-sm font-medium text-green-700 dark:text-green-300">{{ $stagingPackingSlipFile->getClientOriginalName() }}</p>
+                            <p class="text-xs text-gray-600 dark:text-gray-400">Ready to analyze when you stage the pallet</p>
                             <button wire:click="$set('stagingPackingSlipFile', null)" type="button" class="text-xs text-amber-600 hover:underline">
                                 Remove
                             </button>
@@ -456,8 +479,8 @@
         <div class="rounded-xl border-2 border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950 px-6 py-5 space-y-3">
             <div class="flex items-center gap-3">
                 <x-heroicon-o-plus-circle class="h-5 w-5 text-emerald-600" />
-                <h2 class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">Quick Add Stock</h2>
-                <span class="text-xs text-emerald-600 dark:text-emerald-400">Scan items to quickly add to inventory as you receive them</span>
+                <h2 class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">⚡ Quick Add Stock</h2>
+                <span class="text-xs text-emerald-600 dark:text-emerald-400">Fast path: Scan items to directly add to inventory without pallet staging</span>
             </div>
 
             {{-- Location Selector --}}
@@ -580,11 +603,12 @@
         <div class="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 px-6 py-4">
             <div class="flex items-center gap-2 mb-3">
                 <x-heroicon-o-clock class="h-5 w-5 text-amber-600" />
-                <h4 class="font-semibold text-amber-900 dark:text-amber-100">Pending Items to Receive</h4>
+                <h4 class="font-semibold text-amber-900 dark:text-amber-100">2️⃣ Pending Items Ready to Receive</h4>
                 <span class="text-xs font-medium bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 px-2 py-1 rounded">
-                    {{ count($this->getPendingItemsProperty()) }} item(s)
+                    {{ count($this->getPendingItemsProperty()) }} item(s) staged
                 </span>
             </div>
+            <p class="text-xs text-amber-700 dark:text-amber-300 mb-3">These items were staged but not yet in inventory. Scan barcodes below to confirm receipt and add to stock.</p>
             <div class="space-y-2">
                 @foreach($this->getPendingItemsProperty() as $item)
                 <div class="bg-white dark:bg-gray-800 rounded p-3 text-sm">
@@ -619,18 +643,22 @@
         {{-- Scan Input --}}
         @if($rcvPalletId)
         <div class="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-6 py-4">
+            <p class="text-xs text-blue-700 dark:text-blue-300 mb-3">
+                <strong>3️⃣ Scan Items to Confirm Receipt</strong> — Scan item barcodes to mark pending items as received and add to inventory.
+            </p>
             <div class="flex gap-3 items-center">
                 <input
                     wire:model="scanInput"
                     wire:keydown.enter="submitScan"
                     type="text"
-                    placeholder="Scan item barcode…"
+                    placeholder="Scan barcode or UPC and press Enter…"
                     autofocus
                     autocomplete="off"
                     class="flex-1 rounded-lg border border-blue-300 dark:border-blue-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm font-mono"
                 />
                 <button wire:click="submitScan" type="button"
-                    class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700">
+                    class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 whitespace-nowrap">
+                    <x-heroicon-o-check-circle class="h-4 w-4 inline -mt-0.5 mr-1" />
                     Receive
                 </button>
             </div>
@@ -656,26 +684,27 @@
         <div class="space-y-4">
             {{-- Pallet Info --}}
             <div class="rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-6 py-4">
+                <h4 class="font-semibold text-gray-900 dark:text-white mb-4">Receiving Progress</h4>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <p class="text-xs text-gray-600 dark:text-gray-400">Pallet</p>
-                        <p class="font-semibold text-gray-900 dark:text-white">{{ $rcvProgress['reference'] ?? 'N/A' }}</p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 font-medium">Pallet #</p>
+                        <p class="font-semibold text-gray-900 dark:text-white text-sm">{{ $rcvProgress['reference'] ?? 'N/A' }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-600 dark:text-gray-400">Vendor</p>
-                        <p class="font-semibold text-gray-900 dark:text-white">{{ $rcvProgress['vendor'] }}</p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 font-medium">Vendor</p>
+                        <p class="font-semibold text-gray-900 dark:text-white text-sm">{{ $rcvProgress['vendor'] }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-600 dark:text-gray-400">Progress</p>
-                        <p class="font-semibold text-gray-900 dark:text-white">{{ $rcvProgress['done_lines'] }}/{{ $rcvProgress['total_lines'] }} lines</p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 font-medium">Items Received</p>
+                        <p class="font-semibold text-gray-900 dark:text-white text-sm">{{ $rcvProgress['done_lines'] }}/{{ $rcvProgress['total_lines'] }}</p>
                     </div>
                     <div>
-                        <p class="text-xs text-gray-600 dark:text-gray-400">Status</p>
-                        <p class="font-semibold text-gray-900 dark:text-white">
+                        <p class="text-xs text-gray-600 dark:text-gray-400 font-medium">Overall Status</p>
+                        <p class="font-semibold text-sm">
                             @if($rcvProgress['done_lines'] === $rcvProgress['total_lines'])
                                 <span class="text-green-600">✓ Complete</span>
                             @else
-                                <span class="text-blue-600">Receiving…</span>
+                                <span class="text-blue-600">In Progress</span>
                             @endif
                         </p>
                     </div>
@@ -683,7 +712,9 @@
             </div>
 
             {{-- Line Items Progress --}}
-            <div class="space-y-2">
+            <div>
+                <h4 class="font-semibold text-gray-900 dark:text-white text-sm mb-3">Item Status (Scan barcodes to update)</h4>
+                <div class="space-y-2">
                 @foreach($rcvProgress['lines'] as $line)
                 <div class="rounded-lg border {{ $line['done'] ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950' : ($line['line_status'] === 'pending' ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950' : 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950') }} px-4 py-3">
                     <div class="flex items-center justify-between mb-2">
@@ -726,6 +757,7 @@
                     </div>
                 </div>
                 @endforeach
+                </div>
             </div>
         </div>
         @elseif($rcvPalletId)
@@ -805,22 +837,26 @@
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
             <div class="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-lg w-full max-h-[90vh] overflow-y-auto">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-900">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2 mb-2">
                         <x-heroicon-o-plus-circle class="h-5 w-5 text-amber-600" />
-                        Add Item to Pallet
+                        2️⃣ Add Item to Pallet
                     </h3>
+                    <p class="text-xs text-gray-600 dark:text-gray-400">Manually add items when no packing slip is available. Fill in item details, location, and quantity. Items will be marked as "pending" until physically received and scanned.</p>
                 </div>
 
                 <div class="px-6 py-4 space-y-4">
                     {{-- Item Search/Selection --}}
                     <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Item *</label>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
+                            🔍 Item to Receive <span class="text-red-600">*</span>
+                        </label>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-2">Search for existing item by name, SKU, or barcode. Can add new items later if needed.</p>
                         <div class="relative">
                             <input
                                 type="text"
                                 wire:model.debounce-300ms="manualItemSearch"
                                 wire:keyup="searchManualItems"
-                                placeholder="Search by name, SKU, or barcode…"
+                                placeholder="e.g., 'Pokemon Box', 'SKU123', or barcode…"
                                 class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
                             />
                             @if($manualItemOptions && !empty($manualItemOptions))
@@ -848,7 +884,10 @@
 
                     {{-- Location Selection --}}
                     <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Location *</label>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">
+                            📍 Receive to Location <span class="text-red-600">*</span>
+                        </label>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-2">Where items will be stored when received and added to inventory.</p>
                         <select
                             wire:model="manualLocationId"
                             class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
@@ -862,31 +901,36 @@
 
                     {{-- Case Count --}}
                     <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Case Count</label>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">📦 Number of Cases</label>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-2">How many cases are expected in this shipment.</p>
                         <input
                             type="number"
                             wire:model="manualCaseCount"
                             min="1"
                             step="1"
+                            placeholder="1"
                             class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
                         />
                     </div>
 
                     {{-- Quantity per Case --}}
                     <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Units per Case</label>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">📊 Units per Case</label>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-2">Individual units/items in each case (e.g., 12 boxes per case).</p>
                         <input
                             type="number"
                             wire:model="manualQtyPerCase"
                             min="0.01"
                             step="0.01"
+                            placeholder="1"
                             class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
                         />
                     </div>
 
                     {{-- Unit Cost (Optional) --}}
                     <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Unit Cost ($) — Optional</label>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">💰 Actual Unit Cost ($) — Optional</label>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-2">Cost per unit once received. Used to calculate average cost and WAC. If blank, pulls from item's existing cost.</p>
                         <input
                             type="number"
                             wire:model="manualUnitCost"
@@ -899,7 +943,8 @@
 
                     {{-- Preflight Cost (Optional) --}}
                     <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Preflight Cost ($) — Optional</label>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">📋 Preflight Cost ($) — Optional</label>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-2">Cost estimate from vendor packing slip or invoice. Reference only — doesn't affect inventory cost until item is actually received.</p>
                         <input
                             type="number"
                             wire:model="manualPreflightCost"
@@ -908,16 +953,16 @@
                             placeholder="0.00"
                             class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
                         />
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Cost estimate from vendor documentation</p>
                     </div>
 
                     {{-- Description (Optional) --}}
                     <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Description — Optional</label>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">📝 Notes/Description — Optional</label>
+                        <p class="text-xs text-gray-600 dark:text-gray-400 mb-2">Custom notes, vendor codes, packaging notes, etc.</p>
                         <input
                             type="text"
                             wire:model="manualDescription"
-                            placeholder="Notes or custom description…"
+                            placeholder="e.g., 'Vendor packaging v2', 'Bulk order', etc."
                             class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
                         />
                     </div>

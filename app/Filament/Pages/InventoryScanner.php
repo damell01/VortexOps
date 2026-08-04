@@ -54,7 +54,7 @@ class InventoryScanner extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Scan barcodes, look up items, add stock, receive pallets, and adjust inventory. Everything in one place.';
+        return 'Complete inventory workflow: Look up items, quick add stock, stage pallets with pending items, and receive shipments by scanning. Supports packing slips or manual entry.';
     }
 
     // ── Mode ──────────────────────────────────────────────────────────────────

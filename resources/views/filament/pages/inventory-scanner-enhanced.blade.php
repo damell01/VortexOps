@@ -264,17 +264,6 @@
             </div>
         </div>
 
-        {{-- Camera Feed (Hidden by default) --}}
-        <div id="camera-container" class="hidden rounded-lg overflow-hidden bg-black">
-            <video id="camera-video" class="w-full aspect-video object-cover"></video>
-            <div class="bg-gray-900 px-4 py-3 flex gap-2">
-                <button id="camera-stop-btn" type="button" class="flex-1 rounded px-3 py-2 text-sm font-medium bg-gray-700 text-white hover:bg-gray-600">
-                    <x-heroicon-o-x-mark class="h-4 w-4 inline -mt-0.5 mr-1" />
-                    Close Camera
-                </button>
-            </div>
-        </div>
-
         {{-- Results with Cost Display --}}
         @if($result)
         <div class="space-y-4">
@@ -471,6 +460,17 @@
 
         @endif
 
+        {{-- Camera Feed (Hidden by default, shared across modes) --}}
+        <div id="camera-container" class="hidden rounded-lg overflow-hidden bg-black">
+            <video id="camera-video" class="w-full aspect-video object-cover"></video>
+            <div class="bg-gray-900 px-4 py-3 flex gap-2">
+                <button id="camera-stop-btn" type="button" class="flex-1 rounded px-3 py-2 text-sm font-medium bg-gray-700 text-white hover:bg-gray-600">
+                    <x-heroicon-o-x-mark class="h-4 w-4 inline -mt-0.5 mr-1" />
+                    Close Camera
+                </button>
+            </div>
+        </div>
+
         {{-- ════════════════════════════════════════════════════════════════════ --}}
         {{-- QUICK ADD MODE                                                      --}}
         {{-- ════════════════════════════════════════════════════════════════════ --}}
@@ -514,10 +514,8 @@
                     autocomplete="off"
                     class="flex-1 rounded-lg border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 font-mono"
                 />
-                <button type="button"
-                    onclick="window.dispatchEvent(new Event('open-camera-scanner'))"
-                    class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 whitespace-nowrap">
-                    <x-heroicon-o-video-camera class="h-4 w-4 inline -mt-0.5" />
+                <button id="camera-scan-btn" type="button" class="hidden rounded-lg bg-emerald-200 dark:bg-emerald-800 px-3 py-2.5 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-300 dark:hover:bg-emerald-700" title="Scan with camera">
+                    <x-heroicon-o-video-camera class="h-5 w-5" />
                 </button>
                 <button wire:click="submitScan" type="button"
                     class="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700">
@@ -1014,7 +1012,7 @@
     </script>
 
     {{-- Camera scanning scripts --}}
-    @if($mode === 'lookup' || $mode === 'receive')
+    @if($mode === 'lookup' || $mode === 'receive' || $mode === 'quickadd')
     @if(file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite('resources/js/barcode-scanner.js')
     @endif

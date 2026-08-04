@@ -99,6 +99,7 @@ class InventoryScanner extends Page
     public ?int    $stagingPalletId = null;     // For pre-staging pallets
     public string  $stagingVendorId = '';
     public string  $stagingReference = '';
+    public ?string $stagingExpectedDeliveryDate = null; // Expected delivery date
     public ?int    $currentSessionId = null;    // Active scanner session
     public string  $scanMode = 'barcode';       // barcode|camera
     public bool    $cameraActive = false;
@@ -441,6 +442,7 @@ class InventoryScanner extends Page
             'status' => 'pending',
             'stage' => Pallet::STAGE_STAGED,
             'staged_at' => now(),
+            'expected_delivery_date' => $this->stagingExpectedDeliveryDate ? \Carbon\Carbon::parse($this->stagingExpectedDeliveryDate) : null,
             'created_by' => auth()->id(),
         ]);
 
@@ -466,6 +468,7 @@ class InventoryScanner extends Page
         $this->stagingPalletId = $pallet->id;
         $this->stagingVendorId = '';
         $this->stagingReference = '';
+        $this->stagingExpectedDeliveryDate = null;
         $this->stagingPackingSlipFile = null;
 
         Notification::make()
@@ -635,6 +638,57 @@ class InventoryScanner extends Page
         $this->costAdjustNewCost = '';
         $this->costAdjustReason = '';
         $this->refreshPalletProgress();
+    }
+
+    public function bulkReceivePallet(): void
+    {
+        if (!$this->rcvPalletId) {
+            $this->rcvError = 'No pallet selected.';
+            return;
+        }
+
+        $pallet = Pallet::findOrFail($this->rcvPalletId);
+        $lines = $pallet->lines()->get();
+
+        if ($lines->isEmpty()) {
+            $this->rcvError = 'This pallet has no line items to receive.';
+            return;
+        }
+
+        // Check if all lines are mapped
+        $unmappedLines = $lines->filter(fn ($l) => !$l->inventory_item_id);
+        if ($unmappedLines->isNotEmpty()) {
+            $this->rcvError = 'Cannot bulk receive: ' . count($unmappedLines) . ' line(s) are unmapped.';
+            return;
+        }
+
+        try {
+            $receivingService = app(ReceivingService::class);
+            $receivingService->receivePallet($pallet);
+
+            $pallet->update([
+                'status' => 'received',
+                'stage' => Pallet::STAGE_RECEIVED,
+                'received_date' => now(),
+            ]);
+
+            $this->rcvFlash = 'Pallet fully received! ' . count($lines) . ' line items processed.';
+            $this->rcvPalletId = null;
+            $this->rcvProgress = null;
+
+            Notification::make()
+                ->title('Pallet Received')
+                ->body('All ' . count($lines) . ' line items have been received and inventory updated.')
+                ->success()
+                ->send();
+        } catch (\Exception $e) {
+            $this->rcvError = 'Bulk receive failed: ' . $e->getMessage();
+            Notification::make()
+                ->title('Error')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
     }
 
     private function recordScannedCode(string $code): void

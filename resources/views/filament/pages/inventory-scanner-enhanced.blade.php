@@ -75,6 +75,16 @@
                 />
             </div>
 
+            {{-- Expected Delivery Date --}}
+            <div>
+                <label class="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-2">Expected Delivery Date (Optional)</label>
+                <input
+                    wire:model="stagingExpectedDeliveryDate"
+                    type="date"
+                    class="w-full rounded-lg border border-amber-300 dark:border-amber-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500"
+                />
+            </div>
+
             {{-- Packing Slip Upload --}}
             <div class="border-2 border-dashed border-amber-300 dark:border-amber-600 rounded-lg p-4">
                 <label class="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-2">Packing Slip (Optional)</label>
@@ -540,6 +550,13 @@
                     Phone Camera
                 </button>
             </div>
+
+            {{-- Bulk Receive Button --}}
+            <button wire:click="bulkReceivePallet" type="button"
+                class="w-full rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+                <x-heroicon-o-check-circle class="h-4 w-4 inline -mt-0.5 mr-2" />
+                Receive All Items at Once
+            </button>
             @endif
         </div>
 

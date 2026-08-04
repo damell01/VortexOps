@@ -48,7 +48,7 @@
                         <p class="text-3xl font-bold text-red-900 dark:text-red-100 mt-2">{{ $this->getInventoryHealthProperty()['no_cost_count'] + $this->getInventoryHealthProperty()['high_variance_count'] }}</p>
                         <p class="text-xs text-red-700 dark:text-red-300 mt-1">No cost or high variance</p>
                     </div>
-                    <x-heroicon-o-triangle-alert class="h-10 w-10 text-red-200 dark:text-red-800 opacity-50" />
+                    <x-heroicon-o-exclamation-triangle class="h-10 w-10 text-red-200 dark:text-red-800 opacity-50" />
                 </div>
             </div>
         </div>

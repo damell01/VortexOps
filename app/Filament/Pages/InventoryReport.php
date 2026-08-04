@@ -43,6 +43,11 @@ class InventoryReport extends Page
         return true;
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public function getSubheading(): ?string
     {
         return 'View total inventory value, costs, margins, and trends over time.';

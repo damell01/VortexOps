@@ -527,6 +527,74 @@ class InventoryScanner extends Page
         $this->scannedCodes = [];
     }
 
+    public function exportSessionReport(): void
+    {
+        if (!$this->currentSessionId) {
+            Notification::make()
+                ->title('Error')
+                ->body('No active session to export')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        $session = ScannerReceivingSession::find($this->currentSessionId);
+        if (!$session) {
+            return;
+        }
+
+        try {
+            $reportService = app(ReceivingReportService::class);
+            $filePath = $reportService->generateSessionReport($session);
+
+            Notification::make()
+                ->title('Report Generated')
+                ->body('Session report created and available in reports folder')
+                ->success()
+                ->send();
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Error')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function exportPalletReport(): void
+    {
+        if (!$this->rcvPalletId) {
+            Notification::make()
+                ->title('Error')
+                ->body('No pallet selected')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        $pallet = Pallet::find($this->rcvPalletId);
+        if (!$pallet) {
+            return;
+        }
+
+        try {
+            $reportService = app(ReceivingReportService::class);
+            $filePath = $reportService->generatePalletReport($pallet);
+
+            Notification::make()
+                ->title('Report Generated')
+                ->body('Pallet report created and available in reports folder')
+                ->success()
+                ->send();
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Error')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
     public function openCostAdjust(int $lineId): void
     {
         $line = PalletLine::find($lineId);

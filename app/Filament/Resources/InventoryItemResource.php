@@ -23,6 +23,7 @@ use Filament\Schemas\Schema;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -515,6 +516,9 @@ class InventoryItemResource extends Resource
                 ]),
             ])
             ->headerActions([
+                CreateAction::make()
+                    ->label('Create Inventory')
+                    ->url(fn () => static::getUrl('create')),
                 TableAction::make('export_csv')
                     ->label('Export CSV')
                     ->icon('heroicon-o-arrow-down-tray')

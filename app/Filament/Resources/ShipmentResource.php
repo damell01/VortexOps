@@ -112,7 +112,8 @@ class ShipmentResource extends Resource
 
                 TextColumn::make('weight_oz')
                     ->label('Weight (oz)')
-                    ->numeric(decimals: 1)
+                    ->numeric()
+                    ->formatStateUsing(fn ($state) => $state !== null ? number_format($state, 1) : '—')
                     ->sortable(),
 
                 TextColumn::make('dimensions_json')

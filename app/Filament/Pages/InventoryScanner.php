@@ -534,6 +534,15 @@ class InventoryScanner extends Page
             }
         }
 
+        // Get cost trend (last 10 receipts)
+        $costTrend = $costService->getCostTrend($item, 10);
+        $formattedCostTrend = array_map(fn ($ct) => [
+            'date' => $ct['date']?->format('M d, Y') ?? '—',
+            'vendor' => $ct['vendor'],
+            'cost' => number_format((float) $ct['unit_cost'], 2),
+            'qty' => (int) $ct['quantity'],
+        ], $costTrend);
+
         $stockByLocation = $item->stock->map(fn ($s) => [
             'location'    => $s->location?->name ?? 'Unknown',
             'qty'         => (float) $s->quantity,
@@ -562,6 +571,7 @@ class InventoryScanner extends Page
             'reorder'          => $item->reorder_level,
             'pricing_anomaly'  => $pricingAnomaly,
             'vendor_costs'     => $vendorCosts,
+            'cost_trend'       => $formattedCostTrend,
             'stock'            => $stockByLocation,
             'movements'        => $recentMovements,
         ];

@@ -228,6 +228,24 @@
             </div>
             @endif
 
+            {{-- Cost Trend (Historical Pricing) --}}
+            @if(!empty($result['cost_trend']))
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
+                <h4 class="font-semibold text-gray-900 dark:text-white mb-4">Price History</h4>
+                <div class="space-y-1.5 text-xs">
+                    @foreach($result['cost_trend'] as $trend)
+                    <div class="flex justify-between items-center p-2.5 bg-gray-50 dark:bg-gray-800 rounded">
+                        <div>
+                            <p class="font-medium text-gray-700 dark:text-gray-300">{{ $trend['date'] }}</p>
+                            <p class="text-gray-500 dark:text-gray-400">{{ $trend['vendor'] }} • {{ $trend['qty'] }} units</p>
+                        </div>
+                        <span class="font-semibold text-gray-900 dark:text-white">${{ $trend['cost'] }}</span>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
             {{-- Recent Movements --}}
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
                 <h4 class="font-semibold text-gray-900 dark:text-white mb-4">Recent Activity</h4>

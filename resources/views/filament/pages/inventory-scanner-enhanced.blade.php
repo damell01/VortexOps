@@ -180,6 +180,17 @@
                             <p class="text-sm font-semibold text-red-900 dark:text-red-100">Below {{ $result['reorder'] }}</p>
                         </div>
                         @endif
+                        @if($result['pricing_anomaly'])
+                        <div class="bg-orange-50 dark:bg-orange-950 rounded-lg p-3 col-span-2">
+                            <p class="text-xs font-medium text-orange-600 dark:text-orange-400">⚠ Price Variance</p>
+                            <p class="text-sm font-semibold text-orange-900 dark:text-orange-100">
+                                {{ $result['pricing_anomaly']['variance_pct'] }}% variation detected
+                            </p>
+                            <p class="text-xs text-orange-700 dark:text-orange-300 mt-1">
+                                Range: ${{ $result['pricing_anomaly']['min_cost'] }} – ${{ $result['pricing_anomaly']['max_cost'] }}
+                            </p>
+                        </div>
+                        @endif
                     </div>
                 </div>
             </div>

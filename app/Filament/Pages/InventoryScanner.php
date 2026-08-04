@@ -502,6 +502,27 @@ class InventoryScanner extends Page
         $totalQty = $item->totalQuantity();
         $inventoryValue = $costService->calculateInventoryValue($item);
 
+        // Check for pricing anomalies
+        $costBreakdown = $costService->getCostBreakdown($item);
+        $pricingAnomaly = null;
+        if (!empty($costBreakdown)) {
+            $costs = array_column($costBreakdown, 'average_cost');
+            if (!empty($costs)) {
+                $minCost = min($costs);
+                $maxCost = max($costs);
+                if ($minCost > 0) {
+                    $variance = (($maxCost - $minCost) / $minCost) * 100;
+                    if ($variance > 20) {
+                        $pricingAnomaly = [
+                            'variance_pct' => round($variance, 1),
+                            'min_cost' => number_format($minCost, 2),
+                            'max_cost' => number_format($maxCost, 2),
+                        ];
+                    }
+                }
+            }
+        }
+
         $stockByLocation = $item->stock->map(fn ($s) => [
             'location'    => $s->location?->name ?? 'Unknown',
             'qty'         => (float) $s->quantity,
@@ -518,18 +539,19 @@ class InventoryScanner extends Page
         ])->toArray();
 
         return [
-            'id'              => $item->id,
-            'name'            => $item->name,
-            'sku'             => $item->sku,
-            'barcode'         => $item->barcode,
-            'category'        => $item->category,
-            'avg_cost'        => number_format((float) $item->average_cost, 2),
-            'total_qty'       => number_format($totalQty, 0),
-            'inventory_value' => number_format($inventoryValue, 2),
-            'is_low'          => $item->isLowStock(),
-            'reorder'         => $item->reorder_level,
-            'stock'           => $stockByLocation,
-            'movements'       => $recentMovements,
+            'id'               => $item->id,
+            'name'             => $item->name,
+            'sku'              => $item->sku,
+            'barcode'          => $item->barcode,
+            'category'         => $item->category,
+            'avg_cost'         => number_format((float) $item->average_cost, 2),
+            'total_qty'        => number_format($totalQty, 0),
+            'inventory_value'  => number_format($inventoryValue, 2),
+            'is_low'           => $item->isLowStock(),
+            'reorder'          => $item->reorder_level,
+            'pricing_anomaly'  => $pricingAnomaly,
+            'stock'            => $stockByLocation,
+            'movements'        => $recentMovements,
         ];
     }
 }

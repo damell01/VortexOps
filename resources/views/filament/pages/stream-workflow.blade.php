@@ -168,7 +168,7 @@
                 </a>
                 <a href="{{ route('filament.admin.resources.shows.index') }}"
                    class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-semibold text-white hover:bg-blue-500 transition-colors">
-                    <x-heroicon-o-tv-icon class="h-5 w-5" />
+                    <x-heroicon-o-tv class="h-5 w-5" />
                     View Shows
                 </a>
                 <a href="{{ route('filament.admin.resources.payouts.index') }}"

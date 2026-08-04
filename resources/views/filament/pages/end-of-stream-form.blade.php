@@ -5,7 +5,7 @@
             <div class="rounded-xl border-2 border-dashed border-primary-300 dark:border-primary-700 bg-primary-50 dark:bg-primary-900/20 p-8">
                 <div class="text-center space-y-4">
                     <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-100 dark:bg-primary-800">
-                        <x-heroicon-o-tv-icon class="h-8 w-8 text-primary-600 dark:text-primary-400" />
+                        <x-heroicon-o-tv class="h-8 w-8 text-primary-600 dark:text-primary-400" />
                     </div>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Select a Show</h3>

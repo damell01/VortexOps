@@ -26,6 +26,11 @@ class InventoryValueDashboard extends Page
         return 'heroicon-o-chart-bar';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationLabel(): string
     {
         return 'Analytics & Insights';
@@ -33,7 +38,7 @@ class InventoryValueDashboard extends Page
 
     public static function getNavigationSort(): ?int
     {
-        return 2;
+        return 999;
     }
 
     public function getView(): string
@@ -100,7 +105,6 @@ class InventoryValueDashboard extends Page
         $costService = app(InventoryCostService::class);
 
         return InventoryItem::query()
-            ->where('status', 'active')
             ->get()
             ->filter(fn (InventoryItem $item) => $item->isLowStock())
             ->map(function (InventoryItem $item) use ($costService) {

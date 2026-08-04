@@ -39,7 +39,7 @@ class InventoryScanner extends Page
 
     public static function getNavigationLabel(): string
     {
-        return 'Inventory Operations';
+        return 'Inventory';
     }
 
     public static function getNavigationSort(): ?int
@@ -54,7 +54,7 @@ class InventoryScanner extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Add new orders, receive pallets, and adjust inventory. Use the camera button to scan barcodes—no menu searching needed.';
+        return 'Scan barcodes, look up items, add stock, receive pallets, and adjust inventory. Everything in one place.';
     }
 
     // ── Mode ──────────────────────────────────────────────────────────────────

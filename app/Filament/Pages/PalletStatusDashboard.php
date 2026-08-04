@@ -24,6 +24,11 @@ class PalletStatusDashboard extends Page
         return 'heroicon-o-inbox-stack';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationLabel(): string
     {
         return 'Tracking & History';
@@ -31,7 +36,7 @@ class PalletStatusDashboard extends Page
 
     public static function getNavigationSort(): ?int
     {
-        return 3;
+        return 999;
     }
 
     public function getView(): string

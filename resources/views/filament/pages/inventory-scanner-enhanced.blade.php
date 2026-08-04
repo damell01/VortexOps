@@ -272,7 +272,7 @@
                     <x-heroicon-o-pencil-square class="h-4 w-4 inline -mt-0.5 mr-2" />
                     Adjust Stock
                 </button>
-                <a href="{{ route('filament.admin.resources.inventory-items.view', ['record' => $result['id']]) }}" target="_blank"
+                <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $result['id']]) }}" target="_blank"
                     class="flex-1 rounded-lg bg-gray-600 px-4 py-3 text-sm font-medium text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500">
                     <x-heroicon-o-arrow-top-right-on-square class="h-4 w-4 inline -mt-0.5 mr-2" />
                     Full Details

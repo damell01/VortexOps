@@ -15,7 +15,7 @@
         <div class="relative w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 shadow-2xl overflow-hidden">
             {{-- Header --}}
             <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Scan Barcode</h3>
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">📱 Scan Barcode or QR Code</h3>
                 <button type="button" x-on:click="close()" class="rounded p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
@@ -25,41 +25,45 @@
 
             {{-- Camera view --}}
             <div class="relative bg-black aspect-video overflow-hidden">
-                <video x-ref="video" autoplay playsinline muted class="w-full h-full object-cover"></video>
+                <div x-ref="readerDiv" id="html5-qr-reader" style="width:100%"></div>
 
-                {{-- Scan guide frame --}}
-                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div class="w-56 h-28 border-2 border-primary-400 rounded-lg relative">
-                        <span class="absolute -top-px -left-px w-5 h-5 border-t-2 border-l-2 border-primary-500 rounded-tl"></span>
-                        <span class="absolute -top-px -right-px w-5 h-5 border-t-2 border-r-2 border-primary-500 rounded-tr"></span>
-                        <span class="absolute -bottom-px -left-px w-5 h-5 border-b-2 border-l-2 border-primary-500 rounded-bl"></span>
-                        <span class="absolute -bottom-px -right-px w-5 h-5 border-b-2 border-r-2 border-primary-500 rounded-br"></span>
+                {{-- Status overlay --}}
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    {{-- Scan guide frame --}}
+                    <div class="w-56 h-28 border-3 border-yellow-400 rounded-lg relative mb-8">
+                        <span class="absolute -top-1 -left-1 w-5 h-5 border-t-4 border-l-4 border-yellow-500 rounded-tl-lg"></span>
+                        <span class="absolute -top-1 -right-1 w-5 h-5 border-t-4 border-r-4 border-yellow-500 rounded-tr-lg"></span>
+                        <span class="absolute -bottom-1 -left-1 w-5 h-5 border-b-4 border-l-4 border-yellow-500 rounded-bl-lg"></span>
+                        <span class="absolute -bottom-1 -right-1 w-5 h-5 border-b-4 border-r-4 border-yellow-500 rounded-br-lg"></span>
                     </div>
-                </div>
 
-                {{-- Detected flash --}}
-                <div x-show="detected" x-transition class="absolute inset-0 bg-green-400/30 flex items-center justify-center" style="display:none">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
+                    {{-- Detected flash --}}
+                    <div x-show="detected" x-transition class="absolute inset-0 bg-green-400/40 flex items-center justify-center" style="display:none">
+                        <div class="text-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 text-green-500 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <p class="text-white font-bold text-lg">Detected!</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {{-- Status / error / manual fallback --}}
-            <div class="px-4 py-3">
-                <p x-show="!error" class="text-xs text-center text-gray-500 dark:text-gray-400" x-text="statusText" style="display:none"></p>
-                <p x-show="error" class="text-xs text-center text-red-500" x-text="error" style="display:none"></p>
+            <div class="px-4 py-3 space-y-2">
+                <p x-show="!error && statusText" class="text-xs text-center text-gray-600 dark:text-gray-400" x-text="statusText" style="display:none"></p>
+                <p x-show="error" class="text-xs text-center text-red-600 dark:text-red-400 font-medium" x-text="error" style="display:none"></p>
 
-                <div x-show="showManual" class="mt-2 flex gap-2" style="display:none">
+                <div x-show="showManual" class="flex gap-2" style="display:none">
                     <input
                         type="text"
                         x-ref="manualInput"
                         x-on:keydown.enter.prevent="submitManual()"
-                        placeholder="Type barcode manually…"
+                        placeholder="Type barcode or UPC…"
                         class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
                     >
                     <button type="button" x-on:click="submitManual()" class="rounded-lg bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-500">
-                        Set
+                        Use
                     </button>
                 </div>
             </div>
@@ -67,19 +71,18 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.4/html5-qrcode.min.js"></script>
 @verbatim
 <script>
 function cameraScanner() {
     return {
         isOpen: false,
-        stream: null,
-        detector: null,
-        scanLoop: null,
+        scanner: null,
         detected: false,
         error: null,
         showManual: false,
         targetInput: null,
-        statusText: 'Starting camera…',
+        statusText: 'Initializing camera…',
         lastDetectionTime: 0,
 
         async open() {
@@ -87,109 +90,86 @@ function cameraScanner() {
             this.error = null;
             this.detected = false;
             this.showManual = false;
-            this.statusText = 'Starting camera…';
+            this.statusText = 'Initializing camera…';
 
             this.targetInput = document.activeElement?.tagName === 'INPUT' ? document.activeElement : null;
 
             await this.$nextTick();
-            await this.startCamera();
+            await this.startScanner();
         },
 
-        async startCamera() {
+        async startScanner() {
             try {
-                this.stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-                });
+                this.statusText = '📷 Point camera at barcode or QR code…';
 
-                const video = this.$refs.video;
-                video.srcObject = this.stream;
+                const readerDiv = this.$refs.readerDiv;
+                if (!readerDiv) return;
 
-                // Wait for video to be ready
-                await new Promise(resolve => {
-                    const checkReady = () => {
-                        if (video.readyState >= 2) { // HAVE_CURRENT_DATA or better
-                            resolve();
-                        } else {
-                            setTimeout(checkReady, 50);
-                        }
-                    };
-                    checkReady();
-                });
-
-                if ('BarcodeDetector' in window) {
-                    const formats = await BarcodeDetector.getSupportedFormats();
-                    this.detector = new BarcodeDetector({ formats });
-                    this.statusText = 'Point camera at a barcode…';
-                    this.startScanLoop();
-                } else {
-                    this.showManual = true;
-                    this.statusText = 'Camera active — type barcode below or use Bluetooth scanner.';
-                    this.$nextTick(() => this.$refs.manualInput?.focus());
+                // Use html5-qrcode library for better detection
+                if (!this.scanner) {
+                    this.scanner = new Html5Qrcode('html5-qr-reader');
                 }
-            } catch (e) {
-                if (e.name === 'NotAllowedError') {
-                    this.error = 'Camera permission denied. Use a Bluetooth scanner or type below.';
-                } else if (e.name === 'NotFoundError') {
-                    this.error = 'No camera found. Type the barcode manually.';
+
+                await this.scanner.start(
+                    { facingMode: 'environment' },
+                    {
+                        fps: 30,
+                        qrbox: { width: 250, height: 150 },
+                        aspectRatio: 1.777
+                    },
+                    (decodedText) => this.onBarcodeDetected(decodedText),
+                    (errorMessage) => {
+                        // Silent error - let it keep trying
+                    }
+                );
+
+                this.showManual = true;
+            } catch (err) {
+                console.error('[camera-scanner]', err);
+                if (err.name === 'NotAllowedError') {
+                    this.error = '❌ Camera permission denied. Type barcode manually below or use Bluetooth scanner.';
+                } else if (err.name === 'NotFoundError') {
+                    this.error = '❌ No camera found. Type the barcode manually.';
                 } else {
-                    this.error = 'Camera error: ' + e.message;
+                    this.error = '❌ Camera error: ' + (err.message || err);
                 }
                 this.showManual = true;
-                this.$nextTick(() => this.$refs.manualInput?.focus());
+                this.$nextTick(() => {
+                    if (this.$refs.manualInput) {
+                        setTimeout(() => this.$refs.manualInput.focus(), 100);
+                    }
+                });
             }
         },
 
-        startScanLoop() {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d', { willReadFrequently: true });
-            const video = this.$refs.video;
-
-            const tick = async () => {
-                if (!this.isOpen || !this.detector || !video) return;
-
-                try {
-                    if (video.readyState >= video.HAVE_CURRENT_DATA && video.videoWidth > 0 && video.videoHeight > 0) {
-                        canvas.width = video.videoWidth;
-                        canvas.height = video.videoHeight;
-                        ctx.drawImage(video, 0, 0);
-
-                        const barcodes = await this.detector.detect(canvas);
-                        if (barcodes && barcodes.length > 0) {
-                            // Throttle to prevent rapid re-detections
-                            const now = Date.now();
-                            if (now - this.lastDetectionTime > 500) {
-                                this.lastDetectionTime = now;
-                                this.onBarcodeDetected(barcodes[0].rawValue);
-                                return;
-                            }
-                        }
-                    }
-                } catch (e) {
-                    console.error('[barcode-scanner] detect error:', e);
-                }
-
-                this.scanLoop = requestAnimationFrame(tick);
-            };
-
-            this.scanLoop = requestAnimationFrame(tick);
-        },
-
         onBarcodeDetected(value) {
+            const now = Date.now();
+            if (now - this.lastDetectionTime < 500) return; // Throttle rapid detections
+
+            this.lastDetectionTime = now;
             this.detected = true;
-            this.statusText = 'Detected: ' + value;
+            this.statusText = '✅ Detected: ' + value;
+
+            // Haptic feedback if available
+            if (navigator.vibrate) {
+                navigator.vibrate([100, 50, 100]);
+            }
+
             this.fillInput(value);
-            setTimeout(() => this.close(), 800);
+            setTimeout(() => this.close(), 600);
         },
 
         submitManual() {
             const val = (this.$refs.manualInput?.value || '').trim();
-            if (val) { this.fillInput(val); this.close(); }
+            if (val) {
+                this.fillInput(val);
+                this.close();
+            }
         },
 
         fillInput(value) {
             window.dispatchEvent(new CustomEvent('barcode-scanned', { detail: { value } }));
 
-            // Priority: target input (was focused when scanner opened), then barcode field, then first input
             const input = this.targetInput
                 || document.querySelector('input#quickadd-barcode')
                 || document.querySelector('input[id*="barcode"]')
@@ -198,18 +178,14 @@ function cameraScanner() {
                 || document.querySelector('input[x-model="scanInput"]');
 
             if (input) {
-                // For Livewire inputs, update both the value and trigger the model binding
                 if (input.hasAttribute('x-model') || input.hasAttribute('wire:model')) {
-                    // Get the actual input element property setter
                     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
                     if (setter) setter.call(input, value);
                     else input.value = value;
 
-                    // Trigger all necessary events for Livewire/Alpine to pick up the change
                     input.dispatchEvent(new Event('input', { bubbles: true }));
                     input.dispatchEvent(new Event('change', { bubbles: true }));
 
-                    // For Alpine.js x-model binding
                     if (window.Alpine) {
                         input.dispatchEvent(new Event('alpine:updated', { bubbles: true }));
                     }
@@ -219,17 +195,21 @@ function cameraScanner() {
                     input.dispatchEvent(new Event('change', { bubbles: true }));
                 }
 
-                // Focus back to the input for convenience
                 setTimeout(() => input.focus(), 100);
             }
         },
 
-        close() {
+        async close() {
             this.isOpen = false;
             this.detected = false;
-            if (this.scanLoop) cancelAnimationFrame(this.scanLoop);
-            if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; }
-            if (this.$refs.video) this.$refs.video.srcObject = null;
+            if (this.scanner) {
+                try {
+                    await this.scanner.stop();
+                    this.scanner = null;
+                } catch (err) {
+                    console.error('[camera-scanner] stop error:', err);
+                }
+            }
         },
     };
 }

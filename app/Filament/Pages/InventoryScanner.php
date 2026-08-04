@@ -502,9 +502,11 @@ class InventoryScanner extends Page
         $totalQty = $item->totalQuantity();
         $inventoryValue = $costService->calculateInventoryValue($item);
 
-        // Check for pricing anomalies
+        // Get cost breakdown and check for pricing anomalies
         $costBreakdown = $costService->getCostBreakdown($item);
         $pricingAnomaly = null;
+        $vendorCosts = [];
+
         if (!empty($costBreakdown)) {
             $costs = array_column($costBreakdown, 'average_cost');
             if (!empty($costs)) {
@@ -520,6 +522,15 @@ class InventoryScanner extends Page
                         ];
                     }
                 }
+            }
+
+            // Format vendor costs for display
+            foreach ($costBreakdown as $key => $data) {
+                $vendorCosts[] = [
+                    'vendor_name' => $data['vendor_name'],
+                    'avg_cost' => number_format((float) $data['average_cost'], 2),
+                    'qty' => (int) $data['total_qty'],
+                ];
             }
         }
 
@@ -550,6 +561,7 @@ class InventoryScanner extends Page
             'is_low'           => $item->isLowStock(),
             'reorder'          => $item->reorder_level,
             'pricing_anomaly'  => $pricingAnomaly,
+            'vendor_costs'     => $vendorCosts,
             'stock'            => $stockByLocation,
             'movements'        => $recentMovements,
         ];

@@ -210,6 +210,24 @@
                 </div>
             </div>
 
+            {{-- Vendor Costs --}}
+            @if(!empty($result['vendor_costs']))
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
+                <h4 class="font-semibold text-gray-900 dark:text-white mb-4">Vendor Pricing</h4>
+                <div class="space-y-2">
+                    @foreach($result['vendor_costs'] as $vc)
+                    <div class="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <div>
+                            <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $vc['vendor_name'] }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ $vc['qty'] }} units received</p>
+                        </div>
+                        <span class="text-sm font-bold text-gray-900 dark:text-white">${{ $vc['avg_cost'] }}</span>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+            @endif
+
             {{-- Recent Movements --}}
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
                 <h4 class="font-semibold text-gray-900 dark:text-white mb-4">Recent Activity</h4>

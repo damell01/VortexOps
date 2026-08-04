@@ -79,9 +79,19 @@
             <div class="border-2 border-dashed border-amber-300 dark:border-amber-600 rounded-lg p-4">
                 <label class="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-2">Packing Slip (Optional)</label>
                 <div class="text-center">
-                    <x-heroicon-o-document-arrow-up class="h-8 w-8 text-amber-400 mx-auto mb-2" />
-                    <p class="text-xs text-gray-600 dark:text-gray-400">Drag and drop PDF or image, or click to select</p>
-                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" class="mt-2 w-full text-xs" />
+                    @if($stagingPackingSlipFile)
+                        <div class="space-y-2">
+                            <x-heroicon-o-check-circle class="h-8 w-8 text-green-500 mx-auto" />
+                            <p class="text-sm font-medium text-green-700 dark:text-green-300">{{ $stagingPackingSlipFile->getClientOriginalName() }}</p>
+                            <button wire:click="$set('stagingPackingSlipFile', null)" type="button" class="text-xs text-amber-600 hover:underline">
+                                Remove
+                            </button>
+                        </div>
+                    @else
+                        <x-heroicon-o-document-arrow-up class="h-8 w-8 text-amber-400 mx-auto mb-2" />
+                        <p class="text-xs text-gray-600 dark:text-gray-400">Drag and drop PDF or image, or click to select</p>
+                        <input type="file" wire:model="stagingPackingSlipFile" accept=".pdf,.jpg,.jpeg,.png" class="mt-2 w-full text-xs cursor-pointer" />
+                    @endif
                 </div>
             </div>
 
@@ -149,6 +159,33 @@
         {{-- Results with Cost Display --}}
         @if($result)
         <div class="space-y-4">
+            {{-- Cost Warnings (NEW) --}}
+            @if($costWarnings)
+            <div class="space-y-2 mb-4">
+                @foreach($costWarnings as $warning)
+                <div class="rounded-lg border {{ $warning['severity'] === 'alert' ? 'border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950' : ($warning['severity'] === 'warning' ? 'border-yellow-300 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950' : 'border-blue-300 dark:border-blue-800 bg-blue-50 dark:bg-blue-950') }} px-4 py-3">
+                    <div class="flex items-start gap-3">
+                        @if($warning['severity'] === 'alert')
+                        <x-heroicon-o-exclamation-triangle class="h-5 w-5 flex-shrink-0 {{ 'text-red-600 dark:text-red-400' }} mt-0.5" />
+                        @elseif($warning['severity'] === 'warning')
+                        <x-heroicon-o-exclamation-circle class="h-5 w-5 flex-shrink-0 {{ 'text-yellow-600 dark:text-yellow-400' }} mt-0.5" />
+                        @else
+                        <x-heroicon-o-information-circle class="h-5 w-5 flex-shrink-0 {{ 'text-blue-600 dark:text-blue-400' }} mt-0.5" />
+                        @endif
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold {{ $warning['severity'] === 'alert' ? 'text-red-900 dark:text-red-100' : ($warning['severity'] === 'warning' ? 'text-yellow-900 dark:text-yellow-100' : 'text-blue-900 dark:text-blue-100') }}">
+                                {{ $warning['title'] }}
+                            </p>
+                            <p class="text-xs {{ $warning['severity'] === 'alert' ? 'text-red-700 dark:text-red-300' : ($warning['severity'] === 'warning' ? 'text-yellow-700 dark:text-yellow-300' : 'text-blue-700 dark:text-blue-300') }} mt-1">
+                                {{ $warning['message'] }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+            @endif
+
             {{-- Item Header --}}
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">

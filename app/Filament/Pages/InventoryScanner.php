@@ -9,16 +9,18 @@ use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\Pallet;
 use App\Models\PalletLine;
+use App\Models\PalletPackingSlip;
 use App\Models\ScannerReceivingSession;
 use App\Services\InventoryCostService;
 use App\Services\ReceivingService;
 use App\Support\AdminModules;
 use Filament\Pages\Page;
+use Livewire\WithFileUploads;
 use RuntimeException;
 
 class InventoryScanner extends Page
 {
-    use HasModuleAccess;
+    use HasModuleAccess, WithFileUploads;
 
     protected static string $moduleSlug  = 'inventory';
     protected static ?string $title = 'Inventory Scanner';
@@ -85,6 +87,10 @@ class InventoryScanner extends Page
     public string  $costAdjustNewCost = '';
     public string  $costAdjustReason = '';
 
+    // ── Cost Warnings ─────────────────────────────────────────────────────────────
+
+    public ?array  $costWarnings = null;
+
     // ── Advanced Pallet Features ──────────────────────────────────────────────
 
     public bool    $showPalletStaging = false;  // Toggle staging view
@@ -95,7 +101,7 @@ class InventoryScanner extends Page
     public string  $scanMode = 'barcode';       // barcode|camera
     public bool    $cameraActive = false;
     public array   $scannedCodes = [];          // Track scanned codes in session
-    public ?array  $stagingPackingSlip = null;  // Uploaded packing slip file
+    public $stagingPackingSlipFile = null;      // Uploaded packing slip file
 
     // ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -165,10 +171,12 @@ class InventoryScanner extends Page
         if (! $item) {
             $this->result       = null;
             $this->errorMessage = "No inventory item found for \"{$code}\". Check the barcode or SKU on the item record.";
+            $this->costWarnings = null;
             return;
         }
 
         $this->result = $this->buildResultFromItem($item);
+        $this->costWarnings = $this->generateCostWarnings($item);
     }
 
     public function openAdjust(): void
@@ -335,25 +343,28 @@ class InventoryScanner extends Page
         ]);
 
         // Handle packing slip upload if provided
-        if ($this->stagingPackingSlip) {
-            $filePath = $this->stagingPackingSlip['path'] ?? null;
-            if ($filePath) {
-                \App\Models\PalletPackingSlip::create([
-                    'pallet_id' => $pallet->id,
-                    'file_path' => $filePath,
-                    'original_filename' => $this->stagingPackingSlip['name'] ?? 'unknown',
-                    'file_size' => $this->stagingPackingSlip['size'] ?? 0,
-                    'mime_type' => $this->stagingPackingSlip['type'] ?? 'application/octet-stream',
-                    'uploaded_by' => auth()->id(),
-                ]);
-            }
+        if ($this->stagingPackingSlipFile) {
+            $file = $this->stagingPackingSlipFile;
+            $filePath = $file->store('packing-slips', 'public');
+            $fileSize = $file->getSize();
+            $mimeType = $file->getMimeType();
+            $originalName = $file->getClientOriginalName();
+
+            PalletPackingSlip::create([
+                'pallet_id' => $pallet->id,
+                'file_path' => $filePath,
+                'original_filename' => $originalName,
+                'file_size' => $fileSize,
+                'mime_type' => $mimeType,
+                'uploaded_by' => auth()->id(),
+            ]);
         }
 
         $this->showPalletStaging = false;
         $this->stagingPalletId = $pallet->id;
         $this->stagingVendorId = '';
         $this->stagingReference = '';
-        $this->stagingPackingSlip = null;
+        $this->stagingPackingSlipFile = null;
 
         // Start receiving session for this pallet
         $this->startReceivingSession($pallet->id);
@@ -510,6 +521,56 @@ class InventoryScanner extends Page
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private function generateCostWarnings(InventoryItem $item): ?array
+    {
+        $warnings = [];
+
+        // Check if average cost is missing or zero
+        $avgCost = (float) ($item->average_cost ?? 0);
+        if ($avgCost <= 0 && $item->totalQuantity() > 0) {
+            $warnings[] = [
+                'type' => 'no_cost',
+                'title' => 'Missing Cost Data',
+                'message' => 'This item has stock but no cost history. Receive items to calculate average cost.',
+                'severity' => 'warning',
+            ];
+        }
+
+        // Check if total units received is low
+        if ((float) $item->total_units_received < 10 && (float) $item->total_units_received > 0) {
+            $warnings[] = [
+                'type' => 'low_history',
+                'title' => 'Limited Cost History',
+                'message' => 'Only ' . number_format((float) $item->total_units_received, 0) . ' units received. Average cost may be unreliable.',
+                'severity' => 'info',
+            ];
+        }
+
+        // Check for high cost variance
+        $costService = app(InventoryCostService::class);
+        $costBreakdown = $costService->getCostBreakdown($item);
+        if (!empty($costBreakdown)) {
+            $costs = array_column($costBreakdown, 'average_cost');
+            if (!empty($costs)) {
+                $minCost = min($costs);
+                $maxCost = max($costs);
+                if ($minCost > 0) {
+                    $variance = (($maxCost - $minCost) / $minCost) * 100;
+                    if ($variance > 50) {
+                        $warnings[] = [
+                            'type' => 'high_variance',
+                            'title' => 'High Price Variance',
+                            'message' => 'Prices vary ' . round($variance, 1) . '% across vendors. Consider cost adjustment.',
+                            'severity' => 'alert',
+                        ];
+                    }
+                }
+            }
+        }
+
+        return !empty($warnings) ? $warnings : null;
+    }
 
     private function buildResultFromItem(InventoryItem $item): array
     {

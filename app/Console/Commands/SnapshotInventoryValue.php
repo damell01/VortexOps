@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\InventorySnapshot;
 use App\Models\InventoryValueSnapshot;
 use App\Models\WhatnotChannel;
 use Illuminate\Console\Command;
@@ -23,6 +24,9 @@ class SnapshotInventoryValue extends Command
 
         // All-channels combined snapshot.
         $this->captureFor($today, null);
+
+        // Generate comprehensive inventory snapshot for reporting
+        InventorySnapshot::generateCurrent();
 
         $this->info("Inventory value snapshot captured for {$today}.");
 

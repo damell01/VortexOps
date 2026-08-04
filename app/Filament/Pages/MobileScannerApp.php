@@ -12,11 +12,10 @@ use App\Services\InventoryCostService;
 use App\Support\AdminModules;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Livewire\WithFileUploads;
 
 class MobileScannerApp extends Page
 {
-    use HasModuleAccess, WithFileUploads;
+    use HasModuleAccess;
 
     protected static string $moduleSlug = 'inventory';
     protected static ?string $title = 'Mobile Scanner';

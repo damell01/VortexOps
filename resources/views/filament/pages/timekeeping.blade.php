@@ -25,12 +25,21 @@
             $isDefaultTz = $userTz === 'UTC';
         @endphp
         @if ($isDefaultTz)
-            <div class="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 flex items-start gap-3">
+            <div class="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 flex items-start gap-3"
+                 x-data="{ detectingTz: false }">
                 <x-heroicon-o-exclamation-triangle class="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
-                <div>
+                <div class="flex-1">
                     <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">Timezone not set</p>
-                    <p class="text-xs text-amber-800 dark:text-amber-200 mt-0.5">Your times are showing in UTC. <a href="{{ route('filament.admin.pages.edit-profile') }}" class="underline font-medium hover:no-underline">Update your timezone</a> to see times in your local timezone.</p>
+                    <p class="text-xs text-amber-800 dark:text-amber-200 mt-0.5">Your times are showing in UTC. Click below to auto-detect and save your timezone, or <a href="{{ route('filament.admin.pages.edit-profile') }}" class="underline font-medium hover:no-underline">update it manually</a>.</p>
                 </div>
+                <button
+                    type="button"
+                    @click="detectingTz = true; $wire.saveDetectedTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone)"
+                    :disabled="detectingTz"
+                    class="shrink-0 inline-flex items-center gap-2 rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-500 transition-colors disabled:opacity-60">
+                    <x-heroicon-o-arrow-path class="h-3.5 w-3.5" :class="{ 'animate-spin': detectingTz }" />
+                    <span x-text="detectingTz ? 'Saving...' : 'Auto-detect'"></span>
+                </button>
             </div>
         @endif
 

@@ -326,4 +326,14 @@ class Timekeeping extends Page
     {
         return $time->setTimezone($this->userTimezone())->format('g:i A');
     }
+
+    public function saveDetectedTimezone(string $timezone): void
+    {
+        auth()->user()->update(['timezone' => $timezone]);
+
+        Notification::make()
+            ->title('Timezone updated to ' . $timezone)
+            ->success()
+            ->send();
+    }
 }

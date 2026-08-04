@@ -29,6 +29,11 @@ class InventoryMovementResource extends Resource
 
     protected static ?string $model = InventoryMovement::class;
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-arrow-path';

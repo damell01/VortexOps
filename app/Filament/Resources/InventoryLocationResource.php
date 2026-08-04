@@ -48,6 +48,11 @@ class InventoryLocationResource extends Resource
         return ($user?->isAdmin() || $user?->isOwner() || $user?->isStreamer()) ?? false;
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function canCreate(): bool
     {
         return auth()->user()?->isAdmin() ?? false;

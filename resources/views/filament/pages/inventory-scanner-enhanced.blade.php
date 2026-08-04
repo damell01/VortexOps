@@ -264,13 +264,20 @@
                 </div>
             </div>
 
-            {{-- Adjust Stock Action --}}
+            {{-- Actions --}}
             @if(!$adjustMode)
-            <button wire:click="openAdjust" type="button"
-                class="w-full rounded-lg bg-violet-600 px-4 py-3 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500">
-                <x-heroicon-o-pencil-square class="h-4 w-4 inline -mt-0.5 mr-2" />
-                Adjust Stock Manually
-            </button>
+            <div class="flex gap-3">
+                <button wire:click="openAdjust" type="button"
+                    class="flex-1 rounded-lg bg-violet-600 px-4 py-3 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500">
+                    <x-heroicon-o-pencil-square class="h-4 w-4 inline -mt-0.5 mr-2" />
+                    Adjust Stock
+                </button>
+                <a href="{{ route('filament.admin.resources.inventory-items.view', ['record' => $result['id']]) }}" target="_blank"
+                    class="flex-1 rounded-lg bg-gray-600 px-4 py-3 text-sm font-medium text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                    <x-heroicon-o-arrow-top-right-on-square class="h-4 w-4 inline -mt-0.5 mr-2" />
+                    Full Details
+                </a>
+            </div>
             @else
             <div class="rounded-xl border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950 p-6 space-y-4">
                 <h3 class="font-semibold text-violet-900 dark:text-violet-100">Manual Stock Adjustment</h3>

@@ -84,6 +84,27 @@ class ViewShow extends ViewRecord
                 ->url(fn () => route('export.show-pl-pdf', ['show' => $this->record->id]))
                 ->openUrlInNewTab(),
 
+            // Streamers log their end-of-stream data here (hours, shipments, costs).
+            // This is the quick-entry form that precedes the full log review.
+            Action::make('end_of_stream')
+                ->label('End of Stream')
+                ->icon('heroicon-o-camera')
+                ->color('warning')
+                ->visible(function (): bool {
+                    $user = auth()->user();
+                    if (in_array($this->record->status, ['cancelled', 'closed'])) {
+                        return false;
+                    }
+                    if ($user?->isAdmin()) {
+                        return true;
+                    }
+                    return ($user?->isStreamer() ?? false)
+                        && $user->streamer
+                        && $this->record->streamers->contains('id', $user->streamer->id);
+                })
+                ->url(fn () => route('filament.admin.pages.end-of-stream-form', ['showId' => $this->record->id]))
+                ->tooltip('Quickly log your show metrics (hours, shipments, costs)'),
+
             // Kept as its own top-level button (not buried in the "More actions"
             // dropdown below) since streamers — not just ops — need to reach this
             // quickly during/after a show to log what went out, without needing

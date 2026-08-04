@@ -386,6 +386,8 @@ class InventoryScanner extends Page
         }
 
         try {
+            $createdItemsCount = 0;
+
             // Create suggested items if selected
             if (!empty($this->selectedSuggestedItems)) {
                 $suggestions = array_filter(
@@ -402,9 +404,10 @@ class InventoryScanner extends Page
                     );
 
                     if (!empty($created)) {
+                        $createdItemsCount = count($created);
                         Notification::make()
                             ->title('Items Created')
-                            ->body(count($created) . ' new inventory items created from packing slip.')
+                            ->body($createdItemsCount . ' new inventory items created from packing slip.')
                             ->success()
                             ->send();
                     }
@@ -412,7 +415,21 @@ class InventoryScanner extends Page
             }
 
             // Create pallet with uploaded packing slip
-            $this->createStagedPallet();
+            $pallet = $this->createStagedPallet();
+
+            // Create pending pallet lines from packing slip analysis
+            if (!empty($this->selectedMatchedItems) || !empty($this->selectedSuggestedItems)) {
+                $pendingLinesCount = $this->createPendingPalletLinesFromAnalysis($pallet);
+
+                if ($pendingLinesCount > 0) {
+                    Notification::make()
+                        ->title('Pending Items Created')
+                        ->body($pendingLinesCount . ' items staged as pending. Scan items to confirm receipt.')
+                        ->info()
+                        ->send();
+                }
+            }
+
             $this->showPackingSlipAnalysis = false;
             $this->packingSlipAnalysis = null;
             $this->selectedSuggestedItems = [];
@@ -426,6 +443,66 @@ class InventoryScanner extends Page
         }
     }
 
+    private function createPendingPalletLinesFromAnalysis(Pallet $pallet): int
+    {
+        $count = 0;
+
+        // Create pending lines from matched items
+        if (!empty($this->selectedMatchedItems) && !empty($this->packingSlipAnalysis['matched_items'])) {
+            foreach ($this->selectedMatchedItems as $idx) {
+                if (!isset($this->packingSlipAnalysis['matched_items'][$idx])) {
+                    continue;
+                }
+
+                $match = $this->packingSlipAnalysis['matched_items'][$idx];
+                PalletLine::create([
+                    'pallet_id' => $pallet->id,
+                    'line_number' => $pallet->lines()->max('line_number') + 1 ?? 1,
+                    'description' => $match['item_name'],
+                    'vendor_description' => $match['extracted_name'],
+                    'inventory_item_id' => $match['item_id'] ?? null,
+                    'case_count' => (int) ($match['extracted_qty'] ?? 1),
+                    'quantity_per_case' => 1,
+                    'preflight_cost' => (float) ($match['extracted_cost'] ?? 0),
+                    'line_status' => 'pending',
+                ]);
+                $count++;
+            }
+        }
+
+        // Create pending lines from suggested items (which were created above)
+        if (!empty($this->selectedSuggestedItems) && !empty($this->packingSlipAnalysis['suggested_items'])) {
+            foreach ($this->selectedSuggestedItems as $idx) {
+                if (!isset($this->packingSlipAnalysis['suggested_items'][$idx])) {
+                    continue;
+                }
+
+                $suggestion = $this->packingSlipAnalysis['suggested_items'][$idx];
+
+                // Find the newly created item by SKU
+                $item = InventoryItem::where('sku', $suggestion['sku'] ?? null)->first();
+                if (!$item) {
+                    continue;
+                }
+
+                PalletLine::create([
+                    'pallet_id' => $pallet->id,
+                    'line_number' => $pallet->lines()->max('line_number') + 1 ?? 1,
+                    'description' => $suggestion['name'],
+                    'vendor_description' => $suggestion['name'],
+                    'inventory_item_id' => $item->id,
+                    'case_count' => (int) ($suggestion['qty'] ?? 1),
+                    'quantity_per_case' => 1,
+                    'preflight_cost' => (float) ($suggestion['unit_cost'] ?? 0),
+                    'line_status' => 'pending',
+                ]);
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
     public function cancelPackingSlipAnalysis(): void
     {
         $this->showPackingSlipAnalysis = false;
@@ -434,7 +511,7 @@ class InventoryScanner extends Page
         $this->selectedMatchedItems = [];
     }
 
-    private function createStagedPallet(): void
+    private function createStagedPallet(): Pallet
     {
         $pallet = Pallet::create([
             'vendor_id' => $this->stagingVendorId,
@@ -479,6 +556,8 @@ class InventoryScanner extends Page
 
         // Start receiving session for this pallet
         $this->startReceivingSession($pallet->id);
+
+        return $pallet;
     }
 
     public function startReceivingSession(?int $palletId = null): void
@@ -705,6 +784,38 @@ class InventoryScanner extends Page
         }
     }
 
+    public function getPendingItemsProperty()
+    {
+        if (! $this->rcvPalletId) {
+            return [];
+        }
+
+        $pallet = Pallet::find($this->rcvPalletId);
+        if (! $pallet) {
+            return [];
+        }
+
+        return $pallet->lines()
+            ->where('line_status', 'pending')
+            ->with('inventoryItem')
+            ->get()
+            ->map(fn ($line) => [
+                'line_id'             => $line->id,
+                'line_number'         => $line->line_number,
+                'item_name'           => $line->inventoryItem?->name ?? ($line->description ?? 'Unmapped'),
+                'sku'                 => $line->inventoryItem?->sku,
+                'barcode'             => $line->inventoryItem?->barcode,
+                'description'         => $line->description,
+                'vendor_description'  => $line->vendor_description,
+                'case_count'          => (int) $line->case_count,
+                'quantity_per_case'   => (float) $line->quantity_per_case,
+                'preflight_cost'      => (float) ($line->preflight_cost ?? 0),
+                'unit_cost'           => (float) $line->unit_cost,
+                'is_mapped'           => $line->isFullyMapped(),
+            ])
+            ->toArray();
+    }
+
     private function refreshPalletProgress(): void
     {
         if (! $this->rcvPalletId) {
@@ -746,6 +857,7 @@ class InventoryScanner extends Page
                 'received_cases' => $receivedCases,
                 'done'           => $done,
                 'unit_cost'      => (float) $line->unit_cost,
+                'line_status'    => $line->line_status,
             ];
         }
     }

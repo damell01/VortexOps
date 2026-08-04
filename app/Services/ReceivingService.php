@@ -46,6 +46,7 @@ class ReceivingService
     /**
      * Receive all expected cases for the pallet line whose item matches the
      * given barcode or SKU. Used by the scanner's Receive Pallet mode.
+     * Transitions pending items to received status.
      *
      * @throws RuntimeException if no matching line is found, line is unmapped,
      *                          or all cases for that line are already received.
@@ -84,6 +85,9 @@ class ReceivingService
         }
 
         $received = $this->receiveAllCasesForLine($line);
+
+        // Update pallet line status from pending to received
+        $line->update(['line_status' => 'received']);
 
         return [
             'line_number'    => $line->line_number,
@@ -233,6 +237,7 @@ class ReceivingService
      * Receive an entire pallet at once (all mapped lines, all cases).
      * All lines are processed inside a single outer transaction so a mid-pallet
      * failure does not leave partial stock committed.
+     * Updates all line statuses to 'received'.
      *
      * @throws RuntimeException if any line is unmapped.
      */
@@ -250,6 +255,8 @@ class ReceivingService
             $received = 0;
             foreach ($pallet->lines as $line) {
                 $received += $this->receiveAllCasesForLine($line);
+                // Update line status to received
+                $line->update(['line_status' => 'received']);
             }
 
             $pallet->update(['status' => 'received']);

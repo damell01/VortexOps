@@ -566,6 +566,47 @@
             @endif
         </div>
 
+        {{-- Pending Items Summary --}}
+        @if($rcvPalletId && !empty($this->getPendingItemsProperty()))
+        <div class="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 px-6 py-4">
+            <div class="flex items-center gap-2 mb-3">
+                <x-heroicon-o-clock class="h-5 w-5 text-amber-600" />
+                <h4 class="font-semibold text-amber-900 dark:text-amber-100">Pending Items to Receive</h4>
+                <span class="text-xs font-medium bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 px-2 py-1 rounded">
+                    {{ count($this->getPendingItemsProperty()) }} item(s)
+                </span>
+            </div>
+            <div class="space-y-2">
+                @foreach($this->getPendingItemsProperty() as $item)
+                <div class="bg-white dark:bg-gray-800 rounded p-3 text-sm">
+                    <div class="flex items-start justify-between mb-1">
+                        <div>
+                            <p class="font-medium text-gray-900 dark:text-white">
+                                {{ $item['item_name'] }}
+                                @if($item['sku'])
+                                <span class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ $item['sku'] }}</span>
+                                @endif
+                            </p>
+                            @if($item['vendor_description'])
+                            <p class="text-xs text-gray-600 dark:text-gray-400">{{ $item['vendor_description'] }}</p>
+                            @endif
+                        </div>
+                        @if($item['preflight_cost'] > 0)
+                        <div class="text-right">
+                            <p class="text-xs text-gray-600 dark:text-gray-400">Preflight Cost</p>
+                            <p class="font-semibold text-amber-700 dark:text-amber-300">${{ number_format($item['preflight_cost'], 2) }}</p>
+                        </div>
+                        @endif
+                    </div>
+                    <p class="text-xs text-gray-600 dark:text-gray-400">
+                        {{ $item['case_count'] }} case(s) × {{ $item['quantity_per_case'] }} units
+                    </p>
+                </div>
+                @endforeach
+            </div>
+        </div>
+        @endif
+
         {{-- Scan Input --}}
         @if($rcvPalletId)
         <div class="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-6 py-4">
@@ -635,12 +676,14 @@
             {{-- Line Items Progress --}}
             <div class="space-y-2">
                 @foreach($rcvProgress['lines'] as $line)
-                <div class="rounded-lg border {{ $line['done'] ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950' : 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950' }} px-4 py-3">
+                <div class="rounded-lg border {{ $line['done'] ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950' : ($line['line_status'] === 'pending' ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950' : 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950') }} px-4 py-3">
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex-1">
                             <div class="flex items-center gap-2">
                                 @if($line['done'])
                                 <x-heroicon-o-check-circle class="h-4 w-4 text-green-600" />
+                                @elseif($line['line_status'] === 'pending')
+                                <x-heroicon-o-clock class="h-4 w-4 text-amber-600" />
                                 @elseif(!$line['is_mapped'])
                                 <x-heroicon-o-exclamation-circle class="h-4 w-4 text-red-600" />
                                 @else
@@ -649,6 +692,11 @@
                                 <span class="font-medium text-sm">{{ $line['item_name'] }}</span>
                                 @if($line['sku'])
                                 <span class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ $line['sku'] }}</span>
+                                @endif
+                                @if($line['line_status'] === 'pending')
+                                <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100">Pending</span>
+                                @elseif($line['done'])
+                                <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-green-200 dark:bg-green-800 text-green-900 dark:text-green-100">Received</span>
                                 @endif
                             </div>
                             <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">

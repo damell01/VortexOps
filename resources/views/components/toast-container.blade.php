@@ -30,8 +30,8 @@
         toast.innerHTML = `
             <div class="flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg ${config.bg} ${config.text} font-medium text-sm max-w-sm animate-bounce-in">
                 <span class="text-xl">${config.icon}</span>
-                <span>${message}</span>
-                <button onclick="this.parentElement.parentElement.remove()" class="ml-auto opacity-70 hover:opacity-100">
+                <span class="flex-1">${message}</span>
+                <button onclick="this.closest('div').parentElement.remove()" class="flex-shrink-0 ml-2 p-1 hover:opacity-80 active:opacity-60 transition-opacity touch-manipulation" style="min-width: 32px; min-height: 32px; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; cursor: pointer; -webkit-user-select: none; user-select: none;">
                     ✕
                 </button>
             </div>

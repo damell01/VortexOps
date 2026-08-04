@@ -249,6 +249,23 @@ body {
         margin: 8px 16px;
         border-radius: 12px;
         padding: 12px 16px;
+        touch-action: manipulation;
+    }
+
+    /* Filament notification close button - make it larger on mobile */
+    .fi-no-notification button,
+    .fi-notification button {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 8px !important;
+        touch-action: manipulation;
+    }
+
+    /* Toast notifications - make close button clickable */
+    #toast-container button {
+        min-height: 44px;
+        min-width: 44px;
+        touch-action: manipulation;
     }
 
     /* Dropdowns and selects */
@@ -476,6 +493,17 @@ body {
     .fi-page-content {
         padding-right: max(16px, env(safe-area-inset-right));
         padding-left: max(16px, env(safe-area-inset-left));
+    }
+
+    /* Notifications with safe area insets for notched devices */
+    #toast-container {
+        top: max(16px, env(safe-area-inset-top));
+        right: max(16px, env(safe-area-inset-right));
+    }
+
+    .fi-notification {
+        margin-right: max(8px, env(safe-area-inset-right));
+        margin-left: max(8px, env(safe-area-inset-left));
     }
 }
 

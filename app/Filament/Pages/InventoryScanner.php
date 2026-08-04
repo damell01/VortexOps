@@ -95,6 +95,7 @@ class InventoryScanner extends Page
     public string  $scanMode = 'barcode';       // barcode|camera
     public bool    $cameraActive = false;
     public array   $scannedCodes = [];          // Track scanned codes in session
+    public ?array  $stagingPackingSlip = null;  // Uploaded packing slip file
 
     // ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -333,10 +334,26 @@ class InventoryScanner extends Page
             'created_by' => auth()->id(),
         ]);
 
+        // Handle packing slip upload if provided
+        if ($this->stagingPackingSlip) {
+            $filePath = $this->stagingPackingSlip['path'] ?? null;
+            if ($filePath) {
+                \App\Models\PalletPackingSlip::create([
+                    'pallet_id' => $pallet->id,
+                    'file_path' => $filePath,
+                    'original_filename' => $this->stagingPackingSlip['name'] ?? 'unknown',
+                    'file_size' => $this->stagingPackingSlip['size'] ?? 0,
+                    'mime_type' => $this->stagingPackingSlip['type'] ?? 'application/octet-stream',
+                    'uploaded_by' => auth()->id(),
+                ]);
+            }
+        }
+
         $this->showPalletStaging = false;
         $this->stagingPalletId = $pallet->id;
         $this->stagingVendorId = '';
         $this->stagingReference = '';
+        $this->stagingPackingSlip = null;
 
         // Start receiving session for this pallet
         $this->startReceivingSession($pallet->id);

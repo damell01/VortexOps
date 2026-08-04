@@ -1,0 +1,355 @@
+<x-filament-panels::page>
+    <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
+        <!-- Hidden scan input for form submission -->
+        <input type="hidden" wire:model="scanInput" id="scanInput">
+
+        <!-- Mode Selector (Top Navigation) -->
+        <div class="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+            <div class="grid grid-cols-3 gap-0">
+                <button
+                    wire:click="$set('mode', 'receive')"
+                    @click="document.getElementById('scanInput').focus()"
+                    class="flex-1 py-4 px-2 font-semibold text-center transition {{ $mode === 'receive' ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' }}"
+                >
+                    <div class="text-lg">📦</div>
+                    <div class="text-xs mt-1">Receive</div>
+                </button>
+                <button
+                    wire:click="$set('mode', 'quickadd')"
+                    @click="document.getElementById('scanInput').focus()"
+                    class="flex-1 py-4 px-2 font-semibold text-center transition {{ $mode === 'quickadd' ? 'bg-green-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' }}"
+                >
+                    <div class="text-lg">➕</div>
+                    <div class="text-xs mt-1">Add Stock</div>
+                </button>
+                <button
+                    wire:click="$set('mode', 'lookup')"
+                    @click="document.getElementById('scanInput').focus()"
+                    class="flex-1 py-4 px-2 font-semibold text-center transition {{ $mode === 'lookup' ? 'bg-purple-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300' }}"
+                >
+                    <div class="text-lg">🔍</div>
+                    <div class="text-xs mt-1">Lookup</div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="flex-1 overflow-y-auto pb-24">
+            <!-- Camera Section (Always Visible as Reference) -->
+            <div class="bg-gray-900 p-4 text-center text-white">
+                <div class="bg-gray-800 rounded-lg p-8 border-2 border-gray-700">
+                    <div class="text-5xl mb-2">📷</div>
+                    <p class="text-sm">Point camera at barcode</p>
+                    <p class="text-xs text-gray-400 mt-2">Camera API ready for scanning</p>
+                </div>
+            </div>
+
+            <!-- Mode: RECEIVE (Pallet) -->
+            @if($mode === 'receive')
+                <div class="p-4 space-y-4">
+                    <!-- Pallet Selection -->
+                    @if(!$activeSessionId)
+                        <div class="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                            <label class="block text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                                Select Pallet to Receive
+                            </label>
+                            <select
+                                wire:model="activePalletId"
+                                class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-gray-900 dark:text-white"
+                            >
+                                <option value="">Choose a pallet...</option>
+                                @foreach($this->getPalletsProperty as $pallet)
+                                    <option value="{{ $pallet->id }}">
+                                        {{ $pallet->reference }} ({{ ucfirst($pallet->status) }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            @if($activePalletId)
+                                <button
+                                    wire:click="startReceiving"
+                                    class="w-full mt-3 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition text-lg"
+                                >
+                                    ▶ Start Receiving
+                                </button>
+                            @endif
+                        </div>
+                    @endif
+
+                    <!-- Active Session Display -->
+                    @if($activeSessionId)
+                        <div class="bg-green-50 dark:bg-green-950 border-2 border-green-400 dark:border-green-600 rounded-lg p-4">
+                            <div class="flex items-center justify-between mb-3">
+                                <div>
+                                    <p class="text-sm text-green-700 dark:text-green-300">Session Active</p>
+                                    <p class="text-2xl font-bold text-green-900 dark:text-green-100">
+                                        {{ count($sessionItems) }} items scanned
+                                    </p>
+                                </div>
+                                <button
+                                    wire:click="endSession"
+                                    class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded text-sm transition"
+                                >
+                                    ⊗ End
+                                </button>
+                            </div>
+
+                            @if($this->getActiveSessionProperty)
+                                <div class="text-xs text-green-700 dark:text-green-300 space-y-1">
+                                    <p>Started: {{ $this->getActiveSessionProperty->started_at?->format('H:i') }}</p>
+                                </div>
+                            @endif
+                        </div>
+
+                        <!-- Scanned Items List -->
+                        @if(!empty($sessionItems))
+                            <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                                <h3 class="font-semibold text-gray-900 dark:text-white mb-3">Items Scanned</h3>
+                                <div class="space-y-2 max-h-40 overflow-y-auto">
+                                    @foreach($sessionItems as $item)
+                                        <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-700 p-2 rounded text-sm">
+                                            <div class="flex-1">
+                                                <p class="font-medium text-gray-900 dark:text-white">{{ $item['name'] }}</p>
+                                                <p class="text-xs text-gray-600 dark:text-gray-400">{{ $item['qty'] }} units</p>
+                                            </div>
+                                            <p class="text-right font-semibold text-gray-900 dark:text-white text-sm">${{ $item['total_cost'] }}</p>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    @endif
+                </div>
+            @endif
+
+            <!-- Mode: QUICK ADD (Location) -->
+            @if($mode === 'quickadd')
+                <div class="p-4 space-y-4">
+                    <!-- Location Selection -->
+                    <div class="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                        <label class="block text-sm font-semibold text-green-900 dark:text-green-100 mb-2">
+                            Stock Location
+                        </label>
+                        <select
+                            wire:model="qaLocationId"
+                            class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-gray-900 dark:text-white mb-3"
+                        >
+                            <option value="">Choose location...</option>
+                            @foreach($this->getLocationsProperty as $loc)
+                                <option value="{{ $loc->id }}">{{ $loc->name }}</option>
+                            @endforeach
+                        </select>
+
+                        <label class="block text-sm font-semibold text-green-900 dark:text-green-100 mb-2">
+                            Quantity to Add
+                        </label>
+                        <div class="flex gap-2 mb-2">
+                            <button
+                                wire:click="$set('qaQty', (float)$qaQty - 1)"
+                                class="bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-white font-bold py-2 px-4 rounded text-lg w-14"
+                            >
+                                −
+                            </button>
+                            <input
+                                type="number"
+                                wire:model="qaQty"
+                                step="0.01"
+                                class="flex-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-center text-lg font-semibold text-gray-900 dark:text-white"
+                            >
+                            <button
+                                wire:click="$set('qaQty', (float)$qaQty + 1)"
+                                class="bg-gray-300 dark:bg-gray-600 text-gray-900 dark:text-white font-bold py-2 px-4 rounded text-lg w-14"
+                            >
+                                +
+                            </button>
+                        </div>
+                        <p class="text-sm text-green-700 dark:text-green-300">Currently: <strong>{{ $qaQty }} units</strong></p>
+                    </div>
+
+                    <!-- Helpful Text -->
+                    <div class="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-sm text-amber-900 dark:text-amber-100">
+                        <p class="font-semibold mb-1">How to use:</p>
+                        <ol class="list-decimal list-inside space-y-1 text-xs">
+                            <li>Select a stock location</li>
+                            <li>Set quantity to add</li>
+                            <li>Scan item barcode</li>
+                        </ol>
+                    </div>
+                </div>
+            @endif
+
+            <!-- Mode: LOOKUP (Item Info) -->
+            @if($mode === 'lookup')
+                <div class="p-4 space-y-4">
+                    <div class="bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg p-4 text-center text-purple-900 dark:text-purple-100">
+                        <p class="text-sm font-semibold mb-1">Item Lookup Mode</p>
+                        <p class="text-xs">Scan a barcode to view item details and inventory status</p>
+                    </div>
+                </div>
+            @endif
+
+            <!-- Item Detail Modal Overlay -->
+            @if($showItemDetail && $scannedItem)
+                <div
+                    class="fixed inset-0 bg-black/50 dark:bg-black/70 z-50 flex items-center justify-center p-4"
+                    @click="$wire.closeItemDetail()"
+                >
+                    <div
+                        class="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-sm w-full max-h-96 overflow-y-auto"
+                        @click.stop
+                    >
+                        <!-- Close Button -->
+                        <div class="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
+                            <h3 class="font-bold text-lg text-gray-900 dark:text-white">Item Details</h3>
+                            <button
+                                wire:click="closeItemDetail"
+                                class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 text-2xl leading-none"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div class="p-4 space-y-4">
+                            <!-- Item Name & SKU -->
+                            <div>
+                                <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold uppercase">Item</p>
+                                <p class="text-xl font-bold text-gray-900 dark:text-white">{{ $scannedItem['name'] }}</p>
+                                <p class="text-sm text-gray-600 dark:text-gray-400">SKU: {{ $scannedItem['sku'] }}</p>
+                            </div>
+
+                            <!-- Quantities & Costs -->
+                            <div class="grid grid-cols-2 gap-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+                                @if(isset($scannedItem['cases']))
+                                    <div>
+                                        <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold">Cases</p>
+                                        <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $scannedItem['cases'] }}</p>
+                                    </div>
+                                @endif
+
+                                <div>
+                                    <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold">Quantity</p>
+                                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $scannedItem['qty'] }}</p>
+                                </div>
+
+                                @if(isset($scannedItem['unit_cost']))
+                                    <div>
+                                        <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold">Unit Cost</p>
+                                        <p class="text-lg font-bold text-gray-900 dark:text-white">${{ $scannedItem['unit_cost'] }}</p>
+                                    </div>
+                                @endif
+
+                                @if(isset($scannedItem['total_cost']))
+                                    <div>
+                                        <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold">Total</p>
+                                        <p class="text-lg font-bold text-green-600 dark:text-green-400">${{ $scannedItem['total_cost'] }}</p>
+                                    </div>
+                                @endif
+
+                                @if(isset($scannedItem['avg_cost']))
+                                    <div class="col-span-2">
+                                        <p class="text-xs text-gray-600 dark:text-gray-400 font-semibold">Average Cost</p>
+                                        <p class="text-lg font-bold text-gray-900 dark:text-white">${{ $scannedItem['avg_cost'] }}</p>
+                                    </div>
+                                @endif
+                            </div>
+
+                            <!-- Lookup Mode Extra Info -->
+                            @if($mode === 'lookup' && isset($scannedItem['value']))
+                                <div class="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-2">
+                                    <div class="flex justify-between">
+                                        <p class="text-sm text-gray-600 dark:text-gray-400">Inventory Value:</p>
+                                        <p class="font-semibold text-gray-900 dark:text-white">${{ $scannedItem['value'] }}</p>
+                                    </div>
+                                    @if(isset($scannedItem['reorder']))
+                                        <div class="flex justify-between">
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">Reorder Level:</p>
+                                            <p class="font-semibold text-gray-900 dark:text-white">{{ $scannedItem['reorder'] }}</p>
+                                        </div>
+                                    @endif
+                                    @if(isset($scannedItem['is_low']))
+                                        <div class="flex justify-between items-center">
+                                            <p class="text-sm text-gray-600 dark:text-gray-400">Status:</p>
+                                            <span class="{{ $scannedItem['is_low'] ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-100' : 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100' }} px-3 py-1 rounded text-xs font-semibold">
+                                                {{ $scannedItem['is_low'] ? '⚠ Low Stock' : '✓ In Stock' }}
+                                            </span>
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                            <button
+                                wire:click="closeItemDetail"
+                                class="w-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-bold py-3 rounded-lg transition"
+                            >
+                                Close & Scan Next
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            @endif
+        </div>
+
+        <!-- Fixed Bottom Scanner Input -->
+        <div class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 shadow-lg">
+            <!-- Hidden input for scanning -->
+            <input
+                type="text"
+                id="scanInput"
+                wire:model.live="scanInput"
+                wire:keydown.enter="submitScan"
+                placeholder="Scan barcode..."
+                class="w-full text-center bg-gray-100 dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 text-lg font-semibold text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white dark:focus:bg-gray-600"
+                autofocus
+                autocomplete="off"
+            >
+            <p class="text-xs text-center text-gray-500 dark:text-gray-400 mt-2">
+                Press Enter to submit or scan barcode
+            </p>
+        </div>
+    </div>
+
+    <style>
+        /* Mobile viewport optimization */
+        @media (max-width: 640px) {
+            body { font-size: 16px; } /* Prevent iOS zoom on input focus */
+        }
+
+        /* Landscape mode adjustments */
+        @media (max-height: 600px) {
+            .fixed.bottom-0 {
+                max-height: 30vh;
+                overflow-y-auto;
+            }
+        }
+
+        /* High contrast mode for warehouse lighting */
+        @media (prefers-contrast: more) {
+            .bg-blue-50 { background-color: rgb(0, 100, 200); color: white; }
+            .bg-green-50 { background-color: rgb(0, 150, 0); color: white; }
+            .bg-purple-50 { background-color: rgb(100, 0, 150); color: white; }
+        }
+    </style>
+
+    <script>
+        // Auto-focus scanner input on load and mode changes
+        document.addEventListener('livewire:updated', () => {
+            setTimeout(() => {
+                document.getElementById('scanInput')?.focus();
+            }, 100);
+        });
+
+        // Focus on page load
+        window.addEventListener('load', () => {
+            document.getElementById('scanInput')?.focus();
+        });
+
+        // Prevent accidental back navigation on phone
+        window.addEventListener('popstate', (e) => {
+            e.preventDefault();
+            history.pushState(null, null, location.href);
+        });
+        history.pushState(null, null, location.href);
+    </script>
+</x-filament-panels::page>

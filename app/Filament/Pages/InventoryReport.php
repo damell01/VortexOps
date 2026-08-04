@@ -6,8 +6,9 @@ use App\Filament\Concerns\HasModuleAccess;
 use App\Models\InventorySnapshot;
 use App\Models\InventoryStock;
 use App\Support\AdminModules;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Pages\Page;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class InventoryReport extends Page
 {
@@ -82,12 +83,14 @@ class InventoryReport extends Page
         ];
     }
 
-    public function exportPdf(): StreamedResponse
+    public function exportPdf(): Response
     {
-        // This will be handled in the view for now
-        // Later can implement mPDF or similar for actual PDF generation
-        return response()->streamDownload(function () {
-            echo "PDF export functionality to be implemented";
-        }, 'inventory-report.pdf');
+        $data = $this->getData();
+
+        $pdf = Pdf::loadView('filament.pages.inventory-report-pdf', $data)
+            ->setPaper('a4', 'landscape')
+            ->setOption('enable-local-file-access', true);
+
+        return $pdf->download('inventory-report-' . now()->format('Y-m-d-His') . '.pdf');
     }
 }

@@ -10,6 +10,7 @@ use App\Models\InventoryStock;
 use App\Models\Pallet;
 use App\Models\PalletLine;
 use App\Models\ScannerReceivingSession;
+use App\Services\InventoryCostService;
 use App\Services\ReceivingService;
 use App\Support\AdminModules;
 use Filament\Pages\Page;
@@ -79,6 +80,10 @@ class InventoryScanner extends Page
     public ?array  $rcvProgress = null; // per-line arrays
     public ?string $rcvFlash    = null;
     public ?string $rcvError    = null;
+    public bool    $showCostAdjust = false;
+    public ?int    $costAdjustLineId = null;
+    public string  $costAdjustNewCost = '';
+    public string  $costAdjustReason = '';
 
     // ── Advanced Pallet Features ──────────────────────────────────────────────
 
@@ -386,6 +391,48 @@ class InventoryScanner extends Page
         $this->scannedCodes = [];
     }
 
+    public function openCostAdjust(int $lineId): void
+    {
+        $line = PalletLine::find($lineId);
+        if ($line) {
+            $this->costAdjustLineId = $lineId;
+            $this->costAdjustNewCost = (string) $line->unit_cost;
+            $this->costAdjustReason = '';
+            $this->showCostAdjust = true;
+        }
+    }
+
+    public function applyCostAdjust(): void
+    {
+        if (!$this->costAdjustLineId) {
+            return;
+        }
+
+        $line = PalletLine::find($this->costAdjustLineId);
+        if (!$line) {
+            return;
+        }
+
+        $newCost = (float) $this->costAdjustNewCost;
+        if ($newCost < 0) {
+            return;
+        }
+
+        $costService = app(InventoryCostService::class);
+        $costService->recordCostChange(
+            $line,
+            $newCost,
+            $this->costAdjustReason ?: 'Cost adjusted during receiving',
+            auth()->id()
+        );
+
+        $this->showCostAdjust = false;
+        $this->costAdjustLineId = null;
+        $this->costAdjustNewCost = '';
+        $this->costAdjustReason = '';
+        $this->refreshPalletProgress();
+    }
+
     private function recordScannedCode(string $code): void
     {
         if ($this->currentSessionId) {
@@ -431,6 +478,7 @@ class InventoryScanner extends Page
             }
 
             $this->rcvProgress['lines'][] = [
+                'line_id'        => $line->id,
                 'line_number'    => $line->line_number,
                 'item_name'      => $line->inventoryItem?->name ?? ($line->description ?? 'Unmapped'),
                 'sku'            => $line->inventoryItem?->sku,
@@ -439,6 +487,7 @@ class InventoryScanner extends Page
                 'total_cases'    => $totalCases,
                 'received_cases' => $receivedCases,
                 'done'           => $done,
+                'unit_cost'      => (float) $line->unit_cost,
             ];
         }
     }
@@ -448,6 +497,10 @@ class InventoryScanner extends Page
     private function buildResultFromItem(InventoryItem $item): array
     {
         $item->load(['stock.location', 'movements' => fn ($q) => $q->with('toLocation')->latest()->limit(5)]);
+
+        $costService = app(InventoryCostService::class);
+        $totalQty = $item->totalQuantity();
+        $inventoryValue = $costService->calculateInventoryValue($item);
 
         $stockByLocation = $item->stock->map(fn ($s) => [
             'location'    => $s->location?->name ?? 'Unknown',
@@ -465,17 +518,18 @@ class InventoryScanner extends Page
         ])->toArray();
 
         return [
-            'id'        => $item->id,
-            'name'      => $item->name,
-            'sku'       => $item->sku,
-            'barcode'   => $item->barcode,
-            'category'  => $item->category,
-            'avg_cost'  => number_format((float) $item->average_cost, 2),
-            'total_qty' => number_format($item->totalQuantity(), 0),
-            'is_low'    => $item->isLowStock(),
-            'reorder'   => $item->reorder_level,
-            'stock'     => $stockByLocation,
-            'movements' => $recentMovements,
+            'id'              => $item->id,
+            'name'            => $item->name,
+            'sku'             => $item->sku,
+            'barcode'         => $item->barcode,
+            'category'        => $item->category,
+            'avg_cost'        => number_format((float) $item->average_cost, 2),
+            'total_qty'       => number_format($totalQty, 0),
+            'inventory_value' => number_format($inventoryValue, 2),
+            'is_low'          => $item->isLowStock(),
+            'reorder'         => $item->reorder_level,
+            'stock'           => $stockByLocation,
+            'movements'       => $recentMovements,
         ];
     }
 }

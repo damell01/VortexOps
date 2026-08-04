@@ -172,7 +172,7 @@
                         </div>
                         <div class="bg-purple-50 dark:bg-purple-950 rounded-lg p-3">
                             <p class="text-xs font-medium text-purple-600 dark:text-purple-400">Inventory Value</p>
-                            <p class="text-lg font-bold text-purple-900 dark:text-purple-100">${{ number_format((float)$result['avg_cost'] * (int)str_replace(',', '', $result['total_qty']), 2) }}</p>
+                            <p class="text-lg font-bold text-purple-900 dark:text-purple-100">${{ $result['inventory_value'] }}</p>
                         </div>
                         @if($result['is_low'])
                         <div class="bg-red-50 dark:bg-red-950 rounded-lg p-3">
@@ -436,7 +436,7 @@
             <div class="space-y-2">
                 @foreach($rcvProgress['lines'] as $line)
                 <div class="rounded-lg border {{ $line['done'] ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950' : 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950' }} px-4 py-3">
-                    <div class="flex items-center justify-between">
+                    <div class="flex items-center justify-between mb-2">
                         <div class="flex-1">
                             <div class="flex items-center gap-2">
                                 @if($line['done'])
@@ -452,14 +452,17 @@
                                 @endif
                             </div>
                             <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                {{ $line['received_cases'] }}/{{ $line['total_cases'] }} cases
+                                {{ $line['received_cases'] }}/{{ $line['total_cases'] }} cases • ${{ number_format($line['unit_cost'], 2) }}/unit
                                 @if(!$line['is_mapped'])
                                 <span class="text-red-600">• ⚠ Unmapped</span>
                                 @endif
                             </p>
                         </div>
-                        <div class="text-right">
-                            <div class="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-2">
+                        <div class="text-right flex items-center gap-2">
+                            <button wire:click="openCostAdjust({{ $line['line_id'] ?? 0 }})" type="button" class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                                <x-heroicon-o-pencil-square class="h-4 w-4" />
+                            </button>
+                            <div class="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                                 <div class="bg-blue-600 h-1.5 rounded-full" style="width: {{ $line['total_cases'] > 0 ? ($line['received_cases'] / $line['total_cases']) * 100 : 0 }}%"></div>
                             </div>
                         </div>
@@ -480,6 +483,62 @@
         </div>
         @endif
 
+        @endif
+
+        {{-- Cost Adjustment Modal --}}
+        @if($showCostAdjust && $costAdjustLineId)
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div class="bg-white dark:bg-gray-900 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 max-w-md w-full mx-4">
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                        <x-heroicon-o-pencil class="h-5 w-5" />
+                        Adjust Unit Cost
+                    </h3>
+                </div>
+
+                <div class="px-6 py-4 space-y-4">
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">New Unit Cost ($)</label>
+                        <input
+                            type="number"
+                            wire:model="costAdjustNewCost"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+
+                    <div>
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Reason (Optional)</label>
+                        <input
+                            type="text"
+                            wire:model="costAdjustReason"
+                            placeholder="e.g., Price correction, bulk discount applied"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2.5 text-gray-900 dark:text-gray-100 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                </div>
+
+                <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-2">
+                    <button
+                        wire:click="applyCostAdjust"
+                        type="button"
+                        class="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <x-heroicon-o-check class="h-4 w-4 inline -mt-0.5 mr-1" />
+                        Apply
+                    </button>
+                    <button
+                        wire:click="$set('showCostAdjust', false)"
+                        type="button"
+                        class="flex-1 rounded-lg bg-gray-200 dark:bg-gray-700 px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
         @endif
 
     </div>

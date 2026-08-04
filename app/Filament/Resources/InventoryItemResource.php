@@ -281,21 +281,14 @@ class InventoryItemResource extends Resource
                     ->money('USD')
                     ->sortable()
                     ->toggleable()
-                    ->description(fn ($record) => {
-                        $totalQty = (int) ($record->stock_sum_quantity ?? 0);
-                        $avgCost = (float) ($record->average_cost ?? 0);
-                        $inventoryValue = $totalQty * $avgCost;
-                        return $totalQty > 0
-                            ? number_format($totalQty) . ' units • $' . number_format($inventoryValue, 2)
-                            : '(' . number_format((float) $record->total_units_received, 0) . ' units received)';
-                    }),
+                    ->description(fn ($record) =>
+                        ((int) ($record->stock_sum_quantity ?? 0)) > 0
+                            ? number_format((int) ($record->stock_sum_quantity ?? 0)) . ' units • $' . number_format(((int) ($record->stock_sum_quantity ?? 0)) * ((float) ($record->average_cost ?? 0)), 2)
+                            : '(' . number_format((float) $record->total_units_received, 0) . ' units received)'
+                    ),
                 TextColumn::make('inventory_value')
                     ->label('Inventory Value')
-                    ->getStateUsing(fn ($record) => {
-                        $totalQty = (int) ($record->stock_sum_quantity ?? 0);
-                        $avgCost = (float) ($record->average_cost ?? 0);
-                        return $totalQty * $avgCost;
-                    })
+                    ->getStateUsing(fn ($record) => ((int) ($record->stock_sum_quantity ?? 0)) * ((float) ($record->average_cost ?? 0)))
                     ->money('USD')
                     ->toggleable(),
                 IconColumn::make('is_active')

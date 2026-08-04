@@ -30,7 +30,7 @@ class InventoryReconciliation extends Page implements HasForms
 
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
-        return 'heroicon-o-check-double';
+        return 'heroicon-o-check-circle';
     }
 
     public static function getNavigationLabel(): string

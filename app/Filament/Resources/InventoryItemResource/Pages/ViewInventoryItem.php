@@ -7,6 +7,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\ProductIdentity;
 use App\Services\InventoryService;
+use App\Services\InventoryCostService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -145,6 +146,38 @@ class ViewInventoryItem extends Page
                 'qty'       => (float) $lot->quantity,
                 'source'    => $lot->source,
             ])->toArray();
+    }
+
+    public function getCostBreakdownProperty(): array
+    {
+        return app(InventoryCostService::class)->getCostBreakdown($this->record);
+    }
+
+    public function getCostTrendProperty(): array
+    {
+        return app(InventoryCostService::class)->getCostTrend($this->record, 15);
+    }
+
+    public function getInventoryValueProperty(): float
+    {
+        return app(InventoryCostService::class)->calculateInventoryValue($this->record);
+    }
+
+    public function getCostMetricsProperty(): array
+    {
+        $costService = app(InventoryCostService::class);
+        $breakdown = $this->getCostBreakdownProperty();
+        $costs = array_column($breakdown, 'average_cost');
+
+        return [
+            'current_average_cost' => (float) $this->record->average_cost,
+            'inventory_value' => $this->getInventoryValueProperty(),
+            'min_cost' => !empty($costs) ? min($costs) : 0,
+            'max_cost' => !empty($costs) ? max($costs) : 0,
+            'vendor_count' => count($breakdown),
+            'total_units_received' => (float) $this->record->total_units_received,
+            'current_stock' => (float) $this->record->totalQuantity(),
+        ];
     }
 
     // ── Actions ────────────────────────────────────────────────────────────────

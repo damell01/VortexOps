@@ -12,8 +12,10 @@ use App\Models\PalletLine;
 use App\Models\PalletPackingSlip;
 use App\Models\ScannerReceivingSession;
 use App\Services\InventoryCostService;
+use App\Services\PackingSlipAnalyzerService;
 use App\Services\ReceivingService;
 use App\Support\AdminModules;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Livewire\WithFileUploads;
 use RuntimeException;
@@ -102,6 +104,13 @@ class InventoryScanner extends Page
     public bool    $cameraActive = false;
     public array   $scannedCodes = [];          // Track scanned codes in session
     public $stagingPackingSlipFile = null;      // Uploaded packing slip file
+
+    // ── Packing Slip AI Analysis ───────────────────────────────────────────
+
+    public ?array  $packingSlipAnalysis = null; // Analysis results
+    public bool    $showPackingSlipAnalysis = false; // Show analysis results modal
+    public array   $selectedMatchedItems = []; // Selected matched items to apply
+    public array   $selectedSuggestedItems = []; // Selected suggested items to create
 
     // ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -333,6 +342,99 @@ class InventoryScanner extends Page
             return;
         }
 
+        // If packing slip uploaded, analyze it first before creating pallet
+        if ($this->stagingPackingSlipFile) {
+            $this->analyzePackingSlip();
+            return;
+        }
+
+        // No packing slip - create pallet directly
+        $this->createStagedPallet();
+    }
+
+    private function analyzePackingSlip(): void
+    {
+        try {
+            $file = $this->stagingPackingSlipFile;
+            $filePath = $file->store('packing-slips', 'public');
+
+            $analyzer = app(PackingSlipAnalyzerService::class);
+            $analysis = $analyzer->analyzePackingSlip($filePath);
+
+            $this->packingSlipAnalysis = $analysis;
+            $this->showPackingSlipAnalysis = true;
+
+            Notification::make()
+                ->title('Packing Slip Analyzed')
+                ->body("Found {$analysis['total_matched']} matched items and {$analysis['total_suggested']} new items to create.")
+                ->success()
+                ->send();
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Analysis Failed')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function confirmPackingSlipAnalysis(): void
+    {
+        if (!$this->packingSlipAnalysis) {
+            return;
+        }
+
+        try {
+            // Create suggested items if selected
+            if (!empty($this->selectedSuggestedItems)) {
+                $suggestions = array_filter(
+                    $this->packingSlipAnalysis['suggested_items'],
+                    fn ($item, $idx) => in_array($idx, $this->selectedSuggestedItems),
+                    ARRAY_FILTER_USE_BOTH
+                );
+
+                if (!empty($suggestions)) {
+                    $analyzer = app(PackingSlipAnalyzerService::class);
+                    $created = $analyzer->createItemsFromSuggestions(
+                        array_values($suggestions),
+                        auth()->id()
+                    );
+
+                    if (!empty($created)) {
+                        Notification::make()
+                            ->title('Items Created')
+                            ->body(count($created) . ' new inventory items created from packing slip.')
+                            ->success()
+                            ->send();
+                    }
+                }
+            }
+
+            // Create pallet with uploaded packing slip
+            $this->createStagedPallet();
+            $this->showPackingSlipAnalysis = false;
+            $this->packingSlipAnalysis = null;
+            $this->selectedSuggestedItems = [];
+            $this->selectedMatchedItems = [];
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Error')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
+    }
+
+    public function cancelPackingSlipAnalysis(): void
+    {
+        $this->showPackingSlipAnalysis = false;
+        $this->packingSlipAnalysis = null;
+        $this->selectedSuggestedItems = [];
+        $this->selectedMatchedItems = [];
+    }
+
+    private function createStagedPallet(): void
+    {
         $pallet = Pallet::create([
             'vendor_id' => $this->stagingVendorId,
             'reference' => $this->stagingReference,
@@ -365,6 +467,12 @@ class InventoryScanner extends Page
         $this->stagingVendorId = '';
         $this->stagingReference = '';
         $this->stagingPackingSlipFile = null;
+
+        Notification::make()
+            ->title('Pallet Staged')
+            ->body('Ready to start receiving items.')
+            ->success()
+            ->send();
 
         // Start receiving session for this pallet
         $this->startReceivingSession($pallet->id);

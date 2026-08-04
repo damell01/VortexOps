@@ -109,6 +109,92 @@
             </div>
         </div>
 
+        {{-- ════════════════════════════════════════════════════════════════════ --}}
+        {{-- PACKING SLIP ANALYSIS MODAL                                         --}}
+        {{-- ════════════════════════════════════════════════════════════════════ --}}
+        @if($showPackingSlipAnalysis && $packingSlipAnalysis)
+        <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 min-h-screen">
+            <div class="bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-4xl w-full max-h-96 overflow-y-auto">
+                <div class="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">Packing Slip Analysis</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        AI detected {{ $packingSlipAnalysis['total_matched'] }} existing items and {{ $packingSlipAnalysis['total_suggested'] }} new items
+                    </p>
+                </div>
+
+                <div class="p-6 space-y-6">
+                    {{-- Matched Items --}}
+                    @if(!empty($packingSlipAnalysis['matched_items']))
+                    <div>
+                        <h4 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                            <x-heroicon-o-check-circle class="h-5 w-5 text-green-600" />
+                            Matched Items ({{ count($packingSlipAnalysis['matched_items']) }})
+                        </h4>
+                        <div class="space-y-2 max-h-48 overflow-y-auto">
+                            @foreach($packingSlipAnalysis['matched_items'] as $idx => $match)
+                            <div class="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                                <input type="checkbox" wire:model="selectedMatchedItems" value="{{ $idx }}"
+                                    class="mt-1 rounded border-gray-300 text-green-600 focus:ring-green-500" />
+                                <div class="flex-1 min-w-0">
+                                    <p class="font-medium text-gray-900 dark:text-white">{{ $match['item_name'] }}</p>
+                                    <p class="text-xs text-gray-600 dark:text-gray-400">
+                                        Extracted: {{ $match['extracted_name'] }} ({{ $match['extracted_qty'] }} units @ ${{ $match['extracted_cost'] }})
+                                    </p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-500">
+                                        Current: {{ $match['item_sku'] }} • ${{ number_format($match['current_cost'], 2) }}
+                                        <span class="ml-2 font-semibold text-green-700 dark:text-green-300">{{ $match['confidence'] }}% confidence</span>
+                                    </p>
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+
+                    {{-- Suggested New Items --}}
+                    @if(!empty($packingSlipAnalysis['suggested_items']))
+                    <div>
+                        <h4 class="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                            <x-heroicon-o-plus-circle class="h-5 w-5 text-blue-600" />
+                            New Items to Create ({{ count($packingSlipAnalysis['suggested_items']) }})
+                        </h4>
+                        <div class="space-y-2 max-h-48 overflow-y-auto">
+                            @foreach($packingSlipAnalysis['suggested_items'] as $idx => $suggestion)
+                            <div class="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
+                                <input type="checkbox" wire:model="selectedSuggestedItems" value="{{ $idx }}"
+                                    class="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                <div class="flex-1 min-w-0">
+                                    <p class="font-medium text-gray-900 dark:text-white">{{ $suggestion['name'] }}</p>
+                                    <p class="text-xs text-gray-600 dark:text-gray-400">
+                                        Category: {{ $suggestion['category'] }} • Qty: {{ $suggestion['qty'] }}
+                                    </p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-500">
+                                        SKU: {{ $suggestion['sku'] ?? '(none)' }} • Cost: ${{ $suggestion['unit_cost'] ?? '0.00' }}
+                                    </p>
+                                </div>
+                            </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    @endif
+                </div>
+
+                {{-- Action Buttons --}}
+                <div class="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex gap-3 bg-gray-50 dark:bg-gray-800 sticky bottom-0">
+                    <button wire:click="confirmPackingSlipAnalysis" type="button"
+                        class="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700">
+                        <x-heroicon-o-check class="h-4 w-4 inline -mt-0.5 mr-1" />
+                        Confirm & Create Items
+                    </button>
+                    <button wire:click="cancelPackingSlipAnalysis" type="button"
+                        class="flex-1 rounded-lg bg-gray-300 dark:bg-gray-700 px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-gray-100">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+        @endif
+
         @endif
 
         {{-- ════════════════════════════════════════════════════════════════════ --}}

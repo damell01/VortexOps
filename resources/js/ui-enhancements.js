@@ -342,11 +342,6 @@ window.KeyboardShortcuts.register('Escape', () => {
     document.querySelectorAll('[role=dialog]').forEach(d => d.close?.());
 });
 
-export {
-    validateField,
-    updateFieldValidation,
-    SearchHistory,
-    UndoManager,
-    Favorites,
-    KeyboardShortcuts,
-};
+// Exports removed - functions are available globally via window object
+// window.updateFieldValidation() - Form field validation
+// window.KeyboardShortcuts - Keyboard shortcut manager

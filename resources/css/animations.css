@@ -2,26 +2,26 @@
 @layer components {
     /* Fade-in animation for page load */
     .animate-page-in {
-        @apply animate-fade-in;
+        animation: fadeIn 0.3s ease-in;
     }
 
     /* Modal animations */
     .animate-modal-in {
-        @apply animate-fade-in;
+        animation: fadeIn 0.3s ease-in;
     }
 
     .animate-modal-backdrop {
-        @apply animate-fade-in;
+        animation: fadeIn 0.3s ease-in;
     }
 
     /* Section animations */
     .animate-section-in {
-        @apply animate-fade-in-up;
+        animation: fadeInUp 0.4s ease-out;
     }
 
     /* Smooth grow animation */
     .animate-grow-in {
-        @apply animate-scale-in;
+        animation: scaleIn 0.3s ease-out;
     }
 
     /* Smooth shrink animation */
@@ -31,7 +31,24 @@
 
     /* Card hover animations */
     .group:hover .animate-on-hover {
-        @apply animate-fade-in;
+        animation: fadeIn 0.3s ease-in;
+    }
+
+    /* Custom animation utility classes for Blade templates */
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-in !important;
+    }
+
+    .animate-fade-in-up {
+        animation: fadeInUp 0.4s ease-out !important;
+    }
+
+    .animate-fade-in-down {
+        animation: fadeInDown 0.4s ease-out !important;
+    }
+
+    .animate-scale-in {
+        animation: scaleIn 0.3s ease-out !important;
     }
 
     /* Badge pulse animation */

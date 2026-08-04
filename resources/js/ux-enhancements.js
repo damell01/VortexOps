@@ -3,8 +3,6 @@
  * Keyboard shortcuts, smooth transitions, and better feedback
  */
 
-import Alpine from 'alpinejs';
-
 // ── Keyboard Shortcuts ───────────────────────────────────────────────
 document.addEventListener('keydown', (e) => {
     const isInput = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);

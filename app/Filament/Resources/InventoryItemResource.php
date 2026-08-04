@@ -72,11 +72,6 @@ class InventoryItemResource extends Resource
         return auth()->user()?->isAdmin() ?? false;
     }
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
-    }
-
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-archive-box';
@@ -89,7 +84,7 @@ class InventoryItemResource extends Resource
 
     public static function getNavigationSort(): ?int
     {
-        return 1;
+        return 2;
     }
 
     public static function getNavigationLabel(): string

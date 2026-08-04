@@ -500,26 +500,39 @@
 
         // Audio feedback
         function playBeep(type) {
-            // Only play if permitted by browser
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gain = audioContext.createGain();
+            try {
+                // Try using Web Audio API if available
+                if (window.AudioContext || window.webkitAudioContext) {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gain = audioContext.createGain();
 
-            oscillator.connect(gain);
-            gain.connect(audioContext.destination);
+                    oscillator.connect(gain);
+                    gain.connect(audioContext.destination);
 
-            if (type === 'success') {
-                oscillator.frequency.value = 800;
-                gain.gain.setValueAtTime(0.1, audioContext.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.1);
-            } else {
-                oscillator.frequency.value = 400;
-                gain.gain.setValueAtTime(0.05, audioContext.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.2);
+                    if (type === 'success') {
+                        oscillator.frequency.value = 800;
+                        gain.gain.setValueAtTime(0.1, audioContext.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                        oscillator.start(audioContext.currentTime);
+                        oscillator.stop(audioContext.currentTime + 0.1);
+                    } else {
+                        oscillator.frequency.value = 400;
+                        gain.gain.setValueAtTime(0.05, audioContext.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                        oscillator.start(audioContext.currentTime);
+                        oscillator.stop(audioContext.currentTime + 0.2);
+                    }
+                }
+            } catch (e) {
+                // Fallback: try using navigator.vibrate if available
+                if (navigator.vibrate) {
+                    if (type === 'success') {
+                        navigator.vibrate([50, 30, 50]); // Success pattern
+                    } else {
+                        navigator.vibrate([100]); // Error pattern
+                    }
+                }
             }
         }
 
@@ -546,17 +559,56 @@
             }
         });
 
-        // Auto-focus scanner input on load and mode changes
+        // Session state persistence
+        const SESSION_STATE_KEY = 'mobile_scanner_state';
+
+        function saveSessionState() {
+            const state = {
+                mode: @json($mode),
+                activeSessionId: @json($activeSessionId),
+                activePalletId: @json($activePalletId),
+                qaLocationId: @json($qaLocationId),
+                qaQty: @json($qaQty),
+                timestamp: Date.now()
+            };
+            sessionStorage.setItem(SESSION_STATE_KEY, JSON.stringify(state));
+        }
+
+        function restoreSessionState() {
+            const stored = sessionStorage.getItem(SESSION_STATE_KEY);
+            if (stored) {
+                try {
+                    const state = JSON.parse(stored);
+                    // Only restore if saved less than 1 hour ago
+                    if (Date.now() - state.timestamp < 3600000) {
+                        console.log('Restoring session state:', state);
+                    }
+                } catch (e) {
+                    console.warn('Failed to restore session state:', e);
+                }
+            }
+        }
+
+        // Save state on every Livewire update
         document.addEventListener('livewire:updated', () => {
+            saveSessionState();
             setTimeout(() => {
                 document.getElementById('scanInput')?.focus();
             }, 100);
         });
 
-        // Focus on page load
+        // Focus on page load and restore state
         window.addEventListener('load', () => {
             initBarcodeDetector();
+            restoreSessionState();
             document.getElementById('scanInput')?.focus();
+            // Save initial state
+            saveSessionState();
+        });
+
+        // Save state before unload
+        window.addEventListener('beforeunload', () => {
+            saveSessionState();
         });
 
         // Clean up camera on page unload

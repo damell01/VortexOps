@@ -44,7 +44,7 @@ class InventoryScanner extends Page
 
     public function getView(): string
     {
-        return 'filament.pages.inventory-scanner';
+        return 'filament.pages.inventory-scanner-enhanced';
     }
 
     public function getSubheading(): ?string

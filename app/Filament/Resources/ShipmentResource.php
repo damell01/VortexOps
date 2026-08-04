@@ -20,7 +20,7 @@ class ShipmentResource extends Resource
     use HasModuleAccess;
 
     protected static ?string $model = Shipment::class;
-    protected static string $moduleSlug = 'streams';
+    protected static string $moduleSlug = 'shipments';
 
     public static function getNavigationIcon(): ?string
     {
@@ -34,7 +34,7 @@ class ShipmentResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        return AdminModules::navigationGroupFor('streams');
+        return AdminModules::navigationGroupFor('shipments');
     }
 
     public static function getNavigationSort(): ?int

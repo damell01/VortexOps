@@ -38,6 +38,12 @@ class AdminModules
                 'group'       => 'Inventory',
                 'order'       => 35,
             ],
+            'shipments' => [
+                'label'       => 'Shipments',
+                'description' => 'Vendor shipments and receipt tracking.',
+                'group'       => 'Inventory',
+                'order'       => 36,
+            ],
             'operations' => [
                 'label'       => 'Operations',
                 'description' => 'Streamers, channels, and other supporting ops tools.',
@@ -85,7 +91,7 @@ class AdminModules
      */
     public static function defaultEnabledSlugs(): array
     {
-        return ['streams', 'payouts', 'inventory', 'purchasing', 'operations', 'reporting'];
+        return ['streams', 'payouts', 'inventory', 'purchasing', 'shipments', 'operations', 'reporting'];
     }
 
     /**

@@ -294,9 +294,6 @@ class StreamerLogResource extends Resource
                     ->label('Product Cost')
                     ->money('USD')
                     ->toggleable(),
-                TextColumn::make('profit_share_amount')
-                    ->label('Profit Share')
-                    ->money('USD'),
                 TextColumn::make('total_due')
                     ->label('Total Due')
                     ->money('USD'),

@@ -142,7 +142,7 @@ class ItemsSoldRelationManager extends RelationManager
             ->defaultSort('lot_number')
             ->striped()
             ->extraAttributes(['data-sticky-header' => 'true'])
-            ->rowClasses(fn ($record) => ! $record->inventory_item_id
+            ->recordClasses(fn ($record) => ! $record->inventory_item_id
                 ? 'bg-red-50 dark:bg-red-950/20 border-l-4 border-red-500'
                 : '')
             ->columns([

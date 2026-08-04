@@ -17,6 +17,7 @@ use App\Services\ReceivingService;
 use App\Support\AdminModules;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Livewire\Attributes\On;
 use Livewire\WithFileUploads;
 use RuntimeException;
 
@@ -88,6 +89,7 @@ class InventoryScanner extends Page
     public ?int    $costAdjustLineId = null;
     public string  $costAdjustNewCost = '';
     public string  $costAdjustReason = '';
+    public ?int    $lastScannedLineId = null; // Track which line was just scanned for UI highlighting
 
     // ── Cost Warnings ─────────────────────────────────────────────────────────────
 
@@ -322,6 +324,7 @@ class InventoryScanner extends Page
         $this->scanInput = '';
         $this->rcvFlash  = null;
         $this->rcvError  = null;
+        $this->lastScannedLineId = null;
 
         if ($code === '') {
             return;
@@ -341,6 +344,7 @@ class InventoryScanner extends Page
         try {
             $result = app(ReceivingService::class)->receiveLineByItemCode($pallet, $code);
             $this->rcvFlash = "Received {$result['item_name']} — {$result['cases_received']} case(s) added to stock.";
+            $this->lastScannedLineId = $result['line_id'] ?? null;
         } catch (RuntimeException $e) {
             $this->rcvError = $e->getMessage();
         }
@@ -639,6 +643,12 @@ class InventoryScanner extends Page
     {
         $this->showManualLineEntry = false;
         $this->resetManualLineForm();
+    }
+
+    #[On('clearScannedHighlight')]
+    public function clearScannedHighlight(): void
+    {
+        $this->lastScannedLineId = null;
     }
 
     private function resetManualLineForm(): void

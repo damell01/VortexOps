@@ -90,6 +90,7 @@ class ReceivingService
         $line->update(['line_status' => 'received']);
 
         return [
+            'line_id'        => $line->id,
             'line_number'    => $line->line_number,
             'item_name'      => $line->inventoryItem->name,
             'cases_received' => $received,

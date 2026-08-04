@@ -716,7 +716,9 @@
                 <h4 class="font-semibold text-gray-900 dark:text-white text-sm mb-3">Item Status (Scan barcodes to update)</h4>
                 <div class="space-y-2">
                 @foreach($rcvProgress['lines'] as $line)
-                <div class="rounded-lg border {{ $line['done'] ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950' : ($line['line_status'] === 'pending' ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950' : 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950') }} px-4 py-3">
+                <div class="rounded-lg border transition-all duration-300 {{ $lastScannedLineId === $line['line_id'] ? 'border-blue-500 dark:border-blue-400 bg-blue-100 dark:bg-blue-900 ring-2 ring-blue-400 shadow-lg' : ($line['done'] ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950' : ($line['line_status'] === 'pending' ? 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950' : 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-950')) }} px-4 py-3"
+                    @if($lastScannedLineId === $line['line_id']) wire:key="scanned-{{ $line['line_id'] }}-{{ now()->timestamp }}" @endif
+                >
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex-1">
                             <div class="flex items-center gap-2">
@@ -746,13 +748,21 @@
                                 @endif
                             </p>
                         </div>
-                        <div class="text-right flex items-center gap-2">
-                            <button wire:click="openCostAdjust({{ $line['line_id'] ?? 0 }})" type="button" class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                        <div class="text-right flex items-center gap-3">
+                            @if($line['done'])
+                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-200 dark:bg-green-800 text-green-900 dark:text-green-100 text-xs font-medium">
+                                <x-heroicon-o-check class="h-3 w-3" />
+                                Done
+                            </span>
+                            @else
+                            <button wire:click="openCostAdjust({{ $line['line_id'] ?? 0 }})" type="button" class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800 rounded px-2 py-1">
                                 <x-heroicon-o-pencil-square class="h-4 w-4" />
                             </button>
-                            <div class="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-                                <div class="bg-blue-600 h-1.5 rounded-full" style="width: {{ $line['total_cases'] > 0 ? ($line['received_cases'] / $line['total_cases']) * 100 : 0 }}%"></div>
+                            @endif
+                            <div class="w-20 bg-gray-300 dark:bg-gray-600 rounded-full h-2 flex-shrink-0">
+                                <div class="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-500" style="width: {{ $line['total_cases'] > 0 ? ($line['received_cases'] / $line['total_cases']) * 100 : 0 }}%"></div>
                             </div>
+                            <span class="text-xs font-semibold text-gray-700 dark:text-gray-300 w-12 text-right">{{ round(($line['total_cases'] > 0 ? ($line['received_cases'] / $line['total_cases']) * 100 : 0), 0) }}%</span>
                         </div>
                     </div>
                 </div>
@@ -990,6 +1000,18 @@
         @endif
 
     </div>
+
+    {{-- Auto-fade scanned item highlight after 2 seconds --}}
+    <script>
+    document.addEventListener('livewire:updated', function() {
+        const highlighted = document.querySelector('[wire\\:key^="scanned-"]');
+        if (highlighted) {
+            setTimeout(function() {
+                @this.dispatch('clearScannedHighlight');
+            }, 2000);
+        }
+    });
+    </script>
 
     {{-- Camera scanning scripts --}}
     @if($mode === 'lookup' || $mode === 'receive')

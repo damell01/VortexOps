@@ -174,7 +174,6 @@ class ItemsSoldRelationManager extends RelationManager
 
                 SelectColumn::make('inventory_item_id')
                     ->label('Inventory Item')
-                    ->description('Click to match this sale to your inventory')
                     ->options(fn () => self::streamerInventoryOptions($show))
                     ->selectablePlaceholder('⚠ Choose item')
                     ->width('220px')

@@ -182,8 +182,7 @@ class ShipmentResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->paginated([50, 100, 200])
-            ->striped()
-            ->hover();
+            ->striped();
     }
 
     public static function getPages(): array

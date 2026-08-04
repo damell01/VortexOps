@@ -35,12 +35,22 @@
 
         <!-- Main Content Area -->
         <div class="flex-1 overflow-y-auto pb-24">
-            <!-- Camera Section (Always Visible as Reference) -->
-            <div class="bg-gray-900 p-4 text-center text-white">
-                <div class="bg-gray-800 rounded-lg p-8 border-2 border-gray-700">
-                    <div class="text-5xl mb-2">📷</div>
-                    <p class="text-sm">Point camera at barcode</p>
-                    <p class="text-xs text-gray-400 mt-2">Camera API ready for scanning</p>
+            <!-- Camera Section -->
+            <div class="bg-gray-900 p-4">
+                <div id="cameraContainer" class="bg-gray-800 rounded-lg border-2 border-gray-700 aspect-video flex flex-col items-center justify-center text-white">
+                    <video id="cameraFeed" class="w-full h-full rounded-lg object-cover hidden"></video>
+                    <div id="cameraPlaceholder" class="text-center">
+                        <div class="text-5xl mb-2">📷</div>
+                        <p class="text-sm">Point camera at barcode</p>
+                        <button
+                            id="startCameraBtn"
+                            type="button"
+                            class="mt-3 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded text-sm transition"
+                        >
+                            Start Camera
+                        </button>
+                        <p id="cameraStatus" class="text-xs text-gray-400 mt-2">Ready to scan</p>
+                    </div>
                 </div>
             </div>
 
@@ -333,6 +343,209 @@
     </style>
 
     <script>
+        let barcodeDetector = null;
+        let cameraStream = null;
+        let isScanning = false;
+        let lastScannedCode = null;
+        let scanTimeout = null;
+
+        // Initialize BarcodeDetector
+        async function initBarcodeDetector() {
+            if ('BarcodeDetector' in window) {
+                try {
+                    barcodeDetector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'qr_code'] });
+                    console.log('BarcodeDetector initialized');
+                    return true;
+                } catch (e) {
+                    console.warn('BarcodeDetector error:', e);
+                    updateCameraStatus('Camera API not available', 'warning');
+                    return false;
+                }
+            } else {
+                console.warn('BarcodeDetector not supported');
+                updateCameraStatus('Barcode detection not supported', 'warning');
+                return false;
+            }
+        }
+
+        // Start camera feed
+        async function startCamera() {
+            try {
+                updateCameraStatus('Starting camera...', 'info');
+
+                if (!navigator.mediaDevices?.getUserMedia) {
+                    updateCameraStatus('Camera not available', 'error');
+                    return;
+                }
+
+                const constraints = {
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                };
+
+                cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+                const video = document.getElementById('cameraFeed');
+                video.srcObject = cameraStream;
+
+                // Wait for video to be ready
+                await new Promise(resolve => {
+                    video.onloadedmetadata = () => {
+                        video.play();
+                        resolve();
+                    };
+                });
+
+                // Hide placeholder, show video
+                document.getElementById('cameraPlaceholder').classList.add('hidden');
+                video.classList.remove('hidden');
+                document.getElementById('startCameraBtn').textContent = 'Stop Camera';
+
+                isScanning = true;
+                updateCameraStatus('Camera active - Scanning...', 'success');
+                scanBarcodesFromCamera();
+
+            } catch (error) {
+                console.error('Camera error:', error);
+                let errorMsg = 'Camera failed to start';
+                if (error.name === 'NotAllowedError') {
+                    errorMsg = 'Camera permission denied';
+                } else if (error.name === 'NotFoundError') {
+                    errorMsg = 'Camera not found';
+                }
+                updateCameraStatus(errorMsg, 'error');
+            }
+        }
+
+        // Stop camera feed
+        function stopCamera() {
+            isScanning = false;
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+
+            const video = document.getElementById('cameraFeed');
+            video.classList.add('hidden');
+            document.getElementById('cameraPlaceholder').classList.remove('hidden');
+            document.getElementById('startCameraBtn').textContent = 'Start Camera';
+            updateCameraStatus('Camera stopped', 'info');
+        }
+
+        // Continuous barcode scanning
+        async function scanBarcodesFromCamera() {
+            const video = document.getElementById('cameraFeed');
+
+            while (isScanning && cameraStream) {
+                try {
+                    if (barcodeDetector && video.readyState === video.HAVE_ENOUGH_DATA) {
+                        const barcodes = await barcodeDetector.detect(video);
+
+                        if (barcodes.length > 0) {
+                            const barcode = barcodes[0];
+                            const code = barcode.rawValue;
+
+                            // Avoid duplicate scans within 500ms
+                            if (code !== lastScannedCode) {
+                                lastScannedCode = code;
+
+                                // Visual feedback
+                                flashCamera('success');
+                                playBeep('success');
+
+                                // Submit scan
+                                const input = document.getElementById('scanInput');
+                                input.value = code;
+                                input.dispatchEvent(new Event('input', { bubbles: true }));
+
+                                // Trigger submit via Livewire
+                                setTimeout(() => {
+                                    const event = new KeyboardEvent('keydown', {
+                                        key: 'Enter',
+                                        code: 'Enter',
+                                        keyCode: 13,
+                                        bubbles: true
+                                    });
+                                    input.dispatchEvent(event);
+                                }, 50);
+
+                                // Reset after timeout
+                                if (scanTimeout) clearTimeout(scanTimeout);
+                                scanTimeout = setTimeout(() => {
+                                    lastScannedCode = null;
+                                }, 500);
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Barcode detection error:', error);
+                }
+
+                // Small delay before next scan
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+
+        // Flash effect for scan feedback
+        function flashCamera(type) {
+            const container = document.getElementById('cameraContainer');
+            const color = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+
+            container.classList.add(color);
+            setTimeout(() => container.classList.remove(color), 200);
+        }
+
+        // Audio feedback
+        function playBeep(type) {
+            // Only play if permitted by browser
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+
+            oscillator.connect(gain);
+            gain.connect(audioContext.destination);
+
+            if (type === 'success') {
+                oscillator.frequency.value = 800;
+                gain.gain.setValueAtTime(0.1, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
+            } else {
+                oscillator.frequency.value = 400;
+                gain.gain.setValueAtTime(0.05, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.2);
+            }
+        }
+
+        // Update camera status text
+        function updateCameraStatus(message, type = 'info') {
+            const status = document.getElementById('cameraStatus');
+            if (status) {
+                status.textContent = message;
+                status.className = `text-xs mt-2 ${
+                    type === 'error' ? 'text-red-400' :
+                    type === 'success' ? 'text-green-400' :
+                    type === 'warning' ? 'text-yellow-400' :
+                    'text-gray-400'
+                }`;
+            }
+        }
+
+        // Camera button handler
+        document.getElementById('startCameraBtn')?.addEventListener('click', () => {
+            if (isScanning) {
+                stopCamera();
+            } else {
+                startCamera();
+            }
+        });
+
         // Auto-focus scanner input on load and mode changes
         document.addEventListener('livewire:updated', () => {
             setTimeout(() => {
@@ -342,7 +555,13 @@
 
         // Focus on page load
         window.addEventListener('load', () => {
+            initBarcodeDetector();
             document.getElementById('scanInput')?.focus();
+        });
+
+        // Clean up camera on page unload
+        window.addEventListener('beforeunload', () => {
+            stopCamera();
         });
 
         // Prevent accidental back navigation on phone

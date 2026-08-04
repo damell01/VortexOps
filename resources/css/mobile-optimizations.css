@@ -1,36 +1,315 @@
-/**
- * VortexOps Mobile & UX Optimizations
- * Ensures snappy, touch-friendly interactions across all devices
- */
+/* VortexOps Mobile Optimizations */
 
-/* ── Touch-friendly button sizing ────────────────────────────────────── */
-@media (max-width: 768px) {
-    /* Ensure minimum 44×44px tap targets (iOS guideline) */
-    button,
-    a[role="button"],
-    [role="checkbox"],
-    [role="radio"],
-    .cursor-pointer {
+/* ═══════════════════════════════════════════════════════════════════ */
+/* VIEWPORT & TOUCH */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+* {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+input, textarea, select {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+body {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* MOBILE-FIRST LAYOUT ADJUSTMENTS */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+    /* Larger touch targets (minimum 44x44px) */
+    button, a[role="button"], .btn, [role="button"] {
         min-height: 44px;
         min-width: 44px;
-        display: inline-flex;
+        padding: 12px 16px;
+        font-size: 1rem;
+    }
+
+    /* Form inputs */
+    input, textarea, select {
+        min-height: 44px;
+        font-size: 16px;
+        padding: 12px 12px;
+    }
+
+    /* Filament sidebar adjustments */
+    .fi-sidebar {
+        position: fixed;
+        left: -100%;
+        top: 0;
+        height: 100vh;
+        width: 80vw;
+        max-width: 320px;
+        z-index: 40;
+        background: white;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+        transition: left 0.3s ease;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .fi-sidebar.open {
+        left: 0;
+    }
+
+    .fi-sidebar-open .fi-sidebar {
+        left: 0;
+    }
+
+    /* Mobile menu toggle */
+    .fi-topbar {
+        display: flex;
+        justify-content: space-between;
         align-items: center;
+        padding: 12px 16px;
+    }
+
+    .fi-topbar-section {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    /* Mobile menu button */
+    .mobile-menu-toggle {
+        display: flex;
+        width: 44px;
+        height: 44px;
+        padding: 0;
         justify-content: center;
+        align-items: center;
+        background: transparent;
+        border: none;
+        color: #4c1d95;
+        font-size: 24px;
+        cursor: pointer;
+        z-index: 41;
     }
 
-    /* Add comfortable spacing around buttons */
-    .fi-btn {
-        gap: 0.75rem;
-        padding: 0.75rem 1rem;
+    /* Backdrop for sidebar */
+    .fi-sidebar-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.3);
+        z-index: 39;
     }
 
-    /* Full-width buttons on mobile */
-    .fi-page-heading button {
+    .fi-sidebar-open .fi-sidebar-backdrop {
+        display: block;
+    }
+
+    /* Tables responsive */
+    .fi-table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .fi-table {
+        min-width: 100%;
+    }
+
+    .fi-table th,
+    .fi-table td {
+        padding: 12px 8px;
+        font-size: 13px;
+    }
+
+    /* Forms */
+    .fi-form {
+        padding: 16px;
+    }
+
+    .fi-section {
+        margin-bottom: 20px;
+    }
+
+    .fi-form-section > * + * {
+        margin-top: 16px;
+    }
+
+    /* Cards */
+    .fi-card {
+        padding: 16px;
+        border-radius: 12px;
+        margin-bottom: 12px;
+    }
+
+    /* Modals on mobile */
+    .fi-modal {
+        position: fixed;
+        inset: 0;
         width: 100%;
+        height: 100vh;
+        border-radius: 0;
+        max-height: 100vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .fi-modal-container {
+        max-width: 100%;
+        border-radius: 16px 16px 0 0;
+        bottom: 0;
+    }
+
+    /* Action buttons in tables */
+    .fi-table-actions {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+
+    .fi-table-actions-button {
+        min-width: 36px;
+        min-height: 36px;
+    }
+
+    /* Breadcrumbs */
+    .fi-breadcrumbs {
+        font-size: 13px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Grid columns */
+    .grid {
+        gap: 12px;
+    }
+
+    .grid-cols-2,
+    .grid-cols-3,
+    .grid-cols-4 {
+        grid-template-columns: 1fr;
+    }
+
+    /* Space adjustments */
+    .space-y-4 > * + * {
+        margin-top: 12px;
+    }
+
+    .space-x-4 > * + * {
+        margin-left: 12px;
+    }
+
+    /* Typography */
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    h2 {
+        font-size: 1.25rem;
+    }
+
+    h3 {
+        font-size: 1.1rem;
+    }
+
+    /* Badges and pills */
+    .badge, .badge-pill, .fi-badge {
+        padding: 6px 12px;
+        font-size: 12px;
+        min-height: 28px;
+    }
+
+    /* Notifications */
+    .fi-notification {
+        margin: 8px 16px;
+        border-radius: 12px;
+        padding: 12px 16px;
+    }
+
+    /* Dropdowns and selects */
+    select, .fi-select {
+        padding: 12px;
+        border-radius: 8px;
+    }
+
+    /* Max width for content areas */
+    .fi-main-container {
+        max-width: 100%;
+        padding: 0;
+    }
+
+    .fi-page-content {
+        padding: 16px;
+    }
+
+    /* Tabs */
+    .fi-tabs {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .fi-tab {
+        padding: 12px 16px;
+        min-width: auto;
+        white-space: nowrap;
     }
 }
 
-/* ── Reduced motion respect ─────────────────────────────────────────── */
+@media (min-width: 641px) and (max-width: 1024px) {
+    button, a[role="button"] {
+        min-height: 40px;
+        padding: 10px 14px;
+    }
+
+    input, textarea, select {
+        min-height: 40px;
+        font-size: 15px;
+        padding: 10px;
+    }
+
+    .grid-cols-4 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .fi-table th,
+    .fi-table td {
+        padding: 10px 8px;
+        font-size: 14px;
+    }
+}
+
+@media (max-height: 600px) {
+    .fi-sidebar {
+        width: 100%;
+        height: 100%;
+        max-width: 70vw;
+    }
+
+    .fi-modal {
+        max-height: 100vh;
+        overflow-y: auto;
+    }
+
+    button, a[role="button"] {
+        min-height: 40px;
+        padding: 8px 12px;
+    }
+
+    .fi-form {
+        padding: 12px;
+    }
+}
+
+@media (min-resolution: 2dppx) {
+    input, textarea, select, button {
+        border-width: 0.5px;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     * {
         animation-duration: 0.01ms !important;
@@ -39,179 +318,115 @@
     }
 }
 
-/* ── Optimized scrolling performance ────────────────────────────────── */
-.fi-sidebar,
-.fi-content,
-[role="region"] {
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
-}
-
-/* Prevent layout shift during scroll */
-html {
-    scroll-padding-top: 4rem;
-}
-
-/* ── Keyboard focus visibility ──────────────────────────────────────── */
-:focus-visible {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
-}
-
-/* Hide focus for mouse users (show for keyboard) */
-:focus:not(:focus-visible) {
-    outline: none;
-}
-
-/* ── Form input optimizations ──────────────────────────────────────── */
-@media (max-width: 768px) {
-    input,
-    textarea,
-    select {
-        font-size: 16px !important; /* Prevents zoom on iOS */
-        padding: 0.75rem;
-        min-height: 44px;
+@media (prefers-contrast: more) {
+    button, a[role="button"] {
+        border: 2px solid currentColor;
     }
 
-    input[type="checkbox"],
-    input[type="radio"] {
-        min-width: 20px;
-        min-height: 20px;
+    input, textarea, select {
+        border: 2px solid currentColor;
     }
 
-    /* Stack form fields on mobile */
-    .fi-form-fields-grid {
-        grid-template-columns: 1fr !important;
+    .fi-card {
+        border: 2px solid currentColor;
     }
 }
 
-/* ── Table responsiveness ──────────────────────────────────────────── */
-@media (max-width: 768px) {
-    /* Horizontal scroll on small screens */
-    .fi-resource-table-wrapper {
-        -webkit-overflow-scrolling: touch;
-        overflow-x: auto;
-    }
-
-    /* Make table cells more readable on mobile */
-    .fi-resource-table td,
-    .fi-resource-table th {
-        padding: 1rem 0.75rem;
-        font-size: 0.875rem;
-    }
+.mobile-container {
+    padding: 16px;
+    max-width: 100%;
 }
 
-/* ── Loading state optimization ────────────────────────────────────── */
-.fi-loading-indicator {
-    animation: spin 1s linear infinite;
+.mobile-section {
+    margin-bottom: 16px;
+    padding: 16px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+.mobile-button {
+    display: block;
+    width: 100%;
+    padding: 14px 16px;
+    text-align: center;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 1rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 44px;
 }
 
-/* GPU acceleration for smooth animations */
-.fi-modal,
-.fi-dropdown,
-[x-cloak] {
-    will-change: transform, opacity;
-    transform: translateZ(0);
+.mobile-button:active {
+    transform: scale(0.98);
+    opacity: 0.8;
 }
 
-/* ── Tap feedback ──────────────────────────────────────────────────── */
-@media (pointer: coarse) {
-    button:active,
-    a:active {
-        opacity: 0.7;
-    }
+.mobile-input-group {
+    margin-bottom: 16px;
 }
 
-/* ── Dark mode smooth transitions ──────────────────────────────────── */
-@media (prefers-color-scheme: dark) {
-    html {
-        color-scheme: dark;
-    }
-
-    /* Smooth color transitions on theme toggle */
-    body,
-    html,
-    .fi-body,
-    .fi-sidebar {
-        transition: background-color 200ms ease, color 200ms ease;
-    }
+.mobile-input-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    font-size: 14px;
 }
 
-/* ── Improved readability on mobile ────────────────────────────────── */
-@media (max-width: 640px) {
-    body {
-        font-size: 16px;
-    }
-
-    .fi-page-heading h1 {
-        font-size: 1.5rem;
-    }
-
-    .fi-page-heading .fi-body-subheading {
-        font-size: 0.875rem;
-    }
+.mobile-input-group input,
+.mobile-input-group textarea,
+.mobile-input-group select {
+    width: 100%;
+    min-height: 44px;
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 16px;
 }
 
-/* ── Link target size on mobile ────────────────────────────────────── */
-@media (max-width: 768px) {
-    a {
-        min-height: 44px;
-        display: inline-block;
-        padding: 0.5rem 0.75rem;
-    }
-
-    /* Don't apply to icon-only links */
-    a[title]:not(.fi-icon-btn) {
-        padding: 0.75rem;
-    }
-}
-
-/* ── Viewport meta tag helpers ─────────────────────────────────────── */
-@viewport {
-    width: device-width;
-    initial-scale: 1.0;
-    maximum-scale: 5.0;
-    user-scalable: yes;
-}
-
-/* ── Safe area insets (notch support) ──────────────────────────────── */
 @supports (padding: max(0px)) {
-    .fi-sidebar,
-    .fi-navbar {
-        padding-left: max(1rem, env(safe-area-inset-left));
-        padding-right: max(1rem, env(safe-area-inset-right));
+    .fi-topbar {
+        padding-top: max(12px, env(safe-area-inset-top));
+        padding-right: max(16px, env(safe-area-inset-right));
+        padding-bottom: 12px;
+        padding-left: max(16px, env(safe-area-inset-left));
     }
 
-    .fi-navbar-top {
-        padding-top: max(0.5rem, env(safe-area-inset-top));
+    .fi-page-content {
+        padding-right: max(16px, env(safe-area-inset-right));
+        padding-left: max(16px, env(safe-area-inset-left));
     }
 }
 
-/* ── Input autofill styling ────────────────────────────────────────── */
-input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus {
-    -webkit-box-shadow: 0 0 0 30px white inset !important;
-    box-shadow: 0 0 0 30px white inset !important;
+.mobile-scroll-snap {
+    scroll-snap-type: x mandatory;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
-input:-webkit-autofill {
-    -webkit-text-fill-color: #333 !important;
+.mobile-scroll-snap > * {
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
 }
 
-@media (prefers-color-scheme: dark) {
-    input:-webkit-autofill,
-    input:-webkit-autofill:hover,
-    input:-webkit-autofill:focus {
-        -webkit-box-shadow: 0 0 0 30px #1f2937 inset !important;
+@media (orientation: portrait) {
+    .mobile-portrait-only {
+        display: block;
     }
 
-    input:-webkit-autofill {
-        -webkit-text-fill-color: #f3f4f6 !important;
+    .mobile-landscape-only {
+        display: none;
+    }
+}
+
+@media (orientation: landscape) {
+    .mobile-portrait-only {
+        display: none;
+    }
+
+    .mobile-landscape-only {
+        display: block;
     }
 }

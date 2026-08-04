@@ -99,8 +99,8 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => ! $hasViteManifest()
                     ? ''
                     : ($isAuthenticatedAdminView()
-                        ? Blade::render("@vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/barcode-scanner.js'])")
-                        : Blade::render("@vite(['resources/css/app.css'])")),
+                        ? Blade::render("@vite(['resources/css/app.css', 'resources/css/mobile-optimizations.css', 'resources/js/app.js', 'resources/js/barcode-scanner.js'])")
+                        : Blade::render("@vite(['resources/css/app.css', 'resources/css/mobile-optimizations.css'])")),
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,

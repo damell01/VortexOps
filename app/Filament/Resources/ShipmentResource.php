@@ -134,19 +134,13 @@ class ShipmentResource extends Resource
                     ->money('USD')
                     ->sortable(),
 
-                BadgeColumn::make('insurance_added')
+                IconColumn::make('insurance_added')
                     ->label('Insurance')
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->trueColor('success')
-                    ->falseIcon('heroicon-o-x-circle')
-                    ->falseColor('gray'),
+                    ->boolean(),
 
-                BadgeColumn::make('signature_required')
+                IconColumn::make('signature_required')
                     ->label('Signature')
-                    ->trueIcon('heroicon-o-check-circle')
-                    ->trueColor('success')
-                    ->falseIcon('heroicon-o-x-circle')
-                    ->falseColor('gray'),
+                    ->boolean(),
 
                 TextColumn::make('created_at')
                     ->label('Created')

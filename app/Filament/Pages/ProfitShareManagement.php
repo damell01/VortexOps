@@ -51,6 +51,11 @@ class ProfitShareManagement extends Page implements HasForms, HasTable
         return 45;
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public function getSubheading(): ?string
     {
         return 'Manage profit share distribution between streamer and manager.';

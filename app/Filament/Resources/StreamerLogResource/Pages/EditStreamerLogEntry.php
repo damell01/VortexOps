@@ -15,6 +15,11 @@ class EditStreamerLogEntry extends EditRecord
 {
     protected static string $resource = StreamerLogResource::class;
 
+    public function getView(): string
+    {
+        return 'filament.resources.streamer-log-resource.pages.edit-streamer-log-entry';
+    }
+
     protected function getHeaderActions(): array
     {
         $user = auth()->user();

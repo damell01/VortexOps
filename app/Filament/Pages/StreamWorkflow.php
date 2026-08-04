@@ -11,7 +11,7 @@ class StreamWorkflow extends Page
 {
     protected static string $moduleSlug = 'streams';
     protected static ?string $title = 'Stream Workflow';
-    protected static ?string $navigationIcon = 'heroicon-o-arrow-path';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-arrow-path';
 
     public function getView(): string
     {

@@ -25,7 +25,7 @@ class EndOfStreamForm extends Page implements HasForms
 
     protected static string $moduleSlug = 'streams';
 
-    protected static ?string $navigationIcon = 'heroicon-o-camera';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-camera';
 
     protected static ?string $title = 'End of Stream';
 

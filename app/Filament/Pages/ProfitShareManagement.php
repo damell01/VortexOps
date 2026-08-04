@@ -27,7 +27,7 @@ class ProfitShareManagement extends Page implements HasForms, HasTable
 
     protected static string $moduleSlug = 'payouts';
     protected static ?string $title = 'Profit Share Distribution';
-    protected static ?string $navigationIcon = 'heroicon-o-share-2';
+    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-share-2';
 
     public ?Streamer $streamer = null;
     public ?array $distributionData = [];

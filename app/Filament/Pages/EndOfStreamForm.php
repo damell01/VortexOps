@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\InventoryItem;
 use App\Models\Show;
 use App\Models\Streamer;
+use App\Models\StreamerLogEntry;
 use App\Models\WhatnotShowOrder;
 use App\Support\AdminModules;
 use Filament\Forms\Components\Grid;
@@ -139,32 +140,41 @@ class EndOfStreamForm extends Page implements HasForms
         }
 
         try {
+            // Get or create streamer log entry
+            $logEntry = $this->show->streamerLogEntry()
+                ->firstOrCreate(['streamer_id' => $streamer->id], ['status' => 'pending']);
+
+            // Add/update items to the show
             foreach ($this->selectedItems as $itemId) {
                 $quantity = $this->itemQuantities[$itemId] ?? 1;
+                $item = InventoryItem::find($itemId);
 
                 // Create or update order record
                 WhatnotShowOrder::updateOrCreate(
                     [
                         'show_id' => $this->show->id,
                         'inventory_item_id' => $itemId,
-                        'status' => 'completed',
                     ],
                     [
-                        'item_name' => InventoryItem::find($itemId)?->name,
+                        'item_name' => $item?->name,
                         'quantity' => $quantity,
                         'show_date' => $this->show->show_date,
+                        'status' => 'completed',
                     ]
                 );
             }
 
             Notification::make()
                 ->title('✓ Items logged')
-                ->body(count($this->selectedItems) . ' item(s) added to your show.')
+                ->body(count($this->selectedItems) . ' item(s) added to your show. Review in your Streamer Log.')
                 ->success()
                 ->send();
 
-            // Redirect to streamer log to review/finalize
-            $this->redirect(route('filament.admin.resources.streamer-logs.index'), navigate: true);
+            // Redirect to streamer log to review
+            $this->redirect(
+                route('filament.admin.resources.streamer-logs.edit', $logEntry),
+                navigate: true
+            );
         } catch (\Exception $e) {
             Notification::make()
                 ->title('Error saving items')

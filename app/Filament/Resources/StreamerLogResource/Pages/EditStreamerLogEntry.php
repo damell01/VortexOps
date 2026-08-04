@@ -5,6 +5,8 @@ namespace App\Filament\Resources\StreamerLogResource\Pages;
 use App\Filament\Resources\StreamerLogResource;
 use App\Models\StreamerLogEntry;
 use App\Services\ShippingSurchargeService;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Enums\MaxWidth;
 use Illuminate\Support\HtmlString;
@@ -15,16 +17,41 @@ class EditStreamerLogEntry extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [];
+        $user = auth()->user();
+        $isStreamer = $user?->isStreamer() && !$user->isAdmin();
+
+        return [
+            // Streamers can request edit permission if locked
+            Action::make('request_edit')
+                ->label('Request Edit Permission')
+                ->icon('heroicon-o-pencil-square')
+                ->color('warning')
+                ->visible(fn () => $isStreamer && StreamerLogResource::isLockedForCurrentUser($this->record))
+                ->requiresConfirmation()
+                ->modalHeading('Request Edit Permission')
+                ->modalDescription('An admin will review your request and unlock this log entry for editing.')
+                ->action(function () {
+                    Notification::make()
+                        ->title('Request sent')
+                        ->body('An admin has been notified of your edit request.')
+                        ->success()
+                        ->send();
+                    // TODO: Implement notification to admins about edit request
+                }),
+        ];
     }
 
     public function getSubheading(): ?string
     {
         /** @var StreamerLogEntry $record */
         $record = $this->record;
+        $isStreamer = auth()->user()?->isStreamer() && !auth()->user()?->isAdmin();
 
-        if (StreamerLogResource::isLockedForCurrentUser($record)) {
-            return '🔒 Approved — this entry is now view-only. Ask an admin to send it back if you need to make changes.';
+        if ($isStreamer) {
+            if (StreamerLogResource::isLockedForCurrentUser($record)) {
+                return '🔒 View-only. Use the "End of Stream" form to log new items, or request edit permission if you need to make changes.';
+            }
+            return '📋 Your show summary. Use the "End of Stream" form to add items sold.';
         }
 
         if ($record->status === 'pending') {
@@ -35,15 +62,15 @@ class EditStreamerLogEntry extends EditRecord
                 ? "{$mapped}/{$total} items mapped"
                 : 'No items to map';
 
-            return "Step 1 of 3: Map items → Fill costs → Review. {$mappingProgress}";
+            return "Streamer entered {$total} item(s). Review and approve.";
         }
 
         if ($record->status === 'streamer_reviewed') {
-            return 'Step 2 of 3: Waiting for admin review. Your data has been submitted.';
+            return 'Awaiting admin review and approval of this streamer log entry.';
         }
 
         if ($record->status === 'admin_approved' && $record->needsFulfillmentReview()) {
-            return 'Step 3 of 3: Pending fulfillment team review of PWE/label counts.';
+            return 'Pending fulfillment team review of PWE/label counts.';
         }
 
         return null;

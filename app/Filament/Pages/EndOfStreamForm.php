@@ -45,6 +45,11 @@ class EndOfStreamForm extends Page implements HasForms
         return 'Select the show and the items you sold. We\'ll handle the rest.';
     }
 
+    public function getView(): string
+    {
+        return 'filament.pages.end-of-stream-form';
+    }
+
     public function mount(?string $showId = null): void
     {
         if ($showId) {

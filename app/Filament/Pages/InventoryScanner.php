@@ -49,7 +49,7 @@ class InventoryScanner extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Three modes, one scanner: Look Up checks stock on an item, Quick Add credits stock as you scan, Receive Pallet works through an incoming shipment. Works with a Bluetooth/USB scanner or your phone\'s camera.';
+        return 'Four modes: Look Up checks stock & costs, Quick Add scans to add stock, Receive Pallet tracks incoming shipments, Stage Pallet pre-stages for receiving. Works with scanners or phone camera.';
     }
 
     // ── Mode ──────────────────────────────────────────────────────────────────

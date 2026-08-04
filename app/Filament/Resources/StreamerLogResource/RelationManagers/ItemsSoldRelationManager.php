@@ -214,8 +214,7 @@ class ItemsSoldRelationManager extends RelationManager
                     ->type('number')
                     ->rules(['nullable', 'numeric', 'min:0'])
                     ->width('110px')
-                    ->disabled($locked)
-                    ->color('info'),
+                    ->disabled($locked),
 
                 TextColumn::make('total_cost')
                     ->label('Total Cost')

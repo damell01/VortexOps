@@ -165,7 +165,20 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn () => ! $isAuthenticatedAdminView()
                     ? ''
-                    : view('components.quick-actions'),
+                    : Blade::render(<<<'HTML'
+                    <div class="fixed bottom-6 right-6 z-50">
+                        <a href="https://github.com/damell01/vortexops/issues/new"
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white rounded-full px-4 py-2 shadow-lg transition-all">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"></path>
+                                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"></path>
+                            </svg>
+                            <span class="text-sm font-medium">Feedback</span>
+                        </a>
+                    </div>
+                    HTML),
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,

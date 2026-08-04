@@ -203,6 +203,21 @@ class EndOfStreamForm extends Page implements HasForms
 
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        return true;
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'End of Stream';
+    }
+
+    public static function getNavigationGroup(): string | null
+    {
+        return 'Streams';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 38;
     }
 }

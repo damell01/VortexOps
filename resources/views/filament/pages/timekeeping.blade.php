@@ -37,7 +37,8 @@
                     @click="detectingTz = true; $wire.saveDetectedTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone)"
                     :disabled="detectingTz"
                     class="shrink-0 inline-flex items-center gap-2 rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-500 transition-colors disabled:opacity-60">
-                    <x-heroicon-o-arrow-path class="h-3.5 w-3.5" :class="{ 'animate-spin': detectingTz }" />
+                    <span x-show="!detectingTz"><x-heroicon-o-arrow-path class="h-3.5 w-3.5" /></span>
+                    <span x-show="detectingTz"><svg class="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg></span>
                     <span x-text="detectingTz ? 'Saving...' : 'Auto-detect'"></span>
                 </button>
             </div>

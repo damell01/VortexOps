@@ -8,6 +8,8 @@ use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\Pallet;
+use App\Models\PalletLine;
+use App\Models\ScannerReceivingSession;
 use App\Services\ReceivingService;
 use App\Support\AdminModules;
 use Filament\Pages\Page;
@@ -77,6 +79,17 @@ class InventoryScanner extends Page
     public ?array  $rcvProgress = null; // per-line arrays
     public ?string $rcvFlash    = null;
     public ?string $rcvError    = null;
+
+    // ── Advanced Pallet Features ──────────────────────────────────────────────
+
+    public bool    $showPalletStaging = false;  // Toggle staging view
+    public ?int    $stagingPalletId = null;     // For pre-staging pallets
+    public string  $stagingVendorId = '';
+    public string  $stagingReference = '';
+    public ?int    $currentSessionId = null;    // Active scanner session
+    public string  $scanMode = 'barcode';       // barcode|camera
+    public bool    $cameraActive = false;
+    public array   $scannedCodes = [];          // Track scanned codes in session
 
     // ── Boot ──────────────────────────────────────────────────────────────────
 
@@ -296,6 +309,95 @@ class InventoryScanner extends Page
         }
 
         $this->refreshPalletProgress();
+    }
+
+    // ── Pallet Staging (Advanced Feature) ──────────────────────────────────────
+
+    public function stagePallet(): void
+    {
+        if (!$this->stagingVendorId || !$this->stagingReference) {
+            return;
+        }
+
+        $pallet = Pallet::create([
+            'vendor_id' => $this->stagingVendorId,
+            'reference' => $this->stagingReference,
+            'status' => 'pending',
+            'stage' => Pallet::STAGE_STAGED,
+            'staged_at' => now(),
+            'created_by' => auth()->id(),
+        ]);
+
+        $this->showPalletStaging = false;
+        $this->stagingPalletId = $pallet->id;
+        $this->stagingVendorId = '';
+        $this->stagingReference = '';
+
+        // Start receiving session for this pallet
+        $this->startReceivingSession($pallet->id);
+    }
+
+    public function startReceivingSession(?int $palletId = null): void
+    {
+        if (!$palletId && !$this->rcvPalletId) {
+            return;
+        }
+
+        $palletId = $palletId ?? $this->rcvPalletId;
+
+        // End any existing session
+        if ($this->currentSessionId) {
+            $session = ScannerReceivingSession::find($this->currentSessionId);
+            if ($session?->isActive()) {
+                $session->end();
+            }
+        }
+
+        // Create new session
+        $session = ScannerReceivingSession::create([
+            'pallet_id' => $palletId,
+            'user_id' => auth()->id(),
+            'mode' => $this->scanMode,
+            'started_at' => now(),
+            'last_activity_at' => now(),
+        ]);
+
+        $this->currentSessionId = $session->id;
+        $this->scannedCodes = [];
+
+        // Update pallet stage
+        $pallet = Pallet::find($palletId);
+        $pallet->update([
+            'stage' => Pallet::STAGE_RECEIVING,
+            'receiving_started_at' => now(),
+            'status' => 'receiving',
+        ]);
+    }
+
+    public function endReceivingSession(): void
+    {
+        if ($this->currentSessionId) {
+            $session = ScannerReceivingSession::find($this->currentSessionId);
+            if ($session?->isActive()) {
+                $session->end();
+            }
+        }
+        $this->currentSessionId = null;
+        $this->scannedCodes = [];
+    }
+
+    private function recordScannedCode(string $code): void
+    {
+        if ($this->currentSessionId) {
+            $this->scannedCodes[] = $code;
+            $session = ScannerReceivingSession::find($this->currentSessionId);
+            if ($session) {
+                $session->update([
+                    'items_scanned' => count($this->scannedCodes),
+                    'last_activity_at' => now(),
+                ]);
+            }
+        }
     }
 
     private function refreshPalletProgress(): void

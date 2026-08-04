@@ -2,16 +2,15 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\InventoryItem;
 use App\Models\Show;
-use App\Models\StreamerLogEntry;
+use App\Models\Streamer;
+use App\Models\WhatnotShowOrder;
 use App\Support\AdminModules;
-use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Grid;
-use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
@@ -30,41 +29,9 @@ class EndOfStreamForm extends Page implements HasForms
     protected static ?string $title = 'End of Stream';
 
     public ?Show $show = null;
-    public ?StreamerLogEntry $entry = null;
-
-    public ?array $data = [];
-
-    public function mount(?string $showId = null): void
-    {
-        if ($showId) {
-            $this->show = Show::findOrFail($showId);
-            $this->entry = $this->show->streamerLogEntry()->first();
-
-            if (! $this->entry) {
-                $streamer = auth()->user()?->streamer;
-                if ($streamer && $this->show->streamers()->where('streamers.id', $streamer->id)->exists()) {
-                    $this->entry = StreamerLogEntry::create([
-                        'show_id' => $this->show->id,
-                        'streamer_id' => $streamer->id,
-                        'status' => 'pending',
-                    ]);
-                }
-            }
-
-            if ($this->entry) {
-                $this->form->fill([
-                    'hours_streamed' => $this->entry->hours_streamed,
-                    'number_of_shipments' => $this->entry->number_of_shipments,
-                    'number_of_packages_over_500' => $this->entry->number_of_packages_over_500,
-                    'pwe_count' => $this->entry->pwe_count,
-                    'label_count' => $this->entry->label_count,
-                    'product_cost' => $this->entry->product_cost,
-                    'hard_copy' => $this->entry->hard_copy,
-                    'notes' => $this->entry->notes,
-                ]);
-            }
-        }
-    }
+    public string $search = '';
+    public array $selectedItems = [];
+    public array $itemQuantities = [];
 
     public function getTitle(): string | Htmlable
     {
@@ -73,118 +40,138 @@ class EndOfStreamForm extends Page implements HasForms
 
     public function getSubheading(): ?string
     {
-        return 'Quickly log your show metrics before wrapping up. You\'ll review and submit your full data in the next step.';
+        return 'Select the show and the items you sold. We\'ll handle the rest.';
     }
 
-    protected function getFormSchema(): array
+    public function mount(?string $showId = null): void
     {
-        $streamer = auth()->user()?->streamer;
-        $isPweLabels = $streamer && $streamer->payout_type === 'pwe_labels';
+        if ($showId) {
+            $this->show = Show::findOrFail($showId);
+        }
+    }
 
-        return [
-            Section::make('Show Quick-Log')
-                ->columnSpanFull()
-                ->description('Enter your show data here. Don\'t worry about perfection — you can review and edit everything in detail later.')
-                ->schema([
-                    Placeholder::make('show_label')
-                        ->visible(fn () => $this->show !== null)
-                        ->label('')
-                        ->content(fn () => $this->show
-                            ? new \Illuminate\Support\HtmlString(
-                                '<span style="font-weight:600">' . e($this->show->title ?: 'Untitled show') . '</span>'
-                                . ($this->show->show_date ? ' <span style="color:#6b7280">· ' . e($this->show->show_date->format('M j, Y')) . '</span>' : '')
-                            )
-                            : '—'),
+    public function selectShow(string $showId): void
+    {
+        $this->show = Show::findOrFail($showId);
+        $this->search = '';
+        $this->selectedItems = [];
+        $this->itemQuantities = [];
+    }
 
-                    Grid::make(2)->schema([
-                        TextInput::make('hours_streamed')
-                            ->label('Hours Streamed')
-                            ->numeric()
-                            ->step(0.25)
-                            ->default(0)
-                            ->required()
-                            ->helperText('How long were you live? (e.g., 2.5 hours)'),
+    public function getShowsProperty()
+    {
+        $user = auth()->user();
+        $streamer = $user?->streamer;
 
-                        TextInput::make('number_of_shipments')
-                            ->label('Shipments Sent')
-                            ->integer()
-                            ->default(0)
-                            ->required()
-                            ->helperText('Total packages shipped from this show'),
+        if (!$streamer) {
+            return [];
+        }
 
-                        TextInput::make('number_of_packages_over_500')
-                            ->label('High-Value Packages ($500+)')
-                            ->integer()
-                            ->default(0)
-                            ->helperText('Packages over $500 (affects shipping surcharge)'),
+        return Show::whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamer->id))
+            ->where('status', '!=', 'closed')
+            ->orderBy('show_date', 'desc')
+            ->limit(20)
+            ->get();
+    }
 
-                        TextInput::make('product_cost')
-                            ->label('Total Product Cost')
-                            ->numeric()
-                            ->prefix('$')
-                            ->default(0)
-                            ->helperText('Cost of inventory you sold (from your records)'),
+    public function getInventoryProperty()
+    {
+        $query = InventoryItem::query()
+            ->where('is_active', true)
+            ->with(['stock' => fn ($q) => $q->where('quantity', '>', 0)]);
 
-                        Toggle::make('hard_copy')
-                            ->label('Hard Copy Log Filed')
-                            ->default(false)
-                            ->helperText('Did you print and file a physical log sheet?'),
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->where('name', 'like', "%{$this->search}%")
+                    ->orWhere('sku', 'like', "%{$this->search}%")
+                    ->orWhere('brand', 'like', "%{$this->search}%");
+            });
+        }
 
-                        TextInput::make('pwe_count')
-                            ->label('PWE Count')
-                            ->integer()
-                            ->default(0)
-                            ->visible(fn () => $isPweLabels)
-                            ->helperText('Packages with PostagePaidEnvelopes'),
+        return $query->orderBy('name')->limit(50)->get();
+    }
 
-                        TextInput::make('label_count')
-                            ->label('Label-Only Count')
-                            ->integer()
-                            ->default(0)
-                            ->visible(fn () => $isPweLabels)
-                            ->helperText('Packages with labels (no PWE)'),
-                    ]),
+    public function toggleItem(int $itemId): void
+    {
+        if (in_array($itemId, $this->selectedItems)) {
+            $this->selectedItems = array_filter($this->selectedItems, fn ($id) => $id !== $itemId);
+            unset($this->itemQuantities[$itemId]);
+        } else {
+            $this->selectedItems[] = $itemId;
+            $this->itemQuantities[$itemId] = 1;
+        }
+    }
 
-                    Textarea::make('notes')
-                        ->label('Quick Notes')
-                        ->rows(3)
-                        ->columnSpanFull()
-                        ->helperText('Anything the team should know? (connection issues, special items, etc.)'),
-                ]),
-        ];
+    public function updateQuantity(int $itemId, int $quantity): void
+    {
+        if ($quantity > 0) {
+            $this->itemQuantities[$itemId] = $quantity;
+        }
     }
 
     public function submit(): void
     {
-        if (! $this->entry) {
+        if (!$this->show) {
             Notification::make()
                 ->title('No show selected')
-                ->body('Unable to log data without a show. Please try again.')
+                ->body('Please select a show first.')
                 ->danger()
                 ->send();
             return;
         }
 
-        $data = $this->form->getState();
+        if (empty($this->selectedItems)) {
+            Notification::make()
+                ->title('No items selected')
+                ->body('Please select at least one item from inventory.')
+                ->warning()
+                ->send();
+            return;
+        }
 
-        $this->entry->update([
-            'hours_streamed' => $data['hours_streamed'] ?? 0,
-            'number_of_shipments' => $data['number_of_shipments'] ?? 0,
-            'number_of_packages_over_500' => $data['number_of_packages_over_500'] ?? 0,
-            'pwe_count' => $data['pwe_count'] ?? null,
-            'label_count' => $data['label_count'] ?? null,
-            'product_cost' => $data['product_cost'] ?? 0,
-            'hard_copy' => $data['hard_copy'] ?? false,
-            'notes' => $data['notes'] ?? null,
-        ]);
+        $streamer = auth()->user()?->streamer;
+        if (!$streamer) {
+            Notification::make()
+                ->title('Streamer not found')
+                ->danger()
+                ->send();
+            return;
+        }
 
-        Notification::make()
-            ->title('✓ Show data saved')
-            ->body('Your quick log has been saved. You can now review the full details in your Streamer Log.')
-            ->success()
-            ->send();
+        try {
+            foreach ($this->selectedItems as $itemId) {
+                $quantity = $this->itemQuantities[$itemId] ?? 1;
 
-        $this->redirect(route('filament.admin.resources.streamer-logs.edit', $this->entry), navigate: true);
+                // Create or update order record
+                WhatnotShowOrder::updateOrCreate(
+                    [
+                        'show_id' => $this->show->id,
+                        'inventory_item_id' => $itemId,
+                        'status' => 'completed',
+                    ],
+                    [
+                        'item_name' => InventoryItem::find($itemId)?->name,
+                        'quantity' => $quantity,
+                        'show_date' => $this->show->show_date,
+                    ]
+                );
+            }
+
+            Notification::make()
+                ->title('✓ Items logged')
+                ->body(count($this->selectedItems) . ' item(s) added to your show.')
+                ->success()
+                ->send();
+
+            // Redirect to streamer log to review/finalize
+            $this->redirect(route('filament.admin.resources.streamer-logs.index'), navigate: true);
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Error saving items')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
     }
 
     public static function canAccess(): bool

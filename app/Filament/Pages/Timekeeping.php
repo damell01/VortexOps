@@ -222,16 +222,17 @@ class Timekeeping extends Page
             return;
         }
 
+        $now = now();
         TimeEntry::create([
             'user_id'       => auth()->id(),
-            'clocked_in_at' => now(),
+            'clocked_in_at' => $now,
             'notes'         => trim($this->note) ?: null,
         ]);
 
         $this->note = '';
 
         Notification::make()
-            ->title('Clocked in at ' . now()->format('g:i A'))
+            ->title('Clocked in at ' . $this->formatTimeInUserTz($now))
             ->success()
             ->send();
     }
@@ -245,11 +246,12 @@ class Timekeeping extends Page
             return;
         }
 
-        $entry->update(['clocked_out_at' => now()]);
-        $minutes = $entry->clocked_in_at->diffInMinutes(now());
+        $now = now();
+        $entry->update(['clocked_out_at' => $now]);
+        $minutes = $entry->clocked_in_at->diffInMinutes($now);
 
         Notification::make()
-            ->title('Clocked out — ' . TimeEntry::formatMinutes($minutes) . ' logged')
+            ->title('Clocked out at ' . $this->formatTimeInUserTz($now) . ' — ' . TimeEntry::formatMinutes($minutes) . ' logged')
             ->success()
             ->send();
     }

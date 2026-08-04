@@ -241,7 +241,7 @@
                                         </td>
                                     @endif
                                     <td class="px-6 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                                        {{ $e->clocked_in_at->format('M j, Y') }}
+                                        {{ $e->clocked_in_at->setTimezone($this->userTimezone())->format('M j, Y') }}
                                     </td>
                                     <td class="px-6 py-3 tabular-nums text-gray-600 dark:text-gray-300 whitespace-nowrap">
                                         {{ $this->formatTimeInUserTz($e->clocked_in_at) }}

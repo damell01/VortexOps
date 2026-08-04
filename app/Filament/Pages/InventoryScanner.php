@@ -553,12 +553,22 @@ class InventoryScanner extends Page
 
         // Get cost trend (last 10 receipts)
         $costTrend = $costService->getCostTrend($item, 10);
-        $formattedCostTrend = array_map(fn ($ct) => [
-            'date' => $ct['date']?->format('M d, Y') ?? '—',
-            'vendor' => $ct['vendor'],
-            'cost' => number_format((float) $ct['unit_cost'], 2),
-            'qty' => (int) $ct['quantity'],
-        ], $costTrend);
+        $formattedCostTrend = array_map(function ($ct) {
+            $date = $ct['date'];
+            if (is_string($date)) {
+                $dateStr = \Carbon\Carbon::parse($date)->format('M d, Y');
+            } elseif ($date instanceof \Carbon\Carbon) {
+                $dateStr = $date->format('M d, Y');
+            } else {
+                $dateStr = '—';
+            }
+            return [
+                'date' => $dateStr,
+                'vendor' => $ct['vendor'],
+                'cost' => number_format((float) $ct['unit_cost'], 2),
+                'qty' => (int) $ct['quantity'],
+            ];
+        }, $costTrend);
 
         $stockByLocation = $item->stock->map(fn ($s) => [
             'location'    => $s->location?->name ?? 'Unknown',

@@ -45,7 +45,7 @@ class InventoryReport extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        return true;
     }
 
     public function getSubheading(): ?string

@@ -363,7 +363,6 @@ class InventoryItemResource extends Resource
                         ->label('Add Stock')
                         ->icon('heroicon-o-plus-circle')
                         ->color('success')
-                        ->description('Add units to a location (opening stock, restock, or return)')
                         ->form([
                             Select::make('location_id')
                                 ->label('Location')
@@ -407,7 +406,6 @@ class InventoryItemResource extends Resource
                         ->label('Transfer Stock')
                         ->icon('heroicon-o-arrows-right-left')
                         ->color('info')
-                        ->description('Move units between locations')
                         ->form([
                             Select::make('from_location_id')
                                 ->label('From Location')
@@ -437,7 +435,6 @@ class InventoryItemResource extends Resource
                         ->label('Adjust Inventory')
                         ->icon('heroicon-o-pencil-square')
                         ->color('warning')
-                        ->description('Set exact quantity for a location (count discrepancy)')
                         ->form([
                             Select::make('location_id')
                                 ->label('Location')
@@ -464,7 +461,6 @@ class InventoryItemResource extends Resource
                         ->label('Mark Damaged')
                         ->icon('heroicon-o-exclamation-triangle')
                         ->color('danger')
-                        ->description('Move damaged units to damaged inventory location')
                         ->form([
                             Select::make('from_location_id')
                                 ->label('From Location')
@@ -493,7 +489,6 @@ class InventoryItemResource extends Resource
                         ->label('Move to Returns')
                         ->icon('heroicon-o-arrow-uturn-left')
                         ->color('gray')
-                        ->description('Move units to returns/RMA location')
                         ->form([
                             Select::make('from_location_id')
                                 ->label('From Location')

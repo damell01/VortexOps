@@ -1,8 +1,7 @@
-<div class="h-screen w-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden">
+<div class="h-screen w-screen bg-white dark:bg-slate-950 flex flex-col overflow-hidden">
 
         <!-- Header -->
-        <div class="px-8 py-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
+        <div class="px-8 py-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-white dark:bg-slate-900">
             <div>
                 <h1 class="text-3xl font-bold text-slate-900 dark:text-white">{{ $title ?? 'Add Items' }}</h1>
                 <p class="text-slate-600 dark:text-slate-400 mt-1">{{ $description ?? 'Select items and quantities' }}</p>
@@ -19,10 +18,10 @@
         </div>
 
         <!-- Content -->
-        <div class="flex flex-1 overflow-hidden gap-6 p-8">
+        <div class="flex flex-1 overflow-hidden">
 
             <!-- Left: Inventory Picker -->
-            <div class="flex-1 flex flex-col border-r border-slate-200 dark:border-slate-700 pr-8">
+            <div class="flex-1 flex flex-col border-r border-slate-200 dark:border-slate-700 p-8">
 
                 <!-- Search & Filters -->
                 <div class="mb-6 space-y-4">
@@ -127,7 +126,7 @@
             </div>
 
             <!-- Right: Selected Items -->
-            <div class="w-80 flex flex-col bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
+            <div class="w-96 flex flex-col bg-slate-50 dark:bg-slate-900 p-8">
                 <div class="mb-6">
                     <h2 class="text-2xl font-bold text-slate-900 dark:text-white">
                         Selected
@@ -192,4 +191,3 @@
 
         </div>
     </div>
-</div>

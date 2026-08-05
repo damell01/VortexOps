@@ -191,9 +191,4 @@ class MobileScannerPro extends Page
     {
         return 'filament.pages.mobile-scanner-pro';
     }
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return true;
-    }
 }

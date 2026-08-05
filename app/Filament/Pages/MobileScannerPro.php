@@ -3,20 +3,32 @@
 namespace App\Filament\Pages;
 
 use App\Models\ScanSession;
+use App\Models\Product;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\Pallet;
 use App\Services\ScanningService;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Validate;
 
 class MobileScannerPro extends Page
 {
-    protected static ?string $navigationIcon = 'heroicon-o-qr-code';
-    protected static ?string $navigationLabel = 'Mobile Scanner Pro';
-    protected static string $view = 'filament.pages.mobile-scanner-pro';
-    protected static ?int $navigationSort = 0;
+    public static function getNavigationIcon(): string|\BackedEnum|null
+    {
+        return 'heroicon-o-qr-code';
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Mobile Scanner Pro';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 0;
+    }
 
     public string $mode = 'lookup';
     public bool $sessionActive = false;
@@ -122,14 +134,44 @@ class MobileScannerPro extends Page
 
     public function saveSession(): void
     {
-        if ($this->session) {
-            $this->scanningService->endSession();
+        if (!$this->session) {
+            return;
         }
 
-        // Redirect to session review/results page
-        return redirect()->route('filament.admin.pages.scan-results', [
-            'session_id' => $this->session?->id,
-        ]);
+        try {
+            $location = $this->selectedLocationId
+                ? InventoryLocation::find($this->selectedLocationId)
+                : InventoryLocation::where('type', 'receiving')->first();
+
+            $result = $this->scanningService->commitScansToInventory($location);
+
+            if ($result['success']) {
+                Notification::make()
+                    ->title('Inventory Updated')
+                    ->body("Successfully added {$result['created']} items to inventory")
+                    ->success()
+                    ->send();
+            } else {
+                Notification::make()
+                    ->title('Partial Save')
+                    ->body($result['message'] ?? 'Some items failed to save')
+                    ->warning()
+                    ->send();
+            }
+
+            $this->scanningService->endSession();
+
+            // Redirect to session review/results page
+            $this->redirect(route('filament.admin.pages.scan-results', [
+                'session_id' => $this->session?->id,
+            ]));
+        } catch (\Exception $e) {
+            Notification::make()
+                ->title('Error')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+        }
     }
 
     public function updateStats(): void

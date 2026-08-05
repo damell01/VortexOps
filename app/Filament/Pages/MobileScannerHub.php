@@ -10,10 +10,20 @@ use Livewire\Attributes\Validate;
 
 class MobileScannerHub extends Page
 {
-    protected static ?string $navigationIcon = 'heroicon-o-queue-list';
-    protected static ?string $navigationLabel = 'Mobile Scanner';
-    protected static string $view = 'filament.pages.mobile-scanner-hub';
-    protected static ?int $navigationSort = -1;
+    public static function getNavigationIcon(): string|\BackedEnum|null
+    {
+        return 'heroicon-o-queue-list';
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Mobile Scanner';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return -1;
+    }
 
     #[Validate('in:inventory,receiving,shipping,lookup')]
     public string $mode = 'lookup';

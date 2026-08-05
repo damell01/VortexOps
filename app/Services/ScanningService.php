@@ -4,21 +4,32 @@ namespace App\Services;
 
 use App\Models\ScanSession;
 use App\Models\ScanLog;
+use App\Models\Product;
 use App\Models\InventoryItem;
+use App\Models\InventoryLocation;
+use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
 use App\Models\Pallet;
 use App\Models\PalletLine;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Centralized scanning service for all mobile workflows.
- * Handles barcode lookup, duplicate detection, and logging across all scanner modes.
+ * Handles barcode lookup, duplicate detection, logging, and inventory updates.
  */
 class ScanningService
 {
-    private ScanSession $session;
+    private ?ScanSession $session = null;
     private Collection $scannedItems;
     private Collection $duplicates;
+
+    public function __construct(private ?InventoryService $inventoryService = null)
+    {
+        $this->scannedItems = collect();
+        $this->duplicates = collect();
+        $this->inventoryService ??= app(InventoryService::class);
+    }
 
     public function createSession(string $type, $contextId = null, string $contextType = null, array $metadata = []): ScanSession
     {
@@ -50,9 +61,7 @@ class ScanningService
             return $this->error('Barcode cannot be empty');
         }
 
-        $item = InventoryItem::where('barcode', $barcode)
-            ->orWhere('sku', $barcode)
-            ->first();
+        $item = Product::findByScan($barcode);
 
         if (!$item) {
             $this->logScan($barcode, null, 'not_found', "Barcode not found: {$barcode}");
@@ -90,8 +99,15 @@ class ScanningService
         return $result;
     }
 
-    private function processInventoryScan(InventoryItem $item): array
+    private function getTotalQuantity(Product $item): float
     {
+        return (float) $item->stock()->sum('quantity');
+    }
+
+    private function processInventoryScan(Product $item): array
+    {
+        $totalQty = $this->getTotalQuantity($item);
+
         return [
             'success' => true,
             'item' => [
@@ -99,15 +115,14 @@ class ScanningService
                 'barcode' => $item->barcode,
                 'name' => $item->name,
                 'sku' => $item->sku,
-                'quantity' => $item->quantity_on_hand,
-                'location' => $item->location?->name ?? 'Unknown',
+                'quantity' => $totalQty,
                 'cost' => $item->average_cost,
-                'status' => $item->quantity_on_hand > 0 ? 'in_stock' : 'out_of_stock',
+                'status' => $totalQty > 0 ? 'in_stock' : 'out_of_stock',
             ],
         ];
     }
 
-    private function processReceivingScan(InventoryItem $item): array
+    private function processReceivingScan(Product $item): array
     {
         $palletId = $this->session->context_id;
 
@@ -138,8 +153,10 @@ class ScanningService
         ];
     }
 
-    private function processShippingScan(InventoryItem $item): array
+    private function processShippingScan(Product $item): array
     {
+        $totalQty = $this->getTotalQuantity($item);
+
         return [
             'success' => true,
             'item' => [
@@ -147,13 +164,16 @@ class ScanningService
                 'barcode' => $item->barcode,
                 'name' => $item->name,
                 'sku' => $item->sku,
-                'quantity' => $item->quantity_on_hand,
+                'quantity' => $totalQty,
             ],
         ];
     }
 
-    private function processLookupScan(InventoryItem $item): array
+    private function processLookupScan(Product $item): array
     {
+        $totalQty = $this->getTotalQuantity($item);
+        $totalValue = $totalQty * (float) $item->average_cost;
+
         return [
             'success' => true,
             'item' => [
@@ -161,10 +181,9 @@ class ScanningService
                 'barcode' => $item->barcode,
                 'name' => $item->name,
                 'sku' => $item->sku,
-                'quantity' => $item->quantity_on_hand,
-                'location' => $item->location?->name ?? 'Unknown',
+                'quantity' => $totalQty,
                 'cost' => $item->average_cost,
-                'value' => ($item->quantity_on_hand * $item->average_cost),
+                'value' => $totalValue,
             ],
         ];
     }
@@ -204,6 +223,89 @@ class ScanningService
             'message' => $message,
             'type' => 'warning',
         ];
+    }
+
+    /**
+     * Commit scanned items to inventory system, creating lots and movements.
+     * Used when saving a receiving session.
+     */
+    public function commitScansToInventory(?InventoryLocation $location = null): array
+    {
+        if (!$this->session) {
+            return ['success' => false, 'message' => 'No active session'];
+        }
+
+        if ($this->scannedItems->isEmpty()) {
+            return ['success' => false, 'message' => 'No items to commit'];
+        }
+
+        if (!$location) {
+            $location = InventoryLocation::where('type', 'receiving')->first()
+                ?? InventoryLocation::first();
+        }
+
+        if (!$location) {
+            return ['success' => false, 'message' => 'No location available'];
+        }
+
+        return DB::transaction(function () use ($location) {
+            $created = 0;
+            $errors = [];
+
+            foreach ($this->scannedItems as $scannedItem) {
+                try {
+                    $product = Product::find($scannedItem['id']);
+                    if (!$product) {
+                        $errors[] = "Product {$scannedItem['id']} not found";
+                        continue;
+                    }
+
+                    // Get unit cost from the session metadata or use the product's average cost
+                    $unitCost = $this->session->metadata['unit_cost'] ?? $product->average_cost ?? 0;
+
+                    // Create inventory lot for tracking this batch
+                    $lot = InventoryLot::create([
+                        'product_id' => $product->id,
+                        'quantity' => 1,
+                        'remaining_quantity' => 1,
+                        'unit_cost' => $unitCost,
+                        'source' => InventoryLot::SOURCE_RECEIVED,
+                        'status' => InventoryLot::STATUS_ACTIVE,
+                        'received_at' => now(),
+                        'received_by' => auth()->id(),
+                    ]);
+
+                    // Add stock via InventoryService
+                    $this->inventoryService->addStock(
+                        $product,
+                        $location,
+                        1,
+                        'opening',
+                        "Scanned in session {$this->session->id}",
+                        $unitCost
+                    );
+
+                    $created++;
+                } catch (\Exception $e) {
+                    $errors[] = "Error for {$scannedItem['name']}: {$e->getMessage()}";
+                }
+            }
+
+            $this->session->update([
+                'item_count' => $created,
+                'metadata' => array_merge($this->session->metadata ?? [], [
+                    'committed_at' => now()->toIso8601String(),
+                    'location_id' => $location->id,
+                    'items_created' => $created,
+                ]),
+            ]);
+
+            return [
+                'success' => empty($errors),
+                'created' => $created,
+                'errors' => $errors,
+            ];
+        });
     }
 
     public function endSession(): ScanSession

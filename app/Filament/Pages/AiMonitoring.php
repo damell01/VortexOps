@@ -37,11 +37,6 @@ class AiMonitoring extends Page
         return 'heroicon-o-chart-bar';
     }
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
-    }
-
     public static function canAccess(): bool
     {
         $user = auth()->user();

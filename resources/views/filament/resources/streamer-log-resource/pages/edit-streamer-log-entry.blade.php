@@ -255,8 +255,8 @@
     </div>
 
     <!-- Items Modal (Livewire) -->
-    <div wire:key="items-modal-{{ $record->id }}" class="bg-black/50 justify-center items-start lg:items-center" id="items-modal" @keydown.escape="$dispatch('closeModal')" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 50; padding: 1rem; overflow-y: auto;">
-        <div style="width: 100%; max-width: 56rem;">
+    <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="$dispatch('closeModal')" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 50; padding: 1rem; overflow-y: auto; background: rgba(0, 0, 0, 0.5); flex-direction: column; align-items: center; justify-content: flex-start;">
+        <div style="width: 100%; max-width: 56rem; margin-top: 2rem;">
             @livewire('streamer-log-items-modal', [
                 'recordId' => $record->id,
                 'title' => 'Add Items to Show: ' . ($record->show?->title ?? 'Untitled'),

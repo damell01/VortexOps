@@ -74,6 +74,8 @@ class Show extends Model
 
     protected $casts = [
         'show_date'                   => 'date',
+        'start_time'                  => 'datetime',
+        'end_time'                    => 'datetime',
         'status_changed_at'           => 'datetime',
         'channel_attribution_suspect' => 'boolean',
         'financials_revised_after_lock' => 'boolean',

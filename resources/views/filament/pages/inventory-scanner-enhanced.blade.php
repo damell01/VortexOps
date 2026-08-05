@@ -1104,7 +1104,10 @@
             const container = document.getElementById('camera-container');
             const video     = document.getElementById('camera-video');
             const stopBtn   = document.getElementById('camera-stop-btn');
-            const input     = document.querySelector('input[wire\\:model="scanInput"]');
+            const input     = Array.from(document.querySelectorAll('input')).find(el =>
+                el.getAttribute('wire:model') === 'scanInput' ||
+                el.getAttribute('wire:model.live') === 'scanInput'
+            );
 
             if (!btn || btn.dataset.scannerBound === '1') return;
             btn.dataset.scannerBound = '1';
@@ -1216,7 +1219,10 @@
 
     // Mobile Scanner Enhancement: Handle paste events and haptic feedback
     (function () {
-        const inputs = document.querySelectorAll('input[wire\\:model="scanInput"], input[wire\\:model.live="scanInput"]');
+        const inputs = Array.from(document.querySelectorAll('input')).filter(input =>
+            input.getAttribute('wire:model') === 'scanInput' ||
+            input.getAttribute('wire:model.live') === 'scanInput'
+        );
 
         inputs.forEach(input => {
             // Handle paste events (common with mobile barcode scanners)

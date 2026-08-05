@@ -58,11 +58,12 @@
         </div>
 
         {{-- Stats Summary --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             @php
                 $stats = $this->streams;
                 $activeCount = $stats->where('status', 'active')->count();
                 $completedCount = $stats->where('status', 'completed')->count();
+                $pendingSubmissions = $stats->filter(fn ($s) => $s->status !== 'closed' && $s->streamerLogEntries->count() === 0)->count();
                 $totalRevenue = $stats->sum('gross_revenue');
                 $avgRevenue = $completedCount > 0 ? $totalRevenue / $completedCount : 0;
             @endphp
@@ -70,7 +71,7 @@
             <div class="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-4">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-xs text-blue-600 dark:text-blue-400 font-medium">Active Streams</p>
+                        <p class="text-xs text-blue-600 dark:text-blue-400 font-medium">Active</p>
                         <p class="text-2xl font-bold text-blue-900 dark:text-blue-100">{{ $activeCount }}</p>
                     </div>
                     <div class="text-3xl">🔴</div>
@@ -84,6 +85,16 @@
                         <p class="text-2xl font-bold text-green-900 dark:text-green-100">{{ $completedCount }}</p>
                     </div>
                     <div class="text-3xl">✓</div>
+                </div>
+            </div>
+
+            <div class="rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-red-600 dark:text-red-400 font-medium">📝 Pending Submission</p>
+                        <p class="text-2xl font-bold text-red-900 dark:text-red-100">{{ $pendingSubmissions }}</p>
+                    </div>
+                    <div class="text-3xl">⚠️</div>
                 </div>
             </div>
 
@@ -120,6 +131,7 @@
                             <th class="px-4 py-3 text-right text-xs font-semibold text-gray-900 dark:text-white">Revenue</th>
                             <th class="px-4 py-3 text-center text-xs font-semibold text-gray-900 dark:text-white">Items</th>
                             <th class="px-4 py-3 text-center text-xs font-semibold text-gray-900 dark:text-white">Status</th>
+                            <th class="px-4 py-3 text-center text-xs font-semibold text-gray-900 dark:text-white">Form</th>
                             <th class="px-4 py-3 text-center text-xs font-semibold text-gray-900 dark:text-white">Actions</th>
                         </tr>
                     </thead>
@@ -166,28 +178,35 @@
                                 </span>
                             </td>
                             <td class="px-4 py-3 text-center">
+                                @php
+                                    $hasSubmission = $stream->streamerLogEntries->count() > 0;
+                                @endphp
+                                @if($hasSubmission)
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200">
+                                        ✓ Submitted
+                                    </span>
+                                @else
+                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-950 text-yellow-800 dark:text-yellow-200">
+                                        ⏱ Pending
+                                    </span>
+                                @endif
+                            </td>
+                            <td class="px-4 py-3 text-center">
                                 <div class="flex gap-2 justify-center">
                                     @if($stream->streamerLogEntries->count() > 0)
                                         @php
                                             $logEntry = $stream->streamerLogEntries->first();
                                         @endphp
                                         <a href="{{ route('filament.admin.resources.streamer-logs.edit', $logEntry->id) }}"
-                                            class="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800">
-                                            📋 Log
+                                            class="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800 font-medium">
+                                            📋 View
                                         </a>
-                                    @endif
-
-                                    @if($stream->status !== 'closed' && auth()->user()?->isStreamer())
+                                    @elseif($stream->status !== 'closed' && auth()->user()?->isStreamer())
                                         <a href="{{ route('filament.admin.pages.end-of-stream', ['show' => $stream->id]) }}"
-                                            class="text-xs px-2 py-1 rounded bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-800">
+                                            class="text-xs px-2 py-1 rounded bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-800 font-medium">
                                             📝 Submit
                                         </a>
                                     @endif
-
-                                    <button wire:click="$dispatch('openModal', { component: 'view-stream-details', arguments: { streamId: {{ $stream->id }} } })"
-                                        class="text-xs px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700">
-                                        👁️ View
-                                    </button>
                                 </div>
                             </td>
                         </tr>

@@ -56,6 +56,11 @@ class StockTransfer extends Page
         return 'filament.pages.stock-transfer';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false; // Hidden - accessed from Inventory Report
+    }
+
     #[Computed]
     public function locations()
     {

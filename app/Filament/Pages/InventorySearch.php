@@ -66,6 +66,11 @@ class InventorySearch extends Page
         return 'filament.pages.inventory-search';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false; // Hidden - accessed from Inventory Report
+    }
+
     #[Computed]
     public function results(): Collection
     {

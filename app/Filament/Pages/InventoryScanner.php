@@ -58,6 +58,11 @@ class InventoryScanner extends Page
         return 'Complete inventory workflow: Look up items, quick add stock, stage pallets with pending items, and receive shipments by scanning. Supports packing slips or manual entry.';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false; // Hidden - accessed from Inventory Report
+    }
+
     // ── Mode ──────────────────────────────────────────────────────────────────
 
     /** 'lookup' | 'quickadd' | 'receive' */

@@ -41,6 +41,33 @@
             </div>
         </div>
 
+        {{-- Quick Action Tools --}}
+        <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-4">
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-400 mb-3">Quick Tools</p>
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('filament.admin.pages.inventory-scanner') }}"
+                    class="inline-flex items-center gap-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 px-3 py-2 text-xs font-medium text-blue-700 dark:text-blue-300 transition-colors">
+                    <x-heroicon-o-qr-code class="h-4 w-4" />
+                    Scanner
+                </a>
+                <a href="{{ route('filament.admin.pages.inventory-search') }}"
+                    class="inline-flex items-center gap-2 rounded-lg bg-purple-100 dark:bg-purple-900/30 hover:bg-purple-200 dark:hover:bg-purple-900/50 px-3 py-2 text-xs font-medium text-purple-700 dark:text-purple-300 transition-colors">
+                    <x-heroicon-o-magnifying-glass class="h-4 w-4" />
+                    Advanced Search
+                </a>
+                <a href="{{ route('filament.admin.pages.stock-transfer') }}"
+                    class="inline-flex items-center gap-2 rounded-lg bg-orange-100 dark:bg-orange-900/30 hover:bg-orange-200 dark:hover:bg-orange-900/50 px-3 py-2 text-xs font-medium text-orange-700 dark:text-orange-300 transition-colors">
+                    <x-heroicon-o-arrow-path class="h-4 w-4" />
+                    Stock Transfer
+                </a>
+                <a href="{{ route('filament.admin.pages.inventory-reconciliation') }}"
+                    class="inline-flex items-center gap-2 rounded-lg bg-green-100 dark:bg-green-900/30 hover:bg-green-200 dark:hover:bg-green-900/50 px-3 py-2 text-xs font-medium text-green-700 dark:text-green-300 transition-colors">
+                    <x-heroicon-o-check-circle class="h-4 w-4" />
+                    Reconciliation
+                </a>
+            </div>
+        </div>
+
         {{-- Tab Navigation with Icons --}}
         <div class="border-b border-gray-200 dark:border-gray-700">
             <div class="flex gap-1 overflow-x-auto scrollbar-none -mx-1 px-1">

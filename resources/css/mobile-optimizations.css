@@ -90,15 +90,22 @@ body {
         background: transparent !important;
         border: none !important;
         color: #4c1d95 !important;
-        font-size: 24px !important;
+        font-size: 28px !important;
         cursor: pointer !important;
         z-index: 41 !important;
         touch-action: manipulation !important;
         flex-shrink: 0;
+        line-height: 1 !important;
+        position: relative !important;
     }
 
     .mobile-menu-toggle:active {
         opacity: 0.7;
+    }
+
+    .mobile-menu-toggle:focus {
+        outline: 2px solid #8b5cf6;
+        outline-offset: -2px;
     }
 
     /* Backdrop for sidebar */

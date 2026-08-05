@@ -167,75 +167,90 @@ class AdminPanelProvider extends PanelProvider
                     : Blade::render(<<<'HTML'
                     <div class="fi-sidebar-backdrop" style="display: none;"></div>
                     <script>
-                    window.addEventListener('load', () => setupMobileMenu());
+                    // Wait for DOM to be ready then setup mobile menu
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', setupMobileMenu);
+                    } else {
+                        setupMobileMenu();
+                    }
 
                     function setupMobileMenu() {
-                        // Only setup on mobile
-                        if (window.innerWidth > 640) return;
+                        // Small delay to ensure Filament elements are rendered
+                        setTimeout(() => {
+                            const sidebar = document.querySelector('.fi-sidebar');
+                            const topbar = document.querySelector('.fi-topbar');
+                            const backdrop = document.querySelector('.fi-sidebar-backdrop');
 
-                        const sidebar = document.querySelector('.fi-sidebar');
-                        const topbar = document.querySelector('.fi-topbar');
-                        const backdrop = document.querySelector('.fi-sidebar-backdrop');
-
-                        if (!sidebar || !topbar) return;
-
-                        // Create and inject menu toggle button
-                        let toggleBtn = document.querySelector('.mobile-menu-toggle');
-                        if (!toggleBtn) {
-                            toggleBtn = document.createElement('button');
-                            toggleBtn.className = 'mobile-menu-toggle';
-                            toggleBtn.type = 'button';
-                            toggleBtn.setAttribute('aria-label', 'Toggle menu');
-                            toggleBtn.innerHTML = '☰';
-                            topbar.insertBefore(toggleBtn, topbar.firstChild);
-                        }
-
-                        // Toggle menu on button click
-                        toggleBtn.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            toggleSidebar();
-                        });
-
-                        // Close menu when clicking links
-                        sidebar.addEventListener('click', (e) => {
-                            if (e.target.closest('a')) {
-                                closeSidebar();
+                            if (!sidebar || !topbar) {
+                                return;
                             }
-                        });
 
-                        // Close menu on backdrop click
-                        if (backdrop) {
-                            backdrop.addEventListener('click', closeSidebar);
-                        }
-
-                        // Close menu on Escape
-                        document.addEventListener('keydown', (e) => {
-                            if (e.key === 'Escape') closeSidebar();
-                        });
-
-                        function toggleSidebar() {
-                            const isOpen = sidebar.style.left === '0px' || sidebar.classList.contains('open');
-                            if (isOpen) {
-                                closeSidebar();
-                            } else {
-                                openSidebar();
+                            // Create and inject menu toggle button if not exists
+                            let toggleBtn = document.querySelector('.mobile-menu-toggle');
+                            if (!toggleBtn) {
+                                toggleBtn = document.createElement('button');
+                                toggleBtn.className = 'mobile-menu-toggle';
+                                toggleBtn.type = 'button';
+                                toggleBtn.setAttribute('aria-label', 'Toggle menu');
+                                toggleBtn.textContent = '☰';
+                                topbar.insertBefore(toggleBtn, topbar.firstChild);
                             }
-                        }
 
-                        function openSidebar() {
-                            sidebar.style.left = '0';
-                            sidebar.classList.add('open');
-                            if (backdrop) backdrop.style.display = 'block';
-                            document.body.style.overflow = 'hidden';
-                        }
+                            // Toggle menu on button click
+                            toggleBtn.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                toggleSidebar();
+                            });
 
-                        function closeSidebar() {
-                            sidebar.style.left = '-100%';
-                            sidebar.classList.remove('open');
-                            if (backdrop) backdrop.style.display = 'none';
-                            document.body.style.overflow = '';
-                        }
+                            // Close menu when clicking sidebar links
+                            sidebar.addEventListener('click', (e) => {
+                                if (e.target.closest('a, button')) {
+                                    closeSidebar();
+                                }
+                            });
+
+                            // Close menu on backdrop click
+                            if (backdrop) {
+                                backdrop.addEventListener('click', closeSidebar);
+                            }
+
+                            // Close menu on Escape key
+                            document.addEventListener('keydown', (e) => {
+                                if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+                                    closeSidebar();
+                                }
+                            });
+
+                            function toggleSidebar() {
+                                const isOpen = sidebar.classList.contains('open');
+                                if (isOpen) {
+                                    closeSidebar();
+                                } else {
+                                    openSidebar();
+                                }
+                            }
+
+                            function openSidebar() {
+                                sidebar.classList.add('open');
+                                sidebar.style.left = '0';
+                                if (backdrop) {
+                                    backdrop.style.display = 'block';
+                                    backdrop.classList.add('open');
+                                }
+                                document.body.style.overflow = 'hidden';
+                            }
+
+                            function closeSidebar() {
+                                sidebar.classList.remove('open');
+                                sidebar.style.left = '-100%';
+                                if (backdrop) {
+                                    backdrop.style.display = 'none';
+                                    backdrop.classList.remove('open');
+                                }
+                                document.body.style.overflow = '';
+                            }
+                        }, 100);
                     }
                     </script>
                     HTML),

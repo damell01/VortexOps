@@ -253,7 +253,8 @@ class InventoryReport extends Page
             ->get()
             ->map(function ($item) use ($velocityService) {
                 $qty = (float) $item->totalQuantity();
-                $velocity = $velocityService->getItemVelocity($item->id, 30);
+                $velocityData = $velocityService->calculateItemVelocity($item, 30);
+                $velocity = $velocityData['daily_velocity'] ?? 0;
 
                 if ($velocity > 0) {
                     $daysOfStock = ceil($qty / $velocity);

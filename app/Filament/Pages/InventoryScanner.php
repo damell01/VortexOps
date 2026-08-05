@@ -40,7 +40,7 @@ class InventoryScanner extends Page
 
     public static function getNavigationLabel(): string
     {
-        return 'Inventory';
+        return 'Scan Inventory';
     }
 
     public static function getNavigationSort(): ?int
@@ -60,7 +60,7 @@ class InventoryScanner extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        return false; // Hidden - accessed from Inventory Report
+        return true;
     }
 
     // ── Mode ──────────────────────────────────────────────────────────────────

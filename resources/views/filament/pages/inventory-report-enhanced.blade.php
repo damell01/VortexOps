@@ -610,8 +610,7 @@
                             <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Product</th>
                             <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Qty</th>
                             <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Cost</th>
-                            <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Retail</th>
-                            <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Unit Margin</th>
+                            <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Revenue</th>
                             <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Margin %</th>
                             <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Total Margin</th>
                         </tr>
@@ -627,8 +626,7 @@
                             </td>
                             <td class="px-4 py-3 text-gray-900 dark:text-white">{{ number_format($item['quantity'], 0) }}</td>
                             <td class="px-4 py-3 text-gray-900 dark:text-white">${{ number_format($item['cost'], 2) }}</td>
-                            <td class="px-4 py-3 text-gray-900 dark:text-white">${{ number_format($item['retail_price'], 2) }}</td>
-                            <td class="px-4 py-3 text-gray-900 dark:text-white">${{ number_format($item['unit_margin'], 2) }}</td>
+                            <td class="px-4 py-3 text-gray-900 dark:text-white">${{ number_format($item['revenue'], 2) }}</td>
                             <td class="px-4 py-3">
                                 <span class="px-2 py-1 rounded text-xs font-semibold
                                     @if($item['margin_percent'] >= 50)
@@ -646,7 +644,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="px-4 py-6 text-center text-gray-500 dark:text-gray-400">No items with margin data available</td>
+                            <td colspan="6" class="px-4 py-6 text-center text-gray-500 dark:text-gray-400">No items with margin data available</td>
                         </tr>
                         @endforelse
                     </tbody>

@@ -523,6 +523,20 @@ class InventoryItemResource extends Resource
                             app(InventoryService::class)->moveToReturns($record, $from, $returns, (float) $data['quantity'], $data['reason'] ?? null);
                             Notification::make()->title('Items moved to returns')->success()->send();
                         }),
+
+                    Action::make('scan_barcode')
+                        ->label('Scan Barcode')
+                        ->icon('heroicon-o-qr-code')
+                        ->color('info')
+                        ->action(function (InventoryItem $record): void {
+                            Notification::make()
+                                ->title('📱 Open camera to scan')
+                                ->body('Using your device\'s camera to scan product barcodes.')
+                                ->info()
+                                ->send();
+                            // Opens the camera scanner modal (dispatches JavaScript event)
+                            $this->dispatch('open-camera-scanner', barcode: $record->barcode);
+                        }),
                 ]),
             ])
             ->headerActions([

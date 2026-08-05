@@ -487,29 +487,28 @@ class InventoryReport extends Page
 
     public function getMarginAnalysisProperty(): array
     {
-        return Product::with(['stock', 'lots'])
+        return Product::with(['stock', 'lots', 'orders'])
             ->where('is_active', true)
-            ->whereNotNull('retail_price')
             ->get()
-            ->filter(fn ($item) => $item->totalQuantity() > 0 && $item->retail_price > 0)
+            ->filter(fn ($item) => $item->totalQuantity() > 0)
             ->map(function ($item) {
                 $qty = (float) $item->totalQuantity();
                 $cost = (float) $item->average_cost;
-                $retail = (float) $item->retail_price;
+                $totalCost = $qty * $cost;
 
-                $unitMargin = $retail - $cost;
-                $marginPct = $retail > 0 ? (($unitMargin / $retail) * 100) : 0;
-                $totalMargin = $unitMargin * $qty;
+                // Sum actual revenue from orders
+                $revenue = (float) $item->orders()->sum('total_cost');
+                $itemMargin = $revenue > 0 ? $revenue - $totalCost : 0;
+                $marginPct = $revenue > 0 ? (($itemMargin / $revenue) * 100) : 0;
 
                 return [
-                    'name' => $item->name,
-                    'sku' => $item->sku,
+                    'name' => $this->sanitizeUtf8($item->name),
+                    'sku' => $this->sanitizeUtf8($item->sku),
                     'quantity' => $qty,
                     'cost' => $cost,
-                    'retail_price' => $retail,
-                    'unit_margin' => $unitMargin,
+                    'revenue' => $revenue,
+                    'total_margin' => $itemMargin,
                     'margin_percent' => $marginPct,
-                    'total_margin' => $totalMargin,
                 ];
             })
             ->sortByDesc('total_margin')

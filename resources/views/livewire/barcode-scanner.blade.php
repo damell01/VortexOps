@@ -87,33 +87,33 @@
             <p class="text-sm text-red-500">{{ $message }}</p>
         @enderror
     </div>
-</div>
 
-@vite('resources/js/barcode-scanner.js')
+    @vite('resources/js/barcode-scanner.js')
 
-<script>
-    // Listen for camera toggle events from Livewire
-    document.addEventListener('livewire:updated', () => {
-        setTimeout(() => {
-            const scanner = document.getElementById('zxing-scanner');
-            if (scanner && scanner.children.length === 0) {
-                // Camera was turned on - initialize scanner
-                import('/resources/js/barcode-scanner.js').then(m => m.initScanner?.());
-            }
-        }, 100);
-    });
-
-    // Listen for flashlight toggle
-    document.addEventListener('livewire:updated', () => {
-        import('/resources/js/barcode-scanner.js').then(m => {
-            if (window.flashlightState !== undefined) {
-                m.toggleFlashlight?.(window.flashlightState);
-            }
+    <script>
+        // Listen for camera toggle events from Livewire
+        document.addEventListener('livewire:updated', () => {
+            setTimeout(() => {
+                const scanner = document.getElementById('zxing-scanner');
+                if (scanner && scanner.children.length === 0) {
+                    // Camera was turned on - initialize scanner
+                    import('/resources/js/barcode-scanner.js').then(m => m.initScanner?.());
+                }
+            }, 100);
         });
-    });
 
-    // Clean up on page unload
-    window.addEventListener('beforeunload', () => {
-        import('/resources/js/barcode-scanner.js').then(m => m.stopScanner?.());
-    });
-</script>
+        // Listen for flashlight toggle
+        document.addEventListener('livewire:updated', () => {
+            import('/resources/js/barcode-scanner.js').then(m => {
+                if (window.flashlightState !== undefined) {
+                    m.toggleFlashlight?.(window.flashlightState);
+                }
+            });
+        });
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            import('/resources/js/barcode-scanner.js').then(m => m.stopScanner?.());
+        });
+    </script>
+</div>

@@ -178,6 +178,11 @@ class InventoryScanner extends Page
         };
     }
 
+    public function clearScanInput(): void
+    {
+        $this->scanInput = '';
+    }
+
     // ── Lookup mode ───────────────────────────────────────────────────────────
 
     private function doLookup(): void

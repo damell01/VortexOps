@@ -320,6 +320,262 @@ class InventoryReport extends Page
             ->toArray();
     }
 
+    // ── Breakdown Reports ────────────────────────────────────────────
+
+    public function getCategoryBreakdownProperty(): array
+    {
+        return Product::with(['stock', 'lots'])
+            ->where('is_active', true)
+            ->get()
+            ->groupBy('category')
+            ->map(function ($items, $category) {
+                $totalValue = 0;
+                $totalQty = 0;
+                $itemsList = [];
+
+                foreach ($items as $item) {
+                    $qty = (float) $item->totalQuantity();
+                    $cost = (float) $item->average_cost;
+                    $value = $qty * $cost;
+
+                    $totalQty += $qty;
+                    $totalValue += $value;
+
+                    $itemsList[] = [
+                        'name' => $item->name,
+                        'sku' => $item->sku,
+                        'quantity' => $qty,
+                        'unit_cost' => $cost,
+                        'total_value' => $value,
+                    ];
+                }
+
+                return [
+                    'category' => $category ?: 'Uncategorized',
+                    'item_count' => count($itemsList),
+                    'total_quantity' => $totalQty,
+                    'total_value' => $totalValue,
+                    'avg_unit_cost' => count($itemsList) > 0 ? $totalValue / $totalQty : 0,
+                    'items' => array_slice($itemsList, 0, 10),
+                ];
+            })
+            ->sortByDesc('total_value')
+            ->values()
+            ->toArray();
+    }
+
+    public function getVendorBreakdownProperty(): array
+    {
+        return Product::with(['stock', 'lots' => fn ($q) => $q->orderByDesc('received_at')])
+            ->where('is_active', true)
+            ->get()
+            ->groupBy(function ($item) {
+                return $item->lots()->latest()->first()?->vendor?->name ?? 'Unknown Vendor';
+            })
+            ->map(function ($items, $vendor) {
+                $totalValue = 0;
+                $totalQty = 0;
+                $itemsList = [];
+
+                foreach ($items as $item) {
+                    $qty = (float) $item->totalQuantity();
+                    $cost = (float) $item->average_cost;
+                    $value = $qty * $cost;
+
+                    $totalQty += $qty;
+                    $totalValue += $value;
+
+                    $itemsList[] = [
+                        'name' => $item->name,
+                        'sku' => $item->sku,
+                        'quantity' => $qty,
+                        'unit_cost' => $cost,
+                        'total_value' => $value,
+                    ];
+                }
+
+                return [
+                    'vendor' => $vendor,
+                    'item_count' => count($itemsList),
+                    'total_quantity' => $totalQty,
+                    'total_value' => $totalValue,
+                    'items' => array_slice($itemsList, 0, 8),
+                ];
+            })
+            ->sortByDesc('total_value')
+            ->values()
+            ->toArray();
+    }
+
+    public function getAgingInventoryProperty(): array
+    {
+        $now = now();
+        $inventoryItems = Product::with(['stock', 'lots' => fn ($q) => $q->orderBy('received_at')])
+            ->where('is_active', true)
+            ->get();
+
+        $current = [];
+        $thirtyDays = [];
+        $sixtyDays = [];
+        $ninetyDays = [];
+
+        foreach ($inventoryItems as $item) {
+            $oldestLot = $item->lots()->orderBy('received_at')->first();
+            $daysOld = $oldestLot ? $now->diffInDays($oldestLot->received_at) : 0;
+
+            $qty = (float) $item->totalQuantity();
+            $cost = (float) $item->average_cost;
+            $value = $qty * $cost;
+
+            if ($qty <= 0) continue;
+
+            $itemData = [
+                'name' => $item->name,
+                'sku' => $item->sku,
+                'quantity' => $qty,
+                'unit_cost' => $cost,
+                'total_value' => $value,
+                'received_date' => $oldestLot?->received_at?->format('M d, Y'),
+                'days_old' => $daysOld,
+            ];
+
+            if ($daysOld <= 30) {
+                $current[] = $itemData;
+            } elseif ($daysOld <= 60) {
+                $thirtyDays[] = $itemData;
+            } elseif ($daysOld <= 90) {
+                $sixtyDays[] = $itemData;
+            } else {
+                $ninetyDays[] = $itemData;
+            }
+        }
+
+        $currentSorted = collect($current)->sortBy('days_old')->values()->all();
+        $thirtySorted = collect($thirtyDays)->sortByDesc('days_old')->values()->all();
+        $sixtySorted = collect($sixtyDays)->sortByDesc('days_old')->values()->all();
+        $ninetySorted = collect($ninetyDays)->sortByDesc('days_old')->values()->all();
+
+        return [
+            'current' => [
+                'label' => '0-30 days',
+                'count' => count($current),
+                'value' => array_sum(array_column($current, 'total_value')),
+                'items' => array_slice($currentSorted, 0, 15),
+            ],
+            'thirty_days' => [
+                'label' => '31-60 days',
+                'count' => count($thirtyDays),
+                'value' => array_sum(array_column($thirtyDays, 'total_value')),
+                'items' => array_slice($thirtySorted, 0, 15),
+            ],
+            'sixty_days' => [
+                'label' => '61-90 days',
+                'count' => count($sixtyDays),
+                'value' => array_sum(array_column($sixtyDays, 'total_value')),
+                'items' => array_slice($sixtySorted, 0, 15),
+            ],
+            'ninety_days' => [
+                'label' => '90+ days',
+                'count' => count($ninetyDays),
+                'value' => array_sum(array_column($ninetyDays, 'total_value')),
+                'items' => array_slice($ninetySorted, 0, 15),
+            ],
+        ];
+    }
+
+    public function getMarginAnalysisProperty(): array
+    {
+        return Product::with(['stock', 'lots'])
+            ->where('is_active', true)
+            ->whereNotNull('retail_price')
+            ->get()
+            ->filter(fn ($item) => $item->totalQuantity() > 0 && $item->retail_price > 0)
+            ->map(function ($item) {
+                $qty = (float) $item->totalQuantity();
+                $cost = (float) $item->average_cost;
+                $retail = (float) $item->retail_price;
+
+                $unitMargin = $retail - $cost;
+                $marginPct = $retail > 0 ? (($unitMargin / $retail) * 100) : 0;
+                $totalMargin = $unitMargin * $qty;
+
+                return [
+                    'name' => $item->name,
+                    'sku' => $item->sku,
+                    'quantity' => $qty,
+                    'cost' => $cost,
+                    'retail_price' => $retail,
+                    'unit_margin' => $unitMargin,
+                    'margin_percent' => $marginPct,
+                    'total_margin' => $totalMargin,
+                ];
+            })
+            ->sortByDesc('total_margin')
+            ->values()
+            ->take(20)
+            ->toArray();
+    }
+
+    public function getLotAgingProperty(): array
+    {
+        $now = now();
+        $lots = \App\Models\InventoryLot::with(['item', 'receivingSession.vendor'])
+            ->where('status', 'active')
+            ->where('remaining_quantity', '>', 0)
+            ->get();
+
+        $aging = [];
+        foreach ($lots as $lot) {
+            $daysOld = $now->diffInDays($lot->received_at);
+            $ageGroup = match (true) {
+                $daysOld <= 30 => 'fresh',
+                $daysOld <= 60 => 'aging_30',
+                $daysOld <= 90 => 'aging_60',
+                default => 'aging_90',
+            };
+
+            $aging[] = [
+                'id' => $lot->id,
+                'item_name' => $lot->item?->name ?? 'Unknown',
+                'sku' => $lot->item?->sku ?? '—',
+                'vendor' => $lot->receivingSession?->vendor?->name ?? 'Unknown',
+                'received_at' => $lot->received_at->format('M d, Y'),
+                'days_old' => $daysOld,
+                'quantity' => (float) $lot->remaining_quantity,
+                'unit_cost' => (float) $lot->unit_cost,
+                'total_value' => (float) $lot->remaining_quantity * (float) $lot->unit_cost,
+                'age_group' => $ageGroup,
+                'age_label' => match ($ageGroup) {
+                    'fresh' => '0-30 days',
+                    'aging_30' => '31-60 days',
+                    'aging_60' => '61-90 days',
+                    'aging_90' => '90+ days',
+                },
+            ];
+        }
+
+        $grouped = collect($aging)
+            ->groupBy('age_group')
+            ->map(function ($group, $key) {
+                $items = $group->sortByDesc('total_value')->values()->take(10)->all();
+                return [
+                    'label' => $group->first()['age_label'],
+                    'count' => $group->count(),
+                    'total_value' => $group->sum('total_value'),
+                    'total_quantity' => $group->sum('quantity'),
+                    'items' => $items,
+                ];
+            })
+            ->sortKeys()
+            ->toArray();
+
+        return [
+            'fresh' => $grouped['fresh'] ?? ['label' => '0-30 days', 'count' => 0, 'total_value' => 0, 'total_quantity' => 0, 'items' => []],
+            'aging_30' => $grouped['aging_30'] ?? ['label' => '31-60 days', 'count' => 0, 'total_value' => 0, 'total_quantity' => 0, 'items' => []],
+            'aging_60' => $grouped['aging_60'] ?? ['label' => '61-90 days', 'count' => 0, 'total_value' => 0, 'total_quantity' => 0, 'items' => []],
+            'aging_90' => $grouped['aging_90'] ?? ['label' => '90+ days', 'count' => 0, 'total_value' => 0, 'total_quantity' => 0, 'items' => []],
+        ];
+    }
     public function exportPdf(): Response
     {
         $data = $this->getData();

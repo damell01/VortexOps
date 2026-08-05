@@ -218,18 +218,36 @@ class AdminPanelProvider extends PanelProvider
                         let setupAttempts = 0;
                         const maxAttempts = 30;
 
+                        // Global debug object
+                        window.__mobileMenuDebug = {
+                            attempts: 0,
+                            sidebarFound: false,
+                            topbarFound: false,
+                            buttonCreated: false,
+                            eventsBound: false,
+                            errors: []
+                        };
+
                         function setupMobileMenu() {
                             const sidebar = document.querySelector('.fi-sidebar');
                             const topbar = document.querySelector('.fi-topbar');
                             const backdrop = document.querySelector('.fi-sidebar-backdrop');
 
+                            window.__mobileMenuDebug.attempts = setupAttempts;
+
                             if (!sidebar || !topbar) {
+                                window.__mobileMenuDebug.errors.push(
+                                    `Attempt ${setupAttempts}: sidebar=${!!sidebar}, topbar=${!!topbar}`
+                                );
                                 setupAttempts++;
                                 if (setupAttempts < maxAttempts) {
                                     setTimeout(setupMobileMenu, 100);
                                 }
                                 return;
                             }
+
+                            window.__mobileMenuDebug.sidebarFound = true;
+                            window.__mobileMenuDebug.topbarFound = true;
 
                             let toggleBtn = document.querySelector('.mobile-menu-toggle');
                             if (!toggleBtn) {
@@ -240,6 +258,7 @@ class AdminPanelProvider extends PanelProvider
                                 toggleBtn.setAttribute('aria-expanded', 'false');
                                 toggleBtn.innerHTML = '☰';
                                 topbar.insertBefore(toggleBtn, topbar.firstChild);
+                                window.__mobileMenuDebug.buttonCreated = true;
                             }
 
                             const handleToggle = function(e) {
@@ -295,6 +314,16 @@ class AdminPanelProvider extends PanelProvider
                                     closeSidebar();
                                 }
                             });
+
+                            window.__mobileMenuDebug.eventsBound = true;
+                            window.__mobileMenuDebug.setup_success = true;
+
+                            // Log info
+                            console.log('%c✓ Mobile menu setup complete', 'color: green; font-weight: bold;');
+                            console.log('Button:', toggleBtn);
+                            console.log('Sidebar:', sidebar);
+                            console.log('Viewport width:', window.innerWidth);
+                            console.log('Debug info:', window.__mobileMenuDebug);
                         }
 
                         if (document.readyState === 'loading') {
@@ -304,6 +333,14 @@ class AdminPanelProvider extends PanelProvider
                         }
 
                         window.setupMobileMenu = setupMobileMenu;
+
+                        // Log if setup failed after all attempts
+                        setTimeout(() => {
+                            if (!window.__mobileMenuDebug.setup_success) {
+                                console.error('%c✗ Mobile menu setup FAILED', 'color: red; font-weight: bold;');
+                                console.error('Debug:', window.__mobileMenuDebug);
+                            }
+                        }, 3500);
                     })();
                     </script>
                     HTML),

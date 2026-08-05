@@ -180,6 +180,69 @@ class ViewInventoryItem extends Page
         ];
     }
 
+    public function getCostAnalysisProperty(): array
+    {
+        $lots = $this->record->lots()->with('receivingSession.vendor')->get();
+        $activeLots = $lots->where('status', 'active');
+
+        $byVendor = [];
+        $totalInvested = 0;
+        $activeLotDetails = [];
+
+        foreach ($lots as $lot) {
+            $vendor = $lot->receivingSession?->vendor?->name ?? 'Unknown Vendor';
+            $lotCost = (float) $lot->quantity * (float) $lot->unit_cost;
+            $totalInvested += $lotCost;
+
+            if (!isset($byVendor[$vendor])) {
+                $byVendor[$vendor] = [
+                    'vendor' => $vendor,
+                    'total_units' => 0,
+                    'total_cost' => 0,
+                    'avg_unit_cost' => 0,
+                    'lots_count' => 0,
+                ];
+            }
+
+            $byVendor[$vendor]['total_units'] += (float) $lot->quantity;
+            $byVendor[$vendor]['total_cost'] += $lotCost;
+            $byVendor[$vendor]['lots_count'] += 1;
+            $byVendor[$vendor]['avg_unit_cost'] = $byVendor[$vendor]['total_cost'] / $byVendor[$vendor]['total_units'];
+
+            if ($lot->status === 'active') {
+                $activeLotDetails[] = [
+                    'vendor' => $vendor,
+                    'received_at' => $lot->received_at?->format('M d, Y'),
+                    'quantity' => (float) $lot->quantity,
+                    'remaining' => (float) $lot->remaining_quantity,
+                    'unit_cost' => (float) $lot->unit_cost,
+                    'total_cost' => $lotCost,
+                    'pct_of_stock' => $this->record->totalQuantity() > 0
+                        ? round((($lot->remaining_quantity / $this->record->totalQuantity()) * 100), 1)
+                        : 0,
+                ];
+            }
+        }
+
+        usort($activeLotDetails, fn ($a, $b) => $b['total_cost'] <=> $a['total_cost']);
+
+        $currentStock = (float) $this->record->totalQuantity();
+        $currentValue = $currentStock * (float) $this->record->average_cost;
+        $costPerUnit = $currentStock > 0 ? ($currentValue / $currentStock) : 0;
+
+        usort($byVendor, fn ($a, $b) => $b['total_cost'] <=> $a['total_cost']);
+
+        return [
+            'total_invested' => $totalInvested,
+            'current_value' => $currentValue,
+            'current_avg_cost' => (float) $this->record->average_cost,
+            'current_stock' => $currentStock,
+            'by_vendor' => array_values($byVendor),
+            'active_lots' => $activeLotDetails,
+            'weighted_avg_cost' => (float) $this->record->average_cost,
+        ];
+    }
+
     // ── Actions ────────────────────────────────────────────────────────────────
 
     protected function getHeaderActions(): array

@@ -47,6 +47,11 @@ class StreamerAnalytics extends Page
             && (bool) $user?->isAdmin();
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false; // Admin reporting - access via Reports dashboard
+    }
+
     public function getView(): string
     {
         return 'filament.pages.streamer-analytics';

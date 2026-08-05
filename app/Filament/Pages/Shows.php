@@ -38,7 +38,7 @@ class Shows extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return 'Shows';
+        return AdminModules::navigationGroupFor('streams');
     }
 
     public static function getNavigationSort(): ?int

@@ -680,4 +680,35 @@ class InventoryReport extends Page
             echo $csv->getContent();
         }, 'inventory-breakdown-' . now()->format('Y-m-d-His') . '.csv');
     }
+
+    public function exportComprehensivePdf(): Response
+    {
+        $data = $this->sanitizeUtf8([
+            'title' => 'Comprehensive Inventory Report',
+            'date' => now()->format('F j, Y'),
+            'time' => now()->format('H:i'),
+            'summary' => $this->getData(),
+            'health' => $this->stockHealth,
+            'fastMovers' => $this->fastMovers,
+            'slowMovers' => $this->slowMovers,
+            'deadStock' => $this->deadStock,
+            'abcAnalysis' => $this->abcAnalysis,
+            'coverage' => $this->stockCoverage,
+            'locationHealth' => $this->locationHealth,
+            'categories' => $this->categoryBreakdown,
+            'vendors' => $this->vendorBreakdown,
+            'aging' => $this->agingInventory,
+            'margin' => $this->marginAnalysis,
+        ]);
+
+        $pdf = Pdf::loadView('filament.pages.inventory-report-pdf-comprehensive', $data)
+            ->setPaper('a4', 'landscape')
+            ->setOption('enable-local-file-access', true)
+            ->setOption('margin-top', 10)
+            ->setOption('margin-bottom', 10)
+            ->setOption('margin-left', 5)
+            ->setOption('margin-right', 5);
+
+        return $pdf->download('inventory-comprehensive-' . now()->format('Y-m-d-His') . '.pdf');
+    }
 }

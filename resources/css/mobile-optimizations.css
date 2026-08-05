@@ -223,15 +223,18 @@ body {
         -webkit-overflow-scrolling: touch;
     }
 
-    /* Grid columns */
+    /* Grid columns - ensure single column on mobile for readability */
     .grid {
         gap: 12px;
     }
 
     .grid-cols-2,
     .grid-cols-3,
-    .grid-cols-4 {
-        grid-template-columns: 1fr;
+    .grid-cols-4,
+    .grid-cols-5,
+    .grid-cols-6,
+    .grid-cols-12 {
+        grid-template-columns: 1fr !important;
     }
 
     /* Space adjustments */
@@ -243,17 +246,38 @@ body {
         margin-left: 12px;
     }
 
-    /* Typography */
+    /* Typography - ensure readability on mobile */
     h1 {
         font-size: 1.5rem;
+        word-break: break-word;
     }
 
     h2 {
         font-size: 1.25rem;
+        word-break: break-word;
     }
 
     h3 {
         font-size: 1.1rem;
+        word-break: break-word;
+    }
+
+    p, span, div {
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* Prevent text overflow in containers */
+    .truncate {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .line-clamp-1, .line-clamp-2, .line-clamp-3 {
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
     }
 
     /* Badges and pills */
@@ -568,6 +592,24 @@ body {
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     font-size: 16px;
+}
+
+    /* Ensure images and media scale properly */
+    img, svg, video {
+        max-width: 100%;
+        height: auto;
+        display: block;
+    }
+
+    /* Ensure containers don't have hidden overflow */
+    .overflow-hidden {
+        overflow: hidden;
+    }
+
+    .overflow-x-auto,
+    .overflow-y-auto {
+        -webkit-overflow-scrolling: touch;
+    }
 }
 
 @supports (padding: max(0px)) {

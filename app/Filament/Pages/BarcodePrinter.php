@@ -25,6 +25,11 @@ class BarcodePrinter extends Page implements HasForms
     public string $labelSize = '4x6';
     public string $itemsPerSheet = '8';
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public function mount(): void
     {
         $this->selectedItems = collect();

@@ -51,6 +51,11 @@ class StockTransfer extends Page
         return 'Transfer inventory between locations with bulk operation support.';
     }
 
+    public function getView(): string
+    {
+        return 'filament.pages.stock-transfer';
+    }
+
     #[Computed]
     public function locations()
     {

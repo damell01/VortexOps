@@ -61,6 +61,11 @@ class InventorySearch extends Page
         return 'Advanced search with filters and saved search profiles.';
     }
 
+    public function getView(): string
+    {
+        return 'filament.pages.inventory-search';
+    }
+
     #[Computed]
     public function results(): Collection
     {

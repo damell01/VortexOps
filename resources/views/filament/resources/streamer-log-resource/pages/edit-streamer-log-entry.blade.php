@@ -255,7 +255,7 @@
     </div>
 
     <!-- Items Modal (Livewire) -->
-    <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="$dispatch('closeModal')" style="display: none !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 9999 !important; width: 100vw !important; height: 100vh !important; overflow: hidden !important;">
+    <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="$dispatch('closeModal')" style="display: none !important; position: fixed !important; inset: 0 !important; z-index: 99999 !important; width: 100% !important; height: 100% !important; overflow: hidden !important;">
         @livewire('streamer-log-items-modal', [
             'recordId' => $record->id,
             'title' => 'STREAMER LOG INVENTORY CATALOG',
@@ -297,7 +297,7 @@
                     this.modalOpen = true;
                     const modal = document.getElementById('items-modal');
                     if (modal) {
-                        modal.setAttribute('style', 'display: block !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 9999 !important; width: 100vw !important; height: 100vh !important; overflow: hidden !important;');
+                        modal.setAttribute('style', 'display: block !important; position: fixed !important; inset: 0 !important; z-index: 99999 !important; width: 100% !important; height: 100% !important; overflow: hidden !important;');
                         document.body.style.overflow = 'hidden';
                         document.documentElement.style.overflow = 'hidden';
                     }
@@ -306,7 +306,7 @@
                     this.modalOpen = false;
                     const modal = document.getElementById('items-modal');
                     if (modal) {
-                        modal.setAttribute('style', 'display: none !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 9999 !important; width: 100vw !important; height: 100vh !important; overflow: hidden !important;');
+                        modal.setAttribute('style', 'display: none !important; position: fixed !important; inset: 0 !important; z-index: 99999 !important; width: 100% !important; height: 100% !important; overflow: hidden !important;');
                         document.body.style.overflow = '';
                         document.documentElement.style.overflow = '';
                     }

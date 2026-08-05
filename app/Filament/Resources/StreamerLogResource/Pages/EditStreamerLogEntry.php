@@ -227,4 +227,18 @@ class EditStreamerLogEntry extends EditRecord
 
         return $breadcrumbs;
     }
+
+    public function removeItem(int $orderId): void
+    {
+        $order = \App\Models\WhatnotShowOrder::find($orderId);
+        if ($order && $order->show_id === $this->record->show_id) {
+            $order->delete();
+            Notification::make()
+                ->title('Item removed')
+                ->body('The item has been removed from this show.')
+                ->info()
+                ->send();
+            $this->refresh();
+        }
+    }
 }

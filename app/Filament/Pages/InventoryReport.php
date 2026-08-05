@@ -13,6 +13,8 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Pages\Page;
 use Livewire\Component;
 use Symfony\Component\HttpFoundation\Response;
+use League\Csv\Writer;
+use SplTempFileObject;
 
 class InventoryReport extends Page
 {
@@ -327,5 +329,88 @@ class InventoryReport extends Page
             ->setOption('enable-local-file-access', true);
 
         return $pdf->download('inventory-report-' . now()->format('Y-m-d-His') . '.pdf');
+    }
+
+    public function exportCsv(): Response
+    {
+        $csv = Writer::createFromFileObject(new SplTempFileObject());
+
+        $products = Product::with(['stock', 'lots'])->where('is_active', true)->get();
+
+        $csv->insertOne([
+            'SKU',
+            'Product Name',
+            'Category',
+            'Total Quantity',
+            'Unit Cost',
+            'Average Cost',
+            'Total Value',
+            'Active Lots',
+            'Reorder Level',
+            'Status',
+        ]);
+
+        foreach ($products as $product) {
+            $qty = (float) $product->totalQuantity();
+            $avgCost = (float) $product->average_cost;
+            $totalValue = $qty * $avgCost;
+            $activeLots = $product->lots()->where('status', 'active')->count();
+
+            $status = 'Healthy';
+            if ($qty <= 0) {
+                $status = 'Out of Stock';
+            } elseif ($product->reorder_level && $qty < $product->reorder_level) {
+                $status = 'Low Stock';
+            } elseif ($product->reorder_level && $qty > ($product->reorder_level * 3)) {
+                $status = 'Overstock';
+            }
+
+            $csv->insertOne([
+                $product->sku,
+                $product->name,
+                $product->category ?? '',
+                number_format($qty),
+                number_format($product->unit_cost ?? 0, 2),
+                number_format($avgCost, 4),
+                number_format($totalValue, 2),
+                $activeLots,
+                $product->reorder_level ?? 0,
+                $status,
+            ]);
+        }
+
+        return response()->streamDownload(function () use ($csv) {
+            echo $csv->getContent();
+        }, 'inventory-report-' . now()->format('Y-m-d-His') . '.csv');
+    }
+
+    public function exportBreakdown(): Response
+    {
+        $csv = Writer::createFromFileObject(new SplTempFileObject());
+
+        $csv->insertOne([
+            'SKU',
+            'Product Name',
+            'Location',
+            'Quantity',
+            'Unit Cost',
+            'Total Value',
+        ]);
+
+        $itemDetails = $this->getData()['itemDetails'];
+        foreach ($itemDetails as $item) {
+            $csv->insertOne([
+                $item['sku'],
+                $item['name'],
+                $item['location'],
+                number_format($item['quantity']),
+                number_format($item['unit_cost'], 2),
+                number_format($item['total_value'], 2),
+            ]);
+        }
+
+        return response()->streamDownload(function () use ($csv) {
+            echo $csv->getContent();
+        }, 'inventory-breakdown-' . now()->format('Y-m-d-His') . '.csv');
     }
 }

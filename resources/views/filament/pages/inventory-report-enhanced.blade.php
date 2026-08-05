@@ -9,18 +9,32 @@
 
     <div class="space-y-6">
 
-        {{-- Export Button --}}
-        <div class="flex items-center justify-between">
+        {{-- Export Buttons --}}
+        <div class="flex items-center justify-between flex-wrap gap-4">
             <div>
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Inventory Report & Analytics</h2>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">As of {{ $snapshot->snapshot_date->format('M d, Y g:i A') }}</p>
             </div>
-            <button type="button"
-                    wire:click="exportPdf"
-                    class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-500 transition-colors">
-                <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
-                Export PDF
-            </button>
+            <div class="flex gap-2">
+                <button type="button"
+                        wire:click="exportCsv"
+                        class="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-500 transition-colors">
+                    <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
+                    CSV
+                </button>
+                <button type="button"
+                        wire:click="exportBreakdown"
+                        class="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 transition-colors">
+                    <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
+                    Breakdown
+                </button>
+                <button type="button"
+                        wire:click="exportPdf"
+                        class="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-500 transition-colors">
+                    <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
+                    PDF
+                </button>
+            </div>
         </div>
 
         {{-- Tab Navigation --}}

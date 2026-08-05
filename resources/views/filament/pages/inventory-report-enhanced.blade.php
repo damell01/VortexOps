@@ -31,7 +31,10 @@
                 'velocity' => 'Velocity',
                 'abc' => 'ABC Analysis',
                 'coverage' => 'Coverage',
-                'locations' => 'Locations'
+                'locations' => 'Locations',
+                'breakdowns' => 'Breakdowns',
+                'aging' => 'Aging',
+                'margins' => 'Margins'
             ] as $key => $label)
             <button wire:click="setTab('{{ $key }}')" type="button"
                 class="flex-shrink-0 px-4 py-2 text-sm font-medium rounded-t transition-colors whitespace-nowrap
@@ -421,6 +424,183 @@
                 </div>
             </div>
             @endforeach
+        </div>
+        @endif
+
+        {{-- TAB: BREAKDOWNS --}}
+        @if($activeTab === 'breakdowns')
+        <div class="space-y-8">
+            {{-- Category Breakdown --}}
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">By Category</h3>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    @foreach($this->categoryBreakdown as $cat)
+                    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                        <div class="flex justify-between items-start mb-3">
+                            <div>
+                                <h4 class="font-semibold text-gray-900 dark:text-white">{{ $cat['category'] }}</h4>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">{{ $cat['item_count'] }} items</p>
+                            </div>
+                            <p class="text-lg font-bold text-gray-900 dark:text-white">${{ number_format($cat['total_value'], 2) }}</p>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-600 dark:text-gray-400 pt-2 border-t border-gray-200 dark:border-gray-700">
+                            <span>{{ number_format($cat['total_quantity'], 0) }} units</span>
+                            <span>${{ number_format($cat['avg_unit_cost'], 2) }} avg cost</span>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+
+            {{-- Vendor Breakdown --}}
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">By Vendor</h3>
+                <div class="space-y-3">
+                    @foreach($this->vendorBreakdown as $vendor)
+                    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h4 class="font-semibold text-gray-900 dark:text-white">{{ $vendor['vendor'] }}</h4>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">{{ $vendor['item_count'] }} products • {{ number_format($vendor['total_quantity'], 0) }} units</p>
+                            </div>
+                            <p class="text-lg font-bold text-gray-900 dark:text-white text-right">${{ number_format($vendor['total_value'], 2) }}</p>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+        @endif
+
+        {{-- TAB: AGING --}}
+        @if($activeTab === 'aging')
+        <div class="space-y-6">
+            @php
+                $aging = $this->agingInventory;
+                $periods = ['current', 'thirty_days', 'sixty_days', 'ninety_days'];
+                $colorMap = [
+                    'current' => 'green',
+                    'thirty_days' => 'yellow',
+                    'sixty_days' => 'orange',
+                    'ninety_days' => 'red'
+                ];
+            @endphp
+
+            {{-- Age Summary Cards --}}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                @foreach($periods as $period)
+                @php $data = $aging[$period]; $color = $colorMap[$period]; @endphp
+                <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">{{ $data['label'] }}</p>
+                    <div class="space-y-2">
+                        <p class="text-2xl font-bold text-gray-900 dark:text-white">${{ number_format($data['value'], 2) }}</p>
+                        <p class="text-xs text-gray-600 dark:text-gray-400">{{ $data['count'] }} distinct items</p>
+                    </div>
+                </div>
+                @endforeach
+            </div>
+
+            {{-- Detailed Lists --}}
+            @foreach($periods as $period)
+            @php $data = $aging[$period]; $color = $colorMap[$period]; @endphp
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">{{ $data['label'] }}</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Product</th>
+                                <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Qty</th>
+                                <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Unit Cost</th>
+                                <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Total Value</th>
+                                <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Days Old</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            @forelse($data['items'] as $item)
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                                <td class="px-4 py-3">
+                                    <div>
+                                        <p class="font-medium text-gray-900 dark:text-white">{{ $item['name'] }}</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $item['sku'] }}</p>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-gray-900 dark:text-white">{{ number_format($item['quantity'], 0) }}</td>
+                                <td class="px-4 py-3 text-gray-900 dark:text-white">${{ number_format($item['unit_cost'], 2) }}</td>
+                                <td class="px-4 py-3 font-semibold text-gray-900 dark:text-white">${{ number_format($item['total_value'], 2) }}</td>
+                                <td class="px-4 py-3 text-gray-900 dark:text-white">{{ $item['days_old'] }}</td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="5" class="px-4 py-6 text-center text-gray-500 dark:text-gray-400">No items in this age group</td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            @endforeach
+        </div>
+        @endif
+
+        {{-- TAB: MARGINS --}}
+        @if($activeTab === 'margins')
+        <div class="space-y-4">
+            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                <p class="text-sm text-blue-800 dark:text-blue-300">
+                    <strong>Margin Analysis:</strong> Shows profitability per item based on retail price minus average cost.
+                </p>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Product</th>
+                            <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Qty</th>
+                            <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Cost</th>
+                            <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Retail</th>
+                            <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Unit Margin</th>
+                            <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Margin %</th>
+                            <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Total Margin</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                        @forelse($this->marginAnalysis as $item)
+                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                            <td class="px-4 py-3">
+                                <div>
+                                    <p class="font-medium text-gray-900 dark:text-white">{{ $item['name'] }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $item['sku'] }}</p>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 text-gray-900 dark:text-white">{{ number_format($item['quantity'], 0) }}</td>
+                            <td class="px-4 py-3 text-gray-900 dark:text-white">${{ number_format($item['cost'], 2) }}</td>
+                            <td class="px-4 py-3 text-gray-900 dark:text-white">${{ number_format($item['retail_price'], 2) }}</td>
+                            <td class="px-4 py-3 text-gray-900 dark:text-white">${{ number_format($item['unit_margin'], 2) }}</td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-1 rounded text-xs font-semibold
+                                    @if($item['margin_percent'] >= 50)
+                                        bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200
+                                    @elseif($item['margin_percent'] >= 25)
+                                        bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200
+                                    @else
+                                        bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200
+                                    @endif
+                                ">
+                                    {{ number_format($item['margin_percent'], 1) }}%
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 font-bold text-gray-900 dark:text-white">${{ number_format($item['total_margin'], 2) }}</td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="7" class="px-4 py-6 text-center text-gray-500 dark:text-gray-400">No items with margin data available</td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
         </div>
         @endif
 

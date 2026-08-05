@@ -255,7 +255,7 @@
     </div>
 
     <!-- Items Modal (Livewire) -->
-    <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="$dispatch('closeModal')" style="display: none !important; position: fixed !important; inset: 0 !important; z-index: 99999 !important; width: 100% !important; height: 100% !important; overflow: hidden !important;">
+    <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="$dispatch('closeModal')" style="display: none !important; position: fixed !important; inset: 0 !important; z-index: 50 !important; width: 100% !important; height: 100% !important; overflow: hidden !important; background: white;">
         @livewire('streamer-log-items-modal', [
             'recordId' => $record->id,
             'title' => 'STREAMER LOG INVENTORY CATALOG',
@@ -297,18 +297,23 @@
                     this.modalOpen = true;
                     const modal = document.getElementById('items-modal');
                     if (modal) {
-                        modal.setAttribute('style', 'display: block !important; position: fixed !important; inset: 0 !important; z-index: 99999 !important; width: 100% !important; height: 100% !important; overflow: hidden !important;');
+                        modal.setAttribute('style', 'display: block !important; position: fixed !important; inset: 0 !important; z-index: 50 !important; width: 100% !important; height: 100% !important; overflow: hidden !important; background: white;');
                         document.body.style.overflow = 'hidden';
                         document.documentElement.style.overflow = 'hidden';
+                        // Hide page content and sidebar
+                        document.documentElement.style.visibility = 'hidden';
+                        modal.style.visibility = 'visible';
                     }
                 },
                 closeModal() {
                     this.modalOpen = false;
                     const modal = document.getElementById('items-modal');
                     if (modal) {
-                        modal.setAttribute('style', 'display: none !important; position: fixed !important; inset: 0 !important; z-index: 99999 !important; width: 100% !important; height: 100% !important; overflow: hidden !important;');
+                        modal.setAttribute('style', 'display: none !important; position: fixed !important; inset: 0 !important; z-index: 50 !important; width: 100% !important; height: 100% !important; overflow: hidden !important; background: white;');
                         document.body.style.overflow = '';
                         document.documentElement.style.overflow = '';
+                        // Show page content again
+                        document.documentElement.style.visibility = 'visible';
                     }
                 },
                 itemsAdded() {

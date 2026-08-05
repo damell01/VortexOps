@@ -115,7 +115,7 @@ class Shows extends Page
         }
 
         return $query
-            ->with(['streamers', 'orders', 'streamerLogEntries'])
+            ->with(['streamers', 'orders', 'streamerLogEntry'])
             ->limit(100)
             ->get();
     }

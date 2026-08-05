@@ -195,15 +195,21 @@
                                             />
                                         </div>
                                         <div>
-                                            <label class="text-xs text-gray-600 dark:text-gray-400 block mb-1">Unit Cost ($)</label>
+                                            <label class="text-xs text-gray-600 dark:text-gray-400 block mb-1">Unit Cost ($)
+                                                <span class="text-gray-500 dark:text-gray-500 font-normal text-xs">(optional)</span>
+                                            </label>
                                             <input
                                                 type="number"
                                                 step="0.01"
                                                 min="0"
                                                 wire:change="updateUnitCost({{ $itemId }}, $event.target.value)"
                                                 wire:model="selectedItems.{{ $itemId }}.unit_cost"
+                                                placeholder="Uses inventory cost"
                                                 class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                             />
+                                            @if (!$item['unit_cost'])
+                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Will use inventory cost</p>
+                                            @endif
                                         </div>
                                     </div>
                                     <div class="mt-2 pt-2 border-t border-blue-200 dark:border-blue-800 text-sm">

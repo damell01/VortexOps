@@ -141,6 +141,9 @@ class StreamerLogItemsModal extends Component
         }
 
         foreach ($this->selectedItems as $itemId => $data) {
+            $item = InventoryItem::find($itemId);
+            $unitCost = (float) $data['unit_cost'] ?: ((float) $item?->unit_cost ?? 0);
+
             WhatnotShowOrder::updateOrCreate(
                 [
                     'show_id' => $record->show_id,
@@ -148,8 +151,8 @@ class StreamerLogItemsModal extends Component
                 ],
                 [
                     'quantity' => $data['quantity'],
-                    'unit_cost' => $data['unit_cost'],
-                    'total_cost' => round((float) $data['unit_cost'] * (int) $data['quantity'], 2),
+                    'unit_cost' => $unitCost,
+                    'total_cost' => round($unitCost * (int) $data['quantity'], 2),
                 ]
             );
         }

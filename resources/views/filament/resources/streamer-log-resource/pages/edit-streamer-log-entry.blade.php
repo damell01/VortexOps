@@ -255,17 +255,19 @@
     </div>
 
     <!-- Items Modal (Livewire) -->
-    <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="$dispatch('closeModal')" style="display: none !important; position: fixed !important; inset: 0 !important; z-index: 50 !important; width: 100% !important; height: 100% !important; overflow: hidden !important; background: white;">
-        @livewire('streamer-log-items-modal', [
-            'recordId' => $record->id,
-            'title' => 'STREAMER LOG INVENTORY CATALOG',
-            'description' => 'Select inventory items and set quantities for this show',
-            'multiSelect' => true,
-            'allowQuantityInput' => true,
-            'allowCostInput' => true,
-            'allowCreateItem' => true,
-            'successEvent' => 'items-added',
-        ], key('items-modal-' . $record->id))
+    <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="$dispatch('closeModal')" style="display: none !important; position: fixed !important; inset: 0 !important; z-index: 50 !important; background: rgba(0,0,0,0.5) !important; padding: 2rem !important; flex-direction: column !important; align-items: center !important; justify-content: flex-start !important;">
+        <div style="background: white; border-radius: 0.5rem; max-width: 1200px; width: 100%; max-height: 90vh; overflow: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+            @livewire('streamer-log-items-modal', [
+                'recordId' => $record->id,
+                'title' => 'STREAMER LOG INVENTORY CATALOG',
+                'description' => 'Select inventory items and set quantities for this show',
+                'multiSelect' => true,
+                'allowQuantityInput' => true,
+                'allowCostInput' => true,
+                'allowCreateItem' => true,
+                'successEvent' => 'items-added',
+            ], key('items-modal-' . $record->id))
+        </div>
     </div>
 
     <!-- Edit Form Section (visible to admins only or when unlocked) -->
@@ -297,23 +299,18 @@
                     this.modalOpen = true;
                     const modal = document.getElementById('items-modal');
                     if (modal) {
-                        modal.setAttribute('style', 'display: block !important; position: fixed !important; inset: 0 !important; z-index: 50 !important; width: 100% !important; height: 100% !important; overflow: hidden !important; background: white;');
+                        modal.style.display = 'flex';
                         document.body.style.overflow = 'hidden';
                         document.documentElement.style.overflow = 'hidden';
-                        // Hide page content and sidebar
-                        document.documentElement.style.visibility = 'hidden';
-                        modal.style.visibility = 'visible';
                     }
                 },
                 closeModal() {
                     this.modalOpen = false;
                     const modal = document.getElementById('items-modal');
                     if (modal) {
-                        modal.setAttribute('style', 'display: none !important; position: fixed !important; inset: 0 !important; z-index: 50 !important; width: 100% !important; height: 100% !important; overflow: hidden !important; background: white;');
+                        modal.style.display = 'none';
                         document.body.style.overflow = '';
                         document.documentElement.style.overflow = '';
-                        // Show page content again
-                        document.documentElement.style.visibility = 'visible';
                     }
                 },
                 itemsAdded() {

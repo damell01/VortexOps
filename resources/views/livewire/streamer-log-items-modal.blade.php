@@ -1,4 +1,4 @@
-<div class="h-screen w-screen bg-white dark:bg-slate-950 flex flex-col overflow-hidden">
+<div class="bg-white dark:bg-slate-950 flex flex-col overflow-hidden">
 
     <!-- Header -->
     <div class="px-8 py-5 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-white dark:bg-slate-900">

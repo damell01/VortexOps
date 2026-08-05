@@ -34,6 +34,12 @@ class StreamerLogEntry extends Model
         'fulfillment_reviewed_by',
         'fulfillment_reviewed_at',
         'notes',
+        'submitted_at',
+        'locked_at',
+        'edit_window_minutes',
+        'approval_requested_at',
+        'approval_status',
+        'approval_notes',
     ];
 
     protected $casts = [
@@ -53,8 +59,12 @@ class StreamerLogEntry extends Model
         'pwe_count'                    => 'integer',
         'label_count'                  => 'integer',
         'number_of_packages_over_500'  => 'integer',
+        'edit_window_minutes'          => 'integer',
         'reviewed_at'                  => 'datetime',
         'streamer_reviewed_at'         => 'datetime',
+        'submitted_at'                 => 'datetime',
+        'locked_at'                    => 'datetime',
+        'approval_requested_at'        => 'datetime',
         'fulfillment_reviewed_at'      => 'datetime',
     ];
 
@@ -122,5 +132,102 @@ class StreamerLogEntry extends Model
         return $this->status === 'admin_approved'
             && $this->fulfillment_reviewed_at === null
             && ($this->streamer?->payout_type === 'pwe_labels');
+    }
+
+    public function isSubmitted(): bool
+    {
+        return $this->submitted_at !== null;
+    }
+
+    public function isLocked(): bool
+    {
+        return $this->locked_at !== null;
+    }
+
+    public function canStreamerEdit(): bool
+    {
+        if (!$this->isSubmitted()) {
+            return true;
+        }
+
+        if ($this->isLocked()) {
+            return false;
+        }
+
+        if ($this->approval_status === 'approved') {
+            return false;
+        }
+
+        if (!$this->submitted_at) {
+            return true;
+        }
+
+        $editWindowExpired = $this->submitted_at->addMinutes($this->edit_window_minutes)->isPast();
+        return !$editWindowExpired;
+    }
+
+    public function getEditWindowExpiresAt(): ?\Illuminate\Support\Carbon
+    {
+        if (!$this->submitted_at) {
+            return null;
+        }
+
+        return $this->submitted_at->addMinutes($this->edit_window_minutes);
+    }
+
+    public function getMinutesUntilEditWindowCloses(): ?int
+    {
+        if (!$this->submitted_at) {
+            return null;
+        }
+
+        $expiresAt = $this->getEditWindowExpiresAt();
+        $minutesRemaining = now()->diffInMinutes($expiresAt, false);
+
+        return max(0, $minutesRemaining);
+    }
+
+    public function submitReport(): void
+    {
+        $this->update([
+            'submitted_at' => now(),
+            'locked_at' => null,
+        ]);
+    }
+
+    public function lockReport(): void
+    {
+        $this->update(['locked_at' => now()]);
+    }
+
+    public function unlockReport(): void
+    {
+        $this->update(['locked_at' => null]);
+    }
+
+    public function requestAdminApproval(string $notes = ''): void
+    {
+        $this->update([
+            'approval_requested_at' => now(),
+            'approval_status' => 'pending_approval',
+            'approval_notes' => $notes,
+        ]);
+    }
+
+    public function approveByAdmin(): void
+    {
+        $this->update([
+            'approval_status' => 'approved',
+            'locked_at' => now(),
+        ]);
+    }
+
+    public function rejectByAdmin(string $notes = ''): void
+    {
+        $this->update([
+            'approval_status' => 'rejected',
+            'approval_notes' => $notes,
+            'locked_at' => null,
+        ]);
     }
 }

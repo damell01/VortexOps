@@ -170,9 +170,12 @@ class EndOfStreamForm extends Page implements HasForms
                 );
             }
 
+            // Submit the report (sets submitted_at timestamp)
+            $logEntry->submitReport();
+
             Notification::make()
-                ->title('✓ Items logged')
-                ->body(count($this->selectedItems) . ' item(s) added to your show. Review in your Streamer Log.')
+                ->title('✓ Report submitted')
+                ->body(count($this->selectedItems) . ' item(s) logged. You have 2 hours to make changes.')
                 ->success()
                 ->send();
 

@@ -165,12 +165,58 @@ class AdminPanelProvider extends PanelProvider
                 fn () => ! $isAuthenticatedAdminView()
                     ? ''
                     : Blade::render(<<<'HTML'
-                    <div class="fi-sidebar-backdrop" style="display: none;"></div>
+                    <div class="fi-sidebar-backdrop" style="position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 39; display: none;"></div>
+                    <style>
+                    @media (max-width: 1024px) {
+                        .fi-sidebar {
+                            position: fixed !important;
+                            left: -320px !important;
+                            top: 0 !important;
+                            height: 100vh !important;
+                            width: 280px !important;
+                            z-index: 40 !important;
+                            transition: left 0.3s ease !important;
+                            box-shadow: 2px 0 8px rgba(0,0,0,0.15) !important;
+                        }
+                        .fi-sidebar.open {
+                            left: 0 !important;
+                        }
+                    }
+                    .mobile-menu-toggle {
+                        display: none !important;
+                        width: 44px !important;
+                        height: 44px !important;
+                        padding: 0 !important;
+                        background: transparent !important;
+                        border: none !important;
+                        color: #4c1d95 !important;
+                        font-size: 28px !important;
+                        cursor: pointer !important;
+                        z-index: 41 !important;
+                        align-items: center !important;
+                        justify-content: center !important;
+                        flex-shrink: 0 !important;
+                        line-height: 1 !important;
+                        position: relative !important;
+                        touch-action: manipulation !important;
+                    }
+                    .mobile-menu-toggle:focus {
+                        outline: 2px solid #8b5cf6 !important;
+                        outline-offset: -2px !important;
+                    }
+                    .mobile-menu-toggle:active {
+                        opacity: 0.7 !important;
+                    }
+                    @media (max-width: 1024px) {
+                        .mobile-menu-toggle {
+                            display: flex !important;
+                        }
+                    }
+                    </style>
                     <script>
                     (function() {
                         let setupAttempts = 0;
-                        const maxAttempts = 20;
-                        let eventListenersAdded = false;
+                        const maxAttempts = 30;
 
                         function setupMobileMenu() {
                             const sidebar = document.querySelector('.fi-sidebar');
@@ -180,7 +226,7 @@ class AdminPanelProvider extends PanelProvider
                             if (!sidebar || !topbar) {
                                 setupAttempts++;
                                 if (setupAttempts < maxAttempts) {
-                                    setTimeout(setupMobileMenu, 150);
+                                    setTimeout(setupMobileMenu, 100);
                                 }
                                 return;
                             }
@@ -191,29 +237,26 @@ class AdminPanelProvider extends PanelProvider
                                 toggleBtn.className = 'mobile-menu-toggle';
                                 toggleBtn.type = 'button';
                                 toggleBtn.setAttribute('aria-label', 'Toggle menu');
-                                toggleBtn.textContent = '☰';
+                                toggleBtn.setAttribute('aria-expanded', 'false');
+                                toggleBtn.innerHTML = '☰';
                                 topbar.insertBefore(toggleBtn, topbar.firstChild);
                             }
 
-                            if (eventListenersAdded) return;
-                            eventListenersAdded = true;
-
-                            function toggleSidebar(e) {
-                                if (e) {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                }
+                            const handleToggle = function(e) {
+                                e.preventDefault();
+                                e.stopPropagation();
                                 const isOpen = sidebar.classList.contains('open');
-                                if (isOpen) closeSidebar();
-                                else openSidebar();
-                            }
+                                if (isOpen) {
+                                    closeSidebar();
+                                } else {
+                                    openSidebar();
+                                }
+                            };
 
                             function openSidebar() {
                                 sidebar.classList.add('open');
-                                sidebar.style.left = '0';
                                 if (backdrop) {
                                     backdrop.style.display = 'block';
-                                    backdrop.classList.add('open');
                                 }
                                 document.body.style.overflow = 'hidden';
                                 toggleBtn.setAttribute('aria-expanded', 'true');
@@ -221,33 +264,34 @@ class AdminPanelProvider extends PanelProvider
 
                             function closeSidebar() {
                                 sidebar.classList.remove('open');
-                                sidebar.style.left = '-100%';
                                 if (backdrop) {
                                     backdrop.style.display = 'none';
-                                    backdrop.classList.remove('open');
                                 }
                                 document.body.style.overflow = '';
                                 toggleBtn.setAttribute('aria-expanded', 'false');
                             }
 
-                            toggleBtn.removeEventListener('click', toggleSidebar);
-                            toggleBtn.addEventListener('click', toggleSidebar);
+                            toggleBtn.addEventListener('click', handleToggle, { passive: false });
 
-                            sidebar.removeEventListener('click', closeSidebar);
                             sidebar.addEventListener('click', (e) => {
-                                if (e.target.closest('a, button')) {
+                                const link = e.target.closest('a, button');
+                                if (link && link !== toggleBtn) {
                                     closeSidebar();
                                 }
                             });
 
                             if (backdrop) {
-                                backdrop.removeEventListener('click', closeSidebar);
                                 backdrop.addEventListener('click', closeSidebar);
                             }
 
-                            document.removeEventListener('keydown', closeSidebar);
                             document.addEventListener('keydown', (e) => {
                                 if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+                                    closeSidebar();
+                                }
+                            });
+
+                            window.addEventListener('resize', () => {
+                                if (window.innerWidth > 1024 && sidebar.classList.contains('open')) {
                                     closeSidebar();
                                 }
                             });
@@ -258,6 +302,8 @@ class AdminPanelProvider extends PanelProvider
                         } else {
                             setupMobileMenu();
                         }
+
+                        window.setupMobileMenu = setupMobileMenu;
                     })();
                     </script>
                     HTML),

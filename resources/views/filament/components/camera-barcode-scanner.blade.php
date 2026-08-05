@@ -71,7 +71,7 @@
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.4/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
 @verbatim
 <script>
 function cameraScanner() {
@@ -100,42 +100,71 @@ function cameraScanner() {
 
         async startScanner() {
             try {
-                this.statusText = '📷 Point camera at barcode or QR code…';
+                this.statusText = '📷 Point camera at barcode…';
 
                 const readerDiv = this.$refs.readerDiv;
                 if (!readerDiv) return;
 
-                // Use html5-qrcode library for better detection
-                if (!this.scanner) {
-                    this.scanner = new Html5Qrcode('html5-qr-reader');
-                }
-
-                await this.scanner.start(
-                    { facingMode: 'environment' },
-                    {
-                        fps: 15,
-                        qrbox: { width: 350, height: 100 },
-                        aspectRatio: 1.777,
-                        disableFlip: false,
-                        rememberLastUsedCamera: true,
-                        showTorchButtonIfSupported: true
+                // Use Quagga for 1D barcode detection (UPC, EAN, CODE128, etc.)
+                Quagga.init({
+                    inputStream: {
+                        name: 'Live',
+                        type: 'LiveStream',
+                        target: readerDiv,
+                        constraints: {
+                            facingMode: 'environment',
+                            width: { ideal: 640 },
+                            height: { ideal: 480 }
+                        }
                     },
-                    (decodedText) => this.onBarcodeDetected(decodedText),
-                    (errorMessage) => {
-                        // Silent error - let it keep trying
+                    decoder: {
+                        readers: [
+                            'code_128_reader',
+                            'ean_reader',
+                            'ean_8_reader',
+                            'upc_reader',
+                            'upc_e_reader',
+                            'codabar_reader',
+                            'code_39_reader'
+                        ],
+                        debug: {
+                            showCanvas: false,
+                            showPatternMatches: false,
+                            showFrequency: false,
+                            showErrors: false
+                        }
                     }
-                );
+                }, (err) => {
+                    if (err) {
+                        console.error('[barcode-scanner]', err);
+                        if (err.name === 'NotAllowedError') {
+                            this.error = '❌ Camera permission denied. Type barcode manually below.';
+                        } else if (err.name === 'NotFoundError') {
+                            this.error = '❌ No camera found. Type the barcode manually.';
+                        } else {
+                            this.error = '❌ Camera error. Type barcode manually.';
+                        }
+                        this.showManual = true;
+                        this.$nextTick(() => {
+                            if (this.$refs.manualInput) {
+                                setTimeout(() => this.$refs.manualInput.focus(), 100);
+                            }
+                        });
+                        return;
+                    }
 
-                this.showManual = true;
+                    Quagga.start();
+                    Quagga.onDetected((result) => {
+                        if (result && result.codeResult && result.codeResult.code) {
+                            this.onBarcodeDetected(result.codeResult.code);
+                        }
+                    });
+
+                    this.showManual = true;
+                });
             } catch (err) {
-                console.error('[camera-scanner]', err);
-                if (err.name === 'NotAllowedError') {
-                    this.error = '❌ Camera permission denied. Type barcode manually below or use Bluetooth scanner.';
-                } else if (err.name === 'NotFoundError') {
-                    this.error = '❌ No camera found. Type the barcode manually.';
-                } else {
-                    this.error = '❌ Camera error: ' + (err.message || err);
-                }
+                console.error('[barcode-scanner]', err);
+                this.error = '❌ Scanner initialization failed. Type barcode manually.';
                 this.showManual = true;
                 this.$nextTick(() => {
                     if (this.$refs.manualInput) {
@@ -147,7 +176,7 @@ function cameraScanner() {
 
         onBarcodeDetected(value) {
             const now = Date.now();
-            if (now - this.lastDetectionTime < 500) return; // Throttle rapid detections
+            if (now - this.lastDetectionTime < 800) return; // Throttle rapid detections
 
             this.lastDetectionTime = now;
             this.detected = true;
@@ -207,10 +236,10 @@ function cameraScanner() {
             this.detected = false;
             if (this.scanner) {
                 try {
-                    await this.scanner.stop();
-                    this.scanner = null;
+                    Quagga.stop();
+                    Quagga.offDetected();
                 } catch (err) {
-                    console.error('[camera-scanner] stop error:', err);
+                    console.error('[barcode-scanner] stop error:', err);
                 }
             }
         },

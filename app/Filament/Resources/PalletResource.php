@@ -127,6 +127,12 @@ class PalletResource extends Resource
                         ->numeric()
                         ->prefix('$')
                         ->minValue(0),
+                    TextInput::make('shipping_cost')
+                        ->label('Shipping Cost ($)')
+                        ->numeric()
+                        ->prefix('$')
+                        ->minValue(0)
+                        ->helperText('Automatically allocated to items based on quantity received'),
                     Select::make('status')
                         ->options(Pallet::statusLabels())
                         ->default('pending')

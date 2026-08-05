@@ -158,7 +158,7 @@ class ReceivingService
      *
      * @throws RuntimeException if line is not mapped.
      */
-    public function receiveAllCasesForLine(PalletLine $line): int
+    public function receiveAllCasesForLine(PalletLine $line, float $allocatedShippingCost = 0): int
     {
         if (! $line->inventory_item_id || ! $line->inventory_location_id) {
             throw new RuntimeException("Line #{$line->line_number} must be mapped to an item and location before bulk-receiving.");
@@ -175,14 +175,14 @@ class ReceivingService
             return 0;
         }
 
-        return $this->receiveCaseBatch($line, $expectedCases);
+        return $this->receiveCaseBatch($line, $expectedCases, $allocatedShippingCost);
     }
 
     /**
      * Receive a collection of cases belonging to the same line in one transaction.
      * Avoids N separate transactions, N PalletLine reloads, and N WAC updates.
      */
-    private function receiveCaseBatch(PalletLine $line, \Illuminate\Support\Collection $cases): int
+    private function receiveCaseBatch(PalletLine $line, \Illuminate\Support\Collection $cases, float $allocatedShippingCost = 0): int
     {
         $line->loadMissing(['inventoryItem', 'location']);
 
@@ -195,7 +195,11 @@ class ReceivingService
         $userId   = Auth::id();
         $totalQty = $qty * $count;
 
-        return DB::transaction(function () use ($cases, $item, $location, $qty, $unitCost, $line, $now, $userId, $count, $totalQty) {
+        // Allocate shipping cost per unit
+        $shippingCostPerUnit = $totalQty > 0 ? $allocatedShippingCost / $totalQty : 0;
+        $totalUnitCost = $unitCost + $shippingCostPerUnit;
+
+        return DB::transaction(function () use ($cases, $item, $location, $qty, $unitCost, $line, $now, $userId, $count, $totalQty, $allocatedShippingCost, $shippingCostPerUnit, $totalUnitCost) {
             // Bulk-mark all cases received
             InventoryCase::whereIn('id', $cases->pluck('id'))
                 ->update([
@@ -219,7 +223,7 @@ class ReceivingService
                 'to_location_id'    => $location->id,
                 'quantity'          => $qty,
                 'movement_type'     => 'opening',
-                'reason'            => "Received via pallet #{$line->pallet_id}, line #{$line->line_number}",
+                'reason'            => "Received via pallet #{$line->pallet_id}, line #{$line->line_number}" . ($allocatedShippingCost > 0 ? " (shipping: \${$allocatedShippingCost})" : ""),
                 'reference_type'    => 'inventory_case',
                 'reference_id'      => $case->id,
                 'created_by'        => $userId,
@@ -227,8 +231,8 @@ class ReceivingService
                 'updated_at'        => $now,
             ])->toArray());
 
-            // Single WAC recalculation for the entire batch
-            $this->recalculateAverageCost($item, $totalQty, $unitCost);
+            // Single WAC recalculation for the entire batch, including allocated shipping cost
+            $this->recalculateAverageCost($item, $totalQty, $totalUnitCost);
 
             return $count;
         });
@@ -254,8 +258,16 @@ class ReceivingService
 
         return DB::transaction(function () use ($pallet) {
             $received = 0;
+
+            // Allocate shipping cost across lines based on their quantities
+            $totalLineQuantity = (float) $pallet->lines->sum(fn ($l) => (float) $l->quantity_per_case * (int) $l->case_count);
+            $shippingCost = (float) ($pallet->shipping_cost ?? 0);
+
             foreach ($pallet->lines as $line) {
-                $received += $this->receiveAllCasesForLine($line);
+                $lineQuantity = (float) $line->quantity_per_case * (int) $line->case_count;
+                $allocatedShipping = $totalLineQuantity > 0 ? ($shippingCost * $lineQuantity / $totalLineQuantity) : 0;
+
+                $received += $this->receiveAllCasesForLine($line, $allocatedShipping);
                 // Update line status to received
                 $line->update(['line_status' => 'received']);
             }

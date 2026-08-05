@@ -31,6 +31,7 @@ class Pallet extends Model
         'expected_delivery_date',
         'shipped_at',
         'total_cost',
+        'shipping_cost',
         'notes',
         'created_by',
         'stage',
@@ -48,6 +49,7 @@ class Pallet extends Model
         'staged_at'               => 'datetime',
         'receiving_started_at'    => 'datetime',
         'total_cost'              => 'decimal:2',
+        'shipping_cost'           => 'decimal:2',
     ];
 
     public function getActivitylogOptions(): LogOptions

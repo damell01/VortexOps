@@ -25,7 +25,11 @@ class CreateProductIdentity extends Page implements HasForms
 
     protected static string $moduleSlug = 'inventory';
     protected static ?string $title = 'Create Product Identity';
-    protected static ?string $navigationIcon = 'heroicon-o-barcode';
+
+    public static function getNavigationIcon(): string|\BackedEnum|null
+    {
+        return 'heroicon-o-barcode';
+    }
 
     public string $scannedBarcode = '';
     public ?int $productId = null;

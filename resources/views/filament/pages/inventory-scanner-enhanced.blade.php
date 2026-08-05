@@ -265,8 +265,9 @@
                         <x-heroicon-o-x-mark class="h-5 w-5 mx-auto" />
                     </button>
                     @endif
-                    <button id="camera-scan-btn" type="button" class="hidden flex-1 sm:flex-none px-3 py-3 sm:py-2.5 rounded-lg bg-violet-200 dark:bg-violet-800 text-violet-600 dark:text-violet-300 hover:bg-violet-300 dark:hover:bg-violet-700 transition" title="Scan with camera">
+                    <button id="camera-scan-btn" type="button" class="flex-1 sm:hidden px-3 py-3 rounded-lg bg-violet-500 text-white hover:bg-violet-600 active:bg-violet-700 transition font-medium text-sm" title="Scan with camera">
                         <x-heroicon-o-video-camera class="h-5 w-5 mx-auto" />
+                        Camera
                     </button>
                     <button wire:click="submitScan" type="button"
                         class="flex-1 sm:flex-none px-4 py-3 sm:py-2.5 rounded-lg bg-violet-600 text-base sm:text-sm font-medium text-white hover:bg-violet-700 active:bg-violet-800 transition focus:outline-none focus:ring-2 focus:ring-violet-500">
@@ -482,14 +483,43 @@
 
         @endif
 
-        {{-- Camera Feed (Hidden by default, shared across modes) --}}
-        <div id="camera-container" class="hidden rounded-lg overflow-hidden bg-black">
-            <video id="camera-video" class="w-full aspect-video object-cover"></video>
-            <div class="bg-gray-900 px-4 py-3 flex gap-2">
-                <button id="camera-stop-btn" type="button" class="flex-1 rounded px-3 py-2 text-sm font-medium bg-gray-700 text-white hover:bg-gray-600">
-                    <x-heroicon-o-x-mark class="h-4 w-4 inline -mt-0.5 mr-1" />
-                    Close Camera
+        {{-- Camera Feed (Mobile-Optimized, Fullscreen on mobile) --}}
+        <div id="camera-container" class="hidden fixed inset-0 sm:relative sm:rounded-lg sm:overflow-hidden bg-black z-50 flex flex-col">
+            {{-- Camera Video Feed --}}
+            <div class="flex-1 relative overflow-hidden">
+                <video id="camera-video" class="w-full h-full object-cover" playsinline></video>
+
+                {{-- Crosshair Overlay (Mobile scanner hint) --}}
+                <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div class="relative w-48 h-32 border-2 border-green-500/30">
+                        {{-- Corner brackets --}}
+                        <div class="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-green-500"></div>
+                        <div class="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-green-500"></div>
+                        <div class="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-green-500"></div>
+                        <div class="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-green-500"></div>
+
+                        {{-- Center dot --}}
+                        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-1 bg-green-500 rounded-full"></div>
+                    </div>
+                </div>
+
+                {{-- Scanning Indicator --}}
+                <div class="absolute top-4 left-4 sm:left-auto sm:right-4 bg-black/60 px-3 py-2 rounded-lg flex items-center gap-2">
+                    <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span class="text-xs font-medium text-white">Scanning...</span>
+                </div>
+            </div>
+
+            {{-- Mobile-Friendly Controls (Bottom sheet style) --}}
+            <div class="bg-gradient-to-t from-gray-900 via-gray-900 to-transparent px-4 py-4 sm:px-4 sm:py-3 flex gap-3 items-center">
+                <button id="camera-stop-btn" type="button" class="flex-1 sm:flex-none rounded-lg px-4 py-3 sm:py-2 text-sm font-medium bg-red-600 text-white hover:bg-red-700 active:bg-red-800 transition">
+                    <x-heroicon-o-x-mark class="h-5 w-5 inline -mt-0.5 mr-2" />
+                    <span class="hidden sm:inline">Close Camera</span>
+                    <span class="sm:hidden">Close</span>
                 </button>
+                <div class="flex-1 text-center">
+                    <p class="text-xs text-gray-400">Hold camera steady over barcode</p>
+                </div>
             </div>
         </div>
 
@@ -547,7 +577,7 @@
                         <x-heroicon-o-x-mark class="h-5 w-5 mx-auto" />
                     </button>
                     @endif
-                    <button id="camera-scan-btn" type="button" class="hidden flex-1 sm:flex-none px-3 py-3 sm:py-2.5 rounded-lg bg-emerald-200 dark:bg-emerald-800 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-300 dark:hover:bg-emerald-700 transition" title="Scan with camera">
+                    <button id="camera-scan-btn" type="button" class="flex-1 sm:hidden px-3 py-3 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 active:bg-emerald-700 transition font-medium text-sm" title="Scan with camera">
                         <x-heroicon-o-video-camera class="h-5 w-5 mx-auto" />
                     </button>
                     <button wire:click="submitScan" type="button"
@@ -1230,6 +1260,30 @@
                 navigator.vibrate(150);
             }
         });
+    })();
+
+    // Register service worker for offline support
+    (function () {
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/inventory-scanner-sw.js', { scope: '/admin/inventory/scanner' })
+                    .then((registration) => {
+                        console.log('Scanner Service Worker registered successfully:', registration);
+                    })
+                    .catch((error) => {
+                        console.log('Scanner Service Worker registration failed:', error);
+                    });
+            });
+        }
+    })();
+
+    // Mobile optimization: Prevent double-tap zoom on buttons
+    (function () {
+        document.addEventListener('touchend', (e) => {
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
     })();
     </script>
     @endif

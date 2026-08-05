@@ -54,6 +54,20 @@ class InventoryAnalytics extends Page
     }
 
     /**
+     * Recursively sanitize UTF-8 in arrays/strings to prevent JSON encoding errors
+     */
+    protected function sanitizeUtf8($data): mixed
+    {
+        if (is_string($data)) {
+            return iconv('UTF-8', 'UTF-8//IGNORE', $data);
+        }
+        if (is_array($data)) {
+            return array_map(fn ($item) => $this->sanitizeUtf8($item), $data);
+        }
+        return $data;
+    }
+
+    /**
      * Summary statistics for dashboard cards
      */
     public function getSummary(): array
@@ -88,7 +102,7 @@ class InventoryAnalytics extends Page
      */
     public function getLowStockItems(): array
     {
-        return InventoryItem::where('is_active', true)
+        $items = InventoryItem::where('is_active', true)
             ->whereNotNull('reorder_level')
             ->with('stock')
             ->get()
@@ -107,6 +121,8 @@ class InventoryAnalytics extends Page
             ->take(10)
             ->values()
             ->toArray();
+
+        return $this->sanitizeUtf8($items);
     }
 
     /**
@@ -114,7 +130,7 @@ class InventoryAnalytics extends Page
      */
     public function getTopVendors(): array
     {
-        return Vendor::where('status', 'active')
+        $vendors = Vendor::where('status', 'active')
             ->withCount('inventoryItems')
             ->orderByDesc('inventory_items_count')
             ->take(6)
@@ -124,6 +140,8 @@ class InventoryAnalytics extends Page
                 'items_count' => $vendor->inventory_items_count,
             ])
             ->toArray();
+
+        return $this->sanitizeUtf8($vendors);
     }
 
     /**
@@ -131,7 +149,7 @@ class InventoryAnalytics extends Page
      */
     public function getLocationHealth(): array
     {
-        return InventoryLocation::where('status', 'active')
+        $locations = InventoryLocation::where('status', 'active')
             ->with('stock')
             ->get()
             ->map(fn ($location) => [
@@ -143,6 +161,8 @@ class InventoryAnalytics extends Page
             ->sortByDesc('value')
             ->values()
             ->toArray();
+
+        return $this->sanitizeUtf8($locations);
     }
 
     /**
@@ -150,7 +170,7 @@ class InventoryAnalytics extends Page
      */
     public function getFastMovers(): array
     {
-        return InventoryStock::with(['item', 'location'])
+        $items = InventoryStock::with(['item', 'location'])
             ->whereHas('item', fn ($q) => $q->where('is_active', true))
             ->get()
             ->sortByDesc(fn ($stock) => $stock->quantity * ($stock->item->average_cost ?? 0))
@@ -163,6 +183,8 @@ class InventoryAnalytics extends Page
             ])
             ->values()
             ->toArray();
+
+        return $this->sanitizeUtf8($items);
     }
 
     /**
@@ -170,7 +192,7 @@ class InventoryAnalytics extends Page
      */
     public function getDeadStock(): array
     {
-        return InventoryItem::where('is_active', true)
+        $items = InventoryItem::where('is_active', true)
             ->with('stock')
             ->get()
             ->filter(function ($item) {
@@ -188,6 +210,8 @@ class InventoryAnalytics extends Page
             ])
             ->values()
             ->toArray();
+
+        return $this->sanitizeUtf8($items);
     }
 
     /**

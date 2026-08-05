@@ -580,13 +580,23 @@ class InventoryReport extends Page
     }
     public function exportPdf(): Response
     {
-        $data = $this->getData();
+        $data = $this->sanitizeUtf8($this->getData());
 
         $pdf = Pdf::loadView('filament.pages.inventory-report-pdf', $data)
             ->setPaper('a4', 'landscape')
             ->setOption('enable-local-file-access', true);
 
         return $pdf->download('inventory-report-' . now()->format('Y-m-d-His') . '.pdf');
+    }
+
+    private function sanitizeUtf8($data): mixed
+    {
+        if (is_string($data)) {
+            return iconv('UTF-8', 'UTF-8//IGNORE', $data);
+        } elseif (is_array($data)) {
+            return array_map([$this, 'sanitizeUtf8'], $data);
+        }
+        return $data;
     }
 
     public function exportCsv(): Response

@@ -167,25 +167,24 @@ class AdminPanelProvider extends PanelProvider
                     : Blade::render(<<<'HTML'
                     <div class="fi-sidebar-backdrop" style="display: none;"></div>
                     <script>
-                    // Wait for DOM to be ready then setup mobile menu
-                    if (document.readyState === 'loading') {
-                        document.addEventListener('DOMContentLoaded', setupMobileMenu);
-                    } else {
-                        setupMobileMenu();
-                    }
+                    (function() {
+                        let setupAttempts = 0;
+                        const maxAttempts = 20;
+                        let eventListenersAdded = false;
 
-                    function setupMobileMenu() {
-                        // Small delay to ensure Filament elements are rendered
-                        setTimeout(() => {
+                        function setupMobileMenu() {
                             const sidebar = document.querySelector('.fi-sidebar');
                             const topbar = document.querySelector('.fi-topbar');
                             const backdrop = document.querySelector('.fi-sidebar-backdrop');
 
                             if (!sidebar || !topbar) {
+                                setupAttempts++;
+                                if (setupAttempts < maxAttempts) {
+                                    setTimeout(setupMobileMenu, 150);
+                                }
                                 return;
                             }
 
-                            // Create and inject menu toggle button if not exists
                             let toggleBtn = document.querySelector('.mobile-menu-toggle');
                             if (!toggleBtn) {
                                 toggleBtn = document.createElement('button');
@@ -196,39 +195,17 @@ class AdminPanelProvider extends PanelProvider
                                 topbar.insertBefore(toggleBtn, topbar.firstChild);
                             }
 
-                            // Toggle menu on button click
-                            toggleBtn.addEventListener('click', (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                toggleSidebar();
-                            });
+                            if (eventListenersAdded) return;
+                            eventListenersAdded = true;
 
-                            // Close menu when clicking sidebar links
-                            sidebar.addEventListener('click', (e) => {
-                                if (e.target.closest('a, button')) {
-                                    closeSidebar();
+                            function toggleSidebar(e) {
+                                if (e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
                                 }
-                            });
-
-                            // Close menu on backdrop click
-                            if (backdrop) {
-                                backdrop.addEventListener('click', closeSidebar);
-                            }
-
-                            // Close menu on Escape key
-                            document.addEventListener('keydown', (e) => {
-                                if (e.key === 'Escape' && sidebar.classList.contains('open')) {
-                                    closeSidebar();
-                                }
-                            });
-
-                            function toggleSidebar() {
                                 const isOpen = sidebar.classList.contains('open');
-                                if (isOpen) {
-                                    closeSidebar();
-                                } else {
-                                    openSidebar();
-                                }
+                                if (isOpen) closeSidebar();
+                                else openSidebar();
                             }
 
                             function openSidebar() {
@@ -239,6 +216,7 @@ class AdminPanelProvider extends PanelProvider
                                     backdrop.classList.add('open');
                                 }
                                 document.body.style.overflow = 'hidden';
+                                toggleBtn.setAttribute('aria-expanded', 'true');
                             }
 
                             function closeSidebar() {
@@ -249,9 +227,38 @@ class AdminPanelProvider extends PanelProvider
                                     backdrop.classList.remove('open');
                                 }
                                 document.body.style.overflow = '';
+                                toggleBtn.setAttribute('aria-expanded', 'false');
                             }
-                        }, 100);
-                    }
+
+                            toggleBtn.removeEventListener('click', toggleSidebar);
+                            toggleBtn.addEventListener('click', toggleSidebar);
+
+                            sidebar.removeEventListener('click', closeSidebar);
+                            sidebar.addEventListener('click', (e) => {
+                                if (e.target.closest('a, button')) {
+                                    closeSidebar();
+                                }
+                            });
+
+                            if (backdrop) {
+                                backdrop.removeEventListener('click', closeSidebar);
+                                backdrop.addEventListener('click', closeSidebar);
+                            }
+
+                            document.removeEventListener('keydown', closeSidebar);
+                            document.addEventListener('keydown', (e) => {
+                                if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+                                    closeSidebar();
+                                }
+                            });
+                        }
+
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', setupMobileMenu);
+                        } else {
+                            setupMobileMenu();
+                        }
+                    })();
                     </script>
                     HTML),
             )

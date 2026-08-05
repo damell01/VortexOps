@@ -102,12 +102,14 @@ class InventorySearch extends Page
 
         // Stock levels
         if ($this->lowStockOnly) {
+            $tableName = (new InventoryItem())->getTable();
             $query->whereNotNull('reorder_level')
-                ->whereRaw('(SELECT COALESCE(SUM(quantity), 0) FROM inventory_stock WHERE inventory_item_id = inventory_items.id) <= reorder_level');
+                ->whereRaw("(SELECT COALESCE(SUM(quantity), 0) FROM inventory_stock WHERE inventory_item_id = $tableName.id) <= reorder_level");
         }
 
         if ($this->noStockOnly) {
-            $query->whereRaw('(SELECT COALESCE(SUM(quantity), 0) FROM inventory_stock WHERE inventory_item_id = inventory_items.id) = 0');
+            $tableName = (new InventoryItem())->getTable();
+            $query->whereRaw("(SELECT COALESCE(SUM(quantity), 0) FROM inventory_stock WHERE inventory_item_id = $tableName.id) = 0");
         }
 
         // Eager load relationships

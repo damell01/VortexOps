@@ -206,7 +206,7 @@ class EndOfStreamForm extends Page implements HasForms
 
     public static function shouldRegisterNavigation(): bool
     {
-        return true;
+        return false; // Hidden - accessed from StreamLogs dashboard
     }
 
     public static function getNavigationLabel(): string

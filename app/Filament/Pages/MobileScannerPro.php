@@ -30,6 +30,11 @@ class MobileScannerPro extends Page
         return 0;
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public string $mode = 'lookup';
     public bool $sessionActive = false;
     public array $scannedItems = [];

@@ -31,6 +31,11 @@ class DuplicateProductDetector extends Page
         return AdminModules::navigationGroupFor('purchasing');
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public function getView(): string
     {
         return 'filament.pages.duplicate-product-detector';

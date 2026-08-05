@@ -39,6 +39,11 @@ class ReceivingAnalytics extends Page
         return 'How receiving is going — speed, accuracy, and a scorecard of your top vendors.';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     /** Exports the top-vendors table — the closest thing here to a per-vendor scorecard. */
     public function exportCsv(): StreamedResponse
     {

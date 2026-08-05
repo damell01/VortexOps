@@ -25,6 +25,11 @@ class ProductHealthDashboard extends Page
         return AdminModules::navigationGroupFor('purchasing');
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public function getView(): string
     {
         return 'filament.pages.product-health-dashboard';

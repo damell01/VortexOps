@@ -25,6 +25,11 @@ class MobileScannerHub extends Page
         return -1;
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     #[Validate('in:inventory,receiving,shipping,lookup')]
     public string $mode = 'lookup';
 

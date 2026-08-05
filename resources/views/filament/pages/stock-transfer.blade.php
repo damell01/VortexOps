@@ -15,7 +15,7 @@
 
                 @if($fromLocationId)
                 <div class="text-sm text-gray-600 dark:text-gray-400">
-                    <p>Type: <strong>{{ collect($this->locations)->find('id', $fromLocationId)->type }}</strong></p>
+                    <p>Type: <strong>{{ collect($this->locations)->firstWhere('id', $fromLocationId)->type }}</strong></p>
                 </div>
                 @endif
             </div>

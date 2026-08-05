@@ -18,7 +18,7 @@ return new class extends Migration
             $table->decimal('quantity', 10, 2);
             $table->timestamps();
 
-            $table->unique(['fulfillment_package_id', 'product_id']);
+            $table->unique(['fulfillment_package_id', 'product_id'], 'pkg_items_pkg_product_unique');
         });
     }
 

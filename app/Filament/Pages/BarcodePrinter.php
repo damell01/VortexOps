@@ -20,7 +20,6 @@ class BarcodePrinter extends Page implements HasForms
 
     protected static string $moduleSlug = 'inventory';
     protected static ?string $title = 'Barcode Label Printer';
-    public string $view = 'filament.pages.barcode-printer';
 
     public Collection $selectedItems;
     public string $labelSize = '4x6';
@@ -55,6 +54,11 @@ class BarcodePrinter extends Page implements HasForms
     public function getSubheading(): ?string
     {
         return 'Generate and print barcode labels for inventory items.';
+    }
+
+    public function getView(): string
+    {
+        return 'filament.pages.barcode-printer';
     }
 
     protected function getFormSchema(): array

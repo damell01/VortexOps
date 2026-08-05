@@ -34,7 +34,7 @@ class BarcodePrinter extends Page implements HasForms
 
     public static function getNavigationIcon(): string
     {
-        return 'heroicon-o-barcode';
+        return 'heroicon-o-qr-code';
     }
 
     public static function getNavigationGroup(): string|null

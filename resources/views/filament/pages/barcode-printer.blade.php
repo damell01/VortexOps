@@ -44,7 +44,7 @@
         </div>
         @else
         <div class="bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
-            <x-heroicon-o-barcode class="h-12 w-12 text-gray-400 mx-auto mb-3" />
+            <x-heroicon-o-qr-code class="h-12 w-12 text-gray-400 mx-auto mb-3" />
             <p class="text-gray-600 dark:text-gray-400">Select items above to generate printable barcode labels</p>
         </div>
         @endif

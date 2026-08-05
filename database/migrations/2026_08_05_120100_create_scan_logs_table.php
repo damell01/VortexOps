@@ -16,7 +16,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('scan_session_id')->constrained('scan_sessions')->cascadeOnDelete();
             $table->string('barcode');
-            $table->foreignId('inventory_item_id')->nullable()->constrained('inventory_items')->nullableOnDelete();
+            $table->unsignedBigInteger('inventory_item_id')->nullable();
             $table->unsignedInteger('quantity')->default(1);
             $table->timestamp('scanned_at')->useCurrent();
             $table->enum('result', ['success', 'not_found', 'duplicate', 'error'])->default('success');

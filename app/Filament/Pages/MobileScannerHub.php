@@ -151,9 +151,4 @@ class MobileScannerHub extends Page
     {
         return 'filament.pages.mobile-scanner-hub';
     }
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return true;
-    }
 }

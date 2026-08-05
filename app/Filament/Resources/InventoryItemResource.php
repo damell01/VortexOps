@@ -375,37 +375,45 @@ class InventoryItemResource extends Resource
                         ->icon('heroicon-o-plus-circle')
                         ->color('success')
                         ->form([
-                            Select::make('location_id')
-                                ->label('Location')
-                                ->options(fn () => InventoryLocation::activeOptions())
-                                ->required()
-                                ->searchable(),
+                            Grid::make(2)->schema([
+                                Select::make('location_id')
+                                    ->label('Location')
+                                    ->options(fn () => InventoryLocation::activeOptions())
+                                    ->required()
+                                    ->searchable()
+                                    ->columnSpan(1),
+                                Select::make('vendor_id')
+                                    ->label('Vendor')
+                                    ->options(fn () => Vendor::activeOptions())
+                                    ->searchable()
+                                    ->columnSpan(1)
+                                    ->helperText('Track which vendor this stock came from'),
+                            ]),
                             TextInput::make('quantity')
                                 ->numeric()
                                 ->required()
                                 ->minValue(0.01)
                                 ->label('Quantity to Add'),
-                            Select::make('movement_type')
-                                ->options(['opening' => 'Opening Stock / Restock', 'adjustment' => 'Adjustment', 'return' => 'Return'])
-                                ->default('opening')
-                                ->live()
-                                ->required(),
                             TextInput::make('unit_cost')
                                 ->label('Unit Cost ($)')
                                 ->numeric()
                                 ->minValue(0)
-                                ->visible(fn (Get $get) => $get('movement_type') === 'opening')
                                 ->helperText('Blends into this item\'s weighted average cost. Leave blank to add stock without changing the average.'),
-                            Textarea::make('reason')->rows(2),
+                            Textarea::make('reason')->rows(2)->placeholder('e.g., Restock from Vendor, damaged replacement, etc.'),
                         ])
                         ->action(function (InventoryItem $record, array $data): void {
                             $location = InventoryLocation::findOrFail($data['location_id']);
+                            $reason = $data['reason'] ?? '';
+                            if (isset($data['vendor_id'])) {
+                                $vendor = Vendor::find($data['vendor_id']);
+                                $reason = ($reason ? $reason . ' — ' : '') . 'From ' . ($vendor?->name ?? 'Unknown Vendor');
+                            }
                             app(InventoryService::class)->addStock(
                                 $record,
                                 $location,
                                 (float) $data['quantity'],
-                                $data['movement_type'],
-                                $data['reason'] ?? null,
+                                'opening',
+                                $reason ?: null,
                                 isset($data['unit_cost']) && $data['unit_cost'] !== null && $data['unit_cost'] !== ''
                                     ? (float) $data['unit_cost']
                                     : null,

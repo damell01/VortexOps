@@ -255,17 +255,19 @@
     </div>
 
     <!-- Items Modal (Livewire) -->
-    <div wire:key="items-modal-{{ $record->id }}" class="fixed inset-0 z-50 hidden" id="items-modal" @keydown.escape="$dispatch('closeModal')" style="display: none;">
-        @livewire('streamer-log-items-modal', [
-            'recordId' => $record->id,
-            'title' => 'Add Items to Show: ' . ($record->show?->title ?? 'Untitled'),
-            'description' => 'Select inventory items and set quantities for this show',
-            'multiSelect' => true,
-            'allowQuantityInput' => true,
-            'allowCostInput' => true,
-            'allowCreateItem' => true,
-            'successEvent' => 'items-added',
-        ], key('items-modal-' . $record->id))
+    <div wire:key="items-modal-{{ $record->id }}" class="bg-black/50 justify-center items-start lg:items-center" id="items-modal" @keydown.escape="$dispatch('closeModal')" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 50; padding: 1rem; overflow-y: auto;">
+        <div style="width: 100%; max-width: 56rem;">
+            @livewire('streamer-log-items-modal', [
+                'recordId' => $record->id,
+                'title' => 'Add Items to Show: ' . ($record->show?->title ?? 'Untitled'),
+                'description' => 'Select inventory items and set quantities for this show',
+                'multiSelect' => true,
+                'allowQuantityInput' => true,
+                'allowCostInput' => true,
+                'allowCreateItem' => true,
+                'successEvent' => 'items-added',
+            ], key('items-modal-' . $record->id))
+        </div>
     </div>
 
     <!-- Edit Form Section (visible to admins only or when unlocked) -->
@@ -293,20 +295,25 @@
                 modalOpen: false,
                 openModal() {
                     this.modalOpen = true;
-                    this.$nextTick(() => {
-                        document.getElementById('items-modal').style.display = '';
+                    const modal = document.getElementById('items-modal');
+                    if (modal) {
+                        modal.style.display = 'flex';
+                        modal.style.flexDirection = 'column';
                         document.body.style.overflow = 'hidden';
-                    });
+                    }
                 },
                 closeModal() {
                     this.modalOpen = false;
-                    document.getElementById('items-modal').style.display = 'none';
-                    document.body.style.overflow = '';
+                    const modal = document.getElementById('items-modal');
+                    if (modal) {
+                        modal.style.display = 'none';
+                        document.body.style.overflow = '';
+                    }
                 },
                 itemsAdded() {
                     this.closeModal();
-                    Livewire.dispatch('refresh');
-                    location.reload();
+                    // Reload to refresh the items display
+                    window.location.reload();
                 }
             }
         }

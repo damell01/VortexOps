@@ -63,7 +63,7 @@ class InventoryAnalytics extends Page
         $totalValue = $stocks->sum(fn ($s) => $s->quantity * ($s->item->average_cost ?? 0));
         $totalUnits = $stocks->sum('quantity');
         $totalItems = InventoryItem::where('is_active', true)->count();
-        $totalLocations = InventoryLocation::where('is_active', true)->count();
+        $totalLocations = InventoryLocation::where('status', 'active')->count();
 
         return [
             'total_value' => $totalValue,
@@ -131,7 +131,7 @@ class InventoryAnalytics extends Page
      */
     public function getLocationHealth(): array
     {
-        return InventoryLocation::where('is_active', true)
+        return InventoryLocation::where('status', 'active')
             ->with('stock')
             ->get()
             ->map(fn ($location) => [

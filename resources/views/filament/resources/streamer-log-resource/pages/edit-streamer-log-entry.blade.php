@@ -255,11 +255,11 @@
     </div>
 
     <!-- Items Modal (Livewire) -->
-    <div wire:key="items-modal-{{ $record->id }}" class="bg-black/50 justify-center items-start lg:items-center" id="items-modal" @keydown.escape="$dispatch('closeModal')" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 50; padding: 1rem; overflow-y: auto;">
-        <div style="width: 100%; max-width: 56rem;">
+    <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="$dispatch('closeModal')" style="display: none !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 9999 !important; width: 100vw !important; height: 100vh !important; overflow: hidden;">
+        <div style="width: 100%; height: 100%; overflow: hidden;">
             @livewire('streamer-log-items-modal', [
                 'recordId' => $record->id,
-                'title' => 'Add Items to Show: ' . ($record->show?->title ?? 'Untitled'),
+                'title' => 'STREAMER LOG INVENTORY CATALOG',
                 'description' => 'Select inventory items and set quantities for this show',
                 'multiSelect' => true,
                 'allowQuantityInput' => true,
@@ -297,17 +297,18 @@
                     this.modalOpen = true;
                     const modal = document.getElementById('items-modal');
                     if (modal) {
-                        modal.style.display = 'flex';
-                        modal.style.flexDirection = 'column';
+                        modal.setAttribute('style', 'display: block !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 9999 !important; width: 100vw !important; height: 100vh !important; overflow: hidden !important;');
                         document.body.style.overflow = 'hidden';
+                        document.documentElement.style.overflow = 'hidden';
                     }
                 },
                 closeModal() {
                     this.modalOpen = false;
                     const modal = document.getElementById('items-modal');
                     if (modal) {
-                        modal.style.display = 'none';
+                        modal.setAttribute('style', 'display: none !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 9999 !important; width: 100vw !important; height: 100vh !important; overflow: hidden !important;');
                         document.body.style.overflow = '';
+                        document.documentElement.style.overflow = '';
                     }
                 },
                 itemsAdded() {

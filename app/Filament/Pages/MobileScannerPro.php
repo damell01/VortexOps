@@ -1,0 +1,152 @@
+<?php
+
+namespace App\Filament\Pages;
+
+use App\Models\ScanSession;
+use App\Models\InventoryItem;
+use App\Models\InventoryLocation;
+use App\Models\Pallet;
+use App\Services\ScanningService;
+use Filament\Pages\Page;
+use Livewire\Attributes\On;
+use Livewire\Attributes\Validate;
+
+class MobileScannerPro extends Page
+{
+    protected static ?string $navigationIcon = 'heroicon-o-qr-code';
+    protected static ?string $navigationLabel = 'Mobile Scanner Pro';
+    protected static string $view = 'filament.pages.mobile-scanner-pro';
+    protected static ?int $navigationSort = 0;
+
+    public string $mode = 'lookup';
+    public bool $sessionActive = false;
+    public array $scannedItems = [];
+    public array $duplicates = [];
+    public int $totalScanned = 0;
+
+    public ?ScanSession $session = null;
+    public ?int $selectedPalletId = null;
+    public ?int $selectedLocationId = null;
+
+    private ScanningService $scanningService;
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->scanningService = new ScanningService();
+    }
+
+    public function getPalletsProperty()
+    {
+        return Pallet::where('status', '!=', 'received')
+            ->orderByDesc('created_at')
+            ->get(['id', 'reference']);
+    }
+
+    public function getLocationsProperty()
+    {
+        return InventoryLocation::orderBy('name')->get(['id', 'name']);
+    }
+
+    public function selectMode(string $mode): void
+    {
+        $this->mode = $mode;
+        $this->reset(['sessionActive', 'scannedItems', 'duplicates', 'totalScanned', 'session']);
+    }
+
+    public function startScanning(): void
+    {
+        $metadata = [
+            'mode' => $this->mode,
+            'employee' => auth()->user()->name,
+        ];
+
+        if ($this->selectedLocationId) {
+            $metadata['location_id'] = $this->selectedLocationId;
+        }
+
+        if ($this->selectedPalletId) {
+            $metadata['pallet_id'] = $this->selectedPalletId;
+        }
+
+        $this->session = $this->scanningService->createSession(
+            $this->mode,
+            $this->selectedPalletId,
+            'Pallet',
+            $metadata
+        );
+
+        $this->sessionActive = true;
+        $this->scannedItems = [];
+        $this->duplicates = [];
+        $this->totalScanned = 0;
+    }
+
+    #[On('barcodeScanned')]
+    public function handleBarcodeScan($barcode): void
+    {
+        if (!$this->session) {
+            return;
+        }
+
+        $result = $this->scanningService->scanBarcode($barcode, $this->mode);
+
+        if ($result['success']) {
+            $this->scannedItems[] = $result['item'];
+            $this->totalScanned++;
+            $this->dispatch('scanSuccess');
+        } elseif ($result['type'] === 'warning') {
+            $this->duplicates[] = [
+                'name' => $result['message'],
+                'barcode' => $barcode,
+                'timestamp' => now()->format('H:i:s'),
+            ];
+            $this->dispatch('scanWarning');
+        } else {
+            $this->dispatch('scanError');
+        }
+
+        // Auto-scroll to latest item
+        $this->dispatch('scrollToLatest');
+    }
+
+    public function endSession(): void
+    {
+        if ($this->session) {
+            $this->scanningService->endSession();
+            $this->session->refresh();
+        }
+
+        $this->sessionActive = false;
+    }
+
+    public function saveSession(): void
+    {
+        if ($this->session) {
+            $this->scanningService->endSession();
+        }
+
+        // Redirect to session review/results page
+        return redirect()->route('filament.admin.pages.scan-results', [
+            'session_id' => $this->session?->id,
+        ]);
+    }
+
+    public function updateStats(): void
+    {
+        if ($this->session) {
+            $this->session->refresh();
+            $this->totalScanned = $this->session->item_count;
+        }
+    }
+
+    public function getView(): string
+    {
+        return 'filament.pages.mobile-scanner-pro';
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return true;
+    }
+}

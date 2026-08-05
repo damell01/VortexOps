@@ -127,4 +127,48 @@ class Shows extends Page
         $this->searchQuery = '';
         $this->sortBy = 'date';
     }
+
+    public function requestFormSubmission(int $showId): void
+    {
+        $show = Show::findOrFail($showId);
+
+        // Send notifications to all streamers on this show
+        foreach ($show->streamers as $streamer) {
+            if ($streamer->user) {
+                \Filament\Notifications\Notification::make()
+                    ->title("📝 Form Submission Requested")
+                    ->body("Admin is requesting you submit the end-of-stream form for \"{$show->title}\"")
+                    ->info()
+                    ->sendToDatabase($streamer->user);
+            }
+        }
+
+        \Filament\Notifications\Notification::make()
+            ->title("✓ Submission request sent")
+            ->body("Notification sent to " . $show->streamers->count() . " streamer(s)")
+            ->success()
+            ->send();
+    }
+
+    public function requestFormResubmission(int $showId): void
+    {
+        $show = Show::findOrFail($showId);
+
+        // Send notifications to all streamers on this show
+        foreach ($show->streamers as $streamer) {
+            if ($streamer->user) {
+                \Filament\Notifications\Notification::make()
+                    ->title("🔄 Changes Requested")
+                    ->body("Admin requests changes to your end-of-stream submission for \"{$show->title}\"")
+                    ->warning()
+                    ->sendToDatabase($streamer->user);
+            }
+        }
+
+        \Filament\Notifications\Notification::make()
+            ->title("✓ Change request sent")
+            ->body("Notification sent to " . $show->streamers->count() . " streamer(s)")
+            ->success()
+            ->send();
+    }
 }

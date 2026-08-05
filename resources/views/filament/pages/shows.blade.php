@@ -161,7 +161,7 @@
                                 ${{ number_format($show->gross_revenue ?? 0, 2) }}
                             </td>
                             <td class="px-4 py-3 text-center text-sm text-gray-600 dark:text-gray-400">
-                                {{ count($show->showOrders) }} items
+                                {{ count($show->orders) }} items
                             </td>
                             <td class="px-4 py-3 text-center">
                                 @php
@@ -179,7 +179,7 @@
                             </td>
                             <td class="px-4 py-3 text-center">
                                 @php
-                                    $hasSubmission = $show->streamerLogEntries->count() > 0;
+                                    $hasSubmission = $show->streamerLogEntry !== null;
                                 @endphp
                                 @if($hasSubmission)
                                     <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200">
@@ -192,20 +192,30 @@
                                 @endif
                             </td>
                             <td class="px-4 py-3 text-center">
-                                <div class="flex gap-2 justify-center">
-                                    @if($show->streamerLogEntries->count() > 0)
-                                        @php
-                                            $logEntry = $show->streamerLogEntries->first();
-                                        @endphp
-                                        <a href="{{ route('filament.admin.resources.streamer-logs.edit', $logEntry->id) }}"
-                                            class="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800 font-medium">
-                                            📋 View
+                                <div class="flex flex-col gap-2">
+                                    @if($show->streamerLogEntry)
+                                        <a href="{{ route('filament.admin.resources.streamer-logs.edit', $show->streamerLogEntry->id) }}"
+                                            class="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800 font-medium text-center">
+                                            📋 View Submission
                                         </a>
-                                    @elseif($show->status !== 'closed' && auth()->user()?->isStreamer())
-                                        <a href="{{ route('filament.admin.pages.end-of-stream', ['show' => $show->id]) }}"
-                                            class="text-xs px-2 py-1 rounded bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-800 font-medium">
-                                            📝 Submit
-                                        </a>
+                                        @if(auth()->user()?->isAdmin())
+                                            <button wire:click="requestFormResubmission({{ $show->id }})"
+                                                class="text-xs px-2 py-1 rounded bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-200 hover:bg-orange-200 dark:hover:bg-orange-800 font-medium">
+                                                🔄 Request Changes
+                                            </button>
+                                        @endif
+                                    @elseif($show->status !== 'closed')
+                                        @if(auth()->user()?->isStreamer())
+                                            <a href="{{ route('filament.admin.pages.end-of-stream', ['show' => $show->id]) }}"
+                                                class="text-xs px-2 py-1 rounded bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-800 font-medium">
+                                                📝 Submit Form
+                                            </a>
+                                        @elseif(auth()->user()?->isAdmin())
+                                            <button wire:click="requestFormSubmission({{ $show->id }})"
+                                                class="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-800 font-medium">
+                                                📬 Request Submission
+                                            </button>
+                                        @endif
                                     @endif
                                 </div>
                             </td>

@@ -90,9 +90,9 @@ class InventoryReport extends Page
             $cost = $stock->item->average_cost ?? 0;
             return [
                 'id' => $stock->item_id,
-                'sku' => $stock->item->sku,
-                'name' => $stock->item->name,
-                'location' => $stock->location->name,
+                'sku' => $this->sanitizeUtf8($stock->item->sku),
+                'name' => $this->sanitizeUtf8($stock->item->name),
+                'location' => $this->sanitizeUtf8($stock->location->name),
                 'quantity' => $stock->quantity,
                 'unit_cost' => $cost,
                 'total_value' => $stock->quantity * $cost,
@@ -161,8 +161,8 @@ class InventoryReport extends Page
 
                 return [
                     'id' => $item->id,
-                    'name' => $item->name,
-                    'sku' => $item->sku,
+                    'name' => $this->sanitizeUtf8($item->name),
+                    'sku' => $this->sanitizeUtf8($item->sku),
                     'current_qty' => $qty,
                     'reorder_level' => $reorder,
                     'suggested_qty' => $item->suggestedReorderQuantity() ?? 0,
@@ -203,8 +203,8 @@ class InventoryReport extends Page
             $cost = (float) $item->average_cost;
             return [
                 'id' => $item->id,
-                'name' => $item->name,
-                'sku' => $item->sku,
+                'name' => $this->sanitizeUtf8($item->name),
+                'sku' => $this->sanitizeUtf8($item->sku),
                 'value' => $qty * $cost,
                 'qty' => $qty,
                 'cost' => $cost,
@@ -264,8 +264,8 @@ class InventoryReport extends Page
                 }
 
                 return [
-                    'name' => $item->name,
-                    'sku' => $item->sku,
+                    'name' => $this->sanitizeUtf8($item->name),
+                    'sku' => $this->sanitizeUtf8($item->sku),
                     'quantity' => $qty,
                     'velocity' => round($velocity, 2),
                     'days_of_stock' => $daysOfStock,
@@ -344,8 +344,8 @@ class InventoryReport extends Page
                     $totalValue += $value;
 
                     $itemsList[] = [
-                        'name' => $item->name,
-                        'sku' => $item->sku,
+                        'name' => $this->sanitizeUtf8($item->name),
+                        'sku' => $this->sanitizeUtf8($item->sku),
                         'quantity' => $qty,
                         'unit_cost' => $cost,
                         'total_value' => $value,
@@ -353,7 +353,7 @@ class InventoryReport extends Page
                 }
 
                 return [
-                    'category' => $category ?: 'Uncategorized',
+                    'category' => $this->sanitizeUtf8($category ?: 'Uncategorized'),
                     'item_count' => count($itemsList),
                     'total_quantity' => $totalQty,
                     'total_value' => $totalValue,
@@ -388,8 +388,8 @@ class InventoryReport extends Page
                     $totalValue += $value;
 
                     $itemsList[] = [
-                        'name' => $item->name,
-                        'sku' => $item->sku,
+                        'name' => $this->sanitizeUtf8($item->name),
+                        'sku' => $this->sanitizeUtf8($item->sku),
                         'quantity' => $qty,
                         'unit_cost' => $cost,
                         'total_value' => $value,
@@ -397,7 +397,7 @@ class InventoryReport extends Page
                 }
 
                 return [
-                    'vendor' => $vendor,
+                    'vendor' => $this->sanitizeUtf8($vendor),
                     'item_count' => count($itemsList),
                     'total_quantity' => $totalQty,
                     'total_value' => $totalValue,
@@ -432,8 +432,8 @@ class InventoryReport extends Page
             if ($qty <= 0) continue;
 
             $itemData = [
-                'name' => $item->name,
-                'sku' => $item->sku,
+                'name' => $this->sanitizeUtf8($item->name),
+                'sku' => $this->sanitizeUtf8($item->sku),
                 'quantity' => $qty,
                 'unit_cost' => $cost,
                 'total_value' => $value,

@@ -1,34 +1,71 @@
-<div class="bg-white dark:bg-gray-900 rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+<div class="h-screen w-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col overflow-hidden">
+
         <!-- Header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <div class="px-8 py-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
             <div>
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Add Items to Show</h2>
-                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Search inventory, select items, and set quantities</p>
+                <h1 class="text-3xl font-bold text-slate-900 dark:text-white">{{ $title ?? 'Add Items' }}</h1>
+                <p class="text-slate-600 dark:text-slate-400 mt-1">{{ $description ?? 'Select items and quantities' }}</p>
             </div>
             <button
                 @click="$dispatch('closeModal')"
-                class="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
+                class="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition text-slate-600 dark:text-slate-400"
                 aria-label="Close"
             >
-                <svg class="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
             </button>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-6 space-y-6">
-            <!-- Search & Filter Controls -->
-            <div class="space-y-3 sticky top-0 bg-white dark:bg-gray-900 pb-4 border-b border-gray-200 dark:border-gray-700">
-                <div class="flex gap-2">
-                    <input
-                        wire:model.live="search"
-                        type="text"
-                        placeholder="🔍 Search items by name or SKU..."
-                        class="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
+        <!-- Content -->
+        <div class="flex flex-1 overflow-hidden gap-6 p-8">
+
+            <!-- Left: Inventory Picker -->
+            <div class="flex-1 flex flex-col border-r border-slate-200 dark:border-slate-700 pr-8">
+
+                <!-- Search & Filters -->
+                <div class="mb-6 space-y-4">
+                    <div class="relative">
+                        <svg class="absolute left-3 top-3 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input
+                            wire:model.live="search"
+                            type="text"
+                            placeholder="Search items..."
+                            class="w-full pl-10 pr-4 py-2.5 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        />
+                    </div>
+
+                    @if (count($categories) > 0)
+                        <div class="flex gap-2 flex-wrap">
+                            <button
+                                wire:click="$set('selectedCategory', '')"
+                                @class(['px-3 py-1.5 rounded-full text-sm font-medium transition',
+                                    'bg-blue-600 text-white' => $selectedCategory === '',
+                                    'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600' => $selectedCategory !== ''
+                                ])
+                            >
+                                All
+                            </button>
+                            @foreach ($categories as $category)
+                                <button
+                                    wire:click="$set('selectedCategory', '{{ $category }}')"
+                                    @class(['px-3 py-1.5 rounded-full text-sm font-medium transition',
+                                        'bg-blue-600 text-white' => $selectedCategory === $category,
+                                        'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600' => $selectedCategory !== $category
+                                    ])
+                                >
+                                    {{ $category }}
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+
                     <button
                         wire:click="$toggle('showingCreateForm')"
-                        class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition font-medium inline-flex items-center gap-2"
+                        class="w-full px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition font-medium flex items-center justify-center gap-2"
                     >
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clip-rule="evenodd" />
@@ -37,238 +74,122 @@
                     </button>
                 </div>
 
-                @if (count($categories) > 0)
-                    <div class="flex flex-wrap gap-2">
-                        <button
-                            wire:click="$set('selectedCategory', '')"
-                            @class(['px-3 py-1 rounded text-sm transition font-medium',
-                                'bg-blue-600 text-white' => $selectedCategory === '',
-                                'bg-gray-200 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600' => $selectedCategory !== ''
-                            ])
+                <!-- Create Form -->
+                @if ($showingCreateForm)
+                    <div class="mb-6 p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg space-y-3">
+                        <h3 class="font-bold text-emerald-900 dark:text-emerald-100">Create New Item</h3>
+                        <input wire:model="newItemName" type="text" placeholder="Item name" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500" />
+                        <input wire:model.number="newItemCost" type="number" step="0.01" placeholder="Cost (optional)" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500" />
+                        <div class="flex gap-2">
+                            <button wire:click="createNewItem" class="flex-1 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium">Create</button>
+                            <button wire:click="$toggle('showingCreateForm')" class="flex-1 px-3 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-medium">Cancel</button>
+                        </div>
+                    </div>
+                @endif
+
+                <!-- Items List -->
+                <div class="flex-1 overflow-y-auto space-y-2">
+                    @forelse ($items as $item)
+                        @php
+                            $totalStock = $item->stock->sum('quantity_on_hand') ?? 0;
+                            $isSelected = isset($selectedItems[$item->id]);
+                        @endphp
+                        <label class="flex items-start p-3 border-2 rounded-lg cursor-pointer transition"
+                            :class="{ 'border-blue-500 bg-blue-50 dark:bg-blue-900/30': {{ $isSelected ? 'true' : 'false' }}, 'border-slate-200 dark:border-slate-700 hover:border-blue-400': {{ $isSelected ? 'false' : 'true' }} }"
                         >
-                            All Categories
-                        </button>
-                        @foreach ($categories as $category)
-                            <button
-                                wire:click="$set('selectedCategory', '{{ $category }}')"
-                                @class(['px-3 py-1 rounded text-sm transition font-medium',
-                                    'bg-blue-600 text-white' => $selectedCategory === $category,
-                                    'bg-gray-200 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600' => $selectedCategory !== $category
-                                ])
-                            >
-                                {{ $category }}
-                            </button>
+                            <input type="checkbox" wire:click="toggleItem({{ $item->id }})" @checked($isSelected) class="w-5 h-5 text-blue-600 rounded mt-0.5" />
+                            <div class="ml-3 flex-1">
+                                <p class="font-bold text-slate-900 dark:text-white">{{ $item->name }}</p>
+                                @if ($item->sku)
+                                    <p class="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">{{ $item->sku }}</p>
+                                @endif
+                                <div class="mt-2 flex gap-4 text-xs">
+                                    <div>
+                                        <p class="text-slate-600 dark:text-slate-400">Stock: <span class="font-bold">{{ $totalStock }}</span></p>
+                                    </div>
+                                    @if ($item->unit_cost)
+                                        <div>
+                                            <p class="text-slate-600 dark:text-slate-400">Cost: <span class="font-bold">${{ number_format($item->unit_cost, 2) }}</span></p>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        </label>
+                    @empty
+                        <div class="text-center py-12 text-slate-500 dark:text-slate-400">
+                            <p class="font-medium">No items found</p>
+                            @if ($search)
+                                <p class="text-sm">Try a different search</p>
+                            @endif
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+
+            <!-- Right: Selected Items -->
+            <div class="w-80 flex flex-col bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-slate-900 dark:text-white">
+                        Selected
+                        @if (!empty($selectedItems))
+                            <span class="ml-2 px-2.5 py-1 bg-blue-600 text-white rounded-full text-sm">{{ count($selectedItems) }}</span>
+                        @endif
+                    </h2>
+                </div>
+
+                @if (!empty($selectedItems))
+                    <div class="flex-1 overflow-y-auto space-y-4 mb-6">
+                        @foreach ($selectedItems as $itemId => $item)
+                            <div class="bg-white dark:bg-slate-800 rounded-lg p-4 border-2 border-blue-200 dark:border-blue-800">
+                                <div class="flex items-start justify-between mb-3">
+                                    <p class="font-bold text-slate-900 dark:text-white text-sm">{{ $item['name'] }}</p>
+                                    <button wire:click="toggleItem({{ $itemId }})" class="text-red-600 hover:text-red-700 text-xs font-bold">✕</button>
+                                </div>
+
+                                <div class="space-y-2 mb-3">
+                                    <div>
+                                        <label class="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Qty</label>
+                                        <input type="number" min="1" wire:model.live="selectedItems.{{ $itemId }}.quantity" class="w-full px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700 dark:text-white text-sm font-semibold" />
+                                    </div>
+                                    <div>
+                                        <label class="text-xs font-semibold text-slate-600 dark:text-slate-400 block mb-1">Cost <span class="text-xs font-normal text-slate-500">(opt)</span></label>
+                                        <input type="number" step="0.01" wire:model.live="selectedItems.{{ $itemId }}.unit_cost" placeholder="Auto" class="w-full px-2 py-1.5 border border-slate-300 dark:border-slate-600 rounded dark:bg-slate-700 dark:text-white text-sm font-semibold" />
+                                    </div>
+                                </div>
+
+                                <div class="bg-blue-100 dark:bg-blue-900/50 rounded p-2 text-center">
+                                    <p class="text-xs text-blue-700 dark:text-blue-300">Total</p>
+                                    <p class="text-xl font-bold text-blue-600 dark:text-blue-400">${{ number_format((float)$item['unit_cost'] * (int)$item['quantity'], 2) }}</p>
+                                </div>
+                            </div>
                         @endforeach
                     </div>
-                @endif
-            </div>
-
-            <!-- Create New Item Form -->
-            @if ($showingCreateForm)
-                <div class="border-l-4 border-green-500 bg-green-50 dark:bg-green-900/20 p-4 rounded">
-                    <h4 class="font-semibold mb-3 text-green-900 dark:text-green-100">Create New Item</h4>
-                    <div class="space-y-3">
-                        <input
-                            wire:model="newItemName"
-                            type="text"
-                            placeholder="Item name"
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-green-500 outline-none"
-                        />
-                        <input
-                            wire:model.number="newItemCost"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="Cost (optional)"
-                            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-800 dark:text-white focus:ring-2 focus:ring-green-500 outline-none"
-                        />
-                        <div class="flex gap-2">
-                            <button
-                                wire:click="createNewItem"
-                                wire:loading.attr="disabled"
-                                class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition font-medium inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <svg wire:loading.remove class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clip-rule="evenodd" />
-                                </svg>
-                                <svg wire:loading class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                <span wire:loading.remove>Create & Select</span>
-                                <span wire:loading>Creating...</span>
-                            </button>
-                            <button
-                                wire:click="$toggle('showingCreateForm')"
-                                class="px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-800 dark:text-white rounded-lg transition"
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            @endif
-
-            <!-- Two Column Layout: Inventory Items + Selected Items -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Left Column: Inventory Catalog -->
-                <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
-                    <h3 class="font-semibold text-gray-900 dark:text-white mb-4">Available Inventory</h3>
-                    <div class="space-y-2 max-h-96 overflow-y-auto">
-                        @forelse ($items as $item)
-                            @php
-                                $totalStock = $item->stock->sum('quantity_on_hand') ?? 0;
-                                $isSelected = isset($selectedItems[$item->id]);
-                            @endphp
-                            <label class="flex items-start p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-white dark:hover:bg-gray-700 cursor-pointer transition">
-                                <input
-                                    type="checkbox"
-                                    wire:click="toggleItem({{ $item->id }})"
-                                    @checked($isSelected)
-                                    class="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 mt-0.5 flex-shrink-0"
-                                />
-                                <div class="ml-3 flex-1">
-                                    <p class="font-semibold text-sm text-gray-900 dark:text-white">{{ $item->name }}</p>
-                                    @if ($item->sku)
-                                        <p class="text-xs text-gray-500 dark:text-gray-400">SKU: {{ $item->sku }}</p>
-                                    @endif
-                                    @if ($item->category)
-                                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $item->category }}</p>
-                                    @endif
-                                    <div class="mt-2 flex gap-4 text-xs">
-                                        <div>
-                                            <p class="text-gray-600 dark:text-gray-400">Stock:</p>
-                                            <p class="font-semibold @if ($totalStock <= 0) text-red-600 dark:text-red-400 @endif">{{ $totalStock }}</p>
-                                        </div>
-                                        @if ($item->unit_cost)
-                                            <div>
-                                                <p class="text-gray-600 dark:text-gray-400">Cost:</p>
-                                                <p class="font-semibold">${{ number_format($item->unit_cost, 2) }}</p>
-                                            </div>
-                                        @endif
-                                    </div>
-                                </div>
-                            </label>
-                        @empty
-                            <div class="text-center py-8 text-gray-500 dark:text-gray-400">
-                                <p>No items found</p>
-                                @if ($search)
-                                    <p class="text-xs">Try a different search term</p>
-                                @endif
-                            </div>
-                        @endforelse
-                    </div>
-                </div>
-
-                <!-- Right Column: Selected Items with Quantity/Cost -->
-                <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
-                    <h3 class="font-semibold text-gray-900 dark:text-white mb-4">
-                        Selected Items
-                        @if (!empty($selectedItems))
-                            <span class="text-sm font-normal text-gray-600 dark:text-gray-400">({{ count($selectedItems) }})</span>
-                        @endif
-                    </h3>
-
-                    @if (!empty($selectedItems))
-                        <div class="space-y-3 max-h-96 overflow-y-auto">
-                            @foreach ($selectedItems as $itemId => $item)
-                                <div class="border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-                                    <div class="flex justify-between items-start mb-2">
-                                        <p class="font-semibold text-gray-900 dark:text-white">{{ $item['name'] }}</p>
-                                        <button
-                                            wire:click="toggleItem({{ $itemId }})"
-                                            class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-sm font-medium"
-                                        >
-                                            Remove
-                                        </button>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label class="text-xs text-gray-600 dark:text-gray-400 block mb-1">Quantity</label>
-                                            <input
-                                                type="number"
-                                                min="1"
-                                                wire:change="updateQuantity({{ $itemId }}, $event.target.value)"
-                                                wire:model="selectedItems.{{ $itemId }}.quantity"
-                                                class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label class="text-xs text-gray-600 dark:text-gray-400 block mb-1">Unit Cost ($)
-                                                <span class="text-gray-500 dark:text-gray-500 font-normal text-xs">(optional)</span>
-                                            </label>
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                wire:change="updateUnitCost({{ $itemId }}, $event.target.value)"
-                                                wire:model="selectedItems.{{ $itemId }}.unit_cost"
-                                                placeholder="Uses inventory cost"
-                                                class="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded dark:bg-gray-800 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                            />
-                                            @if (!$item['unit_cost'])
-                                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Will use inventory cost</p>
-                                            @endif
-                                        </div>
-                                    </div>
-                                    <div class="mt-2 pt-2 border-t border-blue-200 dark:border-blue-800 text-sm">
-                                        <p class="text-right text-blue-900 dark:text-blue-100 font-semibold">
-                                            Total: ${{ number_format((float)$item['unit_cost'] * (int)$item['quantity'], 2) }}
-                                        </p>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @else
-                        <div class="text-center py-12 text-gray-500 dark:text-gray-400">
-                            <svg class="w-12 h-12 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                            </svg>
-                            <p>No items selected yet</p>
-                            <p class="text-xs">Select items from the left to add them</p>
-                        </div>
-                    @endif
-                </div>
-            </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="flex items-center justify-between px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0 bg-gray-50 dark:bg-gray-800/50">
-            <p class="text-sm text-gray-600 dark:text-gray-400">
-                @if (!empty($selectedItems))
-                    <span class="font-semibold text-gray-900 dark:text-white">{{ count($selectedItems) }} item(s)</span>
-                    selected for {{ count($selectedItems) }}
                 @else
-                    Select items to add to this show
+                    <div class="flex-1 flex flex-col items-center justify-center text-slate-400">
+                        <svg class="w-16 h-16 mb-3 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        </svg>
+                        <p class="text-sm font-medium">No items yet</p>
+                    </div>
                 @endif
-            </p>
-            <div class="flex gap-3">
-                <button
-                    @click="$dispatch('closeModal')"
-                    class="px-6 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-800 dark:text-white rounded-lg transition font-medium"
-                >
-                    Cancel
-                </button>
-                <button
-                    wire:click="confirmSelection"
-                    @disabled(empty($selectedItems))
-                    wire:loading.attr="disabled"
-                    @class([
-                        'px-6 py-2 rounded-lg transition font-medium inline-flex items-center gap-2',
-                        'bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed' => !empty($selectedItems),
-                        'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed' => empty($selectedItems)
-                    ])
-                >
-                    <svg wire:loading.remove class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                    </svg>
-                    <svg wire:loading class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span wire:loading.remove>Add Selected Items</span>
-                    <span wire:loading>Adding...</span>
-                </button>
+
+                <!-- Action Buttons -->
+                <div class="flex gap-3 pt-6 border-t border-slate-200 dark:border-slate-700">
+                    <button @click="$dispatch('closeModal')" class="flex-1 px-4 py-2.5 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-lg transition font-bold">
+                        Cancel
+                    </button>
+                    <button wire:click="confirmSelection" :disabled="!Object.keys($selectedItems || {}).length" @class="flex-1 px-4 py-2.5 rounded-lg transition font-bold flex items-center justify-center gap-2"
+                        :class="{ 'bg-blue-600 hover:bg-blue-700 text-white': Object.keys($selectedItems || {}).length, 'bg-slate-300 dark:bg-slate-700 text-slate-500 cursor-not-allowed': !Object.keys($selectedItems || {}).length }"
+                    >
+                        <svg wire:loading.remove class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        <span wire:loading.remove>Add</span>
+                        <span wire:loading>Adding...</span>
+                    </button>
+                </div>
             </div>
+
         </div>
     </div>
+</div>

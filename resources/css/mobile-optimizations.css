@@ -600,53 +600,52 @@ body {
     font-size: 16px;
 }
 
-    /* Ensure images and media scale properly */
-    img, svg, video {
-        max-width: 100%;
-        height: auto;
-        display: block;
-    }
+/* Ensure images and media scale properly */
+img, svg, video {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
 
-    /* Add title attribute to truncated elements for hover preview */
-    .truncate[title],
-    .line-clamp-1[title],
-    .line-clamp-2[title],
-    .line-clamp-3[title] {
-        cursor: help;
-    }
+/* Add title attribute to truncated elements for hover preview */
+.truncate[title],
+.line-clamp-1[title],
+.line-clamp-2[title],
+.line-clamp-3[title] {
+    cursor: help;
+}
 
-    /* Ensure table cells have adequate padding for touch */
-    .fi-ta-cell {
-        padding: 12px 8px !important;
-        min-height: 44px !important;
-    }
+/* Ensure table cells have adequate padding for touch */
+.fi-ta-cell {
+    padding: 12px 8px !important;
+    min-height: 44px !important;
+}
 
-    .fi-ta-header-cell {
-        padding: 12px 8px !important;
-    }
+.fi-ta-header-cell {
+    padding: 12px 8px !important;
+}
 
-    /* Modal max-width optimization for small screens */
-    .fi-modal-window {
-        max-width: 95vw !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-    }
+/* Modal max-width optimization for small screens */
+.fi-modal-window {
+    max-width: 95vw !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
 
-    /* Ensure no hidden content in containers */
-    [style*="max-height"][style*="overflow"]  {
-        overflow-y: auto !important;
-        -webkit-overflow-scrolling: touch;
-    }
+/* Ensure no hidden content in containers */
+[style*="max-height"][style*="overflow"]  {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
 
-    /* Ensure containers don't have hidden overflow */
-    .overflow-hidden {
-        overflow: hidden;
-    }
+/* Ensure containers don't have hidden overflow */
+.overflow-hidden {
+    overflow: hidden;
+}
 
-    .overflow-x-auto,
-    .overflow-y-auto {
-        -webkit-overflow-scrolling: touch;
-    }
+.overflow-x-auto,
+.overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
 }
 
 @supports (padding: max(0px)) {

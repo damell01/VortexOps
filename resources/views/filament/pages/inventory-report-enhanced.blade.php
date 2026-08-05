@@ -9,42 +9,65 @@
 
     <div class="space-y-6">
 
-        {{-- Export Button --}}
-        <div class="flex items-center justify-between">
+        {{-- Header with Export Options --}}
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
                 <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Inventory Report & Analytics</h2>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">As of {{ $snapshot->snapshot_date->format('M d, Y g:i A') }}</p>
             </div>
-            <button type="button"
-                    wire:click="exportPdf"
-                    class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-500 transition-colors">
-                <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
-                Export PDF
-            </button>
+            <div class="flex flex-wrap gap-2">
+                <button type="button"
+                        wire:click="exportPdf"
+                        class="inline-flex items-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 px-3 py-2 text-xs font-semibold text-white transition-colors" title="Download as PDF">
+                    <x-heroicon-o-document-text class="h-4 w-4" />
+                    PDF
+                </button>
+                <button type="button"
+                        wire:click="exportCsv"
+                        class="inline-flex items-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 px-3 py-2 text-xs font-semibold text-white transition-colors" title="Download as CSV for Excel">
+                    <x-heroicon-o-table-cells class="h-4 w-4" />
+                    CSV
+                </button>
+                <button type="button"
+                        wire:click="exportBreakdown"
+                        class="inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-2 text-xs font-semibold text-white transition-colors" title="Download breakdown analysis">
+                    <x-heroicon-o-chart-bar class="h-4 w-4" />
+                    Report
+                </button>
+                <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 ml-2 pl-2 border-l border-gray-300 dark:border-gray-600">
+                    <x-heroicon-o-arrow-down-tray class="h-4 w-4 mr-1" />
+                    Quick Export
+                </div>
+            </div>
         </div>
 
-        {{-- Tab Navigation --}}
-        <div class="flex gap-2 overflow-x-auto border-b border-gray-200 dark:border-gray-700 pb-px scrollbar-none -mx-1 px-1">
-            @foreach([
-                'overview' => 'Overview',
-                'health' => 'Stock Health',
-                'velocity' => 'Velocity',
-                'abc' => 'ABC Analysis',
-                'coverage' => 'Coverage',
-                'locations' => 'Locations',
-                'breakdowns' => 'Breakdowns',
-                'aging' => 'Aging',
-                'margins' => 'Margins',
-                'lot-aging' => 'Lot Aging'
-            ] as $key => $label)
-            <button wire:click="setTab('{{ $key }}')" type="button"
-                class="flex-shrink-0 px-4 py-2 text-sm font-medium rounded-t transition-colors whitespace-nowrap
-                    {{ $activeTab === $key
-                        ? 'bg-white dark:bg-gray-900 text-primary-600 dark:text-primary-400 border border-b-white dark:border-b-gray-900 border-gray-200 dark:border-gray-700 shadow-sm'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50' }}">
-                {{ $label }}
-            </button>
-            @endforeach
+        {{-- Tab Navigation with Icons --}}
+        <div class="border-b border-gray-200 dark:border-gray-700">
+            <div class="flex gap-1 overflow-x-auto scrollbar-none -mx-1 px-1">
+                @php
+                    $tabs = [
+                        'overview' => ['Overview', '📊'],
+                        'health' => ['Stock Health', '❤️'],
+                        'velocity' => ['Velocity', '⚡'],
+                        'abc' => ['ABC Analysis', '🎯'],
+                        'coverage' => ['Coverage', '📈'],
+                        'locations' => ['Locations', '📍'],
+                        'breakdowns' => ['Breakdowns', '🔍'],
+                        'aging' => ['Aging', '⏳'],
+                        'margins' => ['Margins', '💰'],
+                        'lot-aging' => ['Lot Aging', '📦']
+                    ];
+                @endphp
+                @foreach($tabs as $key => $info)
+                <button wire:click="setTab('{{ $key }}')" type="button"
+                    class="flex-shrink-0 px-4 py-3 text-sm font-medium whitespace-nowrap transition-all duration-200
+                        {{ $activeTab === $key
+                            ? 'text-primary-600 dark:text-primary-400 border-b-2 border-primary-600 dark:border-primary-400 bg-primary-50 dark:bg-primary-950/30'
+                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50' }}">
+                    <span class="mr-2">{{ $info[1] }}</span>{{ $info[0] }}
+                </button>
+                @endforeach
+            </div>
         </div>
 
         {{-- TAB: OVERVIEW --}}

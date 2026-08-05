@@ -43,7 +43,7 @@
 </div>
 
 {{-- ── Tab Bar ───────────────────────────────────────────────────────────────── --}}
-<div class="flex gap-0.5 overflow-x-auto border-b border-gray-200 dark:border-gray-700 pb-px scrollbar-none -mx-1 px-1">
+<div class="flex gap-2.5 overflow-x-auto border-b border-gray-200 dark:border-gray-700 pb-px scrollbar-none -mx-1 px-1">
     @foreach($tabs as $key => $label)
     <button wire:click="setTab('{{ $key }}')" type="button"
         class="flex-shrink-0 px-3.5 py-2 text-sm font-medium rounded-t transition-colors whitespace-nowrap

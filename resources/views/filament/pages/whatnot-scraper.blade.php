@@ -101,7 +101,7 @@
                 <span wire:loading wire:target="runImport">Importing (this takes 30–90s)…</span>
             </button>
 
-            <p class="text-[10px] text-gray-400">
+            <p class="text-xs text-gray-400">
                 Or run via CLI: <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">php artisan whatnot:import</code>
             </p>
         </div>
@@ -164,9 +164,9 @@
                 </div>
                 <div class="flex items-center gap-2 flex-shrink-0">
                     @if ($channel->include_in_import)
-                        <span class="inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:text-violet-300">Auto-import</span>
+                        <span class="inline-flex items-center rounded-full bg-violet-100 dark:bg-violet-900 px-2 py-0.5 text-xs font-medium text-violet-700 dark:text-violet-300">Auto-import</span>
                     @endif
-                    <span class="inline-flex items-center rounded-full {{ $channel->status === 'active' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500' }} px-2 py-0.5 text-[10px] font-medium">
+                    <span class="inline-flex items-center rounded-full {{ $channel->status === 'active' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500' }} px-2 py-0.5 text-xs font-medium">
                         {{ ucfirst($channel->status) }}
                     </span>
                 </div>
@@ -209,7 +209,7 @@
                                 <td class="px-4 py-2.5 text-right text-xs font-mono tabular-nums text-gray-700 dark:text-gray-300">${{ $show['gross'] }}</td>
                                 <td class="px-4 py-2.5 text-right text-xs tabular-nums text-gray-500">{{ $show['units'] }}</td>
                                 <td class="px-4 py-2.5">
-                                    <span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium
+                                    <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium
                                         {{ match($show['status']) {
                                             'reconciled'     => 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300',
                                             'pending_review' => 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300',

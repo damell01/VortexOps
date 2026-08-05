@@ -133,7 +133,7 @@
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors {{ $i === 0 ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : '' }}">
                                     <td class="px-4 py-3 text-gray-400 dark:text-gray-500 font-mono text-xs">
                                         @if($i === 0)
-                                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 font-bold text-[10px]">1</span>
+                                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 font-bold text-xs">1</span>
                                         @else
                                             {{ $i + 1 }}
                                         @endif
@@ -156,7 +156,7 @@
                                     <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
                                         ${{ number_format($row['gross_revenue'], 2) }}
                                         @if ($row['trend_gross'] !== null)
-                                            <div class="text-[10px] font-medium {{ $row['trend_gross'] > 0 ? 'text-emerald-600 dark:text-emerald-400' : ($row['trend_gross'] < 0 ? 'text-red-500 dark:text-red-400' : 'text-gray-400') }}">
+                                            <div class="text-xs font-medium {{ $row['trend_gross'] > 0 ? 'text-emerald-600 dark:text-emerald-400' : ($row['trend_gross'] < 0 ? 'text-red-500 dark:text-red-400' : 'text-gray-400') }}">
                                                 {{ $row['trend_gross'] > 0 ? '↑' : ($row['trend_gross'] < 0 ? '↓' : '→') }} {{ abs($row['trend_gross']) }}% <span class="font-normal text-gray-400">vs prior</span>
                                             </div>
                                         @endif
@@ -167,7 +167,7 @@
                                     <td class="px-4 py-3 text-right font-semibold {{ $row['margin'] >= 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-600 dark:text-rose-400' }}">
                                         ${{ number_format($row['margin'], 2) }}
                                         @if (! is_null($row['margin_pct']))
-                                            <div class="text-[10px] font-normal text-gray-400">{{ $row['margin_pct'] }}%</div>
+                                            <div class="text-xs font-normal text-gray-400">{{ $row['margin_pct'] }}%</div>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-right font-semibold {{ $row['gmv_per_hour'] > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400' }}">
@@ -268,7 +268,7 @@
                                     <td class="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
                                         {{ $row['week'] }}
                                         @if($isBest)
-                                            <span class="ml-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">best</span>
+                                            <span class="ml-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">best</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ $row['show_count'] }}</td>

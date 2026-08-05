@@ -3,7 +3,7 @@
     <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col safe-area-inset-bottom" style="height: 100dvh;">
         <!-- Mode Selector (Top Navigation) - Mobile First -->
         <div class="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-md safe-area-inset-top">
-            <div class="grid grid-cols-3 gap-0">
+            <div class="grid grid-cols-3 gap-2">
                 <button
                     wire:click="$set('mode', 'receive')"
                     @click="document.getElementById('scanInput').focus()"

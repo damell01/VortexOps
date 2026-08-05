@@ -71,7 +71,7 @@
                                         : ($age === 0 ? 'today' : $age . 'd in status');
                                 @endphp
                                 <div>
-                                    <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold {{ $ageTone }} {{ $ageBg }}"
+                                    <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold {{ $ageTone }} {{ $ageBg }}"
                                           @if($show->entered_status_at) title="Since {{ $show->entered_status_at->format('M j, Y g:i A') }}" @endif>
                                         @if(! is_null($age) && $age >= 7)
                                             <x-heroicon-s-exclamation-triangle class="h-3 w-3" />
@@ -112,7 +112,7 @@
                                     {{-- Deduction request status indicator --}}
                                     @if ($show->latestDeductionRequest)
                                         @php $drStatus = $show->latestDeductionRequest->status; @endphp
-                                        <span class="ml-auto text-[10px] font-semibold uppercase tracking-wide
+                                        <span class="ml-auto text-xs font-semibold uppercase tracking-wide
                                             {{ $drStatus === 'pending' ? 'text-amber-600 dark:text-amber-400' : '' }}
                                             {{ $drStatus === 'processed' ? 'text-emerald-600 dark:text-emerald-400' : '' }}
                                             {{ $drStatus === 'rejected' ? 'text-red-500' : '' }}

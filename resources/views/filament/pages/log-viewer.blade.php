@@ -97,7 +97,7 @@
                         <div class="mt-1 h-3.5 w-1 rounded-full flex-shrink-0 {{ $colors['bg'] }}"></div>
 
                         {{-- Level badge --}}
-                        <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider flex-shrink-0 {{ $colors['badge'] }} w-16 justify-center">
+                        <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-bold uppercase tracking-wider flex-shrink-0 {{ $colors['badge'] }} w-16 justify-center">
                             {{ $entry['level'] }}
                         </span>
 

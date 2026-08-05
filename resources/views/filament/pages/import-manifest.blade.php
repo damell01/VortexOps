@@ -7,7 +7,7 @@
             $stageKeys = array_keys($stages);
             $currentIdx = array_search($stage, $stageKeys);
         @endphp
-        <div class="flex items-center gap-0 max-w-3xl mx-auto">
+        <div class="flex items-center gap-2 max-w-3xl mx-auto">
             @foreach ($stages as $key => $label)
                 @php
                     $idx    = array_search($key, $stageKeys);
@@ -229,7 +229,7 @@
                                 </div>
                                 <div class="grid grid-cols-3 gap-2">
                                     <div>
-                                        <label class="block text-[10px] text-gray-400 mb-0.5 uppercase">Cases</label>
+                                        <label class="block text-xs text-gray-400 mb-0.5 uppercase">Cases</label>
                                         <input
                                             wire:model="parsedLines.{{ $i }}.case_count"
                                             type="number"
@@ -239,7 +239,7 @@
                                         />
                                     </div>
                                     <div>
-                                        <label class="block text-[10px] text-gray-400 mb-0.5 uppercase">Unit Cost</label>
+                                        <label class="block text-xs text-gray-400 mb-0.5 uppercase">Unit Cost</label>
                                         <input
                                             wire:model="parsedLines.{{ $i }}.unit_cost"
                                             type="text"
@@ -248,7 +248,7 @@
                                         />
                                     </div>
                                     <div>
-                                        <label class="block text-[10px] text-gray-400 mb-0.5 uppercase">SKU</label>
+                                        <label class="block text-xs text-gray-400 mb-0.5 uppercase">SKU</label>
                                         <input
                                             wire:model="parsedLines.{{ $i }}.sku"
                                             type="text"
@@ -269,10 +269,10 @@
                                         @if ($conf || $stg)
                                             <div class="flex items-center gap-1 px-0.5">
                                                 @if ($conf)
-                                                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium {{ $conf === 'high' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : ($conf === 'medium' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500') }}">{{ ucfirst($conf) }}</span>
+                                                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium {{ $conf === 'high' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : ($conf === 'medium' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500') }}">{{ ucfirst($conf) }}</span>
                                                 @endif
                                                 @if ($stg)
-                                                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300">{{ $stg }}</span>
+                                                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300">{{ $stg }}</span>
                                                 @endif
                                             </div>
                                         @endif
@@ -366,10 +366,10 @@
                                             @if ($conf || $stg)
                                                 <div class="flex items-center gap-1">
                                                     @if ($conf)
-                                                        <span class="inline-flex items-center rounded px-2 py-1 text-[9px] font-medium {{ $conf === 'high' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : ($conf === 'medium' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500') }}">{{ ucfirst($conf) }}</span>
+                                                        <span class="inline-flex items-center rounded px-2 py-1 text-xs font-medium {{ $conf === 'high' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : ($conf === 'medium' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500') }}">{{ ucfirst($conf) }}</span>
                                                     @endif
                                                     @if ($stg)
-                                                        <span class="inline-flex items-center rounded px-2 py-1 text-[9px] font-medium bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300">{{ $stg }}</span>
+                                                        <span class="inline-flex items-center rounded px-2 py-1 text-xs font-medium bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300">{{ $stg }}</span>
                                                     @endif
                                                 </div>
                                             @endif

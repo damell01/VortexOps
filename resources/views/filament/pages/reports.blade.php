@@ -181,7 +181,7 @@
                                         $grossPct = round(($w['gross'] / $chartMax) * 100, 1);
                                         $netPct   = round(($w['net']   / $chartMax) * 100, 1);
                                     @endphp
-                                    <div class="group relative flex flex-1 flex-col items-center justify-end h-full gap-0.5">
+                                    <div class="group relative flex flex-1 flex-col items-center justify-end h-full gap-2.5">
                                         {{-- Tooltip --}}
                                         <div class="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 z-10 hidden group-hover:block
                                                     whitespace-nowrap rounded-md bg-gray-900 dark:bg-gray-700 px-2.5 py-1.5 shadow-lg text-white text-xs pointer-events-none">
@@ -191,7 +191,7 @@
                                             <div class="text-gray-400">{{ $w['shows'] }} show{{ $w['shows'] !== 1 ? 's' : '' }}</div>
                                         </div>
                                         {{-- Gross bar --}}
-                                        <div class="w-full flex gap-0.5 items-end" style="height: {{ $grossPct }}%">
+                                        <div class="w-full flex gap-2.5 items-end" style="height: {{ $grossPct }}%">
                                             <div class="flex-1 rounded-t bg-violet-500 opacity-90 group-hover:opacity-100 transition-opacity min-h-[2px]"></div>
                                             <div class="flex-1 rounded-t bg-emerald-500 opacity-80 group-hover:opacity-100 transition-opacity min-h-[2px]"
                                                  style="height: {{ $grossPct > 0 ? round(($netPct / $grossPct) * 100, 1) : 0 }}%"></div>
@@ -203,7 +203,7 @@
                         {{-- X-axis labels --}}
                         <div class="mt-2 flex gap-px">
                             @foreach ($weeks as $w)
-                                <div class="flex-1 text-center text-[10px] text-gray-400 dark:text-gray-500 truncate">
+                                <div class="flex-1 text-center text-xs text-gray-400 dark:text-gray-500 truncate">
                                     {{ $w['week'] }}
                                 </div>
                             @endforeach
@@ -341,7 +341,7 @@
                             @forelse ($this->topStreamersByPayout as $i => $row)
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $i % 2 === 1 ? 'bg-gray-50/50 dark:bg-gray-800/20' : '' }}">
                                     <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">
-                                        <span class="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-[10px] font-bold text-gray-500 dark:bg-gray-700 dark:text-gray-400">{{ $i + 1 }}</span>
+                                        <span class="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-500 dark:bg-gray-700 dark:text-gray-400">{{ $i + 1 }}</span>
                                         {{ $row['streamer'] }}
                                     </td>
                                     <td class="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ $row['shows'] }}</td>

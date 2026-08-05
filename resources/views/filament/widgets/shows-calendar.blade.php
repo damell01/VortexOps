@@ -65,7 +65,7 @@
                             {{ $day }}
                         </span>
                         @if ($dayShows->count() > 2)
-                            <span class="text-[10px] text-gray-400">+{{ $dayShows->count() - 2 }} more</span>
+                            <span class="text-xs text-gray-400">+{{ $dayShows->count() - 2 }} more</span>
                         @endif
                     </div>
 
@@ -85,7 +85,7 @@
                             <span class="h-1.5 w-1.5 rounded-full {{ $dot }} flex-shrink-0"></span>
                             <span class="truncate text-gray-600 dark:text-gray-300 font-medium">{{ Str::limit($label, 14) }}</span>
                             @if ($rev)
-                                <span class="ml-auto text-emerald-600 dark:text-emerald-400 text-[10px] font-semibold flex-shrink-0">{{ $rev }}</span>
+                                <span class="ml-auto text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex-shrink-0">{{ $rev }}</span>
                             @endif
                         </a>
                     @endforeach

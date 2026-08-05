@@ -126,13 +126,13 @@
                             <td class="px-3 py-2 text-right tabular-nums font-semibold {{ $r['margin'] >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400' }}">
                                 ${{ number_format($r['margin'], 0) }}
                                 @if (! is_null($r['margin_pct']))
-                                    <span class="text-[10px] font-normal text-gray-400">{{ $r['margin_pct'] }}%</span>
+                                    <span class="text-xs font-normal text-gray-400">{{ $r['margin_pct'] }}%</span>
                                 @endif
                             </td>
                             <td class="px-3 py-2 text-right tabular-nums {{ $r['needs_reorder'] ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-600 dark:text-gray-300' }}">
                                 {{ is_null($r['sell_through']) ? '—' : $r['sell_through'] . '%' }}
                                 @if ($r['needs_reorder'])
-                                    <span class="ml-1 text-[10px] font-normal text-amber-500" title="Fast seller running low — consider restocking">↑</span>
+                                    <span class="ml-1 text-xs font-normal text-amber-500" title="Fast seller running low — consider restocking">↑</span>
                                 @endif
                             </td>
                             <td class="px-3 py-2 text-right tabular-nums">
@@ -141,7 +141,7 @@
                                 @else
                                     <span class="font-semibold text-amber-600 dark:text-amber-400">{{ number_format($r['suggested_reorder_qty']) }}</span>
                                     @if (! is_null($r['days_of_stock_remaining']))
-                                        <div class="text-[10px] font-normal text-gray-400">{{ $r['days_of_stock_remaining'] }}d left</div>
+                                        <div class="text-xs font-normal text-gray-400">{{ $r['days_of_stock_remaining'] }}d left</div>
                                     @endif
                                 @endif
                             </td>

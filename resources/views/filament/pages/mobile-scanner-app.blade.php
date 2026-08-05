@@ -38,8 +38,8 @@
         <div class="flex-1 overflow-y-auto" style="padding-bottom: 120px;">
             <!-- Camera Section -->
             <div class="bg-gray-900 p-4">
-                <div id="cameraContainer" class="bg-gray-800 rounded-lg border-2 border-gray-700 w-full flex flex-col items-center justify-center text-white" style="aspect-ratio: 16/9; min-height: 240px;">
-                    <video id="cameraFeed" class="w-full h-full rounded-lg object-cover hidden" style="aspect-ratio: 16/9;"></video>
+                <div id="cameraContainer" class="bg-gray-800 rounded-lg border-2 border-gray-700 w-full flex flex-col items-center justify-center text-white overflow-hidden" style="aspect-ratio: 16/9; min-height: 240px;">
+                    <video id="cameraFeed" class="w-full h-full rounded-lg object-cover hidden" playsinline webkit-playsinline style="aspect-ratio: 16/9; transform: scaleX(-1);"></video>
                     <div id="cameraPlaceholder" class="text-center w-full">
                         <div class="text-6xl mb-2">📷</div>
                         <p class="text-base mb-4">Point camera at barcode</p>
@@ -52,6 +52,7 @@
                             Start Camera
                         </button>
                         <p id="cameraStatus" class="text-xs text-gray-400 mt-3">Ready to scan</p>
+                        <p id="cameraDebug" class="text-xs text-gray-400 mt-2" style="display: none;"></p>
                     </div>
                 </div>
             </div>
@@ -359,19 +360,43 @@
 
         // Initialize BarcodeDetector
         async function initBarcodeDetector() {
+            console.log('Initializing BarcodeDetector...');
+            console.log('Browser info:', {
+                userAgent: navigator.userAgent,
+                hasBarcodeDetector: 'BarcodeDetector' in window,
+                hasMediaDevices: !!navigator.mediaDevices,
+                hasGetUserMedia: !!navigator.mediaDevices?.getUserMedia
+            });
+
             if ('BarcodeDetector' in window) {
                 try {
-                    barcodeDetector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'qr_code'] });
-                    console.log('BarcodeDetector initialized');
+                    // Try to get supported formats first
+                    const supportedFormats = await BarcodeDetector.getSupportedFormats?.() || [];
+                    console.log('Supported barcode formats:', supportedFormats);
+
+                    const formats = ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'qr_code']
+                        .filter(f => supportedFormats.length === 0 || supportedFormats.includes(f));
+
+                    barcodeDetector = new BarcodeDetector({ formats: formats.length > 0 ? formats : ['qr_code'] });
+                    console.log('BarcodeDetector initialized with formats:', formats);
+                    updateCameraStatus('Ready to scan', 'success');
                     return true;
                 } catch (e) {
-                    console.warn('BarcodeDetector error:', e);
-                    updateCameraStatus('Camera API not available', 'warning');
+                    console.error('BarcodeDetector initialization error:', e);
+                    updateCameraStatus('Barcode API error - try manual input', 'warning');
                     return false;
                 }
             } else {
-                console.warn('BarcodeDetector not supported');
-                updateCameraStatus('Barcode detection not supported', 'warning');
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+
+                if (isIOS || isSafari) {
+                    console.warn('BarcodeDetector not supported on iOS/Safari. Please use manual barcode input.');
+                    updateCameraStatus('Safari/iOS: Use manual input below to enter barcodes', 'warning');
+                } else {
+                    console.warn('BarcodeDetector API not supported on this browser');
+                    updateCameraStatus('Barcode detection not supported - use manual input', 'warning');
+                }
                 return false;
             }
         }
@@ -389,8 +414,8 @@
                 const constraints = {
                     video: {
                         facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
+                        width: { min: 320, ideal: 640, max: 1280 },
+                        height: { min: 240, ideal: 480, max: 720 }
                     },
                     audio: false
                 };
@@ -399,11 +424,24 @@
                 const video = document.getElementById('cameraFeed');
                 video.srcObject = cameraStream;
 
-                // Wait for video to be ready
-                await new Promise(resolve => {
+                console.log('Camera stream started, waiting for video to play...');
+
+                // Wait for video to be ready with timeout
+                await new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => {
+                        reject(new Error('Video metadata load timeout'));
+                    }, 5000);
+
                     video.onloadedmetadata = () => {
-                        video.play();
-                        resolve();
+                        clearTimeout(timeout);
+                        console.log('Video metadata loaded:', { width: video.videoWidth, height: video.videoHeight });
+                        video.play().then(() => {
+                            console.log('Video playing started');
+                            resolve();
+                        }).catch(err => {
+                            clearTimeout(timeout);
+                            reject(err);
+                        });
                     };
                 });
 
@@ -414,6 +452,12 @@
 
                 isScanning = true;
                 updateCameraStatus('Camera active - Scanning...', 'success');
+                updateDebugInfo();
+                // Update debug info periodically
+                const debugInterval = setInterval(() => {
+                    if (!isScanning) clearInterval(debugInterval);
+                    updateDebugInfo();
+                }, 1000);
                 scanBarcodesFromCamera();
 
             } catch (error) {
@@ -446,54 +490,80 @@
         // Continuous barcode scanning
         async function scanBarcodesFromCamera() {
             const video = document.getElementById('cameraFeed');
+            let detectionAttempts = 0;
+            let successfulDetections = 0;
 
             while (isScanning && cameraStream) {
                 try {
-                    if (barcodeDetector && video.readyState === video.HAVE_ENOUGH_DATA) {
-                        const barcodes = await barcodeDetector.detect(video);
+                    if (!barcodeDetector) {
+                        console.warn('BarcodeDetector not initialized');
+                        break;
+                    }
 
-                        if (barcodes.length > 0) {
-                            const barcode = barcodes[0];
-                            const code = barcode.rawValue;
+                    // Check video state - be more lenient with readyState checks
+                    if (video.readyState >= video.HAVE_CURRENT_DATA) {
+                        try {
+                            detectionAttempts++;
+                            const barcodes = await barcodeDetector.detect(video);
+                            successfulDetections++;
 
-                            // Avoid duplicate scans within 500ms
-                            if (code !== lastScannedCode) {
-                                lastScannedCode = code;
+                            if (barcodes.length > 0) {
+                                const barcode = barcodes[0];
+                                const code = barcode.rawValue;
 
-                                // Visual feedback
-                                flashCamera('success');
-                                playBeep('success');
+                                console.log(`Detected: ${code} (attempt ${detectionAttempts})`);
 
-                                // Submit scan
-                                const input = document.getElementById('scanInput');
-                                input.value = code;
-                                input.dispatchEvent(new Event('input', { bubbles: true }));
+                                // Avoid duplicate scans within 500ms
+                                if (code !== lastScannedCode) {
+                                    lastScannedCode = code;
 
-                                // Trigger submit via Livewire
-                                setTimeout(() => {
-                                    const event = new KeyboardEvent('keydown', {
-                                        key: 'Enter',
-                                        code: 'Enter',
-                                        keyCode: 13,
-                                        bubbles: true
-                                    });
-                                    input.dispatchEvent(event);
-                                }, 50);
+                                    // Visual feedback
+                                    flashCamera('success');
+                                    playBeep('success');
 
-                                // Reset after timeout
-                                if (scanTimeout) clearTimeout(scanTimeout);
-                                scanTimeout = setTimeout(() => {
-                                    lastScannedCode = null;
-                                }, 500);
+                                    // Submit scan
+                                    const input = document.getElementById('scanInput');
+                                    input.value = code;
+                                    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+                                    // Trigger submit via Livewire
+                                    setTimeout(() => {
+                                        const event = new KeyboardEvent('keydown', {
+                                            key: 'Enter',
+                                            code: 'Enter',
+                                            keyCode: 13,
+                                            bubbles: true
+                                        });
+                                        input.dispatchEvent(event);
+                                    }, 50);
+
+                                    // Reset after timeout
+                                    if (scanTimeout) clearTimeout(scanTimeout);
+                                    scanTimeout = setTimeout(() => {
+                                        lastScannedCode = null;
+                                    }, 500);
+                                }
+                            } else if (detectionAttempts % 30 === 0) {
+                                console.log(`No barcode detected (${detectionAttempts} attempts, ${successfulDetections} successful detections)`);
                             }
+                        } catch (detectionError) {
+                            if (detectionAttempts % 30 === 0) {
+                                console.warn('Barcode detection attempt failed:', detectionError.message);
+                            }
+                        }
+                    } else {
+                        if (detectionAttempts % 30 === 0) {
+                            console.log(`Video not ready - readyState: ${video.readyState}, playing: ${video.playing}, duration: ${video.duration}`);
                         }
                     }
                 } catch (error) {
-                    console.error('Barcode detection error:', error);
+                    if (detectionAttempts % 50 === 0) {
+                        console.error('Barcode scanning error:', error);
+                    }
                 }
 
-                // Small delay before next scan
-                await new Promise(resolve => setTimeout(resolve, 100));
+                // Faster scanning loop (50ms instead of 100ms)
+                await new Promise(resolve => setTimeout(resolve, 50));
             }
         }
 
@@ -558,6 +628,21 @@
             }
         }
 
+        // Show debug info
+        function updateDebugInfo() {
+            const debug = document.getElementById('cameraDebug');
+            if (debug && isScanning && cameraStream) {
+                const video = document.getElementById('cameraFeed');
+                const track = cameraStream.getVideoTracks()[0];
+                const settings = track?.getSettings?.() || {};
+
+                debug.style.display = 'block';
+                debug.textContent = `📹 ${settings.width}x${settings.height} ${isScanning ? '🟢 scanning' : '⚫ idle'}`;
+            } else if (debug) {
+                debug.style.display = 'none';
+            }
+        }
+
         // Camera button handler
         document.getElementById('startCameraBtn')?.addEventListener('click', () => {
             if (isScanning) {
@@ -607,11 +692,22 @@
 
         // Focus on page load and restore state
         window.addEventListener('load', () => {
-            initBarcodeDetector();
+            console.log('Page loaded, initializing scanner...');
+            initBarcodeDetector().then(success => {
+                console.log('BarcodeDetector init result:', success);
+            }).catch(err => {
+                console.error('BarcodeDetector init error:', err);
+            });
             restoreSessionState();
             document.getElementById('scanInput')?.focus();
             // Save initial state
             saveSessionState();
+
+            // Add debug info for manual scanning
+            console.log('Scanner ready. You can:');
+            console.log('1. Use the Start Camera button to scan barcodes');
+            console.log('2. Type barcodes directly in the input field');
+            console.log('3. Check the status messages for any issues');
         });
 
         // Save state before unload

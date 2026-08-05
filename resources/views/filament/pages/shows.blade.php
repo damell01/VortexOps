@@ -63,7 +63,7 @@
                 $stats = $this->shows;
                 $activeCount = $stats->where('status', 'active')->count();
                 $completedCount = $stats->where('status', 'completed')->count();
-                $pendingSubmissions = $stats->filter(fn ($s) => $s->status !== 'closed' && $s->streamerLogEntries->count() === 0)->count();
+                $pendingSubmissions = $stats->filter(fn ($s) => $s->status !== 'closed' && !$s->streamerLogEntry)->count();
                 $totalRevenue = $stats->sum('gross_revenue');
                 $avgRevenue = $completedCount > 0 ? $totalRevenue / $completedCount : 0;
             @endphp

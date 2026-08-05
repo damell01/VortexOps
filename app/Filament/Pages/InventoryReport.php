@@ -6,6 +6,7 @@ use App\Filament\Concerns\HasModuleAccess;
 use App\Models\InventorySnapshot;
 use App\Models\InventoryStock;
 use App\Models\Product;
+use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Services\InventoryVelocityService;
 use App\Support\AdminModules;
@@ -248,7 +249,7 @@ class InventoryReport extends Page
     {
         $velocityService = app(InventoryVelocityService::class);
 
-        return Product::with(['stock'])
+        return InventoryItem::with(['stock'])
             ->where('is_active', true)
             ->get()
             ->map(function ($item) use ($velocityService) {

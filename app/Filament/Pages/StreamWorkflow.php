@@ -57,9 +57,4 @@ class StreamWorkflow extends Page
         $user = auth()->user();
         return AdminModules::isEnabled('streams') && ($user?->isAdmin() || $user?->isStreamer());
     }
-
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
-    }
 }

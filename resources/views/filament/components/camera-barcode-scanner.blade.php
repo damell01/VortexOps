@@ -113,9 +113,12 @@ function cameraScanner() {
                 await this.scanner.start(
                     { facingMode: 'environment' },
                     {
-                        fps: 30,
-                        qrbox: { width: 250, height: 150 },
-                        aspectRatio: 1.777
+                        fps: 15,
+                        qrbox: { width: 350, height: 100 },
+                        aspectRatio: 1.777,
+                        disableFlip: false,
+                        rememberLastUsedCamera: true,
+                        showTorchButtonIfSupported: true
                     },
                     (decodedText) => this.onBarcodeDetected(decodedText),
                     (errorMessage) => {

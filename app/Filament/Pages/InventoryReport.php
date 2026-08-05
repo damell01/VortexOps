@@ -514,6 +514,67 @@ class InventoryReport extends Page
             ->toArray();
     }
 
+    public function getLotAgingProperty(): array
+    {
+        $now = now();
+        $lots = \App\Models\InventoryLot::with(['item', 'receivingSession.vendor'])
+            ->where('status', 'active')
+            ->where('remaining_quantity', '>', 0)
+            ->get();
+
+        $aging = [];
+        foreach ($lots as $lot) {
+            $daysOld = $now->diffInDays($lot->received_at);
+            $ageGroup = match (true) {
+                $daysOld <= 30 => 'fresh',
+                $daysOld <= 60 => 'aging_30',
+                $daysOld <= 90 => 'aging_60',
+                default => 'aging_90',
+            };
+
+            $aging[] = [
+                'id' => $lot->id,
+                'item_name' => $lot->item?->name ?? 'Unknown',
+                'sku' => $lot->item?->sku ?? '—',
+                'vendor' => $lot->receivingSession?->vendor?->name ?? 'Unknown',
+                'received_at' => $lot->received_at->format('M d, Y'),
+                'days_old' => $daysOld,
+                'quantity' => (float) $lot->remaining_quantity,
+                'unit_cost' => (float) $lot->unit_cost,
+                'total_value' => (float) $lot->remaining_quantity * (float) $lot->unit_cost,
+                'age_group' => $ageGroup,
+                'age_label' => match ($ageGroup) {
+                    'fresh' => '0-30 days',
+                    'aging_30' => '31-60 days',
+                    'aging_60' => '61-90 days',
+                    'aging_90' => '90+ days',
+                },
+            ];
+        }
+
+        $grouped = collect($aging)
+            ->groupBy('age_group')
+            ->map(function ($group, $key) {
+                $items = $group->sortByDesc('total_value')->values()->take(10)->all();
+                return [
+                    'label' => $group->first()['age_label'],
+                    'count' => $group->count(),
+                    'total_value' => $group->sum('total_value'),
+                    'total_quantity' => $group->sum('quantity'),
+                    'items' => $items,
+                ];
+            })
+            ->sortKeys()
+            ->toArray();
+
+        return [
+            'fresh' => $grouped['fresh'] ?? ['label' => '0-30 days', 'count' => 0, 'total_value' => 0, 'total_quantity' => 0, 'items' => []],
+            'aging_30' => $grouped['aging_30'] ?? ['label' => '31-60 days', 'count' => 0, 'total_value' => 0, 'total_quantity' => 0, 'items' => []],
+            'aging_60' => $grouped['aging_60'] ?? ['label' => '61-90 days', 'count' => 0, 'total_value' => 0, 'total_quantity' => 0, 'items' => []],
+            'aging_90' => $grouped['aging_90'] ?? ['label' => '90+ days', 'count' => 0, 'total_value' => 0, 'total_quantity' => 0, 'items' => []],
+        ];
+    }
+
     public function exportPdf(): Response
     {
         $data = $this->getData();

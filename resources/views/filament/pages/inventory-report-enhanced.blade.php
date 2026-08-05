@@ -34,7 +34,8 @@
                 'locations' => 'Locations',
                 'breakdowns' => 'Breakdowns',
                 'aging' => 'Aging',
-                'margins' => 'Margins'
+                'margins' => 'Margins',
+                'lot-aging' => 'Lot Aging'
             ] as $key => $label)
             <button wire:click="setTab('{{ $key }}')" type="button"
                 class="flex-shrink-0 px-4 py-2 text-sm font-medium rounded-t transition-colors whitespace-nowrap
@@ -601,6 +602,101 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+        @endif
+
+        {{-- TAB: LOT AGING --}}
+        @if($activeTab === 'lot-aging')
+        <div class="space-y-6">
+            @php $lotAging = $this->lotAging; @endphp
+
+            {{-- Aging Summary Cards --}}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                @foreach(['fresh', 'aging_30', 'aging_60', 'aging_90'] as $key)
+                @php $data = $lotAging[$key]; @endphp
+                <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                    <div class="flex items-start justify-between mb-2">
+                        <div>
+                            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{ $data['label'] }}</p>
+                            <p class="text-2xl font-bold text-gray-900 dark:text-white mt-1">${{ number_format($data['total_value'], 2) }}</p>
+                        </div>
+                        <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                            @if($key === 'fresh')
+                                bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300
+                            @elseif($key === 'aging_30')
+                                bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300
+                            @elseif($key === 'aging_60')
+                                bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-300
+                            @else
+                                bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300
+                            @endif
+                        ">
+                            {{ $data['count'] }} lots
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ number_format($data['total_quantity']) }} units</p>
+                </div>
+                @endforeach
+            </div>
+
+            {{-- Aging Details Tables --}}
+            @foreach(['fresh', 'aging_30', 'aging_60', 'aging_90'] as $key)
+            @php $data = $lotAging[$key]; @endphp
+            @if($data['count'] > 0)
+            <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
+                    <h3 class="font-semibold text-gray-900 dark:text-white">{{ $data['label'] }}</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Item</th>
+                                <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Vendor</th>
+                                <th class="px-4 py-2 text-left text-gray-600 dark:text-gray-300 font-medium">Received</th>
+                                <th class="px-4 py-2 text-right text-gray-600 dark:text-gray-300 font-medium">Qty</th>
+                                <th class="px-4 py-2 text-right text-gray-600 dark:text-gray-300 font-medium">Unit Cost</th>
+                                <th class="px-4 py-2 text-right text-gray-600 dark:text-gray-300 font-medium">Total Value</th>
+                                <th class="px-4 py-2 text-center text-gray-600 dark:text-gray-300 font-medium">Age</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            @foreach($data['items'] as $item)
+                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                                <td class="px-4 py-3">
+                                    <div>
+                                        <p class="font-medium text-gray-900 dark:text-white">{{ $item['item_name'] }}</p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $item['sku'] }}</p>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3 text-gray-700 dark:text-gray-300 text-sm">{{ $item['vendor'] }}</td>
+                                <td class="px-4 py-3 text-gray-600 dark:text-gray-400 text-sm">{{ $item['received_at'] }}</td>
+                                <td class="px-4 py-3 text-right text-gray-900 dark:text-white font-medium">{{ number_format($item['quantity']) }}</td>
+                                <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">${{ number_format($item['unit_cost'], 2) }}</td>
+                                <td class="px-4 py-3 text-right text-gray-900 dark:text-white font-bold">${{ number_format($item['total_value'], 2) }}</td>
+                                <td class="px-4 py-3 text-center">
+                                    <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                                        @if($item['days_old'] <= 30)
+                                            bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300
+                                        @elseif($item['days_old'] <= 60)
+                                            bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-300
+                                        @elseif($item['days_old'] <= 90)
+                                            bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-300
+                                        @else
+                                            bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-300
+                                        @endif
+                                    ">
+                                        {{ $item['days_old'] }}d
+                                    </span>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            @endif
+            @endforeach
         </div>
         @endif
 

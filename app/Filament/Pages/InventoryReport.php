@@ -67,6 +67,19 @@ class InventoryReport extends Page
         $this->activeTab = $tab;
     }
 
+    /**
+     * Magic getter to support Livewire v3 property access for "Property" suffix methods.
+     * Allows blade templates to access $this->stockHealth instead of calling the method.
+     */
+    public function __get($property): mixed
+    {
+        $methodName = 'get' . str_replace('_', '', ucwords($property, '_')) . 'Property';
+        if (method_exists($this, $methodName)) {
+            return $this->$methodName();
+        }
+        return parent::__get($property);
+    }
+
     // ── Value Analysis ────────────────────────────────────────────
 
     public function getData(): array
@@ -688,17 +701,17 @@ class InventoryReport extends Page
             'date' => now()->format('F j, Y'),
             'time' => now()->format('H:i'),
             'summary' => $this->getData(),
-            'health' => $this->stockHealth,
-            'fastMovers' => $this->fastMovers,
-            'slowMovers' => $this->slowMovers,
-            'deadStock' => $this->deadStock,
-            'abcAnalysis' => $this->abcAnalysis,
-            'coverage' => $this->stockCoverage,
-            'locationHealth' => $this->locationHealth,
-            'categories' => $this->categoryBreakdown,
-            'vendors' => $this->vendorBreakdown,
-            'aging' => $this->agingInventory,
-            'margin' => $this->marginAnalysis,
+            'health' => $this->getStockHealthProperty(),
+            'fastMovers' => $this->getFastMoversProperty(),
+            'slowMovers' => $this->getSlowMoversProperty(),
+            'deadStock' => $this->getDeadStockProperty(),
+            'abcAnalysis' => $this->getAbcAnalysisProperty(),
+            'coverage' => $this->getStockCoverageProperty(),
+            'locationHealth' => $this->getLocationHealthProperty(),
+            'categories' => $this->getCategoryBreakdownProperty(),
+            'vendors' => $this->getVendorBreakdownProperty(),
+            'aging' => $this->getAgingInventoryProperty(),
+            'margin' => $this->getMarginAnalysisProperty(),
         ]);
 
         $pdf = Pdf::loadView('filament.pages.inventory-report-pdf-comprehensive', $data)

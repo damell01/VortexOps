@@ -114,14 +114,14 @@ class InventoryAnalytics extends Page
      */
     public function getTopVendors(): array
     {
-        return Vendor::where('is_active', true)
-            ->withCount('items')
-            ->orderByDesc('items_count')
+        return Vendor::where('status', 'active')
+            ->withCount('inventoryItems')
+            ->orderByDesc('inventory_items_count')
             ->take(6)
             ->get()
             ->map(fn ($vendor) => [
                 'name' => $vendor->name,
-                'items_count' => $vendor->items_count,
+                'items_count' => $vendor->inventory_items_count,
             ])
             ->toArray();
     }

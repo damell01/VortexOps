@@ -24,14 +24,16 @@ class EditStreamerLogEntry extends EditRecord
     {
         $user = auth()->user();
         $isStreamer = $user?->isStreamer() && !$user->isAdmin();
+        $isAdmin = $user?->isAdmin();
 
-        return [
-            // Streamers can request edit permission if locked
-            Action::make('request_edit')
+        $actions = [];
+
+        if ($isStreamer) {
+            $actions[] = Action::make('request_edit')
                 ->label('Request Edit Permission')
                 ->icon('heroicon-o-pencil-square')
                 ->color('warning')
-                ->visible(fn () => $isStreamer && StreamerLogResource::isLockedForCurrentUser($this->record))
+                ->visible(fn () => StreamerLogResource::isLockedForCurrentUser($this->record))
                 ->requiresConfirmation()
                 ->modalHeading('Request Edit Permission')
                 ->modalDescription('An admin will review your request and unlock this log entry for editing.')
@@ -41,9 +43,73 @@ class EditStreamerLogEntry extends EditRecord
                         ->body('An admin has been notified of your edit request.')
                         ->success()
                         ->send();
-                    // TODO: Implement notification to admins about edit request
-                }),
-        ];
+                });
+        }
+
+        if ($isAdmin) {
+            $actions[] = Action::make('approve_report')
+                ->label('Approve Report')
+                ->icon('heroicon-o-check-circle')
+                ->color('success')
+                ->visible(fn () => $this->record->isSubmitted() && $this->record->approval_status !== 'approved')
+                ->form([
+                    \Filament\Forms\Components\Textarea::make('approval_notes')
+                        ->label('Approval Notes (Optional)')
+                        ->rows(3),
+                ])
+                ->action(function (array $data) {
+                    $this->record->approveByAdmin();
+                    $this->record->update(['approval_notes' => $data['approval_notes'] ?? null]);
+                    Notification::make()
+                        ->title('✓ Report approved')
+                        ->body('This streamer log entry has been approved.')
+                        ->success()
+                        ->send();
+                    $this->refresh();
+                });
+
+            $actions[] = Action::make('reject_report')
+                ->label('Reject & Return')
+                ->icon('heroicon-o-x-circle')
+                ->color('danger')
+                ->visible(fn () => $this->record->isSubmitted() && $this->record->approval_status !== 'approved')
+                ->form([
+                    \Filament\Forms\Components\Textarea::make('approval_notes')
+                        ->label('Rejection Reason (Required)')
+                        ->required()
+                        ->rows(3),
+                ])
+                ->action(function (array $data) {
+                    $this->record->rejectByAdmin($data['approval_notes']);
+                    Notification::make()
+                        ->title('Report rejected')
+                        ->body('Report returned to streamer for revisions.')
+                        ->warning()
+                        ->send();
+                    $this->refresh();
+                });
+
+            $actions[] = Action::make('reopen_for_edit')
+                ->label('Reopen for Editing')
+                ->icon('heroicon-o-lock-open')
+                ->color('warning')
+                ->visible(fn () => $this->record->isLocked() && $this->record->approval_status === 'pending_approval')
+                ->requiresConfirmation()
+                ->modalHeading('Reopen for Editing')
+                ->modalDescription('This will allow the streamer to make changes again.')
+                ->action(function () {
+                    $this->record->unlockReport();
+                    $this->record->update(['submitted_at' => now()]);
+                    Notification::make()
+                        ->title('Report unlocked')
+                        ->body('Streamer can now edit this report.')
+                        ->info()
+                        ->send();
+                    $this->refresh();
+                });
+        }
+
+        return $actions;
     }
 
     public function getSubheading(): ?string

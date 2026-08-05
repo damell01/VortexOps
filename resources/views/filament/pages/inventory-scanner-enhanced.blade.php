@@ -265,7 +265,7 @@
                         <x-heroicon-o-x-mark class="h-5 w-5 mx-auto" />
                     </button>
                     @endif
-                    <button id="camera-scan-btn" type="button" class="flex-1 sm:hidden px-3 py-3 rounded-lg bg-violet-500 text-white hover:bg-violet-600 active:bg-violet-700 transition font-medium text-sm" title="Scan with camera">
+                    <button id="camera-scan-btn" type="button" class="flex-1 px-3 py-3 rounded-lg bg-violet-500 text-white hover:bg-violet-600 active:bg-violet-700 transition font-medium text-sm" title="Scan with camera">
                         <x-heroicon-o-video-camera class="h-5 w-5 mx-auto" />
                         Camera
                     </button>
@@ -577,7 +577,7 @@
                         <x-heroicon-o-x-mark class="h-5 w-5 mx-auto" />
                     </button>
                     @endif
-                    <button id="camera-scan-btn" type="button" class="flex-1 sm:hidden px-3 py-3 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 active:bg-emerald-700 transition font-medium text-sm" title="Scan with camera">
+                    <button id="camera-scan-btn" type="button" class="flex-1 px-3 py-3 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 active:bg-emerald-700 transition font-medium text-sm" title="Scan with camera">
                         <x-heroicon-o-video-camera class="h-5 w-5 mx-auto" />
                     </button>
                     <button wire:click="submitScan" type="button"

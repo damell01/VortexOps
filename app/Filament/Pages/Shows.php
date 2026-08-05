@@ -10,10 +10,10 @@ use Filament\Pages\Page;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 
-class StreamLogs extends Page
+class Shows extends Page
 {
     protected static string $moduleSlug = 'streams';
-    protected static ?string $title = 'Stream Logs';
+    protected static ?string $title = 'Shows';
 
     public string $filterStatus = 'all'; // all, active, completed, closed
     public string $filterStreamer = '';
@@ -22,27 +22,32 @@ class StreamLogs extends Page
 
     public function getSubheading(): ?string
     {
-        return 'View stream activity, end-of-stream submissions, and streamer reports.';
+        return 'Manage shows, track end-of-stream submissions, and view streamer reports.';
     }
 
     public function getView(): string
     {
-        return 'filament.pages.stream-logs';
+        return 'filament.pages.shows';
     }
 
     public static function getNavigationIcon(): string
     {
-        return 'heroicon-o-video-camera';
+        return 'heroicon-o-presentation-chart-line';
     }
 
     public static function getNavigationGroup(): ?string
     {
-        return 'Streams';
+        return 'Shows';
     }
 
     public static function getNavigationSort(): ?int
     {
-        return 39;
+        return 20;
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Shows';
     }
 
     public static function canAccess(): bool
@@ -71,7 +76,7 @@ class StreamLogs extends Page
     }
 
     #[Computed]
-    public function streams(): Collection
+    public function shows(): Collection
     {
         $user = auth()->user();
         $query = Show::query();

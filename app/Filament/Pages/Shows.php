@@ -6,6 +6,7 @@ use App\Models\Show;
 use App\Models\StreamerLogEntry;
 use App\Models\Streamer;
 use App\Support\AdminModules;
+use Filament\Panel;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
@@ -48,6 +49,11 @@ class Shows extends Page
     public static function getNavigationLabel(): string
     {
         return 'Shows';
+    }
+
+    public static function getSlug(?Panel $panel = null): string
+    {
+        return 'shows-overview';
     }
 
     public static function canAccess(): bool

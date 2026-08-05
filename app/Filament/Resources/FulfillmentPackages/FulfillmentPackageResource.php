@@ -18,13 +18,22 @@ class FulfillmentPackageResource extends Resource
 {
     protected static ?string $model = FulfillmentPackage::class;
 
-    protected static ?string $navigationLabel = 'Fulfillment Packages';
-
-    protected static ?string $navigationGroup = 'Fulfillment';
-
-    protected static ?int $navigationSort = 1;
-
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Fulfillment Packages';
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Fulfillment';
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 1;
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -39,7 +48,7 @@ class FulfillmentPackageResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            \App\Filament\Resources\FulfillmentPackages\RelationManagers\ItemsRelationManager::class,
         ];
     }
 

@@ -33,6 +33,11 @@ class StreamerStatement extends Page
         return 20;
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function canAccess(): bool
     {
         $user = auth()->user();

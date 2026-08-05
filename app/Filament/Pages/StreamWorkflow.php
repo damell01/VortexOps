@@ -18,6 +18,11 @@ class StreamWorkflow extends Page
         return 'filament.pages.stream-workflow';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationGroup(): string | null
     {
         return 'Streams';

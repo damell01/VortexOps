@@ -37,6 +37,11 @@ class ShowStatusBoard extends Page
         return 'Show Pipeline';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function canAccess(): bool
     {
         return auth()->user()?->isAdmin() && AdminModules::isEnabled('streams');

@@ -31,6 +31,11 @@ class SystemHealth extends Page
         return 'heroicon-o-heart';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function canAccess(): bool
     {
         $user = auth()->user();

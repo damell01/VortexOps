@@ -23,6 +23,11 @@ class WhatnotBackfill extends Page implements HasForms
         return 'filament.pages.whatnot-backfill';
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public static function getNavigationIcon(): ?string
     {
         return 'heroicon-o-arrow-down-tray';

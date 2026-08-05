@@ -225,6 +225,9 @@
 
     <!-- Form Actions -->
     <div class="mt-8 flex gap-3 justify-end">
-        {{ $this->getFormActionsView() }}
+        <x-filament-panels::form.actions
+            :actions="$this->getFormActions()"
+            :full-width="$this->hasFullWidthFormActions()"
+        />
     </div>
 </x-filament-panels::page>

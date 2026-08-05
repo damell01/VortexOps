@@ -9,7 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->json('inventory_saved_filters')->nullable()->after('settings');
+            if (!Schema::hasColumn('users', 'inventory_saved_filters')) {
+                $table->json('inventory_saved_filters')->nullable();
+            }
         });
     }
 

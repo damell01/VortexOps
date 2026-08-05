@@ -235,32 +235,54 @@
         {{-- ════════════════════════════════════════════════════════════════════ --}}
         @if($mode === 'lookup')
 
-        {{-- Scanner Input --}}
-        <div class="rounded-xl border-2 border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950 px-6 py-5 space-y-3">
-            <div class="flex items-center gap-3">
-                <x-heroicon-o-qr-code class="h-5 w-5 text-violet-500" />
+        {{-- Scanner Input (Mobile Optimized) --}}
+        <div class="rounded-xl border-2 border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950 px-4 sm:px-6 py-5 space-y-3">
+            <div class="flex items-center gap-3 flex-wrap">
+                <x-heroicon-o-qr-code class="h-5 w-5 text-violet-500 flex-shrink-0" />
                 <h2 class="text-sm font-semibold text-violet-900 dark:text-violet-100">Look Up Item</h2>
-                <span class="text-xs text-violet-600 dark:text-violet-400">Scan or type to find inventory and check pricing</span>
+                <span class="text-xs text-violet-600 dark:text-violet-400 w-full sm:w-auto">Scan or type to find inventory and check pricing</span>
             </div>
 
-            <div class="flex gap-3 items-center">
+            <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
                 <input
-                    wire:model="scanInput"
+                    wire:model.live="scanInput"
                     wire:keydown.enter="submitScan"
                     id="scanner-input"
                     type="text"
                     placeholder="Scan barcode or type SKU…"
-                    autofocus
+                    inputmode="text"
                     autocomplete="off"
-                    class="flex-1 rounded-lg border border-violet-300 dark:border-violet-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    autofocus
+                    class="flex-1 rounded-lg border border-violet-300 dark:border-violet-600 bg-white dark:bg-gray-900 px-4 py-3 sm:py-2.5 text-base sm:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono touch-manipulation"
                 />
-                <button id="camera-scan-btn" type="button" class="hidden rounded-lg bg-violet-200 dark:bg-violet-800 px-3 py-2.5 text-violet-600 dark:text-violet-300 hover:bg-violet-300 dark:hover:bg-violet-700" title="Scan with camera">
-                    <x-heroicon-o-video-camera class="h-5 w-5" />
-                </button>
-                <button wire:click="submitScan" type="button"
-                    class="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500">
-                    Look Up
-                </button>
+                <div class="flex gap-2 items-stretch sm:items-center w-full sm:w-auto">
+                    @if($scanInput)
+                    <button wire:click="clearScanInput" type="button"
+                        class="flex-1 sm:flex-none px-3 py-3 sm:py-2.5 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm font-medium">
+                        <x-heroicon-o-x-mark class="h-5 w-5 mx-auto" />
+                    </button>
+                    @endif
+                    <button id="camera-scan-btn" type="button" class="hidden flex-1 sm:flex-none px-3 py-3 sm:py-2.5 rounded-lg bg-violet-200 dark:bg-violet-800 text-violet-600 dark:text-violet-300 hover:bg-violet-300 dark:hover:bg-violet-700 transition" title="Scan with camera">
+                        <x-heroicon-o-video-camera class="h-5 w-5 mx-auto" />
+                    </button>
+                    <button wire:click="submitScan" type="button"
+                        class="flex-1 sm:flex-none px-4 py-3 sm:py-2.5 rounded-lg bg-violet-600 text-base sm:text-sm font-medium text-white hover:bg-violet-700 active:bg-violet-800 transition focus:outline-none focus:ring-2 focus:ring-violet-500">
+                        Look Up
+                    </button>
+                </div>
+            </div>
+
+            {{-- Mobile Scanner Tips --}}
+            <div class="text-xs text-violet-700 dark:text-violet-300 bg-white/50 dark:bg-gray-800/50 rounded px-3 py-2">
+                <p class="font-medium mb-1">💡 Scanner Tips:</p>
+                <ul class="space-y-0.5 list-disc list-inside">
+                    <li>Press Enter or tap "Look Up" after scanning</li>
+                    <li>Paste events from mobile scanners work automatically</li>
+                    <li>Use camera button for barcode detection</li>
+                </ul>
             </div>
         </div>
 
@@ -476,17 +498,17 @@
         {{-- ════════════════════════════════════════════════════════════════════ --}}
         @if($mode === 'quickadd')
 
-        <div class="rounded-xl border-2 border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950 px-6 py-5 space-y-3">
-            <div class="flex items-center gap-3">
-                <x-heroicon-o-plus-circle class="h-5 w-5 text-emerald-600" />
+        <div class="rounded-xl border-2 border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-950 px-4 sm:px-6 py-5 space-y-3">
+            <div class="flex items-center gap-3 flex-wrap">
+                <x-heroicon-o-plus-circle class="h-5 w-5 text-emerald-600 flex-shrink-0" />
                 <h2 class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">⚡ Quick Add Stock</h2>
-                <span class="text-xs text-emerald-600 dark:text-emerald-400">Fast path: Scan items to directly add to inventory without pallet staging</span>
+                <span class="text-xs text-emerald-600 dark:text-emerald-400 w-full sm:w-auto">Fast path: Scan items to directly add to inventory without pallet staging</span>
             </div>
 
             {{-- Location Selector --}}
             <div>
                 <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Add to Location</label>
-                <select wire:model="qaLocationId" class="w-full mt-1 rounded-lg border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm">
+                <select wire:model="qaLocationId" class="w-full mt-1 rounded-lg border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-base sm:text-sm">
                     <option value="">Select location…</option>
                     @foreach($this->getLocationsProperty() as $loc)
                     <option value="{{ $loc->id }}">{{ $loc->name }}</option>
@@ -495,32 +517,44 @@
             </div>
 
             {{-- Quantity --}}
-            <div class="flex gap-3 items-center">
+            <div class="flex gap-3 items-stretch sm:items-center">
                 <div class="flex-1">
                     <label class="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-1">Quantity per Scan</label>
-                    <input type="number" wire:model="qaQty" min="0.01" step="0.01" class="w-full rounded-lg border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm" />
+                    <input type="number" wire:model="qaQty" min="0.01" step="0.01" inputmode="decimal" class="w-full rounded-lg border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-gray-900 px-4 py-3 sm:py-2.5 text-base sm:text-sm" />
                 </div>
             </div>
 
-            {{-- Scan Input --}}
-            <div class="flex gap-3 items-center">
+            {{-- Scan Input (Mobile Optimized) --}}
+            <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
                 <input
                     id="quickadd-barcode"
-                    wire:model="scanInput"
+                    wire:model.live="scanInput"
                     wire:keydown.enter="submitScan"
                     type="text"
                     placeholder="Scan barcode…"
-                    autofocus
+                    inputmode="text"
                     autocomplete="off"
-                    class="flex-1 rounded-lg border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 font-mono"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    autofocus
+                    class="flex-1 rounded-lg border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-gray-900 px-4 py-3 sm:py-2.5 text-base sm:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 font-mono touch-manipulation"
                 />
-                <button id="camera-scan-btn" type="button" class="hidden rounded-lg bg-emerald-200 dark:bg-emerald-800 px-3 py-2.5 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-300 dark:hover:bg-emerald-700" title="Scan with camera">
-                    <x-heroicon-o-video-camera class="h-5 w-5" />
-                </button>
-                <button wire:click="submitScan" type="button"
-                    class="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700">
-                    Add
-                </button>
+                <div class="flex gap-2 items-stretch sm:items-center w-full sm:w-auto">
+                    @if($scanInput)
+                    <button wire:click="clearScanInput" type="button"
+                        class="flex-1 sm:flex-none px-3 py-3 sm:py-2.5 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm">
+                        <x-heroicon-o-x-mark class="h-5 w-5 mx-auto" />
+                    </button>
+                    @endif
+                    <button id="camera-scan-btn" type="button" class="hidden flex-1 sm:flex-none px-3 py-3 sm:py-2.5 rounded-lg bg-emerald-200 dark:bg-emerald-800 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-300 dark:hover:bg-emerald-700 transition" title="Scan with camera">
+                        <x-heroicon-o-video-camera class="h-5 w-5 mx-auto" />
+                    </button>
+                    <button wire:click="submitScan" type="button"
+                        class="flex-1 sm:flex-none px-4 py-3 sm:py-2.5 rounded-lg bg-emerald-600 text-base sm:text-sm font-medium text-white hover:bg-emerald-700 active:bg-emerald-800 transition">
+                        Add
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -638,27 +672,39 @@
         </div>
         @endif
 
-        {{-- Scan Input --}}
+        {{-- Scan Input (Mobile Optimized) --}}
         @if($rcvPalletId)
-        <div class="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-6 py-4">
-            <p class="text-xs text-blue-700 dark:text-blue-300 mb-3">
+        <div class="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 px-4 sm:px-6 py-4 space-y-3">
+            <p class="text-xs text-blue-700 dark:text-blue-300">
                 <strong>3️⃣ Scan Items to Confirm Receipt</strong> — Scan item barcodes to mark pending items as received and add to inventory.
             </p>
-            <div class="flex gap-3 items-center">
+            <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
                 <input
-                    wire:model="scanInput"
+                    wire:model.live="scanInput"
                     wire:keydown.enter="submitScan"
                     type="text"
                     placeholder="Scan barcode or UPC and press Enter…"
-                    autofocus
+                    inputmode="text"
                     autocomplete="off"
-                    class="flex-1 rounded-lg border border-blue-300 dark:border-blue-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm font-mono"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    autofocus
+                    class="flex-1 rounded-lg border border-blue-300 dark:border-blue-600 bg-white dark:bg-gray-900 px-4 py-3 sm:py-2.5 text-base sm:text-sm font-mono touch-manipulation"
                 />
-                <button wire:click="submitScan" type="button"
-                    class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 whitespace-nowrap">
-                    <x-heroicon-o-check-circle class="h-4 w-4 inline -mt-0.5 mr-1" />
-                    Receive
-                </button>
+                <div class="flex gap-2 items-stretch sm:items-center w-full sm:w-auto">
+                    @if($scanInput)
+                    <button wire:click="clearScanInput" type="button"
+                        class="flex-1 sm:flex-none px-3 py-3 sm:py-2.5 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition text-sm">
+                        <x-heroicon-o-x-mark class="h-5 w-5 mx-auto" />
+                    </button>
+                    @endif
+                    <button wire:click="submitScan" type="button"
+                        class="flex-1 sm:flex-none px-4 py-3 sm:py-2.5 rounded-lg bg-blue-600 text-base sm:text-sm font-medium text-white hover:bg-blue-700 active:bg-blue-800 transition whitespace-nowrap">
+                        <x-heroicon-o-check-circle class="h-5 w-5 inline -mt-0.5 mr-1" />
+                        Receive
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -1134,6 +1180,54 @@
             const stopBtn = document.getElementById('camera-stop-btn');
             if (stopBtn && !stopBtn.closest('.hidden')) {
                 stopBtn.click();
+            }
+        });
+    })();
+
+    // Mobile Scanner Enhancement: Handle paste events and haptic feedback
+    (function () {
+        const inputs = document.querySelectorAll('input[wire\\:model="scanInput"], input[wire\\:model.live="scanInput"]');
+
+        inputs.forEach(input => {
+            // Handle paste events (common with mobile barcode scanners)
+            input.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const text = (e.clipboardData || window.clipboardData).getData('text');
+                if (text.trim()) {
+                    input.value = text.trim();
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+                    // Haptic feedback on successful paste
+                    if (navigator.vibrate) {
+                        navigator.vibrate([50, 30, 50]);
+                    }
+
+                    // Auto-submit on paste if using Enter key handler
+                    setTimeout(() => {
+                        const enterEvent = new KeyboardEvent('keydown', {
+                            code: 'Enter',
+                            key: 'Enter',
+                            keyCode: 13,
+                            which: 13,
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        input.dispatchEvent(enterEvent);
+                    }, 100);
+                }
+            });
+
+            // Ensure proper focus on input after scan
+            input.addEventListener('input', (e) => {
+                e.target.focus();
+            });
+        });
+
+        // Livewire hook to vibrate on successful scan
+        document.addEventListener('livewire:updated', ({ detail }) => {
+            if (detail.succeed && navigator.vibrate) {
+                navigator.vibrate(150);
             }
         });
     })();

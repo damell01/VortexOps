@@ -55,55 +55,6 @@
             </div>
         </div>
     </div>
-                            </span>
-                        @elseif($record->submitted_at)
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
-                                ❌ Edit window closed
-                            </span>
-                        @endif
-                    @endif
-
-                    @if($record->approval_status === 'approved')
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300">
-                            ✅ Approved by Admin
-                        </span>
-                    @elseif($record->approval_status === 'rejected')
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
-                            ⛔ Rejected - Needs Revision
-                        </span>
-                    @elseif($record->approval_status === 'pending_approval')
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">
-                            👤 Awaiting Admin Approval
-                        </span>
-                    @endif
-                </div>
-
-                @if($record->isSubmitted())
-                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                        <div>
-                            <p class="text-gray-500 dark:text-gray-400">Submitted</p>
-                            <p class="font-medium text-gray-900 dark:text-white">{{ $record->submitted_at?->format('M d, Y g:i A') ?? '—' }}</p>
-                        </div>
-                        @if($record->locked_at)
-                        <div>
-                            <p class="text-gray-500 dark:text-gray-400">Locked</p>
-                            <p class="font-medium text-gray-900 dark:text-white">{{ $record->locked_at->format('M d, Y g:i A') }}</p>
-                        </div>
-                        @endif
-                        @if($record->approval_notes)
-                        <div>
-                            <p class="text-gray-500 dark:text-gray-400">Notes</p>
-                            <p class="font-medium text-gray-900 dark:text-white italic">{{ \Str::limit($record->approval_notes, 50) }}</p>
-                        </div>
-                        @endif
-                    </div>
-                </div>
-                @endif
-            </div>
-        </div>
-    </div>
-    @endif
 
     <!-- Tabbed Interface - Items First -->
     @if($canEdit)

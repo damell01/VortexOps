@@ -73,6 +73,19 @@ class InventoryItemResource extends Resource
         return auth()->user()?->isAdmin() ?? false;
     }
 
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+
+        // Allow streamers to access for creating items even if module is disabled
+        if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) {
+            return true;
+        }
+
+        // Default module access check for admins/owners
+        return parent::canAccess();
+    }
+
     public static function canCreate(): bool
     {
         $user = auth()->user();

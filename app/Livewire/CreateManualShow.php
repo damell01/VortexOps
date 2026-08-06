@@ -4,26 +4,24 @@ namespace App\Livewire;
 
 use App\Models\Show;
 use App\Models\Streamer;
-use Livewire\Component;
-use Livewire\Attributes\Validate;
 use Carbon\Carbon;
+use Livewire\Component;
 
 class CreateManualShow extends Component
 {
-    public bool $showModal = false;
     public Streamer $streamer;
-
-    #[Validate('required|string|max:255')]
+    public bool $showModal = false;
     public string $title = '';
-
-    #[Validate('required|string|max:100')]
-    public string $channel = '';
-
-    #[Validate('required|date_format:Y-m-d\TH:i')]
     public string $showDatetime = '';
+    public string $grossRevenue = '';
+    public string $notes = '';
 
-    #[Validate('required|numeric|min:0')]
-    public float $grossRevenue = 0;
+    protected $rules = [
+        'title' => 'required|string|max:255',
+        'showDatetime' => 'required|date_format:Y-m-d\TH:i',
+        'grossRevenue' => 'required|numeric|min:0',
+        'notes' => 'nullable|string|max:1000',
+    ];
 
     public function mount(Streamer $streamer): void
     {
@@ -33,36 +31,44 @@ class CreateManualShow extends Component
 
     public function openModal(): void
     {
-        $this->reset('title', 'channel', 'grossRevenue');
-        $this->showDatetime = now()->format('Y-m-d\TH:i');
         $this->showModal = true;
+        $this->reset(['title', 'grossRevenue', 'notes']);
+        $this->showDatetime = now()->format('Y-m-d\TH:i');
     }
 
     public function closeModal(): void
     {
         $this->showModal = false;
+        $this->reset();
     }
 
     public function createShow(): void
     {
-        $validated = $this->validate();
+        $this->validate();
+
+        $showDate = Carbon::createFromFormat('Y-m-d\TH:i', $this->showDatetime);
 
         $show = Show::create([
-            'streamer_id' => $this->streamer->id,
-            'title' => $validated['title'],
-            'channel' => $validated['channel'],
-            'show_date' => Carbon::createFromFormat('Y-m-d\TH:i', $validated['showDatetime']),
-            'gross_revenue' => $validated['grossRevenue'],
+            'title' => $this->title,
+            'show_date' => $showDate,
+            'gross_revenue' => (float) $this->grossRevenue,
+            'notes' => $this->notes ?: null,
+            'status' => 'completed',
+            'import_source' => 'manual',
         ]);
 
-        session()->flash('success', "✓ Show '{$show->title}' created successfully!");
+        // Attach streamer to show
+        $show->streamers()->attach($this->streamer->id);
+
         $this->closeModal();
 
-        // If show is in the past or current (not future), redirect to show detail to fill in log
-        if ($show->show_date <= now()) {
-            $this->redirect(route('filament.admin.resources.shows.edit', $show), navigate: true);
+        // If show is in past or current, redirect to end-of-stream log form
+        if ($showDate <= now()) {
+            redirect()->route('filament.admin.resources.shows.edit', $show);
         } else {
-            $this->dispatch('refresh');
+            // Future show, just refresh and show success message
+            $this->dispatch('showCreated');
+            $this->dispatch('notify', message: 'Show created successfully!');
         }
     }
 

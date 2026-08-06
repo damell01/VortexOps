@@ -1,119 +1,102 @@
 <div>
-    <!-- Create Show Button -->
-    <button
-        wire:click="openModal"
-        class="mb-6 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition flex items-center gap-2 touch-manipulation"
-    >
-        <span class="text-xl">➕</span>
-        <span>Create Manual Show</span>
+    <button wire:click="openModal" type="button"
+        class="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500">
+        <x-heroicon-o-plus-circle class="h-5 w-5" />
+        Create Manual Show
     </button>
 
-    <!-- Modal -->
+    {{-- Modal --}}
     @if($showModal)
-        <div class="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center p-4">
-            <div class="bg-white dark:bg-gray-800 rounded-t-lg md:rounded-lg w-full md:max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
-                <!-- Header -->
-                <div class="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">Create Manual Show</h2>
-                    <button
-                        wire:click="closeModal"
-                        class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl leading-none"
-                    >
-                        ✕
-                    </button>
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" wire:click.self="closeModal">
+        <div class="w-full max-w-md rounded-lg bg-white dark:bg-gray-900 shadow-lg">
+            {{-- Header --}}
+            <div class="border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Create Manual Show</h2>
+                <button wire:click="closeModal" type="button"
+                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <x-heroicon-o-x-mark class="h-5 w-5" />
+                </button>
+            </div>
+
+            {{-- Body --}}
+            <form wire:submit="createShow" class="space-y-4 px-6 py-4">
+                {{-- Title --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Show Title
+                    </label>
+                    <input type="text" wire:model="title" placeholder="e.g., Sunday Card Break"
+                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                    />
+                    @error('title')
+                        <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
                 </div>
 
-                <!-- Content -->
-                <form wire:submit="createShow" class="p-6 space-y-5">
-                    <!-- Title -->
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            Show Title
-                        </label>
-                        <input
-                            type="text"
-                            wire:model="title"
-                            placeholder="e.g., Football Card Break #42"
-                            class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-300 focus:outline-none transition"
+                {{-- Notes (Channel/Platform) --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Channel / Platform (Optional)
+                    </label>
+                    <input type="text" wire:model="notes" placeholder="e.g., Whatnot, YouTube, Instagram Live"
+                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                    />
+                    @error('notes')
+                        <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                {{-- Date & Time --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Date & Time
+                    </label>
+                    <input type="datetime-local" wire:model="showDatetime"
+                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                    />
+                    @error('showDatetime')
+                        <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+
+                {{-- Gross Revenue --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Gross Revenue
+                    </label>
+                    <div class="relative">
+                        <span class="absolute left-3 top-2.5 text-gray-400">$</span>
+                        <input type="number" step="0.01" wire:model="grossRevenue" placeholder="0.00"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 pl-6 pr-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
                         />
-                        @error('title')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
                     </div>
+                    @error('grossRevenue')
+                        <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
 
-                    <!-- Channel -->
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            Channel / Platform
-                        </label>
-                        <input
-                            type="text"
-                            wire:model="channel"
-                            placeholder="e.g., Whatnot, YouTube, TikTok"
-                            class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-300 focus:outline-none transition"
-                        />
-                        @error('channel')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
-                    </div>
+                {{-- Pro Tip --}}
+                <div class="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3">
+                    <p class="text-xs text-blue-700 dark:text-blue-300">
+                        💡 <strong>Pro tip:</strong> If the show is in the past, you'll go straight to the end-of-stream log form.
+                    </p>
+                </div>
 
-                    <!-- Show Date & Time -->
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            Date & Time
-                        </label>
-                        <input
-                            type="datetime-local"
-                            wire:model="showDatetime"
-                            class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-300 focus:outline-none transition"
-                        />
-                        @error('showDatetime')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
-                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            If the show is in the past, you'll go straight to the end-of-stream log form
-                        </p>
-                    </div>
-
-                    <!-- Gross Revenue -->
-                    <div>
-                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                            Gross Revenue
-                        </label>
-                        <div class="relative">
-                            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
-                            <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                wire:model="grossRevenue"
-                                placeholder="0.00"
-                                class="w-full pl-8 pr-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-300 focus:outline-none transition"
-                            />
-                        </div>
-                        @error('grossRevenue')
-                            <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
-                        @enderror
-                    </div>
-
-                    <!-- Buttons -->
-                    <div class="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                        <button
-                            type="submit"
-                            class="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition touch-manipulation"
-                        >
-                            Create Show
-                        </button>
-                        <button
-                            type="button"
-                            wire:click="closeModal"
-                            class="flex-1 px-4 py-2.5 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg font-semibold transition touch-manipulation"
-                        >
-                            Cancel
-                        </button>
-                    </div>
-                </form>
-            </div>
+                {{-- Actions --}}
+                <div class="flex gap-3 pt-4">
+                    <button wire:click="closeModal" type="button"
+                        class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-violet-500">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                        class="flex-1 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        wire:loading.attr="disabled">
+                        <span wire:loading.remove>Create Show</span>
+                        <span wire:loading>Creating...</span>
+                    </button>
+                </div>
+            </form>
         </div>
+    </div>
     @endif
 </div>

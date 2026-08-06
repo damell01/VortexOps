@@ -30,7 +30,7 @@ return [
 
     // Disable Fortify views — Filament owns login/logout/password-reset UI.
     // We only need the 2FA challenge view from Fortify.
-    'views' => true,
+    'views' => false,
 
     'features' => [
         // Registration/login/password-reset handled by Filament — disabled here.

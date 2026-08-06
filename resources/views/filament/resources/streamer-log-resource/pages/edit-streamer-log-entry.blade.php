@@ -1,5 +1,6 @@
 @php
     use App\Models\StreamerLogEntry;
+    use App\Filament\Resources\StreamerLogResource;
 
     /** @var StreamerLogEntry $record */
     $record = $this->record;

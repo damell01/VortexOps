@@ -33,7 +33,7 @@
                 <span class="text-xs text-violet-600 dark:text-violet-400">Scan a barcode, or type a SKU — works with any Bluetooth or USB scanner</span>
             </div>
 
-            <div class="flex gap-3 items-center">
+            <div class="flex gap-2 md:gap-3 items-center flex-wrap md:flex-nowrap">
                 <input
                     wire:model="scanInput"
                     wire:keydown.enter="submitScan"
@@ -42,15 +42,19 @@
                     placeholder="Scan barcode or type SKU…"
                     autofocus
                     autocomplete="off"
-                    class="flex-1 rounded-lg border border-violet-300 dark:border-violet-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono"
+                    class="flex-1 min-w-0 rounded-lg border border-violet-300 dark:border-violet-600 bg-white dark:bg-gray-900 px-3 md:px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono"
                 />
                 <button wire:click="submitScan" type="button"
-                    class="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500">
+                    class="hidden md:inline-block rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 flex-shrink-0">
                     Look Up
                 </button>
                 <button type="button" id="camera-scan-btn" title="Scan with camera"
-                    class="rounded-lg border border-violet-300 dark:border-violet-600 px-3 py-2.5 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 hidden">
+                    class="flex-shrink-0 rounded-lg border border-violet-300 dark:border-violet-600 px-3 py-2.5 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 hidden">
                     <x-heroicon-o-camera class="h-5 w-5" />
+                </button>
+                <button wire:click="submitScan" type="button"
+                    class="md:hidden flex-shrink-0 rounded-lg bg-violet-600 px-3 py-2.5 text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500">
+                    <x-heroicon-o-arrow-right class="h-5 w-5" />
                 </button>
             </div>
 

@@ -1,5 +1,8 @@
 <x-filament-panels::page>
     <div class="space-y-8">
+        <!-- Create Manual Show Component -->
+        @livewire('create-manual-show', ['streamer' => $this->getStreamer()])
+
         <!-- Upcoming Shows -->
         <div>
             <div class="mb-4">

@@ -343,8 +343,8 @@
     @endif
 
     <!-- Items Modal -->
-    <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="closeModal()" @click="closeOnBackdropClick($event)" style="display: none !important; position: fixed !important; inset: 0 !important; z-index: 50 !important; background: rgba(0,0,0,0.5) !important; padding: 1rem !important; flex-direction: column !important; align-items: center !important; justify-content: center !important;">
-        <div @click.stop class="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-lg shadow-2xl">
+    <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="closeModal()" @click="closeOnBackdropClick($event)" style="display: none !important; position: fixed !important; inset: 0 !important; z-index: 50 !important; background: rgba(0,0,0,0.5) !important; padding: 1rem !important; justify-content: center !important; align-items: center !important;">
+        <div @click.stop class="w-full max-w-2xl max-h-[90vh] overflow-hidden bg-white dark:bg-gray-900 rounded-lg shadow-2xl flex flex-col">
             @livewire('streamer-log-items-modal', [
                 'recordId' => $record->id,
                 'title' => 'STREAMER LOG INVENTORY CATALOG',
@@ -367,11 +367,10 @@
                     this.modalOpen = true;
                     const modal = document.getElementById('items-modal');
                     if (modal) {
+                        // Use setProperty to override the inline !important style
                         modal.style.setProperty('display', 'flex', 'important');
-                        setTimeout(() => {
-                            document.body.style.overflow = 'hidden';
-                            document.documentElement.style.overflow = 'hidden';
-                        }, 0);
+                        document.body.style.overflow = 'hidden';
+                        document.documentElement.style.overflow = 'hidden';
                     }
                 },
                 closeModal() {
@@ -379,8 +378,8 @@
                     const modal = document.getElementById('items-modal');
                     if (modal) {
                         modal.style.setProperty('display', 'none', 'important');
-                        document.body.style.overflow = '';
-                        document.documentElement.style.overflow = '';
+                        document.body.style.removeProperty('overflow');
+                        document.documentElement.style.removeProperty('overflow');
                     }
                 },
                 closeOnBackdropClick(e) {

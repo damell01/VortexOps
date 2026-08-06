@@ -7,14 +7,18 @@ use App\Models\Streamer;
 
 class StreamerProfitShare extends Page
 {
-    protected static ?string $navigationIcon = 'heroicon-o-banknotes';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
     protected static ?string $navigationLabel = 'Profit Share';
-    protected static ?string $navigationGroup = 'Streamer';
     protected static ?int $navigationSort = 50;
 
     public function getTitle(): string
     {
         return 'Profit Share Packets';
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Streamer';
     }
 
     public static function shouldRegisterNavigation(): bool

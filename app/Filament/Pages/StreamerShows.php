@@ -7,14 +7,18 @@ use App\Models\Streamer;
 
 class StreamerShows extends Page
 {
-    protected static ?string $navigationIcon = 'heroicon-o-video-camera';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-video-camera';
     protected static ?string $navigationLabel = 'My Shows';
-    protected static ?string $navigationGroup = 'Streamer';
     protected static ?int $navigationSort = 10;
 
     public function getTitle(): string
     {
         return 'My Shows';
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Streamer';
     }
 
     public static function shouldRegisterNavigation(): bool

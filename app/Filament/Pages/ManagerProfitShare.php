@@ -7,14 +7,18 @@ use App\Models\User;
 
 class ManagerProfitShare extends Page
 {
-    protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-check';
     protected static ?string $navigationLabel = 'Profit Share Approvals';
-    protected static ?string $navigationGroup = 'Management';
     protected static ?int $navigationSort = 30;
 
     public function getTitle(): string
     {
         return 'Profit Share Packet Reviews';
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return 'Management';
     }
 
     public static function shouldRegisterNavigation(): bool

@@ -75,21 +75,7 @@ class InventoryItemResource extends Resource
 
     public static function canCreate(): bool
     {
-        $user = auth()->user();
-        // Admins, owners, and streamers can create inventory items
-        if (!$user) {
-            return false;
-        }
-        $result = $user->isAdmin() || $user->isOwner() || $user->isStreamer();
-        // Temporary debug log
-        \Log::info('InventoryItemResource::canCreate()', [
-            'user_id' => $user->id,
-            'isAdmin' => $user->isAdmin(),
-            'isOwner' => $user->isOwner(),
-            'isStreamer' => $user->isStreamer(),
-            'result' => $result,
-        ]);
-        return $result;
+        return auth()->user()?->can('create', InventoryItem::class) ?? false;
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool

@@ -16,13 +16,9 @@ class EditStreamerLogEntry extends EditRecord
 {
     protected static string $resource = StreamerLogResource::class;
 
-    protected function resolveRecord($key): StreamerLogEntry|null
+    protected function resolveRecord($key): StreamerLogEntry
     {
-        $record = StreamerLogEntry::with(['show', 'streamer'])->find($key);
-
-        if (! $record) {
-            return null;
-        }
+        $record = StreamerLogEntry::with(['show', 'streamer'])->findOrFail($key);
 
         // Verify user has access to this record (bypass channel context for viewing across channels)
         $user = auth()->user();
@@ -30,7 +26,7 @@ class EditStreamerLogEntry extends EditRecord
             // Streamers can only access their own logs
             $streamerId = $user->streamer?->id;
             if ($record->streamer_id !== $streamerId) {
-                return null;
+                abort(403);
             }
         }
 

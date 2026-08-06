@@ -1,5 +1,12 @@
 <x-filament-panels::page>
     <div class="space-y-6">
+        {{-- Streamer Actions --}}
+        @if(auth()->user()->isStreamer() && !auth()->user()->isAdmin())
+        <div>
+            @livewire('create-manual-show', ['streamer' => auth()->user()->streamer])
+        </div>
+        @endif
+
         {{-- Filters & Search --}}
         <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 space-y-4">
             <div class="flex items-center justify-between">

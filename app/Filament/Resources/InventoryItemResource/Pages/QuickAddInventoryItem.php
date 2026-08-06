@@ -19,13 +19,16 @@ class QuickAddInventoryItem extends Page
 {
     protected static string $resource = InventoryItemResource::class;
 
-    protected static string $view = 'filament.pages.quick-add-inventory-item';
-
     public ?array $data = [];
 
     public int $currentStep = 1;
 
     public ?InventoryItem $createdItem = null;
+
+    public function getView(): string
+    {
+        return 'filament.pages.quick-add-inventory-item';
+    }
 
     public function mount(): void
     {

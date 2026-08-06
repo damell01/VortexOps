@@ -8,7 +8,7 @@ use Carbon\Carbon;
 
 class StreamerProfitShareWidget extends Widget
 {
-    protected static string $view = 'filament.widgets.streamer-profit-share-widget';
+    protected string $view = 'filament.widgets.streamer-profit-share-widget';
 
     protected function getViewData(): array
     {

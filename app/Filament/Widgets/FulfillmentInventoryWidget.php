@@ -8,7 +8,7 @@ use App\Models\Shipment;
 
 class FulfillmentInventoryWidget extends Widget
 {
-    protected static string $view = 'filament.widgets.fulfillment-inventory-widget';
+    protected string $view = 'filament.widgets.fulfillment-inventory-widget';
 
     protected function getViewData(): array
     {

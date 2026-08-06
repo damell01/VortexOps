@@ -7,7 +7,7 @@ use App\Models\InventoryItem;
 
 class StreamerInventoryWidget extends Widget
 {
-    protected static string $view = 'filament.widgets.streamer-inventory-widget';
+    protected string $view = 'filament.widgets.streamer-inventory-widget';
 
     protected function getViewData(): array
     {

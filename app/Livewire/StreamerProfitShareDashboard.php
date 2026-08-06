@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\ProfitSharePacket;
 use App\Models\Streamer;
+use App\Services\ProfitShareCalculationService;
 use Livewire\Component;
 use Livewire\Attributes\Validate;
 
@@ -11,109 +12,93 @@ class StreamerProfitShareDashboard extends Component
 {
     public Streamer $streamer;
     public ?ProfitSharePacket $selectedPacket = null;
-    public bool $showForm = false;
     public bool $showHistory = false;
-
-    #[Validate('required|numeric|min:0')]
-    public ?float $gross_revenue = null;
-
-    #[Validate('required|numeric|min:0')]
-    public ?float $product_cost = null;
-
-    #[Validate('required|numeric|min:0')]
-    public ?float $shipping_cost = null;
-
-    #[Validate('nullable|numeric|min:0')]
-    public ?float $other_costs = null;
 
     #[Validate('nullable|string|max:1000')]
     public ?string $notes = null;
 
+    private ProfitShareCalculationService $calculationService;
+
     public function mount(Streamer $streamer): void
     {
         $this->streamer = $streamer->load('profitSharePackets');
+        $this->calculationService = app(ProfitShareCalculationService::class);
     }
 
     public function selectPacket(ProfitSharePacket $packet): void
     {
         $this->selectedPacket = $packet;
-        $this->loadPacketData();
-        $this->showForm = false;
-    }
-
-    public function loadPacketData(): void
-    {
-        if (!$this->selectedPacket) return;
-
-        $this->gross_revenue = $this->selectedPacket->gross_revenue;
-        $this->product_cost = $this->selectedPacket->product_cost;
-        $this->shipping_cost = $this->selectedPacket->shipping_cost;
-        $this->other_costs = $this->selectedPacket->other_costs;
-        $this->notes = $this->selectedPacket->notes;
-    }
-
-    public function editPacket(ProfitSharePacket $packet): void
-    {
-        if ($packet->status !== 'draft' && $packet->status !== 'rejected') {
-            session()->flash('error', 'Only draft or rejected packets can be edited');
-            return;
-        }
-
-        $this->selectedPacket = $packet;
-        $this->loadPacketData();
-        $this->showForm = true;
-    }
-
-    public function savePacket(): void
-    {
-        $this->validate();
-
-        if (!$this->selectedPacket) {
-            session()->flash('error', 'No packet selected');
-            return;
-        }
-
-        $this->selectedPacket->update([
-            'gross_revenue' => $this->gross_revenue,
-            'product_cost' => $this->product_cost,
-            'shipping_cost' => $this->shipping_cost,
-            'other_costs' => $this->other_costs,
-            'notes' => $this->notes,
-        ]);
-
-        session()->flash('success', 'Packet saved successfully');
-        $this->showForm = false;
-        $this->selectedPacket = null;
-        $this->dispatch('refresh');
     }
 
     public function submitPacket(ProfitSharePacket $packet): void
     {
-        if ($packet->status !== 'draft' && $packet->status !== 'rejected') {
-            session()->flash('error', 'Only draft or rejected packets can be submitted');
+        if ($packet->status !== 'pending_review') {
+            session()->flash('error', 'Only finalized packets can be submitted for approval');
             return;
         }
 
         $packet->submit();
-
-        session()->flash('success', 'Packet submitted for review');
+        session()->flash('success', '✓ Packet submitted to manager for final approval');
         $this->selectedPacket = null;
         $this->dispatch('refresh');
+    }
+
+    public function addNotes(ProfitSharePacket $packet): void
+    {
+        $this->validate(['notes' => 'nullable|string|max:1000']);
+
+        $packet->update(['notes' => $this->notes]);
+        session()->flash('success', '✓ Notes saved');
+        $this->notes = null;
     }
 
     public function getCurrentMonthPacket(): ?ProfitSharePacket
     {
         $now = now();
-        return $this->streamer->profitSharePackets()
-            ->where('year', $now->year)
-            ->where('month', $now->month)
-            ->first();
+        $packet = $this->calculationService->getOrCreatePacket(
+            $this->streamer,
+            $now->year,
+            $now->month
+        );
+
+        // Always update calculations based on logs
+        $this->calculationService->updatePacketWithCalculations($packet);
+
+        return $packet;
+    }
+
+    public function getMonthProgress(): float
+    {
+        $now = now();
+        return $this->calculationService->getMonthProgress($now->year, $now->month);
+    }
+
+    public function getDaysUntilFinalization(): int
+    {
+        return $this->calculationService->getDaysUntilMonthEnd();
+    }
+
+    public function isMonthFinalized(): bool
+    {
+        $now = now();
+        return $this->calculationService->isMonthFinalized($now->month, $now->year);
+    }
+
+    public function getRelatedLogs()
+    {
+        $now = now();
+        return $this->streamer->streamerLogEntries()
+            ->whereYear('created_at', $now->year)
+            ->whereMonth('created_at', $now->month)
+            ->where('status', '!=', 'draft')
+            ->orderBy('created_at', 'desc')
+            ->get();
     }
 
     public function getPendingPackets()
     {
         return $this->streamer->profitSharePackets()
-            ->whereIn('status', ['draft', 'submitted', 'rejected'])
+            ->whereIn('status', ['submitted', 'pending_review', 'rejected'])
             ->orderBy('year', 'desc')
             ->orderBy('month', 'desc')
             ->get();
@@ -131,8 +116,12 @@ class StreamerProfitShareDashboard extends Component
 
     public function render()
     {
-        return view('livewire.streamer-profit-share-dashboard', [
+        return view('livewire.streamer-profit-share-dashboard-v2', [
             'currentPacket' => $this->getCurrentMonthPacket(),
+            'monthProgress' => $this->getMonthProgress(),
+            'daysUntilFinalization' => $this->getDaysUntilFinalization(),
+            'isFinalized' => $this->isMonthFinalized(),
+            'relatedLogs' => $this->getRelatedLogs(),
             'pendingPackets' => $this->getPendingPackets(),
             'approvedPackets' => $this->getApprovedPackets(),
         ]);

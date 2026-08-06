@@ -220,8 +220,8 @@ class QuickAddInventoryItem extends Page
                 ->success()
                 ->send();
 
-            // Redirect to the item
-            redirect(InventoryItemResource::getUrl('view', ['record' => $item]));
+            // Redirect to edit page
+            redirect(InventoryItemResource::getUrl('edit', ['record' => $item]));
         } catch (\Exception $e) {
             Notification::make()
                 ->title('Error creating item')

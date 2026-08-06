@@ -12,6 +12,11 @@ class CreateInventoryItem extends CreateRecord
 {
     protected static string $resource = InventoryItemResource::class;
 
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('edit', ['record' => $this->record]);
+    }
+
     public function mutateFormDataBeforeSave(array $data): array
     {
         // Remove the initial stock fields from the item data

@@ -59,10 +59,20 @@ class InventoryAnalytics extends Page
     protected function sanitizeUtf8($data): mixed
     {
         if (is_string($data)) {
-            return iconv('UTF-8', 'UTF-8//IGNORE', $data);
+            // Remove invalid UTF-8 characters
+            return mb_convert_encoding($data, 'UTF-8', 'UTF-8');
         }
         if (is_array($data)) {
             return array_map(fn ($item) => $this->sanitizeUtf8($item), $data);
+        }
+        if (is_object($data)) {
+            // Handle Eloquent collections and other objects
+            if (method_exists($data, 'toArray')) {
+                return $this->sanitizeUtf8($data->toArray());
+            }
+            if ($data instanceof \Illuminate\Support\Collection) {
+                return $this->sanitizeUtf8($data->toArray());
+            }
         }
         return $data;
     }
@@ -219,26 +229,46 @@ class InventoryAnalytics extends Page
      */
     public function exportAnalyticsPdf(): Response
     {
-        $data = [
-            'title' => 'Inventory Analytics Summary',
-            'date' => now()->format('F j, Y'),
-            'time' => now()->format('H:i'),
-            'summary' => $this->getSummary(),
-            'lowStock' => $this->getLowStockItems(),
-            'topVendors' => $this->getTopVendors(),
-            'locations' => $this->getLocationHealth(),
-            'fastMovers' => $this->getFastMovers(),
-            'deadStock' => $this->getDeadStock(),
-        ];
+        try {
+            $data = [
+                'title' => 'Inventory Analytics Summary',
+                'date' => now()->format('F j, Y'),
+                'time' => now()->format('H:i'),
+                'summary' => $this->getSummary(),
+                'lowStock' => $this->getLowStockItems(),
+                'topVendors' => $this->getTopVendors(),
+                'locations' => $this->getLocationHealth(),
+                'fastMovers' => $this->getFastMovers(),
+                'deadStock' => $this->getDeadStock(),
+            ];
 
-        $pdf = Pdf::loadView('filament.pages.inventory-analytics-pdf', $data)
-            ->setPaper('a4', 'landscape')
-            ->setOption('enable-local-file-access', true)
-            ->setOption('margin-top', 10)
-            ->setOption('margin-bottom', 10)
-            ->setOption('margin-left', 5)
-            ->setOption('margin-right', 5);
+            // Sanitize all data to ensure proper UTF-8 encoding
+            $data = $this->sanitizeUtf8($data);
 
-        return $pdf->download('analytics-summary-' . now()->format('Y-m-d-His') . '.pdf');
+            // Ensure all strings are valid UTF-8
+            array_walk_recursive($data, function (&$value) {
+                if (is_string($value)) {
+                    $value = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+                }
+            });
+
+            $pdf = Pdf::loadView('filament.pages.inventory-analytics-pdf', $data)
+                ->setPaper('a4', 'landscape')
+                ->setOption('enable-local-file-access', true)
+                ->setOption('margin-top', 10)
+                ->setOption('margin-bottom', 10)
+                ->setOption('margin-left', 5)
+                ->setOption('margin-right', 5);
+
+            return $pdf->download('analytics-summary-' . now()->format('Y-m-d-His') . '.pdf');
+        } catch (\Throwable $e) {
+            \Filament\Notifications\Notification::make()
+                ->title('Export Error')
+                ->body('Failed to generate PDF: ' . $e->getMessage())
+                ->danger()
+                ->send();
+
+            throw $e;
+        }
     }
 }

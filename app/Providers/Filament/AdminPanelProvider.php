@@ -166,18 +166,64 @@ class AdminPanelProvider extends PanelProvider
                     ? ''
                     : Blade::render(<<<'HTML'
                     <style>
+                    /* Mobile sidebar positioning */
+                    @media (max-width: 640px) {
+                        .fi-sidebar {
+                            position: fixed !important;
+                            left: 0 !important;
+                            top: 0 !important;
+                            bottom: 0 !important;
+                            z-index: 30 !important;
+                            width: 100% !important;
+                            max-width: 280px !important;
+                            transform: translateX(-100%) !important;
+                            transition: transform 280ms cubic-bezier(.4,0,.2,1) !important;
+                        }
+                    }
+
                     .fi-sidebar.mobile-menu-open {
                         transform: translateX(0) !important;
                     }
+
                     .fi-sidebar-backdrop.mobile-menu-open {
                         display: block !important;
+                        z-index: 20 !important;
                     }
+
+                    /* Mobile menu toggle button */
                     .mobile-menu-toggle {
-                        display: none;
+                        display: none !important;
                     }
+
                     @media (max-width: 640px) {
                         .mobile-menu-toggle {
-                            display: inline-flex;
+                            display: inline-flex !important;
+                            align-items: center !important;
+                            justify-content: center !important;
+                            width: 40px !important;
+                            height: 40px !important;
+                            padding: 0 !important;
+                            margin-right: 8px !important;
+                            background-color: transparent !important;
+                            border: none !important;
+                            border-radius: 6px !important;
+                            cursor: pointer !important;
+                            transition: background-color 150ms ease !important;
+                            flex-shrink: 0 !important;
+                        }
+
+                        .mobile-menu-toggle:hover {
+                            background-color: rgba(0,0,0,.06) !important;
+                        }
+
+                        .dark .mobile-menu-toggle:hover {
+                            background-color: rgba(255,255,255,.08) !important;
+                        }
+
+                        .mobile-menu-toggle svg {
+                            width: 20px !important;
+                            height: 20px !important;
+                            color: inherit !important;
                         }
                     }
                     </style>
@@ -199,12 +245,29 @@ class AdminPanelProvider extends PanelProvider
                                 return;
                             }
 
-                            // Create menu toggle button matching Filament's topbar button style
+                            // Create menu toggle button
                             const toggleBtn = document.createElement('button');
-                            toggleBtn.className = 'mobile-menu-toggle shrink-0 rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-1 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-200 dark:focus:ring-offset-gray-950';
+                            toggleBtn.className = 'mobile-menu-toggle';
                             toggleBtn.type = 'button';
                             toggleBtn.setAttribute('aria-label', 'Toggle navigation');
-                            toggleBtn.innerHTML = '<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>';
+                            toggleBtn.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>';
+
+                            // Apply inline styles for the button
+                            Object.assign(toggleBtn.style, {
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '40px',
+                                height: '40px',
+                                padding: '0',
+                                marginRight: '8px',
+                                backgroundColor: 'transparent',
+                                border: 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                flexShrink: '0',
+                                transition: 'background-color 150ms ease'
+                            });
 
                             // Insert at the start of topbar, before other elements
                             topbar.insertBefore(toggleBtn, topbar.firstChild);
@@ -229,6 +292,15 @@ class AdminPanelProvider extends PanelProvider
                                 if (backdrop) backdrop.classList.remove('mobile-menu-open');
                                 document.body.style.overflow = '';
                             }
+
+                            // Add hover effects
+                            const isDark = document.documentElement.classList.contains('dark');
+                            toggleBtn.addEventListener('mouseenter', () => {
+                                toggleBtn.style.backgroundColor = isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)';
+                            });
+                            toggleBtn.addEventListener('mouseleave', () => {
+                                toggleBtn.style.backgroundColor = 'transparent';
+                            });
 
                             // Event listeners
                             toggleBtn.addEventListener('click', (e) => {

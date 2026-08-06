@@ -170,8 +170,13 @@ class InventoryAnalytics extends Page
      */
     public function getTopVendors(): array
     {
+        $locationIds = $this->getAccessibleLocationIds();
         $vendors = Vendor::where('status', 'active')
-            ->withCount('inventoryItems')
+            ->withCount(['inventoryItems' => fn ($q) =>
+                $q->whereHas('stock', fn ($sq) =>
+                    $sq->whereIn('inventory_location_id', $locationIds)
+                )
+            ])
             ->orderByDesc('inventory_items_count')
             ->take(6)
             ->get()
@@ -189,7 +194,9 @@ class InventoryAnalytics extends Page
      */
     public function getLocationHealth(): array
     {
+        $locationIds = $this->getAccessibleLocationIds();
         $locations = InventoryLocation::where('status', 'active')
+            ->whereIn('id', $locationIds)
             ->with('stock')
             ->get()
             ->map(fn ($location) => [
@@ -210,7 +217,9 @@ class InventoryAnalytics extends Page
      */
     public function getFastMovers(): array
     {
+        $locationIds = $this->getAccessibleLocationIds();
         $items = InventoryStock::with(['item', 'location'])
+            ->whereIn('inventory_location_id', $locationIds)
             ->whereHas('item', fn ($q) => $q->where('is_active', true))
             ->get()
             ->sortByDesc(fn ($stock) => $stock->quantity * ($stock->item->average_cost ?? 0))
@@ -232,8 +241,9 @@ class InventoryAnalytics extends Page
      */
     public function getDeadStock(): array
     {
+        $locationIds = $this->getAccessibleLocationIds();
         $items = InventoryItem::where('is_active', true)
-            ->with('stock')
+            ->with(['stock' => fn ($q) => $q->whereIn('inventory_location_id', $locationIds)])
             ->get()
             ->filter(function ($item) {
                 $total = $item->stock->sum('quantity');

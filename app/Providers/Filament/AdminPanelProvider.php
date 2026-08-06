@@ -175,38 +175,6 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn () => ! $isAuthenticatedAdminView()
                     ? ''
-                    : Blade::render(<<<'HTML'
-                    <style>
-                    @media (max-width: 1024px) {
-                        [x-data*="sidebarOpen"] {
-                            --sidebar-width: 280px;
-                        }
-                    }
-                    </style>
-                    <script>
-                    document.addEventListener('DOMContentLoaded', () => {
-                        // Ensure mobile sidebar works with Filament's Alpine directives
-                        const setupMobileNav = () => {
-                            const sidebar = document.querySelector('[x-data*="sidebarOpen"]');
-                            if (sidebar && window.Alpine) {
-                                // Mobile sidebar is handled by Filament's native implementation
-                                console.log('[mobile-nav] Filament mobile navigation ready');
-                            }
-                        };
-
-                        if (window.Alpine) {
-                            setupMobileNav();
-                        } else {
-                            setTimeout(setupMobileNav, 100);
-                        }
-                    });
-                    </script>
-                    HTML),
-            )
-            ->renderHook(
-                PanelsRenderHook::BODY_END,
-                fn () => ! $isAuthenticatedAdminView()
-                    ? ''
                     : view('filament.components.camera-barcode-scanner'),
             )
             ->renderHook(

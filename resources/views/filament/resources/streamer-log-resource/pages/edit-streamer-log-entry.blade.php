@@ -255,8 +255,8 @@
     </div>
 
     <!-- Items Modal (Livewire) -->
-    <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="$dispatch('closeModal')" style="display: none !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 9999 !important; width: 100vw !important; height: 100vh !important; overflow: hidden;">
-        <div style="width: 100%; height: 100%; overflow: hidden;">
+    <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="closeModal()" @click="closeOnBackdropClick($event)" style="display: none !important; position: fixed !important; inset: 0 !important; z-index: 50 !important; background: rgba(0,0,0,0.5) !important; padding: 1rem !important; flex-direction: column !important; align-items: center !important; justify-content: center !important;">
+        <div @click.stop class="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-lg shadow-2xl">
             @livewire('streamer-log-items-modal', [
                 'recordId' => $record->id,
                 'title' => 'STREAMER LOG INVENTORY CATALOG',
@@ -297,18 +297,25 @@
                     this.modalOpen = true;
                     const modal = document.getElementById('items-modal');
                     if (modal) {
-                        modal.setAttribute('style', 'display: block !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 9999 !important; width: 100vw !important; height: 100vh !important; overflow: hidden !important;');
-                        document.body.style.overflow = 'hidden';
-                        document.documentElement.style.overflow = 'hidden';
+                        modal.style.display = 'flex' + ' !important';
+                        setTimeout(() => {
+                            document.body.style.overflow = 'hidden';
+                            document.documentElement.style.overflow = 'hidden';
+                        }, 0);
                     }
                 },
                 closeModal() {
                     this.modalOpen = false;
                     const modal = document.getElementById('items-modal');
                     if (modal) {
-                        modal.setAttribute('style', 'display: none !important; position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 9999 !important; width: 100vw !important; height: 100vh !important; overflow: hidden !important;');
+                        modal.style.display = 'none' + ' !important';
                         document.body.style.overflow = '';
                         document.documentElement.style.overflow = '';
+                    }
+                },
+                closeOnBackdropClick(e) {
+                    if (e.target.id === 'items-modal') {
+                        this.closeModal();
                     }
                 },
                 itemsAdded() {

@@ -45,6 +45,42 @@ class ExportController extends Controller
         });
     }
 
+    public function inventoryPdf(Request $request)
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
+        $items = InventoryItem::with('stock.location')
+            ->where('is_active', true)
+            ->orderBy('sku')
+            ->get();
+
+        $data = [
+            'items' => $items,
+            'exportDate' => now()->format('M d, Y'),
+            'exportTime' => now()->format('h:i A'),
+            'totalItems' => $items->count(),
+            'totalValue' => $items->sum(fn ($item) =>
+                ($item->stock->sum('quantity') ?? 0) * ($item->average_cost ?? 0)
+            ),
+        ];
+
+        $pdf = Pdf::loadView('exports.inventory-report', $data)
+            ->setPaper('a4')
+            ->setOption('margin-top', 10)
+            ->setOption('margin-bottom', 10)
+            ->setOption('margin-left', 10)
+            ->setOption('margin-right', 10);
+
+        $filename = 'inventory-report-' . now()->format('Y-m-d-His') . '.pdf';
+
+        // If download=1 is in query, force download; otherwise stream in browser
+        if ($request->query('download')) {
+            return $pdf->download($filename);
+        }
+
+        return $pdf->stream($filename);
+    }
+
     public function stockLevels(): StreamedResponse
     {
         abort_unless(auth()->user()?->isAdmin(), 403);

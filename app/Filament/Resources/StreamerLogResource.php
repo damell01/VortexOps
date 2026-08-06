@@ -421,7 +421,7 @@ class StreamerLogResource extends Resource
                     ->color('gray')
                     ->url(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record])),
             ])
-            ->recordUrl(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record]))
+            ->recordUrl(fn (StreamerLogEntry $record) => static::getUrl('view', ['record' => $record]))
             ->defaultSort('id', 'desc')
             ->striped()
             ->deferLoading()
@@ -458,6 +458,7 @@ class StreamerLogResource extends Resource
     {
         return [
             'index' => Pages\ListStreamerLogEntries::route('/'),
+            'view'  => Pages\ViewStreamerLogEntry::route('/{record}'),
             'edit'  => Pages\EditStreamerLogEntry::route('/{record}/edit'),
         ];
     }

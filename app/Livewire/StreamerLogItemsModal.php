@@ -57,14 +57,43 @@ class StreamerLogItemsModal extends Component
             $query->where('category', $this->selectedCategory);
         }
 
+        // Streamers only see inventory from their assigned locations
+        $user = auth()->user();
+        if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
+            $streamer = $user->streamer;
+            if ($streamer) {
+                $locationIds = $streamer->inventoryLocations()->pluck('id');
+                $query->whereHas('stock', fn ($q) =>
+                    $q->whereIn('inventory_location_id', $locationIds)
+                )->distinct();
+            } else {
+                // Streamer without assigned locations - return empty
+                return collect();
+            }
+        }
+
         return $query->with('stock')->get();
     }
 
     public function getCategories(): array
     {
-        return InventoryItem::distinct()
-            ->where('is_active', true)
-            ->whereNotNull('category')
+        $query = InventoryItem::where('is_active', true)->whereNotNull('category');
+
+        // Streamers only see categories from their assigned inventory locations
+        $user = auth()->user();
+        if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
+            $streamer = $user->streamer;
+            if ($streamer) {
+                $locationIds = $streamer->inventoryLocations()->pluck('id');
+                $query->whereHas('stock', fn ($q) =>
+                    $q->whereIn('inventory_location_id', $locationIds)
+                );
+            } else {
+                return [];
+            }
+        }
+
+        return $query->distinct()
             ->pluck('category')
             ->sort()
             ->values()

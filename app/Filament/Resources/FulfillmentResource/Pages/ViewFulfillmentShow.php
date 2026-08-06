@@ -14,6 +14,11 @@ class ViewFulfillmentShow extends ViewRecord
 {
     protected static string $resource = FulfillmentResource::class;
 
+    public function getView(): string
+    {
+        return 'filament.resources.fulfillment-resource.pages.view-fulfillment-show';
+    }
+
     protected function resolveRecord(int|string $key): Show
     {
         return Show::with(['streamers', 'channel', 'streamerLogEntry', 'orders', 'fulfillmentUsers'])

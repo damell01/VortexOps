@@ -10,14 +10,36 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Enums\MaxWidth;
 use Illuminate\Support\HtmlString;
+use Illuminate\Database\Eloquent\Builder;
 
 class EditStreamerLogEntry extends EditRecord
 {
     protected static string $resource = StreamerLogResource::class;
 
+    protected function resolveRecord($key): StreamerLogEntry|null
+    {
+        $record = StreamerLogEntry::with(['show', 'streamer'])->find($key);
+
+        if (! $record) {
+            return null;
+        }
+
+        // Verify user has access to this record (bypass channel context for viewing across channels)
+        $user = auth()->user();
+        if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
+            // Streamers can only access their own logs
+            $streamerId = $user->streamer?->id;
+            if ($record->streamer_id !== $streamerId) {
+                return null;
+            }
+        }
+
+        return $record;
+    }
+
     public function getView(): string
     {
-        return 'filament.resources.streamer-log-resource.pages.view-streamer-log-entry';
+        return 'filament.resources.streamer-log-resource.pages.edit-streamer-log-entry';
     }
 
     protected function getHeaderActions(): array

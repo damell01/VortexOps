@@ -17,10 +17,22 @@ class ViewStreamerLogEntry extends ViewRecord
 
     protected function resolveRecord(int|string $key): StreamerLogEntry
     {
-        return StreamerLogEntry::with([
+        $record = StreamerLogEntry::with([
             'show.orders.inventoryItem',
             'show.shipments',
             'streamer',
         ])->findOrFail($key);
+
+        // Verify user has access to this record
+        $user = auth()->user();
+        if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
+            // Streamers can only access their own logs
+            $streamerId = $user->streamer?->id;
+            if ($record->streamer_id !== $streamerId) {
+                abort(403);
+            }
+        }
+
+        return $record;
     }
 }

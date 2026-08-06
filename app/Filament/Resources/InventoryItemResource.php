@@ -696,6 +696,7 @@ class InventoryItemResource extends Resource
     {
         return [
             'index' => Pages\ListInventoryItems::route('/'),
+            'quick-add' => Pages\QuickAddInventoryItem::route('/quick-add'),
             'create' => Pages\CreateInventoryItem::route('/create'),
             'view' => Pages\ViewInventoryItem::route('/{record}'),
             'edit' => Pages\EditInventoryItem::route('/{record}/edit'),

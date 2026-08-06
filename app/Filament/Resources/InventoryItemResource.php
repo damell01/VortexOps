@@ -394,17 +394,12 @@ class InventoryItemResource extends Resource
             ->emptyStateDescription('Add the products you stock and break. You can also create items on the fly while receiving pallets.')
             ->emptyStateActions([
                 \Filament\Actions\CreateAction::make()
-<<<<<<< HEAD
-                    ->label('Add an item')
-                    ->visible(fn () => static::canCreate()),
-=======
                     ->label('+ Add Inventory')
                     ->color('success')
                     ->visible(function () {
                         $user = auth()->user();
                         return ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
                     }),
->>>>>>> origin/claude/profit-share-route-error-sdwqts
             ])
             ->filters([
                 SelectFilter::make('category')

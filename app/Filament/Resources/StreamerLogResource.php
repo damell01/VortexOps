@@ -6,6 +6,8 @@ use App\Filament\Resources\StreamerLogResource\Pages;
 use App\Filament\Resources\StreamerLogResource\RelationManagers;
 use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
+use App\Models\InventoryItem;
+use App\Models\InventoryLocation;
 use App\Support\AdminModules;
 use App\Support\NavVisibility;
 use App\Support\StatusColor;
@@ -15,6 +17,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Get;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
@@ -174,6 +177,49 @@ class StreamerLogResource extends Resource
                 ]),
             ]),
 
+            Section::make('Inventory Assignment')
+                ->description('Admin only: Assign inventory items from stock locations to this streamer log')
+                ->visible(fn () => auth()->user()?->isAdmin())
+                ->collapsed(true)
+                ->columnSpanFull()
+                ->schema([
+                Grid::make(2)->schema([
+                    Select::make('inventory_item_id')
+                        ->label('Inventory Item')
+                        ->options(fn () => InventoryItem::where('is_active', true)
+                            ->orderBy('name')
+                            ->pluck('name', 'id'))
+                        ->searchable()
+                        ->placeholder('Select an item to pull from inventory')
+                        ->helperText('Choose which product to pull stock from')
+                        ->nullable(),
+                    Select::make('inventory_location_id')
+                        ->label('Stock Location')
+                        ->options(fn (Get $get) =>
+                            $get('inventory_item_id')
+                                ? InventoryLocation::whereHas('stock', fn ($q) =>
+                                    $q->where('inventory_item_id', $get('inventory_item_id'))
+                                        ->where('quantity', '>', 0)
+                                )
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                : collect()
+                        )
+                        ->searchable()
+                        ->placeholder('Select a location with available stock')
+                        ->helperText('Only locations with this item in stock are shown')
+                        ->nullable()
+                        ->visible(fn (Get $get) => !!$get('inventory_item_id')),
+                    TextInput::make('inventory_quantity')
+                        ->label('Quantity to Allocate')
+                        ->numeric()
+                        ->step(0.01)
+                        ->minValue(0)
+                        ->placeholder('Optional: amount pulled from inventory')
+                        ->helperText('Track how much inventory was allocated for this log')
+                        ->nullable(),
+                ]),
+            ]),
 
             Section::make('Notes')
                 ->disabled(fn (?StreamerLogEntry $record) => static::isLockedForCurrentUser($record))

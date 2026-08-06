@@ -274,8 +274,8 @@
     </div>
 
     <!-- Items Modal (Livewire) -->
-    <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="$dispatch('closeModal')" style="display: none !important; position: fixed !important; inset: 0 !important; z-index: 50 !important; background: rgba(0,0,0,0.5) !important; padding: 2rem !important; flex-direction: column !important; align-items: center !important; justify-content: flex-start !important;">
-        <div style="background: white; border-radius: 0.5rem; max-width: 1200px; width: 100%; max-height: 90vh; overflow: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+    <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="closeModal()" @click="closeOnBackdropClick($event)" style="display: none !important; position: fixed !important; inset: 0 !important; z-index: 50 !important; background: rgba(0,0,0,0.5) !important; padding: 1rem !important; flex-direction: column !important; align-items: center !important; justify-content: center !important;">
+        <div @click.stop class="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-lg shadow-2xl">
             @livewire('streamer-log-items-modal', [
                 'recordId' => $record->id,
                 'title' => 'STREAMER LOG INVENTORY CATALOG',
@@ -318,18 +318,25 @@
                     this.modalOpen = true;
                     const modal = document.getElementById('items-modal');
                     if (modal) {
-                        modal.style.display = 'flex';
-                        document.body.style.overflow = 'hidden';
-                        document.documentElement.style.overflow = 'hidden';
+                        modal.style.display = 'flex' + ' !important';
+                        setTimeout(() => {
+                            document.body.style.overflow = 'hidden';
+                            document.documentElement.style.overflow = 'hidden';
+                        }, 0);
                     }
                 },
                 closeModal() {
                     this.modalOpen = false;
                     const modal = document.getElementById('items-modal');
                     if (modal) {
-                        modal.style.display = 'none';
+                        modal.style.display = 'none' + ' !important';
                         document.body.style.overflow = '';
                         document.documentElement.style.overflow = '';
+                    }
+                },
+                closeOnBackdropClick(e) {
+                    if (e.target.id === 'items-modal') {
+                        this.closeModal();
                     }
                 },
                 itemsAdded() {

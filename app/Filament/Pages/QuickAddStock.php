@@ -21,9 +21,8 @@ class QuickAddStock extends Page
 
     private InventoryService $inventoryService;
 
-    public function __construct()
+    public function mount(): void
     {
-        parent::__construct();
         $this->inventoryService = app(InventoryService::class);
     }
 

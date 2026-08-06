@@ -230,5 +230,13 @@ class StreamerLogEntry extends Model
             'approval_notes' => $notes,
             'locked_at' => null,
         ]);
+
+        if ($this->streamer) {
+            \Filament\Notifications\Notification::make()
+                ->title('Changes Requested on Your Log Entry')
+                ->body("Your log entry for {$this->show?->title} needs revision.\n\nReason: {$notes}")
+                ->warning()
+                ->sendToDatabase($this->streamer);
+        }
     }
 }

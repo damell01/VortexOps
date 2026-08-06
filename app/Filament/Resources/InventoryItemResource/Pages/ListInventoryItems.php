@@ -44,7 +44,7 @@ class ListInventoryItems extends ListRecords
                 ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner()),
             Action::make('quick-add')
                 ->label('⚡ Quick Add')
-                ->icon('heroicon-o-lightning-bolt')
+                ->icon('heroicon-o-bolt')
                 ->color('success')
                 ->url(fn () => InventoryItemResource::getUrl('quick-add'))
                 ->visible(function () {

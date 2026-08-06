@@ -3,12 +3,15 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\FulfillmentNeedsAttentionWidget;
+use App\Filament\Widgets\FulfillmentInventoryWidget;
 use App\Filament\Widgets\NeedsAttentionWidget;
 use App\Filament\Widgets\OperationsOverviewWidget;
 use App\Filament\Widgets\RecentShowsWidget;
 use App\Filament\Widgets\ShowsKpiWidget;
 use App\Filament\Widgets\StreamerOverviewWidget;
 use App\Filament\Widgets\StreamerShowsToReviewWidget;
+use App\Filament\Widgets\StreamerProfitShareWidget;
+use App\Filament\Widgets\StreamerInventoryWidget;
 use App\Models\DeductionRequest;
 use App\Models\Payout;
 use App\Models\Shipment;
@@ -37,11 +40,14 @@ class DashboardImproved extends Dashboard
         if ($user?->isStreamer() && ! $user->isAdmin()) {
             $widgets = [
                 StreamerOverviewWidget::class,
+                StreamerProfitShareWidget::class,
+                StreamerInventoryWidget::class,
                 StreamerShowsToReviewWidget::class,
                 RecentShowsWidget::class,
             ];
         } elseif ($user?->isFulfillment() && ! $user->isAdmin()) {
             $widgets = [
+                FulfillmentInventoryWidget::class,
                 RecentShowsWidget::class,
                 ShowsKpiWidget::class,
             ];

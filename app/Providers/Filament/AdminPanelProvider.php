@@ -147,6 +147,12 @@ class AdminPanelProvider extends PanelProvider
                     : view('components.toast-container'),
             )
             ->renderHook(
+                PanelsRenderHook::BODY_START,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : view('components.mobile-navigation'),
+            )
+            ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn () => ! $isAuthenticatedAdminView()
                     ? ''

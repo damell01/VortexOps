@@ -372,7 +372,7 @@ class AdminPanelProvider extends PanelProvider
                         \App\Filament\Resources\WeeklyPayoutBatchResource::class,
                         \App\Filament\Resources\ActivityLogResource::class,
                     ])
-                    ->hidden(fn () => ! (auth()->user()?->isAdmin())),
+                    ->hidden(fn () => ! (auth()->user()?->isAdmin() || auth()->user()?->isOwner() || auth()->user()?->isStreamer())),
             ])
             ->authMiddleware([
                 Authenticate::class,

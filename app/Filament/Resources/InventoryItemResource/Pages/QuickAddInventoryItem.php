@@ -213,6 +213,8 @@ class QuickAddInventoryItem extends Page
                     'Initial stock added via quick add wizard',
                     $unitCost,
                 );
+
+                $item->load('stock');
             }
 
             Notification::make()
@@ -222,7 +224,7 @@ class QuickAddInventoryItem extends Page
                 ->send();
 
             // Redirect to edit page
-            redirect(InventoryItemResource::getUrl('edit', ['record' => $item]));
+            $this->redirect(InventoryItemResource::getUrl('edit', ['record' => $item]));
         } catch (\Exception $e) {
             Notification::make()
                 ->title('Error creating item')

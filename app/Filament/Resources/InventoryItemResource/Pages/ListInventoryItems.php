@@ -43,7 +43,7 @@ class ListInventoryItems extends ListRecords
                 ->openUrlInNewTab()
                 ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner()),
             Action::make('quick-add')
-                ->label('⚡ Quick Add')
+                ->label('Quick Add')
                 ->icon('heroicon-o-bolt')
                 ->color('success')
                 ->url(fn () => InventoryItemResource::getUrl('quick-add'))

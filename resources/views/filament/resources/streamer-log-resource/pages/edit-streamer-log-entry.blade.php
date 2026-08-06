@@ -22,32 +22,21 @@
     @items-added.window="itemsAdded()"
 >
     @if($show)
-    <div class="mb-6">
-        <!-- Show Header Card - Compact -->
-        <div class="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="px-6 py-4">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                    <div>
-                        <h2 class="text-xl font-bold text-gray-900 dark:text-white">{{ $show->title ?? 'Untitled Show' }}</h2>
-                        <p class="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{{ $show->show_date?->format('M d, Y g:i A') ?? 'Date not set' }}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Channel</p>
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $show->channel?->name ?? 'Unknown' }}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Revenue</p>
-                        <p class="text-sm font-medium text-gray-900 dark:text-white">{{ $show->gross_revenue ? '$' . number_format($show->gross_revenue, 2) : 'Not set' }}</p>
-                    </div>
-                    <div>
-                        <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-0.5">Status</p>
-                        <p class="text-sm font-medium text-gray-900 dark:text-white capitalize">{{ str_replace('_', ' ', $record->status) }}</p>
-                    </div>
+    <!-- Compact Header Row -->
+    <div class="mb-4 bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 px-4 py-3">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex-1 min-w-0">
+                <h2 class="text-lg font-bold text-gray-900 dark:text-white truncate">{{ $show->title ?? 'Untitled Show' }}</h2>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{{ $show->show_date?->format('M d, Y g:i A') ?? 'Date not set' }} • {{ $show->channel?->name ?? 'Unknown' }}</p>
+            </div>
+            <div class="flex items-center gap-4 text-sm">
+                <div class="text-right">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Revenue</p>
+                    <p class="font-semibold text-gray-900 dark:text-white">{{ $show->gross_revenue ? '$' . number_format($show->gross_revenue, 2) : 'N/A' }}</p>
                 </div>
-
-                <!-- Status Badges -->
-                <div class="flex flex-wrap items-center gap-2">
-                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium
+                <div class="text-right">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Status</p>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
                         @switch($record->status)
                             @case('pending')
                                 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300
@@ -61,41 +50,11 @@
                             @default
                                 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300
                         @endswitch
-                    ">
-                        @switch($record->status)
-                            @case('pending')
-                                🔄 Pending Admin Review
-                                @break
-                            @case('streamer_reviewed')
-                                👀 Awaiting Admin Review
-                                @break
-                            @case('admin_approved')
-                                ✓ Admin Approved
-                                @break
-                            @default
-                                {{ $record->status }}
-                        @endswitch
-                    </span>
-
-                    @if($record->isSubmitted())
-                        @if($record->isLocked())
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
-                                🔒 Locked
-                            </span>
-                        @else
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300">
-                                🔓 Open for Edits
-                            </span>
-                        @endif
-
-                        @if($record->canStreamerEdit())
-                            @php
-                                $minutesLeft = $record->getMinutesUntilEditWindowCloses();
-                                $hoursLeft = floor($minutesLeft / 60);
-                                $minsLeft = $minutesLeft % 60;
-                            @endphp
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
-                                ⏱️ {{ $hoursLeft }}h {{ $minsLeft }}m left to edit
+                    ">{{ str_replace('_', ' ', $record->status) }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
                             </span>
                         @elseif($record->submitted_at)
                             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
@@ -146,26 +105,7 @@
     </div>
     @endif
 
-    <!-- Workflow Status -->
-    <div class="mb-6">
-        @livewire('end-of-stream-form', [
-            'log' => $record,
-        ], key('end-of-stream-' . $record->id))
-    </div>
-
-    <!-- Fulfillment Dashboard -->
-    @if(auth()->user()?->isFulfillment() || auth()->user()?->isFulfillmentAdmin() || auth()->user()?->isOwner())
-    <div class="mb-8">
-        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-8">
-            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">📦 Fulfillment Center</h3>
-            @livewire('fulfillment-dashboard', [
-                'show' => $show,
-            ], key('fulfillment-' . $record->id))
-        </div>
-    </div>
-    @endif
-
-    <!-- Tabbed Interface -->
+    <!-- Tabbed Interface - Items First -->
     @if($canEdit)
     <div class="mb-6">
         <!-- Tabs -->
@@ -344,6 +284,26 @@
         </div>
     </div>
     @endif
+
+    <!-- Workflow Status & Fulfillment -->
+    <div class="mt-6">
+        <!-- Workflow Status (Compact) -->
+        <div class="mb-4">
+            @livewire('end-of-stream-form', [
+                'log' => $record,
+            ], key('end-of-stream-' . $record->id))
+        </div>
+
+        <!-- Fulfillment Dashboard -->
+        @if(auth()->user()?->isFulfillment() || auth()->user()?->isFulfillmentAdmin() || auth()->user()?->isOwner())
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <h3 class="text-sm font-bold text-gray-900 dark:text-white mb-3">📦 Fulfillment</h3>
+            @livewire('fulfillment-dashboard', [
+                'show' => $show,
+            ], key('fulfillment-' . $record->id))
+        </div>
+        @endif
+    </div>
 
     <script>
         function wizardData() {

@@ -6,10 +6,19 @@
     $record = $this->record;
     $show = $record->show;
     $isStreamer = auth()->user()?->isStreamer() && !auth()->user()?->isAdmin();
+
+    $orders = $record->show?->orders()
+        ->with(['inventoryItem'])
+        ->whereNotNull('inventory_item_id')
+        ->get() ?? collect();
+    $totalItems = $orders->count();
+    $totalQuantity = $orders->sum('quantity');
+    $totalCost = $orders->sum('total_cost');
+    $canEdit = !$isStreamer || !StreamerLogResource::isLockedForCurrentUser($record);
 @endphp
 
 <x-filament-panels::page
-    x-data="itemsModal()"
+    x-data="wizardData()"
     @open-items-modal.window="openModal()"
     @items-added.window="itemsAdded()"
     @closeModal.window="closeModal()"
@@ -36,7 +45,6 @@
 
                 <!-- Status Badges -->
                 <div class="flex flex-wrap items-center gap-3">
-                    <!-- Main Status Badge -->
                     <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium
                         @switch($record->status)
                             @case('pending')
@@ -67,7 +75,6 @@
                         @endswitch
                     </span>
 
-                    <!-- Submission Status -->
                     @if($record->isSubmitted())
                         @if($record->isLocked())
                             <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
@@ -79,7 +86,6 @@
                             </span>
                         @endif
 
-                        <!-- Edit Window Countdown -->
                         @if($record->canStreamerEdit())
                             @php
                                 $minutesLeft = $record->getMinutesUntilEditWindowCloses();
@@ -96,7 +102,6 @@
                         @endif
                     @endif
 
-                    <!-- Approval Status -->
                     @if($record->approval_status === 'approved')
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300">
                             ✅ Approved by Admin
@@ -112,7 +117,6 @@
                     @endif
                 </div>
 
-                <!-- Submission Timeline -->
                 @if($record->isSubmitted())
                 <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
@@ -140,14 +144,14 @@
     </div>
     @endif
 
-    <!-- End of Stream Workflow Form -->
+    <!-- Workflow Status -->
     <div class="mb-8">
         @livewire('end-of-stream-form', [
             'log' => $record,
         ], key('end-of-stream-' . $record->id))
     </div>
 
-    <!-- Fulfillment Dashboard (for fulfillment team) -->
+    <!-- Fulfillment Dashboard -->
     @if(auth()->user()?->isFulfillment() || auth()->user()?->isFulfillmentAdmin() || auth()->user()?->isOwner())
     <div class="mb-8">
         <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-8">
@@ -159,122 +163,206 @@
     </div>
     @endif
 
-    <!-- Items Sold Section -->
-    @php
-        $orders = $record->show?->orders()
-            ->with(['inventoryItem'])
-            ->whereNotNull('inventory_item_id')
-            ->get() ?? collect();
-        $totalItems = $orders->count();
-        $totalQuantity = $orders->sum('quantity');
-        $totalCost = $orders->sum('total_cost');
-    @endphp
-
+    <!-- Step Wizard -->
+    @if($canEdit)
     <div class="mb-8">
-        <div class="flex items-center justify-between mb-4">
-            <div>
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Items Sold</h3>
-                @if($totalItems > 0)
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Total cost: <span class="font-semibold">${{ number_format($totalCost, 2) }}</span></p>
-                @endif
+        <!-- Step Indicator -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">Step <span x-text="currentStep"></span> of 3</h3>
+                <span class="px-3 py-1 rounded-full text-sm font-medium" :class="{
+                    'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300': currentStep <= 2,
+                    'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300': currentStep === 3,
+                }">
+                    <span x-show="currentStep === 1">📦 Items & Summary</span>
+                    <span x-show="currentStep === 2">📋 Details</span>
+                    <span x-show="currentStep === 3">✓ Review</span>
+                </span>
             </div>
-            <div class="flex gap-3 items-center">
-                @if($totalItems > 0)
-                    <div class="flex gap-4 text-sm">
-                        <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full font-medium">
-                            {{ $totalItems }} {{ Str::plural('item', $totalItems) }}
-                        </span>
-                        <span class="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full font-medium">
-                            {{ $totalQuantity }} {{ Str::plural('unit', $totalQuantity) }}
-                        </span>
-                    </div>
-                @endif
-                @if(!$isStreamer || $record->canStreamerEdit())
-                <button
-                    @click="$dispatch('open-items-modal')"
-                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium inline-flex items-center gap-2"
-                >
-                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clip-rule="evenodd" />
-                    </svg>
-                    Add Items
-                </button>
-                @endif
+
+            <!-- Progress Bar -->
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div class="bg-blue-600 h-2 rounded-full transition-all" :style="{ width: (currentStep / 3 * 100) + '%' }"></div>
+            </div>
+
+            <!-- Step Indicators -->
+            <div class="flex justify-between mt-4">
+                <button @click="currentStep = 1" :class="{
+                    'bg-blue-600 text-white': currentStep >= 1,
+                    'bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400': currentStep < 1,
+                }" class="w-10 h-10 rounded-full font-bold text-sm transition">1</button>
+                <button @click="currentStep = 2" :class="{
+                    'bg-blue-600 text-white': currentStep >= 2,
+                    'bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400': currentStep < 2,
+                }" class="w-10 h-10 rounded-full font-bold text-sm transition">2</button>
+                <button @click="currentStep = 3" :class="{
+                    'bg-blue-600 text-white': currentStep >= 3,
+                    'bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400': currentStep < 3,
+                }" class="w-10 h-10 rounded-full font-bold text-sm transition">3</button>
             </div>
         </div>
 
-        @if($totalItems > 0)
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                @foreach($orders as $order)
-                    @php
-                        $item = $order->inventoryItem;
-                    @endphp
-                    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow group">
-                        <div class="mb-3 flex justify-between items-start">
-                            <div class="flex-1">
-                                <h4 class="font-semibold text-gray-900 dark:text-white text-sm">{{ $item?->name ?? 'Unknown Item' }}</h4>
+        <!-- Step 1: Items & Summary -->
+        <div x-show="currentStep === 1" x-transition class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Items & Summary</h3>
+
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Revenue</p>
+                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">${{ number_format((float) $record->gross_revenue, 2) }}</p>
+                </div>
+                <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Product Cost</p>
+                    <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">${{ number_format((float) $record->product_cost, 2) }}</p>
+                </div>
+                <div class="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Items Logged</p>
+                    <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ $totalItems }}</p>
+                </div>
+            </div>
+
+            <!-- Items Section -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h4 class="text-lg font-semibold text-gray-900 dark:text-white">Items Sold</h4>
+                    @if($totalItems > 0)
+                        <div class="flex gap-3">
+                            <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-sm font-medium">
+                                {{ $totalItems }} item{{ $totalItems !== 1 ? 's' : '' }}
+                            </span>
+                            <span class="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full text-sm font-medium">
+                                {{ $totalQuantity }} unit{{ $totalQuantity !== 1 ? 's' : '' }}
+                            </span>
+                        </div>
+                    @endif
+                </div>
+
+                @if($totalItems > 0)
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                        @foreach($orders as $order)
+                            @php $item = $order->inventoryItem; @endphp
+                            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                                <h5 class="font-semibold text-gray-900 dark:text-white text-sm mb-2">{{ $item?->name ?? 'Unknown' }}</h5>
                                 @if($item?->sku)
-                                    <p class="text-xs text-gray-500 dark:text-gray-400 font-mono">{{ $item->sku }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 font-mono mb-2">{{ $item->sku }}</p>
                                 @endif
-                            </div>
-                            @if(!$isStreamer)
-                            <button
-                                type="button"
-                                wire:click="removeItem({{ $order->id }})"
-                                class="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 transition"
-                                title="Remove item"
-                            >
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                </svg>
-                            </button>
-                            @endif
-                        </div>
-
-                        @if($item?->brand)
-                            <p class="text-xs text-gray-600 dark:text-gray-300 mb-2">
-                                <span class="font-medium">Brand:</span> {{ $item->brand }}
-                            </p>
-                        @endif
-
-                        <div class="flex items-center justify-between mb-3">
-                            <div>
-                                <p class="text-xs text-gray-500 dark:text-gray-400">Quantity</p>
-                                <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $order->quantity }}</p>
-                            </div>
-                            @if($order->unit_cost)
-                                <div class="text-right">
-                                    <p class="text-xs text-gray-500 dark:text-gray-400">Unit Cost</p>
-                                    <p class="text-sm font-semibold text-gray-900 dark:text-white">${{ number_format($order->unit_cost, 2) }}</p>
+                                <div class="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                                    <span>Qty: <span class="font-bold">{{ $order->quantity }}</span></span>
+                                    <span>Total: <span class="font-bold">${{ number_format($order->total_cost, 2) }}</span></span>
                                 </div>
-                            @endif
-                        </div>
-
-                        <div class="pt-3 border-t border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/10 -mx-4 px-4 py-3 rounded-b flex justify-between items-center">
-                            @if($item?->category)
-                                <span class="inline-block px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">
-                                    {{ $item->category }}
-                                </span>
-                            @endif
-                            <p class="text-sm font-semibold text-blue-700 dark:text-blue-300">
-                                Total: ${{ number_format($order->total_cost ?? 0, 2) }}
-                            </p>
-                        </div>
+                            </div>
+                        @endforeach
                     </div>
-                @endforeach
-            </div>
-        @else
-            <div class="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
-                <svg class="w-16 h-16 mx-auto mb-3 text-gray-400 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                </svg>
-                <p class="text-gray-600 dark:text-gray-400 font-medium">No items logged yet</p>
-                <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">Click "Add Items" to start logging items sold</p>
-            </div>
-        @endif
-    </div>
+                @else
+                    <div class="text-center py-8 bg-gray-50 dark:bg-gray-700/50 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600">
+                        <p class="text-gray-600 dark:text-gray-400">No items logged yet</p>
+                    </div>
+                @endif
 
-    <!-- Items Modal (Livewire) -->
+                <button
+                    @click="$dispatch('open-items-modal')"
+                    class="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium mt-4"
+                >
+                    <span class="inline-flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clip-rule="evenodd" />
+                        </svg>
+                        {{ $totalItems > 0 ? 'Add More Items' : 'Add Items' }}
+                    </span>
+                </button>
+            </div>
+
+            <!-- Next Button -->
+            <div class="flex justify-end gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <button @click="currentStep = 2" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition">
+                    Next →
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 2: Log Details -->
+        <div x-show="currentStep === 2" x-transition class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Log Details</h3>
+
+            <div class="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p class="text-sm text-blue-800 dark:text-blue-200">
+                    Fill in the details about your stream. All required fields must be completed before you can submit.
+                </p>
+            </div>
+
+            {{ $this->form }}
+
+            <!-- Navigation Buttons -->
+            <div class="flex justify-between gap-3 pt-6 border-t border-gray-200 dark:border-gray-700 mt-6">
+                <button @click="currentStep = 1" class="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 font-medium transition">
+                    ← Back
+                </button>
+                <button @click="currentStep = 3" class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition">
+                    Next →
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 3: Review & Submit -->
+        <div x-show="currentStep === 3" x-transition class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Review & Submit</h3>
+
+            <!-- Summary -->
+            <div class="space-y-4 mb-6">
+                <div class="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-900/10 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Show</p>
+                    <p class="text-lg font-bold text-gray-900 dark:text-white">{{ $show->title }}</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/10 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Items Logged</p>
+                        <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ $totalItems }}</p>
+                    </div>
+                    <div class="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-900/10 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Item Cost</p>
+                        <p class="text-2xl font-bold text-green-600 dark:text-green-400">${{ number_format($totalCost, 2) }}</p>
+                    </div>
+                    <div class="bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-900/10 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">Hours Streamed</p>
+                        <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ number_format((float) $record->hours_streamed, 2) }} hrs</p>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <p class="text-sm font-semibold text-green-800 dark:text-green-200 mb-1">✓ Ready to Submit</p>
+                    <p class="text-sm text-green-700 dark:text-green-300">All information looks correct. Click submit to send for admin review.</p>
+                </div>
+            </div>
+
+            <!-- Navigation & Form Actions -->
+            <div class="flex flex-col gap-3 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div class="flex justify-between gap-3">
+                    <button @click="currentStep = 2" class="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 font-medium transition">
+                        ← Back
+                    </button>
+                    <div>
+                        @foreach($this->getFormActions() as $action)
+                            {{ $action }}
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    @else
+    <!-- View Only Mode -->
+    <div class="mb-8">
+        <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
+            <p class="text-sm text-blue-800 dark:text-blue-300">
+                <strong>View Only Mode:</strong> This log entry is locked for editing. Use the "Add Items" button to add new items, or request edit permission if you need to make changes.
+            </p>
+        </div>
+    </div>
+    @endif
+
+    <!-- Items Modal -->
     <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="closeModal()" @click="closeOnBackdropClick($event)" style="display: none !important; position: fixed !important; inset: 0 !important; z-index: 50 !important; background: rgba(0,0,0,0.5) !important; padding: 1rem !important; flex-direction: column !important; align-items: center !important; justify-content: center !important;">
         <div @click.stop class="w-full max-w-4xl max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-lg shadow-2xl">
             @livewire('streamer-log-items-modal', [
@@ -290,36 +378,10 @@
         </div>
     </div>
 
-    <!-- Edit Form Section -->
-    @php
-        $canEdit = !$isStreamer || !StreamerLogResource::isLockedForCurrentUser($record);
-    @endphp
-
-    @if($canEdit)
-    <div class="mb-8 border-t border-gray-200 dark:border-gray-700 pt-8">
-        <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Log Details</h3>
-        {{ $this->form }}
-    </div>
-    @endif
-
-    @if(!$canEdit)
-    <div class="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-        <p class="text-sm text-blue-800 dark:text-blue-300">
-            <strong>View Only Mode:</strong> This log entry is locked for editing. Use the "Add Items" button above to add new items, or request edit permission if you need to make changes.
-        </p>
-    </div>
-    @endif
-
-    <!-- Form Actions -->
-    <div class="mt-8 flex gap-3 justify-end">
-        @foreach($this->getFormActions() as $action)
-            {{ $action }}
-        @endforeach
-    </div>
-
     <script>
-        function itemsModal() {
+        function wizardData() {
             return {
+                currentStep: 1,
                 modalOpen: false,
                 openModal() {
                     this.modalOpen = true;
@@ -348,7 +410,6 @@
                 },
                 itemsAdded() {
                     this.closeModal();
-                    // Reload to refresh the items display
                     window.location.reload();
                 }
             }

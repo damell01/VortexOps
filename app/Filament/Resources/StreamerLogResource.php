@@ -176,6 +176,7 @@ class StreamerLogResource extends Resource
 
             Section::make('Pay Breakdown')
                 ->description('Your earnings breakdown calculated by admins. Review these numbers for accuracy.')
+                ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner())
                 ->disabled(fn () => ! (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
                 ->columnSpanFull()
                 ->schema([

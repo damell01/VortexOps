@@ -135,9 +135,6 @@ class AdminPanelProvider extends PanelProvider
                     : Blade::render(<<<'HTML'
                     <style>
                     .feedback-widget-container, .feedback-btn { display: none !important; }
-                    @media (max-width: 768px) {
-                        .fi-sidebar-toggle { display: none !important; }
-                    }
                     </style>
                     @livewire('feedback-widget')
                     <script>
@@ -187,12 +184,6 @@ class AdminPanelProvider extends PanelProvider
                 fn () => ! $isAuthenticatedAdminView()
                     ? ''
                     : view('components.toast-container'),
-            )
-            ->renderHook(
-                PanelsRenderHook::BODY_START,
-                fn () => ! $isAuthenticatedAdminView()
-                    ? ''
-                    : view('components.mobile-navigation'),
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,

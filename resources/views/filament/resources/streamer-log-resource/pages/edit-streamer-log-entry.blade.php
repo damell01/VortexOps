@@ -235,6 +235,7 @@
         </div>
     </div>
     @endif
+    @endif
 
     <!-- Workflow Status & Fulfillment -->
     <div class="mt-6">

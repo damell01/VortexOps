@@ -198,7 +198,11 @@ class ExportController extends Controller
 
     public function inventoryAnalyticsPdf(Request $request)
     {
-        abort_unless(auth()->user()?->isAdmin(), 403);
+        $user = auth()->user();
+        abort_unless(
+            $user?->isAdmin() || $user?->isOwner() || $user?->isStreamer(),
+            403
+        );
 
         $page = app(\App\Filament\Pages\InventoryAnalytics::class);
 

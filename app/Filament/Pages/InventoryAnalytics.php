@@ -43,7 +43,8 @@ class InventoryAnalytics extends Page
 
     public static function canAccess(): bool
     {
-        return true;
+        $user = auth()->user();
+        return $user?->isAdmin() || $user?->isOwner() || $user?->isStreamer() ?? false;
     }
 
     public function getSubheading(): ?string

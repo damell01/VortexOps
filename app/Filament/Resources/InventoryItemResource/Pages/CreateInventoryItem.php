@@ -12,9 +12,20 @@ class CreateInventoryItem extends CreateRecord
 {
     protected static string $resource = InventoryItemResource::class;
 
+    protected function getCreatedNotificationTitle(): ?string
+    {
+        return 'Item created successfully';
+    }
+
     protected function getRedirectUrl(): string
     {
-        return $this->getResource()::getUrl('edit', ['record' => $this->record]);
+        // Default to edit page if record exists
+        if ($this->record?->id) {
+            return $this->getResource()::getUrl('edit', ['record' => $this->record]);
+        }
+
+        // Fall back to list page if record creation failed
+        return $this->getResource()::getUrl('index');
     }
 
     public function mutateFormDataBeforeSave(array $data): array

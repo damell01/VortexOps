@@ -400,7 +400,13 @@ class InventoryItemResource extends Resource
             ->emptyStateHeading('No inventory items yet')
             ->emptyStateDescription('Add the products you stock and break. You can also create items on the fly while receiving pallets.')
             ->emptyStateActions([
-                \Filament\Actions\CreateAction::make()->label('Add an item'),
+                \Filament\Actions\CreateAction::make()
+                    ->label('+ Add Inventory')
+                    ->color('success')
+                    ->visible(function () {
+                        $user = auth()->user();
+                        return ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
+                    }),
             ])
             ->filters([
                 SelectFilter::make('category')

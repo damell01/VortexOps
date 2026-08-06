@@ -75,7 +75,8 @@ class InventoryItemResource extends Resource
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->can('create', InventoryItem::class) ?? false;
+        $user = auth()->user();
+        return ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool

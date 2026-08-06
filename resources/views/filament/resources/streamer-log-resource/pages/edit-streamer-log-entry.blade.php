@@ -270,16 +270,18 @@
         </div>
     </div>
 
-    <!-- Edit Form Section (visible to admins only or when unlocked) -->
-    @if(!$isStreamer || !$this->getRecord())
+    <!-- Edit Form Section (visible to admins or streamers when unlocked) -->
+    @if(!$isStreamer || ($isStreamer && !StreamerLogResource::isLockedForCurrentUser($record)))
     <div class="mb-8 border-t border-gray-200 dark:border-gray-700 pt-8">
         <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Log Details</h3>
         {{ $this->form }}
     </div>
-    @elseif($isStreamer && StreamerLogResource::isLockedForCurrentUser($record))
+    @endif
+
+    @if($isStreamer && StreamerLogResource::isLockedForCurrentUser($record))
     <div class="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
         <p class="text-sm text-blue-800 dark:text-blue-300">
-            <strong>View Only Mode:</strong> This log entry is locked for editing. Use the "End of Stream" form to add new items, or request edit permission if you need to make changes.
+            <strong>View Only Mode:</strong> This log entry is locked for editing. Use the "Add Items" button above to add new items, or request edit permission if you need to make changes.
         </p>
     </div>
     @endif

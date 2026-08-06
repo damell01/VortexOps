@@ -73,10 +73,61 @@ class InventoryItemResource extends Resource
         return auth()->user()?->isAdmin() ?? false;
     }
 
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+
+        // Allow streamers to access for creating items even if module is disabled
+        if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) {
+            return true;
+        }
+
+        // Default module access check for admins/owners
+        return parent::canAccess();
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        $user = auth()->user();
+
+        // Show navigation for streamers even if inventory module is disabled
+        if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) {
+            return true;
+        }
+
+        // Use default registration for admins/owners (respects module gating)
+        return parent::shouldRegisterNavigation();
+    }
+
     public static function canCreate(): bool
     {
         $user = auth()->user();
         return ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $user = auth()->user();
+
+        // Admins and owners can always edit
+        if ($user?->isAdmin() || $user?->isOwner()) {
+            return true;
+        }
+
+        // Streamers can only edit items in their assigned inventory locations
+        if ($user?->isStreamer()) {
+            $streamer = $user->streamer;
+            if (!$streamer) {
+                return false;
+            }
+
+            $streamerLocationIds = $streamer->inventoryLocations()->pluck('id');
+            return $record->stock()
+                ->whereIn('inventory_location_id', $streamerLocationIds)
+                ->exists();
+        }
+
+        return false;
     }
 
     public static function getNavigationIcon(): string|\BackedEnum|null
@@ -86,6 +137,14 @@ class InventoryItemResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
+        $user = auth()->user();
+
+        // Streamers see it in a custom "Catalog" group
+        if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) {
+            return 'Catalog';
+        }
+
+        // Admins/owners use the module-based grouping
         return AdminModules::navigationGroupFor('inventory');
     }
 
@@ -101,7 +160,21 @@ class InventoryItemResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->withSum('stock', 'quantity');
+        $query = parent::getEloquentQuery()->withSum('stock', 'quantity');
+
+        // Streamers only see their own inventory locations
+        $user = auth()->user();
+        if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
+            $streamer = $user->streamer;
+            if ($streamer) {
+                $locationIds = $streamer->inventoryLocations()->pluck('id');
+                return $query->whereHas('stock', fn ($q) =>
+                    $q->whereIn('inventory_location_id', $locationIds)
+                )->distinct();
+            }
+        }
+
+        return $query;
     }
 
     public static function getGloballySearchableAttributes(): array

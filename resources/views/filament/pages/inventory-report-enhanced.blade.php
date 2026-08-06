@@ -17,10 +17,16 @@
             </div>
             <div class="flex flex-wrap gap-2">
                 <button type="button"
-                        wire:click="exportPdf"
-                        class="inline-flex items-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 px-3 py-2 text-xs font-semibold text-white transition-colors" title="Download as PDF">
+                        wire:click="exportComprehensivePdf"
+                        class="inline-flex items-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 px-3 py-2 text-xs font-semibold text-white transition-colors" title="Full report with all analytics">
                     <x-heroicon-o-document-text class="h-4 w-4" />
-                    PDF
+                    Full PDF
+                </button>
+                <button type="button"
+                        wire:click="exportLowStockAlertPdf"
+                        class="inline-flex items-center gap-2 rounded-lg bg-amber-600 hover:bg-amber-700 px-3 py-2 text-xs font-semibold text-white transition-colors" title="Alert for items needing reorder">
+                    <x-heroicon-o-exclamation-triangle class="h-4 w-4" />
+                    Low Stock Alert
                 </button>
                 <button type="button"
                         wire:click="exportCsv"
@@ -30,13 +36,13 @@
                 </button>
                 <button type="button"
                         wire:click="exportBreakdown"
-                        class="inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-2 text-xs font-semibold text-white transition-colors" title="Download breakdown analysis">
+                        class="inline-flex items-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-2 text-xs font-semibold text-white transition-colors" title="Download breakdown by location">
                     <x-heroicon-o-chart-bar class="h-4 w-4" />
-                    Report
+                    Breakdown
                 </button>
                 <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 ml-2 pl-2 border-l border-gray-300 dark:border-gray-600">
                     <x-heroicon-o-arrow-down-tray class="h-4 w-4 mr-1" />
-                    Quick Export
+                    Export Options
                 </div>
             </div>
         </div>

@@ -714,7 +714,7 @@ class InventoryReport extends Page
             'margin' => $this->getMarginAnalysisProperty(),
         ]);
 
-        $pdf = Pdf::loadView('filament.pages.inventory-report-pdf-comprehensive', $data)
+        $pdf = Pdf::loadView('filament.pages.inventory-report-pdf-enhanced', $data)
             ->setPaper('a4', 'landscape')
             ->setOption('enable-local-file-access', true)
             ->setOption('margin-top', 10)
@@ -723,5 +723,25 @@ class InventoryReport extends Page
             ->setOption('margin-right', 5);
 
         return $pdf->download('inventory-comprehensive-' . now()->format('Y-m-d-His') . '.pdf');
+    }
+
+    public function exportLowStockAlertPdf(): Response
+    {
+        $lowStockItems = $this->getLowStockItemsProperty();
+
+        $data = $this->sanitizeUtf8([
+            'title' => 'Low Stock Alert Report',
+            'date' => now()->format('F j, Y'),
+            'time' => now()->format('H:i'),
+            'items' => $lowStockItems,
+            'count' => count($lowStockItems),
+            'totalValue' => collect($lowStockItems)->sum('avg_cost') * collect($lowStockItems)->sum('current_qty'),
+        ]);
+
+        $pdf = Pdf::loadView('filament.pages.inventory-low-stock-alert', $data)
+            ->setPaper('a4', 'portrait')
+            ->setOption('enable-local-file-access', true);
+
+        return $pdf->download('low-stock-alert-' . now()->format('Y-m-d-His') . '.pdf');
     }
 }

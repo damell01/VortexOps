@@ -670,8 +670,9 @@ img, svg, video {
 
     /* Notifications with safe area insets for notched devices */
     #toast-container {
-        top: max(16px, env(safe-area-inset-top));
+        top: calc(max(16px, env(safe-area-inset-top)) + 60px);
         right: max(16px, env(safe-area-inset-right));
+        z-index: 30 !important;
     }
 
     .fi-notification {

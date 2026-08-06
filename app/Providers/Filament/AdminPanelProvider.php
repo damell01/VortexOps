@@ -63,7 +63,6 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogoHeight('2.75rem')
             ->font('Inter')
             ->sidebarCollapsibleOnDesktop()
-            ->sidebarFullyCollapsibleOnDesktop()
             // Mobile-optimized: 6xl on desktop, full width on mobile
             ->maxContentWidth(\Filament\Support\Enums\Width::Full)
             ->globalSearchKeyBindings(['mod+k', '/'])

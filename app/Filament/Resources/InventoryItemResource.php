@@ -137,14 +137,7 @@ class InventoryItemResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        $user = auth()->user();
-
-        // Streamers see it in a custom "Catalog" group
-        if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) {
-            return 'Catalog';
-        }
-
-        // Admins/owners use the module-based grouping
+        // All users see it under the Inventory group
         return AdminModules::navigationGroupFor('inventory');
     }
 
@@ -401,8 +394,17 @@ class InventoryItemResource extends Resource
             ->emptyStateDescription('Add the products you stock and break. You can also create items on the fly while receiving pallets.')
             ->emptyStateActions([
                 \Filament\Actions\CreateAction::make()
+<<<<<<< HEAD
                     ->label('Add an item')
                     ->visible(fn () => static::canCreate()),
+=======
+                    ->label('+ Add Inventory')
+                    ->color('success')
+                    ->visible(function () {
+                        $user = auth()->user();
+                        return ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
+                    }),
+>>>>>>> origin/claude/profit-share-route-error-sdwqts
             ])
             ->filters([
                 SelectFilter::make('category')

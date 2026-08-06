@@ -594,18 +594,6 @@ class InventoryItemResource extends Resource
                         }),
                 ]),
             ])
-            ->headerActions([
-                CreateAction::make()
-                    ->label('Create Inventory')
-                    ->url(fn () => static::getUrl('create'))
-                    ->visible(fn () => static::canCreate()),
-                TableAction::make('export_csv')
-                    ->label('Export CSV')
-                    ->icon('heroicon-o-arrow-down-tray')
-                    ->color('gray')
-                    ->url(fn () => route('export.inventory-items'))
-                    ->openUrlInNewTab(),
-            ])
             ->bulkActions([
                 BulkActionGroup::make([
                     ExportBulkAction::make(),

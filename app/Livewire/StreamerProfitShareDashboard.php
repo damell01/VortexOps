@@ -70,7 +70,7 @@ class StreamerProfitShareDashboard extends Component
     public function getMonthProgress(): float
     {
         $now = now();
-        return $this->calculationService->getMonthProgress($now->year, $now->month);
+        return $this->calculationService->getMonthProgress($now->month, $now->year);
     }
 
     public function getDaysUntilFinalization(): int

@@ -81,8 +81,13 @@ class InventoryAnalytics extends Page
     protected function sanitizeUtf8($data): mixed
     {
         if (is_string($data)) {
-            // Remove invalid UTF-8 characters
-            return mb_convert_encoding($data, 'UTF-8', 'UTF-8');
+            // Remove invalid UTF-8 characters and encode properly
+            if (!mb_check_encoding($data, 'UTF-8')) {
+                $data = mb_convert_encoding($data, 'UTF-8', 'UTF-8');
+            }
+            // Additional cleanup: remove control characters and invalid sequences
+            $data = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $data);
+            return $data;
         }
         if (is_array($data)) {
             return array_map(fn ($item) => $this->sanitizeUtf8($item), $data);

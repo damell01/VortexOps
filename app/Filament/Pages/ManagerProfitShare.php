@@ -23,8 +23,7 @@ class ManagerProfitShare extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        $user = auth()->user();
-        return ($user?->isAdmin() || $user?->managedStreamers()->exists()) ?? false;
+        return false;
     }
 
     public function getView(): string

@@ -23,7 +23,7 @@ class StreamerProfitShare extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->isStreamer() ?? false;
+        return false;
     }
 
     public function getView(): string

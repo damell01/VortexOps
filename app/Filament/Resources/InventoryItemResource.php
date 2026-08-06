@@ -73,6 +73,12 @@ class InventoryItemResource extends Resource
         return auth()->user()?->isAdmin() ?? false;
     }
 
+    public static function canCreate(): bool
+    {
+        $user = auth()->user();
+        return ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
+    }
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-archive-box';

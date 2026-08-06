@@ -115,6 +115,16 @@ class EditStreamerLogEntry extends EditRecord
                         ->body('Report returned to streamer for revisions.')
                         ->warning()
                         ->send();
+
+                    // Notify streamer
+                    if ($this->record->streamer) {
+                        \Filament\Notifications\Notification::make()
+                            ->title('Changes requested on your log entry')
+                            ->body("Your log entry for {$this->record->show?->title} needs revision.\n\nReason: {$data['approval_notes']}")
+                            ->warning()
+                            ->sendToDatabase($this->record->streamer);
+                    }
+
                     $this->refresh();
                 });
 

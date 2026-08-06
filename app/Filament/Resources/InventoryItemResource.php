@@ -370,7 +370,9 @@ class InventoryItemResource extends Resource
             ->emptyStateHeading('No inventory items yet')
             ->emptyStateDescription('Add the products you stock and break. You can also create items on the fly while receiving pallets.')
             ->emptyStateActions([
-                \Filament\Actions\CreateAction::make()->label('Add an item'),
+                \Filament\Actions\CreateAction::make()
+                    ->label('Add an item')
+                    ->visible(fn () => static::canCreate()),
             ])
             ->filters([
                 SelectFilter::make('category')
@@ -599,7 +601,8 @@ class InventoryItemResource extends Resource
             ->headerActions([
                 CreateAction::make()
                     ->label('Create Inventory')
-                    ->url(fn () => static::getUrl('create')),
+                    ->url(fn () => static::getUrl('create'))
+                    ->visible(fn () => static::canCreate()),
                 TableAction::make('export_csv')
                     ->label('Export CSV')
                     ->icon('heroicon-o-arrow-down-tray')

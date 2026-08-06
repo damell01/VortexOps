@@ -132,7 +132,12 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn (): string => ! $isAuthenticatedAdminView()
                     ? ''
-                    : Blade::render("@livewire('feedback-widget')"),
+                    : Blade::render(<<<'HTML'
+                    <style>
+                    .feedback-widget-container, .feedback-btn { display: none !important; }
+                    </style>
+                    @livewire('feedback-widget')
+                    HTML),
             )
             ->renderHook(
                 PanelsRenderHook::SIDEBAR_NAV_START,
@@ -300,7 +305,7 @@ class AdminPanelProvider extends PanelProvider
                             const handleToggle = function(e) {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                const isOpen = sidebar.classList.contains('open');
+                                const isOpen = sidebar.classList.contains('mobile-menu-open');
                                 if (isOpen) {
                                     closeSidebar();
                                 } else {
@@ -309,8 +314,9 @@ class AdminPanelProvider extends PanelProvider
                             };
 
                             function openSidebar() {
-                                sidebar.classList.add('open');
+                                sidebar.classList.add('mobile-menu-open');
                                 if (backdrop) {
+                                    backdrop.classList.add('mobile-menu-open');
                                     backdrop.style.display = 'block';
                                 }
                                 document.body.style.overflow = 'hidden';
@@ -318,8 +324,9 @@ class AdminPanelProvider extends PanelProvider
                             }
 
                             function closeSidebar() {
-                                sidebar.classList.remove('open');
+                                sidebar.classList.remove('mobile-menu-open');
                                 if (backdrop) {
+                                    backdrop.classList.remove('mobile-menu-open');
                                     backdrop.style.display = 'none';
                                 }
                                 document.body.style.overflow = '';
@@ -340,13 +347,13 @@ class AdminPanelProvider extends PanelProvider
                             }
 
                             document.addEventListener('keydown', (e) => {
-                                if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+                                if (e.key === 'Escape' && sidebar.classList.contains('mobile-menu-open')) {
                                     closeSidebar();
                                 }
                             });
 
                             window.addEventListener('resize', () => {
-                                if (window.innerWidth > 1024 && sidebar.classList.contains('open')) {
+                                if (window.innerWidth > 1024 && sidebar.classList.contains('mobile-menu-open')) {
                                     closeSidebar();
                                 }
                             });

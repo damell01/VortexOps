@@ -17,7 +17,15 @@ class ListInventoryItems extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()];
+        return [
+            CreateAction::make()
+                ->label('+ Add Inventory')
+                ->color('success')
+                ->visible(function () {
+                    $user = auth()->user();
+                    return ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
+                })
+        ];
     }
 
 }

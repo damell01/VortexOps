@@ -86,7 +86,7 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Start Time (Optional)
                         </label>
-                        <input type="time" wire:model="startTime"
+                        <input type="time" wire:model.live="startTime"
                             class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
                         />
                         @error('startTime')
@@ -98,7 +98,7 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             End Time (Optional)
                         </label>
-                        <input type="time" wire:model="endTime"
+                        <input type="time" wire:model.live="endTime"
                             class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
                         />
                         @error('endTime')
@@ -110,9 +110,10 @@
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Duration (minutes) (Optional)
                         </label>
-                        <input type="number" wire:model="showDuration" placeholder="e.g., 60"
-                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none"
+                        <input type="number" wire:model="showDuration" placeholder="e.g., 60" readonly
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none cursor-not-allowed opacity-75"
                         />
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Auto-calculated from start/end time</p>
                         @error('showDuration')
                             <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
                         @enderror

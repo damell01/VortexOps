@@ -48,6 +48,25 @@ class CreateManualShow extends Component
         $this->streamerIds = $this->streamer ? [$this->streamer->id] : [];
     }
 
+    #[\Livewire\Attributes\On('updated_startTime')]
+    #[\Livewire\Attributes\On('updated_endTime')]
+    public function calculateDuration(): void
+    {
+        if (!empty($this->startTime) && !empty($this->endTime)) {
+            $start = \DateTime::createFromFormat('H:i', $this->startTime);
+            $end = \DateTime::createFromFormat('H:i', $this->endTime);
+
+            if ($start && $end) {
+                $interval = $start->diff($end);
+                $minutes = ($interval->h * 60) + $interval->i;
+
+                if ($minutes > 0) {
+                    $this->showDuration = (string) $minutes;
+                }
+            }
+        }
+    }
+
     public function closeModal(): void
     {
         $this->showModal = false;

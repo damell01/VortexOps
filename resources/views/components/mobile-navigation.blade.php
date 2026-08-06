@@ -59,14 +59,14 @@
 <!-- Mobile Navigation Sidebar Backdrop -->
 <div
     id="mobile-nav-backdrop"
-    class="hidden md:hidden fixed inset-0 z-30 bg-black/50 transition-opacity"
+    class="fixed inset-0 z-30 bg-black/50 transition-opacity hidden md:hidden"
     aria-hidden="true"
 ></div>
 
 <!-- Mobile Navigation Sidebar -->
 <nav
     id="mobile-nav"
-    class="hidden md:hidden fixed left-0 top-0 h-full w-80 max-w-[80vw] bg-white dark:bg-gray-800 shadow-lg z-40 overflow-y-auto -webkit-overflow-scrolling-touch transform -translate-x-full transition-transform duration-300 ease-in-out"
+    class="fixed left-0 top-0 h-full w-80 max-w-[80vw] bg-white dark:bg-gray-800 shadow-lg z-40 overflow-y-auto -webkit-overflow-scrolling-touch transform -translate-x-full transition-transform duration-300 ease-in-out md:hidden"
     aria-label="Mobile navigation"
 >
     <!-- Close Button -->
@@ -115,11 +115,19 @@
         const searchBar = document.getElementById('mobile-search-bar');
         const searchInput = document.getElementById('mobile-search-input');
 
+        if (!menuBtn || !nav || !backdrop) {
+            console.error('[mobile-nav] Missing elements:', { menuBtn: !!menuBtn, nav: !!nav, backdrop: !!backdrop });
+            return;
+        }
+
         // Open menu
-        menuBtn.addEventListener('click', () => {
+        menuBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             nav.classList.remove('-translate-x-full');
             backdrop.classList.remove('hidden');
             menuBtn.setAttribute('aria-expanded', 'true');
+            console.log('[mobile-nav] Menu opened');
         });
 
         // Close menu
@@ -127,13 +135,14 @@
             nav.classList.add('-translate-x-full');
             backdrop.classList.add('hidden');
             menuBtn.setAttribute('aria-expanded', 'false');
+            console.log('[mobile-nav] Menu closed');
         };
 
-        closeBtn.addEventListener('click', closeMenu);
-        backdrop.addEventListener('click', closeMenu);
+        closeBtn?.addEventListener('click', closeMenu);
+        backdrop?.addEventListener('click', closeMenu);
 
         // Toggle search
-        searchBtn.addEventListener('click', () => {
+        searchBtn?.addEventListener('click', () => {
             searchBar.classList.toggle('hidden');
             if (!searchBar.classList.contains('hidden')) {
                 searchInput.focus();
@@ -144,6 +153,8 @@
         nav.querySelectorAll('a').forEach(link => {
             link.addEventListener('click', closeMenu);
         });
+
+        console.log('[mobile-nav] Menu initialized');
     });
 </script>
 

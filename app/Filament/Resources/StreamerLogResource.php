@@ -181,13 +181,6 @@ class StreamerLogResource extends Resource
                 ->columnSpanFull()
                 ->schema([
                 Grid::make(2)->schema([
-                    TextInput::make('profit_share_amount')
-                        ->label('Profit Share Amount')
-                        ->numeric()
-                        ->prefix('$')
-                        ->helperText('(Gross − Product Cost) × PS%'),
-                    Toggle::make('profit_share_paid')
-                        ->label('Profit Share Paid'),
                     TextInput::make('pwe_pay')
                         ->label('PWE Pay')
                         ->numeric()

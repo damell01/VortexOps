@@ -139,6 +139,25 @@
     </div>
     @endif
 
+    <!-- End of Stream Workflow Form -->
+    <div class="mb-8">
+        @livewire('end-of-stream-form', [
+            'log' => $record,
+        ], key('end-of-stream-' . $record->id))
+    </div>
+
+    <!-- Fulfillment Dashboard (for fulfillment team) -->
+    @if(auth()->user()?->isFulfillment() || auth()->user()?->isFulfillmentAdmin() || auth()->user()?->isOwner())
+    <div class="mb-8">
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-8">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">📦 Fulfillment Center</h3>
+            @livewire('fulfillment-dashboard', [
+                'show' => $show,
+            ], key('fulfillment-' . $record->id))
+        </div>
+    </div>
+    @endif
+
     <!-- Items Sold Section -->
     @php
         $orders = $record->show?->orders()

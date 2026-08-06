@@ -316,7 +316,7 @@ class InventoryItemResource extends Resource
             Section::make('Initial Stock (Optional)')
                 ->description('Add stock when creating this item')
                 ->columnSpanFull()
-                ->visible(fn () => !isset($this->record->id))
+                ->visible(fn (Get $get) => !$get('id'))
                 ->schema([
                     Grid::make(2)->schema([
                         Select::make('initial_stock_location_id')

@@ -174,39 +174,6 @@ class StreamerLogResource extends Resource
                 ]),
             ]),
 
-            Section::make('Pay Breakdown')
-                ->description('Your earnings breakdown calculated by admins. Review these numbers for accuracy.')
-                ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner())
-                ->disabled(fn () => ! (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
-                ->columnSpanFull()
-                ->schema([
-                Grid::make(2)->schema([
-                    TextInput::make('pwe_pay')
-                        ->label('PWE Pay')
-                        ->numeric()
-                        ->prefix('$'),
-                    TextInput::make('hourly_pay')
-                        ->label('Hourly Pay')
-                        ->numeric()
-                        ->prefix('$'),
-                    TextInput::make('tips_paid')
-                        ->label('Tips Paid')
-                        ->numeric()
-                        ->prefix('$'),
-                    TextInput::make('total_due')
-                        ->label('Total Due')
-                        ->numeric()
-                        ->prefix('$'),
-                    TextInput::make('total_paid')
-                        ->label('Total Paid')
-                        ->numeric()
-                        ->prefix('$'),
-                    TextInput::make('business_net_rev')
-                        ->label('Business Net Rev')
-                        ->numeric()
-                        ->prefix('$'),
-                ]),
-            ]),
 
             Section::make('Notes')
                 ->disabled(fn (?StreamerLogEntry $record) => static::isLockedForCurrentUser($record))

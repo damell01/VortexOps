@@ -86,6 +86,19 @@ class InventoryItemResource extends Resource
         return parent::canAccess();
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        $user = auth()->user();
+
+        // Show navigation for streamers even if inventory module is disabled
+        if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) {
+            return true;
+        }
+
+        // Use default registration for admins/owners (respects module gating)
+        return parent::shouldRegisterNavigation();
+    }
+
     public static function canCreate(): bool
     {
         $user = auth()->user();
@@ -124,6 +137,14 @@ class InventoryItemResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
+        $user = auth()->user();
+
+        // Streamers see it in a custom "Catalog" group
+        if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) {
+            return 'Catalog';
+        }
+
+        // Admins/owners use the module-based grouping
         return AdminModules::navigationGroupFor('inventory');
     }
 

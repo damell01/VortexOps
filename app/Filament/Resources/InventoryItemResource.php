@@ -341,6 +341,33 @@ class InventoryItemResource extends Resource
                             ->placeholder('Leave blank to use List Unit Cost'),
                     ]),
                 ]),
+
+            Section::make('Stock by Location')
+                ->description('Current inventory levels by location')
+                ->columnSpanFull()
+                ->visible(fn (Get $get) => !!$get('id'))
+                ->schema([
+                    \Filament\Forms\Components\Repeater::make('stock')
+                        ->relationship('stock')
+                        ->schema([
+                            Grid::make(3)->schema([
+                                \Filament\Forms\Components\TextInput::make('location.name')
+                                    ->label('Location')
+                                    ->disabled()
+                                    ->columnSpan(2)
+                                    ->dehydrated(false),
+                                \Filament\Forms\Components\TextInput::make('quantity')
+                                    ->label('Qty')
+                                    ->numeric()
+                                    ->step(0.01)
+                                    ->columnSpan(1),
+                            ]),
+                        ])
+                        ->columnSpanFull()
+                        ->addable(false)
+                        ->deletable(false)
+                        ->reorderable(false),
+                ]),
         ]);
     }
 

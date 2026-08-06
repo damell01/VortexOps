@@ -98,6 +98,34 @@ class EndOfStreamForm extends Component
         $this->isSubmitting = false;
     }
 
+    public function rejectByAdminWithNotes(string $notes): void
+    {
+        $user = auth()->user();
+        if (!$user?->isAdmin() && !$user?->isOwner()) {
+            return;
+        }
+
+        $this->isSubmitting = true;
+
+        $this->log->update([
+            'approval_notes' => $notes,
+            'status' => 'pending',
+            'approval_status' => 'pending_approval',
+        ]);
+
+        $this->log->rejectByAdmin($notes);
+
+        Notification::make()
+            ->title('✓ Changes Requested')
+            ->body('The streamer has been notified. Status changed to awaiting streamer review.')
+            ->success()
+            ->send();
+
+        $this->dispatch('refresh');
+        $this->determineCurrentStep();
+        $this->isSubmitting = false;
+    }
+
     public function approveFulfillment(): void
     {
         $user = auth()->user();

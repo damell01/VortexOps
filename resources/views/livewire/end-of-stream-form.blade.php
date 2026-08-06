@@ -113,7 +113,7 @@
     </div>
 
     {{-- Summary Stats --}}
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-900/10 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
             <p class="text-sm text-gray-600 dark:text-gray-400">Revenue</p>
             <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">${{ number_format((float) $log->gross_revenue, 2) }}</p>
@@ -121,10 +121,6 @@
         <div class="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/10 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
             <p class="text-sm text-gray-600 dark:text-gray-400">Product Cost</p>
             <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">${{ number_format((float) $log->product_cost, 2) }}</p>
-        </div>
-        <div class="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-900/10 rounded-lg p-4 border border-green-200 dark:border-green-800">
-            <p class="text-sm text-gray-600 dark:text-gray-400">Profit Share</p>
-            <p class="text-2xl font-bold text-green-600 dark:text-green-400">${{ number_format($log->profitShareAmount(), 2) }}</p>
         </div>
         <div class="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-900/10 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
             <p class="text-sm text-gray-600 dark:text-gray-400">Items</p>
@@ -208,7 +204,7 @@
                                 {{ $isSubmitting ? '⏳ Approving...' : '✓ Approve Report' }}
                             </button>
                             <button
-                                wire:click="rejectByAdmin"
+                                @click="openRejectModal"
                                 wire:loading.attr="disabled"
                                 class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition"
                             >
@@ -334,6 +330,65 @@
                     </div>
                 </div>
             @endif
+        </div>
+    </div>
+
+    {{-- Request Changes Modal --}}
+    <div
+        x-data="{
+            modalOpen: false,
+            rejectionNotes: '',
+            openRejectModal() {
+                this.modalOpen = true;
+                this.rejectionNotes = '';
+            },
+            closeRejectModal() {
+                this.modalOpen = false;
+                this.rejectionNotes = '';
+            },
+            submitReject() {
+                @this.rejectByAdminWithNotes(this.rejectionNotes);
+                this.closeRejectModal();
+            }
+        }"
+        @keydown.escape="closeRejectModal()"
+    >
+        <div
+            x-show="modalOpen"
+            x-transition
+            style="display: none;"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+            @click.self="closeRejectModal()"
+        >
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full" @click.stop>
+                <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Request Changes</h3>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">Add a note explaining what needs to be revised.</p>
+                </div>
+                <div class="px-6 py-4">
+                    <textarea
+                        x-model="rejectionNotes"
+                        placeholder="E.g., Please verify the item quantities and resubmit..."
+                        class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+                        rows="4"
+                    ></textarea>
+                </div>
+                <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex gap-3 justify-end">
+                    <button
+                        @click="closeRejectModal()"
+                        class="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        @click="submitReject()"
+                        :disabled="!rejectionNotes.trim()"
+                        class="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-lg transition font-medium"
+                    >
+                        Send Request
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </div>

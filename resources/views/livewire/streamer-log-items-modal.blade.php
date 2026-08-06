@@ -1,4 +1,4 @@
-<div class="bg-white dark:bg-slate-950 flex flex-col overflow-hidden h-screen">
+<div class="bg-white dark:bg-slate-950 flex flex-col overflow-hidden">
 
     <!-- Header -->
     <div class="px-8 py-6 bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-900 dark:to-blue-800 flex items-center justify-between shadow-lg">

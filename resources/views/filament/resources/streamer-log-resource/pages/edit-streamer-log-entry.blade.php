@@ -26,7 +26,7 @@
                     </div>
                     <div>
                         <p class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Channel</p>
-                        <p class="text-lg font-medium text-gray-900 dark:text-white">{{ $show->channel ?? 'Unknown' }}</p>
+                        <p class="text-lg font-medium text-gray-900 dark:text-white">{{ $show->channel?->name ?? 'Unknown' }}</p>
                     </div>
                     <div>
                         <p class="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Gross Revenue</p>

@@ -312,6 +312,31 @@ class InventoryItemResource extends Resource
                         ->placeholder('Internal notes for your team...')
                         ->columnSpanFull(),
                 ]),
+
+            Section::make('Initial Stock (Optional)')
+                ->description('Add stock when creating this item')
+                ->columnSpanFull()
+                ->schema([
+                    Grid::make(2)->schema([
+                        Select::make('initial_stock_location_id')
+                            ->label('Stock Location')
+                            ->options(fn () => InventoryLocation::activeOptions())
+                            ->searchable()
+                            ->placeholder('Select location to add stock'),
+                        TextInput::make('initial_stock_quantity')
+                            ->label('Initial Quantity')
+                            ->numeric()
+                            ->minValue(0)
+                            ->step(0.01)
+                            ->placeholder('0'),
+                        TextInput::make('initial_stock_cost')
+                            ->label('Stock Unit Cost ($)')
+                            ->numeric()
+                            ->prefix('$')
+                            ->step(0.01)
+                            ->placeholder('Leave blank to use List Unit Cost'),
+                    ]),
+                ]),
         ]);
     }
 

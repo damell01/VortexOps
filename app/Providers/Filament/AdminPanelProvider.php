@@ -132,7 +132,49 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn (): string => ! $isAuthenticatedAdminView()
                     ? ''
-                    : Blade::render("@livewire('feedback-widget')"),
+                    : Blade::render(<<<'HTML'
+                    <style>
+                    .feedback-widget-container, .feedback-btn { display: none !important; }
+                    @media (max-width: 768px) {
+                        .fi-sidebar-toggle { display: none !important; }
+                    }
+                    </style>
+                    @livewire('feedback-widget')
+                    <script>
+                    (function() {
+                        let notificationPanelOpen = false;
+                        const notificationBtn = document.querySelector('[aria-label*="notification"], [aria-label*="Notification"]');
+
+                        if (notificationBtn) {
+                            notificationBtn.addEventListener('click', function(e) {
+                                // Let the click propagate first to open the panel
+                                setTimeout(() => {
+                                    const panel = document.querySelector('[role="dialog"]') ||
+                                                  document.querySelector('.fi-dropdown-panel') ||
+                                                  document.querySelector('[class*="notification"]');
+
+                                    if (panel && panel.offsetParent !== null) {
+                                        notificationPanelOpen = true;
+                                    } else if (notificationPanelOpen) {
+                                        // If panel is closing, toggle the button to close it
+                                        notificationBtn.click();
+                                        notificationPanelOpen = false;
+                                    }
+                                }, 10);
+                            });
+                        }
+
+                        // Alternative: Listen for panel visibility changes
+                        document.addEventListener('click', function(e) {
+                            const notificationPanel = document.querySelector('[class*="notification"]');
+                            if (notificationPanel && !notificationPanel.contains(e.target) &&
+                                e.target !== notificationBtn && !notificationBtn.contains(e.target)) {
+                                notificationPanelOpen = false;
+                            }
+                        });
+                    })();
+                    </script>
+                    HTML),
             )
             ->renderHook(
                 PanelsRenderHook::SIDEBAR_NAV_START,
@@ -147,6 +189,12 @@ class AdminPanelProvider extends PanelProvider
                     : view('components.toast-container'),
             )
             ->renderHook(
+                PanelsRenderHook::BODY_START,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : view('components.mobile-navigation'),
+            )
+            ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn () => ! $isAuthenticatedAdminView()
                     ? ''
@@ -157,222 +205,6 @@ class AdminPanelProvider extends PanelProvider
                         const shortcuts = 'Press ? to see keyboard shortcuts';
                         console.info('%c' + shortcuts, 'color: #7c3aed; font-size: 12px; font-weight: bold;');
                     });
-                    </script>
-                    HTML),
-            )
-            ->renderHook(
-                PanelsRenderHook::BODY_END,
-                fn () => ! $isAuthenticatedAdminView()
-                    ? ''
-                    : Blade::render(<<<'HTML'
-                    <style>
-                    /* Mobile sidebar positioning */
-                    @media (max-width: 640px) {
-                        .fi-sidebar {
-                            position: fixed !important;
-                            left: 0 !important;
-                            top: 0 !important;
-                            bottom: 0 !important;
-                            z-index: 30 !important;
-                            width: 100% !important;
-                            max-width: 280px !important;
-                            transform: translateX(-100%) !important;
-                            transition: transform 280ms cubic-bezier(.4,0,.2,1) !important;
-                        }
-
-                        /* Compact navigation items with icons and short labels */
-                        .fi-sidebar .fi-sidebar-nav-item {
-                            padding: 0.75rem 0.5rem !important;
-                            display: flex !important;
-                            align-items: center !important;
-                            gap: 0.75rem !important;
-                        }
-
-                        .fi-sidebar .fi-sidebar-nav-item > .fi-btn {
-                            flex-direction: row !important;
-                            gap: 0.5rem !important;
-                            padding: 0.5rem 0.75rem !important;
-                        }
-
-                        /* Icon sizing */
-                        .fi-sidebar .fi-sidebar-nav-item svg {
-                            width: 1.25rem !important;
-                            height: 1.25rem !important;
-                            flex-shrink: 0 !important;
-                        }
-
-                        /* Label text styling */
-                        .fi-sidebar .fi-sidebar-nav-item .fi-btn-label {
-                            font-size: 0.875rem !important;
-                            line-height: 1.25rem !important;
-                            overflow: hidden !important;
-                            text-overflow: ellipsis !important;
-                            white-space: nowrap !important;
-                        }
-                    }
-
-                    .fi-sidebar.mobile-menu-open {
-                        transform: translateX(0) !important;
-                    }
-
-                    .fi-sidebar-backdrop.mobile-menu-open {
-                        display: block !important;
-                        z-index: 20 !important;
-                    }
-
-                    /* Mobile menu toggle button */
-                    .mobile-menu-toggle {
-                        display: none !important;
-                    }
-
-                    @media (max-width: 640px) {
-                        .mobile-menu-toggle {
-                            display: inline-flex !important;
-                            align-items: center !important;
-                            justify-content: center !important;
-                            width: 40px !important;
-                            height: 40px !important;
-                            padding: 0 !important;
-                            margin-right: 8px !important;
-                            background-color: transparent !important;
-                            border: none !important;
-                            border-radius: 6px !important;
-                            cursor: pointer !important;
-                            transition: background-color 150ms ease !important;
-                            flex-shrink: 0 !important;
-                        }
-
-                        .mobile-menu-toggle:hover {
-                            background-color: rgba(0,0,0,.06) !important;
-                        }
-
-                        .dark .mobile-menu-toggle:hover {
-                            background-color: rgba(255,255,255,.08) !important;
-                        }
-
-                        .mobile-menu-toggle svg {
-                            width: 20px !important;
-                            height: 20px !important;
-                            color: inherit !important;
-                        }
-                    }
-                    </style>
-                    <div class="fi-sidebar-backdrop fixed inset-0 z-20 bg-black/50 transition-opacity duration-200 hidden sm:hidden" style="display: none;"></div>
-                    <script>
-                    function setupMobileMenu() {
-                        try {
-                            const sidebar = document.querySelector('.fi-sidebar');
-                            const topbar = document.querySelector('.fi-topbar');
-                            const backdrop = document.querySelector('.fi-sidebar-backdrop');
-
-                            if (!sidebar || !topbar) {
-                                console.debug('Mobile menu: sidebar or topbar not found');
-                                return;
-                            }
-
-                            // Check if already set up
-                            if (topbar.querySelector('.mobile-menu-toggle')) {
-                                return;
-                            }
-
-                            // Create menu toggle button
-                            const toggleBtn = document.createElement('button');
-                            toggleBtn.className = 'mobile-menu-toggle';
-                            toggleBtn.type = 'button';
-                            toggleBtn.setAttribute('aria-label', 'Toggle navigation');
-                            toggleBtn.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>';
-
-                            // Apply inline styles for the button
-                            Object.assign(toggleBtn.style, {
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '40px',
-                                height: '40px',
-                                padding: '0',
-                                marginRight: '8px',
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                flexShrink: '0',
-                                transition: 'background-color 150ms ease'
-                            });
-
-                            // Insert at the start of topbar, before other elements
-                            topbar.insertBefore(toggleBtn, topbar.firstChild);
-
-                            function toggleSidebar() {
-                                const isOpen = sidebar.classList.contains('mobile-menu-open');
-                                if (isOpen) {
-                                    closeSidebar();
-                                } else {
-                                    openSidebar();
-                                }
-                            }
-
-                            function openSidebar() {
-                                sidebar.classList.add('mobile-menu-open');
-                                if (backdrop) backdrop.classList.add('mobile-menu-open');
-                                document.body.style.overflow = 'hidden';
-                            }
-
-                            function closeSidebar() {
-                                sidebar.classList.remove('mobile-menu-open');
-                                if (backdrop) backdrop.classList.remove('mobile-menu-open');
-                                document.body.style.overflow = '';
-                            }
-
-                            // Add hover effects
-                            const isDark = document.documentElement.classList.contains('dark');
-                            toggleBtn.addEventListener('mouseenter', () => {
-                                toggleBtn.style.backgroundColor = isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.06)';
-                            });
-                            toggleBtn.addEventListener('mouseleave', () => {
-                                toggleBtn.style.backgroundColor = 'transparent';
-                            });
-
-                            // Event listeners
-                            toggleBtn.addEventListener('click', (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                toggleSidebar();
-                            });
-
-                            // Close on link click
-                            sidebar.addEventListener('click', (e) => {
-                                if (e.target.closest('a[href]')) {
-                                    closeSidebar();
-                                }
-                            });
-
-                            // Close on backdrop click
-                            if (backdrop) {
-                                backdrop.addEventListener('click', closeSidebar);
-                            }
-
-                            // Close on Escape
-                            document.addEventListener('keydown', (e) => {
-                                if (e.key === 'Escape') closeSidebar();
-                            });
-
-                            console.debug('Mobile menu setup complete');
-                        } catch (error) {
-                            console.error('Mobile menu setup error:', error);
-                        }
-                    }
-
-                    // Setup on initial load
-                    if (document.readyState === 'loading') {
-                        document.addEventListener('DOMContentLoaded', setupMobileMenu);
-                    } else {
-                        setupMobileMenu();
-                    }
-
-                    // Re-setup on Livewire navigation (for SPA)
-                    if (window.Livewire) {
-                        window.Livewire.on('navigated', setupMobileMenu);
-                    }
                     </script>
                     HTML),
             )
@@ -411,6 +243,9 @@ class AdminPanelProvider extends PanelProvider
                         background:radial-gradient(ellipse 80% 50% at 15% -10%,rgba(139,92,246,.28),transparent 60%),
                                    radial-gradient(ellipse 70% 50% at 100% 100%,rgba(99,102,241,.22),transparent 60%),
                                    linear-gradient(160deg,#f5f3ff 0%,#ede9fe 50%,#e0e7ff 100%)!important;
+                    }
+                    @media (max-width: 768px) {
+                        .fi-sidebar-toggle { display: none !important; }
                     }
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main-ctn{
                         position:relative!important;z-index:1!important;background:transparent!important;min-height:100vh!important;

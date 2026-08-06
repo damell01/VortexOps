@@ -497,18 +497,13 @@ class InventoryItemResource extends Resource
                     ]),
             ])
             ->actions([
-                ViewAction::make()->label('View'),
-                EditAction::make()->label('Edit'),
-                DeleteAction::make()
-                    ->iconButton()
-                    ->visible(fn (InventoryItem $record) => static::canDelete($record))
-                    ->tooltip(fn (InventoryItem $record) => static::canDelete($record) ? 'Delete item' : 'Still holds stock — move or zero it out first.'),
-                ActionGroup::make([
-                    Action::make('add_stock')
-                        ->label('Add Stock')
-                        ->icon('heroicon-o-plus-circle')
-                        ->color('success')
-                        ->form([
+                ViewAction::make(),
+                EditAction::make(),
+                Action::make('add_stock')
+                    ->label('+ Add Stock')
+                    ->icon('heroicon-o-plus-circle')
+                    ->color('success')
+                    ->form([
                             Grid::make(2)->schema([
                                 Select::make('location_id')
                                     ->label('Location')
@@ -554,7 +549,7 @@ class InventoryItemResource extends Resource
                             );
                             Notification::make()->title('Stock added successfully')->success()->send();
                         }),
-
+                ActionGroup::make([
                     Action::make('transfer_stock')
                         ->label('Transfer Stock')
                         ->icon('heroicon-o-arrows-right-left')
@@ -583,7 +578,6 @@ class InventoryItemResource extends Resource
                             app(InventoryService::class)->transferStock($record, $from, $to, (float) $data['quantity'], $data['reason'] ?? null);
                             Notification::make()->title('Stock transferred successfully')->success()->send();
                         }),
-
                     Action::make('adjust_inventory')
                         ->label('Adjust Inventory')
                         ->icon('heroicon-o-pencil-square')
@@ -609,7 +603,6 @@ class InventoryItemResource extends Resource
                             app(InventoryService::class)->adjustStock($record, $location, (float) $data['new_quantity'], $data['reason']);
                             Notification::make()->title('Inventory adjusted')->success()->send();
                         }),
-
                     Action::make('mark_damaged')
                         ->label('Mark Damaged')
                         ->icon('heroicon-o-exclamation-triangle')
@@ -637,7 +630,6 @@ class InventoryItemResource extends Resource
                             app(InventoryService::class)->markDamaged($record, $from, $damaged, (float) $data['quantity'], $data['reason'] ?? null);
                             Notification::make()->title('Items marked as damaged')->warning()->send();
                         }),
-
                     Action::make('move_to_returns')
                         ->label('Move to Returns')
                         ->icon('heroicon-o-arrow-uturn-left')
@@ -665,7 +657,6 @@ class InventoryItemResource extends Resource
                             app(InventoryService::class)->moveToReturns($record, $from, $returns, (float) $data['quantity'], $data['reason'] ?? null);
                             Notification::make()->title('Items moved to returns')->success()->send();
                         }),
-
                     Action::make('scan_barcode')
                         ->label('Scan Barcode')
                         ->icon('heroicon-o-qr-code')
@@ -676,10 +667,10 @@ class InventoryItemResource extends Resource
                                 ->body('Using your device\'s camera to scan product barcodes.')
                                 ->info()
                                 ->send();
-                            // Opens the camera scanner modal (dispatches JavaScript event)
                             $this->dispatch('open-camera-scanner', barcode: $record->barcode);
                         }),
                 ]),
+                DeleteAction::make(),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

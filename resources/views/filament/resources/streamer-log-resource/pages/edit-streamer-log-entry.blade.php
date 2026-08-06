@@ -324,7 +324,7 @@
                     this.modalOpen = true;
                     const modal = document.getElementById('items-modal');
                     if (modal) {
-                        modal.style.display = 'flex' + ' !important';
+                        modal.style.setProperty('display', 'flex', 'important');
                         setTimeout(() => {
                             document.body.style.overflow = 'hidden';
                             document.documentElement.style.overflow = 'hidden';
@@ -335,7 +335,7 @@
                     this.modalOpen = false;
                     const modal = document.getElementById('items-modal');
                     if (modal) {
-                        modal.style.display = 'none' + ' !important';
+                        modal.style.setProperty('display', 'none', 'important');
                         document.body.style.overflow = '';
                         document.documentElement.style.overflow = '';
                     }

@@ -103,6 +103,7 @@ class DashboardImproved extends Dashboard
 
             $data['lowStock'] = InventoryItem::whereHas('stock', fn ($q) =>
                 $q->whereRaw('quantity <= COALESCE(reorder_level, 0)')
+                    ->whereHas('location', fn ($lq) => $lq->inChannelContext())
             )->where('is_active', true)->count();
         }
 

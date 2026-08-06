@@ -19,9 +19,7 @@
 
 <x-filament-panels::page
     x-data="wizardData()"
-    @open-items-modal.window="openModal()"
     @items-added.window="itemsAdded()"
-    @closeModal.window="closeModal()"
 >
     @if($show)
     <div class="mb-6">
@@ -264,17 +262,22 @@
                         </div>
                     @endif
 
-                    <button
-                        @click="$dispatch('open-items-modal')"
-                        class="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium mt-4"
-                    >
-                        <span class="inline-flex items-center gap-2">
-                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3.586L7.707 9.293a1 1 0 00-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 10.586V7z" clip-rule="evenodd" />
-                            </svg>
+                    <!-- Inline Items Catalog -->
+                    <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                        <h5 class="font-semibold text-gray-900 dark:text-white mb-4">
                             {{ $totalItems > 0 ? 'Add More Items' : 'Add Items' }}
-                        </span>
-                    </button>
+                        </h5>
+                        @livewire('streamer-log-items-modal', [
+                            'recordId' => $record->id,
+                            'title' => 'Select Items Sold',
+                            'description' => 'Search and select inventory items for this show',
+                            'multiSelect' => true,
+                            'allowQuantityInput' => true,
+                            'allowCostInput' => true,
+                            'allowCreateItem' => true,
+                            'successEvent' => 'items-added',
+                        ], key('items-inline-' . $record->id))
+                    </div>
                 </div>
             </div>
 
@@ -342,53 +345,11 @@
     </div>
     @endif
 
-    <!-- Items Modal -->
-    <div wire:key="items-modal-{{ $record->id }}" id="items-modal" @keydown.escape="closeModal()" @click="closeOnBackdropClick($event)" style="display: none !important; position: fixed !important; inset: 0 !important; z-index: 50 !important; background: rgba(0,0,0,0.5) !important; padding: 1rem !important; justify-content: center !important; align-items: center !important;">
-        <div @click.stop class="w-full max-w-2xl max-h-[90vh] overflow-hidden bg-white dark:bg-gray-900 rounded-lg shadow-2xl flex flex-col">
-            @livewire('streamer-log-items-modal', [
-                'recordId' => $record->id,
-                'title' => 'STREAMER LOG INVENTORY CATALOG',
-                'description' => 'Select inventory items and set quantities for this show',
-                'multiSelect' => true,
-                'allowQuantityInput' => true,
-                'allowCostInput' => true,
-                'allowCreateItem' => true,
-                'successEvent' => 'items-added',
-            ], key('items-modal-' . $record->id))
-        </div>
-    </div>
-
     <script>
         function wizardData() {
             return {
                 activeTab: 'items',
-                modalOpen: false,
-                openModal() {
-                    this.modalOpen = true;
-                    const modal = document.getElementById('items-modal');
-                    if (modal) {
-                        // Use setProperty to override the inline !important style
-                        modal.style.setProperty('display', 'flex', 'important');
-                        document.body.style.overflow = 'hidden';
-                        document.documentElement.style.overflow = 'hidden';
-                    }
-                },
-                closeModal() {
-                    this.modalOpen = false;
-                    const modal = document.getElementById('items-modal');
-                    if (modal) {
-                        modal.style.setProperty('display', 'none', 'important');
-                        document.body.style.removeProperty('overflow');
-                        document.documentElement.style.removeProperty('overflow');
-                    }
-                },
-                closeOnBackdropClick(e) {
-                    if (e.target.id === 'items-modal') {
-                        this.closeModal();
-                    }
-                },
                 itemsAdded() {
-                    this.closeModal();
                     window.location.reload();
                 }
             }

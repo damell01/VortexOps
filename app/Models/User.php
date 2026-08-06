@@ -102,4 +102,26 @@ class User extends Authenticatable implements FilamentUser
         $ownerEmail = config('app.owner_email', 'dbellcreations@gmail.com');
         return $ownerEmail !== null && $this->email === $ownerEmail;
     }
+
+    public function managedStreamers(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(
+            Streamer::class,
+            'user_streamer_managers',
+            'manager_id',
+            'streamer_id'
+        );
+    }
+
+    public function profitSharePacketsToReview(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ProfitSharePacket::class, 'manager_id')
+            ->where('status', 'submitted')
+            ->orderBy('created_at', 'desc');
+    }
+
+    public function isManagerFor(Streamer $streamer): bool
+    {
+        return $this->managedStreamers()->where('streamer_id', $streamer->id)->exists();
+    }
 }

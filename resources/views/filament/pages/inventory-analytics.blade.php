@@ -15,12 +15,11 @@
                 <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Inventory Analytics</h2>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Real-time overview of your inventory health and metrics</p>
             </div>
-            <button type="button"
-                    wire:click="exportAnalyticsPdf"
-                    class="inline-flex items-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 px-4 py-2 text-sm font-semibold text-white transition-colors">
+            <a href="{{ route('export.inventory-analytics-pdf') }}"
+               class="inline-flex items-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 px-4 py-2 text-sm font-semibold text-white transition-colors">
                 <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
                 Export PDF
-            </button>
+            </a>
         </div>
 
         <!-- Quick Stats Grid -->

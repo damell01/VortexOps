@@ -8,10 +8,8 @@ use App\Models\InventoryStock;
 use App\Models\InventoryLocation;
 use App\Models\Vendor;
 use App\Support\AdminModules;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\HttpFoundation\Response;
 
 class InventoryAnalytics extends Page
 {
@@ -271,51 +269,4 @@ class InventoryAnalytics extends Page
         return $this->sanitizeUtf8($items);
     }
 
-    /**
-     * Export consolidated analytics as PDF
-     */
-    public function exportAnalyticsPdf(): Response
-    {
-        try {
-            $data = [
-                'title' => 'Inventory Analytics Summary',
-                'date' => now()->format('F j, Y'),
-                'time' => now()->format('H:i'),
-                'summary' => $this->getSummary(),
-                'lowStock' => $this->getLowStockItems(),
-                'topVendors' => $this->getTopVendors(),
-                'locations' => $this->getLocationHealth(),
-                'fastMovers' => $this->getFastMovers(),
-                'deadStock' => $this->getDeadStock(),
-            ];
-
-            // Sanitize all data to ensure proper UTF-8 encoding
-            $data = $this->sanitizeUtf8($data);
-
-            // Ensure all strings are valid UTF-8
-            array_walk_recursive($data, function (&$value) {
-                if (is_string($value)) {
-                    $value = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
-                }
-            });
-
-            $pdf = Pdf::loadView('filament.pages.inventory-analytics-pdf', $data)
-                ->setPaper('a4', 'landscape')
-                ->setOption('enable-local-file-access', true)
-                ->setOption('margin-top', 10)
-                ->setOption('margin-bottom', 10)
-                ->setOption('margin-left', 5)
-                ->setOption('margin-right', 5);
-
-            return $pdf->download('analytics-summary-' . now()->format('Y-m-d-His') . '.pdf');
-        } catch (\Throwable $e) {
-            \Filament\Notifications\Notification::make()
-                ->title('Export Error')
-                ->body('Failed to generate PDF: ' . $e->getMessage())
-                ->danger()
-                ->send();
-
-            throw $e;
-        }
-    }
 }

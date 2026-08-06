@@ -196,6 +196,41 @@ class ExportController extends Controller
         return $pdf->download("payout-{$slug}-{$date}.pdf");
     }
 
+    public function inventoryAnalyticsPdf(Request $request)
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
+        $page = app(\App\Filament\Pages\InventoryAnalytics::class);
+
+        $data = [
+            'title' => 'Inventory Analytics Summary',
+            'date' => now()->format('F j, Y'),
+            'time' => now()->format('H:i'),
+            'summary' => $page->getSummary(),
+            'lowStock' => $page->getLowStockItems(),
+            'topVendors' => $page->getTopVendors(),
+            'locations' => $page->getLocationHealth(),
+            'fastMovers' => $page->getFastMovers(),
+            'deadStock' => $page->getDeadStock(),
+        ];
+
+        $pdf = Pdf::loadView('filament.pages.inventory-analytics-pdf', $data)
+            ->setPaper('a4', 'landscape')
+            ->setOption('enable-local-file-access', true)
+            ->setOption('margin-top', 10)
+            ->setOption('margin-bottom', 10)
+            ->setOption('margin-left', 5)
+            ->setOption('margin-right', 5);
+
+        $filename = 'analytics-summary-' . now()->format('Y-m-d-His') . '.pdf';
+
+        if ($request->query('download')) {
+            return $pdf->download($filename);
+        }
+
+        return $pdf->stream($filename);
+    }
+
     public function showPlPdf(Show $show): mixed
     {
         abort_unless(auth()->user()?->isAdmin(), 403);

@@ -26,6 +26,7 @@ Route::middleware(['auth', 'web'])->prefix('admin')->name('admin.')->group(funct
 Route::middleware(['auth', 'web', 'throttle:6,1'])->prefix('admin/export')->name('export.')->group(function () {
     Route::get('inventory-items', [ExportController::class, 'inventoryItems'])->name('inventory-items');
     Route::get('inventory-pdf',   [ExportController::class, 'inventoryPdf'])->name('inventory-pdf');
+    Route::get('inventory-analytics-pdf', [ExportController::class, 'inventoryAnalyticsPdf'])->name('inventory-analytics-pdf');
     Route::get('stock-levels',    [ExportController::class, 'stockLevels'])->name('stock-levels');
     Route::get('movement-log',    [ExportController::class, 'movementLog'])->name('movement-log');
     Route::get('locations',       [ExportController::class, 'locations'])->name('locations');

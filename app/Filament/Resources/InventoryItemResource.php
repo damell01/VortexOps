@@ -73,6 +73,31 @@ class InventoryItemResource extends Resource
         return auth()->user()?->isAdmin() ?? false;
     }
 
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $user = auth()->user();
+
+        // Admins and owners can always edit
+        if ($user?->isAdmin() || $user?->isOwner()) {
+            return true;
+        }
+
+        // Streamers can only edit items in their assigned inventory locations
+        if ($user?->isStreamer()) {
+            $streamer = $user->streamer;
+            if (!$streamer) {
+                return false;
+            }
+
+            $streamerLocationIds = $streamer->inventoryLocations()->pluck('id');
+            return $record->stock()
+                ->whereIn('inventory_location_id', $streamerLocationIds)
+                ->exists();
+        }
+
+        return false;
+    }
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-archive-box';

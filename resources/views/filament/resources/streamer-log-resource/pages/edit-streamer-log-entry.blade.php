@@ -289,15 +289,19 @@
         </div>
     </div>
 
-    <!-- Edit Form Section (visible to admins or streamers when unlocked) -->
-    @if(!$isStreamer || ($isStreamer && !StreamerLogResource::isLockedForCurrentUser($record)))
+    <!-- Edit Form Section -->
+    @php
+        $canEdit = !$isStreamer || !StreamerLogResource::isLockedForCurrentUser($record);
+    @endphp
+
+    @if($canEdit)
     <div class="mb-8 border-t border-gray-200 dark:border-gray-700 pt-8">
         <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Log Details</h3>
         {{ $this->form }}
     </div>
     @endif
 
-    @if($isStreamer && StreamerLogResource::isLockedForCurrentUser($record))
+    @if(!$canEdit)
     <div class="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
         <p class="text-sm text-blue-800 dark:text-blue-300">
             <strong>View Only Mode:</strong> This log entry is locked for editing. Use the "Add Items" button above to add new items, or request edit permission if you need to make changes.

@@ -117,7 +117,7 @@ class InventoryAnalytics extends Page
         $totalLocations = InventoryLocation::whereIn('id', $locationIds)
             ->where('status', 'active')->count();
 
-        return [
+        $summary = [
             'total_value' => $totalValue,
             'total_units' => $totalUnits,
             'total_items' => $totalItems,
@@ -134,6 +134,8 @@ class InventoryAnalytics extends Page
                 })
                 ->count(),
         ];
+
+        return $this->sanitizeUtf8($summary);
     }
 
     /**

@@ -192,6 +192,7 @@ class StreamerLogEntry extends Model
         $this->update([
             'submitted_at' => now(),
             'locked_at' => null,
+            'edit_window_minutes' => $this->edit_window_minutes ?? 120, // 2 hours default
         ]);
     }
 

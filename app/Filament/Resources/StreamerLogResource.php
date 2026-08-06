@@ -77,9 +77,8 @@ class StreamerLogResource extends Resource
     }
 
     /**
-     * Streamers can only view their log entries (read-only). They can't edit directly—
-     * they must use the End of Stream form to add items, or request edit permission
-     * from an admin if they need to make changes. Admins/owner can always edit.
+     * Streamers can edit their log entries until they submit. After submission,
+     * they can only edit within the allowed time window. Admins can always edit.
      */
     public static function isLockedForCurrentUser(?StreamerLogEntry $record): bool
     {
@@ -88,9 +87,9 @@ class StreamerLogResource extends Resource
             return false;
         }
 
-        // Streamers can only view (always locked), must request permission to edit
+        // Streamers can edit until submission or within the edit window
         if ($user?->isStreamer()) {
-            return true;
+            return ! $record->canStreamerEdit();
         }
 
         // Fulfillment admins can edit when PWE/label review is pending

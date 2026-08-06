@@ -29,11 +29,40 @@ class EditStreamerLogEntry extends EditRecord
         $actions = [];
 
         if ($isStreamer) {
+            $actions[] = Action::make('submit_report')
+                ->label('Submit for Review')
+                ->icon('heroicon-o-paper-airplane')
+                ->color('success')
+                ->visible(fn () => !$this->record->isSubmitted() && $this->record->canStreamerEdit())
+                ->requiresConfirmation()
+                ->modalHeading('Submit log for admin review?')
+                ->modalDescription('Once submitted, you\'ll have 2 hours to make changes. After that, only admins can edit.')
+                ->action(function () {
+                    $this->record->submitReport();
+
+                    // Notify admins
+                    $admins = \App\Models\User::role('admin')->get();
+                    foreach ($admins as $admin) {
+                        \Filament\Notifications\Notification::make()
+                            ->title('Streamer log submitted')
+                            ->body("{$this->record->streamer->name} submitted a log entry for {$this->record->show->title}")
+                            ->info()
+                            ->sendToDatabase($admin);
+                    }
+
+                    Notification::make()
+                        ->title('✓ Log submitted for review')
+                        ->body('Admins will review and approve your submission. You have 2 hours to make changes.')
+                        ->success()
+                        ->send();
+                    $this->refresh();
+                });
+
             $actions[] = Action::make('request_edit')
                 ->label('Request Edit Permission')
                 ->icon('heroicon-o-pencil-square')
                 ->color('warning')
-                ->visible(fn () => StreamerLogResource::isLockedForCurrentUser($this->record))
+                ->visible(fn () => StreamerLogResource::isLockedForCurrentUser($this->record) && $this->record->isSubmitted())
                 ->requiresConfirmation()
                 ->modalHeading('Request Edit Permission')
                 ->modalDescription('An admin will review your request and unlock this log entry for editing.')
@@ -119,10 +148,24 @@ class EditStreamerLogEntry extends EditRecord
         $isStreamer = auth()->user()?->isStreamer() && !auth()->user()?->isAdmin();
 
         if ($isStreamer) {
-            if (StreamerLogResource::isLockedForCurrentUser($record)) {
-                return '🔒 View-only. Use the "End of Stream" form to log new items, or request edit permission if you need to make changes.';
+            if (!$record->isSubmitted()) {
+                return '📋 Add and edit your items. When done, submit for admin review using the button above.';
             }
-            return '📋 Your show summary. Use the "End of Stream" form to add items sold.';
+
+            if (StreamerLogResource::isLockedForCurrentUser($record)) {
+                $minutesLeft = $record->getMinutesUntilEditWindowCloses();
+                if ($minutesLeft > 0) {
+                    return "🔒 Submitted! You can still edit for {$minutesLeft} more minutes. After that, request edit permission from admins.";
+                }
+                return '🔒 Edit window closed. Request edit permission from admins if you need to make changes.';
+            }
+
+            if ($record->isSubmitted()) {
+                $minutesLeft = $record->getMinutesUntilEditWindowCloses();
+                if ($minutesLeft > 0) {
+                    return "✓ Submitted! Edit window open for {$minutesLeft} more minutes.";
+                }
+            }
         }
 
         if ($record->status === 'pending') {
@@ -133,7 +176,7 @@ class EditStreamerLogEntry extends EditRecord
                 ? "{$mapped}/{$total} items mapped"
                 : 'No items to map';
 
-            return "Streamer entered {$total} item(s). Review and approve.";
+            return "Streamer submitted {$total} item(s). Review and approve.";
         }
 
         if ($record->status === 'streamer_reviewed') {

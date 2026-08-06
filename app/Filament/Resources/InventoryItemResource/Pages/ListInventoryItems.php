@@ -17,9 +17,12 @@ class ListInventoryItems extends ListRecords
 
     protected function getHeaderActions(): array
     {
+        $user = auth()->user();
+        $canCreate = $user && ($user->isAdmin() || $user->isOwner() || $user->isStreamer());
+
         return [
             CreateAction::make()
-                ->visible(fn () => InventoryItemResource::canCreate()),
+                ->visible($canCreate),
         ];
     }
 }

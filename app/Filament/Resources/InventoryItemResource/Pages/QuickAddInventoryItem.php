@@ -45,8 +45,6 @@ class QuickAddInventoryItem extends Page
                 }
             }
         }
-
-        $this->form->fill($this->data);
     }
 
     public function form(Form $form): Form

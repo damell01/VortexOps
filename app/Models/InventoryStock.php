@@ -23,6 +23,15 @@ class InventoryStock extends Model
         'quantity' => 'decimal:2',
     ];
 
+    protected $appends = [
+        'quantity_on_hand',
+    ];
+
+    public function getQuantityOnHandAttribute()
+    {
+        return $this->quantity;
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()->logAll()->logOnlyDirty();
@@ -30,7 +39,7 @@ class InventoryStock extends Model
 
     public function item(): BelongsTo
     {
-        return $this->belongsTo(Product::class, 'inventory_item_id');
+        return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
     }
 
     public function location(): BelongsTo

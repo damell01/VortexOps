@@ -11,6 +11,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             DefaultDataSeeder::class,
             SuperAdminSeeder::class,
+            StreamerPermissionsSeeder::class,
             DemoDataSeeder::class,
         ]);
     }

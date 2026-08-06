@@ -137,14 +137,7 @@ class InventoryItemResource extends Resource
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
-        $user = auth()->user();
-
-        // Streamers see it in a custom "Catalog" group
-        if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) {
-            return 'Catalog';
-        }
-
-        // Admins/owners use the module-based grouping
+        // All users see it under the Inventory group
         return AdminModules::navigationGroupFor('inventory');
     }
 

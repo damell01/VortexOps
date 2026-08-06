@@ -135,8 +135,45 @@ class AdminPanelProvider extends PanelProvider
                     : Blade::render(<<<'HTML'
                     <style>
                     .feedback-widget-container, .feedback-btn { display: none !important; }
+                    @media (max-width: 768px) {
+                        .fi-sidebar-toggle { display: none !important; }
+                    }
                     </style>
                     @livewire('feedback-widget')
+                    <script>
+                    (function() {
+                        let notificationPanelOpen = false;
+                        const notificationBtn = document.querySelector('[aria-label*="notification"], [aria-label*="Notification"]');
+
+                        if (notificationBtn) {
+                            notificationBtn.addEventListener('click', function(e) {
+                                // Let the click propagate first to open the panel
+                                setTimeout(() => {
+                                    const panel = document.querySelector('[role="dialog"]') ||
+                                                  document.querySelector('.fi-dropdown-panel') ||
+                                                  document.querySelector('[class*="notification"]');
+
+                                    if (panel && panel.offsetParent !== null) {
+                                        notificationPanelOpen = true;
+                                    } else if (notificationPanelOpen) {
+                                        // If panel is closing, toggle the button to close it
+                                        notificationBtn.click();
+                                        notificationPanelOpen = false;
+                                    }
+                                }, 10);
+                            });
+                        }
+
+                        // Alternative: Listen for panel visibility changes
+                        document.addEventListener('click', function(e) {
+                            const notificationPanel = document.querySelector('[class*="notification"]');
+                            if (notificationPanel && !notificationPanel.contains(e.target) &&
+                                e.target !== notificationBtn && !notificationBtn.contains(e.target)) {
+                                notificationPanelOpen = false;
+                            }
+                        });
+                    })();
+                    </script>
                     HTML),
             )
             ->renderHook(
@@ -206,6 +243,9 @@ class AdminPanelProvider extends PanelProvider
                         background:radial-gradient(ellipse 80% 50% at 15% -10%,rgba(139,92,246,.28),transparent 60%),
                                    radial-gradient(ellipse 70% 50% at 100% 100%,rgba(99,102,241,.22),transparent 60%),
                                    linear-gradient(160deg,#f5f3ff 0%,#ede9fe 50%,#e0e7ff 100%)!important;
+                    }
+                    @media (max-width: 768px) {
+                        .fi-sidebar-toggle { display: none !important; }
                     }
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main-ctn{
                         position:relative!important;z-index:1!important;background:transparent!important;min-height:100vh!important;

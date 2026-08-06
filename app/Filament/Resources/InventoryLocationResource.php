@@ -48,9 +48,16 @@ class InventoryLocationResource extends Resource
         return ($user?->isAdmin() || $user?->isOwner() || $user?->isStreamer()) ?? false;
     }
 
+    public static function canAccess(): bool
+    {
+        // Allow admins and owners to access
+        return auth()->user()?->isAdmin() || auth()->user()?->isOwner() ?? false;
+    }
+
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        // Show locations for admins and owners
+        return auth()->user()?->isAdmin() || auth()->user()?->isOwner() ?? false;
     }
 
     public static function canCreate(): bool

@@ -165,77 +165,103 @@ class AdminPanelProvider extends PanelProvider
                 fn () => ! $isAuthenticatedAdminView()
                     ? ''
                     : Blade::render(<<<'HTML'
-                    <div class="fi-sidebar-backdrop" style="display: none;"></div>
+                    <style>
+                    .fi-sidebar.mobile-menu-open {
+                        transform: translateX(0) !important;
+                    }
+                    .fi-sidebar-backdrop.mobile-menu-open {
+                        display: block !important;
+                    }
+                    </style>
+                    <div class="fi-sidebar-backdrop fixed inset-0 z-20 bg-black/50 transition-opacity duration-200 hidden sm:hidden" style="display: none;"></div>
                     <script>
-                    window.addEventListener('load', () => setupMobileMenu());
-
                     function setupMobileMenu() {
-                        // Only setup on mobile
-                        if (window.innerWidth > 640) return;
+                        try {
+                            if (window.innerWidth >= 640) return;
 
-                        const sidebar = document.querySelector('.fi-sidebar');
-                        const topbar = document.querySelector('.fi-topbar');
-                        const backdrop = document.querySelector('.fi-sidebar-backdrop');
+                            const sidebar = document.querySelector('.fi-sidebar');
+                            const topbar = document.querySelector('.fi-topbar');
+                            const backdrop = document.querySelector('.fi-sidebar-backdrop');
 
-                        if (!sidebar || !topbar) return;
+                            if (!sidebar || !topbar) {
+                                console.debug('Mobile menu: sidebar or topbar not found');
+                                return;
+                            }
 
-                        // Create and inject menu toggle button
-                        let toggleBtn = document.querySelector('.mobile-menu-toggle');
-                        if (!toggleBtn) {
-                            toggleBtn = document.createElement('button');
-                            toggleBtn.className = 'mobile-menu-toggle';
+                            // Check if already set up
+                            if (topbar.querySelector('.mobile-menu-toggle')) {
+                                return;
+                            }
+
+                            // Create menu toggle button with Tailwind styling
+                            const toggleBtn = document.createElement('button');
+                            toggleBtn.className = 'mobile-menu-toggle inline-flex items-center justify-center h-10 w-10 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors ml-2';
                             toggleBtn.type = 'button';
-                            toggleBtn.setAttribute('aria-label', 'Toggle menu');
-                            toggleBtn.innerHTML = '☰';
+                            toggleBtn.setAttribute('aria-label', 'Toggle navigation menu');
+                            toggleBtn.innerHTML = '<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>';
                             topbar.insertBefore(toggleBtn, topbar.firstChild);
-                        }
 
-                        // Toggle menu on button click
-                        toggleBtn.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            toggleSidebar();
-                        });
-
-                        // Close menu when clicking links
-                        sidebar.addEventListener('click', (e) => {
-                            if (e.target.closest('a')) {
-                                closeSidebar();
+                            function toggleSidebar() {
+                                const isOpen = sidebar.classList.contains('mobile-menu-open');
+                                if (isOpen) {
+                                    closeSidebar();
+                                } else {
+                                    openSidebar();
+                                }
                             }
-                        });
 
-                        // Close menu on backdrop click
-                        if (backdrop) {
-                            backdrop.addEventListener('click', closeSidebar);
-                        }
-
-                        // Close menu on Escape
-                        document.addEventListener('keydown', (e) => {
-                            if (e.key === 'Escape') closeSidebar();
-                        });
-
-                        function toggleSidebar() {
-                            const isOpen = sidebar.style.left === '0px' || sidebar.classList.contains('open');
-                            if (isOpen) {
-                                closeSidebar();
-                            } else {
-                                openSidebar();
+                            function openSidebar() {
+                                sidebar.classList.add('mobile-menu-open');
+                                if (backdrop) backdrop.classList.add('mobile-menu-open');
+                                document.body.style.overflow = 'hidden';
                             }
-                        }
 
-                        function openSidebar() {
-                            sidebar.style.left = '0';
-                            sidebar.classList.add('open');
-                            if (backdrop) backdrop.style.display = 'block';
-                            document.body.style.overflow = 'hidden';
-                        }
+                            function closeSidebar() {
+                                sidebar.classList.remove('mobile-menu-open');
+                                if (backdrop) backdrop.classList.remove('mobile-menu-open');
+                                document.body.style.overflow = '';
+                            }
 
-                        function closeSidebar() {
-                            sidebar.style.left = '-100%';
-                            sidebar.classList.remove('open');
-                            if (backdrop) backdrop.style.display = 'none';
-                            document.body.style.overflow = '';
+                            // Event listeners
+                            toggleBtn.addEventListener('click', (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                toggleSidebar();
+                            });
+
+                            // Close on link click
+                            sidebar.addEventListener('click', (e) => {
+                                if (e.target.closest('a[href]')) {
+                                    closeSidebar();
+                                }
+                            });
+
+                            // Close on backdrop click
+                            if (backdrop) {
+                                backdrop.addEventListener('click', closeSidebar);
+                            }
+
+                            // Close on Escape
+                            document.addEventListener('keydown', (e) => {
+                                if (e.key === 'Escape') closeSidebar();
+                            });
+
+                            console.debug('Mobile menu setup complete');
+                        } catch (error) {
+                            console.error('Mobile menu setup error:', error);
                         }
+                    }
+
+                    // Setup on initial load
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', setupMobileMenu);
+                    } else {
+                        setupMobileMenu();
+                    }
+
+                    // Re-setup on Livewire navigation (for SPA)
+                    if (window.Livewire) {
+                        window.Livewire.on('navigated', setupMobileMenu);
                     }
                     </script>
                     HTML),

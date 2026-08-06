@@ -59,7 +59,11 @@ class EndOfStreamForm extends Page implements HasForms
 
     public function selectShow(string $showId): void
     {
-        $this->show = Show::findOrFail($showId);
+        if (empty($showId)) {
+            $this->show = null;
+        } else {
+            $this->show = Show::findOrFail($showId);
+        }
         $this->search = '';
         $this->selectedItems = [];
         $this->itemQuantities = [];

@@ -212,17 +212,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <div class="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-6 border border-purple-200 dark:border-purple-800">
-                        <h4 class="font-semibold text-purple-900 dark:text-purple-100 mb-4">Profit Distribution</h4>
-                        <div class="space-y-3">
-                            <div class="flex justify-between items-center pb-3 border-b border-purple-200 dark:border-purple-800">
-                                <span class="text-purple-800 dark:text-purple-300">Profit Share Amount</span>
-                                <span class="text-2xl font-bold text-purple-900 dark:text-purple-100">${{ number_format($record->profit_share_amount ?? 0, 2) }}</span>
-                            </div>
-                            <p class="text-sm text-purple-700 dark:text-purple-400">Calculated based on gross revenue and product costs</p>
-                        </div>
-                    </div>
                 </div>
             @endif
 

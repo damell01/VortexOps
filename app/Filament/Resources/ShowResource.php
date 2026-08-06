@@ -22,6 +22,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\MultiSelect;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -256,13 +257,14 @@ class ShowResource extends Resource
                     ->numeric()
                     ->nullable(),
 
-                Select::make('streamers')
+                MultiSelect::make('streamers')
                     ->label('Streamers')
-                    ->multiple()
                     ->options(Streamer::where('status', 'active')->pluck('name', 'id'))
                     ->relationship('streamers', 'name')
+                    ->searchable()
                     ->preload()
-                    ->columnSpanFull(),
+                    ->columnSpanFull()
+                    ->placeholder('Search and select streamers...'),
 
                 Select::make('fulfillmentUsers')
                     ->label('Fulfillment Team')

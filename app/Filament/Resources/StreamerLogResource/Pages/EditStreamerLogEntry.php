@@ -17,7 +17,7 @@ class EditStreamerLogEntry extends EditRecord
 
     public function getView(): string
     {
-        return 'filament.resources.streamer-log-resource.pages.edit-streamer-log-entry';
+        return 'filament.resources.streamer-log-resource.pages.view-streamer-log-entry';
     }
 
     protected function getHeaderActions(): array

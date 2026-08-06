@@ -458,8 +458,7 @@ class StreamerLogResource extends Resource
     {
         return [
             'index' => Pages\ListStreamerLogEntries::route('/'),
-            'view'  => Pages\ViewStreamerLogEntry::route('/{record}'),
-            'edit'  => Pages\EditStreamerLogEntry::route('/{record}/edit'),
+            'edit'  => Pages\EditStreamerLogEntry::route('/{record}'),
         ];
     }
 }

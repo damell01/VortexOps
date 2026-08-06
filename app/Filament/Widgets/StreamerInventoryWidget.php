@@ -30,7 +30,7 @@ class StreamerInventoryWidget extends Widget
 
         $lowStockCount = InventoryItem::whereHas('stock', fn ($q) =>
             $q->whereIn('inventory_location_id', $inventoryLocations)
-                ->whereRaw('quantity <= COALESCE(inventory_items.reorder_level, 0)')
+                ->whereRaw('quantity <= COALESCE(products.reorder_level, 0)')
         )->where('is_active', true)->count();
 
         $locationCount = $inventoryLocations->count();

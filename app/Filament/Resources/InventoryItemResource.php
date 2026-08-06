@@ -95,7 +95,21 @@ class InventoryItemResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->withSum('stock', 'quantity');
+        $query = parent::getEloquentQuery()->withSum('stock', 'quantity');
+
+        // Streamers only see their own inventory locations
+        $user = auth()->user();
+        if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
+            $streamer = $user->streamer;
+            if ($streamer) {
+                $locationIds = $streamer->inventoryLocations()->pluck('id');
+                return $query->whereHas('stock', fn ($q) =>
+                    $q->whereIn('inventory_location_id', $locationIds)
+                )->distinct();
+            }
+        }
+
+        return $query;
     }
 
     public static function getGloballySearchableAttributes(): array

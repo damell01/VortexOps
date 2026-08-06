@@ -54,6 +54,28 @@ class InventoryAnalytics extends Page
     }
 
     /**
+     * Get inventory location IDs accessible to current user
+     * Streamers only see their own locations, admins see all
+     */
+    protected function getAccessibleLocationIds()
+    {
+        $user = auth()->user();
+
+        // Admins and owners see all locations
+        if ($user?->isAdmin() || $user?->isOwner()) {
+            return InventoryLocation::where('status', 'active')->pluck('id');
+        }
+
+        // Streamers only see their own locations
+        if ($user?->isStreamer()) {
+            $streamer = $user->streamer;
+            return $streamer ? $streamer->inventoryLocations()->pluck('id') : collect();
+        }
+
+        return collect();
+    }
+
+    /**
      * Recursively sanitize UTF-8 in arrays/strings to prevent JSON encoding errors
      */
     protected function sanitizeUtf8($data): mixed
@@ -82,12 +104,18 @@ class InventoryAnalytics extends Page
      */
     public function getSummary(): array
     {
-        $stocks = InventoryStock::with(['item', 'location'])->get();
+        $locationIds = $this->getAccessibleLocationIds();
+        $stocks = InventoryStock::with(['item', 'location'])
+            ->whereIn('inventory_location_id', $locationIds)
+            ->get();
 
         $totalValue = $stocks->sum(fn ($s) => $s->quantity * ($s->item->average_cost ?? 0));
         $totalUnits = $stocks->sum('quantity');
-        $totalItems = InventoryItem::where('is_active', true)->count();
-        $totalLocations = InventoryLocation::where('status', 'active')->count();
+        $totalItems = InventoryItem::whereHas('stock', fn ($q) =>
+            $q->whereIn('inventory_location_id', $locationIds)
+        )->where('is_active', true)->count();
+        $totalLocations = InventoryLocation::whereIn('id', $locationIds)
+            ->where('status', 'active')->count();
 
         return [
             'total_value' => $totalValue,
@@ -96,10 +124,11 @@ class InventoryAnalytics extends Page
             'total_locations' => $totalLocations,
             'low_stock_count' => InventoryItem::where('is_active', true)
                 ->whereNotNull('reorder_level')
-                ->whereExists(function ($q) {
+                ->whereExists(function ($q) use ($locationIds) {
                     $q->selectRaw('1')
                         ->from('inventory_stock')
                         ->whereColumn('inventory_stock.inventory_item_id', 'products.id')
+                        ->whereIn('inventory_location_id', $locationIds)
                         ->groupBy('inventory_stock.inventory_item_id')
                         ->havingRaw('SUM(quantity) <= products.reorder_level');
                 })
@@ -112,9 +141,10 @@ class InventoryAnalytics extends Page
      */
     public function getLowStockItems(): array
     {
+        $locationIds = $this->getAccessibleLocationIds();
         $items = InventoryItem::where('is_active', true)
             ->whereNotNull('reorder_level')
-            ->with('stock')
+            ->with(['stock' => fn ($q) => $q->whereIn('inventory_location_id', $locationIds)])
             ->get()
             ->filter(function ($item) {
                 $total = $item->stock->sum('quantity');

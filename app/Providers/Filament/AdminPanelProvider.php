@@ -187,6 +187,36 @@ class AdminPanelProvider extends PanelProvider
                         .fi-sidebar.open {
                             left: 0 !important;
                         }
+
+                        /* Compact navigation items with icons and short labels */
+                        .fi-sidebar .fi-sidebar-nav-item {
+                            padding: 0.75rem 0.5rem !important;
+                            display: flex !important;
+                            align-items: center !important;
+                            gap: 0.75rem !important;
+                        }
+
+                        .fi-sidebar .fi-sidebar-nav-item > .fi-btn {
+                            flex-direction: row !important;
+                            gap: 0.5rem !important;
+                            padding: 0.5rem 0.75rem !important;
+                        }
+
+                        /* Icon sizing */
+                        .fi-sidebar .fi-sidebar-nav-item svg {
+                            width: 1.25rem !important;
+                            height: 1.25rem !important;
+                            flex-shrink: 0 !important;
+                        }
+
+                        /* Label text styling */
+                        .fi-sidebar .fi-sidebar-nav-item .fi-btn-label {
+                            font-size: 0.875rem !important;
+                            line-height: 1.25rem !important;
+                            overflow: hidden !important;
+                            text-overflow: ellipsis !important;
+                            white-space: nowrap !important;
+                        }
                     }
                     .mobile-menu-toggle {
                         display: none !important;

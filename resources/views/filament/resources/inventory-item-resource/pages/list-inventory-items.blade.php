@@ -22,37 +22,37 @@ use Filament\Support\Enums\MaxWidth;
         <!-- Content loaded via infinite scroll -->
     </x-infinite-scroll>
 
-    <!-- Bottom action bar for bulk operations -->
-    <x-bottom-action-bar>
-        <button
-            class="bottom-action-bar-action bottom-action-bar-action-primary"
-            onclick="exportSelected()"
-        >
-            📤 Export
-        </button>
-        <button
-            class="bottom-action-bar-action bottom-action-bar-action-danger"
-            onclick="deleteSelected()"
-        >
-            🗑️ Delete
-        </button>
-    </x-bottom-action-bar>
-
-    <!-- Floating action button -->
-    <x-floating-action-button label="Quick Actions" icon="⚡">
-        <a href="{{ route('filament.admin.resources.inventory-items.quick-add') }}"
-           class="floating-action-menu-item">
-            ⚡ Quick Add
-        </a>
-        <a href="{{ route('filament.admin.resources.inventory-items.create') }}"
-           class="floating-action-menu-item">
-            ✏️ Full Form
-        </a>
-        <a href="{{ route('export.inventory-items') }}"
-           class="floating-action-menu-item">
-            📊 Export
-        </a>
-    </x-floating-action-button>
+    <!-- Bottom action bar for bulk and quick operations -->
+    <div class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">0 items selected</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <a href="{{ route('filament.admin.resources.inventory-items.quick-add') }}"
+                       class="inline-flex items-center px-3 py-2 rounded-lg bg-primary-500 text-white hover:bg-primary-600 transition-colors text-sm font-medium">
+                        Quick Add
+                    </a>
+                    <a href="{{ route('filament.admin.resources.inventory-items.create') }}"
+                       class="inline-flex items-center px-3 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium">
+                        Full Form
+                    </a>
+                    <a href="{{ route('export.inventory-items') }}"
+                       class="inline-flex items-center px-3 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium">
+                        Export
+                    </a>
+                    <button
+                        class="inline-flex items-center px-3 py-2 rounded-lg bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-800 transition-colors text-sm font-medium"
+                        onclick="deleteSelected()"
+                    >
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="h-20"></div>
 </x-filament-panels::page>
 
 <script>

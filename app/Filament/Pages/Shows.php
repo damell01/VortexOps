@@ -178,7 +178,7 @@ class Shows extends Page
             ->success()
             ->send();
 
-        // Refresh the component to show updated form status
-        $this->resetExcept(['filterStatus', 'filterStreamer', 'searchQuery', 'sortBy']);
+        // Reload the page to reflect updated form status
+        $this->redirectRoute('filament.admin.pages.shows-overview');
     }
 }

@@ -256,7 +256,8 @@ class AdminPanelProvider extends PanelProvider
                 // Mobile sidebar toggle + swipe gesture handler
                 document.addEventListener('DOMContentLoaded', () => {
                     const sidebar = document.querySelector('.fi-sidebar');
-                    const toggleBtn = document.querySelector('.fi-sidebar-toggle');
+                    const toggleBtn = document.querySelector('.fi-topbar-sidebar-open-btn') ||
+                                    document.querySelector('.fi-sidebar-toggle');
 
                     if (toggleBtn && sidebar) {
                         // Toggle on button click

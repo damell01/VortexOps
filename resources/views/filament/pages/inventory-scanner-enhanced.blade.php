@@ -1090,7 +1090,7 @@
     {{-- Camera scanning scripts (uses global barcode scanner) --}}
     @if($mode === 'lookup' || $mode === 'receive' || $mode === 'quickadd')
     <script type="module">
-    import { BrowserMultiFormatReader } from 'https://cdn.jsdelivr.net/npm/@zxing/browser@0.0.13/esm/index.js';
+    import { BrowserMultiFormatReader } from 'https://esm.sh/@zxing/browser@0.0.13';
 
     (function () {
         console.log('[inventory-scanner] Script starting');

@@ -85,7 +85,7 @@
                     <span>⚠️ Low Stock Items</span>
                     <span class="text-gray-400">›</span>
                 </button>
-                <div class="hidden">
+                <div>
                 @if(empty($lowStock))
                     <p class="text-sm text-gray-500 dark:text-gray-400">All items are well stocked</p>
                 @else
@@ -115,7 +115,7 @@
                     <span>🏪 Top Vendors</span>
                     <span class="text-gray-400">›</span>
                 </button>
-                <div class="hidden">
+                <div>
                 <div class="space-y-3">
                     @foreach($topVendors as $vendor)
                         <div class="flex items-center justify-between p-3 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
@@ -135,7 +135,7 @@
                     <span>🚀 High Value Items</span>
                     <span class="text-gray-400">›</span>
                 </button>
-                <div class="hidden">
+                <div>
                 <div class="space-y-3">
                     @foreach($fastMovers as $item)
                         <div class="flex items-center justify-between p-3 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
@@ -159,7 +159,7 @@
                     <span>💀 Dead Stock</span>
                     <span class="text-gray-400">›</span>
                 </button>
-                <div class="hidden">
+                <div>
                 @if(empty($deadStock))
                     <p class="text-sm text-gray-500 dark:text-gray-400">No dead stock detected</p>
                 @else
@@ -244,20 +244,37 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('[analytics] Initializing collapse toggles');
     const toggleButtons = document.querySelectorAll('.collapse-toggle');
+    console.log('[analytics] Found', toggleButtons.length, 'toggle buttons');
 
-    toggleButtons.forEach(button => {
+    toggleButtons.forEach((button, index) => {
+        // Set initial arrow rotation (visible by default, so rotated)
+        const arrow = button.querySelector('span:last-child');
+        if (arrow) {
+            arrow.style.transform = 'rotate(90deg)';
+            arrow.style.transition = 'transform 0.2s ease';
+        }
+
         button.addEventListener('click', function(e) {
             e.preventDefault();
+            e.stopPropagation();
+
             const content = this.nextElementSibling;
+            console.log('[analytics] Button', index, 'clicked, content:', content?.className);
+
             if (content) {
-                content.classList.toggle('hidden');
+                const isHidden = content.style.display === 'none';
+                content.style.display = isHidden ? 'block' : 'none';
+
                 // Rotate the arrow
                 const arrow = this.querySelector('span:last-child');
                 if (arrow) {
-                    arrow.style.transform = content.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(90deg)';
+                    arrow.style.transform = isHidden ? 'rotate(90deg)' : 'rotate(0deg)';
                     arrow.style.transition = 'transform 0.2s ease';
                 }
+
+                console.log('[analytics] Toggled to:', isHidden ? 'visible' : 'hidden');
             }
         });
     });

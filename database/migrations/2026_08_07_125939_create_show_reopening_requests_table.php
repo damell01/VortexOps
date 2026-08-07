@@ -20,7 +20,7 @@ return new class extends Migration
             $table->timestamps();
             $table->timestamp('reviewed_at')->nullable();
             $table->foreignId('reviewed_by')->nullable()->constrained('users');
-            $table->unique(['show_id', 'streamer_id', 'status' => 'pending']);
+            $table->unique(['show_id', 'streamer_id']);
         });
     }
 

@@ -456,7 +456,7 @@ body {
     padding: 1.25rem 1.5rem !important;
 }
 
-.fi-header-actions-ctn { gap: 0.5rem !important; flex-wrap: wrap !important; }
+.fi-header-actions-ctn { gap: 0.5rem !important; display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; }
 
 /* ═══════════════════════════════════════════
    SECTIONS / CARDS

@@ -303,6 +303,16 @@ class Show extends Model
         return $this->hasMany(ShowChangeLog::class)->latest();
     }
 
+    public function reopeningRequests(): HasMany
+    {
+        return $this->hasMany(ShowReopeningRequest::class);
+    }
+
+    public function pendingReopeningRequest(): HasOne
+    {
+        return $this->hasOne(ShowReopeningRequest::class)->where('status', 'pending');
+    }
+
     /**
      * Log changes for specific fields before updating the model.
      * Call this before updating the model to track what changed.

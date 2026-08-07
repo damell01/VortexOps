@@ -117,6 +117,7 @@
                                                min="1"
                                                max="{{ $totalStock }}"
                                                value="{{ $quantity }}"
+                                               @click.stop
                                                wire:change="updateQuantity({{ $item->id }}, $event.target.value)"
                                                class="w-full rounded border border-primary-300 dark:border-primary-600 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 dark:focus:border-primary-400 dark:focus:ring-primary-400" />
                                     </div>

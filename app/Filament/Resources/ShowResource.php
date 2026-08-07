@@ -9,6 +9,7 @@ use App\Filament\Resources\ShowResource\RelationManagers\ChangeLogsRelationManag
 use App\Models\DeductionRequest;
 use App\Models\Show;
 use App\Models\Streamer;
+use App\Models\User;
 use App\Filament\Resources\WhatnotChannelResource;
 use App\Models\WhatnotChannel;
 use App\Support\AdminModules;
@@ -916,6 +917,73 @@ class ShowResource extends Resource
                     ->action(function (Show $record): void {
                         $record->update(['financials_revised_after_lock' => false]);
                         Notification::make()->title('Revision flag cleared')->success()->send();
+                    }),
+
+                TableAction::make('request_edit')
+                    ->label('Request Edit')
+                    ->icon('heroicon-o-pencil-square')
+                    ->color('warning')
+                    ->visible(fn (Show $record) => (bool) auth()->user()?->streamer
+                        && in_array($record->status, ['reconciled', 'closed', 'cancelled']))
+                    ->form([
+                        Textarea::make('reason')
+                            ->label('Why do you need to edit this show?')
+                            ->placeholder('Explain what items need to be added or corrected...')
+                            ->rows(3)
+                            ->nullable(),
+                    ])
+                    ->action(function (Show $record, array $data): void {
+                        $user = auth()->user();
+                        $streamer = $user->streamer;
+
+                        if (! $streamer) {
+                            Notification::make()
+                                ->title('Error')
+                                ->body('Could not find your streamer profile.')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        // Check if there's already a pending request
+                        $existing = $record->reopeningRequests()
+                            ->where('streamer_id', $streamer->id)
+                            ->where('status', 'pending')
+                            ->first();
+
+                        if ($existing) {
+                            Notification::make()
+                                ->title('Already requested')
+                                ->body('You already have a pending edit request for this show.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+
+                        $request = $record->reopeningRequests()->create([
+                            'streamer_id' => $streamer->id,
+                            'reason' => $data['reason'] ?? null,
+                            'status' => 'pending',
+                        ]);
+
+                        // Notify admins
+                        \App\Models\User::role('admin')->each(function (User $admin) use ($record, $streamer, $request) {
+                            Notification::make()
+                                ->title('Show Reopening Requested')
+                                ->body("{$streamer->name} requested to edit {$record->title ?? 'Show #' . $record->id}")
+                                ->actions([
+                                    \Filament\Notifications\Actions\Action::make('review')
+                                        ->label('Review')
+                                        ->url(ShowResource::getUrl('view', ['record' => $record])),
+                                ])
+                                ->sendToDatabase($admin);
+                        });
+
+                        Notification::make()
+                            ->title('Request sent')
+                            ->body('Admins have been notified of your edit request.')
+                            ->success()
+                            ->send();
                     }),
 
                 TableAction::make('open_log')

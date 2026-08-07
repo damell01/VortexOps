@@ -159,7 +159,9 @@ class ViewInventoryItem extends Page
                     'date'      => $movement->created_at,
                     'display'   => $movement->created_at->format('M d, Y g:i A'),
                     'type'      => 'movement',
-                    'unit_cost' => $lot?->unit_cost ? (float) $lot->unit_cost : 0,
+                    'unit_cost' => $movement->unit_cost
+                        ? (float) $movement->unit_cost
+                        : ($lot?->unit_cost ? (float) $lot->unit_cost : 0),
                     'qty'       => (float) $movement->quantity,
                     'source'    => $movement->movement_type,
                     'note'      => $movement->reason ?? 'Stock ' . str_replace('_', ' ', $movement->movement_type),

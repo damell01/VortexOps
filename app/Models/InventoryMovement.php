@@ -17,6 +17,7 @@ class InventoryMovement extends Model
         'from_location_id',
         'to_location_id',
         'quantity',
+        'unit_cost',
         'movement_type',
         'reason',
         'reference_type',
@@ -26,6 +27,7 @@ class InventoryMovement extends Model
 
     protected $casts = [
         'quantity' => 'decimal:2',
+        'unit_cost' => 'decimal:2',
     ];
 
     public function getActivitylogOptions(): LogOptions

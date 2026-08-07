@@ -35,6 +35,7 @@ class InventoryService
                 'from_location_id' => null,
                 'to_location_id' => $location->id,
                 'quantity' => $quantity,
+                'unit_cost' => $movementType === 'opening' ? $unitCost : null,
                 'movement_type' => $movementType,
                 'reason' => $reason,
                 'created_by' => Auth::id(),

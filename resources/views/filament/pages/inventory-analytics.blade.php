@@ -81,7 +81,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Low Stock Items -->
             <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <button @click="$el.nextElementSibling.classList.toggle('hidden')" class="w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <button type="button" class="collapse-toggle w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors cursor-pointer">
                     <span>⚠️ Low Stock Items</span>
                     <span class="text-gray-400">›</span>
                 </button>
@@ -111,7 +111,7 @@
 
             <!-- Top Vendors -->
             <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <button @click="$el.nextElementSibling.classList.toggle('hidden')" class="w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <button type="button" class="collapse-toggle w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors cursor-pointer">
                     <span>🏪 Top Vendors</span>
                     <span class="text-gray-400">›</span>
                 </button>
@@ -131,7 +131,7 @@
 
             <!-- Fast Movers -->
             <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <button @click="$el.nextElementSibling.classList.toggle('hidden')" class="w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <button type="button" class="collapse-toggle w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors cursor-pointer">
                     <span>🚀 High Value Items</span>
                     <span class="text-gray-400">›</span>
                 </button>
@@ -155,7 +155,7 @@
 
             <!-- Dead Stock -->
             <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <button @click="$el.nextElementSibling.classList.toggle('hidden')" class="w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <button type="button" class="collapse-toggle w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors cursor-pointer">
                     <span>💀 Dead Stock</span>
                     <span class="text-gray-400">›</span>
                 </button>
@@ -241,3 +241,25 @@
         </div>
     </div>
 </x-filament-panels::page>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleButtons = document.querySelectorAll('.collapse-toggle');
+
+    toggleButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const content = this.nextElementSibling;
+            if (content) {
+                content.classList.toggle('hidden');
+                // Rotate the arrow
+                const arrow = this.querySelector('span:last-child');
+                if (arrow) {
+                    arrow.style.transform = content.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(90deg)';
+                    arrow.style.transition = 'transform 0.2s ease';
+                }
+            }
+        });
+    });
+});
+</script>

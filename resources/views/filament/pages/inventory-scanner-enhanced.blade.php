@@ -1087,120 +1087,141 @@
     });
     </script>
 
-    {{-- Camera scanning scripts --}}
+    {{-- Camera scanning scripts (uses global barcode scanner) --}}
     @if($mode === 'lookup' || $mode === 'receive' || $mode === 'quickadd')
-    @if(file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
-        @vite('resources/js/barcode-scanner.js')
-    @endif
-    <script type="module">
+    <script>
     (function () {
-        async function setup() {
-            for (let i = 0; i < 10 && !('BarcodeDetector' in window); i++) {
-                await new Promise(r => setTimeout(r, 50));
+        // Wait for barcode scanner to be globally available
+        async function waitForBarcodeScanner(retries = 20) {
+            for (let i = 0; i < retries; i++) {
+                if (window.barcodeScanner?.BrowserMultiFormatReader) {
+                    return true;
+                }
+                await new Promise(r => setTimeout(r, 100));
             }
-            if (!('BarcodeDetector' in window)) return;
+            return false;
+        }
 
-            const btn       = document.getElementById('camera-scan-btn');
+        let codeReader  = null;
+        let stream      = null;
+        let scanning    = false;
+        let lastScanned = null;
+
+        async function bindCameraButtons() {
+            if (!await waitForBarcodeScanner()) {
+                console.warn('Barcode scanner not available');
+                return;
+            }
+
             const container = document.getElementById('camera-container');
             const video     = document.getElementById('camera-video');
             const stopBtn   = document.getElementById('camera-stop-btn');
-            const input     = Array.from(document.querySelectorAll('input')).find(el =>
-                el.getAttribute('wire:model') === 'scanInput' ||
-                el.getAttribute('wire:model.live') === 'scanInput'
-            );
 
-            if (!btn || btn.dataset.scannerBound === '1') return;
-            btn.dataset.scannerBound = '1';
-            btn.classList.remove('hidden');
+            if (!container || !video || !stopBtn) {
+                console.warn('Camera elements not found');
+                return;
+            }
 
-            let stream    = null;
-            let detector  = null;
-            let scanning  = false;
-            let rafHandle = null;
-            let lastDetectionTime = 0;
+            // Find all camera buttons on current page
+            const buttons = document.querySelectorAll('#camera-scan-btn');
 
-            const canvas = document.createElement('canvas');
-            const ctx    = canvas.getContext('2d', { willReadFrequently: true });
+            if (buttons.length === 0) {
+                console.warn('No camera buttons found');
+                return;
+            }
 
-            btn.addEventListener('click', async () => {
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia({
-                        video: {
-                            facingMode: 'environment',
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 }
-                        }
-                    });
-                    video.srcObject = stream;
-                    container.classList.remove('hidden');
-                    btn.classList.add('hidden');
+            buttons.forEach(btn => {
+                if (btn.dataset.scannerBound === '1') return;
+                btn.dataset.scannerBound = '1';
+                btn.classList.remove('hidden');
 
-                    await new Promise(resolve => {
-                        const checkReady = () => {
-                            if (video.readyState >= video.HAVE_CURRENT_DATA) {
-                                resolve();
-                            } else {
-                                setTimeout(checkReady, 50);
-                            }
-                        };
-                        checkReady();
-                    });
-
-                    let formats = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'];
+                btn.addEventListener('click', async () => {
                     try {
-                        const supported = await window.BarcodeDetector.getSupportedFormats();
-                        if (supported && supported.length > 0) {
-                            formats = supported;
+                        // Find the input in the same mode section as this button
+                        const input = btn.closest('[class*="px-"]')?.querySelector('input[wire\\:model*="scanInput"], input[wire\\:model\\.live*="scanInput"]') ||
+                                     Array.from(document.querySelectorAll('input')).find(el =>
+                                        el.getAttribute('wire:model') === 'scanInput' ||
+                                        el.getAttribute('wire:model.live') === 'scanInput'
+                                     );
+
+                        if (!input) {
+                            console.warn('Input element not found');
+                            return;
                         }
-                    } catch (e) {}
 
-                    detector = new window.BarcodeDetector({ formats });
-                    scanning = true;
+                        codeReader = new window.barcodeScanner.BrowserMultiFormatReader();
+                        stream = await navigator.mediaDevices.getUserMedia({
+                            video: {
+                                facingMode: 'environment',
+                                width: { ideal: 1280 },
+                                height: { ideal: 720 }
+                            }
+                        });
 
-                    const scanFrame = async () => {
-                        if (!scanning) return;
+                        video.srcObject = stream;
+                        container.classList.remove('hidden');
+                        btn.classList.add('hidden');
 
-                        try {
-                            canvas.width = video.videoWidth;
-                            canvas.height = video.videoHeight;
-                            ctx.drawImage(video, 0, 0);
+                        await new Promise(resolve => {
+                            const checkReady = () => {
+                                if (video.readyState >= video.HAVE_CURRENT_DATA) {
+                                    resolve();
+                                } else {
+                                    setTimeout(checkReady, 50);
+                                }
+                            };
+                            checkReady();
+                        });
 
-                            const barcodes = await detector.detect(canvas);
-
-                            if (barcodes.length > 0) {
-                                const now = Date.now();
-                                if (now - lastDetectionTime > 1000) {
-                                    const code = barcodes[0].rawValue;
-                                    input.value = code;
-                                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                                    input.focus();
-                                    lastDetectionTime = now;
+                        scanning = true;
+                        await codeReader.decodeFromVideoElement(
+                            video,
+                            (result, err) => {
+                                if (result && scanning) {
+                                    const barcode = result.getText();
+                                    if (barcode !== lastScanned) {
+                                        lastScanned = barcode;
+                                        console.log('[camera-scan] Detected:', barcode);
+                                        input.value = barcode;
+                                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                                        input.focus();
+                                    }
                                 }
                             }
-                        } catch (e) {
-                            console.error('Detection error:', e);
-                        }
-
-                        if (scanning) {
-                            rafHandle = requestAnimationFrame(scanFrame);
-                        }
-                    };
-
-                    scanFrame();
-                } catch (error) {
-                    console.error('Camera error:', error);
-                }
+                        );
+                    } catch (error) {
+                        console.error('Camera error:', error);
+                        alert('Camera error: ' + (error.message || 'Unable to start camera'));
+                    }
+                });
             });
 
-            stopBtn.addEventListener('click', () => {
+            stopBtn.addEventListener('click', function stopCamera() {
                 scanning = false;
-                if (rafHandle) cancelAnimationFrame(rafHandle);
+                if (codeReader) {
+                    try {
+                        codeReader.reset();
+                    } catch (e) {
+                        console.log('Error resetting reader:', e);
+                    }
+                }
                 if (stream) {
                     stream.getTracks().forEach(track => track.stop());
+                    stream = null;
                 }
+                video.srcObject = null;
                 container.classList.add('hidden');
-                btn.classList.remove('hidden');
-            });
+
+                // Show all camera buttons
+                document.querySelectorAll('#camera-scan-btn').forEach(btn => {
+                    btn.classList.remove('hidden');
+                });
+            }, { once: false });
+        }
+
+        async function setup() {
+            await bindCameraButtons();
         }
 
         if (document.readyState === 'loading') {
@@ -1208,6 +1229,12 @@
         } else {
             setup();
         }
+
+        // Rebind camera buttons after Livewire updates (mode switches)
+        document.addEventListener('livewire:updated', () => {
+            console.log('Livewire updated, rebinding camera buttons');
+            bindCameraButtons();
+        });
 
         window.addEventListener('livewire:navigating', () => {
             const stopBtn = document.getElementById('camera-stop-btn');

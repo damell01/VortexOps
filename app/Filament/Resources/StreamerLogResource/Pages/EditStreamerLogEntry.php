@@ -175,6 +175,10 @@ class EditStreamerLogEntry extends EditRecord
         $isStreamer = auth()->user()?->isStreamer() && !auth()->user()?->isAdmin();
 
         if ($isStreamer) {
+            if ($record->approval_status === 'rejected') {
+                return '🔄 Admin requested changes. Please review the notes and make corrections, then resubmit.';
+            }
+
             if (!$record->isSubmitted()) {
                 return '📋 Add and edit your items. When done, submit for admin review using the button above.';
             }

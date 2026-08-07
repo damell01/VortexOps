@@ -164,18 +164,6 @@
                             {{ $totalItems > 0 ? 'Add More Items' : 'Add Items' }}
                         </button>
                     </div>
-
-                    <!-- Full-Screen Items Modal -->
-                    @livewire('streamer-log-items-modal', [
-                        'recordId' => $record->id,
-                        'title' => 'Select Items Sold',
-                        'description' => 'Search and select inventory items for this show',
-                        'multiSelect' => true,
-                        'allowQuantityInput' => true,
-                        'allowCostInput' => true,
-                        'allowCreateItem' => true,
-                        'successEvent' => 'items-added',
-                    ], key('items-modal-' . $record->id))
                 </div>
             </div>
 
@@ -243,6 +231,44 @@
     </div>
     @endif
     @endif
+
+    <!-- Full-Screen Items Modal Overlay -->
+    <div x-show="showItemsModal" class="fixed inset-0 z-50 overflow-hidden" style="display: none;">
+        <!-- Backdrop -->
+        <div x-show="showItemsModal" @click="showItemsModal = false" class="absolute inset-0 bg-black/50"></div>
+
+        <!-- Modal Content -->
+        <div class="relative h-full flex flex-col bg-white dark:bg-slate-900">
+            <!-- Header -->
+            <div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex-shrink-0">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Select Items Sold</h1>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Search and select inventory items for this show</p>
+                    </div>
+                    <button @click="showItemsModal = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 flex-shrink-0 ml-4">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Livewire Component Content Area -->
+            <div class="flex-1 overflow-hidden flex flex-col">
+                @livewire('streamer-log-items-modal', [
+                    'recordId' => $record->id,
+                    'title' => 'Select Items Sold',
+                    'description' => 'Search and select inventory items for this show',
+                    'multiSelect' => true,
+                    'allowQuantityInput' => true,
+                    'allowCostInput' => true,
+                    'allowCreateItem' => true,
+                    'successEvent' => 'items-added',
+                ], key('items-modal-' . $record->id))
+            </div>
+        </div>
+    </div>
 
     <script>
         function wizardData() {

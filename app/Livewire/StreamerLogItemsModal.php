@@ -187,10 +187,8 @@ class StreamerLogItemsModal extends Component
         }
 
         if ($this->successEvent) {
-            $this->dispatch($this->successEvent);
+            $this->js("window.dispatchEvent(new CustomEvent('{$this->successEvent}'))");
         }
-
-        $this->dispatch('closeModal');
     }
 
     public function render()

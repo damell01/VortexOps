@@ -111,37 +111,11 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::HEAD_END,
                 fn (): string => <<<'CSS'
                 <style>
-                /* Mobile sidebar improvements */
+                /* Mobile sidebar z-index adjustments */
                 @media (max-width: 1024px) {
-                    .fi-sidebar {
-                        position: fixed;
-                        left: 0;
-                        top: 0;
-                        height: 100vh;
-                        width: 280px;
-                        max-width: 80vw;
-                        z-index: 40;
-                        overflow-y: auto;
-                    }
-
                     .fi-topbar-open-sidebar-btn {
-                        z-index: 50;
+                        z-index: 50 !important;
                     }
-                }
-
-                /* Ensure navigation items are visible in sidebar */
-                .fi-sidebar nav ul li a,
-                .fi-sidebar-nav-item {
-                    display: flex;
-                    align-items: center;
-                    padding: 0.75rem 1rem;
-                    text-decoration: none;
-                    cursor: pointer;
-                    transition: background-color 0.15s ease;
-                }
-
-                .fi-sidebar-nav-item:hover {
-                    background-color: rgba(124, 58, 237, 0.1);
                 }
                 </style>
                 CSS,

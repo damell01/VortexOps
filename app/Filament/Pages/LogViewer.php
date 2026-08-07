@@ -25,12 +25,6 @@ class LogViewer extends Page
         return ($user?->isAdmin() || $user?->isOwner()) ?? false;
     }
 
-    // Diagnostic tool — only surface it in the owner's menu (still URL-reachable).
-    public static function shouldRegisterNavigation(): bool
-    {
-        return auth()->user()?->isOwner() ?? false;
-    }
-
     public string $selectedFile = '';
     public string $levelFilter  = '';
     public string $search       = '';

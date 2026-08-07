@@ -233,7 +233,7 @@ class ProductInsights extends Page
      */
     public function getRowsProperty(): Collection
     {
-        return Cache::remember($this->cacheKey('rows'), 60, fn () => $this->buildRows());
+        return $this->buildRows();
     }
 
     /**

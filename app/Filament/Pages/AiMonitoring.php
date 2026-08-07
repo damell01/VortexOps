@@ -46,12 +46,6 @@ class AiMonitoring extends Page
             && (($user?->isAdmin() || $user?->isOwner()) ?? false);
     }
 
-    // Owner-facing diagnostic; keep it out of admins' nav but URL-reachable.
-    public static function shouldRegisterNavigation(): bool
-    {
-        return (auth()->user()?->isOwner() ?? false) && AdminModules::isEnabled('ai');
-    }
-
     public function getView(): string
     {
         return 'filament.pages.ai-monitoring';

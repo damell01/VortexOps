@@ -63,10 +63,6 @@ class Shows extends Page
             && ($user?->isAdmin() || $user?->isStreamer());
     }
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        return true;
-    }
 
     #[Computed]
     public function streamers(): Collection

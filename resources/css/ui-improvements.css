@@ -474,8 +474,11 @@
     border: 1px solid var(--vx-card-border) !important;
     box-shadow: var(--vx-shadow-lg) !important;
     background-color: var(--vx-card-bg) !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     animation: vx-fade-up 180ms cubic-bezier(.4, 0, .2, 1) both !important;
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: 85vh !important;
 }
 
 /* Sticky modal header */

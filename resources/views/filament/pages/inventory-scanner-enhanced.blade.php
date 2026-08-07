@@ -1087,18 +1087,26 @@
     });
     </script>
 
-    {{-- Camera scanning scripts --}}
+    {{-- Camera scanning scripts (uses global barcode scanner) --}}
     @if($mode === 'lookup' || $mode === 'receive' || $mode === 'quickadd')
-    @if(file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
-        @vite('resources/js/barcode-scanner.js')
-    @endif
-    <script type="module">
+    <script>
     (function () {
-        async function setup() {
-            for (let i = 0; i < 10 && !('BarcodeDetector' in window); i++) {
-                await new Promise(r => setTimeout(r, 50));
+        // Wait for barcode scanner to be globally available
+        async function waitForBarcodeScanner(retries = 20) {
+            for (let i = 0; i < retries; i++) {
+                if (window.barcodeScanner?.BrowserMultiFormatReader) {
+                    return true;
+                }
+                await new Promise(r => setTimeout(r, 100));
             }
-            if (!('BarcodeDetector' in window)) return;
+            return false;
+        }
+
+        async function setup() {
+            if (!await waitForBarcodeScanner()) {
+                console.warn('Barcode scanner not available');
+                return;
+            }
 
             const btn       = document.getElementById('camera-scan-btn');
             const container = document.getElementById('camera-container');
@@ -1109,21 +1117,23 @@
                 el.getAttribute('wire:model.live') === 'scanInput'
             );
 
-            if (!btn || btn.dataset.scannerBound === '1') return;
+            if (!btn || !container || !video || !stopBtn || !input) {
+                console.warn('Camera elements not found');
+                return;
+            }
+
+            if (btn.dataset.scannerBound === '1') return;
             btn.dataset.scannerBound = '1';
             btn.classList.remove('hidden');
 
-            let stream    = null;
-            let detector  = null;
-            let scanning  = false;
-            let rafHandle = null;
-            let lastDetectionTime = 0;
-
-            const canvas = document.createElement('canvas');
-            const ctx    = canvas.getContext('2d', { willReadFrequently: true });
+            let codeReader  = null;
+            let stream      = null;
+            let scanning    = false;
+            let lastScanned = null;
 
             btn.addEventListener('click', async () => {
                 try {
+                    codeReader = new window.barcodeScanner.BrowserMultiFormatReader();
                     stream = await navigator.mediaDevices.getUserMedia({
                         video: {
                             facingMode: 'environment',
@@ -1131,6 +1141,7 @@
                             height: { ideal: 720 }
                         }
                     });
+
                     video.srcObject = stream;
                     container.classList.remove('hidden');
                     btn.classList.add('hidden');
@@ -1146,58 +1157,43 @@
                         checkReady();
                     });
 
-                    let formats = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'];
-                    try {
-                        const supported = await window.BarcodeDetector.getSupportedFormats();
-                        if (supported && supported.length > 0) {
-                            formats = supported;
-                        }
-                    } catch (e) {}
-
-                    detector = new window.BarcodeDetector({ formats });
                     scanning = true;
-
-                    const scanFrame = async () => {
-                        if (!scanning) return;
-
-                        try {
-                            canvas.width = video.videoWidth;
-                            canvas.height = video.videoHeight;
-                            ctx.drawImage(video, 0, 0);
-
-                            const barcodes = await detector.detect(canvas);
-
-                            if (barcodes.length > 0) {
-                                const now = Date.now();
-                                if (now - lastDetectionTime > 1000) {
-                                    const code = barcodes[0].rawValue;
-                                    input.value = code;
+                    await codeReader.decodeFromVideoElement(
+                        video,
+                        (result, err) => {
+                            if (result && scanning) {
+                                const barcode = result.getText();
+                                if (barcode !== lastScanned) {
+                                    lastScanned = barcode;
+                                    console.log('[camera-scan] Detected:', barcode);
+                                    input.value = barcode;
                                     input.dispatchEvent(new Event('input', { bubbles: true }));
+                                    input.dispatchEvent(new Event('change', { bubbles: true }));
                                     input.focus();
-                                    lastDetectionTime = now;
                                 }
                             }
-                        } catch (e) {
-                            console.error('Detection error:', e);
                         }
-
-                        if (scanning) {
-                            rafHandle = requestAnimationFrame(scanFrame);
-                        }
-                    };
-
-                    scanFrame();
+                    );
                 } catch (error) {
                     console.error('Camera error:', error);
+                    alert('Camera error: ' + (error.message || 'Unable to start camera'));
                 }
             });
 
             stopBtn.addEventListener('click', () => {
                 scanning = false;
-                if (rafHandle) cancelAnimationFrame(rafHandle);
+                if (codeReader) {
+                    try {
+                        codeReader.reset();
+                    } catch (e) {
+                        console.log('Error resetting reader:', e);
+                    }
+                }
                 if (stream) {
                     stream.getTracks().forEach(track => track.stop());
+                    stream = null;
                 }
+                video.srcObject = null;
                 container.classList.add('hidden');
                 btn.classList.remove('hidden');
             });

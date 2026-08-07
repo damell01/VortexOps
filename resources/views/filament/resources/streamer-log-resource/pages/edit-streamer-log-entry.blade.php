@@ -19,7 +19,7 @@
 
 <x-filament-panels::page
     x-data="wizardData()"
-    @items-added.window="itemsAdded()"
+    @items-added.window="itemsAdded(); showItemsModal = false"
 >
     @if($show)
     <!-- Compact Header Row -->
@@ -153,22 +153,29 @@
                         </div>
                     @endif
 
-                    <!-- Inline Items Catalog -->
+                    <!-- Add Items Button -->
                     <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                        <h5 class="font-semibold text-gray-900 dark:text-white mb-4">
+                        <button
+                            @click="showItemsModal = true"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
                             {{ $totalItems > 0 ? 'Add More Items' : 'Add Items' }}
-                        </h5>
-                        @livewire('streamer-log-items-modal', [
-                            'recordId' => $record->id,
-                            'title' => 'Select Items Sold',
-                            'description' => 'Search and select inventory items for this show',
-                            'multiSelect' => true,
-                            'allowQuantityInput' => true,
-                            'allowCostInput' => true,
-                            'allowCreateItem' => true,
-                            'successEvent' => 'items-added',
-                        ], key('items-inline-' . $record->id))
+                        </button>
                     </div>
+
+                    <!-- Full-Screen Items Modal -->
+                    @livewire('streamer-log-items-modal', [
+                        'recordId' => $record->id,
+                        'title' => 'Select Items Sold',
+                        'description' => 'Search and select inventory items for this show',
+                        'multiSelect' => true,
+                        'allowQuantityInput' => true,
+                        'allowCostInput' => true,
+                        'allowCreateItem' => true,
+                        'successEvent' => 'items-added',
+                    ], key('items-modal-' . $record->id))
                 </div>
             </div>
 
@@ -261,6 +268,7 @@
         function wizardData() {
             return {
                 activeTab: 'items',
+                showItemsModal: false,
                 itemsAdded() {
                     window.location.reload();
                 }

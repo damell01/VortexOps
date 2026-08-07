@@ -136,16 +136,41 @@ class ViewInventoryItem extends Page
 
     public function getCostHistoryProperty(): array
     {
-        return $this->record->lots()
-            ->select(['id', 'unit_cost', 'quantity', 'received_at', 'source'])
-            ->orderBy('received_at')
-            ->get()
-            ->map(fn ($lot) => [
-                'date'      => $lot->received_at?->format('M Y') ?? '—',
+        $events = [];
+
+        // Add lot receipts
+        foreach ($this->record->lots()->get() as $lot) {
+            $events[] = [
+                'date'      => $lot->received_at ?? now(),
+                'display'   => $lot->received_at?->format('M d, Y') ?? '—',
+                'type'      => 'lot',
                 'unit_cost' => (float) $lot->unit_cost,
                 'qty'       => (float) $lot->quantity,
                 'source'    => $lot->source,
-            ])->toArray();
+                'note'      => 'Lot received',
+            ];
+        }
+
+        // Add stock movements
+        foreach ($this->record->movements()->with('toLocation')->get() as $movement) {
+            if ($movement->movement_type === 'opening' || $movement->movement_type === 'adjustment') {
+                $lot = $movement->lot;
+                $events[] = [
+                    'date'      => $movement->created_at,
+                    'display'   => $movement->created_at->format('M d, Y g:i A'),
+                    'type'      => 'movement',
+                    'unit_cost' => $lot?->unit_cost ? (float) $lot->unit_cost : 0,
+                    'qty'       => (float) $movement->quantity,
+                    'source'    => $movement->movement_type,
+                    'note'      => $movement->reason ?? 'Stock ' . str_replace('_', ' ', $movement->movement_type),
+                ];
+            }
+        }
+
+        // Sort by date descending
+        usort($events, fn ($a, $b) => $b['date'] <=> $a['date']);
+
+        return $events;
     }
 
     public function getCostBreakdownProperty(): array

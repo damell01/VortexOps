@@ -633,8 +633,11 @@ img, svg, video {
 }
 
 @supports (padding: max(0px)) {
+    nav.fi-topbar {
+        width: -webkit-fill-available !important;
+    }
+
     .fi-topbar {
-        width: 100vw !important;
         padding-top: max(12px, env(safe-area-inset-top));
         padding-right: max(16px, env(safe-area-inset-right));
         padding-bottom: 12px;

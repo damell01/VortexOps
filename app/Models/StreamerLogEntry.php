@@ -194,6 +194,8 @@ class StreamerLogEntry extends Model
             'locked_at' => null,
             'edit_window_minutes' => $this->edit_window_minutes ?? 120, // 2 hours default
         ]);
+
+        $this->deductInventoryOnSubmission();
     }
 
     public function lockReport(): void
@@ -239,12 +241,88 @@ class StreamerLogEntry extends Model
             'locked_at' => null,
         ]);
 
+        $this->restoreInventoryOnRejection();
+
         if ($this->streamer?->user) {
             \Filament\Notifications\Notification::make()
                 ->title('Changes Requested on Your Log Entry')
                 ->body("Your log entry for {$this->show?->title} needs revision.\n\nReason: {$notes}")
                 ->warning()
                 ->sendToDatabase($this->streamer->user);
+        }
+    }
+
+    public function deductInventoryOnSubmission(): void
+    {
+        if (!$this->show) return;
+
+        $inventoryService = app(\App\Services\InventoryService::class);
+        $streamer = $this->streamer;
+        if (!$streamer) return;
+
+        $orders = $this->show->orders()
+            ->with('inventoryItem')
+            ->whereNotNull('inventory_item_id')
+            ->get();
+
+        foreach ($orders as $order) {
+            if (!$order->inventoryItem) continue;
+
+            $item = $order->inventoryItem;
+            $quantity = $order->quantity ?? 1;
+
+            foreach ($streamer->inventoryLocations as $location) {
+                $stock = InventoryStock::where('inventory_item_id', $item->id)
+                    ->where('inventory_location_id', $location->id)
+                    ->first();
+
+                if ($stock && $stock->quantity >= $quantity) {
+                    $inventoryService->adjustStock(
+                        $item,
+                        $location,
+                        (float) $stock->quantity - $quantity,
+                        "Inventory deducted - Streamer submitted log for show: {$this->show->title}"
+                    );
+                    break;
+                }
+            }
+        }
+    }
+
+    public function restoreInventoryOnRejection(): void
+    {
+        if (!$this->show) return;
+
+        $inventoryService = app(\App\Services\InventoryService::class);
+        $streamer = $this->streamer;
+        if (!$streamer) return;
+
+        $orders = $this->show->orders()
+            ->with('inventoryItem')
+            ->whereNotNull('inventory_item_id')
+            ->get();
+
+        foreach ($orders as $order) {
+            if (!$order->inventoryItem) continue;
+
+            $item = $order->inventoryItem;
+            $quantity = $order->quantity ?? 1;
+
+            foreach ($streamer->inventoryLocations as $location) {
+                $stock = InventoryStock::where('inventory_item_id', $item->id)
+                    ->where('inventory_location_id', $location->id)
+                    ->first();
+
+                if ($stock !== null) {
+                    $inventoryService->adjustStock(
+                        $item,
+                        $location,
+                        (float) $stock->quantity + $quantity,
+                        "Inventory restored - Streamer log rejected/changes requested for show: {$this->show->title}"
+                    );
+                    break;
+                }
+            }
         }
     }
 }

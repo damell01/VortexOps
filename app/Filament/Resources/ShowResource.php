@@ -967,10 +967,11 @@ class ShowResource extends Resource
                         ]);
 
                         // Notify admins
-                        \App\Models\User::role('admin')->each(function (User $admin) use ($record, $streamer, $request) {
+                        $showTitle = $record->title ?? ('Show #' . $record->id);
+                        \App\Models\User::role('admin')->each(function (User $admin) use ($record, $streamer, $showTitle) {
                             Notification::make()
                                 ->title('Show Reopening Requested')
-                                ->body("{$streamer->name} requested to edit {$record->title ?? 'Show #' . $record->id}")
+                                ->body("{$streamer->name} requested to edit {$showTitle}")
                                 ->actions([
                                     \Filament\Notifications\Actions\Action::make('review')
                                         ->label('Review')

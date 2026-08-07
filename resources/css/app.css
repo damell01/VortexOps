@@ -2,6 +2,8 @@
 @import 'driver.js/dist/driver.css';
 @import 'animations.css';
 @import 'mobile-optimizations.css';
+@import 'loading-skeletons.css';
+@import 'mobile-enhancements.css';
 
 [x-cloak] { display: none !important; }
 

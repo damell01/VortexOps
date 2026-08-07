@@ -253,23 +253,24 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn (): string => <<<'HTML'
                 <script>
-                // Mobile sidebar toggle handler
+                // Mobile sidebar toggle + swipe gesture handler
                 document.addEventListener('DOMContentLoaded', () => {
                     const sidebar = document.querySelector('.fi-sidebar');
                     const toggleBtn = document.querySelector('.fi-sidebar-toggle');
 
                     if (toggleBtn && sidebar) {
+                        // Toggle on button click
                         toggleBtn.addEventListener('click', (e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             sidebar.classList.toggle('open');
+                        });
 
-                            // Close sidebar when clicking on an item
-                            const navItems = sidebar.querySelectorAll('a');
-                            navItems.forEach(item => {
-                                item.addEventListener('click', () => {
-                                    sidebar.classList.remove('open');
-                                });
+                        // Close sidebar when clicking on a nav item
+                        const navItems = sidebar.querySelectorAll('a');
+                        navItems.forEach(item => {
+                            item.addEventListener('click', () => {
+                                sidebar.classList.remove('open');
                             });
                         });
 
@@ -281,6 +282,33 @@ class AdminPanelProvider extends PanelProvider
                                 sidebar.classList.remove('open');
                             }
                         });
+
+                        // Swipe gesture support (left/right to open/close sidebar)
+                        let touchStartX = 0;
+                        let touchEndX = 0;
+
+                        document.addEventListener('touchstart', (e) => {
+                            touchStartX = e.changedTouches[0].screenX;
+                        }, false);
+
+                        document.addEventListener('touchend', (e) => {
+                            touchEndX = e.changedTouches[0].screenX;
+                            handleSwipe();
+                        }, false);
+
+                        function handleSwipe() {
+                            const swipeThreshold = 50; // minimum distance for swipe
+                            const diff = touchStartX - touchEndX;
+
+                            // Swipe right to open sidebar (from left edge)
+                            if (touchStartX < 50 && diff < -swipeThreshold && !sidebar.classList.contains('open')) {
+                                sidebar.classList.add('open');
+                            }
+                            // Swipe left to close sidebar
+                            else if (diff > swipeThreshold && sidebar.classList.contains('open')) {
+                                sidebar.classList.remove('open');
+                            }
+                        }
                     }
                 });
                 </script>

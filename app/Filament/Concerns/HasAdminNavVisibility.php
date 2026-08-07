@@ -11,6 +11,8 @@ trait HasAdminNavVisibility
      * in navigation. For resources that also use HasModuleAccess, that trait's
      * shouldRegisterNavigation() will handle both module and visibility checks,
      * so this method is only used by resources using HasAdminNavVisibility alone.
+     *
+     * Only shows pages that are explicitly marked visible for the user's role.
      */
     public static function shouldRegisterNavigation(): bool
     {
@@ -25,18 +27,20 @@ trait HasAdminNavVisibility
             return true;
         }
 
-        // For non-owners, check NavVisibility
-        if ($user && NavVisibility::isHiddenForUser(static::class, $user)) {
+        // For non-owners with roles, only show if NOT hidden
+        if ($user) {
+            // Users must have roles configured; if they do, check if page is hidden for them
+            $roleNames = method_exists($user, 'getRoleNames') ? $user->getRoleNames()->all() : [];
+            if (!empty($roleNames)) {
+                // User has roles: show only if not hidden
+                return !NavVisibility::isHiddenForUser(static::class, $user);
+            }
+            // User has no roles: don't show in nav (unless admin/owner, which is handled above)
             return false;
         }
 
-        // If no user, default to showing (public pages)
-        if (!$user) {
-            return true;
-        }
-
-        // Default to showing if not hidden
-        return true;
+        // If no user, don't show
+        return false;
     }
 
     public static function getNavigationItems(): array

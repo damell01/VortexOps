@@ -19,17 +19,30 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-    // Handle collapsible section clicks
+function initCollapsibleSections() {
     const headers = document.querySelectorAll('.mobile-collapsible-header');
     headers.forEach(header => {
-        header.addEventListener('click', (e) => {
+        // Remove existing listeners to prevent duplicates
+        const newHeader = header.cloneNode(true);
+        header.parentNode.replaceChild(newHeader, header);
+
+        newHeader.addEventListener('click', (e) => {
             e.preventDefault();
-            const section = header.closest('.mobile-collapsible');
+            const section = newHeader.closest('.mobile-collapsible');
             if (section) {
                 section.classList.toggle('open');
             }
         });
     });
-});
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', initCollapsibleSections);
+
+// Reinitialize when Livewire updates
+if (window.Livewire) {
+    Livewire.hook('morph.updated', () => {
+        initCollapsibleSections();
+    });
+}
 </script>

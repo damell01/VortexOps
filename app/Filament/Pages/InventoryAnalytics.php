@@ -203,7 +203,7 @@ class InventoryAnalytics extends Page
         $locationIds = $this->getAccessibleLocationIds();
         $locations = InventoryLocation::where('status', 'active')
             ->whereIn('id', $locationIds)
-            ->with('stock')
+            ->with('stock.item')
             ->get()
             ->map(fn ($location) => [
                 'name' => $location->name,

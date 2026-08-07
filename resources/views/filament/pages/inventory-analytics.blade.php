@@ -115,7 +115,7 @@
                     <span>🏪 Top Vendors</span>
                     <span class="text-gray-400">›</span>
                 </button>
-                <div>
+                <div class="hidden">
                 <div class="space-y-3">
                     @foreach($topVendors as $vendor)
                         <div class="flex items-center justify-between p-3 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
@@ -135,7 +135,7 @@
                     <span>🚀 High Value Items</span>
                     <span class="text-gray-400">›</span>
                 </button>
-                <div>
+                <div class="hidden">
                 <div class="space-y-3">
                     @foreach($fastMovers as $item)
                         <div class="flex items-center justify-between p-3 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
@@ -159,7 +159,7 @@
                     <span>💀 Dead Stock</span>
                     <span class="text-gray-400">›</span>
                 </button>
-                <div>
+                <div class="hidden">
                 @if(empty($deadStock))
                     <p class="text-sm text-gray-500 dark:text-gray-400">No dead stock detected</p>
                 @else
@@ -188,7 +188,7 @@
                 <span>📍 Location Health</span>
                 <span class="text-gray-400">›</span>
             </button>
-            <div>
+            <div class="hidden">
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 @foreach($locations as $location)
                     <div class="rounded border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">

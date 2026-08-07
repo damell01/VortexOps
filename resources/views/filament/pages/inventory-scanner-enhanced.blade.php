@@ -1089,9 +1089,17 @@
 
     {{-- Camera scanning scripts (uses global barcode scanner) --}}
     @if($mode === 'lookup' || $mode === 'receive' || $mode === 'quickadd')
-    <script>
+    <script type="module">
+    import { BrowserMultiFormatReader } from 'https://cdn.jsdelivr.net/npm/@zxing/browser@0.0.13/esm/index.js';
+
     (function () {
-        console.log('[inventory-scanner] Script starting, window.barcodeScanner:', window.barcodeScanner);
+        console.log('[inventory-scanner] Script starting');
+
+        // Ensure window.barcodeScanner is available
+        if (!window.barcodeScanner) {
+            window.barcodeScanner = { BrowserMultiFormatReader };
+            console.log('[inventory-scanner] Set window.barcodeScanner with imported BrowserMultiFormatReader');
+        }
 
         // Wait for barcode scanner to be globally available
         async function waitForBarcodeScanner(retries = 20) {

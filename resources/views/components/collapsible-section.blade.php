@@ -1,3 +1,8 @@
+@props([
+    'title' => '',
+    'defaultOpen' => false,
+])
+
 {{-- Mobile Collapsible Section Component --}}
 <div class="mobile-collapsible {{ $defaultOpen ? 'open' : '' }}">
     <div class="mobile-collapsible-header">

@@ -23,7 +23,7 @@ class InventoryAnalytics extends Page
 
     public function getView(): string
     {
-        return 'filament.pages.inventory-analytics';
+        return 'filament.pages.inventory-analytics-mobile';
     }
 
     public static function getNavigationIcon(): string

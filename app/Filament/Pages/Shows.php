@@ -177,5 +177,8 @@ class Shows extends Page
             ->body("Notification sent to " . $show->streamers->count() . " streamer(s)")
             ->success()
             ->send();
+
+        // Refresh the component to show updated form status
+        $this->resetExcept(['filterStatus', 'filterStreamer', 'searchQuery', 'sortBy']);
     }
 }

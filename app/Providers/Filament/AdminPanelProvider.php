@@ -114,27 +114,36 @@ class AdminPanelProvider extends PanelProvider
                 /* Mobile sidebar visibility management */
                 @media (max-width: 1024px) {
                     .fi-sidebar {
-                        position: fixed;
-                        left: -100%;
-                        top: 0;
-                        height: 100vh;
-                        width: 280px;
-                        max-width: 80vw;
-                        z-index: 40;
-                        overflow-y: auto;
-                        transition: left 0.3s ease-in-out;
+                        position: fixed !important;
+                        left: -100% !important;
+                        top: 0 !important;
+                        height: 100vh !important;
+                        width: 280px !important;
+                        max-width: 80vw !important;
+                        z-index: 40 !important;
+                        overflow-y: auto !important;
+                        transition: left 0.3s ease-in-out !important;
                     }
 
                     .fi-sidebar.fi-sidebar-open {
-                        left: 0;
+                        left: 0 !important;
+                    }
+
+                    /* Show sidebar overlay when open */
+                    .fi-sidebar-overlay {
+                        position: fixed !important;
+                        inset: 0 !important;
+                        z-index: 35 !important;
+                        display: block !important;
+                    }
+
+                    .fi-sidebar-overlay:not(.fi-sidebar-open) {
+                        display: none !important;
                     }
 
                     .fi-topbar-open-sidebar-btn {
                         z-index: 50 !important;
-                    }
-
-                    .fi-sidebar-overlay {
-                        z-index: 35;
+                        position: relative !important;
                     }
                 }
                 </style>

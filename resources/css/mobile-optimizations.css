@@ -43,8 +43,17 @@ body {
         touch-action: manipulation;
     }
 
-    /* Let Filament v5 handle mobile sidebar natively - don't override with custom CSS */
-    /* Filament's native responsive behavior handles the sidebar toggle via Alpine.js */
+    /* Mobile sidebar - work with Filament v5's native Alpine.js state (fi-sidebar-open) */
+    /* Filament handles the toggle button and state, we just optimize for mobile display */
+    .fi-sidebar {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Ensure sidebar backdrop is visible when sidebar is open */
+    .fi-sidebar-open .fi-sidebar-backdrop {
+        display: block !important;
+    }
 
     /* Tables responsive */
     .fi-table-container {

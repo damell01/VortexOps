@@ -1087,19 +1087,11 @@
     });
     </script>
 
-    {{-- Camera scanning scripts (uses global barcode scanner) --}}
+    {{-- Camera scanning scripts (uses global barcode scanner from app.js) --}}
     @if($mode === 'lookup' || $mode === 'receive' || $mode === 'quickadd')
-    <script type="module">
-    import { BrowserMultiFormatReader } from 'https://esm.sh/@zxing/browser@0.0.13';
-
+    <script>
     (function () {
-        console.log('[inventory-scanner] Script starting');
-
-        // Ensure window.barcodeScanner is available
-        if (!window.barcodeScanner) {
-            window.barcodeScanner = { BrowserMultiFormatReader };
-            console.log('[inventory-scanner] Set window.barcodeScanner with imported BrowserMultiFormatReader');
-        }
+        console.log('[inventory-scanner] Script starting, window.barcodeScanner:', window.barcodeScanner);
 
         // Wait for barcode scanner to be globally available
         async function waitForBarcodeScanner(retries = 20) {

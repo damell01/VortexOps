@@ -27,16 +27,9 @@ trait HasAdminNavVisibility
             return true;
         }
 
-        // For non-owners with roles, only show if NOT hidden
+        // For non-owners, check NavVisibility — users with no roles see everything
         if ($user) {
-            // Users must have roles configured; if they do, check if page is hidden for them
-            $roleNames = method_exists($user, 'getRoleNames') ? $user->getRoleNames()->all() : [];
-            if (!empty($roleNames)) {
-                // User has roles: show only if not hidden
-                return !NavVisibility::isHiddenForUser(static::class, $user);
-            }
-            // User has no roles: don't show in nav (unless admin/owner, which is handled above)
-            return false;
+            return !NavVisibility::isHiddenForUser(static::class, $user);
         }
 
         // If no user, don't show

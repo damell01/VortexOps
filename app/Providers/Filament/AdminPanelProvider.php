@@ -254,64 +254,73 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => <<<'HTML'
                 <script>
                 // Mobile sidebar toggle + swipe gesture handler
-                document.addEventListener('DOMContentLoaded', () => {
+                function initMobileSidebar() {
                     const sidebar = document.querySelector('.fi-sidebar');
                     const toggleBtn = document.querySelector('.fi-topbar-sidebar-open-btn') ||
-                                    document.querySelector('.fi-sidebar-toggle');
+                                     document.querySelector('.fi-sidebar-toggle') ||
+                                     document.querySelector('[role="button"][aria-label*="sidebar" i]');
 
-                    if (toggleBtn && sidebar) {
-                        // Toggle on button click
-                        toggleBtn.addEventListener('click', (e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            sidebar.classList.toggle('open');
-                        });
-
-                        // Close sidebar when clicking on a nav item
-                        const navItems = sidebar.querySelectorAll('a');
-                        navItems.forEach(item => {
-                            item.addEventListener('click', () => {
-                                sidebar.classList.remove('open');
-                            });
-                        });
-
-                        // Close sidebar when clicking outside (backdrop)
-                        document.addEventListener('click', (e) => {
-                            if (sidebar.classList.contains('open') &&
-                                !sidebar.contains(e.target) &&
-                                !toggleBtn.contains(e.target)) {
-                                sidebar.classList.remove('open');
-                            }
-                        });
-
-                        // Swipe gesture support (left/right to open/close sidebar)
-                        let touchStartX = 0;
-                        let touchEndX = 0;
-
-                        document.addEventListener('touchstart', (e) => {
-                            touchStartX = e.changedTouches[0].screenX;
-                        }, false);
-
-                        document.addEventListener('touchend', (e) => {
-                            touchEndX = e.changedTouches[0].screenX;
-                            handleSwipe();
-                        }, false);
-
-                        function handleSwipe() {
-                            const swipeThreshold = 50; // minimum distance for swipe
-                            const diff = touchStartX - touchEndX;
-
-                            // Swipe right to open sidebar (from left edge)
-                            if (touchStartX < 50 && diff < -swipeThreshold && !sidebar.classList.contains('open')) {
-                                sidebar.classList.add('open');
-                            }
-                            // Swipe left to close sidebar
-                            else if (diff > swipeThreshold && sidebar.classList.contains('open')) {
-                                sidebar.classList.remove('open');
-                            }
-                        }
+                    if (!toggleBtn || !sidebar) {
+                        console.warn('Mobile sidebar: toggle button or sidebar not found');
+                        return;
                     }
-                });
+
+                    // Remove any existing listeners by cloning and replacing
+                    const newToggleBtn = toggleBtn.cloneNode(true);
+                    toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);
+
+                    // Toggle on button click
+                    newToggleBtn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        sidebar.classList.toggle('open');
+                        console.log('Sidebar toggled:', sidebar.classList.contains('open'));
+                    });
+
+                    // Close sidebar when clicking on a nav item
+                    const navItems = sidebar.querySelectorAll('a');
+                    navItems.forEach(item => {
+                        item.addEventListener('click', () => {
+                            sidebar.classList.remove('open');
+                        });
+                    });
+
+                    // Close sidebar when clicking outside (backdrop)
+                    document.addEventListener('click', (e) => {
+                        if (sidebar.classList.contains('open') &&
+                            !sidebar.contains(e.target) &&
+                            !newToggleBtn.contains(e.target)) {
+                            sidebar.classList.remove('open');
+                        }
+                    });
+
+                    // Swipe gesture support
+                    let touchStartX = 0;
+                    let touchEndX = 0;
+
+                    document.addEventListener('touchstart', (e) => {
+                        touchStartX = e.changedTouches[0].screenX;
+                    }, false);
+
+                    document.addEventListener('touchend', (e) => {
+                        touchEndX = e.changedTouches[0].screenX;
+                        const swipeThreshold = 50;
+                        const diff = touchStartX - touchEndX;
+
+                        if (touchStartX < 50 && diff < -swipeThreshold && !sidebar.classList.contains('open')) {
+                            sidebar.classList.add('open');
+                        } else if (diff > swipeThreshold && sidebar.classList.contains('open')) {
+                            sidebar.classList.remove('open');
+                        }
+                    }, false);
+                }
+
+                document.addEventListener('DOMContentLoaded', initMobileSidebar);
+
+                // Reinitialize on Livewire updates
+                if (window.Livewire) {
+                    Livewire.hook('morph.updated', initMobileSidebar);
+                }
                 </script>
                 HTML,
             )

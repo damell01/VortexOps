@@ -309,8 +309,10 @@ html.dark .mobile-collapsible-title {
 }
 
 .mobile-collapsible-icon {
-    width: 18px;
-    height: 18px;
+    width: 18px !important;
+    height: 18px !important;
+    max-width: 18px !important;
+    max-height: 18px !important;
     flex-shrink: 0;
     color: #6b7280;
     transform: rotate(-90deg);

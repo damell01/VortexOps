@@ -16,12 +16,27 @@ trait HasAdminNavVisibility
     {
         $user = auth()->user();
 
-        // Owner always sees everything; check NavVisibility for other users
-        if ($user && ! $user->isOwner() && NavVisibility::isHiddenForUser(static::class, $user)) {
+        // Owner always sees everything (unless NavVisibility explicitly hides it)
+        if ($user?->isOwner()) {
+            // Even owner respects NavVisibility if set
+            if (NavVisibility::isHiddenForUser(static::class, $user)) {
+                return false;
+            }
+            return true;
+        }
+
+        // For non-owners, check NavVisibility
+        if ($user && NavVisibility::isHiddenForUser(static::class, $user)) {
             return false;
         }
 
-        return parent::shouldRegisterNavigation() ?? true;
+        // If no user, default to showing (public pages)
+        if (!$user) {
+            return true;
+        }
+
+        // Default to showing if not hidden
+        return true;
     }
 
     public static function getNavigationItems(): array

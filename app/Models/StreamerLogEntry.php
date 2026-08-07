@@ -222,12 +222,12 @@ class StreamerLogEntry extends Model
             'locked_at' => now(),
         ]);
 
-        if ($this->streamer) {
+        if ($this->streamer?->user) {
             \Filament\Notifications\Notification::make()
                 ->title('✓ Log Entry Approved')
                 ->body("Your log entry for {$this->show?->title} has been approved by admin.")
                 ->success()
-                ->sendToDatabase($this->streamer);
+                ->sendToDatabase($this->streamer->user);
         }
     }
 
@@ -239,12 +239,12 @@ class StreamerLogEntry extends Model
             'locked_at' => null,
         ]);
 
-        if ($this->streamer) {
+        if ($this->streamer?->user) {
             \Filament\Notifications\Notification::make()
                 ->title('Changes Requested on Your Log Entry')
                 ->body("Your log entry for {$this->show?->title} needs revision.\n\nReason: {$notes}")
                 ->warning()
-                ->sendToDatabase($this->streamer);
+                ->sendToDatabase($this->streamer->user);
         }
     }
 }

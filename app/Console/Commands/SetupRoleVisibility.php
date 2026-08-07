@@ -17,10 +17,13 @@ class SetupRoleVisibility extends Command
 
         // Find the actual role names in the database (case-sensitive)
         $streamerRole = \Spatie\Permission\Models\Role::where('name', 'like', '%streamer%')->first();
-        $fulfillmentRole = \Spatie\Permission\Models\Role::where('name', 'like', '%fulfillment%')->first();
+        $fulfillmentRole = \Spatie\Permission\Models\Role::where('name', 'like', '%fulfillment%')
+            ->whereNot('name', 'fulfillment_admin')->first();
+        $fulfillmentAdminRole = \Spatie\Permission\Models\Role::where('name', 'fulfillment_admin')->first();
 
         $streamerRoleName = $streamerRole?->name ?? 'streamer';
         $fulfillmentRoleName = $fulfillmentRole?->name ?? 'fulfillment';
+        $fulfillmentAdminRoleName = $fulfillmentAdminRole?->name ?? 'fulfillment_admin';
 
         // Streamer role — only sees their own shows/payouts and inventory
         $streamerHidden = [
@@ -83,6 +86,10 @@ class SetupRoleVisibility extends Command
 
         NavVisibility::setHiddenForRole($fulfillmentRoleName, $fulfillmentHidden);
         $this->line('✓ ' . $fulfillmentRoleName . ' role: ' . count($fulfillmentHidden) . ' pages hidden');
+
+        // Fulfillment admin role — like admin, sees everything (no hidden pages)
+        NavVisibility::setHiddenForRole($fulfillmentAdminRoleName, []);
+        $this->line('✓ ' . $fulfillmentAdminRoleName . ' role: full access (like admin)');
 
         // Clear memo so changes take effect immediately
         NavVisibility::flushMemo();

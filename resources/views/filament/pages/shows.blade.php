@@ -206,7 +206,7 @@
                                             📋 View Submission
                                         </a>
                                         @if(auth()->user()?->isAdmin())
-                                            <button wire:click="requestFormResubmission({{ $show->id }})"
+                                            <button wire:click="requestFormResubmission('{{ $show->id }}')"
                                                 class="text-xs px-2 py-1 rounded bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-200 hover:bg-orange-200 dark:hover:bg-orange-800 font-medium">
                                                 🔄 Request Changes
                                             </button>
@@ -218,7 +218,7 @@
                                                 📝 Submit Form
                                             </a>
                                         @elseif(auth()->user()?->isAdmin())
-                                            <button wire:click="requestFormSubmission({{ $show->id }})"
+                                            <button wire:click="requestFormSubmission('{{ $show->id }}')"
                                                 class="text-xs px-2 py-1 rounded bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-800 font-medium">
                                                 📬 Request Submission
                                             </button>

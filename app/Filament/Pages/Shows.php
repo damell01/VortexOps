@@ -124,9 +124,9 @@ class Shows extends Page
         $this->sortBy = 'date';
     }
 
-    public function requestFormSubmission(int $showId): void
+    public function requestFormSubmission($showId): void
     {
-        $show = Show::findOrFail($showId);
+        $show = Show::findOrFail((int) $showId);
 
         // Send notifications to all streamers on this show
         foreach ($show->streamers as $streamer) {
@@ -146,9 +146,9 @@ class Shows extends Page
             ->send();
     }
 
-    public function requestFormResubmission(int $showId): void
+    public function requestFormResubmission($showId): void
     {
-        $show = Show::findOrFail($showId);
+        $show = Show::findOrFail((int) $showId);
         $logEntry = $show->streamerLogEntry;
 
         if (!$logEntry) {

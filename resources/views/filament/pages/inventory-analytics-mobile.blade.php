@@ -204,9 +204,9 @@ $deadStock = $this->getDeadStock();
                    class="inline-flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
                     🏪 Manage Locations
                 </a>
-                <a href="{{ route('filament.admin.pages.mobile-scanner-app') }}"
+                <a href="{{ route('filament.admin.resources.inventory-locations.index') }}"
                    class="inline-flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
-                    📱 Scanner
+                    📊 View Stock
                 </a>
             </div>
         </div>

@@ -38,12 +38,8 @@ use Filament\Support\Enums\MaxWidth;
         </button>
     </x-bottom-action-bar>
 
-    <!-- Floating action button for quick add -->
-    <x-floating-action-button label="New Log" icon="📝">
-        <a href="{{ route('filament.admin.resources.streamer-logs.create') }}"
-           class="floating-action-menu-item">
-            ➕ New Log Entry
-        </a>
+    <!-- Floating action button for quick navigation -->
+    <x-floating-action-button label="Menu" icon="⋮">
         <a href="{{ route('filament.admin.resources.shows.index') }}"
            class="floating-action-menu-item">
             🎬 View Shows

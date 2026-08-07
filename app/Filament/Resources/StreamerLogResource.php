@@ -76,7 +76,9 @@ class StreamerLogResource extends Resource
 
     public static function shouldRegisterNavigation(): bool
     {
-        return static::canAccess();
+        $user = auth()->user();
+        // Only show nav link for admins, not streamers
+        return ($user?->isAdmin() || $user?->isOwner()) && AdminModules::isEnabled('streams');
     }
 
     /**

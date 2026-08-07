@@ -121,16 +121,10 @@ class AdminPanelProvider extends PanelProvider
                         width: 280px;
                         max-width: 80vw;
                         z-index: 40;
-                        transform: translateX(-100%);
-                        transition: transform 0.3s ease-in-out;
                         overflow-y: auto;
                     }
 
-                    .fi-sidebar.open {
-                        transform: translateX(0);
-                    }
-
-                    .fi-sidebar-toggle {
+                    .fi-topbar-open-sidebar-btn {
                         z-index: 50;
                     }
                 }

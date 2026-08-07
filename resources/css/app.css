@@ -459,7 +459,7 @@ body {
     padding: 1.25rem 1.5rem !important;
 }
 
-.fi-header-actions-ctn { gap: 0.5rem !important; flex-wrap: wrap !important; }
+.fi-header-actions-ctn { gap: 0.5rem !important; display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; }
 
 /* ═══════════════════════════════════════════
    SECTIONS / CARDS
@@ -810,8 +810,10 @@ textarea.fi-input { padding: 0.5rem 0.75rem !important; line-height: 1.5 !import
     border: 1px solid var(--vx-card-border) !important;
     box-shadow: var(--vx-shadow-lg) !important;
     background-color: var(--vx-card-bg) !important;
-    overflow-x: hidden !important;
-    overflow-y: auto !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: 85vh !important;
 }
 
 .fi-modal-heading {
@@ -819,6 +821,7 @@ textarea.fi-input { padding: 0.5rem 0.75rem !important; line-height: 1.5 !import
     font-weight: 700 !important;
     letter-spacing: -0.02em !important;
     color: var(--vx-text-primary) !important;
+    flex-shrink: 0 !important;
 }
 
 .fi-modal-description {
@@ -827,13 +830,19 @@ textarea.fi-input { padding: 0.5rem 0.75rem !important; line-height: 1.5 !import
     margin-top: 0.25rem !important;
 }
 
-.fi-modal-content { padding: 1.25rem !important; }
+.fi-modal-content {
+    padding: 1.25rem !important;
+    flex-grow: 1 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
 
 .fi-modal-footer-actions {
     padding: 0.875rem 1.25rem !important;
     border-top: 1px solid var(--vx-divider) !important;
     background-color: var(--vx-row-stripe) !important;
     gap: 0.5rem !important;
+    flex-shrink: 0 !important;
 }
 
 .fi-modal-icon-ctn { border-radius: var(--vx-radius) !important; }

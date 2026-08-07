@@ -187,10 +187,11 @@ class EndOfStreamForm extends Page implements HasForms
             // Notify admins of the submission
             $streamerName = $streamer->name ?? 'Unknown Streamer';
             $showTitle = $this->show->title ?? ('Show #' . $this->show->id);
-            User::role('admin')->each(function (User $admin) use ($logEntry, $streamerName, $showTitle) {
+            $itemCount = $logEntry->items_count ?? count($this->selectedItems);
+            User::role('admin')->each(function (User $admin) use ($logEntry, $streamerName, $showTitle, $itemCount) {
                 Notification::make()
                     ->title('Streamer Submitted Items')
-                    ->body("{$streamerName} submitted {$logEntry->items_count ?? 'items'} for {$showTitle}")
+                    ->body("{$streamerName} submitted {$itemCount} items for {$showTitle}")
                     ->actions([
                         \Filament\Notifications\Actions\Action::make('review')
                             ->label('Review')

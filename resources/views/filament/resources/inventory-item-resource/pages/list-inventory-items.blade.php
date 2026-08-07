@@ -13,15 +13,6 @@ use Filament\Support\Enums\MaxWidth;
         {{ $this->table }}
     </div>
 
-    <!-- Mobile enhancements -->
-    <x-infinite-scroll
-        load-more-url="{{ route('filament.admin.resources.inventory-items.index') }}"
-        page-param="page"
-        class="hidden"
-    >
-        <!-- Content loaded via infinite scroll -->
-    </x-infinite-scroll>
-
     <!-- Bottom action bar for bulk and quick operations -->
     <div class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 shadow-lg">
         <div class="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8">

@@ -109,48 +109,6 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => <<<'CSS'
-                <style>
-                /* Mobile sidebar visibility management */
-                @media (max-width: 1024px) {
-                    .fi-sidebar {
-                        position: fixed !important;
-                        left: -100% !important;
-                        top: 0 !important;
-                        height: 100vh !important;
-                        width: 280px !important;
-                        max-width: 80vw !important;
-                        z-index: 40 !important;
-                        overflow-y: auto !important;
-                        transition: left 0.3s ease-in-out !important;
-                    }
-
-                    .fi-sidebar.fi-sidebar-open {
-                        left: 0 !important;
-                    }
-
-                    /* Show sidebar overlay when open */
-                    .fi-sidebar-overlay {
-                        position: fixed !important;
-                        inset: 0 !important;
-                        z-index: 35 !important;
-                        display: block !important;
-                    }
-
-                    .fi-sidebar-overlay:not(.fi-sidebar-open) {
-                        display: none !important;
-                    }
-
-                    .fi-topbar-open-sidebar-btn {
-                        z-index: 50 !important;
-                        position: relative !important;
-                    }
-                }
-                </style>
-                CSS,
-            )
-            ->renderHook(
-                PanelsRenderHook::HEAD_END,
                 function () use ($brandName, $primaryColor, $pwaIconsExist): string {
                     $color  = htmlspecialchars($primaryColor, ENT_QUOTES);
                     $bname  = htmlspecialchars($brandName, ENT_QUOTES);

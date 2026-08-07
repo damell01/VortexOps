@@ -103,7 +103,7 @@ class ViewInventoryItem extends Page
     public function getMovementsProperty(): array
     {
         return $this->record->movements()
-            ->with(['location', 'lot'])
+            ->with(['toLocation', 'lot'])
             ->orderByDesc('created_at')
             ->limit(50)
             ->get()
@@ -111,7 +111,7 @@ class ViewInventoryItem extends Page
                 'id'         => $m->id,
                 'type'       => $m->movement_type,
                 'qty'        => (float) $m->quantity,
-                'location'   => $m->location?->name ?? '—',
+                'location'   => $m->toLocation?->name ?? '—',
                 'reason'     => $m->reason ?? '—',
                 'date'       => $m->created_at->diffForHumans(),
                 'lot_id'     => $m->lot_id,

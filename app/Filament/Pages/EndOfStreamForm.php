@@ -6,6 +6,7 @@ use App\Models\InventoryItem;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
+use App\Models\User;
 use App\Models\WhatnotShowOrder;
 use App\Support\AdminModules;
 use Filament\Forms\Components\Grid;
@@ -182,6 +183,21 @@ class EndOfStreamForm extends Page implements HasForms
                 ->body(count($this->selectedItems) . ' item(s) logged. You have 2 hours to make changes.')
                 ->success()
                 ->send();
+
+            // Notify admins of the submission
+            $streamerName = $streamer->name ?? 'Unknown Streamer';
+            $showTitle = $this->show->title ?? ('Show #' . $this->show->id);
+            User::role('admin')->each(function (User $admin) use ($logEntry, $streamerName, $showTitle) {
+                Notification::make()
+                    ->title('Streamer Submitted Items')
+                    ->body("{$streamerName} submitted {$logEntry->items_count ?? 'items'} for {$showTitle}")
+                    ->actions([
+                        \Filament\Notifications\Actions\Action::make('review')
+                            ->label('Review')
+                            ->url(route('filament.admin.resources.streamer-logs.edit', $logEntry)),
+                    ])
+                    ->sendToDatabase($admin);
+            });
 
             // Redirect to streamer log to review
             $this->redirect(

@@ -253,51 +253,17 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn (): string => <<<'HTML'
                 <script>
-                // Mobile sidebar toggle + swipe gesture handler
-                function initMobileSidebar() {
+                // Mobile sidebar touch/swipe gesture handler
+                // Note: Filament v5 uses Alpine.js for sidebar state ($store.sidebar.isOpen)
+                // The toggle buttons already have x-on:click handlers, so we just add swipe support
+                function initMobileSidebarGestures() {
                     const sidebar = document.querySelector('.fi-sidebar');
-                    const toggleBtn = document.querySelector('.fi-topbar-sidebar-open-btn') ||
-                                     document.querySelector('.fi-sidebar-toggle') ||
-                                     document.querySelector('[role="button"][aria-label*="sidebar" i]');
+                    if (!sidebar) return;
 
-                    if (!toggleBtn || !sidebar) {
-                        console.warn('Mobile sidebar: toggle button or sidebar not found');
-                        return;
-                    }
-
-                    // Remove any existing listeners by cloning and replacing
-                    const newToggleBtn = toggleBtn.cloneNode(true);
-                    toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);
-
-                    // Toggle on button click
-                    newToggleBtn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        sidebar.classList.toggle('open');
-                        console.log('Sidebar toggled:', sidebar.classList.contains('open'));
-                    });
-
-                    // Close sidebar when clicking on a nav item
-                    const navItems = sidebar.querySelectorAll('a');
-                    navItems.forEach(item => {
-                        item.addEventListener('click', () => {
-                            sidebar.classList.remove('open');
-                        });
-                    });
-
-                    // Close sidebar when clicking outside (backdrop)
-                    document.addEventListener('click', (e) => {
-                        if (sidebar.classList.contains('open') &&
-                            !sidebar.contains(e.target) &&
-                            !newToggleBtn.contains(e.target)) {
-                            sidebar.classList.remove('open');
-                        }
-                    });
-
-                    // Swipe gesture support
                     let touchStartX = 0;
                     let touchEndX = 0;
 
+                    // Swipe gesture support
                     document.addEventListener('touchstart', (e) => {
                         touchStartX = e.changedTouches[0].screenX;
                     }, false);
@@ -307,19 +273,44 @@ class AdminPanelProvider extends PanelProvider
                         const swipeThreshold = 50;
                         const diff = touchStartX - touchEndX;
 
-                        if (touchStartX < 50 && diff < -swipeThreshold && !sidebar.classList.contains('open')) {
-                            sidebar.classList.add('open');
-                        } else if (diff > swipeThreshold && sidebar.classList.contains('open')) {
-                            sidebar.classList.remove('open');
+                        // Check if Alpine store is available
+                        if (!window.Alpine) return;
+
+                        // Swipe right to open sidebar (from left edge)
+                        if (touchStartX < 50 && diff < -swipeThreshold) {
+                            const btn = document.querySelector('.fi-topbar-open-sidebar-btn');
+                            if (btn) btn.click();
+                        }
+                        // Swipe left to close sidebar
+                        else if (diff > swipeThreshold) {
+                            const btn = document.querySelector('.fi-topbar-close-sidebar-btn');
+                            if (btn) btn.click();
                         }
                     }, false);
+
+                    // Close sidebar when clicking on a nav link (better UX on mobile)
+                    const navItems = sidebar.querySelectorAll('a[href]');
+                    navItems.forEach(item => {
+                        item.addEventListener('click', () => {
+                            const closeBtn = document.querySelector('.fi-topbar-close-sidebar-btn');
+                            if (closeBtn && closeBtn.offsetParent !== null) { // Only if visible
+                                setTimeout(() => closeBtn.click(), 100);
+                            }
+                        });
+                    });
                 }
 
-                document.addEventListener('DOMContentLoaded', initMobileSidebar);
+                // Initialize once Alpine is ready
+                document.addEventListener('alpine:init', initMobileSidebarGestures);
+                document.addEventListener('DOMContentLoaded', () => {
+                    setTimeout(initMobileSidebarGestures, 100);
+                });
 
                 // Reinitialize on Livewire updates
                 if (window.Livewire) {
-                    Livewire.hook('morph.updated', initMobileSidebar);
+                    Livewire.hook('morph.updated', () => {
+                        setTimeout(initMobileSidebarGestures, 100);
+                    });
                 }
                 </script>
                 HTML,

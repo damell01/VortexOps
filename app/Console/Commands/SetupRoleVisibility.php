@@ -87,6 +87,14 @@ class SetupRoleVisibility extends Command
         NavVisibility::setHiddenForRole($fulfillmentRoleName, $fulfillmentHidden);
         $this->line('✓ ' . $fulfillmentRoleName . ' role: ' . count($fulfillmentHidden) . ' pages hidden');
 
+        // Admin role — full access to all pages
+        NavVisibility::setHiddenForRole('admin', []);
+        $this->line('✓ admin role: full access (sees all pages)');
+
+        // Super admin role — full access to all pages
+        NavVisibility::setHiddenForRole('super_admin', []);
+        $this->line('✓ super_admin role: full access (sees all pages)');
+
         // Fulfillment admin role — like admin, sees everything (no hidden pages)
         NavVisibility::setHiddenForRole($fulfillmentAdminRoleName, []);
         $this->line('✓ ' . $fulfillmentAdminRoleName . ' role: full access (like admin)');

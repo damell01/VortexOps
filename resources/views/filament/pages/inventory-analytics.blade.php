@@ -184,11 +184,11 @@
 
         <!-- Location Health -->
         <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-            <button @click="$el.nextElementSibling.classList.toggle('hidden')" class="w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+            <button type="button" class="collapse-toggle w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors cursor-pointer">
                 <span>📍 Location Health</span>
                 <span class="text-gray-400">›</span>
             </button>
-            <div class="hidden">
+            <div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 @foreach($locations as $location)
                     <div class="rounded border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">

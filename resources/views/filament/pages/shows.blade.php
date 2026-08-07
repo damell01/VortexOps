@@ -186,17 +186,24 @@
                             </td>
                             <td class="px-4 py-3 text-center">
                                 @php
-                                    $hasSubmission = $show->streamerLogEntry !== null;
+                                    $logEntry = $show->streamerLogEntry;
+                                    if (!$logEntry) {
+                                        $statusLabel = 'Pending';
+                                        $statusClass = 'bg-yellow-100 dark:bg-yellow-950 text-yellow-800 dark:text-yellow-200';
+                                        $statusIcon = '⏱';
+                                    } elseif ($logEntry->status === 'admin_approved') {
+                                        $statusLabel = 'Approved';
+                                        $statusClass = 'bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200';
+                                        $statusIcon = '✓';
+                                    } else {
+                                        $statusLabel = 'Submitted';
+                                        $statusClass = 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200';
+                                        $statusIcon = '📋';
+                                    }
                                 @endphp
-                                @if($hasSubmission)
-                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200">
-                                        ✓ Submitted
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-950 text-yellow-800 dark:text-yellow-200">
-                                        ⏱ Pending
-                                    </span>
-                                @endif
+                                <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium {{ $statusClass }}">
+                                    {{ $statusIcon }} {{ $statusLabel }}
+                                </span>
                             </td>
                             <td class="px-4 py-3 text-center">
                                 <div class="flex flex-col gap-2">

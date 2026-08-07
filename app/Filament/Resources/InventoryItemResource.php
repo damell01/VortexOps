@@ -663,11 +663,10 @@ class InventoryItemResource extends Resource
                         ->color('info')
                         ->action(function (InventoryItem $record): void {
                             Notification::make()
-                                ->title('📱 Open camera to scan')
-                                ->body('Using your device\'s camera to scan product barcodes.')
+                                ->title('📱 Scan via item')
+                                ->body('Edit the item to use the barcode scanner.')
                                 ->info()
                                 ->send();
-                            $this->dispatch('open-camera-scanner', barcode: $record->barcode);
                         }),
                 ]),
                 DeleteAction::make(),

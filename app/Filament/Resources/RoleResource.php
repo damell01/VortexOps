@@ -236,12 +236,12 @@ class RoleResource extends Resource
                         ->columnSpan(6),
                     Checkbox::make("page_perms.{$key}.visible")
                         ->label('Visible')
-                        ->default(true)
+                        ->default(false)
                         ->dehydrated(false) // stored in a setting, not on the roles table
                         ->columnSpan(3),
                     Checkbox::make("page_perms.{$key}.editable")
                         ->label('Can Edit')
-                        ->default(true)
+                        ->default(false)
                         ->dehydrated(false) // stored in a setting, not on the roles table
                         ->columnSpan(3),
                 ]);

@@ -112,21 +112,6 @@
         </div>
     </div>
 
-    {{-- Summary Stats --}}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-900/10 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-            <p class="text-sm text-gray-600 dark:text-gray-400">Revenue</p>
-            <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">${{ number_format((float) $log->gross_revenue, 2) }}</p>
-        </div>
-        <div class="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-900/10 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
-            <p class="text-sm text-gray-600 dark:text-gray-400">Product Cost</p>
-            <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">${{ number_format((float) $log->product_cost, 2) }}</p>
-        </div>
-        <div class="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-900/10 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
-            <p class="text-sm text-gray-600 dark:text-gray-400">Items</p>
-            <p class="text-2xl font-bold text-amber-600 dark:text-amber-400">{{ $log->show?->orders()->count() ?? 0 }}</p>
-        </div>
-    </div>
 
     {{-- Actions Section --}}
     <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
@@ -150,6 +135,17 @@
         @switch($currentStep)
             @case('streamer_review')
                 <div class="space-y-4">
+                    @if($log->approval_status === 'rejected')
+                        <div class="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                            <p class="text-sm font-medium text-orange-900 dark:text-orange-100 mb-1">
+                                🔄 Changes Requested
+                            </p>
+                            <p class="text-sm text-orange-800 dark:text-orange-200">
+                                {{ $log->approval_notes ?? 'Admin has requested changes to your submission. Please review and resubmit.' }}
+                            </p>
+                        </div>
+                    @endif
+
                     <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                         <p class="text-sm text-gray-700 dark:text-gray-300">
                             ℹ️ Please review the streamer log information below and submit when everything is correct.
@@ -255,79 +251,30 @@
         @endswitch
     </div>
 
-    {{-- Timeline --}}
-    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-6">Timeline</h3>
-
-        <div class="space-y-4">
-            {{-- Created --}}
-            <div class="flex gap-4">
-                <div class="flex flex-col items-center">
-                    <div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold">
-                        📝
-                    </div>
-                    <div class="w-0.5 h-12 bg-gray-300 dark:bg-gray-600 mt-2"></div>
-                </div>
-                <div class="flex-1 pt-2">
-                    <p class="font-semibold text-gray-900 dark:text-white">Report Created</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ $log->created_at->format('M j, Y g:i A') }}</p>
-                </div>
+    {{-- Compact Timeline --}}
+    <div class="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+        <h4 class="text-sm font-semibold text-gray-900 dark:text-white mb-3">Timeline</h4>
+        <div class="space-y-2 text-sm">
+            <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                <span>📝</span>
+                <span>Created {{ $log->created_at->format('M j, Y') }}</span>
             </div>
-
-            {{-- Submitted --}}
             @if($log->submitted_at)
-                <div class="flex gap-4">
-                    <div class="flex flex-col items-center">
-                        <div class="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center text-yellow-600 dark:text-yellow-400 font-bold">
-                            ✉️
-                        </div>
-                        <div class="w-0.5 h-12 bg-gray-300 dark:bg-gray-600 mt-2"></div>
-                    </div>
-                    <div class="flex-1 pt-2">
-                        <p class="font-semibold text-gray-900 dark:text-white">Submitted by Streamer</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ $log->submitted_at->format('M j, Y g:i A') }}</p>
-                    </div>
+                <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                    <span>✉️</span>
+                    <span>Submitted {{ $log->submitted_at->format('M j, Y') }}</span>
                 </div>
             @endif
-
-            {{-- Admin Review --}}
             @if($log->reviewed_at)
-                <div class="flex gap-4">
-                    <div class="flex flex-col items-center">
-                        <div class="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold">
-                            👨‍💼
-                        </div>
-                        <div class="w-0.5 h-12 bg-gray-300 dark:bg-gray-600 mt-2"></div>
-                    </div>
-                    <div class="flex-1 pt-2">
-                        <p class="font-semibold text-gray-900 dark:text-white">Approved by Admin</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">
-                            {{ $log->reviewed_at->format('M j, Y g:i A') }}
-                            @if($log->reviewedBy)
-                                by {{ $log->reviewedBy->name ?? $log->reviewedBy->email }}
-                            @endif
-                        </p>
-                    </div>
+                <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                    <span>👨‍💼</span>
+                    <span>Approved {{ $log->reviewed_at->format('M j, Y') }}@if($log->reviewedBy) by {{ $log->reviewedBy->name ?? $log->reviewedBy->email }}@endif</span>
                 </div>
             @endif
-
-            {{-- Fulfillment Review --}}
             @if($log->fulfillment_reviewed_at)
-                <div class="flex gap-4">
-                    <div class="flex flex-col items-center">
-                        <div class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center text-green-600 dark:text-green-400 font-bold">
-                            📦
-                        </div>
-                    </div>
-                    <div class="flex-1 pt-2">
-                        <p class="font-semibold text-gray-900 dark:text-white">Fulfillment Approved</p>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">
-                            {{ $log->fulfillment_reviewed_at->format('M j, Y g:i A') }}
-                            @if($log->fulfillmentReviewedBy)
-                                by {{ $log->fulfillmentReviewedBy->name ?? $log->fulfillmentReviewedBy->email }}
-                            @endif
-                        </p>
-                    </div>
+                <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                    <span>📦</span>
+                    <span>Fulfillment {{ $log->fulfillment_reviewed_at->format('M j, Y') }}@if($log->fulfillmentReviewedBy) by {{ $log->fulfillmentReviewedBy->name ?? $log->fulfillmentReviewedBy->email }}@endif</span>
                 </div>
             @endif
         </div>

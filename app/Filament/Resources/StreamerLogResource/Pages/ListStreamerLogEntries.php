@@ -11,6 +11,11 @@ class ListStreamerLogEntries extends ListRecords
 {
     protected static string $resource = StreamerLogResource::class;
 
+    public function getView(): string
+    {
+        return 'filament.resources.streamer-log-resource.pages.list-streamer-log-entries';
+    }
+
     public function getSubheading(): ?string
     {
         $user = auth()->user();

@@ -127,21 +127,20 @@ class EditStreamerLogEntry extends EditRecord
                         ->rows(3),
                 ])
                 ->action(function (array $data) {
+                    // Clear submitted_at so streamer can resubmit
+                    $this->record->update([
+                        'submitted_at' => null,
+                        'reviewed_by' => null,
+                        'reviewed_at' => null,
+                        'locked_at' => null,
+                    ]);
+
                     $this->record->rejectByAdmin($data['approval_notes']);
                     Notification::make()
                         ->title('Report rejected')
                         ->body('Report returned to streamer for revisions.')
                         ->warning()
                         ->send();
-
-                    // Notify streamer
-                    if ($this->record->streamer) {
-                        \Filament\Notifications\Notification::make()
-                            ->title('Changes requested on your log entry')
-                            ->body("Your log entry for {$this->record->show?->title} needs revision.\n\nReason: {$data['approval_notes']}")
-                            ->warning()
-                            ->sendToDatabase($this->record->streamer);
-                    }
 
                     $this->refresh();
                 });
@@ -176,6 +175,10 @@ class EditStreamerLogEntry extends EditRecord
         $isStreamer = auth()->user()?->isStreamer() && !auth()->user()?->isAdmin();
 
         if ($isStreamer) {
+            if ($record->approval_status === 'rejected') {
+                return '🔄 Admin requested changes. Please review the notes and make corrections, then resubmit.';
+            }
+
             if (!$record->isSubmitted()) {
                 return '📋 Add and edit your items. When done, submit for admin review using the button above.';
             }

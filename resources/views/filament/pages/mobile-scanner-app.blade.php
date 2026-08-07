@@ -71,7 +71,7 @@
                                 class="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-gray-900 dark:text-white"
                             >
                                 <option value="">Choose a pallet...</option>
-                                @foreach($this->getPalletsProperty as $pallet)
+                                @foreach($this->getPalletsProperty() as $pallet)
                                     <option value="{{ $pallet->id }}">
                                         {{ $pallet->reference }} ({{ ucfirst($pallet->status) }})
                                     </option>

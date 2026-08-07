@@ -37,145 +37,215 @@
                 </div>
             </div>
         @else
-            {{-- Step 2: Inventory Selection --}}
+            {{-- Step 2: Compact Inventory Submission --}}
             <div class="space-y-4">
-                {{-- Header --}}
-                <div class="flex items-center justify-between">
+                {{-- Header with Show Info & Actions --}}
+                <div class="flex items-start justify-between gap-4 flex-wrap">
                     <div>
                         <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">
                             {{ $this->show->title }}
                         </h2>
                         <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            {{ $this->show->show_date?->format('M j, Y') }} •
-                            Select items you sold
+                            {{ $this->show->show_date?->format('M j, Y') }}
                         </p>
                     </div>
-                    <button type="button"
-                            wire:click="selectShow('')"
-                            class="inline-flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
-                        <x-heroicon-o-arrow-left class="h-4 w-4" />
-                        Change Show
-                    </button>
-                </div>
-
-                {{-- Search Bar --}}
-                <div class="relative">
-                    <input type="text"
-                           wire:model.live.debounce-300ms="search"
-                           placeholder="Search by name, SKU, or brand..."
-                           class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-4 py-3 pl-10 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 dark:focus:border-primary-400 dark:focus:ring-primary-400/20 transition-colors" />
-                    <x-heroicon-o-magnifying-glass class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 dark:text-gray-500 pointer-events-none" />
-                </div>
-
-                {{-- Inventory Cards Grid --}}
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    @forelse ($this->inventory as $item)
-                        @php
-                            $isSelected = in_array($item->id, $this->selectedItems);
-                            $quantity = $this->itemQuantities[$item->id] ?? 1;
-                            $totalStock = $item->stock->sum('quantity');
-                        @endphp
-                        <div class="rounded-lg border-2 {{ $isSelected ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30' : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-600' }} transition-all cursor-pointer overflow-hidden"
-                             wire:click="toggleItem({{ $item->id }})">
-                            <div class="p-4 space-y-3">
-                                {{-- Item Name & SKU --}}
-                                <div>
-                                    <div class="font-semibold text-gray-900 dark:text-gray-100 line-clamp-2">
-                                        {{ $item->name }}
-                                    </div>
-                                    <div class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                        SKU: {{ $item->sku }}
-                                    </div>
-                                </div>
-
-                                {{-- Brand/Details --}}
-                                @if ($item->brand || $item->category)
-                                    <div class="text-xs text-gray-600 dark:text-gray-300 space-y-1">
-                                        @if ($item->brand)
-                                            <div>{{ $item->brand }}</div>
-                                        @endif
-                                        @if ($item->category)
-                                            <div class="text-gray-500 dark:text-gray-400">{{ $item->category }}</div>
-                                        @endif
-                                    </div>
-                                @endif
-
-                                {{-- Stock Indicator --}}
-                                <div class="pt-2 border-t border-gray-200 dark:border-gray-700">
-                                    <div class="text-xs text-gray-600 dark:text-gray-400">
-                                        {{ $totalStock }} in stock
-                                    </div>
-                                </div>
-
-                                {{-- Quantity Input (when selected) --}}
-                                @if ($isSelected)
-                                    <div class="pt-2 border-t border-primary-200 dark:border-primary-800">
-                                        <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                                            Quantity Sold
-                                        </label>
-                                        <input type="number"
-                                               min="1"
-                                               max="{{ $totalStock }}"
-                                               value="{{ $quantity }}"
-                                               @click.stop
-                                               wire:change="updateQuantity({{ $item->id }}, $event.target.value)"
-                                               class="w-full rounded border border-primary-300 dark:border-primary-600 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 dark:focus:border-primary-400 dark:focus:ring-primary-400" />
-                                    </div>
-                                @endif
-
-                                {{-- Selection Indicator --}}
-                                <div class="flex items-center justify-center pt-2">
-                                    @if ($isSelected)
-                                        <div class="inline-flex items-center gap-1 rounded-full bg-primary-500 px-3 py-1">
-                                            <x-heroicon-s-check-circle class="h-4 w-4 text-white" />
-                                            <span class="text-xs font-semibold text-white">Selected</span>
-                                        </div>
-                                    @else
-                                        <div class="text-xs text-gray-500 dark:text-gray-400">Click to select</div>
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-                    @empty
-                        <div class="col-span-full text-center py-12">
-                            <x-heroicon-o-inbox class="h-12 w-12 text-gray-400 dark:text-gray-600 mx-auto mb-3" />
-                            <p class="text-gray-600 dark:text-gray-400">No items found</p>
-                        </div>
-                    @endforelse
-                </div>
-
-                {{-- Selected Items Summary & Submit --}}
-                @if (!empty($this->selectedItems))
-                    <div class="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 shadow-lg">
-                        <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8">
-                            <div class="flex items-center justify-between gap-4">
-                                <div>
-                                    <div class="text-sm text-gray-600 dark:text-gray-400">
-                                        {{ count($this->selectedItems) }} item{{ count($this->selectedItems) !== 1 ? 's' : '' }} selected
-                                    </div>
-                                    <div class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                                        Total: {{ array_sum($this->itemQuantities) }} unit{{ array_sum($this->itemQuantities) !== 1 ? 's' : '' }}
-                                    </div>
-                                </div>
-                                <div class="flex gap-2">
-                                    <button type="button"
-                                            wire:click="selectShow('')"
-                                            class="rounded-lg border border-gray-300 dark:border-gray-600 px-6 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                                        Cancel
-                                    </button>
-                                    <button type="button"
-                                            wire:click="submit"
-                                            class="rounded-lg bg-primary-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-500 transition-colors flex items-center gap-2">
-                                        <x-heroicon-o-check-circle class="h-5 w-5" />
-                                        Save Items
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button type="button"
+                                wire:click="selectShow('')"
+                                class="inline-flex items-center gap-2 rounded-lg bg-gray-100 dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                            <x-heroicon-o-arrow-left class="h-4 w-4" />
+                            Back
+                        </button>
                     </div>
-                    <div class="h-28"></div>
+                </div>
+
+                {{-- Compact Status Bar --}}
+                <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-primary-50 dark:from-blue-900/20 dark:to-primary-900/20 p-4">
+                    <div class="flex items-center justify-between gap-4 flex-wrap">
+                        <div class="flex items-center gap-3 text-sm">
+                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-500 text-white font-semibold">1</span>
+                            <span class="text-gray-700 dark:text-gray-300"><strong>{{ count($this->selectedItems) }}</strong> items selected</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-sm">
+                            <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary-500 text-white font-semibold">2</span>
+                            <span class="text-gray-700 dark:text-gray-300"><strong>{{ array_sum($this->itemQuantities) }}</strong> units total</span>
+                        </div>
+                        <button type="button"
+                                wire:click="$set('showInventoryPicker', true)"
+                                class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-500 transition-colors ml-auto">
+                            <x-heroicon-o-plus-circle class="h-5 w-5" />
+                            Add Items
+                        </button>
+                    </div>
+                </div>
+
+                {{-- Selected Items Table (Compact) --}}
+                @if (!empty($this->selectedItems))
+                    <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                                <tr class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    <th class="px-4 py-2 text-left">Item</th>
+                                    <th class="px-4 py-2 text-center">Qty</th>
+                                    <th class="px-4 py-2 text-right">Stock</th>
+                                    <th class="px-4 py-2 text-center w-20">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                @foreach ($this->inventory->whereIn('id', $this->selectedItems) as $item)
+                                    @php
+                                        $quantity = $this->itemQuantities[$item->id] ?? 1;
+                                        $totalStock = $item->stock->sum('quantity');
+                                    @endphp
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                                        <td class="px-4 py-2">
+                                            <div class="font-medium text-gray-900 dark:text-gray-100 text-sm">{{ $item->name }}</div>
+                                            <div class="text-xs text-gray-500 dark:text-gray-400">{{ $item->sku }}</div>
+                                        </td>
+                                        <td class="px-4 py-2 text-center">
+                                            <input type="number"
+                                                   min="1"
+                                                   max="{{ $totalStock }}"
+                                                   value="{{ $quantity }}"
+                                                   wire:change="updateQuantity({{ $item->id }}, $event.target.value)"
+                                                   class="w-12 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-1 py-1 text-center text-sm text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-1 focus:ring-primary-500" />
+                                        </td>
+                                        <td class="px-4 py-2 text-right text-xs text-gray-600 dark:text-gray-400">{{ (int)$totalStock }}</td>
+                                        <td class="px-4 py-2 text-center">
+                                            <button type="button"
+                                                    wire:click="toggleItem({{ $item->id }})"
+                                                    class="inline-flex items-center text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors">
+                                                <x-heroicon-o-x-mark class="h-4 w-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {{-- Submit Buttons --}}
+                    <div class="flex gap-2">
+                        <button type="button"
+                                wire:click="selectShow('')"
+                                class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                            Cancel
+                        </button>
+                        <button type="button"
+                                wire:click="submit"
+                                class="flex-1 rounded-lg bg-primary-600 px-4 py-3 text-sm font-semibold text-white hover:bg-primary-500 transition-colors flex items-center justify-center gap-2">
+                            <x-heroicon-o-check-circle class="h-5 w-5" />
+                            Submit Items
+                        </button>
+                    </div>
+                @else
+                    <div class="rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 p-8 text-center">
+                        <x-heroicon-o-inbox class="h-10 w-10 text-gray-400 dark:text-gray-600 mx-auto mb-2" />
+                        <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">No items selected yet</p>
+                        <button type="button"
+                                wire:click="$set('showInventoryPicker', true)"
+                                class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-500 transition-colors">
+                            <x-heroicon-o-plus-circle class="h-5 w-5" />
+                            Add Items
+                        </button>
+                    </div>
                 @endif
             </div>
+
+            {{-- Inventory Picker Modal --}}
+            @if ($this->showInventoryPicker ?? false)
+                <div class="fixed inset-0 bg-black/50 dark:bg-black/70 z-40 flex items-center justify-center p-4">
+                    <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+                        {{-- Modal Header --}}
+                        <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 px-6 py-4 flex-shrink-0">
+                            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Add Items to Show</h3>
+                            <button type="button"
+                                    wire:click="$set('showInventoryPicker', false)"
+                                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                                <x-heroicon-o-x-mark class="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        {{-- Search Bar --}}
+                        <div class="border-b border-gray-200 dark:border-gray-800 px-6 py-3 flex-shrink-0">
+                            <div class="relative">
+                                <input type="text"
+                                       wire:model.live.debounce-300ms="search"
+                                       placeholder="Search by name, SKU, or brand..."
+                                       class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 pl-10 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20" />
+                                <x-heroicon-o-magnifying-glass class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
+                            </div>
+                        </div>
+
+                        {{-- Inventory Table --}}
+                        <div class="flex-grow overflow-y-auto">
+                            <table class="w-full text-sm">
+                                <thead class="sticky top-0 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                                    <tr class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        <th class="px-4 py-2 text-left w-6">
+                                            <input type="checkbox" wire:model="selectAll" class="rounded w-4 h-4" />
+                                        </th>
+                                        <th class="px-4 py-2 text-left">Item</th>
+                                        <th class="px-4 py-2 text-right">Stock</th>
+                                        <th class="px-4 py-2 text-center">Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                    @forelse ($this->inventory as $item)
+                                        @php
+                                            $isSelected = in_array($item->id, $this->selectedItems);
+                                            $quantity = $this->itemQuantities[$item->id] ?? 1;
+                                            $totalStock = $item->stock->sum('quantity');
+                                        @endphp
+                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $isSelected ? 'bg-primary-50 dark:bg-primary-900/20' : '' }}">
+                                            <td class="px-4 py-2">
+                                                <input type="checkbox"
+                                                       wire:change="toggleItem({{ $item->id }})"
+                                                       {{ $isSelected ? 'checked' : '' }}
+                                                       class="rounded w-4 h-4" />
+                                            </td>
+                                            <td class="px-4 py-2">
+                                                <div class="font-medium text-gray-900 dark:text-gray-100 text-sm">{{ $item->name }}</div>
+                                                <div class="text-xs text-gray-500 dark:text-gray-400">{{ $item->sku }}</div>
+                                            </td>
+                                            <td class="px-4 py-2 text-right text-sm text-gray-600 dark:text-gray-400">{{ (int)$totalStock }}</td>
+                                            <td class="px-4 py-2">
+                                                @if ($isSelected)
+                                                    <input type="number"
+                                                           min="1"
+                                                           max="{{ $totalStock }}"
+                                                           value="{{ $quantity }}"
+                                                           @click.stop
+                                                           wire:change="updateQuantity({{ $item->id }}, $event.target.value)"
+                                                           class="w-12 rounded border border-primary-300 dark:border-primary-600 bg-white dark:bg-gray-800 px-1 py-1 text-center text-sm text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-1 focus:ring-primary-500" />
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                                No items found
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {{-- Modal Footer --}}
+                        <div class="border-t border-gray-200 dark:border-gray-800 px-6 py-3 flex items-center justify-between flex-shrink-0 bg-gray-50 dark:bg-gray-800">
+                            <p class="text-xs text-gray-600 dark:text-gray-400">
+                                {{ count($this->selectedItems) }} selected
+                            </p>
+                            <button type="button"
+                                    wire:click="$set('showInventoryPicker', false)"
+                                    class="inline-flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-500 transition-colors">
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            @endif
         @endif
     </div>
 </x-filament-panels::page>

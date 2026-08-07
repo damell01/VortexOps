@@ -61,15 +61,23 @@ class FulfillmentResource extends Resource
         $query = parent::getEloquentQuery()
             ->with(['streamers', 'channel', 'fulfillmentUsers'])
             ->whereNotIn('status', ['draft', 'cancelled'])
-            ->whereHas('orders')
-            ->when(
-                ChannelContext::isScoped(),
-                fn (Builder $q) => $q->where('whatnot_channel_id', ChannelContext::currentId())
-            );
+            ->whereHas('orders');
 
         $user = auth()->user();
+
+        // fulfillment_admin and admin see everything (no channel or user filtering)
+        if ($user && ($user->isAdmin() || $user->isOwner() || $user->isFulfillmentAdmin())) {
+            return $query;
+        }
+
+        // Regular fulfillment users see only shows they're assigned to, scoped by channel if set
         if ($user && $user->isFulfillment() && ! $user->isAdmin()) {
             $query->whereHas('fulfillmentUsers', fn (Builder $q) => $q->where('users.id', $user->id));
+        }
+
+        // Channel context applies only to non-admin users
+        if (ChannelContext::isScoped()) {
+            $query->where('whatnot_channel_id', ChannelContext::currentId());
         }
 
         return $query;

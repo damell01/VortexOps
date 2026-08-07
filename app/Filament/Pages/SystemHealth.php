@@ -37,12 +37,6 @@ class SystemHealth extends Page
         return ($user?->isAdmin() || $user?->isOwner()) ?? false;
     }
 
-    // Diagnostic tool — only surface it in the owner's menu (still URL-reachable).
-    public static function shouldRegisterNavigation(): bool
-    {
-        return auth()->user()?->isOwner() ?? false;
-    }
-
     public function getView(): string
     {
         return 'filament.pages.system-health';

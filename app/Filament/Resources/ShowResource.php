@@ -64,7 +64,24 @@ class ShowResource extends Resource
     protected static function passesModuleAccessCheck(): bool { return true; }
 
     public static function canCreate(): bool    { return auth()->user()?->isAdmin() ?? false; }
-    public static function canEdit($r): bool    { return auth()->user()?->isAdmin() ?? false; }
+
+    public static function canEdit($r): bool
+    {
+        $user = auth()->user();
+
+        // Admins can always edit
+        if ($user?->isAdmin()) {
+            return true;
+        }
+
+        // Streamers can edit their own shows if draft or pending_review
+        if ($user?->isStreamer() && $r->streamers->contains($user->streamer?->id)) {
+            return in_array($r->status, ['draft', 'pending_review']);
+        }
+
+        return false;
+    }
+
     public static function canDeleteAny(): bool { return auth()->user()?->isAdmin() ?? false; }
 
     /**
@@ -967,10 +984,11 @@ class ShowResource extends Resource
                         ]);
 
                         // Notify admins
-                        \App\Models\User::role('admin')->each(function (User $admin) use ($record, $streamer, $request) {
+                        $showTitle = $record->title ?? ('Show #' . $record->id);
+                        \App\Models\User::role('admin')->each(function (User $admin) use ($record, $streamer, $showTitle) {
                             Notification::make()
                                 ->title('Show Reopening Requested')
-                                ->body("{$streamer->name} requested to edit {$record->title ?? 'Show #' . $record->id}")
+                                ->body("{$streamer->name} requested to edit {$showTitle}")
                                 ->actions([
                                     \Filament\Notifications\Actions\Action::make('review')
                                         ->label('Review')

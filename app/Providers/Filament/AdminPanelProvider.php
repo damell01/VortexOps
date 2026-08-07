@@ -109,6 +109,51 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
+                fn (): string => <<<'CSS'
+                <style>
+                /* Mobile sidebar improvements */
+                @media (max-width: 1024px) {
+                    .fi-sidebar {
+                        position: fixed;
+                        left: 0;
+                        top: 0;
+                        height: 100vh;
+                        width: 280px;
+                        max-width: 80vw;
+                        z-index: 40;
+                        transform: translateX(-100%);
+                        transition: transform 0.3s ease-in-out;
+                        overflow-y: auto;
+                    }
+
+                    .fi-sidebar.open {
+                        transform: translateX(0);
+                    }
+
+                    .fi-sidebar-toggle {
+                        z-index: 50;
+                    }
+                }
+
+                /* Ensure navigation items are visible in sidebar */
+                .fi-sidebar nav ul li a,
+                .fi-sidebar-nav-item {
+                    display: flex;
+                    align-items: center;
+                    padding: 0.75rem 1rem;
+                    text-decoration: none;
+                    cursor: pointer;
+                    transition: background-color 0.15s ease;
+                }
+
+                .fi-sidebar-nav-item:hover {
+                    background-color: rgba(124, 58, 237, 0.1);
+                }
+                </style>
+                CSS,
+            )
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
                 function () use ($brandName, $primaryColor, $pwaIconsExist): string {
                     $color  = htmlspecialchars($primaryColor, ENT_QUOTES);
                     $bname  = htmlspecialchars($brandName, ENT_QUOTES);
@@ -206,6 +251,72 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
+                fn (): string => <<<'HTML'
+                <script>
+                // Mobile sidebar touch/swipe gesture handler
+                // Note: Filament v5 uses Alpine.js for sidebar state ($store.sidebar.isOpen)
+                // The toggle buttons already have x-on:click handlers, so we just add swipe support
+                function initMobileSidebarGestures() {
+                    const sidebar = document.querySelector('.fi-sidebar');
+                    if (!sidebar) return;
+
+                    let touchStartX = 0;
+                    let touchEndX = 0;
+
+                    // Swipe gesture support
+                    document.addEventListener('touchstart', (e) => {
+                        touchStartX = e.changedTouches[0].screenX;
+                    }, false);
+
+                    document.addEventListener('touchend', (e) => {
+                        touchEndX = e.changedTouches[0].screenX;
+                        const swipeThreshold = 50;
+                        const diff = touchStartX - touchEndX;
+
+                        // Check if Alpine store is available
+                        if (!window.Alpine) return;
+
+                        // Swipe right to open sidebar (from left edge)
+                        if (touchStartX < 50 && diff < -swipeThreshold) {
+                            const btn = document.querySelector('.fi-topbar-open-sidebar-btn');
+                            if (btn) btn.click();
+                        }
+                        // Swipe left to close sidebar
+                        else if (diff > swipeThreshold) {
+                            const btn = document.querySelector('.fi-topbar-close-sidebar-btn');
+                            if (btn) btn.click();
+                        }
+                    }, false);
+
+                    // Close sidebar when clicking on a nav link (better UX on mobile)
+                    const navItems = sidebar.querySelectorAll('a[href]');
+                    navItems.forEach(item => {
+                        item.addEventListener('click', () => {
+                            const closeBtn = document.querySelector('.fi-topbar-close-sidebar-btn');
+                            if (closeBtn && closeBtn.offsetParent !== null) { // Only if visible
+                                setTimeout(() => closeBtn.click(), 100);
+                            }
+                        });
+                    });
+                }
+
+                // Initialize once Alpine is ready
+                document.addEventListener('alpine:init', initMobileSidebarGestures);
+                document.addEventListener('DOMContentLoaded', () => {
+                    setTimeout(initMobileSidebarGestures, 100);
+                });
+
+                // Reinitialize on Livewire updates
+                if (window.Livewire) {
+                    Livewire.hook('morph.updated', () => {
+                        setTimeout(initMobileSidebarGestures, 100);
+                    });
+                }
+                </script>
+                HTML,
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
                 fn (): string => file_exists(public_path('sw.js')) ? <<<'HTML'
                     <script>
                     if ('serviceWorker' in navigator) {
@@ -233,9 +344,6 @@ class AdminPanelProvider extends PanelProvider
                         background:radial-gradient(ellipse 80% 50% at 15% -10%,rgba(139,92,246,.28),transparent 60%),
                                    radial-gradient(ellipse 70% 50% at 100% 100%,rgba(99,102,241,.22),transparent 60%),
                                    linear-gradient(160deg,#f5f3ff 0%,#ede9fe 50%,#e0e7ff 100%)!important;
-                    }
-                    @media (max-width: 768px) {
-                        .fi-sidebar-toggle { display: none !important; }
                     }
                     .fi-simple-layout:has(.vx-login-hero) .fi-simple-main-ctn{
                         position:relative!important;z-index:1!important;background:transparent!important;min-height:100vh!important;

@@ -40,8 +40,8 @@
         @endif
     </div>
 
-    <!-- Items Grid -->
-    <div class="flex-1 overflow-y-auto p-6">
+    <!-- Items Grid - Scrollable -->
+    <div class="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-slate-950">
         @forelse ($items as $item)
             @php
                 $totalStock = $item->stock->sum('quantity_on_hand') ?? 0;
@@ -89,8 +89,8 @@
         @endforelse
     </div>
 
-    <!-- Footer -->
-    <div class="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-6 py-4">
+    <!-- Footer - Fixed -->
+    <div class="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-6 py-4 flex-shrink-0">
         <div class="flex items-center justify-between">
             <div>
                 @if (!empty($selectedItems))

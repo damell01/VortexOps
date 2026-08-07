@@ -169,9 +169,12 @@ class StreamerLogItemsModal extends Component
             return;
         }
 
+        $totalCost = 0;
+
         foreach ($this->selectedItems as $itemId => $data) {
             $item = InventoryItem::find($itemId);
             $unitCost = (float) $data['unit_cost'] ?: ((float) $item?->unit_cost ?? 0);
+            $qty = (int) $data['quantity'];
 
             WhatnotShowOrder::updateOrCreate(
                 [
@@ -179,12 +182,28 @@ class StreamerLogItemsModal extends Component
                     'inventory_item_id' => $itemId,
                 ],
                 [
-                    'quantity' => $data['quantity'],
+                    'quantity' => $qty,
                     'unit_cost' => $unitCost,
-                    'total_cost' => round($unitCost * (int) $data['quantity'], 2),
+                    'total_cost' => round($unitCost * $qty, 2),
                 ]
             );
+
+            $totalCost += round($unitCost * $qty, 2);
         }
+
+        // Update log entry with product cost and set status if still pending
+        $record->update([
+            'product_cost' => $totalCost,
+            'status' => $record->status === 'pending' ? 'pending' : $record->status,
+        ]);
+
+        // Send notification to admins/owners
+        $show = $record->show;
+        \Filament\Notifications\Notification::make()
+            ->title('📦 Items Added to Streamer Log')
+            ->body("Items have been added to the log for \"{$show->title}\"")
+            ->success()
+            ->sendToDatabase($show->streamers->first()?->user);
 
         if ($this->successEvent) {
             $this->js("window.dispatchEvent(new CustomEvent('{$this->successEvent}'))");

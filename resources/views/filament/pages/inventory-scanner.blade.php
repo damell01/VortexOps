@@ -434,24 +434,15 @@
 
     </div>
 
-    {{-- Camera scanning — active only in lookup mode (ZXing barcode detection) --}}
+    {{-- Camera scanning — active only in lookup mode (uses global barcode scanner) --}}
     @if($mode === 'lookup')
-        <script type="module">
-        import { BrowserMultiFormatReader } from '@zxing/browser';
-
+        <script>
         (function () {
-            // Filament runs this panel in SPA mode (wire:navigate), and this
-            // script lives inside the page's own Livewire-rendered content —
-            // navigating here from elsewhere in the app doesn't reliably
-            // re-run an inline <script> the way a hard page load does. Rerun
-            // setup on every SPA navigation, not just the first parse.
-            async function setup() {
-
+            function setup() {
                 const btn       = document.getElementById('camera-scan-btn');
                 const container = document.getElementById('camera-container');
                 const video     = document.getElementById('camera-video');
                 const stopBtn   = document.getElementById('camera-stop-btn');
-                const input     = document.querySelector('input[wire\\:model="scanInput"]');
 
                 if (!btn || btn.dataset.scannerBound === '1') return;
                 btn.dataset.scannerBound = '1';
@@ -461,11 +452,15 @@
                 let stream      = null;
                 let scanning    = false;
                 let lastScanned = null;
-                let scanTimeout = null;
 
                 btn.addEventListener('click', async () => {
+                    if (!window.barcodeScanner?.BrowserMultiFormatReader) {
+                        alert('Barcode scanner not available');
+                        return;
+                    }
+
                     try {
-                        codeReader = new BrowserMultiFormatReader();
+                        codeReader = new window.barcodeScanner.BrowserMultiFormatReader();
                         stream = await navigator.mediaDevices.getUserMedia({
                             video: {
                                 facingMode: 'environment',
@@ -473,6 +468,7 @@
                                 height: { ideal: 720 }
                             }
                         });
+
                         video.srcObject = stream;
                         container.classList.remove('hidden');
                         btn.classList.add('hidden');
@@ -497,14 +493,10 @@
                                     const barcode = result.getText();
                                     if (barcode !== lastScanned) {
                                         lastScanned = barcode;
-                                        console.log('[camera-scan] Detected:', barcode);
+                                        console.log('[inventory-camera] Detected:', barcode);
                                         stopCamera();
                                         @@this.set('scanInput', barcode).then(() => @@this.call('submitScan'));
                                     }
-                                    if (scanTimeout) clearTimeout(scanTimeout);
-                                    scanTimeout = setTimeout(() => {
-                                        lastScanned = null;
-                                    }, 500);
                                 }
                             }
                         );
@@ -518,7 +510,6 @@
 
                 function stopCamera() {
                     scanning = false;
-                    if (scanTimeout) clearTimeout(scanTimeout);
                     if (codeReader) {
                         try {
                             codeReader.reset();
@@ -526,7 +517,10 @@
                             console.log('Error resetting reader:', e);
                         }
                     }
-                    if (stream) stream.getTracks().forEach(t => t.stop());
+                    if (stream) {
+                        stream.getTracks().forEach(t => t.stop());
+                        stream = null;
+                    }
                     video.srcObject = null;
                     container.classList.add('hidden');
                     btn.classList.remove('hidden');

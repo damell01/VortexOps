@@ -111,10 +111,30 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::HEAD_END,
                 fn (): string => <<<'CSS'
                 <style>
-                /* Mobile sidebar z-index adjustments */
+                /* Mobile sidebar visibility management */
                 @media (max-width: 1024px) {
+                    .fi-sidebar {
+                        position: fixed;
+                        left: -100%;
+                        top: 0;
+                        height: 100vh;
+                        width: 280px;
+                        max-width: 80vw;
+                        z-index: 40;
+                        overflow-y: auto;
+                        transition: left 0.3s ease-in-out;
+                    }
+
+                    .fi-sidebar.fi-sidebar-open {
+                        left: 0;
+                    }
+
                     .fi-topbar-open-sidebar-btn {
                         z-index: 50 !important;
+                    }
+
+                    .fi-sidebar-overlay {
+                        z-index: 35;
                     }
                 }
                 </style>

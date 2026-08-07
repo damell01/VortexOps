@@ -153,17 +153,28 @@ class Shows extends Page
     public function requestFormResubmission(int $showId): void
     {
         $show = Show::findOrFail($showId);
+        $logEntry = $show->streamerLogEntry;
 
-        // Send notifications to all streamers on this show
-        foreach ($show->streamers as $streamer) {
-            if ($streamer->user) {
-                \Filament\Notifications\Notification::make()
-                    ->title("🔄 Changes Requested")
-                    ->body("Admin requests changes to your end-of-stream submission for \"{$show->title}\"")
-                    ->warning()
-                    ->sendToDatabase($streamer->user);
-            }
+        if (!$logEntry) {
+            \Filament\Notifications\Notification::make()
+                ->title("Error")
+                ->body("No log entry found for this show")
+                ->danger()
+                ->send();
+            return;
         }
+
+        // Reset submitted_at and reviewed_at to allow re-editing, but keep other fields
+        $logEntry->update([
+            'status' => 'pending',
+            'submitted_at' => null,
+            'reviewed_by' => null,
+            'reviewed_at' => null,
+            'locked_at' => null,
+        ]);
+
+        // Use model method to set rejection status and notify streamer
+        $logEntry->rejectByAdmin('Admin requested changes to your submission.');
 
         \Filament\Notifications\Notification::make()
             ->title("✓ Change request sent")

@@ -150,6 +150,17 @@
         @switch($currentStep)
             @case('streamer_review')
                 <div class="space-y-4">
+                    @if($log->approval_status === 'rejected')
+                        <div class="p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                            <p class="text-sm font-medium text-orange-900 dark:text-orange-100 mb-1">
+                                🔄 Changes Requested
+                            </p>
+                            <p class="text-sm text-orange-800 dark:text-orange-200">
+                                {{ $log->approval_notes ?? 'Admin has requested changes to your submission. Please review and resubmit.' }}
+                            </p>
+                        </div>
+                    @endif
+
                     <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                         <p class="text-sm text-gray-700 dark:text-gray-300">
                             ℹ️ Please review the streamer log information below and submit when everything is correct.

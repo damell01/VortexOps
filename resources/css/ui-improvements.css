@@ -479,6 +479,7 @@
     display: flex !important;
     flex-direction: column !important;
     max-height: 85vh !important;
+    z-index: 51 !important;
 }
 
 /* Sticky modal header */
@@ -587,6 +588,7 @@
     -webkit-backdrop-filter: blur(6px) !important;
     background-color: rgb(0 0 0 / .50) !important;
     animation: vx-fade-in 150ms cubic-bezier(.4, 0, .2, 1) both !important;
+    z-index: 50 !important;
 }
 
 /* Slide-over (side drawer) styling */
@@ -595,6 +597,7 @@
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
     animation: none !important;
+    z-index: 51 !important;
 }
 
 .fi-sl-modal-window[slide-over="right"] {

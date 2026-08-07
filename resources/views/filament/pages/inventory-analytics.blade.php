@@ -81,7 +81,11 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Low Stock Items -->
             <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">⚠️ Low Stock Items</h3>
+                <button @click="$el.nextElementSibling.classList.toggle('hidden')" class="w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                    <span>⚠️ Low Stock Items</span>
+                    <span class="text-gray-400">›</span>
+                </button>
+                <div class="hidden">
                 @if(empty($lowStock))
                     <p class="text-sm text-gray-500 dark:text-gray-400">All items are well stocked</p>
                 @else
@@ -102,11 +106,16 @@
                         @endforeach
                     </div>
                 @endif
+                </div>
             </div>
 
             <!-- Top Vendors -->
             <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">🏪 Top Vendors</h3>
+                <button @click="$el.nextElementSibling.classList.toggle('hidden')" class="w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                    <span>🏪 Top Vendors</span>
+                    <span class="text-gray-400">›</span>
+                </button>
+                <div>
                 <div class="space-y-3">
                     @foreach($topVendors as $vendor)
                         <div class="flex items-center justify-between p-3 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
@@ -117,11 +126,16 @@
                         </div>
                     @endforeach
                 </div>
+                </div>
             </div>
 
             <!-- Fast Movers -->
             <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">🚀 High Value Items</h3>
+                <button @click="$el.nextElementSibling.classList.toggle('hidden')" class="w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                    <span>🚀 High Value Items</span>
+                    <span class="text-gray-400">›</span>
+                </button>
+                <div>
                 <div class="space-y-3">
                     @foreach($fastMovers as $item)
                         <div class="flex items-center justify-between p-3 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
@@ -136,11 +150,16 @@
                         </div>
                     @endforeach
                 </div>
+                </div>
             </div>
 
             <!-- Dead Stock -->
             <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">💀 Dead Stock</h3>
+                <button @click="$el.nextElementSibling.classList.toggle('hidden')" class="w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                    <span>💀 Dead Stock</span>
+                    <span class="text-gray-400">›</span>
+                </button>
+                <div>
                 @if(empty($deadStock))
                     <p class="text-sm text-gray-500 dark:text-gray-400">No dead stock detected</p>
                 @else
@@ -159,12 +178,17 @@
                         @endforeach
                     </div>
                 @endif
+                </div>
             </div>
         </div>
 
         <!-- Location Health -->
         <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-            <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">📍 Location Health</h3>
+            <button @click="$el.nextElementSibling.classList.toggle('hidden')" class="w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors">
+                <span>📍 Location Health</span>
+                <span class="text-gray-400">›</span>
+            </button>
+            <div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 @foreach($locations as $location)
                     <div class="rounded border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
@@ -185,6 +209,7 @@
                         </div>
                     </div>
                 @endforeach
+            </div>
             </div>
         </div>
 

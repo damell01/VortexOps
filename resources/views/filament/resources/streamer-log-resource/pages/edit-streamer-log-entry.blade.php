@@ -244,26 +244,6 @@
     @endif
     @endif
 
-    <!-- Workflow Status & Fulfillment -->
-    <div class="mt-6">
-        <!-- Workflow Status (Compact) -->
-        <div class="mb-4">
-            @livewire('end-of-stream-form', [
-                'log' => $record,
-            ], key('end-of-stream-' . $record->id))
-        </div>
-
-        <!-- Fulfillment Dashboard -->
-        @if(auth()->user()?->isFulfillment() || auth()->user()?->isFulfillmentAdmin() || auth()->user()?->isOwner())
-        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <h3 class="text-sm font-bold text-gray-900 dark:text-white mb-3">📦 Fulfillment</h3>
-            @livewire('fulfillment-dashboard', [
-                'show' => $show,
-            ], key('fulfillment-' . $record->id))
-        </div>
-        @endif
-    </div>
-
     <script>
         function wizardData() {
             return {

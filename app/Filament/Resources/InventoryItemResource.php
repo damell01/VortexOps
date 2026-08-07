@@ -433,7 +433,8 @@ class InventoryItemResource extends Resource
                 IconColumn::make('is_active')
                     ->boolean()
                     ->label('Active')
-                    ->toggleable(),
+                    ->toggleable()
+                    ->width('w-12'),
                 TextColumn::make('barcode')
                     ->label('Barcode')
                     ->searchable()

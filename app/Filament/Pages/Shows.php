@@ -144,6 +144,9 @@ class Shows extends Page
             ->body("Notification sent to " . $show->streamers->count() . " streamer(s)")
             ->success()
             ->send();
+
+        // Reload page after brief delay to show notification
+        $this->js('setTimeout(() => location.reload(), 500)');
     }
 
     public function requestFormResubmission(int $showId): void
@@ -178,7 +181,7 @@ class Shows extends Page
             ->success()
             ->send();
 
-        // Reload the page to reflect updated form status
-        $this->redirectRoute('filament.admin.pages.shows-overview');
+        // Reload page after brief delay to show notification
+        $this->js('setTimeout(() => location.reload(), 500)');
     }
 }

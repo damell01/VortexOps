@@ -1127,7 +1127,13 @@
                 }
 
                 console.log('[inventory-scanner] Requesting camera access...');
-                stream = await navigator.mediaDevices.getUserMedia({
+
+                // Show UI while camera is initializing
+                container.classList.remove('hidden');
+                btn.classList.add('hidden');
+
+                // Add timeout for getUserMedia
+                const cameraPromise = navigator.mediaDevices.getUserMedia({
                     video: {
                         facingMode: 'environment',
                         width: { ideal: 1280 },
@@ -1135,14 +1141,25 @@
                     }
                 });
 
-                video.srcObject = stream;
-                container.classList.remove('hidden');
-                btn.classList.add('hidden');
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Camera access timeout - took too long to respond')), 8000)
+                );
 
-                // Wait for video to be ready
-                await new Promise(resolve => {
+                stream = await Promise.race([cameraPromise, timeoutPromise]);
+
+                console.log('[inventory-scanner] Got camera stream, setting up video...');
+                video.srcObject = stream;
+
+                // Wait for video to be ready with timeout
+                await new Promise((resolve, reject) => {
+                    const startTime = Date.now();
                     const checkReady = () => {
+                        if (Date.now() - startTime > 5000) {
+                            reject(new Error('Video element took too long to load'));
+                            return;
+                        }
                         if (video.readyState >= video.HAVE_CURRENT_DATA) {
+                            console.log('[inventory-scanner] Video ready');
                             resolve();
                         } else {
                             setTimeout(checkReady, 50);
@@ -1180,11 +1197,19 @@
                 }
             } catch (error) {
                 console.error('Camera error:', error);
+                const container = document.getElementById('camera-container');
+                if (container) {
+                    container.classList.add('hidden');
+                }
+                btn.classList.remove('hidden');
+
                 let message = 'Camera error: ';
                 if (error.name === 'NotAllowedError') {
                     message += 'Camera permission denied. Please enable camera access in settings.';
                 } else if (error.name === 'NotFoundError') {
                     message += 'No camera found on this device.';
+                } else if (error.message?.includes('timeout')) {
+                    message += error.message;
                 } else {
                     message += (error.message || 'Unable to start camera');
                 }

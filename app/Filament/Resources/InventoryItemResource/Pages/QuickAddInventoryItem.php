@@ -48,7 +48,6 @@ class QuickAddInventoryItem extends Page
         }
     }
 
-    #[Computed]
     public function form(Form $form): Form
     {
         return $form

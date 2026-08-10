@@ -1180,18 +1180,19 @@
         let boundButtons = new Set();
 
         function getInput(btn) {
-            // First check for quickadd input specifically
-            const quickAddInput = document.getElementById('quickadd-barcode');
-            if (quickAddInput && btn.closest('[class*="emerald"]')) {
-                return quickAddInput;
+            // Search from the button up to find the closest input field
+            let parent = btn.parentElement;
+            while (parent) {
+                const input = parent.querySelector('input[wire\\:model="scanInput"], input[wire\\:model\\.live="scanInput"]');
+                if (input) return input;
+                parent = parent.parentElement;
             }
 
-            // Then try finding within button's container
-            return btn.closest('[class*="px-"]')?.querySelector('input[wire\\:model*="scanInput"], input[wire\\:model\\.live*="scanInput"]') ||
-                   Array.from(document.querySelectorAll('input')).find(el =>
-                      el.getAttribute('wire:model') === 'scanInput' ||
-                      el.getAttribute('wire:model.live') === 'scanInput'
-                   );
+            // Fallback: search entire document for scanInput field
+            return Array.from(document.querySelectorAll('input')).find(el =>
+                el.getAttribute('wire:model') === 'scanInput' ||
+                el.getAttribute('wire:model.live') === 'scanInput'
+            );
         }
 
         async function handleCameraClick(btn) {
@@ -1406,11 +1407,15 @@
             bindCameraButtons();
         }
 
+        // Re-bind camera buttons after ANY Livewire update
         document.addEventListener('livewire:updated', () => {
+            // Clear tracking to force re-binding
             boundButtons.clear();
-            bindCameraButtons();
+            // Give DOM time to settle before binding
+            setTimeout(bindCameraButtons, 50);
         });
 
+        // Stop camera when navigating away
         window.addEventListener('livewire:navigating', () => {
             const stopBtn = document.getElementById('camera-stop-btn');
             if (stopBtn && !stopBtn.closest('.hidden')) {

@@ -50,7 +50,7 @@
                         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Barcode/UPC (optional)</label>
                         <div class="flex gap-2 mt-1">
                             <input type="text" wire:model="data.barcode" placeholder="Scan barcode or enter UPC" class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500" />
-                            <button type="button" wire:click="scanBarcode()" class="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition font-medium text-sm">📷 Scan</button>
+                            <button type="button" id="quickadd-scan-btn" class="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition font-medium text-sm">📷 Scan</button>
                         </div>
                     </div>
                     <div>
@@ -295,13 +295,14 @@
 
             // Bind scan button
             function bindScanButton() {
-                const scanBtn = document.querySelector('button[wire\\:click="scanBarcode()"]');
-                if (scanBtn) {
-                    scanBtn.onclick = (e) => {
+                const scanBtn = document.getElementById('quickadd-scan-btn');
+                if (scanBtn && !scanBtn.dataset.bound) {
+                    scanBtn.dataset.bound = '1';
+                    scanBtn.addEventListener('click', (e) => {
                         e.preventDefault();
                         e.stopPropagation();
                         handleCameraClick();
-                    };
+                    });
                 }
             }
 

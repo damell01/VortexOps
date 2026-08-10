@@ -447,7 +447,6 @@ class InventoryItemResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->striped()
-            ->wrap()
             ->emptyStateIcon('heroicon-o-cube')
             ->emptyStateHeading('No inventory items yet')
             ->emptyStateDescription('Add the products you stock and break. You can also create items on the fly while receiving pallets.')

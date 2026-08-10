@@ -84,7 +84,7 @@ class ViewInventoryItem extends Page
     public function getReceivingHistoryProperty(): array
     {
         return $this->record->palletLines()
-            ->with(['receivingSession.vendor', 'receivingSession'])
+            ->with(['receivingSession.vendor', 'receivingSession', 'lot'])
             ->orderByDesc('created_at')
             ->limit(50)
             ->get()
@@ -94,7 +94,7 @@ class ViewInventoryItem extends Page
                 'vendor'      => $line->receivingSession?->vendor?->name ?? '—',
                 'date'        => $line->created_at->format('M d, Y'),
                 'cases'       => $line->case_count,
-                'unit_cost'   => number_format((float) $line->unit_cost, 2),
+                'unit_cost'   => number_format((float) ($line->lot?->unit_cost ?? $line->unit_cost), 2),
                 'confidence'  => round((float) $line->match_confidence * 100),
                 'stage'       => $line->match_stage ?? '—',
             ])->toArray();

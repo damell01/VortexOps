@@ -1126,56 +1126,27 @@
                     return;
                 }
 
-                console.log('[inventory-scanner] Requesting camera access...');
+                if (!window.barcodeScanner?.BrowserMultiFormatReader) {
+                    console.warn('Barcode scanner not available');
+                    alert('Barcode scanner library not loaded. Please refresh the page.');
+                    return;
+                }
 
-                // Show UI while camera is initializing
+                console.log('[inventory-scanner] Starting barcode scanner...');
                 container.classList.remove('hidden');
                 btn.classList.add('hidden');
 
-                // Add timeout for getUserMedia
-                const cameraPromise = navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    }
-                });
+                // Use the higher-level decodeFromVideoDevice API from zxing
+                // This handles camera permissions, setup, and encoding detection
+                codeReader = new window.barcodeScanner.BrowserMultiFormatReader();
 
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Camera access timeout - took too long to respond')), 8000)
-                );
+                console.log('[inventory-scanner] Using decodeFromVideoDevice - requesting camera...');
 
-                stream = await Promise.race([cameraPromise, timeoutPromise]);
-
-                console.log('[inventory-scanner] Got camera stream, setting up video...');
-                video.srcObject = stream;
-
-                // Wait for video to be ready with timeout
-                await new Promise((resolve, reject) => {
-                    const startTime = Date.now();
-                    const checkReady = () => {
-                        if (Date.now() - startTime > 5000) {
-                            reject(new Error('Video element took too long to load'));
-                            return;
-                        }
-                        if (video.readyState >= video.HAVE_CURRENT_DATA) {
-                            console.log('[inventory-scanner] Video ready');
-                            resolve();
-                        } else {
-                            setTimeout(checkReady, 50);
-                        }
-                    };
-                    checkReady();
-                });
-
-                scanning = true;
-                console.log('[inventory-scanner] Camera ready, starting scan...');
-
-                // Try to use barcode scanner if available
-                if (window.barcodeScanner?.BrowserMultiFormatReader) {
-                    console.log('[inventory-scanner] Using BrowserMultiFormatReader');
-                    codeReader = new window.barcodeScanner.BrowserMultiFormatReader();
-                    await codeReader.decodeFromVideoElement(
+                // decodeFromVideoDevice handles camera permission flow automatically
+                // undefined = auto-select camera, video = target video element
+                const result = await Promise.race([
+                    codeReader.decodeFromVideoDevice(
+                        undefined,
                         video,
                         (result, err) => {
                             if (result && scanning) {
@@ -1186,15 +1157,28 @@
                                     input.value = barcode;
                                     input.dispatchEvent(new Event('input', { bubbles: true }));
                                     input.dispatchEvent(new Event('change', { bubbles: true }));
-                                    input.focus();
+                                    // Auto-submit after scan
+                                    setTimeout(() => {
+                                        input.dispatchEvent(new KeyboardEvent('keydown', {
+                                            key: 'Enter',
+                                            code: 'Enter',
+                                            keyCode: 13,
+                                            bubbles: true
+                                        }));
+                                    }, 100);
                                 }
                             }
                         }
-                    );
-                } else {
-                    console.log('[inventory-scanner] Barcode scanner not available, using camera-only mode');
-                    alert('Camera opened for manual scanning. Scan barcode or paste from scanner.');
-                }
+                    ),
+                    // Timeout if camera doesn't start within 10 seconds
+                    new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Camera initialization timeout')), 10000)
+                    )
+                ]);
+
+                scanning = true;
+                console.log('[inventory-scanner] Camera started, scanning active');
+
             } catch (error) {
                 console.error('Camera error:', error);
                 const container = document.getElementById('camera-container');
@@ -1202,14 +1186,15 @@
                     container.classList.add('hidden');
                 }
                 btn.classList.remove('hidden');
+                scanning = false;
 
                 let message = 'Camera error: ';
                 if (error.name === 'NotAllowedError') {
-                    message += 'Camera permission denied. Please enable camera access in settings.';
+                    message += 'Camera permission denied. Tap Settings > VortexOps > Camera > Allow.';
                 } else if (error.name === 'NotFoundError') {
                     message += 'No camera found on this device.';
                 } else if (error.message?.includes('timeout')) {
-                    message += error.message;
+                    message += 'Camera took too long to start. Check permissions and try again.';
                 } else {
                     message += (error.message || 'Unable to start camera');
                 }

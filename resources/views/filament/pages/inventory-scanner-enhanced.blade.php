@@ -1263,48 +1263,60 @@
 
     // Mobile Scanner Enhancement: Handle paste events and haptic feedback
     (function () {
-        const inputs = Array.from(document.querySelectorAll('input')).filter(input =>
-            input.getAttribute('wire:model') === 'scanInput' ||
-            input.getAttribute('wire:model.live') === 'scanInput'
-        );
+        const boundInputs = new WeakSet();
 
-        inputs.forEach(input => {
-            // Handle paste events (common with mobile barcode scanners)
-            input.addEventListener('paste', (e) => {
-                e.preventDefault();
-                const text = (e.clipboardData || window.clipboardData).getData('text');
-                if (text.trim()) {
-                    input.value = text.trim();
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                    input.dispatchEvent(new Event('change', { bubbles: true }));
+        function setupInputListeners() {
+            const inputs = Array.from(document.querySelectorAll('input')).filter(input =>
+                input.getAttribute('wire:model') === 'scanInput' ||
+                input.getAttribute('wire:model.live') === 'scanInput'
+            );
 
-                    // Haptic feedback on successful paste
-                    if (navigator.vibrate) {
-                        navigator.vibrate([50, 30, 50]);
-                    }
-
-                    // Auto-submit on paste if using Enter key handler
-                    setTimeout(() => {
-                        const enterEvent = new KeyboardEvent('keydown', {
-                            code: 'Enter',
-                            key: 'Enter',
-                            keyCode: 13,
-                            which: 13,
-                            bubbles: true,
-                            cancelable: true
-                        });
-                        input.dispatchEvent(enterEvent);
-                    }, 100);
+            inputs.forEach(input => {
+                if (boundInputs.has(input)) {
+                    return;
                 }
-            });
+                boundInputs.add(input);
 
-            // Ensure proper focus on input after scan
-            input.addEventListener('input', (e) => {
-                e.target.focus();
-            });
-        });
+                input.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const text = (e.clipboardData || window.clipboardData).getData('text');
+                    if (text.trim()) {
+                        input.value = text.trim();
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
 
-        // Livewire hook to vibrate on successful scan
+                        if (navigator.vibrate) {
+                            navigator.vibrate([50, 30, 50]);
+                        }
+
+                        setTimeout(() => {
+                            const enterEvent = new KeyboardEvent('keydown', {
+                                code: 'Enter',
+                                key: 'Enter',
+                                keyCode: 13,
+                                which: 13,
+                                bubbles: true,
+                                cancelable: true
+                            });
+                            input.dispatchEvent(enterEvent);
+                        }, 100);
+                    }
+                });
+
+                input.addEventListener('input', (e) => {
+                    e.target.focus();
+                });
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupInputListeners);
+        } else {
+            setupInputListeners();
+        }
+
+        document.addEventListener('livewire:updated', setupInputListeners);
+
         document.addEventListener('livewire:updated', ({ detail }) => {
             if (detail.succeed && navigator.vibrate) {
                 navigator.vibrate(150);

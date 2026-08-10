@@ -16,6 +16,13 @@
                 Livewire.dispatch('openShowItemsModal');
             };
 
+            // Close modal on Escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    Livewire.dispatch('closeShowItemsModal');
+                }
+            });
+
             // Handle items selected from modal via Livewire event
             Livewire.on('itemsSelected', (payload) => {
                 let items = [];

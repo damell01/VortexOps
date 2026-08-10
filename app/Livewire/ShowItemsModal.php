@@ -116,6 +116,12 @@ class ShowItemsModal extends Component
         $this->openModal();
     }
 
+    #[On('closeShowItemsModal')]
+    public function handleCloseModal(): void
+    {
+        $this->close();
+    }
+
     public function render()
     {
         return view('livewire.show-items-modal', [

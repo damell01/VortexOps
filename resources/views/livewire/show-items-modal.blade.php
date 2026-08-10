@@ -2,8 +2,7 @@
      style="display: {{ $isOpen ? 'flex' : 'none' }};"
      role="dialog"
      aria-modal="true"
-     aria-labelledby="modal-title"
-     @keydown.escape="close()">
+     aria-labelledby="modal-title">
 
     <div class="w-full max-w-5xl max-h-[90vh] rounded-2xl bg-white dark:bg-gray-900 shadow-2xl flex flex-col overflow-hidden">
         <!-- Header -->
@@ -197,4 +196,4 @@
 </div>
 
 <!-- Backdrop click to close -->
-<div class="fixed inset-0 z-40" style="display: {{ $isOpen ? 'block' : 'none' }};" @click="close()"></div>
+<div class="fixed inset-0 z-40" style="display: {{ $isOpen ? 'block' : 'none' }};" wire:click="close()"></div>

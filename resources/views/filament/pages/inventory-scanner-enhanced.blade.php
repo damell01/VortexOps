@@ -317,19 +317,78 @@
             </div>
             @endif
 
-            {{-- Item Header --}}
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $result['name'] }}</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ $result['sku'] ?? '—' }}</p>
-                        @if($result['barcode'])
-                        <p class="text-xs text-gray-400 dark:text-gray-500 font-mono mt-2">{{ $result['barcode'] }}</p>
-                        @endif
+            {{-- Item Header with Quick Actions --}}
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-white to-gray-50 dark:from-gray-900 dark:to-gray-950 p-6">
+                {{-- Header Row --}}
+                <div class="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
+                    <div class="flex items-start justify-between gap-4 mb-3">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-3 mb-2">
+                                <h3 class="text-xl font-bold text-gray-900 dark:text-white truncate">{{ $result['name'] }}</h3>
+                                @if($result['is_low'])
+                                <span class="px-2 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-semibold">Low Stock</span>
+                                @else
+                                <span class="px-2 py-1 rounded-full {{ $result['total_qty'] > $result['reorder'] * 1.5 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' }} text-xs font-semibold">
+                                    {{ $result['total_qty'] > $result['reorder'] * 1.5 ? 'Well Stocked' : 'Adequate Stock' }}
+                                </span>
+                                @endif
+                            </div>
+                            <p class="text-sm font-mono text-gray-600 dark:text-gray-400">SKU: {{ $result['sku'] ?? '—' }}</p>
+                            @if($result['barcode'])
+                            <p class="text-xs text-gray-500 dark:text-gray-500 font-mono mt-1">{{ $result['barcode'] }}</p>
+                            @endif
+                        </div>
+                        {{-- Quick Copy Buttons --}}
+                        <div class="flex gap-2 flex-shrink-0">
+                            @if($result['sku'])
+                            <button onclick="navigator.clipboard.writeText('{{ $result['sku'] }}'); alert('SKU copied!')" type="button" title="Copy SKU" class="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                                <x-heroicon-o-clipboard class="h-4 w-4" />
+                            </button>
+                            @endif
+                            @if($result['barcode'])
+                            <button onclick="navigator.clipboard.writeText('{{ $result['barcode'] }}'); alert('Barcode copied!')" type="button" title="Copy Barcode" class="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                                <x-heroicon-o-qr-code class="h-4 w-4" />
+                            </button>
+                            @endif
+                        </div>
                     </div>
+                </div>
 
-                    {{-- Cost Metrics (NEW) --}}
-                    <div class="grid grid-cols-2 gap-4">
+                {{-- Cost & Stock Metrics --}}
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                    <div class="bg-blue-50 dark:bg-blue-950 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                        <p class="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">Average Cost</p>
+                        <p class="text-lg font-bold text-blue-900 dark:text-blue-100">${{ number_format($result['avg_cost'], 2) }}</p>
+                    </div>
+                    <div class="bg-green-50 dark:bg-green-950 rounded-lg p-4 border {{ $result['is_low'] ? 'border-red-300 dark:border-red-800' : 'border-green-200 dark:border-green-800' }}">
+                        <p class="text-xs font-medium {{ $result['is_low'] ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }} mb-1">Total Stock</p>
+                        <p class="text-lg font-bold {{ $result['is_low'] ? 'text-red-900 dark:text-red-100' : 'text-green-900 dark:text-green-100' }}">{{ $result['total_qty'] }} units</p>
+                    </div>
+                    <div class="bg-purple-50 dark:bg-purple-950 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                        <p class="text-xs font-medium text-purple-600 dark:text-purple-400 mb-1">Inventory Value</p>
+                        <p class="text-lg font-bold text-purple-900 dark:text-purple-100">${{ number_format($result['inventory_value'], 0) }}</p>
+                    </div>
+                    <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 border border-gray-300 dark:border-gray-600">
+                        <p class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Reorder Point</p>
+                        <p class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ $result['reorder'] }} units</p>
+                    </div>
+                </div>
+
+                {{-- Quick Action Buttons --}}
+                <div class="flex flex-wrap gap-2">
+                    <a href="/admin/inventory-items/{{ $result['id'] }}" target="_blank" class="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition">
+                        <x-heroicon-o-eye class="h-4 w-4" />
+                        View Item
+                    </a>
+                    <button onclick="alert('Quick add to cart feature coming soon')" type="button" class="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition">
+                        <x-heroicon-o-shopping-cart class="h-4 w-4" />
+                        Add to Cart
+                    </button>
+                </div>
+            </div>
+
+            {{-- Cost Analysis Section --}}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="bg-blue-50 dark:bg-blue-950 rounded-lg p-3">
                             <p class="text-xs font-medium text-blue-600 dark:text-blue-400">Average Cost</p>
                             <p class="text-xl font-bold text-blue-900 dark:text-blue-100">${{ number_format($result['avg_cost'], 2) }}</p>
@@ -489,9 +548,24 @@
             <div class="flex-1 relative overflow-hidden">
                 <video id="camera-video" class="w-full h-full object-cover" playsinline></video>
 
+                {{-- Loading Overlay (shown while camera initializing) --}}
+                <div id="camera-loading" class="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-4">
+                    <div class="space-y-4">
+                        <div class="flex gap-2 justify-center">
+                            <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0s;"></div>
+                            <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.15s;"></div>
+                            <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.3s;"></div>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-white font-medium text-sm">Opening camera...</p>
+                            <p class="text-gray-300 text-xs mt-2">Requesting access to your device's camera</p>
+                        </div>
+                    </div>
+                </div>
+
                 {{-- Crosshair Overlay (Mobile scanner hint) --}}
                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div class="relative w-48 h-32 border-2 border-green-500/30">
+                    <div class="relative w-48 h-32 border-2 border-green-500/40">
                         {{-- Corner brackets --}}
                         <div class="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-green-500"></div>
                         <div class="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-green-500"></div>
@@ -500,13 +574,21 @@
 
                         {{-- Center dot --}}
                         <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-1 bg-green-500 rounded-full"></div>
+
+                        {{-- Scan line animation --}}
+                        <div class="absolute inset-x-0 top-1/3 h-0.5 bg-gradient-to-r from-transparent via-green-500 to-transparent animate-pulse"></div>
+                    </div>
+
+                    {{-- Guide text --}}
+                    <div class="absolute bottom-16 left-0 right-0 text-center">
+                        <p class="text-green-400 text-sm font-medium">Point camera at barcode</p>
                     </div>
                 </div>
 
                 {{-- Scanning Indicator --}}
-                <div class="absolute top-4 left-4 sm:left-auto sm:right-4 bg-black/60 px-3 py-2 rounded-lg flex items-center gap-2">
+                <div class="absolute top-4 left-4 sm:left-auto sm:right-4 bg-black/70 backdrop-blur px-3 py-2 rounded-lg flex items-center gap-2">
                     <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span class="text-xs font-medium text-white">Scanning...</span>
+                    <span class="text-xs font-medium text-white">Scanning for barcode...</span>
                 </div>
             </div>
 
@@ -1161,6 +1243,11 @@
                 ]);
 
                 scanning = true;
+
+                const loadingOverlay = document.getElementById('camera-loading');
+                if (loadingOverlay) {
+                    loadingOverlay.classList.add('hidden');
+                }
 
             } catch (error) {
                 console.error('Camera error:', error);

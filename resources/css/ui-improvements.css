@@ -152,6 +152,8 @@
     padding: 0.625rem 1rem !important;
     position: relative !important;
     white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 
 .fi-ta-header-cell-sort-btn {
@@ -169,6 +171,22 @@
     margin: -0.25rem -0.375rem !important;
     border-radius: 3px !important;
     white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Table body cells */
+.fi-ta-cell {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Table body cell content */
+.fi-ta-body-cell {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 
 .fi-ta-header-cell-sort-btn:hover {
@@ -276,6 +294,25 @@
     color: var(--vx-text-tertiary) !important;
     text-transform: uppercase !important;
     letter-spacing: 0.02em !important;
+}
+
+/* Table wrapper with horizontal scrolling */
+.fi-ta-table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+
+/* Ensure table has minimum width for content */
+.fi-ta-table {
+    min-width: 100% !important;
+}
+
+/* Prevent table cell text wrapping */
+table th,
+table td {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 
 /* Mobile: improved sort/filter UX */

@@ -265,7 +265,7 @@
                         <x-heroicon-o-x-mark class="h-5 w-5 mx-auto" />
                     </button>
                     @endif
-                    <button id="camera-scan-btn" type="button" class="flex-1 px-3 py-3 rounded-lg bg-violet-500 text-white hover:bg-violet-600 active:bg-violet-700 transition font-medium text-sm" title="Scan with camera">
+                    <button class="camera-scan-btn flex-1 px-3 py-3 rounded-lg bg-violet-500 text-white hover:bg-violet-600 active:bg-violet-700 transition font-medium text-sm" title="Scan with camera" type="button">
                         <x-heroicon-o-video-camera class="h-5 w-5 mx-auto" />
                         Camera
                     </button>
@@ -317,19 +317,78 @@
             </div>
             @endif
 
-            {{-- Item Header --}}
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $result['name'] }}</h3>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">{{ $result['sku'] ?? '—' }}</p>
-                        @if($result['barcode'])
-                        <p class="text-xs text-gray-400 dark:text-gray-500 font-mono mt-2">{{ $result['barcode'] }}</p>
-                        @endif
+            {{-- Item Header with Quick Actions --}}
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-white to-gray-50 dark:from-gray-900 dark:to-gray-950 p-6">
+                {{-- Header Row --}}
+                <div class="mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
+                    <div class="flex items-start justify-between gap-4 mb-3">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-3 mb-2">
+                                <h3 class="text-xl font-bold text-gray-900 dark:text-white truncate">{{ $result['name'] }}</h3>
+                                @if($result['is_low'])
+                                <span class="px-2 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-semibold">Low Stock</span>
+                                @else
+                                <span class="px-2 py-1 rounded-full {{ $result['total_qty'] > $result['reorder'] * 1.5 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' }} text-xs font-semibold">
+                                    {{ $result['total_qty'] > $result['reorder'] * 1.5 ? 'Well Stocked' : 'Adequate Stock' }}
+                                </span>
+                                @endif
+                            </div>
+                            <p class="text-sm font-mono text-gray-600 dark:text-gray-400">SKU: {{ $result['sku'] ?? '—' }}</p>
+                            @if($result['barcode'])
+                            <p class="text-xs text-gray-500 dark:text-gray-500 font-mono mt-1">{{ $result['barcode'] }}</p>
+                            @endif
+                        </div>
+                        {{-- Quick Copy Buttons --}}
+                        <div class="flex gap-2 flex-shrink-0">
+                            @if($result['sku'])
+                            <button onclick="navigator.clipboard.writeText('{{ $result['sku'] }}'); alert('SKU copied!')" type="button" title="Copy SKU" class="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                                <x-heroicon-o-clipboard class="h-4 w-4" />
+                            </button>
+                            @endif
+                            @if($result['barcode'])
+                            <button onclick="navigator.clipboard.writeText('{{ $result['barcode'] }}'); alert('Barcode copied!')" type="button" title="Copy Barcode" class="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 transition">
+                                <x-heroicon-o-qr-code class="h-4 w-4" />
+                            </button>
+                            @endif
+                        </div>
                     </div>
+                </div>
 
-                    {{-- Cost Metrics (NEW) --}}
-                    <div class="grid grid-cols-2 gap-4">
+                {{-- Cost & Stock Metrics --}}
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                    <div class="bg-blue-50 dark:bg-blue-950 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                        <p class="text-xs font-medium text-blue-600 dark:text-blue-400 mb-1">Average Cost</p>
+                        <p class="text-lg font-bold text-blue-900 dark:text-blue-100">${{ number_format($result['avg_cost'], 2) }}</p>
+                    </div>
+                    <div class="bg-green-50 dark:bg-green-950 rounded-lg p-4 border {{ $result['is_low'] ? 'border-red-300 dark:border-red-800' : 'border-green-200 dark:border-green-800' }}">
+                        <p class="text-xs font-medium {{ $result['is_low'] ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }} mb-1">Total Stock</p>
+                        <p class="text-lg font-bold {{ $result['is_low'] ? 'text-red-900 dark:text-red-100' : 'text-green-900 dark:text-green-100' }}">{{ $result['total_qty'] }} units</p>
+                    </div>
+                    <div class="bg-purple-50 dark:bg-purple-950 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                        <p class="text-xs font-medium text-purple-600 dark:text-purple-400 mb-1">Inventory Value</p>
+                        <p class="text-lg font-bold text-purple-900 dark:text-purple-100">${{ number_format($result['inventory_value'], 0) }}</p>
+                    </div>
+                    <div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-4 border border-gray-300 dark:border-gray-600">
+                        <p class="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Reorder Point</p>
+                        <p class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ $result['reorder'] }} units</p>
+                    </div>
+                </div>
+
+                {{-- Quick Action Buttons --}}
+                <div class="flex flex-wrap gap-2">
+                    <a href="/admin/inventory-items/{{ $result['id'] }}" target="_blank" class="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition">
+                        <x-heroicon-o-eye class="h-4 w-4" />
+                        View Item
+                    </a>
+                    <button onclick="alert('Quick add to cart feature coming soon')" type="button" class="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition">
+                        <x-heroicon-o-shopping-cart class="h-4 w-4" />
+                        Add to Cart
+                    </button>
+                </div>
+            </div>
+
+            {{-- Cost Analysis Section --}}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="bg-blue-50 dark:bg-blue-950 rounded-lg p-3">
                             <p class="text-xs font-medium text-blue-600 dark:text-blue-400">Average Cost</p>
                             <p class="text-xl font-bold text-blue-900 dark:text-blue-100">${{ number_format($result['avg_cost'], 2) }}</p>
@@ -489,9 +548,24 @@
             <div class="flex-1 relative overflow-hidden">
                 <video id="camera-video" class="w-full h-full object-cover" playsinline></video>
 
+                {{-- Loading Overlay (shown while camera initializing) --}}
+                <div id="camera-loading" class="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-4">
+                    <div class="space-y-4">
+                        <div class="flex gap-2 justify-center">
+                            <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0s;"></div>
+                            <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.15s;"></div>
+                            <div class="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style="animation-delay: 0.3s;"></div>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-white font-medium text-sm">Opening camera...</p>
+                            <p class="text-gray-300 text-xs mt-2">Requesting access to your device's camera</p>
+                        </div>
+                    </div>
+                </div>
+
                 {{-- Crosshair Overlay (Mobile scanner hint) --}}
                 <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div class="relative w-48 h-32 border-2 border-green-500/30">
+                    <div class="relative w-48 h-32 border-2 border-green-500/40">
                         {{-- Corner brackets --}}
                         <div class="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-green-500"></div>
                         <div class="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-green-500"></div>
@@ -500,13 +574,21 @@
 
                         {{-- Center dot --}}
                         <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-1 bg-green-500 rounded-full"></div>
+
+                        {{-- Scan line animation --}}
+                        <div class="absolute inset-x-0 top-1/3 h-0.5 bg-gradient-to-r from-transparent via-green-500 to-transparent animate-pulse"></div>
+                    </div>
+
+                    {{-- Guide text --}}
+                    <div class="absolute bottom-16 left-0 right-0 text-center">
+                        <p class="text-green-400 text-sm font-medium">Point camera at barcode</p>
                     </div>
                 </div>
 
                 {{-- Scanning Indicator --}}
-                <div class="absolute top-4 left-4 sm:left-auto sm:right-4 bg-black/60 px-3 py-2 rounded-lg flex items-center gap-2">
+                <div class="absolute top-4 left-4 sm:left-auto sm:right-4 bg-black/70 backdrop-blur px-3 py-2 rounded-lg flex items-center gap-2">
                     <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span class="text-xs font-medium text-white">Scanning...</span>
+                    <span class="text-xs font-medium text-white">Scanning for barcode...</span>
                 </div>
             </div>
 
@@ -577,7 +659,7 @@
                         <x-heroicon-o-x-mark class="h-5 w-5 mx-auto" />
                     </button>
                     @endif
-                    <button id="camera-scan-btn" type="button" class="flex-1 px-3 py-3 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 active:bg-emerald-700 transition font-medium text-sm" title="Scan with camera">
+                    <button class="camera-scan-btn flex-1 px-3 py-3 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 active:bg-emerald-700 transition font-medium text-sm" title="Scan with camera" type="button">
                         <x-heroicon-o-video-camera class="h-5 w-5 mx-auto" />
                     </button>
                     <button wire:click="submitScan" type="button"
@@ -1087,152 +1169,238 @@
     });
     </script>
 
-    {{-- Camera scanning scripts (uses global barcode scanner) --}}
+    {{-- Camera scanning scripts (uses global barcode scanner from app.js) --}}
     @if($mode === 'lookup' || $mode === 'receive' || $mode === 'quickadd')
     <script>
     (function () {
-        // Wait for barcode scanner to be globally available
-        async function waitForBarcodeScanner(retries = 20) {
-            for (let i = 0; i < retries; i++) {
-                if (window.barcodeScanner?.BrowserMultiFormatReader) {
-                    return true;
-                }
-                await new Promise(r => setTimeout(r, 100));
-            }
-            return false;
-        }
-
         let codeReader  = null;
         let stream      = null;
         let scanning    = false;
         let lastScanned = null;
+        let boundButtons = new Set();
 
-        async function bindCameraButtons() {
-            if (!await waitForBarcodeScanner()) {
-                console.warn('Barcode scanner not available');
-                return;
-            }
+        function getInput(btn) {
+            return btn.closest('[class*="px-"]')?.querySelector('input[wire\\:model*="scanInput"], input[wire\\:model\\.live*="scanInput"]') ||
+                   Array.from(document.querySelectorAll('input')).find(el =>
+                      el.getAttribute('wire:model') === 'scanInput' ||
+                      el.getAttribute('wire:model.live') === 'scanInput'
+                   );
+        }
 
-            const container = document.getElementById('camera-container');
-            const video     = document.getElementById('camera-video');
-            const stopBtn   = document.getElementById('camera-stop-btn');
-
-            if (!container || !video || !stopBtn) {
-                console.warn('Camera elements not found');
-                return;
-            }
-
-            // Find all camera buttons on current page
-            const buttons = document.querySelectorAll('#camera-scan-btn');
-
-            if (buttons.length === 0) {
-                console.warn('No camera buttons found');
-                return;
-            }
-
-            buttons.forEach(btn => {
-                if (btn.dataset.scannerBound === '1') return;
-                btn.dataset.scannerBound = '1';
-                btn.classList.remove('hidden');
-
-                btn.addEventListener('click', async () => {
-                    try {
-                        // Find the input in the same mode section as this button
-                        const input = btn.closest('[class*="px-"]')?.querySelector('input[wire\\:model*="scanInput"], input[wire\\:model\\.live*="scanInput"]') ||
-                                     Array.from(document.querySelectorAll('input')).find(el =>
-                                        el.getAttribute('wire:model') === 'scanInput' ||
-                                        el.getAttribute('wire:model.live') === 'scanInput'
-                                     );
-
-                        if (!input) {
-                            console.warn('Input element not found');
-                            return;
-                        }
-
-                        codeReader = new window.barcodeScanner.BrowserMultiFormatReader();
-                        stream = await navigator.mediaDevices.getUserMedia({
-                            video: {
-                                facingMode: 'environment',
-                                width: { ideal: 1280 },
-                                height: { ideal: 720 }
-                            }
-                        });
-
-                        video.srcObject = stream;
-                        container.classList.remove('hidden');
-                        btn.classList.add('hidden');
-
-                        await new Promise(resolve => {
-                            const checkReady = () => {
-                                if (video.readyState >= video.HAVE_CURRENT_DATA) {
-                                    resolve();
-                                } else {
-                                    setTimeout(checkReady, 50);
-                                }
-                            };
-                            checkReady();
-                        });
-
-                        scanning = true;
-                        await codeReader.decodeFromVideoElement(
-                            video,
-                            (result, err) => {
-                                if (result && scanning) {
-                                    const barcode = result.getText();
-                                    if (barcode !== lastScanned) {
-                                        lastScanned = barcode;
-                                        console.log('[camera-scan] Detected:', barcode);
-                                        input.value = barcode;
-                                        input.dispatchEvent(new Event('input', { bubbles: true }));
-                                        input.dispatchEvent(new Event('change', { bubbles: true }));
-                                        input.focus();
-                                    }
-                                }
-                            }
-                        );
-                    } catch (error) {
-                        console.error('Camera error:', error);
-                        alert('Camera error: ' + (error.message || 'Unable to start camera'));
-                    }
-                });
-            });
-
-            stopBtn.addEventListener('click', function stopCamera() {
-                scanning = false;
-                if (codeReader) {
-                    try {
-                        codeReader.reset();
-                    } catch (e) {
-                        console.log('Error resetting reader:', e);
-                    }
+        async function handleCameraClick(btn) {
+            try {
+                // Prevent opening camera if already scanning
+                if (scanning) {
+                    return;
                 }
+
+                const input = getInput(btn);
+                if (!input) {
+                    alert('Error: Input field not found');
+                    return;
+                }
+
+                const container = document.getElementById('camera-container');
+                const video = document.getElementById('camera-video');
+
+                if (!container || !video) {
+                    alert('Error: Camera elements not found');
+                    return;
+                }
+
+                if (!window.barcodeScanner?.BrowserMultiFormatReader) {
+                    alert('Barcode scanner library not loaded. Please refresh the page.');
+                    return;
+                }
+
+                // Reset video element and clear any previous stream
+                video.srcObject = null;
                 if (stream) {
                     stream.getTracks().forEach(track => track.stop());
                     stream = null;
                 }
-                video.srcObject = null;
-                container.classList.add('hidden');
 
-                // Show all camera buttons
-                document.querySelectorAll('#camera-scan-btn').forEach(btn => {
+                // Close old reader if it exists
+                if (codeReader) {
+                    try {
+                        codeReader.reset();
+                    } catch (e) {
+                        console.log('Previous reader cleanup:', e);
+                    }
+                }
+
+                container.classList.remove('hidden');
+                btn.classList.add('hidden');
+
+                const loadingOverlay = document.getElementById('camera-loading');
+                if (loadingOverlay) {
+                    loadingOverlay.classList.remove('hidden');
+                }
+
+                scanning = true;
+                codeReader = new window.barcodeScanner.BrowserMultiFormatReader();
+
+                // Start scanning in background - don't wait for it
+                codeReader.decodeFromVideoDevice(
+                    undefined,
+                    video,
+                    (result, err) => {
+                        if (result && scanning) {
+                            const barcode = result.getText();
+                            if (barcode !== lastScanned) {
+                                lastScanned = barcode;
+                                input.value = barcode;
+                                input.dispatchEvent(new Event('input', { bubbles: true }));
+                                input.dispatchEvent(new Event('change', { bubbles: true }));
+                                setTimeout(() => {
+                                    input.dispatchEvent(new KeyboardEvent('keydown', {
+                                        key: 'Enter',
+                                        code: 'Enter',
+                                        keyCode: 13,
+                                        bubbles: true
+                                    }));
+                                }, 100);
+                            }
+                        }
+                    }
+                ).then(() => {
+                    // Scanning completed (shouldn't happen until closed)
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
+                    }
+                }).catch((error) => {
+                    // Camera initialization error
+                    console.error('Camera initialization error:', error);
+                    const container = document.getElementById('camera-container');
+                    if (container) {
+                        container.classList.add('hidden');
+                    }
                     btn.classList.remove('hidden');
+                    scanning = false;
+
+                    if (codeReader) {
+                        codeReader = null;
+                    }
+
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
+                    }
+
+                    let message = 'Camera error: ';
+                    if (error.name === 'NotAllowedError') {
+                        message += 'Camera permission denied. Tap Settings > VortexOps > Camera > Allow.';
+                    } else if (error.name === 'NotFoundError') {
+                        message += 'No camera found on this device.';
+                    } else {
+                        message += (error.message || 'Unable to start camera');
+                    }
+                    alert(message);
                 });
-            }, { once: false });
+
+                // Hide loading overlay after reasonable time
+                setTimeout(() => {
+                    if (loadingOverlay && scanning) {
+                        loadingOverlay.classList.add('hidden');
+                    }
+                }, 3000);
+
+            } catch (error) {
+                console.error('Camera click error:', error);
+                const container = document.getElementById('camera-container');
+                if (container) {
+                    container.classList.add('hidden');
+                }
+                btn.classList.remove('hidden');
+                scanning = false;
+
+                if (codeReader) {
+                    try {
+                        codeReader.reset();
+                    } catch (e) {
+                        console.error('Error resetting reader:', e);
+                    }
+                    codeReader = null;
+                }
+
+                const video = document.getElementById('camera-video');
+                if (video) {
+                    video.srcObject = null;
+                }
+
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
+
+                alert('Error opening camera: ' + (error.message || 'Unknown error'));
+            }
         }
 
-        async function setup() {
-            await bindCameraButtons();
+        function bindCameraButtons() {
+            const buttons = document.querySelectorAll('.camera-scan-btn');
+
+            buttons.forEach((btn) => {
+                if (boundButtons.has(btn)) {
+                    return;
+                }
+
+                boundButtons.add(btn);
+                btn.classList.remove('hidden');
+
+                btn.addEventListener('pointerdown', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleCameraClick(btn);
+                });
+
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleCameraClick(btn);
+                });
+            });
+
+            const stopBtn = document.getElementById('camera-stop-btn');
+            if (stopBtn && !stopBtn.dataset.stopBound) {
+                stopBtn.dataset.stopBound = '1';
+                stopBtn.addEventListener('click', function stopCamera() {
+                    scanning = false;
+                    if (codeReader) {
+                        try {
+                            codeReader.reset();
+                        } catch (e) {
+                            console.error('Error resetting reader:', e);
+                        }
+                        codeReader = null;
+                    }
+                    if (stream) {
+                        stream.getTracks().forEach(track => track.stop());
+                        stream = null;
+                    }
+                    const video = document.getElementById('camera-video');
+                    if (video) {
+                        video.srcObject = null;
+                    }
+                    const container = document.getElementById('camera-container');
+                    if (container) {
+                        container.classList.add('hidden');
+                    }
+
+                    document.querySelectorAll('.camera-scan-btn').forEach(btn => {
+                        btn.classList.remove('hidden');
+                    });
+                });
+            }
         }
 
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', setup);
+            document.addEventListener('DOMContentLoaded', bindCameraButtons);
         } else {
-            setup();
+            bindCameraButtons();
         }
 
-        // Rebind camera buttons after Livewire updates (mode switches)
         document.addEventListener('livewire:updated', () => {
-            console.log('Livewire updated, rebinding camera buttons');
+            boundButtons.clear();
             bindCameraButtons();
         });
 
@@ -1246,48 +1414,60 @@
 
     // Mobile Scanner Enhancement: Handle paste events and haptic feedback
     (function () {
-        const inputs = Array.from(document.querySelectorAll('input')).filter(input =>
-            input.getAttribute('wire:model') === 'scanInput' ||
-            input.getAttribute('wire:model.live') === 'scanInput'
-        );
+        const boundInputs = new WeakSet();
 
-        inputs.forEach(input => {
-            // Handle paste events (common with mobile barcode scanners)
-            input.addEventListener('paste', (e) => {
-                e.preventDefault();
-                const text = (e.clipboardData || window.clipboardData).getData('text');
-                if (text.trim()) {
-                    input.value = text.trim();
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                    input.dispatchEvent(new Event('change', { bubbles: true }));
+        function setupInputListeners() {
+            const inputs = Array.from(document.querySelectorAll('input')).filter(input =>
+                input.getAttribute('wire:model') === 'scanInput' ||
+                input.getAttribute('wire:model.live') === 'scanInput'
+            );
 
-                    // Haptic feedback on successful paste
-                    if (navigator.vibrate) {
-                        navigator.vibrate([50, 30, 50]);
-                    }
-
-                    // Auto-submit on paste if using Enter key handler
-                    setTimeout(() => {
-                        const enterEvent = new KeyboardEvent('keydown', {
-                            code: 'Enter',
-                            key: 'Enter',
-                            keyCode: 13,
-                            which: 13,
-                            bubbles: true,
-                            cancelable: true
-                        });
-                        input.dispatchEvent(enterEvent);
-                    }, 100);
+            inputs.forEach(input => {
+                if (boundInputs.has(input)) {
+                    return;
                 }
-            });
+                boundInputs.add(input);
 
-            // Ensure proper focus on input after scan
-            input.addEventListener('input', (e) => {
-                e.target.focus();
-            });
-        });
+                input.addEventListener('paste', (e) => {
+                    e.preventDefault();
+                    const text = (e.clipboardData || window.clipboardData).getData('text');
+                    if (text.trim()) {
+                        input.value = text.trim();
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        input.dispatchEvent(new Event('change', { bubbles: true }));
 
-        // Livewire hook to vibrate on successful scan
+                        if (navigator.vibrate) {
+                            navigator.vibrate([50, 30, 50]);
+                        }
+
+                        setTimeout(() => {
+                            const enterEvent = new KeyboardEvent('keydown', {
+                                code: 'Enter',
+                                key: 'Enter',
+                                keyCode: 13,
+                                which: 13,
+                                bubbles: true,
+                                cancelable: true
+                            });
+                            input.dispatchEvent(enterEvent);
+                        }, 100);
+                    }
+                });
+
+                input.addEventListener('input', (e) => {
+                    e.target.focus();
+                });
+            });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupInputListeners);
+        } else {
+            setupInputListeners();
+        }
+
+        document.addEventListener('livewire:updated', setupInputListeners);
+
         document.addEventListener('livewire:updated', ({ detail }) => {
             if (detail.succeed && navigator.vibrate) {
                 navigator.vibrate(150);
@@ -1300,11 +1480,8 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/inventory-scanner-sw.js', { scope: '/admin/inventory/scanner' })
-                    .then((registration) => {
-                        console.log('Scanner Service Worker registered successfully:', registration);
-                    })
                     .catch((error) => {
-                        console.log('Scanner Service Worker registration failed:', error);
+                        console.error('Scanner Service Worker registration failed:', error);
                     });
             });
         }

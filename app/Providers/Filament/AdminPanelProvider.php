@@ -104,21 +104,8 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => ! $hasViteManifest()
                     ? ''
                     : ($isAuthenticatedAdminView()
-                        ? Blade::render("@vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/barcode-scanner.js'])")
+                        ? Blade::render("@vite(['resources/css/app.css', 'resources/js/app.js'])")
                         : Blade::render("@vite(['resources/css/app.css'])")),
-            )
-            ->renderHook(
-                PanelsRenderHook::HEAD_END,
-                fn (): string => <<<'CSS'
-                <style>
-                /* Mobile sidebar z-index adjustments */
-                @media (max-width: 1024px) {
-                    .fi-topbar-open-sidebar-btn {
-                        z-index: 50 !important;
-                    }
-                }
-                </style>
-                CSS,
             )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,

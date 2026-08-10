@@ -434,54 +434,33 @@
 
     </div>
 
-    {{-- Camera scanning — active only in lookup mode (BarcodeDetector Web API + ZXing polyfill) --}}
+    {{-- Camera scanning — active only in lookup mode (uses global barcode scanner) --}}
     @if($mode === 'lookup')
-        @if(file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
-            @vite('resources/js/barcode-scanner.js')
-        @endif
-        <script type="module">
+        <script>
         (function () {
-            // Filament runs this panel in SPA mode (wire:navigate), and this
-            // script lives inside the page's own Livewire-rendered content —
-            // navigating here from elsewhere in the app doesn't reliably
-            // re-run an inline <script> the way a hard page load does. Rerun
-            // setup on every SPA navigation, not just the first parse.
-            async function setup() {
-                // The polyfill script tag above is a separate module load;
-                // give it a brief window to finish rather than a one-shot
-                // check that permanently gives up if it hasn't landed yet.
-                for (let i = 0; i < 10 && !('BarcodeDetector' in window); i++) {
-                    await new Promise(r => setTimeout(r, 50));
-                }
-                if (!('BarcodeDetector' in window)) return;
-
+            function setup() {
                 const btn       = document.getElementById('camera-scan-btn');
                 const container = document.getElementById('camera-container');
                 const video     = document.getElementById('camera-video');
                 const stopBtn   = document.getElementById('camera-stop-btn');
-                const input     = document.querySelector('input[wire\\:model="scanInput"]');
 
                 if (!btn || btn.dataset.scannerBound === '1') return;
                 btn.dataset.scannerBound = '1';
                 btn.classList.remove('hidden');
 
-                let stream    = null;
-                let detector  = null;
-                let scanning  = false;
-                let rafHandle = null;
-                let lastDetectionTime = 0;
-
-                // The polyfill (zxing-wasm, used on iOS Safari / Firefox — no native
-                // BarcodeDetector there) is built around static image sources, not a
-                // live <video> element. Feeding it the video directly either throws
-                // or silently never matches, depending on the device. Drawing the
-                // current frame to a canvas first is the compatible pattern that
-                // works for both the native implementation and the polyfill.
-                const canvas = document.createElement('canvas');
-                const ctx    = canvas.getContext('2d', { willReadFrequently: true });
+                let codeReader  = null;
+                let stream      = null;
+                let scanning    = false;
+                let lastScanned = null;
 
                 btn.addEventListener('click', async () => {
+                    if (!window.barcodeScanner?.BrowserMultiFormatReader) {
+                        alert('Barcode scanner not available');
+                        return;
+                    }
+
                     try {
+                        codeReader = new window.barcodeScanner.BrowserMultiFormatReader();
                         stream = await navigator.mediaDevices.getUserMedia({
                             video: {
                                 facingMode: 'environment',
@@ -489,6 +468,7 @@
                                 height: { ideal: 720 }
                             }
                         });
+
                         video.srcObject = stream;
                         container.classList.remove('hidden');
                         btn.classList.add('hidden');
@@ -505,22 +485,24 @@
                             checkReady();
                         });
 
-                        // Get supported formats
-                        let formats = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code'];
-                        try {
-                            const supported = await window.BarcodeDetector.getSupportedFormats();
-                            if (supported && supported.length > 0) {
-                                formats = supported;
-                            }
-                        } catch (e) {
-                            console.warn('Could not get supported formats, using defaults:', e);
-                        }
-
-                        detector = new window.BarcodeDetector({ formats });
                         scanning = true;
-                        detectLoop();
+                        await codeReader.decodeFromVideoElement(
+                            video,
+                            (result, err) => {
+                                if (result && scanning) {
+                                    const barcode = result.getText();
+                                    if (barcode !== lastScanned) {
+                                        lastScanned = barcode;
+                                        console.log('[inventory-camera] Detected:', barcode);
+                                        stopCamera();
+                                        @@this.set('scanInput', barcode).then(() => @@this.call('submitScan'));
+                                    }
+                                }
+                            }
+                        );
                     } catch (e) {
-                        alert('Camera error: ' + e.message);
+                        console.error('Camera error:', e);
+                        alert('Camera error: ' + (e.message || 'Unable to start camera'));
                     }
                 });
 
@@ -528,42 +510,20 @@
 
                 function stopCamera() {
                     scanning = false;
-                    if (rafHandle) cancelAnimationFrame(rafHandle);
-                    if (stream) stream.getTracks().forEach(t => t.stop());
+                    if (codeReader) {
+                        try {
+                            codeReader.reset();
+                        } catch (e) {
+                            console.log('Error resetting reader:', e);
+                        }
+                    }
+                    if (stream) {
+                        stream.getTracks().forEach(t => t.stop());
+                        stream = null;
+                    }
                     video.srcObject = null;
                     container.classList.add('hidden');
                     btn.classList.remove('hidden');
-                }
-
-                async function detectLoop() {
-                    if (!scanning || !detector) return;
-
-                    try {
-                        // Ensure video has current frame data
-                        if (video.readyState >= video.HAVE_CURRENT_DATA && video.videoWidth > 0 && video.videoHeight > 0) {
-                            canvas.width  = video.videoWidth;
-                            canvas.height = video.videoHeight;
-                            ctx.drawImage(video, 0, 0);
-
-                            const barcodes = await detector.detect(canvas);
-                            if (barcodes && barcodes.length > 0) {
-                                // Throttle detections to every 500ms
-                                const now = Date.now();
-                                if (now - lastDetectionTime > 500) {
-                                    lastDetectionTime = now;
-                                    const code = barcodes[0].rawValue;
-                                    console.log('[barcode-scanner] Detected:', code);
-                                    stopCamera();
-                                    @@this.set('scanInput', code).then(() => @@this.call('submitScan'));
-                                    return;
-                                }
-                            }
-                        }
-                    } catch (err) {
-                        console.error('[barcode-scanner] detect() failed:', err);
-                    }
-
-                    rafHandle = requestAnimationFrame(detectLoop);
                 }
             }
 

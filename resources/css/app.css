@@ -5,8 +5,15 @@
 @import 'loading-skeletons.css';
 @import 'mobile-enhancements.css';
 @import 'ui-improvements.css';
+@import 'button-hierarchy-responsive.css';
+@import 'ux-workflow-improvements.css';
 
 [x-cloak] { display: none !important; }
+
+/* Topbar full width on all screen sizes */
+nav.fi-topbar {
+    width: -webkit-fill-available;
+}
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';

@@ -252,14 +252,15 @@
 }
 
 .collapse-content.collapsed {
-    max-height: 0;
-    opacity: 0;
+    max-height: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none;
 }
 
 .collapse-toggle span:last-child {
     display: inline-block;
     transform: rotate(90deg);
-    transition: transform 0.2s ease-in-out;
+    transition: transform 0.3s ease-in-out;
 }
 
 .collapse-toggle.collapsed span:last-child {
@@ -272,17 +273,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const toggleButtons = document.querySelectorAll('.collapse-toggle');
 
     toggleButtons.forEach((button) => {
-        const content = button.nextElementSibling;
+        // Find the content div - it's a sibling but may not be immediate
+        let content = button.nextElementSibling;
+
+        // If not found, look for the first div in the parent after the button
+        if (!content) {
+            const parent = button.parentElement;
+            if (parent) {
+                const allDivs = Array.from(parent.querySelectorAll(':scope > div'));
+                const buttonIndex = Array.from(parent.children).indexOf(button);
+                content = allDivs.find(div => {
+                    return Array.from(parent.children).indexOf(div) > buttonIndex;
+                });
+            }
+        }
 
         if (!content) return;
 
         // Add class to make it collapsible
         content.classList.add('collapse-content');
-
-        // Make content visible by default (add margin if needed)
-        if (content.style.display === 'none') {
-            content.style.display = '';
-        }
 
         button.addEventListener('click', function(e) {
             e.preventDefault();
@@ -291,6 +300,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Toggle the collapsed state
             content.classList.toggle('collapsed');
             button.classList.toggle('collapsed');
+
+            // Update arrow rotation
+            const arrow = button.querySelector('span:last-child');
+            if (arrow) {
+                arrow.style.transform = content.classList.contains('collapsed') ? 'rotate(0deg)' : 'rotate(90deg)';
+            }
         });
     });
 });

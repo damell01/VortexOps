@@ -82,7 +82,7 @@
                                     <div class="flex items-start justify-between mb-3">
                                         <div>
                                             <h4 class="font-semibold text-gray-900 dark:text-white">{{ $item['name'] }}</h4>
-                                            @if($item['sku'])
+                                            @if(!empty($item['sku']))
                                                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">SKU: {{ $item['sku'] }}</p>
                                             @endif
                                         </div>

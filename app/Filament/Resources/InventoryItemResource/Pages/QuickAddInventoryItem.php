@@ -14,7 +14,6 @@ use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Filament\Actions\Action;
-use Livewire\Attributes\Computed;
 
 class QuickAddInventoryItem extends Page
 {

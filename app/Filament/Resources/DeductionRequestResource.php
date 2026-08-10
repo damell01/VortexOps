@@ -207,7 +207,9 @@ class DeductionRequestResource extends Resource
                     ->relationship('streamer', 'name'),
             ])
             ->actions([
-                ViewAction::make()->label('Review'),
+                ViewAction::make()
+                    ->label('Review')
+                    ->size('sm'),
                 \Filament\Actions\DeleteAction::make()->iconButton()
                     ->visible(fn (DeductionRequest $record) => static::canDelete($record)),
             ])

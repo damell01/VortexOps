@@ -156,8 +156,10 @@ class VendorResource extends Resource
                 SelectFilter::make('status')->options(Vendor::statusLabels()),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()
+                    ->size('sm'),
+                EditAction::make()
+                    ->size('sm'),
                 DeleteAction::make()
                     ->iconButton()
                     ->visible(fn (Vendor $record) => static::canDelete($record))

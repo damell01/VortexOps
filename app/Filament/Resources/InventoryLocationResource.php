@@ -255,8 +255,10 @@ class InventoryLocationResource extends Resource
                     ->openUrlInNewTab(),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()
+                    ->size('sm'),
+                EditAction::make()
+                    ->size('sm'),
                 DeleteAction::make()
                     ->iconButton()
                     ->visible(fn (InventoryLocation $record) => static::canDelete($record))

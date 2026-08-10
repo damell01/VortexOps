@@ -293,8 +293,10 @@ class FeedbackTicketResource extends Resource
                         Notification::make()->title('Marked — needs more info')->warning()->send();
                     }),
 
-                ViewAction::make(),
+                ViewAction::make()
+                    ->size('sm'),
                 EditAction::make()
+                    ->size('sm')
                     ->visible(fn (FeedbackTicket $r) => static::canEdit($r)),
                 DeleteAction::make()
                     ->visible(fn (FeedbackTicket $r) => static::canDelete($r)),

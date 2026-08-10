@@ -239,7 +239,8 @@ class InventoryMovementResource extends Resource
                     ->openUrlInNewTab(),
             ])
             ->actions([
-                ViewAction::make(),
+                ViewAction::make()
+                    ->size('sm'),
             ])
             ->striped()
             ->persistFiltersInSession()

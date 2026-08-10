@@ -171,8 +171,10 @@ class WhatnotChannelResource extends Resource
                     ->options(WhatnotChannel::statusLabels()),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()
+                    ->size('sm'),
+                EditAction::make()
+                    ->size('sm'),
                 DeleteAction::make()
                     ->iconButton()
                     ->visible(fn (WhatnotChannel $record) => static::canDelete($record))

@@ -559,8 +559,10 @@ class StreamerResource extends Resource
                     ->relationship('channel', 'name'),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()
+                    ->size('sm'),
+                EditAction::make()
+                    ->size('sm'),
                 DeleteAction::make()
                     ->iconButton()
                     ->visible(fn (Streamer $record) => static::canDelete($record))

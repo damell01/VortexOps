@@ -10,13 +10,17 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Grid;
+use Filament\Forms\Concerns\InteractsWithForms;
+use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Filament\Actions\Action;
 
-class QuickAddInventoryItem extends Page
+class QuickAddInventoryItem extends Page implements HasForms
 {
+    use InteractsWithForms;
+
     protected static string $resource = InventoryItemResource::class;
 
     public ?array $data = [];

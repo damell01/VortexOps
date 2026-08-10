@@ -37,7 +37,7 @@
 
         <!-- Form -->
         <div class="space-y-6">
-            {{ $this->form() }}
+            {{ $this->form }}
 
             <!-- Navigation Buttons -->
             <div class="flex justify-between gap-3 pt-6">

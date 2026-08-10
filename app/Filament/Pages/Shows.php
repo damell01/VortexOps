@@ -6,6 +6,7 @@ use App\Models\Show;
 use App\Models\StreamerLogEntry;
 use App\Models\Streamer;
 use App\Support\AdminModules;
+use Filament\Actions\Action;
 use Filament\Panel;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
@@ -54,6 +55,18 @@ class Shows extends Page
     public static function getSlug(?Panel $panel = null): string
     {
         return 'shows-overview';
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('create_show')
+                ->label('Add Show Manually')
+                ->icon('heroicon-o-plus')
+                ->color('success')
+                ->visible(fn () => auth()->user()?->isAdmin() ?? false)
+                ->url(fn () => '/admin/shows/create'),
+        ];
     }
 
     public static function canAccess(): bool

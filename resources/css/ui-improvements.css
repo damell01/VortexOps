@@ -296,15 +296,26 @@
     letter-spacing: 0.02em !important;
 }
 
-/* Table wrapper with horizontal scrolling */
-.fi-ta-table-container {
+/* Table wrapper and sizing - ensure full width usage */
+.fi-ta-table-container,
+.fi-tables-root,
+.fi-tables-container {
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
 }
 
-/* Ensure table has minimum width for content */
-.fi-ta-table {
+/* Ensure table and page have proper width */
+.fi-ta-table,
+table {
     min-width: 100% !important;
+    width: 100% !important;
+    table-layout: auto !important;
+}
+
+/* Table rows should not constrain width */
+table tr {
+    width: 100% !important;
 }
 
 /* Prevent table cell text wrapping */
@@ -313,6 +324,17 @@ table td {
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+}
+
+/* Filament page main should use full available width */
+.fi-page-main {
+    width: 100% !important;
+}
+
+/* Remove padding that constrains tables */
+.fi-page > * {
+    margin-left: auto !important;
+    margin-right: auto !important;
 }
 
 /* Mobile: improved sort/filter UX */

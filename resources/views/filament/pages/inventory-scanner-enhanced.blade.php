@@ -1180,6 +1180,13 @@
         let boundButtons = new Set();
 
         function getInput(btn) {
+            // First check for quickadd input specifically
+            const quickAddInput = document.getElementById('quickadd-barcode');
+            if (quickAddInput && btn.closest('[class*="emerald"]')) {
+                return quickAddInput;
+            }
+
+            // Then try finding within button's container
             return btn.closest('[class*="px-"]')?.querySelector('input[wire\\:model*="scanInput"], input[wire\\:model\\.live*="scanInput"]') ||
                    Array.from(document.querySelectorAll('input')).find(el =>
                       el.getAttribute('wire:model') === 'scanInput' ||

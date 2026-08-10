@@ -242,56 +242,55 @@
     </div>
 </x-filament-panels::page>
 
+<style>
+.collapse-content {
+    display: block !important;
+    max-height: 9999px;
+    opacity: 1;
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+.collapse-content.collapsed {
+    max-height: 0;
+    opacity: 0;
+}
+
+.collapse-toggle span:last-child {
+    display: inline-block;
+    transform: rotate(90deg);
+    transition: transform 0.2s ease-in-out;
+}
+
+.collapse-toggle.collapsed span:last-child {
+    transform: rotate(0deg);
+}
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const toggleButtons = document.querySelectorAll('.collapse-toggle');
 
     toggleButtons.forEach((button) => {
         const content = button.nextElementSibling;
-        const arrow = button.querySelector('span:last-child');
 
-        // Initialize: show content and arrow pointing right
-        if (content) {
-            content.style.display = 'block';
-            content.style.maxHeight = content.scrollHeight + 'px';
-            content.style.overflow = 'hidden';
-            content.style.transition = 'max-height 0.3s ease, opacity 0.3s ease';
-        }
+        if (!content) return;
 
-        if (arrow) {
-            arrow.style.transform = 'rotate(90deg)';
-            arrow.style.transition = 'transform 0.2s ease';
+        // Add class to make it collapsible
+        content.classList.add('collapse-content');
+
+        // Make content visible by default (add margin if needed)
+        if (content.style.display === 'none') {
+            content.style.display = '';
         }
 
         button.addEventListener('click', function(e) {
             e.preventDefault();
             e.stopPropagation();
 
-            if (content) {
-                const computedStyle = window.getComputedStyle(content);
-                const isHidden = content.style.display === 'none' || computedStyle.display === 'none';
-
-                if (isHidden) {
-                    // Show content
-                    content.style.display = 'block';
-                    content.style.maxHeight = content.scrollHeight + 'px';
-                    content.style.opacity = '1';
-                } else {
-                    // Hide content
-                    content.style.maxHeight = '0';
-                    content.style.opacity = '0';
-                    setTimeout(() => {
-                        if (content.style.maxHeight === '0px') {
-                            content.style.display = 'none';
-                        }
-                    }, 300);
-                }
-
-                // Rotate arrow
-                if (arrow) {
-                    arrow.style.transform = isHidden ? 'rotate(90deg)' : 'rotate(0deg)';
-                }
-            }
+            // Toggle the collapsed state
+            content.classList.toggle('collapsed');
+            button.classList.toggle('collapsed');
         });
     });
 });

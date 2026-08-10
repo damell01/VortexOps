@@ -256,9 +256,11 @@ class InventoryLocationResource extends Resource
             ])
             ->actions([
                 ViewAction::make()
-                    ->size('sm'),
+                    ->size('sm')
+                    ->iconButton(),
                 EditAction::make()
-                    ->size('sm'),
+                    ->size('sm')
+                    ->iconButton(),
                 DeleteAction::make()
                     ->iconButton()
                     ->visible(fn (InventoryLocation $record) => static::canDelete($record))

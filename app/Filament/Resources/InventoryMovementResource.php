@@ -240,7 +240,8 @@ class InventoryMovementResource extends Resource
             ])
             ->actions([
                 ViewAction::make()
-                    ->size('sm'),
+                    ->size('sm')
+                    ->iconButton(),
             ])
             ->striped()
             ->persistFiltersInSession()

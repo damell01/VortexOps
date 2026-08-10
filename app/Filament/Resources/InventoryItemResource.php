@@ -500,9 +500,11 @@ class InventoryItemResource extends Resource
             ])
             ->actions([
                 ViewAction::make()
-                    ->size('sm'),
+                    ->size('sm')
+                    ->iconButton(),
                 EditAction::make()
-                    ->size('sm'),
+                    ->size('sm')
+                    ->iconButton(),
                 Action::make('add_stock')
                     ->label('+ Add Stock')
                     ->icon('heroicon-o-plus-circle')

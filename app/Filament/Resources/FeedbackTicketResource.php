@@ -294,9 +294,11 @@ class FeedbackTicketResource extends Resource
                     }),
 
                 ViewAction::make()
-                    ->size('sm'),
+                    ->size('sm')
+                    ->iconButton(),
                 EditAction::make()
                     ->size('sm')
+                    ->iconButton()
                     ->visible(fn (FeedbackTicket $r) => static::canEdit($r)),
                 DeleteAction::make()
                     ->visible(fn (FeedbackTicket $r) => static::canDelete($r)),

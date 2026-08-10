@@ -227,9 +227,11 @@ class InventoryStockResource extends Resource
             ])
             ->actions([
                 ViewAction::make()
-                    ->size('sm'),
+                    ->size('sm')
+                    ->iconButton(),
                 EditAction::make()
-                    ->size('sm'),
+                    ->size('sm')
+                    ->iconButton(),
             ], position: \Filament\Tables\Enums\ActionsPosition::AfterColumns)
             ->striped()
             ->wrap()

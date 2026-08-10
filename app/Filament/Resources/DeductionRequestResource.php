@@ -209,7 +209,8 @@ class DeductionRequestResource extends Resource
             ->actions([
                 ViewAction::make()
                     ->label('Review')
-                    ->size('sm'),
+                    ->size('sm')
+                    ->iconButton(),
                 \Filament\Actions\DeleteAction::make()->iconButton()
                     ->visible(fn (DeductionRequest $record) => static::canDelete($record)),
             ])

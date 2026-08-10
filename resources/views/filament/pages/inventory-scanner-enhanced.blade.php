@@ -1344,23 +1344,29 @@
         }
 
         function bindCameraButtons() {
+            console.log('[Camera] bindCameraButtons() called');
             const buttons = document.querySelectorAll('.camera-scan-btn');
+            console.log('[Camera] Found', buttons.length, 'camera buttons');
 
             buttons.forEach((btn) => {
                 if (boundButtons.has(btn)) {
+                    console.log('[Camera] Button already bound, skipping');
                     return;
                 }
 
                 boundButtons.add(btn);
                 btn.classList.remove('hidden');
+                console.log('[Camera] Button bound and made visible');
 
                 btn.addEventListener('pointerdown', (e) => {
+                    console.log('[Camera] pointerdown event');
                     e.preventDefault();
                     e.stopPropagation();
                     handleCameraClick(btn);
                 });
 
                 btn.addEventListener('click', (e) => {
+                    console.log('[Camera] click event');
                     e.preventDefault();
                     e.stopPropagation();
                     handleCameraClick(btn);
@@ -1407,7 +1413,9 @@
         }
 
         document.addEventListener('livewire:updated', () => {
+            console.log('[Camera] livewire:updated fired');
             boundButtons.clear();
+            console.log('[Camera] Cleared boundButtons, rebinding...');
             bindCameraButtons();
         });
 

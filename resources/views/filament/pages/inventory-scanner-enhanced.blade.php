@@ -1189,8 +1189,8 @@
 
         async function handleCameraClick(btn) {
             try {
-                // Prevent opening camera if already opening or scanning
-                if (scanning || codeReader) {
+                // Prevent opening camera if already scanning
+                if (scanning) {
                     return;
                 }
 
@@ -1220,6 +1220,15 @@
                     stream = null;
                 }
 
+                // Close old reader if it exists
+                if (codeReader) {
+                    try {
+                        codeReader.reset();
+                    } catch (e) {
+                        console.log('Previous reader cleanup:', e);
+                    }
+                }
+
                 container.classList.remove('hidden');
                 btn.classList.add('hidden');
 
@@ -1228,45 +1237,75 @@
                     loadingOverlay.classList.remove('hidden');
                 }
 
+                scanning = true;
                 codeReader = new window.barcodeScanner.BrowserMultiFormatReader();
 
-                const result = await Promise.race([
-                    codeReader.decodeFromVideoDevice(
-                        undefined,
-                        video,
-                        (result, err) => {
-                            if (result && scanning) {
-                                const barcode = result.getText();
-                                if (barcode !== lastScanned) {
-                                    lastScanned = barcode;
-                                    input.value = barcode;
-                                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                                    setTimeout(() => {
-                                        input.dispatchEvent(new KeyboardEvent('keydown', {
-                                            key: 'Enter',
-                                            code: 'Enter',
-                                            keyCode: 13,
-                                            bubbles: true
-                                        }));
-                                    }, 100);
-                                }
+                // Start scanning in background - don't wait for it
+                codeReader.decodeFromVideoDevice(
+                    undefined,
+                    video,
+                    (result, err) => {
+                        if (result && scanning) {
+                            const barcode = result.getText();
+                            if (barcode !== lastScanned) {
+                                lastScanned = barcode;
+                                input.value = barcode;
+                                input.dispatchEvent(new Event('input', { bubbles: true }));
+                                input.dispatchEvent(new Event('change', { bubbles: true }));
+                                setTimeout(() => {
+                                    input.dispatchEvent(new KeyboardEvent('keydown', {
+                                        key: 'Enter',
+                                        code: 'Enter',
+                                        keyCode: 13,
+                                        bubbles: true
+                                    }));
+                                }, 100);
                             }
                         }
-                    ),
-                    new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('Camera initialization timeout')), 10000)
-                    )
-                ]);
+                    }
+                ).then(() => {
+                    // Scanning completed (shouldn't happen until closed)
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
+                    }
+                }).catch((error) => {
+                    // Camera initialization error
+                    console.error('Camera initialization error:', error);
+                    const container = document.getElementById('camera-container');
+                    if (container) {
+                        container.classList.add('hidden');
+                    }
+                    btn.classList.remove('hidden');
+                    scanning = false;
 
-                scanning = true;
+                    if (codeReader) {
+                        codeReader = null;
+                    }
 
-                if (loadingOverlay) {
-                    loadingOverlay.classList.add('hidden');
-                }
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('hidden');
+                    }
+
+                    let message = 'Camera error: ';
+                    if (error.name === 'NotAllowedError') {
+                        message += 'Camera permission denied. Tap Settings > VortexOps > Camera > Allow.';
+                    } else if (error.name === 'NotFoundError') {
+                        message += 'No camera found on this device.';
+                    } else {
+                        message += (error.message || 'Unable to start camera');
+                    }
+                    alert(message);
+                });
+
+                // Hide loading overlay after reasonable time
+                setTimeout(() => {
+                    if (loadingOverlay && scanning) {
+                        loadingOverlay.classList.add('hidden');
+                    }
+                }, 3000);
 
             } catch (error) {
-                console.error('Camera error:', error);
+                console.error('Camera click error:', error);
                 const container = document.getElementById('camera-container');
                 if (container) {
                     container.classList.add('hidden');
@@ -1293,17 +1332,7 @@
                     stream = null;
                 }
 
-                let message = 'Camera error: ';
-                if (error.name === 'NotAllowedError') {
-                    message += 'Camera permission denied. Tap Settings > VortexOps > Camera > Allow.';
-                } else if (error.name === 'NotFoundError') {
-                    message += 'No camera found on this device.';
-                } else if (error.message?.includes('timeout')) {
-                    message += 'Camera took too long to start. Check permissions and try again.';
-                } else {
-                    message += (error.message || 'Unable to start camera');
-                }
-                alert(message);
+                alert('Error opening camera: ' + (error.message || 'Unknown error'));
             }
         }
 

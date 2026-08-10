@@ -10,17 +10,13 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Grid;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Contracts\HasForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Filament\Actions\Action;
 
-class QuickAddInventoryItem extends Page implements HasForms
+class QuickAddInventoryItem extends Page
 {
-    use InteractsWithForms;
-
     protected static string $resource = InventoryItemResource::class;
 
     public ?array $data = [];
@@ -51,10 +47,9 @@ class QuickAddInventoryItem extends Page implements HasForms
         }
     }
 
-    public function form(Form $form): Form
+    public function getFormSchema(): array
     {
-        return $form
-            ->schema([
+        return [
                 Section::make('Step 1: Item Details')
                     ->description('Quickly add a new inventory item')
                     ->columnSpanFull()
@@ -162,9 +157,7 @@ class QuickAddInventoryItem extends Page implements HasForms
                                 ->columnSpan(1),
                         ]),
                     ]),
-            ])
-            ->statePath('data')
-            ->live();
+        ];
     }
 
     #[\Livewire\Attributes\On('next-step')]

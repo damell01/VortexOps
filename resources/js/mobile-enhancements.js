@@ -208,41 +208,35 @@ class MobileEnhancements {
      * Collapsible Sections - Click to expand/collapse
      */
     initCollapsibleSections() {
-        const collapsibles = document.querySelectorAll('.mobile-collapsible-header');
+        const collapsibles = document.querySelectorAll('.mobile-collapsible');
 
-        collapsibles.forEach(header => {
-            // Remove any existing listeners by cloning and replacing
+        collapsibles.forEach(section => {
+            const header = section.querySelector('.mobile-collapsible-header');
+            if (!header) return;
+
+            // Skip if already bound
             if (header.dataset.collapsibleBound) {
-                return; // Already bound
+                return;
             }
 
             header.dataset.collapsibleBound = 'true';
 
-            header.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+            const toggleCollapsible = (e) => {
+                e?.preventDefault();
+                e?.stopPropagation();
 
-                const section = header.closest('.mobile-collapsible');
-                if (section) {
-                    const isOpen = section.classList.contains('open');
-                    section.classList.toggle('open');
+                const isOpen = section.classList.contains('open');
+                section.classList.toggle('open');
+                header.setAttribute('aria-expanded', !isOpen);
+            };
 
-                    // Ensure content can expand
-                    const content = section.querySelector('.mobile-collapsible-content');
-                    if (content) {
-                        if (!isOpen) {
-                            // Opening - set computed height
-                            setTimeout(() => {
-                                const body = content.querySelector('.mobile-collapsible-body');
-                                if (body) {
-                                    content.style.maxHeight = (body.scrollHeight + 20) + 'px';
-                                }
-                            }, 0);
-                        } else {
-                            // Closing
-                            content.style.maxHeight = '0';
-                        }
-                    }
+            // Click handler
+            header.addEventListener('click', toggleCollapsible);
+
+            // Keyboard handler (Enter/Space)
+            header.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    toggleCollapsible(e);
                 }
             });
         });

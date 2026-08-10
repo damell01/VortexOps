@@ -1,0 +1,798 @@
+/* ═══════════════════════════════════════════════════════
+   BUTTON/CTA HIERARCHY & RESPONSIVE POLISH
+   Standardized button styles across all pages
+   Mobile & Desktop Optimized
+   ═══════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════
+   1. BUTTON HIERARCHY & STANDARDIZATION
+   ═══════════════════════════════════════════ */
+
+/* Base button reset and standardization */
+button, a[role="button"], .fi-btn, [type="submit"], [type="button"], [type="reset"] {
+    cursor: pointer !important;
+    border: none !important;
+    font-family: inherit !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.005em !important;
+    transition: all 150ms cubic-bezier(.4, 0, .2, 1) !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    outline: none !important;
+    text-decoration: none !important;
+}
+
+/* ── PRIMARY BUTTONS (Main CTAs) ── */
+.fi-btn-color-primary,
+.btn-primary,
+button.btn-primary,
+a.btn-primary {
+    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%) !important;
+    color: white !important;
+    box-shadow: 0 2px 8px rgb(124 58 237 / .3), inset 0 1px 0 rgb(255 255 255 / .12) !important;
+    border-radius: 6px !important;
+    font-size: 0.8125rem !important;
+    padding: 0.5rem 1.125rem !important;
+    min-height: 2.5rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.fi-btn-color-primary:hover,
+.btn-primary:hover,
+button.btn-primary:hover,
+a.btn-primary:hover {
+    background: linear-gradient(135deg, #6d28d9 0%, #5b21b6 100%) !important;
+    box-shadow: 0 4px 12px rgb(124 58 237 / .4), inset 0 1px 0 rgb(255 255 255 / .12) !important;
+    transform: translateY(-1px) !important;
+}
+
+.fi-btn-color-primary:active,
+.btn-primary:active,
+button.btn-primary:active,
+a.btn-primary:active {
+    transform: translateY(0) !important;
+    box-shadow: 0 2px 6px rgb(124 58 237 / .25), inset 0 1px 0 rgb(255 255 255 / .12) !important;
+}
+
+.fi-btn-color-primary:disabled,
+.btn-primary:disabled,
+button.btn-primary:disabled,
+a.btn-primary:disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+/* ── SECONDARY BUTTONS ── */
+.fi-btn-color-gray,
+.btn-secondary,
+button.btn-secondary,
+a.btn-secondary {
+    background-color: var(--vx-card-bg) !important;
+    color: var(--vx-text-primary) !important;
+    border: 1px solid var(--vx-card-border) !important;
+    box-shadow: var(--vx-shadow-xs) !important;
+    border-radius: 6px !important;
+    font-size: 0.8125rem !important;
+    padding: 0.5rem 1.125rem !important;
+    min-height: 2.5rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important;
+}
+
+.fi-btn-color-gray:hover,
+.btn-secondary:hover,
+button.btn-secondary:hover,
+a.btn-secondary:hover {
+    background-color: var(--vx-row-hover) !important;
+    border-color: var(--vx-text-tertiary) !important;
+    transform: translateY(-1px) !important;
+}
+
+.fi-btn-color-gray:active,
+.btn-secondary:active,
+button.btn-secondary:active,
+a.btn-secondary:active {
+    transform: translateY(0) !important;
+}
+
+/* ── SUCCESS BUTTONS (Green CTAs) ── */
+.fi-btn-color-success,
+.btn-success,
+button.btn-success,
+a.btn-success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    color: white !important;
+    box-shadow: 0 2px 8px rgb(16 185 129 / .3) !important;
+    border-radius: 6px !important;
+    font-size: 0.8125rem !important;
+    padding: 0.5rem 1.125rem !important;
+    min-height: 2.5rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important;
+}
+
+.fi-btn-color-success:hover,
+.btn-success:hover,
+button.btn-success:hover,
+a.btn-success:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+    box-shadow: 0 4px 12px rgb(16 185 129 / .4) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* ── DANGER BUTTONS (Red CTAs) ── */
+.fi-btn-color-danger,
+.btn-danger,
+button.btn-danger,
+a.btn-danger {
+    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%) !important;
+    color: white !important;
+    box-shadow: 0 2px 8px rgb(244 63 94 / .3) !important;
+    border-radius: 6px !important;
+    font-size: 0.8125rem !important;
+    padding: 0.5rem 1.125rem !important;
+    min-height: 2.5rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important;
+}
+
+.fi-btn-color-danger:hover,
+.btn-danger:hover,
+button.btn-danger:hover,
+a.btn-danger:hover {
+    background: linear-gradient(135deg, #e11d48 0%, #be185d 100%) !important;
+    box-shadow: 0 4px 12px rgb(244 63 94 / .4) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* ── WARNING BUTTONS (Amber CTAs) ── */
+.fi-btn-color-warning,
+.btn-warning,
+button.btn-warning,
+a.btn-warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+    color: white !important;
+    box-shadow: 0 2px 8px rgb(245 158 11 / .3) !important;
+    border-radius: 6px !important;
+    font-size: 0.8125rem !important;
+    padding: 0.5rem 1.125rem !important;
+    min-height: 2.5rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important;
+}
+
+.fi-btn-color-warning:hover,
+.btn-warning:hover,
+button.btn-warning:hover,
+a.btn-warning:hover {
+    background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
+    box-shadow: 0 4px 12px rgb(245 158 11 / .4) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* ── INFO BUTTONS (Blue CTAs) ── */
+.fi-btn-color-info,
+.btn-info,
+button.btn-info,
+a.btn-info {
+    background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%) !important;
+    color: white !important;
+    box-shadow: 0 2px 8px rgb(14 165 233 / .3) !important;
+    border-radius: 6px !important;
+    font-size: 0.8125rem !important;
+    padding: 0.5rem 1.125rem !important;
+    min-height: 2.5rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.5rem !important;
+}
+
+.fi-btn-color-info:hover,
+.btn-info:hover,
+button.btn-info:hover,
+a.btn-info:hover {
+    background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+    box-shadow: 0 4px 12px rgb(14 165 233 / .4) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* ── LINK BUTTONS (Text-only) ── */
+.fi-link,
+a.fi-link,
+button.btn-link,
+a.btn-link {
+    background: transparent !important;
+    color: var(--vx-accent-text) !important;
+    border: none !important;
+    padding: 0.25rem 0.375rem !important;
+    font-weight: 500 !important;
+    text-underline-offset: 3px !important;
+    text-decoration: underline !important;
+}
+
+.fi-link:hover,
+a.fi-link:hover,
+button.btn-link:hover,
+a.btn-link:hover {
+    opacity: 0.75 !important;
+    text-decoration-thickness: 2px !important;
+}
+
+/* ── ICON BUTTONS (Compact) ── */
+.fi-btn-icon-only,
+button.btn-icon,
+a.btn-icon {
+    padding: 0.375rem !important;
+    border-radius: 6px !important;
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* ── BUTTON SIZES ── */
+.fi-btn-size-sm,
+.btn-sm {
+    padding: 0.25rem 0.625rem !important;
+    font-size: 0.6875rem !important;
+    min-height: 2rem !important;
+}
+
+.fi-btn-size-md,
+.btn-md {
+    padding: 0.5rem 1.125rem !important;
+    font-size: 0.8125rem !important;
+    min-height: 2.5rem !important;
+}
+
+.fi-btn-size-lg,
+.btn-lg {
+    padding: 0.625rem 1.5rem !important;
+    font-size: 0.875rem !important;
+    min-height: 2.75rem !important;
+}
+
+.fi-btn-size-xl,
+.btn-xl {
+    padding: 0.75rem 2rem !important;
+    font-size: 0.9375rem !important;
+    min-height: 3rem !important;
+}
+
+/* ──────────────────────────────────────────
+   2. BUTTON GROUP & ACTION BARS
+   ────────────────────────────────────────── */
+
+/* Container for button groups */
+.button-group,
+.btn-group,
+.fi-actions,
+.fi-header-actions-ctn {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    justify-content: flex-start !important;
+}
+
+.button-group.justify-center,
+.btn-group.justify-center {
+    justify-content: center !important;
+}
+
+.button-group.justify-end,
+.btn-group.justify-end {
+    justify-content: flex-end !important;
+}
+
+.button-group.justify-between,
+.btn-group.justify-between {
+    justify-content: space-between !important;
+}
+
+/* Vertical button groups */
+.button-group.vertical,
+.btn-group.vertical {
+    flex-direction: column !important;
+    width: 100% !important;
+}
+
+.button-group.vertical button,
+.button-group.vertical a,
+.btn-group.vertical button,
+.btn-group.vertical a {
+    width: 100% !important;
+}
+
+/* Action bar (bottom or top fixed bar) */
+.action-bar,
+.fixed-action-bar {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+    padding: 1rem !important;
+    background-color: var(--vx-card-bg) !important;
+    border-top: 1px solid var(--vx-card-border) !important;
+    align-items: center !important;
+}
+
+/* ──────────────────────────────────────────
+   3. RESPONSIVE BUTTON BEHAVIOR
+   ────────────────────────────────────────── */
+
+/* Desktop: buttons side-by-side */
+@media (min-width: 641px) {
+    .button-group,
+    .btn-group,
+    .fi-actions,
+    .fi-header-actions-ctn {
+        gap: 0.75rem !important;
+    }
+
+    .fi-btn {
+        padding: 0.5rem 1.125rem !important;
+        font-size: 0.8125rem !important;
+    }
+
+    button, a[role="button"] {
+        white-space: nowrap !important;
+    }
+}
+
+/* Mobile: buttons stack vertically or wrap */
+@media (max-width: 640px) {
+    button, a[role="button"], .fi-btn, [type="submit"], [type="button"], [type="reset"] {
+        min-height: 2.75rem !important;
+        font-size: 16px !important; /* Prevents iOS zoom */
+        padding: 0.625rem 1rem !important;
+    }
+
+    .button-group,
+    .btn-group,
+    .fi-actions,
+    .fi-header-actions-ctn {
+        gap: 0.375rem !important;
+        width: 100% !important;
+    }
+
+    .button-group.mobile-stack,
+    .btn-group.mobile-stack,
+    .fi-actions.mobile-stack {
+        flex-direction: column !important;
+    }
+
+    .button-group.mobile-stack button,
+    .button-group.mobile-stack a,
+    .btn-group.mobile-stack button,
+    .btn-group.mobile-stack a,
+    .fi-actions.mobile-stack button,
+    .fi-actions.mobile-stack a {
+        width: 100% !important;
+        text-align: center !important;
+    }
+
+    /* Button text truncation on mobile */
+    button, a[role="button"], .fi-btn {
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+
+    /* Hide button labels on very small screens, show only icons */
+    .btn-icon-text-mobile .btn-text {
+        display: none !important;
+    }
+
+    .btn-icon-text-mobile .btn-icon {
+        display: inline-flex !important;
+    }
+}
+
+/* ──────────────────────────────────────────
+   4. CONTENT OVERFLOW PREVENTION
+   ────────────────────────────────────────── */
+
+/* Prevent text overflow in cards */
+.fi-section,
+.fi-wi,
+.card,
+[class*="card"] {
+    overflow: hidden !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+}
+
+/* Prevent long text from breaking layout */
+p, span, div, li, td, th {
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    hyphens: auto !important;
+}
+
+/* Table cells don't overflow */
+.fi-ta-cell,
+table td,
+table th {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+}
+
+/* Numbers and codes stay contained */
+.number, .code, .sku, .barcode, .phone, code, pre {
+    word-break: break-all !important;
+    overflow-wrap: break-word !important;
+    font-family: monospace !important;
+}
+
+/* Form input overflow prevention */
+.fi-input, input, textarea, select {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* ──────────────────────────────────────────
+   5. SECTION/CARD RESPONSIVE LAYOUT
+   ────────────────────────────────────────── */
+
+/* Ensure sections don't overflow */
+.fi-section,
+.fi-wi,
+.card {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.fi-section-content,
+.card-body {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+
+/* Table wrapper for horizontal scroll on mobile */
+.fi-ta {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+
+.fi-ta-table {
+    min-width: 100% !important;
+    margin: 0 !important;
+}
+
+/* ──────────────────────────────────────────
+   6. FORM LAYOUT RESPONSIVENESS
+   ────────────────────────────────────────── */
+
+/* Form grid adjustments */
+.fi-fo-component-ctn,
+.form-grid,
+.grid {
+    display: grid !important;
+    gap: 1rem !important;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
+}
+
+@media (max-width: 768px) {
+    .fi-fo-component-ctn,
+    .form-grid,
+    .grid {
+        grid-template-columns: 1fr !important;
+        gap: 0.875rem !important;
+    }
+
+    .fi-fo-section {
+        padding: 1rem !important;
+    }
+}
+
+/* ──────────────────────────────────────────
+   7. MODAL RESPONSIVENESS
+   ────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+    .fi-modal-window {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .fi-modal-header {
+        padding: 1rem !important;
+        flex-shrink: 0 !important;
+    }
+
+    .fi-modal-content {
+        flex: 1 1 0 !important;
+        overflow-y: auto !important;
+        padding: 1rem !important;
+    }
+
+    .fi-modal-footer-actions {
+        flex-shrink: 0 !important;
+        gap: 0.5rem !important;
+        padding: 1rem !important;
+    }
+
+    .fi-modal-footer-actions .fi-btn {
+        flex: 1 1 0 !important;
+    }
+}
+
+/* ──────────────────────────────────────────
+   8. TOPBAR & HEADER RESPONSIVENESS
+   ────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+    .fi-topbar {
+        padding: 0 !important;
+    }
+
+    .fi-topbar-ctn {
+        padding: 0 0.75rem !important;
+        min-height: 3.25rem !important;
+        gap: 0.5rem !important;
+    }
+
+    .fi-header-actions-ctn {
+        width: 100% !important;
+        justify-content: flex-start !important;
+        gap: 0.375rem !important;
+    }
+
+    .fi-header-actions-ctn .fi-btn {
+        padding: 0.375rem 0.75rem !important;
+        font-size: 0.75rem !important;
+    }
+}
+
+/* ──────────────────────────────────────────
+   9. PAGINATION RESPONSIVENESS
+   ────────────────────────────────────────── */
+
+.fi-pagination {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+}
+
+.fi-pagination-item-btn {
+    min-width: 2.5rem !important;
+    height: 2.5rem !important;
+    padding: 0 0.5rem !important;
+    font-size: 0.75rem !important;
+}
+
+@media (max-width: 640px) {
+    .fi-pagination {
+        gap: 0.25rem !important;
+    }
+
+    .fi-pagination-item-btn {
+        min-width: 2.25rem !important;
+        height: 2.25rem !important;
+        padding: 0 0.375rem !important;
+        font-size: 0.6875rem !important;
+    }
+}
+
+/* ──────────────────────────────────────────
+   10. TOOLTIP & HELP TEXT RESPONSIVENESS
+   ────────────────────────────────────────── */
+
+.tooltip,
+[data-tooltip],
+.help-text {
+    position: relative !important;
+    word-wrap: break-word !important;
+}
+
+.tooltip::after,
+[data-tooltip]::after {
+    content: attr(data-tooltip) !important;
+    position: absolute !important;
+    bottom: 110% !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    background-color: var(--vx-text-primary) !important;
+    color: var(--vx-card-bg) !important;
+    padding: 0.5rem 0.75rem !important;
+    border-radius: 4px !important;
+    font-size: 0.75rem !important;
+    white-space: nowrap !important;
+    z-index: 1000 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: opacity 150ms !important;
+}
+
+.tooltip:hover::after,
+[data-tooltip]:hover::after {
+    opacity: 1 !important;
+}
+
+@media (max-width: 640px) {
+    .tooltip::after,
+    [data-tooltip]::after {
+        white-space: normal !important;
+        max-width: 200px !important;
+        font-size: 0.6875rem !important;
+    }
+}
+
+/* ──────────────────────────────────────────
+   11. ACCESSIBILITY & FOCUS STATES
+   ────────────────────────────────────────── */
+
+/* Enhanced focus visible for keyboard navigation */
+*:focus-visible {
+    outline: 2px solid var(--vx-accent-text) !important;
+    outline-offset: 2px !important;
+    border-radius: 3px !important;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+    outline: 2px solid var(--vx-accent-text) !important;
+    outline-offset: 2px !important;
+}
+
+/* Remove focus outline for mouse users */
+*:not(:focus-visible) {
+    outline: none !important;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: more) {
+    .fi-btn, button, a[role="button"] {
+        border: 1px solid currentColor !important;
+        font-weight: 700 !important;
+    }
+
+    .fi-btn-color-primary {
+        text-decoration: underline !important;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    button, a[role="button"], .fi-btn, * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Dark mode adjustments */
+.dark {
+    --vx-btn-text: #f4f4f5;
+}
+
+.dark .fi-btn-color-gray:hover,
+.dark .btn-secondary:hover {
+    background-color: var(--vx-row-hover) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* ──────────────────────────────────────────
+   12. ERROR STATES & VALIDATION
+   ────────────────────────────────────────── */
+
+/* Error button state */
+button:disabled,
+a:disabled,
+[role="button"][aria-disabled="true"],
+.fi-btn:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+}
+
+/* Loading button state */
+button.loading,
+[aria-busy="true"] {
+    position: relative !important;
+    color: transparent !important;
+}
+
+button.loading::after,
+[aria-busy="true"]::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 1rem !important;
+    height: 1rem !important;
+    border: 2px solid rgba(255, 255, 255, 0.3) !important;
+    border-top-color: white !important;
+    border-radius: 99px !important;
+    animation: spin 600ms linear infinite !important;
+}
+
+@keyframes spin {
+    to { transform: translate(-50%, -50%) rotate(360deg) !important; }
+}
+
+/* ──────────────────────────────────────────
+   13. RESPONSIVE TABLE ACTION BUTTONS
+   ────────────────────────────────────────── */
+
+.fi-ta-record-actions {
+    display: flex !important;
+    gap: 0.5rem !important;
+    flex-wrap: wrap !important;
+}
+
+.fi-ta-record-actions .fi-btn {
+    padding: 0.375rem 0.625rem !important;
+    font-size: 0.75rem !important;
+}
+
+@media (max-width: 768px) {
+    .fi-ta-record-actions {
+        gap: 0.25rem !important;
+    }
+
+    .fi-ta-record-actions .fi-btn {
+        padding: 0.3125rem 0.5rem !important;
+    }
+
+    /* Show only icon buttons on very small screens */
+    .fi-ta-record-actions .fi-btn .text {
+        display: none !important;
+    }
+}
+
+/* ──────────────────────────────────────────
+   14. CONSISTENT PADDING & MARGINS
+   ────────────────────────────────────────── */
+
+/* Standard spacing scale */
+.p-0   { padding: 0 !important; }
+.p-1   { padding: 0.25rem !important; }
+.p-2   { padding: 0.5rem !important; }
+.p-3   { padding: 0.75rem !important; }
+.p-4   { padding: 1rem !important; }
+.p-5   { padding: 1.25rem !important; }
+.p-6   { padding: 1.5rem !important; }
+
+.m-0   { margin: 0 !important; }
+.m-1   { margin: 0.25rem !important; }
+.m-2   { margin: 0.5rem !important; }
+.m-3   { margin: 0.75rem !important; }
+.m-4   { margin: 1rem !important; }
+.m-5   { margin: 1.25rem !important; }
+.m-6   { margin: 1.5rem !important; }
+
+/* Mobile-specific spacing */
+@media (max-width: 640px) {
+    .p-md-4 { padding: 1rem !important; }
+    .p-md-5 { padding: 1.25rem !important; }
+    .m-md-2 { margin: 0.5rem !important; }
+    .m-md-3 { margin: 0.75rem !important; }
+}

@@ -5,6 +5,7 @@
 @import 'loading-skeletons.css';
 @import 'mobile-enhancements.css';
 @import 'ui-improvements.css';
+@import 'button-hierarchy-responsive.css';
 
 [x-cloak] { display: none !important; }
 

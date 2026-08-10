@@ -25,16 +25,9 @@ class QuickAddInventoryItem extends Page
 
     public ?InventoryItem $createdItem = null;
 
-    protected ?Form $form = null;
-
     public function getView(): string
     {
         return 'filament.pages.quick-add-inventory-item';
-    }
-
-    public function getFormProperty(): Form
-    {
-        return $this->form ??= $this->form(Form::make());
     }
 
     public function mount(): void

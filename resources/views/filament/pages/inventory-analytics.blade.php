@@ -244,12 +244,9 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('[analytics] Initializing collapse toggles');
     const toggleButtons = document.querySelectorAll('.collapse-toggle');
-    console.log('[analytics] Found', toggleButtons.length, 'toggle buttons');
 
-    toggleButtons.forEach((button, index) => {
-        // Set initial arrow rotation (visible by default, so rotated)
+    toggleButtons.forEach((button) => {
         const arrow = button.querySelector('span:last-child');
         if (arrow) {
             arrow.style.transform = 'rotate(90deg)';
@@ -261,20 +258,15 @@ document.addEventListener('DOMContentLoaded', function() {
             e.stopPropagation();
 
             const content = this.nextElementSibling;
-            console.log('[analytics] Button', index, 'clicked, content:', content?.className);
-
             if (content) {
                 const isHidden = content.style.display === 'none';
                 content.style.display = isHidden ? 'block' : 'none';
 
-                // Rotate the arrow
                 const arrow = this.querySelector('span:last-child');
                 if (arrow) {
                     arrow.style.transform = isHidden ? 'rotate(90deg)' : 'rotate(0deg)';
                     arrow.style.transition = 'transform 0.2s ease';
                 }
-
-                console.log('[analytics] Toggled to:', isHidden ? 'visible' : 'hidden');
             }
         });
     });

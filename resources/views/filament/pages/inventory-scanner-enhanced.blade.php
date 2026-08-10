@@ -1091,8 +1091,6 @@
     @if($mode === 'lookup' || $mode === 'receive' || $mode === 'quickadd')
     <script>
     (function () {
-        console.log('[inventory-scanner] Script starting, window.barcodeScanner:', window.barcodeScanner);
-
         let codeReader  = null;
         let stream      = null;
         let scanning    = false;
@@ -1108,11 +1106,9 @@
         }
 
         async function handleCameraClick(btn) {
-            console.log('[inventory-scanner] Camera button handler running');
             try {
                 const input = getInput(btn);
                 if (!input) {
-                    console.warn('Input element not found');
                     alert('Error: Input field not found');
                     return;
                 }
@@ -1121,29 +1117,20 @@
                 const video = document.getElementById('camera-video');
 
                 if (!container || !video) {
-                    console.warn('Camera container or video element not found');
                     alert('Error: Camera elements not found');
                     return;
                 }
 
                 if (!window.barcodeScanner?.BrowserMultiFormatReader) {
-                    console.warn('Barcode scanner not available');
                     alert('Barcode scanner library not loaded. Please refresh the page.');
                     return;
                 }
 
-                console.log('[inventory-scanner] Starting barcode scanner...');
                 container.classList.remove('hidden');
                 btn.classList.add('hidden');
 
-                // Use the higher-level decodeFromVideoDevice API from zxing
-                // This handles camera permissions, setup, and encoding detection
                 codeReader = new window.barcodeScanner.BrowserMultiFormatReader();
 
-                console.log('[inventory-scanner] Using decodeFromVideoDevice - requesting camera...');
-
-                // decodeFromVideoDevice handles camera permission flow automatically
-                // undefined = auto-select camera, video = target video element
                 const result = await Promise.race([
                     codeReader.decodeFromVideoDevice(
                         undefined,
@@ -1153,11 +1140,9 @@
                                 const barcode = result.getText();
                                 if (barcode !== lastScanned) {
                                     lastScanned = barcode;
-                                    console.log('[camera-scan] Detected:', barcode);
                                     input.value = barcode;
                                     input.dispatchEvent(new Event('input', { bubbles: true }));
                                     input.dispatchEvent(new Event('change', { bubbles: true }));
-                                    // Auto-submit after scan
                                     setTimeout(() => {
                                         input.dispatchEvent(new KeyboardEvent('keydown', {
                                             key: 'Enter',
@@ -1170,14 +1155,12 @@
                             }
                         }
                     ),
-                    // Timeout if camera doesn't start within 10 seconds
                     new Promise((_, reject) =>
                         setTimeout(() => reject(new Error('Camera initialization timeout')), 10000)
                     )
                 ]);
 
                 scanning = true;
-                console.log('[inventory-scanner] Camera started, scanning active');
 
             } catch (error) {
                 console.error('Camera error:', error);
@@ -1203,28 +1186,22 @@
         }
 
         function bindCameraButtons() {
-            console.log('[inventory-scanner] Binding camera buttons');
             const buttons = document.querySelectorAll('#camera-scan-btn');
-            console.log('[inventory-scanner] Found', buttons.length, 'camera buttons');
 
-            buttons.forEach((btn, idx) => {
+            buttons.forEach((btn) => {
                 if (boundButtons.has(btn)) {
-                    console.log('[inventory-scanner] Button', idx, 'already bound');
                     return;
                 }
 
-                console.log('[inventory-scanner] Binding new button', idx);
                 boundButtons.add(btn);
                 btn.classList.remove('hidden');
 
-                // Use pointerdown for better mobile support
                 btn.addEventListener('pointerdown', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     handleCameraClick(btn);
                 });
 
-                // Also keep click for desktop compatibility
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -1232,18 +1209,16 @@
                 });
             });
 
-            // Bind stop button
             const stopBtn = document.getElementById('camera-stop-btn');
             if (stopBtn && !stopBtn.dataset.stopBound) {
                 stopBtn.dataset.stopBound = '1';
                 stopBtn.addEventListener('click', function stopCamera() {
-                    console.log('[inventory-scanner] Stop camera clicked');
                     scanning = false;
                     if (codeReader) {
                         try {
                             codeReader.reset();
                         } catch (e) {
-                            console.log('Error resetting reader:', e);
+                            console.error('Error resetting reader:', e);
                         }
                         codeReader = null;
                     }
@@ -1260,7 +1235,6 @@
                         container.classList.add('hidden');
                     }
 
-                    // Show all camera buttons
                     document.querySelectorAll('#camera-scan-btn').forEach(btn => {
                         btn.classList.remove('hidden');
                     });
@@ -1268,35 +1242,23 @@
             }
         }
 
-        function setup() {
-            console.log('[inventory-scanner] Setup running');
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bindCameraButtons);
+        } else {
             bindCameraButtons();
         }
 
-        // Setup on DOM ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', setup);
-        } else {
-            setup();
-        }
-
-        // Rebind when Livewire updates
         document.addEventListener('livewire:updated', () => {
-            console.log('[inventory-scanner] Livewire updated, rebinding buttons');
             boundButtons.clear();
             bindCameraButtons();
         });
 
-        // Stop camera when navigating away
         window.addEventListener('livewire:navigating', () => {
             const stopBtn = document.getElementById('camera-stop-btn');
             if (stopBtn && !stopBtn.closest('.hidden')) {
-                console.log('[inventory-scanner] Navigating, stopping camera');
                 stopBtn.click();
             }
         });
-
-        console.log('[inventory-scanner] Script initialized');
     })();
 
     // Mobile Scanner Enhancement: Handle paste events and haptic feedback
@@ -1355,11 +1317,8 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/inventory-scanner-sw.js', { scope: '/admin/inventory/scanner' })
-                    .then((registration) => {
-                        console.log('Scanner Service Worker registered successfully:', registration);
-                    })
                     .catch((error) => {
-                        console.log('Scanner Service Worker registration failed:', error);
+                        console.error('Scanner Service Worker registration failed:', error);
                     });
             });
         }

@@ -1180,18 +1180,34 @@
         let boundButtons = new Set();
 
         function getInput(btn) {
-            // Search from the button up to find the closest input field
+            // Try to find input by ID first (quickadd-barcode)
+            let input = document.getElementById('quickadd-barcode');
+            if (input) return input;
+
+            // Search from the button up through parents
             let parent = btn.parentElement;
             while (parent) {
-                const input = parent.querySelector('input[wire\\:model="scanInput"], input[wire\\:model\\.live="scanInput"]');
+                // Try multiple selectors for different wire:model variations
+                input = parent.querySelector('input[wire\\:model="scanInput"]');
                 if (input) return input;
+
+                // Also check for wire:model.live (need to use getAttribute for this)
+                const inputs = parent.querySelectorAll('input');
+                for (let inp of inputs) {
+                    if (inp.getAttribute('wire:model.live') === 'scanInput' ||
+                        inp.getAttribute('wire:model') === 'scanInput') {
+                        return inp;
+                    }
+                }
                 parent = parent.parentElement;
             }
 
-            // Fallback: search entire document for scanInput field
-            return Array.from(document.querySelectorAll('input')).find(el =>
+            // Fallback: search entire document
+            const allInputs = Array.from(document.querySelectorAll('input'));
+            return allInputs.find(el =>
                 el.getAttribute('wire:model') === 'scanInput' ||
-                el.getAttribute('wire:model.live') === 'scanInput'
+                el.getAttribute('wire:model.live') === 'scanInput' ||
+                el.id === 'quickadd-barcode'
             );
         }
 
@@ -1407,19 +1423,37 @@
             bindCameraButtons();
         }
 
-        // Re-bind camera buttons after ANY Livewire update
+        // Re-bind camera buttons after Livewire updates (mode switches, form changes, etc.)
         document.addEventListener('livewire:updated', () => {
-            // Clear tracking to force re-binding
             boundButtons.clear();
-            // Give DOM time to settle before binding
-            setTimeout(bindCameraButtons, 50);
+            // Give DOM time to settle - longer delay for mode switches
+            setTimeout(() => {
+                // Verify buttons exist before binding
+                const buttons = document.querySelectorAll('.camera-scan-btn');
+                if (buttons.length > 0) {
+                    bindCameraButtons();
+                }
+            }, 100);
+        });
+
+        // Also handle navigation events from Livewire routing
+        document.addEventListener('livewire:navigating', () => {
+            const stopBtn = document.getElementById('camera-stop-btn');
+            if (stopBtn && !stopBtn.closest('.hidden')) {
+                stopBtn.click();
+            }
         });
 
         // Stop camera when navigating away
         window.addEventListener('livewire:navigating', () => {
-            const stopBtn = document.getElementById('camera-stop-btn');
-            if (stopBtn && !stopBtn.closest('.hidden')) {
-                stopBtn.click();
+            scanning = false;
+            if (codeReader) {
+                try { codeReader.reset(); } catch (e) {}
+                codeReader = null;
+            }
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
             }
         });
     })();

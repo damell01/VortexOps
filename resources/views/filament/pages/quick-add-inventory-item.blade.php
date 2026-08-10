@@ -61,12 +61,12 @@
                         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
                         <select wire:model="data.category" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500">
                             <option value="">Select or type category...</option>
-                            <option value="Sports Cards">Sports Cards</option>
-                            <option value="Autographs">Autographs</option>
-                            <option value="Trading Cards">Trading Cards</option>
-                            <option value="Memorabilia">Memorabilia</option>
-                            <option value="Collectibles">Collectibles</option>
-                            <option value="Other">Other</option>
+                            @php
+                                $categories = \App\Models\InventoryItem::whereNotNull('category')->distinct()->pluck('category')->sort();
+                            @endphp
+                            @foreach($categories as $category)
+                                <option value="{{ $category }}">{{ $category }}</option>
+                            @endforeach
                         </select>
                     </div>
                     <div>
@@ -193,4 +193,158 @@
             </div>
         </div>
     </div>
+
+    <!-- Hidden Camera Container for Barcode Scanning -->
+    <div id="quickadd-camera-container" class="hidden fixed inset-0 bg-black z-50 flex flex-col">
+        <div class="flex-1 flex items-center justify-center">
+            <video id="quickadd-camera-video" class="w-full h-full object-cover"></video>
+        </div>
+        <div class="bg-gray-900 p-4 flex justify-between items-center">
+            <div class="text-white text-sm">Point camera at barcode</div>
+            <button type="button" id="quickadd-camera-stop-btn" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">Close Camera</button>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            let scanning = false;
+            let codeReader = null;
+            let stream = null;
+
+            function getInput() {
+                return document.querySelector('input[wire\\:model="data.barcode"]');
+            }
+
+            async function handleCameraClick() {
+                try {
+                    if (scanning) {
+                        console.log('Already scanning');
+                        return;
+                    }
+
+                    const input = getInput();
+                    if (!input) {
+                        alert('Barcode input field not found');
+                        return;
+                    }
+
+                    const container = document.getElementById('quickadd-camera-container');
+                    const video = document.getElementById('quickadd-camera-video');
+
+                    if (!container || !video) {
+                        alert('Camera elements not found');
+                        return;
+                    }
+
+                    if (stream) {
+                        stream.getTracks().forEach(track => track.stop());
+                        stream = null;
+                    }
+
+                    if (codeReader) {
+                        try {
+                            codeReader.reset();
+                        } catch (e) {}
+                    }
+
+                    container.classList.remove('hidden');
+                    scanning = true;
+
+                    // Initialize barcode reader
+                    if (!window.barcodeScanner?.BrowserMultiFormatReader) {
+                        alert('Barcode scanner library not loaded');
+                        scanning = false;
+                        container.classList.add('hidden');
+                        return;
+                    }
+
+                    codeReader = new window.barcodeScanner.BrowserMultiFormatReader();
+
+                    // Start scanning
+                    const result = await codeReader.decodeFromVideoDevice(undefined, video, (result, err) => {
+                        if (result) {
+                            const barcode = result.text;
+                            input.value = barcode;
+                            input.dispatchEvent(new Event('input', { bubbles: true }));
+                            input.dispatchEvent(new Event('change', { bubbles: true }));
+
+                            // Close camera
+                            scanning = false;
+                            if (codeReader) {
+                                try {
+                                    codeReader.reset();
+                                } catch (e) {}
+                                codeReader = null;
+                            }
+                            if (stream) {
+                                stream.getTracks().forEach(track => track.stop());
+                                stream = null;
+                            }
+                            container.classList.add('hidden');
+                        }
+                    });
+
+                } catch (error) {
+                    console.error('Camera error:', error);
+                    scanning = false;
+                    const container = document.getElementById('quickadd-camera-container');
+                    if (container) container.classList.add('hidden');
+                    alert('Error opening camera: ' + error.message);
+                }
+            }
+
+            // Bind scan button
+            function bindScanButton() {
+                const scanBtn = document.querySelector('button[wire\\:click="scanBarcode()"]');
+                if (scanBtn) {
+                    scanBtn.onclick = (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleCameraClick();
+                    };
+                }
+            }
+
+            // Bind stop button
+            function bindStopButton() {
+                const stopBtn = document.getElementById('quickadd-camera-stop-btn');
+                if (stopBtn && !stopBtn.dataset.bound) {
+                    stopBtn.dataset.bound = '1';
+                    stopBtn.addEventListener('click', () => {
+                        scanning = false;
+                        if (codeReader) {
+                            try {
+                                codeReader.reset();
+                            } catch (e) {}
+                            codeReader = null;
+                        }
+                        if (stream) {
+                            stream.getTracks().forEach(track => track.stop());
+                            stream = null;
+                        }
+                        const container = document.getElementById('quickadd-camera-container');
+                        if (container) container.classList.add('hidden');
+                    });
+                }
+            }
+
+            // Initialize
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                    bindScanButton();
+                    bindStopButton();
+                });
+            } else {
+                bindScanButton();
+                bindStopButton();
+            }
+
+            // Rebind after Livewire updates
+            document.addEventListener('livewire:updated', () => {
+                setTimeout(() => {
+                    bindScanButton();
+                }, 100);
+            });
+        })();
+    </script>
 </x-filament-panels::page>

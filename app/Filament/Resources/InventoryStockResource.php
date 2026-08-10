@@ -226,10 +226,13 @@ class InventoryStockResource extends Resource
                     ->openUrlInNewTab(),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
-            ])
+                ViewAction::make()
+                    ->size('sm'),
+                EditAction::make()
+                    ->size('sm'),
+            ], position: \Filament\Tables\Enums\ActionsPosition::AfterColumns)
             ->striped()
+            ->wrap()
             ->persistFiltersInSession()
             ->paginationPageOptions([10, 25, 50])
             ->defaultPaginationPageOption(25)

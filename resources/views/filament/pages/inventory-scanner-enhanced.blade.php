@@ -1375,23 +1375,29 @@
         }
 
         function bindCameraButtons() {
+            console.log('[Camera] bindCameraButtons() called');
             const buttons = document.querySelectorAll('.camera-scan-btn');
+            console.log('[Camera] Found', buttons.length, 'camera buttons');
 
             buttons.forEach((btn) => {
                 if (boundButtons.has(btn)) {
+                    console.log('[Camera] Button already bound, skipping');
                     return;
                 }
 
                 boundButtons.add(btn);
                 btn.classList.remove('hidden');
+                console.log('[Camera] Button bound and made visible');
 
                 btn.addEventListener('pointerdown', (e) => {
+                    console.log('[Camera] pointerdown event');
                     e.preventDefault();
                     e.stopPropagation();
                     handleCameraClick(btn);
                 });
 
                 btn.addEventListener('click', (e) => {
+                    console.log('[Camera] click event');
                     e.preventDefault();
                     e.stopPropagation();
                     handleCameraClick(btn);
@@ -1431,21 +1437,31 @@
             }
         }
 
+        console.log('[Camera] Script loaded, readyState:', document.readyState);
+
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', bindCameraButtons);
+            console.log('[Camera] DOM still loading, waiting for DOMContentLoaded');
+            document.addEventListener('DOMContentLoaded', () => {
+                console.log('[Camera] DOMContentLoaded fired, calling bindCameraButtons');
+                bindCameraButtons();
+            });
         } else {
+            console.log('[Camera] DOM already loaded, calling bindCameraButtons immediately');
             bindCameraButtons();
         }
 
         // Re-bind camera buttons after Livewire updates (mode switches, form changes, etc.)
         document.addEventListener('livewire:updated', () => {
+            console.log('[Camera] livewire:updated fired');
             boundButtons.clear();
-            // Give DOM time to settle - longer delay for mode switches
+            console.log('[Camera] Cleared boundButtons, rebinding...');
             setTimeout(() => {
-                // Verify buttons exist before binding
+                console.log('[Camera] Calling bindCameraButtons after 100ms');
                 const buttons = document.querySelectorAll('.camera-scan-btn');
                 if (buttons.length > 0) {
                     bindCameraButtons();
+                } else {
+                    console.log('[Camera] No buttons found, skipping bind');
                 }
             }, 100);
         });

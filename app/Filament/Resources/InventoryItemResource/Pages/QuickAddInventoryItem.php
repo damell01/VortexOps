@@ -195,6 +195,7 @@ class QuickAddInventoryItem extends Page
             $item = InventoryItem::create([
                 'name' => $validatedData['name'],
                 'sku' => $validatedData['sku'],
+                'barcode' => $validatedData['barcode'] ?? null,
                 'category' => $validatedData['category'] ?? null,
                 'unit_cost' => (float) ($validatedData['unit_cost'] ?? 0),
                 'average_cost' => (float) ($validatedData['unit_cost'] ?? 0),

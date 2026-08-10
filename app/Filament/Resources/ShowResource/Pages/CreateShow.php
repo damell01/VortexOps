@@ -23,6 +23,7 @@ use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Components\Wizard\Step;
 
 class CreateShow extends CreateRecord
@@ -30,6 +31,11 @@ class CreateShow extends CreateRecord
     use HasWizard;
 
     protected static string $resource = ShowResource::class;
+
+    public function getView(): string
+    {
+        return 'filament.resources.show-resource.pages.create-show';
+    }
 
     public function getSteps(): array
     {
@@ -99,6 +105,8 @@ class CreateShow extends CreateRecord
                 ->icon('heroicon-o-shopping-cart')
                 ->description('Inventory items sold during the show')
                 ->schema([
+                    View::make('filament.resources.show-resource.pages.quick-add-button'),
+
                     Repeater::make('inventory_items')
                         ->label('Inventory Items')
                         ->schema([

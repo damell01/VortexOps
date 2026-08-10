@@ -265,7 +265,7 @@
                         <x-heroicon-o-x-mark class="h-5 w-5 mx-auto" />
                     </button>
                     @endif
-                    <button id="camera-scan-btn" type="button" class="flex-1 px-3 py-3 rounded-lg bg-violet-500 text-white hover:bg-violet-600 active:bg-violet-700 transition font-medium text-sm" title="Scan with camera">
+                    <button class="camera-scan-btn flex-1 px-3 py-3 rounded-lg bg-violet-500 text-white hover:bg-violet-600 active:bg-violet-700 transition font-medium text-sm" title="Scan with camera" type="button">
                         <x-heroicon-o-video-camera class="h-5 w-5 mx-auto" />
                         Camera
                     </button>
@@ -659,7 +659,7 @@
                         <x-heroicon-o-x-mark class="h-5 w-5 mx-auto" />
                     </button>
                     @endif
-                    <button id="camera-scan-btn" type="button" class="flex-1 px-3 py-3 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 active:bg-emerald-700 transition font-medium text-sm" title="Scan with camera">
+                    <button class="camera-scan-btn flex-1 px-3 py-3 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 active:bg-emerald-700 transition font-medium text-sm" title="Scan with camera" type="button">
                         <x-heroicon-o-video-camera class="h-5 w-5 mx-auto" />
                     </button>
                     <button wire:click="submitScan" type="button"
@@ -1189,6 +1189,11 @@
 
         async function handleCameraClick(btn) {
             try {
+                // Prevent opening camera if already opening or scanning
+                if (scanning || codeReader) {
+                    return;
+                }
+
                 const input = getInput(btn);
                 if (!input) {
                     alert('Error: Input field not found');
@@ -1208,8 +1213,20 @@
                     return;
                 }
 
+                // Reset video element and clear any previous stream
+                video.srcObject = null;
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
+
                 container.classList.remove('hidden');
                 btn.classList.add('hidden');
+
+                const loadingOverlay = document.getElementById('camera-loading');
+                if (loadingOverlay) {
+                    loadingOverlay.classList.remove('hidden');
+                }
 
                 codeReader = new window.barcodeScanner.BrowserMultiFormatReader();
 
@@ -1244,7 +1261,6 @@
 
                 scanning = true;
 
-                const loadingOverlay = document.getElementById('camera-loading');
                 if (loadingOverlay) {
                     loadingOverlay.classList.add('hidden');
                 }
@@ -1257,6 +1273,25 @@
                 }
                 btn.classList.remove('hidden');
                 scanning = false;
+
+                if (codeReader) {
+                    try {
+                        codeReader.reset();
+                    } catch (e) {
+                        console.error('Error resetting reader:', e);
+                    }
+                    codeReader = null;
+                }
+
+                const video = document.getElementById('camera-video');
+                if (video) {
+                    video.srcObject = null;
+                }
+
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
 
                 let message = 'Camera error: ';
                 if (error.name === 'NotAllowedError') {
@@ -1273,7 +1308,7 @@
         }
 
         function bindCameraButtons() {
-            const buttons = document.querySelectorAll('#camera-scan-btn');
+            const buttons = document.querySelectorAll('.camera-scan-btn');
 
             buttons.forEach((btn) => {
                 if (boundButtons.has(btn)) {
@@ -1322,7 +1357,7 @@
                         container.classList.add('hidden');
                     }
 
-                    document.querySelectorAll('#camera-scan-btn').forEach(btn => {
+                    document.querySelectorAll('.camera-scan-btn').forEach(btn => {
                         btn.classList.remove('hidden');
                     });
                 });

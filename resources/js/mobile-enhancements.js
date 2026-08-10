@@ -211,11 +211,38 @@ class MobileEnhancements {
         const collapsibles = document.querySelectorAll('.mobile-collapsible-header');
 
         collapsibles.forEach(header => {
+            // Remove any existing listeners by cloning and replacing
+            if (header.dataset.collapsibleBound) {
+                return; // Already bound
+            }
+
+            header.dataset.collapsibleBound = 'true';
+
             header.addEventListener('click', (e) => {
                 e.preventDefault();
+                e.stopPropagation();
+
                 const section = header.closest('.mobile-collapsible');
                 if (section) {
+                    const isOpen = section.classList.contains('open');
                     section.classList.toggle('open');
+
+                    // Ensure content can expand
+                    const content = section.querySelector('.mobile-collapsible-content');
+                    if (content) {
+                        if (!isOpen) {
+                            // Opening - set computed height
+                            setTimeout(() => {
+                                const body = content.querySelector('.mobile-collapsible-body');
+                                if (body) {
+                                    content.style.maxHeight = (body.scrollHeight + 20) + 'px';
+                                }
+                            }, 0);
+                        } else {
+                            // Closing
+                            content.style.maxHeight = '0';
+                        }
+                    }
                 }
             });
         });

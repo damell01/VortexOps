@@ -57,7 +57,7 @@ class ListInventoryItems extends ListRecords
                     return ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
                 }),
             CreateAction::make()
-                ->label('+ Full Form')
+                ->label('+ Add Inventory Item')
                 ->color('gray')
                 ->visible(function () {
                     $user = auth()->user();

@@ -160,6 +160,15 @@ class QuickAddInventoryItem extends Page
         ];
     }
 
+    public function scanBarcode(): void
+    {
+        Notification::make()
+            ->title('Barcode Scanner')
+            ->body('Camera barcode scanner coming soon. For now, enter the barcode manually.')
+            ->info()
+            ->send();
+    }
+
     #[\Livewire\Attributes\On('next-step')]
     public function nextStep(): void
     {

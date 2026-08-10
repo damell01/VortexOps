@@ -46,13 +46,28 @@
                         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Item Name</label>
                         <input type="text" wire:model="data.name" placeholder="e.g., 2024 Topps Chrome Box" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500" autofocus />
                     </div>
+                    <div class="col-span-2">
+                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Barcode/UPC (optional)</label>
+                        <div class="flex gap-2 mt-1">
+                            <input type="text" wire:model="data.barcode" placeholder="Scan barcode or enter UPC" class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500" />
+                            <button type="button" wire:click="scanBarcode()" class="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition font-medium text-sm">📷 Scan</button>
+                        </div>
+                    </div>
                     <div>
                         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">SKU</label>
                         <input type="text" wire:model="data.sku" placeholder="Auto-generated" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500" />
                     </div>
                     <div>
                         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
-                        <input type="text" wire:model="data.category" placeholder="Sports Cards, Autographs, etc." class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500" />
+                        <select wire:model="data.category" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500">
+                            <option value="">Select or type category...</option>
+                            <option value="Sports Cards">Sports Cards</option>
+                            <option value="Autographs">Autographs</option>
+                            <option value="Trading Cards">Trading Cards</option>
+                            <option value="Memorabilia">Memorabilia</option>
+                            <option value="Collectibles">Collectibles</option>
+                            <option value="Other">Other</option>
+                        </select>
                     </div>
                     <div>
                         <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Unit Cost</label>
@@ -136,12 +151,12 @@
             @endif
 
             <!-- Navigation Buttons -->
-            <div class="flex justify-between gap-3 pt-6">
+            <div class="flex justify-between gap-4 pt-8 mt-8 border-t border-gray-200 dark:border-gray-700">
                 @if ($this->currentStep > 1)
                     <button
                         type="button"
                         wire:click="dispatch('previous-step')"
-                        class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                        class="px-6 py-3 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium"
                     >
                         ← Back
                     </button>
@@ -153,23 +168,23 @@
                     <button
                         type="button"
                         wire:click="dispatch('next-step')"
-                        class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium"
+                        class="px-8 py-3 bg-primary-600 dark:bg-primary-600 text-white rounded-lg hover:bg-primary-700 dark:hover:bg-primary-700 active:bg-primary-800 transition font-bold text-lg shadow-md"
                     >
                         Next →
                     </button>
                 @else
-                    <div class="flex gap-3">
+                    <div class="flex gap-4 ml-auto">
                         <button
                             type="button"
                             wire:click="dispatch('previous-step')"
-                            class="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                            class="px-6 py-3 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium"
                         >
                             ← Back
                         </button>
                         <button
                             type="button"
                             wire:click="dispatch('submit-wizard')"
-                            class="px-6 py-2 bg-success-600 text-white rounded-lg hover:bg-success-700 transition font-medium"
+                            class="px-8 py-3 bg-success-600 dark:bg-success-600 text-white rounded-lg hover:bg-success-700 dark:hover:bg-success-700 active:bg-success-800 transition font-bold text-lg shadow-md"
                         >
                             ✓ Add to Inventory
                         </button>

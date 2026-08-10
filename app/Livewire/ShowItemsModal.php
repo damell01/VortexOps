@@ -65,6 +65,7 @@ class ShowItemsModal extends Component
                 $this->selectedItems[$itemId] = [
                     'id' => $itemId,
                     'name' => $item->name,
+                    'sku' => $item->sku,
                     'quantity' => 1,
                     'unit_cost' => $item->average_cost ?? $item->unit_cost ?? 0,
                 ];

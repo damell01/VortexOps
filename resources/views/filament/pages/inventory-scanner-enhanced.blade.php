@@ -1213,30 +1213,39 @@
 
         async function handleCameraClick(btn) {
             try {
+                console.log('[Camera] Button clicked');
+
                 // Prevent opening camera if already scanning
                 if (scanning) {
+                    console.log('[Camera] Already scanning, ignoring');
                     return;
                 }
 
                 const input = getInput(btn);
+                console.log('[Camera] Input found:', !!input, input?.id || input?.getAttribute('wire:model.live'));
                 if (!input) {
+                    console.error('[Camera] ERROR: Input field not found');
                     alert('Error: Input field not found');
                     return;
                 }
 
                 const container = document.getElementById('camera-container');
                 const video = document.getElementById('camera-video');
+                console.log('[Camera] Container found:', !!container, 'Video found:', !!video);
 
                 if (!container || !video) {
+                    console.error('[Camera] ERROR: Camera elements not found');
                     alert('Error: Camera elements not found');
                     return;
                 }
 
                 if (!window.barcodeScanner?.BrowserMultiFormatReader) {
+                    console.error('[Camera] ERROR: Barcode scanner library not loaded');
                     alert('Barcode scanner library not loaded. Please refresh the page.');
                     return;
                 }
 
+                console.log('[Camera] Clearing previous streams...');
                 // Reset video element and clear any previous stream
                 video.srcObject = null;
                 if (stream) {
@@ -1249,10 +1258,11 @@
                     try {
                         codeReader.reset();
                     } catch (e) {
-                        console.log('Previous reader cleanup:', e);
+                        console.log('[Camera] Previous reader cleanup:', e);
                     }
                 }
 
+                console.log('[Camera] Removing hidden class...');
                 container.classList.remove('hidden');
                 btn.classList.add('hidden');
 
@@ -1262,15 +1272,18 @@
                 }
 
                 scanning = true;
+                console.log('[Camera] Creating BrowserMultiFormatReader...');
                 codeReader = new window.barcodeScanner.BrowserMultiFormatReader();
 
                 // Start scanning in background - don't wait for it
+                console.log('[Camera] Starting decodeFromVideoDevice...');
                 codeReader.decodeFromVideoDevice(
                     undefined,
                     video,
                     (result, err) => {
                         if (result && scanning) {
                             const barcode = result.getText();
+                            console.log('[Camera] Barcode detected:', barcode);
                             if (barcode !== lastScanned) {
                                 lastScanned = barcode;
                                 input.value = barcode;
@@ -1289,12 +1302,13 @@
                     }
                 ).then(() => {
                     // Scanning completed (shouldn't happen until closed)
+                    console.log('[Camera] Scanning completed');
                     if (loadingOverlay) {
                         loadingOverlay.classList.add('hidden');
                     }
                 }).catch((error) => {
                     // Camera initialization error
-                    console.error('Camera initialization error:', error);
+                    console.error('[Camera] ERROR - Camera initialization failed:', error);
                     const container = document.getElementById('camera-container');
                     if (container) {
                         container.classList.add('hidden');

@@ -1406,9 +1406,16 @@
             }
         }
 
+        console.log('[Camera] Script loaded, readyState:', document.readyState);
+
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', bindCameraButtons);
+            console.log('[Camera] DOM still loading, waiting for DOMContentLoaded');
+            document.addEventListener('DOMContentLoaded', () => {
+                console.log('[Camera] DOMContentLoaded fired, calling bindCameraButtons');
+                bindCameraButtons();
+            });
         } else {
+            console.log('[Camera] DOM already loaded, calling bindCameraButtons immediately');
             bindCameraButtons();
         }
 
@@ -1416,7 +1423,10 @@
             console.log('[Camera] livewire:updated fired');
             boundButtons.clear();
             console.log('[Camera] Cleared boundButtons, rebinding...');
-            bindCameraButtons();
+            setTimeout(() => {
+                console.log('[Camera] Calling bindCameraButtons after 100ms');
+                bindCameraButtons();
+            }, 100);
         });
 
         window.addEventListener('livewire:navigating', () => {

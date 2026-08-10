@@ -1,8 +1,12 @@
-<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 backdrop-blur-sm transition-colors duration-300"
-     style="display: {{ $isOpen ? 'flex' : 'none' }};"
-     role="dialog"
-     aria-modal="true"
-     aria-labelledby="modal-title">
+<div style="display: {{ $isOpen ? 'block' : 'none' }};">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-colors duration-300" wire:click="close()"></div>
+
+    <!-- Modal -->
+    <div class="fixed inset-0 z-50 flex items-center justify-center px-4"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="modal-title">
 
     <div class="w-full max-w-5xl max-h-[90vh] rounded-2xl bg-white dark:bg-gray-900 shadow-2xl flex flex-col overflow-hidden">
         <!-- Header -->
@@ -192,8 +196,6 @@
                 </div>
             </div>
         @endif
+        </div>
     </div>
 </div>
-
-<!-- Backdrop click to close -->
-<div class="fixed inset-0 z-40" style="display: {{ $isOpen ? 'block' : 'none' }};" wire:click="close()"></div>

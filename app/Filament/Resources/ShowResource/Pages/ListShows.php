@@ -106,7 +106,9 @@ class ListShows extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label('Add Show Manually'),
+            CreateAction::make()
+                ->label('Add Show Manually')
+                ->visible(fn () => auth()->user()?->isAdmin() ?? false),
 
             Action::make('import_whatnot')
                 ->label('Import from Whatnot')

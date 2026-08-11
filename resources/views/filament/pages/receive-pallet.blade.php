@@ -445,12 +445,12 @@
             <div class="flex items-start gap-3">
                 <x-heroicon-o-light-bulb class="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
                 <div class="flex-1 text-sm space-y-1">
-                    <p class="font-semibold text-blue-900 dark:text-blue-100">Quick Tips</p>
+                    <p class="font-semibold text-blue-900 dark:text-blue-100">Quick Tips & Shortcuts</p>
                     <ul class="text-xs text-blue-800 dark:text-blue-200 space-y-0.5">
-                        <li>📱 <strong>Use camera button</strong> for hands-free scanning (click video camera icon)</li>
+                        <li>📱 <strong>Use camera button</strong> for hands-free scanning (⌨️ Alt+C)</li>
                         <li>💡 <strong>Scan cases first</strong> to see what's inside (case barcodes show contents)</li>
                         <li>💡 <strong>Scan individual items</strong> to receive them one-by-one or use "Receive All" for a line</li>
-                        <li>💡 <strong>Map lines early</strong> — unmapped lines block receiving</li>
+                        <li>⌨️ <strong>Alt+M</strong> = Focus manual scanner · <strong>Esc</strong> = Close camera</li>
                     </ul>
                 </div>
             </div>
@@ -469,6 +469,24 @@
             const input = document.getElementById('barcode-input');
             let isScanning = false;
             let cameraStream = null;
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                // Alt+C = Open camera
+                if (e.altKey && e.key === 'c') {
+                    e.preventDefault();
+                    cameraButtons[0]?.click();
+                }
+                // Escape = Close camera
+                if (e.key === 'Escape' && isScanning) {
+                    stopCamera();
+                }
+                // Alt+M = Focus manual input
+                if (e.altKey && e.key === 'm') {
+                    e.preventDefault();
+                    input?.focus();
+                }
+            });
 
             cameraButtons.forEach(btn => {
                 btn.addEventListener('click', startCamera);

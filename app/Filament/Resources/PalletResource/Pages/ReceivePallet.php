@@ -67,9 +67,12 @@ class ReceivePallet extends Page
         $barcode = trim($this->barcodeInput);
         $this->barcodeInput = '';
 
-        if ($barcode === '') {
+        if (empty($barcode)) {
             return;
         }
+
+        // Normalize barcode (remove common prefixes/checksums if needed)
+        $barcode = preg_replace('/^[^0-9]*/', '', $barcode); // Remove leading non-digits
 
         try {
             $scanner = app(PalletScanningService::class);

@@ -16,6 +16,7 @@
 @import 'responsive-component-patterns.css';
 @import 'table-actions-responsive.css';
 @import 'mobile-card-layouts.css';
+@import 'sidebar-topbar-integration.css';
 
 [x-cloak] { display: none !important; }
 

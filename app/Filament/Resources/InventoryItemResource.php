@@ -10,17 +10,16 @@ use App\Models\InventoryLocation;
 use App\Models\Vendor;
 use App\Services\InventoryService;
 use App\Support\AdminModules;
-use Filament\Forms\Components\Repeater;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
-
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Repeater;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Select;
 use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Textarea;
+use Filament\Schemas\Components\TextInput;
+use Filament\Schemas\Components\Toggle;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Actions\Action;
@@ -350,16 +349,16 @@ class InventoryItemResource extends Resource
                 ->columnSpanFull()
                 ->visible(fn (Get $get) => !!$get('id'))
                 ->schema([
-                    \Filament\Forms\Components\Repeater::make('stock')
+                    Repeater::make('stock')
                         ->relationship('stock')
                         ->schema([
                             Grid::make(3)->schema([
-                                \Filament\Forms\Components\TextInput::make('location.name')
+                                TextInput::make('location.name')
                                     ->label('Location')
                                     ->disabled()
                                     ->columnSpan(2)
                                     ->dehydrated(false),
-                                \Filament\Forms\Components\TextInput::make('quantity')
+                                TextInput::make('quantity')
                                     ->label('Qty')
                                     ->numeric()
                                     ->step(0.01)
@@ -377,9 +376,9 @@ class InventoryItemResource extends Resource
                 ->columnSpanFull()
                 ->visible(fn (Get $get) => !!$get('id'))
                 ->schema([
-                    \Filament\Forms\Components\Tabs::make('relationships')
+                    Tabs::make('relationships')
                         ->tabs([
-                            \Filament\Forms\Components\Tabs\Tab::make('Items Inside This Container')
+                            Tabs\Tab::make('Items Inside This Container')
                                 ->description('If this item is a case/box, define what it contains')
                                 ->schema([
                                     Repeater::make('childContents')
@@ -424,7 +423,7 @@ class InventoryItemResource extends Resource
                                         ->columnSpanFull(),
                                 ]),
 
-                            \Filament\Forms\Components\Tabs\Tab::make('Containers This Is In')
+                            Tabs\Tab::make('Containers This Is In')
                                 ->description('If this item goes in a case, define the parent container')
                                 ->schema([
                                     Repeater::make('parentContents')

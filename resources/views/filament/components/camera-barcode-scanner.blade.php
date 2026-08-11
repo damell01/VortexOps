@@ -84,6 +84,9 @@ function cameraScanner() {
         targetInput: null,
         statusText: 'Initializing camera…',
         lastDetectionTime: 0,
+        lastDetectedBarcode: null,
+        detectionConfidence: 0,
+        detectedCallback: null,
 
         async open() {
             this.isOpen = true;
@@ -156,11 +159,14 @@ function cameraScanner() {
                     }
 
                     Quagga.start();
-                    Quagga.onDetected((result) => {
+
+                    // Store callback so we can remove it later
+                    this.detectedCallback = (result) => {
                         if (result && result.codeResult && result.codeResult.code) {
                             this.onBarcodeDetected(result.codeResult.code);
                         }
-                    });
+                    };
+                    Quagga.onDetected(this.detectedCallback);
 
                     this.showManual = true;
                 });
@@ -178,8 +184,27 @@ function cameraScanner() {
 
         onBarcodeDetected(value) {
             const now = Date.now();
-            if (now - this.lastDetectionTime < 800) return; // Throttle rapid detections
+            if (now - this.lastDetectionTime < 300) return; // Quick throttle for consecutive checks
 
+            // If this is a different barcode, reset confidence
+            if (value !== this.lastDetectedBarcode) {
+                this.lastDetectedBarcode = value;
+                this.detectionConfidence = 1;
+                this.statusText = '📍 Detecting: ' + value + '…';
+                return; // Wait for confirmation
+            }
+
+            // Same barcode detected again - increment confidence
+            this.detectionConfidence++;
+
+            // Require 2 consecutive detections of the same barcode to confirm
+            if (this.detectionConfidence < 2) {
+                this.statusText = '📍 Detecting: ' + value + '…';
+                this.lastDetectionTime = now;
+                return;
+            }
+
+            // Confirmed! Submit the barcode
             this.lastDetectionTime = now;
             this.detected = true;
             this.statusText = '✅ Detected: ' + value;
@@ -236,13 +261,26 @@ function cameraScanner() {
         async close() {
             this.isOpen = false;
             this.detected = false;
-            if (this.scanner) {
-                try {
-                    Quagga.stop();
-                    Quagga.offDetected();
-                } catch (err) {
-                    console.error('[barcode-scanner] stop error:', err);
+            this.lastDetectedBarcode = null;
+            this.detectionConfidence = 0;
+
+            try {
+                // Properly stop Quagga
+                Quagga.stop();
+
+                // Remove the specific detection callback
+                if (this.detectedCallback) {
+                    Quagga.offDetected(this.detectedCallback);
+                    this.detectedCallback = null;
                 }
+
+                // Clear the reader div to allow fresh initialization
+                const readerDiv = this.$refs.readerDiv;
+                if (readerDiv) {
+                    readerDiv.innerHTML = '';
+                }
+            } catch (err) {
+                console.error('[barcode-scanner] stop error:', err);
             }
         },
     };

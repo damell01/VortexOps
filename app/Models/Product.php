@@ -109,6 +109,16 @@ class Product extends Model
         return $this->hasOne(ProductEmbedding::class, 'product_id');
     }
 
+    public function childContents(): HasMany
+    {
+        return $this->hasMany(InventoryItemContent::class, 'parent_inventory_item_id');
+    }
+
+    public function parentContents(): HasMany
+    {
+        return $this->hasMany(InventoryItemContent::class, 'child_inventory_item_id');
+    }
+
     // ── Lookups ────────────────────────────────────────────────────────────────
 
     /**

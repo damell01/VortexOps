@@ -40,6 +40,10 @@ class Pallet extends Model
         'receiving_started_at',
         'line_items_total',
         'line_items_received',
+        'signature_path',
+        'signature_timestamp',
+        'received_by_name',
+        'attachments_count',
     ];
 
     protected $casts = [
@@ -90,6 +94,11 @@ class Pallet extends Model
     public function packingSlips(): HasMany
     {
         return $this->hasMany(PalletPackingSlip::class);
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(PalletAttachment::class);
     }
 
     public function totalCasesCount(): int

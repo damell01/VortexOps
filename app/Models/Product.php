@@ -55,6 +55,7 @@ class Product extends Model
         'average_cost'         => 'decimal:4',
         'total_units_received' => 'decimal:2',
         'is_active'            => 'boolean',
+        'is_container'         => 'boolean',
         'year'                 => 'integer',
     ];
 

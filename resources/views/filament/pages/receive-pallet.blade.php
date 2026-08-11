@@ -69,7 +69,7 @@
             <div class="flex items-center gap-3">
                 <x-heroicon-o-qr-code class="h-5 w-5 text-violet-500" />
                 <h2 class="text-sm font-semibold text-violet-900 dark:text-violet-100">Barcode Scanner</h2>
-                <span class="text-xs text-violet-600 dark:text-violet-400">Click the field below, then scan a case barcode</span>
+                <span class="text-xs text-violet-600 dark:text-violet-400">Click the field below, then scan a case or item barcode</span>
             </div>
 
             <div class="flex gap-3 items-center">
@@ -95,6 +95,16 @@
                 <div class="rounded-lg px-4 py-2.5 text-sm font-medium {{ $lastScanSuccess ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200' }}">
                     {{ $lastScannedResult }}
                 </div>
+                @if ($lastScanDetails && $lastScanDetails['type'] === 'case')
+                    <div class="rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm space-y-1">
+                        <p class="font-semibold text-blue-900 dark:text-blue-100">📦 Case Contents</p>
+                        <p class="text-blue-800 dark:text-blue-200">
+                            <span class="font-medium">{{ $lastScanDetails['parent'] }}</span>
+                            contains
+                            <span class="font-medium">{{ $lastScanDetails['quantity'] }} × {{ $lastScanDetails['child'] }}</span>
+                        </p>
+                    </div>
+                @endif
             @endif
         </div>
 
@@ -257,6 +267,82 @@
                 </div>
             @endif
         </div>
+
+        {{-- ── Media & Signatures ───────────────────────────────────────────── --}}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {{-- Media Attachments --}}
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm px-6 py-5 space-y-3">
+                <div class="flex items-center gap-3">
+                    <x-heroicon-o-camera class="h-5 w-5 text-gray-500" />
+                    <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Media & Documents</h2>
+                </div>
+                <p class="text-xs text-gray-400">Add photos, documents, or receipt images tied to this pallet.</p>
+
+                @if ($this->record->attachments()->count() > 0)
+                    <div class="space-y-2">
+                        @foreach ($this->record->attachments as $att)
+                            <div class="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <x-heroicon-o-document-text class="h-4 w-4 text-gray-400" />
+                                <span class="text-xs text-gray-700 dark:text-gray-300 truncate">{{ $att->file_name }}</span>
+                                <span class="text-[10px] text-gray-400 ml-auto">{{ \App\Models\PalletAttachment::typeLabels()[$att->type] ?? 'File' }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
+                <div class="text-xs text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border-l-2 border-gray-300 dark:border-gray-600">
+                    📁 Upload files via the Filament resource panel
+                </div>
+            </div>
+
+            {{-- Receiver Info --}}
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm px-6 py-5 space-y-3">
+                <div class="flex items-center gap-3">
+                    <x-heroicon-o-user class="h-5 w-5 text-gray-500" />
+                    <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Receiver Info</h2>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                        Name of Person Receiving
+                    </label>
+                    <input
+                        wire:model="receivedByName"
+                        type="text"
+                        placeholder="Enter receiver name…"
+                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    />
+                </div>
+
+                @if ($receivedByName)
+                    <div class="text-xs text-gray-500 bg-blue-50 dark:bg-blue-950 rounded-lg p-2 border-l-2 border-blue-300 dark:border-blue-700">
+                        ✓ Will save as receiver: <span class="font-semibold">{{ $receivedByName }}</span>
+                    </div>
+                @endif
+            </div>
+        </div>
+
+        {{-- ── Finalize Actions ─────────────────────────────────────────────── --}}
+        @if (collect($lineProgress)->sum('received') >= collect($lineProgress)->sum('case_count') && collect($lineProgress)->count() > 0)
+            <div class="rounded-xl border-2 border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950 shadow-sm px-6 py-5 space-y-3">
+                <div class="flex items-start gap-3">
+                    <x-heroicon-o-check-circle class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
+                    <div class="flex-1 min-w-0">
+                        <h2 class="text-sm font-semibold text-green-900 dark:text-green-100">All cases received! 🎉</h2>
+                        <p class="text-xs text-green-700 dark:text-green-200 mt-0.5">
+                            You've received all expected cases for this pallet. Click "Finalize Pallet" to complete the receiving process.
+                        </p>
+                    </div>
+                    <button
+                        wire:click="finalizePallet"
+                        type="button"
+                        class="shrink-0 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                        Finalize Pallet
+                    </button>
+                </div>
+            </div>
+        @endif
 
     </div>
 </x-filament-panels::page>

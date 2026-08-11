@@ -25,12 +25,23 @@
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                                 Container Barcode (Optional)
                             </label>
-                            <input
-                                type="text"
-                                wire:model="containerBarcode"
-                                placeholder="Barcode for this case/container"
-                                class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                            >
+                            <div class="flex gap-2">
+                                <input
+                                    type="text"
+                                    wire:model="containerBarcode"
+                                    placeholder="Barcode for this case/container"
+                                    class="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                    id="container-barcode-setup"
+                                >
+                                <button
+                                    type="button"
+                                    onclick="window.dispatchEvent(new Event('open-camera-scanner'))"
+                                    class="rounded-lg bg-blue-600 px-3 py-2 text-white hover:bg-blue-700 active:scale-95 transition-transform"
+                                    title="Open camera scanner"
+                                >
+                                    📷
+                                </button>
+                            </div>
                         </div>
 
                         <div class="flex gap-3 pt-4">

@@ -380,10 +380,6 @@
                         <x-heroicon-o-eye class="h-4 w-4" />
                         View Item
                     </a>
-                    <button onclick="alert('Quick add to cart feature coming soon')" type="button" class="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium transition">
-                        <x-heroicon-o-shopping-cart class="h-4 w-4" />
-                        Add to Cart
-                    </button>
                 </div>
             </div>
 

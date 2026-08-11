@@ -12,6 +12,7 @@
 @import 'ux-workflow-improvements.css';
 @import 'accessibility-enterprise-polish.css';
 @import 'responsive-typography-hierarchy.css';
+@import 'enterprise-ui-refinements.css';
 
 [x-cloak] { display: none !important; }
 

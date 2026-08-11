@@ -108,7 +108,7 @@ function cameraScanner() {
                 const readerDiv = this.$refs.readerDiv;
                 if (!readerDiv) return;
 
-                // Use Quagga for 1D barcode detection (optimized for speed)
+                // Use Quagga for 1D barcode detection (optimized for accuracy)
                 Quagga.init({
                     inputStream: {
                         name: 'Live',
@@ -122,10 +122,18 @@ function cameraScanner() {
                     },
                     decoder: {
                         readers: [
-                            'code_128_reader',
-                            'ean_reader',
-                            'upc_reader',
-                            'ean_8_reader'
+                            {
+                                format: 'code_128_reader',
+                                config: {}
+                            },
+                            {
+                                format: 'ean_reader',
+                                config: {}
+                            },
+                            {
+                                format: 'upc_reader',
+                                config: {}
+                            }
                         ],
                         debug: {
                             showCanvas: false,
@@ -138,7 +146,9 @@ function cameraScanner() {
                         patchSize: 'medium',
                         halfSample: true
                     },
-                    frequency: 20
+                    frequency: 10,
+                    numOfWorkers: 4,
+                    multiple: false
                 }, (err) => {
                     if (err) {
                         console.error('[barcode-scanner]', err);
@@ -184,22 +194,23 @@ function cameraScanner() {
 
         onBarcodeDetected(value) {
             const now = Date.now();
-            if (now - this.lastDetectionTime < 300) return; // Quick throttle for consecutive checks
+            if (now - this.lastDetectionTime < 200) return; // Quick throttle for consecutive checks
 
             // If this is a different barcode, reset confidence
             if (value !== this.lastDetectedBarcode) {
                 this.lastDetectedBarcode = value;
                 this.detectionConfidence = 1;
                 this.statusText = '📍 Detecting: ' + value + '…';
+                this.lastDetectionTime = now;
                 return; // Wait for confirmation
             }
 
             // Same barcode detected again - increment confidence
             this.detectionConfidence++;
 
-            // Require 2 consecutive detections of the same barcode to confirm
-            if (this.detectionConfidence < 2) {
-                this.statusText = '📍 Detecting: ' + value + '…';
+            // Require 3 consecutive detections of the SAME barcode to confirm (prevents false reads from different readers)
+            if (this.detectionConfidence < 3) {
+                this.statusText = '📍 Confirming: ' + value + ' (' + this.detectionConfidence + '/3)…';
                 this.lastDetectionTime = now;
                 return;
             }

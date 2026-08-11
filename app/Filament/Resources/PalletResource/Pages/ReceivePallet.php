@@ -124,6 +124,37 @@ class ReceivePallet extends Page
         $this->refreshProgress();
     }
 
+    public function markLineAsShort(int $lineId): void
+    {
+        $line = PalletLine::where('id', $lineId)
+            ->where('pallet_id', $this->record->id)
+            ->firstOrFail();
+
+        try {
+            $shortCount = $line->case_count - $line->cases->where('status', '!=', 'expected')->count();
+            if ($shortCount > 0) {
+                // Create missing item report
+                \App\Models\MissingItemReport::create([
+                    'pallet_id'          => $this->record->id,
+                    'inventory_item_id'  => $line->inventory_item_id,
+                    'expected_quantity'  => $shortCount,
+                    'unit_cost'          => $line->unit_cost,
+                    'total_value'        => $shortCount * ($line->unit_cost ?? 0),
+                    'reported_by'        => auth()->id(),
+                    'notes'              => "Marked as short during receiving: {$shortCount} units missing",
+                ]);
+
+                Notification::make()
+                    ->title("Marked {$shortCount} item(s) as missing")
+                    ->body("{$line->description} - {$shortCount} short")
+                    ->warning()
+                    ->send();
+            }
+        } catch (\Throwable $e) {
+            Notification::make()->title('Could not mark as short')->body($e->getMessage())->danger()->send();
+        }
+    }
+
     public function finalizePallet(): void
     {
         try {

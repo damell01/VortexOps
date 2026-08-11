@@ -432,6 +432,54 @@
             </div>
         </div>
 
+        {{-- ── Missing Items Tracker ───────────────────────────────────────── --}}
+        @php
+            $missingLines = collect($lineProgress)->filter(fn ($l) => $l['received'] < $l['case_count'] && $l['case_count'] > 0);
+            $totalMissing = $missingLines->sum(fn ($l) => $l['case_count'] - $l['received']);
+        @endphp
+        @if ($missingLines->count() > 0)
+            <div class="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 shadow-sm px-6 py-5 space-y-4">
+                <div class="flex items-start gap-3">
+                    <x-heroicon-o-exclamation-circle class="h-6 w-6 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                    <div class="flex-1 min-w-0">
+                        <h2 class="text-base md:text-sm font-semibold text-amber-900 dark:text-amber-100">
+                            {{ $totalMissing }} Item{{ $totalMissing !== 1 ? 's' : '' }} Not Yet Received
+                        </h2>
+                        <p class="text-sm md:text-xs text-amber-800 dark:text-amber-200 mt-1">
+                            Mark items as missing/short if they don't arrive. You can finalize the pallet even with missing items.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    @foreach ($missingLines as $line)
+                        @if ($line['received'] < $line['case_count'])
+                            <div class="flex items-center justify-between gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-amber-100 dark:border-amber-900">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                        L{{ $line['line_number'] }}: {{ $line['description'] }}
+                                    </p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                        Expected {{ $line['case_count'] }}, received {{ $line['received'] }}
+                                        <span class="font-semibold text-amber-600 dark:text-amber-400">
+                                            ({{ $line['case_count'] - $line['received'] }} short)
+                                        </span>
+                                    </p>
+                                </div>
+                                <button
+                                    wire:click="markLineAsShort({{ $line['id'] }})"
+                                    type="button"
+                                    class="shrink-0 rounded-lg bg-amber-600 px-3 py-2 text-xs font-medium text-white hover:bg-amber-700 active:bg-amber-800"
+                                >
+                                    Mark Short
+                                </button>
+                            </div>
+                        @endif
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
         {{-- ── Finalize Actions ─────────────────────────────────────────────── --}}
         @if (collect($lineProgress)->sum('received') >= collect($lineProgress)->sum('case_count') && collect($lineProgress)->count() > 0)
             <div class="rounded-xl border-2 border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950 shadow-sm px-6 py-5 space-y-4">

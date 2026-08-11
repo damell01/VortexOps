@@ -1,7 +1,4 @@
 <x-filament-panels::page>
-    {{-- Include shared camera scanner component inside page --}}
-    @include('filament.components.camera-barcode-scanner')
-
     <style>
         /* Ensure form buttons are visible and accessible on mobile */
         [x-filament::page] .fi-form {

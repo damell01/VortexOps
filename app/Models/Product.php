@@ -45,6 +45,7 @@ class Product extends Model
         'total_units_received',
         'reorder_level',
         'is_active',
+        'is_container',
         'preferred_vendor_id',
         'notes',
     ];

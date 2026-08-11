@@ -243,6 +243,61 @@ class InventoryItemResource extends Resource
                     ]),
                 ]),
 
+            Section::make('Container Items')
+                ->description('Define if this item is a container (case, box, pack) with individual items inside')
+                ->columnSpanFull()
+                ->schema([
+                    Toggle::make('is_container')
+                        ->label('This is a container with items inside')
+                        ->helperText('Enable if this case/box/pack holds other inventory items with their own SKUs')
+                        ->live(),
+                    Repeater::make('childContents')
+                        ->relationship('childContents', modifyQueryUsing: fn ($query) => $query->with('childItem'))
+                        ->label('Items Inside This Container')
+                        ->visible(fn (Get $get) => $get('is_container'))
+                        ->addActionLabel('Add Item Inside')
+                        ->columnSpanFull()
+                        ->schema([
+                            Grid::make(12)->schema([
+                                Select::make('child_inventory_item_id')
+                                    ->label('Item')
+                                    ->searchable()
+                                    ->getSearchResultsUsing(fn (string $search) => InventoryItem::where('is_active', true)
+                                        ->where(fn ($q) => $q->where('name', 'like', "%{$search}%")
+                                            ->orWhere('sku', 'like', "%{$search}%"))
+                                        ->whereNot('id', fn ($q) => $q->select('id')->from('products')->where('is_container', true)->limit(1))
+                                        ->orderBy('name')
+                                        ->limit(30)
+                                        ->pluck('name', 'id')
+                                        ->toArray())
+                                    ->getOptionLabelUsing(fn ($value) => InventoryItem::find($value)?->name)
+                                    ->required()
+                                    ->columnSpan(6)
+                                    ->createOptionForm([
+                                        TextInput::make('name')->label('Item Name')->required(),
+                                        TextInput::make('sku')->label('SKU')->required(),
+                                        TextInput::make('barcode')->label('Barcode (optional)'),
+                                    ])
+                                    ->createOptionUsing(function (array $data) {
+                                        return InventoryItem::create(array_merge($data, ['is_active' => true, 'is_container' => false]))->getKey();
+                                    }),
+                                TextInput::make('quantity_per_parent')
+                                    ->label('Qty Inside')
+                                    ->numeric()
+                                    ->step(1)
+                                    ->default(1)
+                                    ->minValue(1)
+                                    ->required()
+                                    ->columnSpan(3),
+                                TextInput::make('unit_type')
+                                    ->label('Unit Type')
+                                    ->placeholder('e.g., box, pack, bundle')
+                                    ->helperText('Describes what you\'re counting')
+                                    ->columnSpan(3),
+                            ]),
+                        ]),
+                ]),
+
             Section::make('Classification & Sourcing')
                 ->description('Organize and track inventory by category and vendor')
                 ->columnSpanFull()
@@ -371,103 +426,6 @@ class InventoryItemResource extends Resource
                         ->reorderable(false),
                 ]),
 
-            Section::make('Case/Unit Relationships')
-                ->description('Define hierarchical relationships (e.g., "Case contains 20 boxes")')
-                ->columnSpanFull()
-                ->visible(fn (Get $get) => !!$get('id'))
-                ->schema([
-                    Tabs::make('relationships')
-                        ->tabs([
-                            Tabs\Tab::make('Items Inside This Container')
-                                ->schema([
-                                    Repeater::make('childContents')
-                                        ->relationship('childContents', modifyQueryUsing: fn ($query) => $query->with('childItem'))
-                                        ->label('Contents')
-                                        ->addActionLabel('Add Item Inside')
-                                        ->schema([
-                                            Grid::make(12)->schema([
-                                                Select::make('child_inventory_item_id')
-                                                    ->label('Item Inside')
-                                                    ->options(function (Get $get) {
-                                                        $parentId = $get('../../id');
-                                                        return InventoryItem::where('is_active', true)
-                                                            ->where('id', '!=', $parentId)
-                                                            ->orderBy('name')
-                                                            ->pluck('name', 'id')
-                                                            ->toArray();
-                                                    })
-                                                    ->searchable()
-                                                    ->required()
-                                                    ->columnSpan(5),
-                                                TextInput::make('quantity_per_parent')
-                                                    ->label('Quantity Inside')
-                                                    ->numeric()
-                                                    ->step(1)
-                                                    ->default(1)
-                                                    ->minValue(1)
-                                                    ->required()
-                                                    ->columnSpan(2),
-                                                TextInput::make('unit_type')
-                                                    ->label('Unit Type')
-                                                    ->placeholder('e.g., box, pack, bundle')
-                                                    ->helperText('Describes the container (case, box, etc.)')
-                                                    ->columnSpan(3),
-                                                TextInput::make('barcode')
-                                                    ->label('Container Barcode')
-                                                    ->placeholder('Barcode that scans this case')
-                                                    ->helperText('Scan this barcode to identify the container')
-                                                    ->columnSpan(2),
-                                            ]),
-                                        ])
-                                        ->columnSpanFull(),
-                                ]),
-
-                            Tabs\Tab::make('Containers This Is In')
-                                ->schema([
-                                    Repeater::make('parentContents')
-                                        ->relationship('parentContents', modifyQueryUsing: fn ($query) => $query->with('parentItem'))
-                                        ->label('Parent Containers')
-                                        ->addActionLabel('Add Container')
-                                        ->schema([
-                                            Grid::make(12)->schema([
-                                                Select::make('parent_inventory_item_id')
-                                                    ->label('Container Item')
-                                                    ->options(function (Get $get) {
-                                                        $childId = $get('../../id');
-                                                        return InventoryItem::where('is_active', true)
-                                                            ->where('id', '!=', $childId)
-                                                            ->orderBy('name')
-                                                            ->pluck('name', 'id')
-                                                            ->toArray();
-                                                    })
-                                                    ->searchable()
-                                                    ->required()
-                                                    ->columnSpan(5),
-                                                TextInput::make('quantity_per_parent')
-                                                    ->label('Qty Per Case')
-                                                    ->numeric()
-                                                    ->step(1)
-                                                    ->default(1)
-                                                    ->minValue(1)
-                                                    ->required()
-                                                    ->columnSpan(2),
-                                                TextInput::make('unit_type')
-                                                    ->label('Unit Type')
-                                                    ->placeholder('e.g., case, box')
-                                                    ->helperText('Type of container this goes in')
-                                                    ->columnSpan(3),
-                                                TextInput::make('barcode')
-                                                    ->label('Container Barcode')
-                                                    ->placeholder('Barcode of the container')
-                                                    ->helperText('Scan this to identify the case')
-                                                    ->columnSpan(2),
-                                            ]),
-                                        ])
-                                        ->columnSpanFull(),
-                                ]),
-                        ])
-                        ->columnSpanFull(),
-                ]),
         ]);
     }
 

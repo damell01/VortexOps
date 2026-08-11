@@ -379,7 +379,6 @@ class InventoryItemResource extends Resource
                     Tabs::make('relationships')
                         ->tabs([
                             Tabs\Tab::make('Items Inside This Container')
-                                ->description('If this item is a case/box, define what it contains')
                                 ->schema([
                                     Repeater::make('childContents')
                                         ->relationship('childContents', modifyQueryUsing: fn ($query) => $query->with('childItem'))
@@ -424,7 +423,6 @@ class InventoryItemResource extends Resource
                                 ]),
 
                             Tabs\Tab::make('Containers This Is In')
-                                ->description('If this item goes in a case, define the parent container')
                                 ->schema([
                                     Repeater::make('parentContents')
                                         ->relationship('parentContents', modifyQueryUsing: fn ($query) => $query->with('parentItem'))

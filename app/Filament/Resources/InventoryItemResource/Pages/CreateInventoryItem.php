@@ -14,7 +14,6 @@ use Livewire\Attributes\On;
 class CreateInventoryItem extends CreateRecord
 {
     protected static string $resource = InventoryItemResource::class;
-    protected static ?string $view = 'filament.pages.create-inventory-item';
 
     // Container scan mode properties
     public bool $containerScanMode = false;
@@ -23,6 +22,11 @@ class CreateInventoryItem extends CreateRecord
     public array $scannedItems = [];
     public string $barcodeInput = '';
     public int $scanStep = 1; // 1: setup, 2: scan, 3: review
+
+    public function getView(): string
+    {
+        return 'filament.pages.create-inventory-item';
+    }
 
     protected function getCreatedNotificationTitle(): ?string
     {

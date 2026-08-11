@@ -29,15 +29,15 @@
             $summaryPct      = $summaryExpected > 0 ? round(($summaryReceived / $summaryExpected) * 100) : 0;
             $summaryDone     = $summaryExpected > 0 && $summaryReceived >= $summaryExpected;
         @endphp
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm px-6 py-4 space-y-3">
-            <div class="flex flex-wrap gap-6">
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm px-6 py-4 space-y-4">
+            <div class="grid grid-cols-2 md:flex md:flex-wrap gap-4 md:gap-6">
                 <div>
                     <p class="text-xs text-gray-400 uppercase tracking-wide">Vendor</p>
                     <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->vendor?->name ?? '—' }}</p>
                 </div>
                 <div>
                     <p class="text-xs text-gray-400 uppercase tracking-wide">Reference</p>
-                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->reference ?? '—' }}</p>
+                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{{ $this->record->reference ?? '—' }}</p>
                 </div>
                 <div>
                     <p class="text-xs text-gray-400 uppercase tracking-wide">Status</p>
@@ -57,21 +57,21 @@
                     <p class="text-xs text-gray-400 uppercase tracking-wide">Lines</p>
                     <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->lines->count() }}</p>
                 </div>
-                @if ($summaryExpected > 0)
-                    <div class="ml-auto flex items-center gap-3 shrink-0">
-                        <div class="text-right">
-                            <p class="text-xs text-gray-400 uppercase tracking-wide">Overall Progress</p>
-                            <p class="text-sm font-bold {{ $summaryDone ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100' }} tabular-nums">
-                                {{ $summaryPct }}% &nbsp;·&nbsp; {{ $summaryReceived }}/{{ $summaryExpected }} boxes
-                            </p>
-                        </div>
-                        <div class="w-32 bg-gray-100 dark:bg-gray-700 rounded-full h-2.5">
-                            <div class="h-2.5 rounded-full {{ $summaryDone ? 'bg-green-500' : 'bg-violet-500' }} transition-all"
-                                 style="width: {{ $summaryPct }}%"></div>
-                        </div>
-                    </div>
-                @endif
             </div>
+            @if ($summaryExpected > 0)
+                <div class="flex flex-col md:flex-row md:items-center gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
+                    <div>
+                        <p class="text-xs text-gray-400 uppercase tracking-wide">Overall Progress</p>
+                        <p class="text-base md:text-sm font-bold {{ $summaryDone ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-gray-100' }} tabular-nums">
+                            {{ $summaryPct }}% &nbsp;·&nbsp; {{ $summaryReceived }}/{{ $summaryExpected }} boxes
+                        </p>
+                    </div>
+                    <div class="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-3 md:h-2.5">
+                        <div class="h-full rounded-full {{ $summaryDone ? 'bg-green-500' : 'bg-violet-500' }} transition-all"
+                             style="width: {{ $summaryPct }}%"></div>
+                    </div>
+                </div>
+            @endif
         </div>
 
         {{-- ── Barcode Scanner Input ────────────────────────────────────────── --}}
@@ -91,37 +91,56 @@
                 @endif
             </div>
 
-            <div class="flex gap-2 items-center flex-wrap md:flex-nowrap">
+            {{-- Mobile layout (stacked buttons) --}}
+            <div class="md:hidden space-y-2">
                 <input
                     wire:model="barcodeInput"
                     wire:keydown.enter="submitBarcode"
                     id="barcode-input"
                     type="text"
+                    placeholder="Scan barcode…"
+                    autofocus
+                    autocomplete="off"
+                    class="w-full rounded-lg border border-violet-300 dark:border-violet-600 bg-white dark:bg-gray-900 px-4 py-3.5 text-base text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono"
+                />
+                <div class="flex gap-2">
+                    <button type="button" id="camera-scan-btn-mobile" title="Scan with camera"
+                        class="flex-1 rounded-lg border border-violet-300 dark:border-violet-600 px-4 py-3 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 font-medium flex items-center justify-center gap-2">
+                        <x-heroicon-o-video-camera class="h-5 w-5" />
+                        <span>Camera</span>
+                    </button>
+                    <button
+                        wire:click="submitBarcode"
+                        type="button"
+                        class="flex-1 rounded-lg bg-violet-600 px-4 py-3 text-white hover:bg-violet-700 active:bg-violet-800 focus:outline-none focus:ring-2 focus:ring-violet-500 font-medium flex items-center justify-center gap-2"
+                    >
+                        <x-heroicon-o-arrow-right class="h-5 w-5" />
+                        <span>Submit</span>
+                    </button>
+                </div>
+            </div>
+
+            {{-- Desktop layout (inline) --}}
+            <div class="hidden md:flex gap-2 items-center">
+                <input
+                    wire:model="barcodeInput"
+                    wire:keydown.enter="submitBarcode"
+                    id="barcode-input-desktop"
+                    type="text"
                     placeholder="Scan barcode here…"
                     autofocus
                     autocomplete="off"
-                    class="flex-1 min-w-0 rounded-lg border border-violet-300 dark:border-violet-600 bg-white dark:bg-gray-900 px-3 md:px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono"
+                    class="flex-1 min-w-0 rounded-lg border border-violet-300 dark:border-violet-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono"
                 />
                 <button
                     wire:click="submitBarcode"
                     type="button"
-                    class="hidden md:inline-block rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 active:bg-violet-800 focus:outline-none focus:ring-2 focus:ring-violet-500 flex-shrink-0"
+                    class="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 active:bg-violet-800 focus:outline-none focus:ring-2 focus:ring-violet-500 flex-shrink-0"
                 >
                     Receive
                 </button>
                 <button type="button" id="camera-scan-btn" title="Scan with camera"
-                    class="flex-shrink-0 rounded-lg border border-violet-300 dark:border-violet-600 px-3 py-2.5 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 hidden md:flex md:items-center md:justify-center">
-                    <x-heroicon-o-video-camera class="h-5 w-5" />
-                </button>
-                <button
-                    wire:click="submitBarcode"
-                    type="button"
-                    class="md:hidden flex-shrink-0 rounded-lg bg-violet-600 px-3 py-2.5 text-white hover:bg-violet-700 active:bg-violet-800 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                >
-                    <x-heroicon-o-arrow-right class="h-5 w-5" />
-                </button>
-                <button type="button" id="camera-scan-btn-mobile" title="Scan with camera"
-                    class="md:hidden flex-shrink-0 rounded-lg border border-violet-300 dark:border-violet-600 px-3 py-2.5 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500">
+                    class="flex-shrink-0 rounded-lg border border-violet-300 dark:border-violet-600 px-3 py-2.5 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 flex items-center justify-center">
                     <x-heroicon-o-video-camera class="h-5 w-5" />
                 </button>
             </div>
@@ -230,15 +249,15 @@
                 @endphp
 
                 {{-- Mobile card layout --}}
-                <div class="sm:hidden px-4 py-3.5 border-b border-gray-100 dark:border-gray-800 last:border-b-0 space-y-2
+                <div class="sm:hidden px-4 py-4 border-b border-gray-100 dark:border-gray-800 last:border-b-0 space-y-3
                             {{ $done ? 'bg-green-50/40 dark:bg-green-950/20' : ($mapped ? '' : 'bg-amber-50/40 dark:bg-amber-950/20') }}">
                     <div class="flex items-start justify-between gap-2">
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center gap-1.5 flex-wrap">
                                 <span class="text-[11px] font-mono text-gray-400">L{{ $line['line_number'] }}</span>
-                                <span class="text-sm font-medium text-gray-900 dark:text-gray-100 leading-snug">{{ $line['description'] }}</span>
+                                <span class="text-base font-medium text-gray-900 dark:text-gray-100 leading-snug">{{ $line['description'] }}</span>
                             </div>
-                            <div class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400">
+                            <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-gray-400">
                                 @if ($line['item_name'])
                                     <span class="text-violet-600 dark:text-violet-400">✓ {{ $line['item_name'] }}</span>
                                 @else
@@ -249,26 +268,27 @@
                                 @endif
                             </div>
                         </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                            @if ($done)
-                                <span class="inline-flex items-center rounded-full bg-green-100 dark:bg-green-900 px-2 py-0.5 text-[11px] font-semibold text-green-700 dark:text-green-300">
-                                    <x-heroicon-o-check class="h-3 w-3 mr-0.5" /> Done
-                                </span>
-                            @elseif ($mapped)
-                                <span class="text-sm font-bold text-gray-700 dark:text-gray-200 tabular-nums">{{ $line['received'] }}/{{ $line['case_count'] }}</span>
-                                <button wire:click="receiveLine({{ $line['id'] }})" type="button"
-                                    class="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 active:bg-violet-800">
-                                    Receive All
-                                </button>
-                            @else
-                                <span class="text-sm font-bold text-amber-600 dark:text-amber-400 tabular-nums">{{ $line['received'] }}/{{ $line['case_count'] }}</span>
-                            @endif
-                        </div>
+                        @if ($done)
+                            <span class="inline-flex items-center rounded-full bg-green-100 dark:bg-green-900 px-2.5 py-1 text-xs font-semibold text-green-700 dark:text-green-300 shrink-0">
+                                <x-heroicon-o-check class="h-4 w-4 mr-1" /> Done
+                            </span>
+                        @else
+                            <div class="text-right shrink-0">
+                                <p class="text-lg font-bold text-gray-700 dark:text-gray-200 tabular-nums">{{ $line['received'] }}/{{ $line['case_count'] }}</p>
+                                <p class="text-xs text-gray-400">boxes</p>
+                            </div>
+                        @endif
                     </div>
-                    <div class="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
-                        <div class="h-1.5 rounded-full {{ $done ? 'bg-green-500' : 'bg-violet-500' }} transition-all duration-300"
+                    <div class="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
+                        <div class="h-2 rounded-full {{ $done ? 'bg-green-500' : 'bg-violet-500' }} transition-all duration-300"
                              style="width: {{ $pct }}%"></div>
                     </div>
+                    @if ($mapped && !$done)
+                        <button wire:click="receiveLine({{ $line['id'] }})" type="button"
+                            class="w-full rounded-lg bg-violet-600 px-4 py-3 text-base font-medium text-white hover:bg-violet-700 active:bg-violet-800">
+                            Receive All {{ $line['case_count'] }} Boxes
+                        </button>
+                    @endif
                 </div>
 
                 {{-- Desktop table row --}}
@@ -343,7 +363,7 @@
         </div>
 
         {{-- ── Media & Signatures ───────────────────────────────────────────── --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="space-y-5 md:grid md:grid-cols-2 md:gap-6">
             {{-- Media Attachments --}}
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm px-6 py-5 space-y-3">
                 <div class="flex items-center gap-3">
@@ -393,14 +413,14 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                    <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Name of Person Receiving
                     </label>
                     <input
                         wire:model="receivedByName"
                         type="text"
                         placeholder="Enter receiver name…"
-                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-4 py-3 md:py-2 text-base md:text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:outline-none"
                     />
                 </div>
 
@@ -414,29 +434,33 @@
 
         {{-- ── Finalize Actions ─────────────────────────────────────────────── --}}
         @if (collect($lineProgress)->sum('received') >= collect($lineProgress)->sum('case_count') && collect($lineProgress)->count() > 0)
-            <div class="rounded-xl border-2 border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950 shadow-sm px-6 py-5 space-y-3">
+            <div class="rounded-xl border-2 border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950 shadow-sm px-6 py-5 space-y-4">
                 <div class="flex items-start gap-3">
-                    <x-heroicon-o-check-circle class="h-5 w-5 text-green-500 mt-0.5 shrink-0" />
+                    <x-heroicon-o-check-circle class="h-6 w-6 text-green-500 mt-0.5 shrink-0" />
                     <div class="flex-1 min-w-0">
-                        <h2 class="text-sm font-semibold text-green-900 dark:text-green-100">All cases received! 🎉</h2>
-                        <p class="text-xs text-green-700 dark:text-green-200 mt-0.5">
+                        <h2 class="text-base md:text-sm font-semibold text-green-900 dark:text-green-100">All cases received! 🎉</h2>
+                        <p class="text-sm md:text-xs text-green-700 dark:text-green-200 mt-1">
                             You've received all expected cases for this pallet. Enter the receiver name above, then finalize to complete.
                         </p>
                     </div>
-                    @if ($receivedByName)
-                        <button
-                            wire:click="finalizePallet"
-                            type="button"
-                            class="shrink-0 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 active:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500"
-                        >
-                            Finalize Pallet
-                        </button>
-                    @else
-                        <span class="shrink-0 rounded-lg bg-gray-200 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300">
-                            Complete name above
-                        </span>
-                    @endif
                 </div>
+                @if ($receivedByName)
+                    <button
+                        wire:click="finalizePallet"
+                        type="button"
+                        class="w-full rounded-lg bg-green-600 px-4 py-3 md:py-2 text-base md:text-sm font-medium text-white hover:bg-green-700 active:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                        ✓ Finalize Pallet & Complete
+                    </button>
+                @else
+                    <button
+                        disabled
+                        type="button"
+                        class="w-full rounded-lg bg-gray-200 dark:bg-gray-700 px-4 py-3 md:py-2 text-base md:text-sm font-medium text-gray-600 dark:text-gray-300 cursor-not-allowed opacity-60"
+                    >
+                        Complete receiver name above to finalize
+                    </button>
+                @endif
             </div>
         @endif
 
@@ -466,7 +490,8 @@
             const container = document.getElementById('camera-container');
             const video = document.getElementById('camera-video');
             const stopBtn = document.getElementById('camera-stop-btn');
-            const input = document.getElementById('barcode-input');
+            // Get the visible barcode input (mobile or desktop)
+            const input = document.getElementById('barcode-input') || document.getElementById('barcode-input-desktop');
             let isScanning = false;
             let cameraStream = null;
 

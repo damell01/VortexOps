@@ -20,6 +20,7 @@
         "maatwebsite/excel": "^3.1",
         "pragmarx/google2fa": "^9.0",
         "pxlrbt/filament-excel": "^3.6",
+        "resend/resend-php": "^1.7",
         "spatie/laravel-activitylog": "^5.0",
         "spatie/laravel-permission": "^7.4"
     },

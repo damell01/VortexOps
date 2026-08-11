@@ -13,6 +13,7 @@ use App\Services\ReceivingService;
 use App\Support\AdminModules;
 use App\Support\StatusColor;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -210,6 +211,36 @@ class PalletResource extends Resource
                         ->reorderable('line_number')
                         ->collapsible()
                         ->defaultItems(0),
+                ]),
+
+            Section::make('Media & Attachments')
+                ->description('Upload photos, documents, and other evidence tied to this pallet')
+                ->columnSpanFull()
+                ->schema([
+                    FileUpload::make('new_attachments')
+                        ->label('Upload Files')
+                        ->multiple()
+                        ->directory('pallets')
+                        ->visibility('public')
+                        ->maxSize(5120) // 5MB per file
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'image/gif'])
+                        ->helperText('Upload photos, PDFs, or documents (max 5MB each). For use during receiving process.'),
+                ]),
+
+            Section::make('Receiving Details')
+                ->description('Captured during the receiving workflow')
+                ->columnSpanFull()
+                ->columns(2)
+                ->schema([
+                    TextInput::make('received_by_name')
+                        ->label('Received By (Name)')
+                        ->maxLength(255)
+                        ->columnSpan(1),
+                    TextInput::make('signature_path')
+                        ->label('Signature File Path')
+                        ->maxLength(255)
+                        ->disabled()
+                        ->columnSpan(1),
                 ]),
         ]);
     }

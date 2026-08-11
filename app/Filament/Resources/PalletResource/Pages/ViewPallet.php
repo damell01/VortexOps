@@ -5,6 +5,8 @@ namespace App\Filament\Resources\PalletResource\Pages;
 use App\Filament\Resources\PalletResource;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
+use App\Models\Pallet;
+use App\Models\PalletAttachment;
 use App\Models\PalletLine;
 use App\Services\ReceivingService;
 use Filament\Actions\Action;
@@ -12,14 +14,28 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use Illuminate\Support\Facades\Storage;
 
 class ViewPallet extends ViewRecord
 {
     protected static string $resource = PalletResource::class;
 
+    public ?array $newAttachments = null;
+
+    public function mount(Pallet $record): void
+    {
+        parent::mount($record);
+        $this->record->loadMissing(['attachments']);
+    }
+
     public function getRecord(): \App\Models\Pallet
     {
-        return parent::getRecord()->load(['vendor', 'lines.inventoryItem', 'lines.location', 'lines.cases']);
+        return parent::getRecord()->load(['vendor', 'lines.inventoryItem', 'lines.location', 'lines.cases', 'attachments']);
+    }
+
+    public function getView(): string
+    {
+        return 'filament.pages.view-pallet';
     }
 
     protected function getHeaderActions(): array

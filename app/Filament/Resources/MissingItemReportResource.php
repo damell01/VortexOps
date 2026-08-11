@@ -7,13 +7,13 @@ use App\Filament\Resources\MissingItemReportResource\Pages;
 use App\Models\MissingItemReport;
 use App\Models\Product;
 use App\Support\AdminModules;
-use Filament\Forms\Components\Grid;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Form;
+use BackedEnum;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Select;
+use Filament\Schemas\Components\Textarea;
+use Filament\Schemas\Components\TextInput;
 use Filament\Schemas\Schema;
 use Filament\Tables\Actions\BulkActionGroup;
 use Filament\Tables\Actions\DeleteAction;
@@ -31,13 +31,17 @@ class MissingItemReportResource extends Resource
 
     protected static ?string $model = MissingItemReport::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-exclamation-circle';
-
-    protected static ?string $navigationGroup = null;
-
-    protected static ?string $navigationLabel = 'Missing Items';
-
     protected static ?int $navigationSort = 3;
+
+    public static function getNavigationIcon(): string|\BackedEnum|null
+    {
+        return 'heroicon-o-exclamation-circle';
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Missing Items';
+    }
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
@@ -56,9 +60,9 @@ class MissingItemReportResource extends Resource
             ->orderByDesc('created_at');
     }
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form->schema([
+        return $schema->components([
             Section::make('Report Details')
                 ->columns(2)
                 ->schema([

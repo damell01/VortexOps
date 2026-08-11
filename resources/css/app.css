@@ -2,6 +2,7 @@
 @import 'driver.js/dist/driver.css';
 @import 'animations.css';
 @import 'mobile-optimizations.css';
+@import 'mobile-responsive-tables.css';
 @import 'loading-skeletons.css';
 @import 'mobile-enhancements.css';
 @import 'ui-improvements.css';

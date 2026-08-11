@@ -101,6 +101,11 @@ class Pallet extends Model
         return $this->hasMany(PalletAttachment::class);
     }
 
+    public function missingItems(): HasMany
+    {
+        return $this->hasMany(MissingItemReport::class);
+    }
+
     public function totalCasesCount(): int
     {
         return $this->lines()->sum('case_count');

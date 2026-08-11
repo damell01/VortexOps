@@ -22,12 +22,6 @@ class ViewPallet extends ViewRecord
 
     public ?array $newAttachments = null;
 
-    public function mount(Pallet $record): void
-    {
-        parent::mount($record);
-        $this->record->loadMissing(['attachments']);
-    }
-
     public function getRecord(): \App\Models\Pallet
     {
         return parent::getRecord()->load(['vendor', 'lines.inventoryItem', 'lines.location', 'lines.cases', 'attachments']);

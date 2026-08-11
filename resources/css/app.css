@@ -10,6 +10,8 @@
 @import 'ui-improvements.css';
 @import 'button-hierarchy-responsive.css';
 @import 'ux-workflow-improvements.css';
+@import 'accessibility-enterprise-polish.css';
+@import 'responsive-typography-hierarchy.css';
 
 [x-cloak] { display: none !important; }
 

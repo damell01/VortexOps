@@ -1,0 +1,517 @@
+/* VortexOps Responsive Typography & Spacing Hierarchy */
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* TYPOGRAPHY SCALE & HIERARCHY */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Page heading - H1 */
+h1,
+.text-4xl,
+.fi-page-heading,
+.fi-header-heading {
+    font-size: clamp(1.5rem, 4vw, 2.25rem);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    margin-bottom: 1rem;
+}
+
+/* Section heading - H2 */
+h2,
+.text-3xl,
+.fi-section-heading {
+    font-size: clamp(1.25rem, 3vw, 1.875rem);
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+    margin-bottom: 0.875rem;
+}
+
+/* Subsection heading - H3 */
+h3,
+.text-2xl,
+.fi-subsection-heading {
+    font-size: clamp(1.125rem, 2.5vw, 1.5rem);
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.75rem;
+}
+
+/* Small heading - H4 */
+h4,
+.text-xl,
+.fi-card-heading {
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0em;
+    margin-bottom: 0.625rem;
+}
+
+/* Label/Field heading - H5 */
+h5,
+.text-lg,
+.fi-label {
+    font-size: clamp(0.95rem, 1.75vw, 1.125rem);
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+    margin-bottom: 0.5rem;
+}
+
+/* Small label - H6 */
+h6,
+.text-base,
+.fi-small-label {
+    font-size: clamp(0.9rem, 1.5vw, 1rem);
+    font-weight: 500;
+    line-height: 1.5;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.375rem;
+}
+
+/* Body text */
+p,
+.text-body,
+.fi-body-text {
+    font-size: clamp(0.9375rem, 1.5vw, 1rem);
+    font-weight: 400;
+    line-height: 1.6;
+    letter-spacing: 0em;
+    margin-bottom: 1rem;
+}
+
+/* Small text / captions */
+small,
+.text-sm,
+.caption,
+.fi-caption {
+    font-size: clamp(0.8125rem, 1.25vw, 0.875rem);
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+    opacity: 0.8;
+}
+
+/* Extra small text / hints */
+.text-xs,
+.hint,
+.fi-hint {
+    font-size: clamp(0.75rem, 1vw, 0.8125rem);
+    font-weight: 400;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+    opacity: 0.7;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* MOBILE TYPOGRAPHY OPTIMIZATION */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    /* Ensure minimum font sizes on mobile for readability */
+    h1,
+    .text-4xl,
+    .fi-page-heading,
+    .fi-header-heading {
+        font-size: 1.5rem;
+    }
+
+    h2,
+    .text-3xl,
+    .fi-section-heading {
+        font-size: 1.25rem;
+    }
+
+    h3,
+    .text-2xl,
+    .fi-subsection-heading {
+        font-size: 1.125rem;
+    }
+
+    h4,
+    .text-xl,
+    .fi-card-heading {
+        font-size: 1rem;
+    }
+
+    h5,
+    .text-lg,
+    .fi-label {
+        font-size: 0.95rem;
+    }
+
+    /* Increase line height on mobile for better readability */
+    p,
+    .text-body,
+    .fi-body-text {
+        line-height: 1.7;
+        font-size: 0.9375rem;
+    }
+
+    /* Labels and captions */
+    label,
+    .fi-in-entry-label {
+        font-size: 0.9rem;
+        font-weight: 600;
+        line-height: 1.5;
+    }
+
+    /* Form hints */
+    .form-hint,
+    .fi-hint {
+        font-size: 0.8125rem;
+        line-height: 1.5;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* TEXT DECORATION & EMPHASIS */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Strong emphasis */
+strong,
+b,
+.font-bold {
+    font-weight: 700;
+}
+
+/* Emphasis */
+em,
+i,
+.italic {
+    font-style: italic;
+}
+
+/* Code blocks and monospace */
+code,
+pre,
+.monospace,
+.code-block {
+    font-family: 'Monaco', 'Courier New', monospace;
+    font-size: 0.875em;
+    background-color: #f3f4f6;
+    padding: 0.125em 0.375em;
+    border-radius: 0.25rem;
+}
+
+html.dark code,
+html.dark pre,
+html.dark .monospace,
+html.dark .code-block {
+    background-color: #1f2937;
+    color: #f3f4f6;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* SPACING HIERARCHY & CONSISTENCY */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Consistent spacing scale based on viewport */
+:root {
+    /* Spacing units */
+    --space-xs:  clamp(0.25rem, 0.75vw, 0.5rem);    /* 4-8px */
+    --space-sm:  clamp(0.5rem, 1vw, 0.75rem);       /* 8-12px */
+    --space-md:  clamp(0.75rem, 1.25vw, 1rem);      /* 12-16px */
+    --space-lg:  clamp(1rem, 1.75vw, 1.5rem);       /* 16-24px */
+    --space-xl:  clamp(1.5rem, 2.25vw, 2rem);       /* 24-32px */
+    --space-2xl: clamp(2rem, 3vw, 2.5rem);          /* 32-40px */
+    --space-3xl: clamp(2.5rem, 3.75vw, 3rem);       /* 40-48px */
+}
+
+/* Apply spacing hierarchy to common elements */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+    margin-top: 0;
+}
+
+h1 + *,
+.text-4xl + * {
+    margin-top: var(--space-2xl);
+}
+
+h2 + *,
+.text-3xl + * {
+    margin-top: var(--space-xl);
+}
+
+h3 + *,
+.text-2xl + * {
+    margin-top: var(--space-lg);
+}
+
+p + p {
+    margin-top: var(--space-md);
+}
+
+/* Section spacing */
+section,
+.section,
+.fi-section {
+    margin-bottom: var(--space-2xl);
+}
+
+/* Form spacing */
+.form-group,
+.fi-form-group {
+    margin-bottom: var(--space-lg);
+}
+
+.form-group label,
+.fi-form-group label {
+    margin-bottom: var(--space-sm);
+}
+
+/* List spacing */
+ul, ol {
+    margin-left: var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+li {
+    margin-bottom: var(--space-sm);
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* LINK TYPOGRAPHY */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+a {
+    text-decoration: none;
+    color: #7c3aed;
+    font-weight: 500;
+    position: relative;
+    cursor: pointer;
+    transition: color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+a:hover {
+    color: #6d28d9;
+}
+
+a:active {
+    color: #5b21b6;
+}
+
+html.dark a {
+    color: #a78bfa;
+}
+
+html.dark a:hover {
+    color: #c4b5fd;
+}
+
+html.dark a:active {
+    color: #ede9fe;
+}
+
+/* Underline on hover for better affordance */
+a:not(.no-underline):hover {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* MOBILE-SPECIFIC LINK STYLING */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    /* Ensure links have sufficient tap target */
+    a {
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        padding: 0.375rem 0.5rem;
+        border-radius: 0.25rem;
+    }
+
+    /* Block links should be full width tap targets */
+    a.block,
+    a[role="button"] {
+        display: flex;
+        width: 100%;
+        padding: 0.75rem;
+    }
+
+    /* Navigation links */
+    nav a {
+        min-height: 44px;
+        padding: 0.5rem 1rem;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* TEXT ALIGNMENT RESPONSIVENESS */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Left align on mobile, respect explicit alignment on desktop */
+@media (max-width: 768px) {
+    .text-center:not([style*="text-align"]) {
+        text-align: left;
+    }
+
+    .text-right:not([style*="text-align"]) {
+        text-align: left;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* WORD WRAPPING & OVERFLOW HANDLING */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    word-break: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+}
+
+p,
+.text-body,
+.fi-body-text {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Long URLs and code should break/scroll */
+code,
+pre {
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Table cells should wrap appropriately */
+td,
+th {
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* FONT WEIGHT CONSISTENCY */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Ensure consistent font weights across components */
+.font-light   { font-weight: 300; }
+.font-normal  { font-weight: 400; }
+.font-medium  { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold    { font-weight: 700; }
+.font-extrabold { font-weight: 800; }
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* LIST ITEM STYLING */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Consistent list marker styling */
+ul {
+    list-style-type: disc;
+}
+
+ol {
+    list-style-type: decimal;
+}
+
+ul ul {
+    list-style-type: circle;
+}
+
+ul ul ul {
+    list-style-type: square;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* BLOCKQUOTE STYLING */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+blockquote {
+    border-left: 4px solid #7c3aed;
+    padding-left: var(--space-lg);
+    margin: var(--space-lg) 0;
+    color: #6b7280;
+    font-style: italic;
+    font-size: 1.0625rem;
+    line-height: 1.6;
+}
+
+html.dark blockquote {
+    border-left-color: #a78bfa;
+    color: #d1d5db;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* TABLE TYPOGRAPHY */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+}
+
+th {
+    font-weight: 600;
+    font-size: 0.875rem;
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    text-align: left;
+}
+
+td {
+    font-weight: 400;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* VERY SMALL SCREENS (< 500px) EXTRA OPTIMIZATION */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 500px) {
+    h1,
+    .text-4xl,
+    .fi-page-heading {
+        font-size: 1.375rem;
+        line-height: 1.25;
+    }
+
+    h2,
+    .text-3xl {
+        font-size: 1.125rem;
+    }
+
+    h3,
+    .text-2xl {
+        font-size: 1rem;
+    }
+
+    h4,
+    .text-xl {
+        font-size: 0.9375rem;
+    }
+
+    p,
+    .text-body {
+        font-size: 0.9rem;
+        line-height: 1.65;
+    }
+
+    /* Reduce padding on very small screens */
+    h1, h2, h3, h4, h5, h6, p {
+        margin-bottom: 0.75rem;
+    }
+
+    section {
+        margin-bottom: 1.5rem;
+    }
+}

@@ -105,15 +105,20 @@ function cameraScanner() {
                 this.statusText = '📷 Point camera at barcode…';
 
                 const readerDiv = this.$refs.readerDiv;
-                if (!readerDiv) return;
+                if (!readerDiv) {
+                    console.error('[barcode-scanner] readerDiv not found');
+                    this.error = '❌ Scanner element not found';
+                    return;
+                }
 
-                // Prevent double initialization
+                // Prevent double initialization with timeout to prevent stuck state
                 if (window.QuaggaInitialized) {
                     console.warn('[barcode-scanner] Quagga already initializing, skipping duplicate init');
                     return;
                 }
 
                 window.QuaggaInitialized = true;
+                console.log('[barcode-scanner] Starting Quagga initialization');
 
                 // Use Quagga for 1D barcode detection (optimized for accuracy)
                 Quagga.init({
@@ -175,7 +180,9 @@ function cameraScanner() {
                         return;
                     }
 
+                    console.log('[barcode-scanner] Quagga initialized successfully');
                     Quagga.start();
+                    console.log('[barcode-scanner] Quagga started');
 
                     // Store callback so we can remove it later
                     this.detectedCallback = (result) => {
@@ -184,6 +191,7 @@ function cameraScanner() {
                         }
                     };
                     Quagga.onDetected(this.detectedCallback);
+                    this.statusText = '📷 Ready to scan…';
 
                     this.showManual = true;
                 });
@@ -279,27 +287,57 @@ function cameraScanner() {
         async close() {
             this.isOpen = false;
             this.detected = false;
+            this.error = null;
+            this.statusText = '';
             this.lastDetectedBarcode = null;
             this.detectionConfidence = 0;
-            window.QuaggaInitialized = false;
 
             try {
-                // Properly stop Quagga
-                Quagga.stop();
-
-                // Remove the specific detection callback
+                // Stop detection callbacks FIRST
                 if (this.detectedCallback) {
-                    Quagga.offDetected(this.detectedCallback);
+                    try {
+                        Quagga.offDetected(this.detectedCallback);
+                    } catch (e) {
+                        console.warn('[barcode-scanner] offDetected error:', e);
+                    }
                     this.detectedCallback = null;
                 }
 
-                // Clear the reader div to allow fresh initialization
+                // Stop Quagga and kill the stream
+                try {
+                    Quagga.stop();
+                } catch (e) {
+                    console.warn('[barcode-scanner] Quagga.stop() error:', e);
+                }
+
+                // Kill any remaining video/camera streams
                 const readerDiv = this.$refs.readerDiv;
                 if (readerDiv) {
+                    // Stop all video elements in the reader
+                    const videos = readerDiv.querySelectorAll('video');
+                    videos.forEach(video => {
+                        if (video.srcObject) {
+                            video.srcObject.getTracks().forEach(track => {
+                                try {
+                                    track.stop();
+                                } catch (e) {
+                                    console.warn('[barcode-scanner] track.stop() error:', e);
+                                }
+                            });
+                            video.srcObject = null;
+                        }
+                        video.pause();
+                        video.src = '';
+                    });
                     readerDiv.innerHTML = '';
                 }
+
+                // Reset the flag after cleanup is complete
+                await this.$nextTick();
+                window.QuaggaInitialized = false;
             } catch (err) {
-                console.error('[barcode-scanner] stop error:', err);
+                console.error('[barcode-scanner] close error:', err);
+                window.QuaggaInitialized = false;
             }
         },
     };

@@ -59,21 +59,52 @@
                         Scan barcodes for items inside this container
                     </p>
 
-                    {{-- Barcode Input --}}
+                    {{-- Barcode Input with Camera Button --}}
                     <div class="mb-6">
-                        <input
-                            type="text"
-                            wire:model.debounce-500ms="barcodeInput"
-                            wire:key="barcode-input"
-                            placeholder="Scan barcode here..."
-                            class="w-full rounded-lg border-2 border-gray-300 bg-white px-4 py-3 text-lg text-gray-900 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-                            @keydown.enter="$wire.dispatch('submit-barcode')"
-                            @focus="$dispatch('focus-barcode-input')"
-                            autofocus
-                        >
+                        <div class="relative flex gap-2">
+                            <input
+                                type="text"
+                                wire:model.debounce-500ms="barcodeInput"
+                                wire:key="barcode-input"
+                                placeholder="Scan barcode here..."
+                                class="flex-1 rounded-lg border-2 border-gray-300 bg-white px-4 py-3 text-lg text-gray-900 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                @keydown.enter="$wire.dispatch('submit-barcode')"
+                                @focus="$dispatch('focus-barcode-input')"
+                                autofocus
+                                id="barcode-input-scan"
+                            >
+                            <button
+                                type="button"
+                                onclick="openCameraScanner()"
+                                class="rounded-lg bg-blue-600 px-4 py-3 text-white hover:bg-blue-700 active:scale-95 transition-transform"
+                                title="Open camera scanner (Alt+C)"
+                            >
+                                📷
+                            </button>
+                        </div>
                         <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                            Press Enter or scan with barcode scanner
+                            Press Enter, click 📷, or scan with barcode scanner • Alt+C to toggle camera
                         </p>
+                    </div>
+
+                    {{-- Camera Scanner Modal --}}
+                    <div id="camera-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/70">
+                        <div class="w-full max-w-md rounded-lg bg-white p-4 dark:bg-gray-800">
+                            <div class="mb-4 flex items-center justify-between">
+                                <h3 class="font-semibold text-gray-900 dark:text-white">Camera Scanner</h3>
+                                <button
+                                    type="button"
+                                    onclick="closeCameraScanner()"
+                                    class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                            <div id="scanner-container" class="aspect-video w-full rounded-lg bg-gray-100 dark:bg-gray-700"></div>
+                            <p class="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
+                                Point camera at barcode • Press Esc to close
+                            </p>
+                        </div>
                     </div>
 
                     {{-- Scanned Items List --}}
@@ -193,3 +224,125 @@
             @endif
         </div>
 @endif
+
+<script>
+let quaggaStarted = false;
+
+function playBeep() {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.frequency.value = 1000;
+    oscillator.type = 'sine';
+    gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.1);
+}
+
+function vibrate() {
+    if (navigator.vibrate) {
+        navigator.vibrate(100);
+    }
+}
+
+function openCameraScanner() {
+    const modal = document.getElementById('camera-modal');
+    const container = document.getElementById('scanner-container');
+
+    modal.classList.remove('hidden');
+
+    if (!quaggaStarted) {
+        vibrate();
+
+        Quagga.init({
+            inputStream: {
+                type: 'LiveStream',
+                constraints: {
+                    width: { min: 640 },
+                    height: { min: 480 },
+                    facingMode: 'environment',
+                    aspectRatio: { min: 1, max: 2 }
+                },
+                target: container
+            },
+            decoder: {
+                readers: ['code128_reader', 'ean_reader', 'ean_8_reader', 'upc_reader', 'code39_reader']
+            },
+            locator: {
+                halfSample: true
+            }
+        }, function(err) {
+            if (err) {
+                console.error('Quagga init error:', err);
+                alert('Camera error: ' + err.message);
+                closeCameraScanner();
+                return;
+            }
+            Quagga.start();
+            quaggaStarted = true;
+        });
+
+        Quagga.onDetected(function(data) {
+            const code = data.codeResult.code;
+            playBeep();
+            vibrate();
+
+            document.getElementById('barcode-input-scan').value = code;
+            const event = new Event('input', { bubbles: true });
+            document.getElementById('barcode-input-scan').dispatchEvent(event);
+
+            @this.dispatch('submit-barcode');
+
+            setTimeout(() => {
+                document.getElementById('barcode-input-scan').focus();
+            }, 100);
+        });
+    }
+}
+
+function closeCameraScanner() {
+    const modal = document.getElementById('camera-modal');
+    modal.classList.add('hidden');
+
+    if (quaggaStarted) {
+        Quagga.stop();
+        quaggaStarted = false;
+    }
+
+    document.getElementById('barcode-input-scan').focus();
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    if (e.altKey && e.code === 'KeyC') {
+        e.preventDefault();
+        if (document.getElementById('camera-modal').classList.contains('hidden')) {
+            openCameraScanner();
+        } else {
+            closeCameraScanner();
+        }
+    }
+
+    if (e.code === 'Escape') {
+        closeCameraScanner();
+    }
+
+    if (e.code === 'Enter' && document.activeElement.id === 'barcode-input-scan') {
+        e.preventDefault();
+        @this.dispatch('submit-barcode');
+    }
+});
+
+// Cleanup on page leave
+window.addEventListener('beforeunload', function() {
+    if (quaggaStarted) {
+        Quagga.stop();
+    }
+});
+</script>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.css">
+<script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>

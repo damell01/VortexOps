@@ -19,6 +19,7 @@ return new class extends Migration {
             $table->string('mime_type')->nullable();
             $table->text('description')->nullable();
             $table->foreignId('uploaded_by')
+                ->nullable()
                 ->constrained('users')
                 ->onDelete('set null');
             $table->timestamp('uploaded_at')->useCurrent();

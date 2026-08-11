@@ -25,7 +25,7 @@ class CreateInventoryItem extends CreateRecord
 
     public function getView(): string
     {
-        return 'filament.pages.create-inventory-item';
+        return 'filament.pages.create-inventory-item-wrapper';
     }
 
     protected function getCreatedNotificationTitle(): ?string

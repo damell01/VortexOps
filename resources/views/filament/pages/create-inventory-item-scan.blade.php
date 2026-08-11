@@ -1,10 +1,5 @@
-@php
-    $resource = $this->getResource();
-@endphp
-
-<x-filament-panels::page>
-    {{-- Container Scan Mode --}}
-    @if ($this->containerScanMode)
+{{-- Container Scan Mode Only - Included in wrapper --}}
+@if ($this->containerScanMode)
         <div class="space-y-6">
             {{-- Step 1: Container Setup --}}
             @if ($this->scanStep === 1)
@@ -197,27 +192,4 @@
                 </div>
             @endif
         </div>
-    @else
-        {{-- Normal Form Mode --}}
-        <div class="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-900 dark:bg-blue-900/30">
-            <p class="mb-2 text-sm font-semibold text-blue-900 dark:text-blue-200">
-                💡 Quick Container Creation
-            </p>
-            <p class="mb-4 text-sm text-blue-800 dark:text-blue-300">
-                Need to create a case with items inside? Use our fast scan mode instead.
-            </p>
-            <button
-                wire:click="enableContainerScan"
-                class="inline-block rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
-            >
-                Use Scan Mode →
-            </button>
-        </div>
-
-        {{-- Default Filament Form --}}
-        @livewire(\Filament\Forms\Livewire\FormComponent::class, [
-            'record' => $this->record,
-            'fields' => $this->form->getComponents(),
-        ])
-    @endif
-</x-filament-panels::page>
+@endif

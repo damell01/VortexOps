@@ -105,7 +105,7 @@ function cameraScanner() {
                 const readerDiv = this.$refs.readerDiv;
                 if (!readerDiv) return;
 
-                // Use Quagga for 1D barcode detection (UPC, EAN, CODE128, etc.)
+                // Use Quagga for 1D barcode detection (optimized for speed)
                 Quagga.init({
                     inputStream: {
                         name: 'Live',
@@ -113,19 +113,16 @@ function cameraScanner() {
                         target: readerDiv,
                         constraints: {
                             facingMode: 'environment',
-                            width: { ideal: 640 },
-                            height: { ideal: 480 }
+                            width: { min: 800, ideal: 1280 },
+                            height: { min: 600, ideal: 720 }
                         }
                     },
                     decoder: {
                         readers: [
                             'code_128_reader',
                             'ean_reader',
-                            'ean_8_reader',
                             'upc_reader',
-                            'upc_e_reader',
-                            'codabar_reader',
-                            'code_39_reader'
+                            'ean_8_reader'
                         ],
                         debug: {
                             showCanvas: false,
@@ -133,7 +130,12 @@ function cameraScanner() {
                             showFrequency: false,
                             showErrors: false
                         }
-                    }
+                    },
+                    locator: {
+                        patchSize: 'medium',
+                        halfSample: true
+                    },
+                    frequency: 20
                 }, (err) => {
                     if (err) {
                         console.error('[barcode-scanner]', err);

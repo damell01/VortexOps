@@ -10,7 +10,6 @@
         x-transition:leave-end="opacity-0"
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
         x-on:click.self="close()"
-        style="display:none"
     >
         <div class="relative w-full max-w-sm rounded-2xl bg-white dark:bg-gray-900 shadow-2xl overflow-hidden">
             {{-- Header --}}
@@ -107,6 +106,14 @@ function cameraScanner() {
 
                 const readerDiv = this.$refs.readerDiv;
                 if (!readerDiv) return;
+
+                // Prevent double initialization
+                if (window.QuaggaInitialized) {
+                    console.warn('[barcode-scanner] Quagga already initializing, skipping duplicate init');
+                    return;
+                }
+
+                window.QuaggaInitialized = true;
 
                 // Use Quagga for 1D barcode detection (optimized for accuracy)
                 Quagga.init({
@@ -274,6 +281,7 @@ function cameraScanner() {
             this.detected = false;
             this.lastDetectedBarcode = null;
             this.detectionConfidence = 0;
+            window.QuaggaInitialized = false;
 
             try {
                 // Properly stop Quagga

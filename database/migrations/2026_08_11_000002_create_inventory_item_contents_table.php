@@ -24,12 +24,12 @@ return new class extends Migration {
 
             // Parent item (the container: case, box, bundle, etc.)
             $table->foreignId('parent_inventory_item_id')
-                ->constrained('inventory_items')
+                ->constrained('products')
                 ->onDelete('cascade');
 
             // Child item (what's inside: box, individual item, etc.)
             $table->foreignId('child_inventory_item_id')
-                ->constrained('inventory_items')
+                ->constrained('products')
                 ->onDelete('cascade');
 
             // How many children per parent (e.g., 20 boxes per case)

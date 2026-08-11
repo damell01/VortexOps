@@ -1,16 +1,26 @@
 <x-filament-panels::page>
     <div class="space-y-6">
 
-        {{-- ── Quick Steps Guide ──────────────────────────────────────────── --}}
-        <x-page-steps
-            :steps="[
-                ['label' => 'Review Pallet', 'description' => 'Check vendor & items'],
-                ['label' => 'Map Lines', 'description' => 'Link items to inventory'],
-                ['label' => 'Receive Items', 'description' => 'Scan barcodes'],
-                ['label' => 'Confirm', 'description' => 'Finalize receipt'],
-            ]"
-            :currentStep="$this->record->status === 'received' ? 4 : ($this->record->status === 'receiving' ? 3 : 2)"
-        />
+        {{-- ── Workflow Progress ────────────────────────────────────────── --}}
+        <div class="rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 shadow-sm px-6 py-4">
+            <div class="flex items-center gap-3 mb-4">
+                <x-heroicon-o-check-badge class="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <h2 class="text-sm font-semibold text-blue-900 dark:text-blue-100">Pallet Receiving Workflow</h2>
+            </div>
+            <div class="flex items-center gap-2 text-sm flex-wrap">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    <x-heroicon-o-check-circle class="h-4 w-4" /> Stage 1: Manifest
+                </span>
+                <x-heroicon-o-arrow-right class="h-4 w-4 text-gray-400 hidden sm:inline" />
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium">
+                    <x-heroicon-o-inbox-arrow-down class="h-4 w-4" /> Stage 2: Receive
+                </span>
+                <x-heroicon-o-arrow-right class="h-4 w-4 text-gray-400 hidden sm:inline" />
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                    <x-heroicon-o-check class="h-4 w-4" /> Stage 3: Complete
+                </span>
+            </div>
+        </div>
 
         {{-- ── Pallet Summary ──────────────────────────────────────────────── --}}
         @php

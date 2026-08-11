@@ -89,7 +89,7 @@ class PalletResource extends Resource
     public static function getNavigationBadge(): ?string
     {
         $count = Cache::remember('nav_badge:pallets_active', 60, fn () =>
-            Pallet::whereIn('status', ['pending', 'shipped', 'receiving'])->count()
+            Pallet::whereIn('status', ['staged', 'receiving'])->count()
         );
         return $count > 0 ? (string) $count : null;
     }
@@ -136,7 +136,7 @@ class PalletResource extends Resource
                         ->helperText('Automatically allocated to items based on quantity received'),
                     Select::make('status')
                         ->options(Pallet::statusLabels())
-                        ->default('pending')
+                        ->default('staged')
                         ->required(),
                 ]),
                 Grid::make(3)->schema([
@@ -330,38 +330,24 @@ class PalletResource extends Resource
                     ->options(fn () => Vendor::activeOptions()),
             ])
             ->actions([
-                Action::make('mark_shipped')
-                    ->label('Mark Shipped')
-                    ->icon('heroicon-o-truck')
+                Action::make('stage')
+                    ->label('Stage Manifest')
+                    ->icon('heroicon-o-clipboard-document-list')
                     ->color('info')
-                    ->visible(fn (Pallet $record) => $record->status === 'pending')
-                    ->form([
-                        TextInput::make('carrier')->maxLength(255),
-                        TextInput::make('tracking_number')->maxLength(255),
-                        DatePicker::make('expected_delivery_date')->label('Expected Delivery'),
-                    ])
-                    ->action(function (Pallet $record, array $data): void {
-                        $record->update([
-                            'status'                  => 'shipped',
-                            'carrier'                 => $data['carrier'] ?? null,
-                            'tracking_number'         => $data['tracking_number'] ?? null,
-                            'expected_delivery_date'  => $data['expected_delivery_date'] ?? null,
-                            'shipped_at'              => now(),
-                        ]);
-                        Notification::make()->title('Marked as shipped')->success()->send();
-                    }),
+                    ->url(fn (Pallet $record) => static::getUrl('stage', ['record' => $record]))
+                    ->visible(fn (Pallet $record) => $record->status === 'staged'),
                 Action::make('receive')
-                    ->label('Receive')
+                    ->label('Start Receiving')
                     ->icon('heroicon-o-inbox-arrow-down')
                     ->color('success')
                     ->url(fn (Pallet $record) => static::getUrl('receive', ['record' => $record]))
-                    ->visible(fn (Pallet $record) => in_array($record->status, ['pending', 'shipped', 'receiving'])),
+                    ->visible(fn (Pallet $record) => in_array($record->status, ['staged', 'receiving'])),
                 Action::make('import_manifest')
-                    ->label('Import Manifest')
+                    ->label('Import CSV')
                     ->icon('heroicon-o-document-arrow-up')
                     ->color('info')
                     ->url(fn (Pallet $record) => static::getUrl('import-manifest', ['record' => $record]))
-                    ->visible(fn (Pallet $record) => in_array($record->status, ['pending', 'shipped', 'receiving'])),
+                    ->visible(fn (Pallet $record) => in_array($record->status, ['staged'])),
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
                 DeleteAction::make()
@@ -406,6 +392,7 @@ class PalletResource extends Resource
             'create'          => Pages\CreatePallet::route('/create'),
             'view'            => Pages\ViewPallet::route('/{record}'),
             'edit'            => Pages\EditPallet::route('/{record}/edit'),
+            'stage'           => Pages\StagePallet::route('/{record}/stage'),
             'receive'         => Pages\ReceivePallet::route('/{record}/receive'),
             'import-manifest' => Pages\ImportManifest::route('/{record}/import-manifest'),
         ];

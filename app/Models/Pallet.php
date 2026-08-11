@@ -124,11 +124,20 @@ class Pallet extends Model
     public static function statusLabels(): array
     {
         return [
-            'pending'    => 'Pending',
-            'shipped'    => 'Shipped',
-            'receiving'  => 'Receiving',
-            'received'   => 'Received',
-            'processed'  => 'Processed',
+            'staged'     => 'Staged (Waiting for Arrival)',
+            'receiving'  => 'Receiving (In Progress)',
+            'received'   => 'Received (All Items In)',
+            'processed'  => 'Processed (Complete)',
+        ];
+    }
+
+    public static function statusPhases(): array
+    {
+        return [
+            'staged'     => ['number' => 1, 'label' => 'Manifest Staged'],
+            'receiving'  => ['number' => 2, 'label' => 'Actively Receiving'],
+            'received'   => ['number' => 3, 'label' => 'All Received'],
+            'processed'  => ['number' => 4, 'label' => 'Complete'],
         ];
     }
 }

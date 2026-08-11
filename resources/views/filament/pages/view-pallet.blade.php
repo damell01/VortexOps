@@ -1,6 +1,42 @@
 <x-filament-panels::page>
     <div class="space-y-6">
 
+        {{-- ── Workflow Progress ────────────────────────────────────────── --}}
+        @php
+            $phases = App\Models\Pallet::statusPhases();
+            $currentPhase = $phases[$this->record->status]['number'] ?? 0;
+        @endphp
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm px-6 py-4">
+            <div class="flex items-center gap-3 mb-4">
+                <x-heroicon-o-check-badge class="h-5 w-5 text-gray-500" />
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Pallet Status</h2>
+            </div>
+            <div class="space-y-3">
+                <div class="flex items-center gap-2 text-sm flex-wrap">
+                    @foreach ($phases as $status => $phase)
+                        @php
+                            $isActive = $status === $this->record->status;
+                            $isComplete = $phase['number'] < $currentPhase;
+                        @endphp
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
+                            {{ $isActive ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300' : ($isComplete ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400') }}">
+                            @if ($isComplete)
+                                <x-heroicon-o-check-circle class="h-4 w-4" />
+                            @elseif ($isActive)
+                                <x-heroicon-o-ellipsis-horizontal-circle class="h-4 w-4 animate-pulse" />
+                            @else
+                                <x-heroicon-o-circle class="h-4 w-4" />
+                            @endif
+                            {{ $phase['label'] }}
+                        </span>
+                        @if (!$loop->last)
+                            <x-heroicon-o-arrow-right class="h-4 w-4 text-gray-400 hidden sm:inline" />
+                        @endif
+                    @endforeach
+                </div>
+            </div>
+        </div>
+
         {{-- ── Pallet Header Summary ──────────────────────────────────────────── --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm px-6 py-4 space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-4">

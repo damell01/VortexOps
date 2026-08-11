@@ -133,7 +133,8 @@ class ReceivePallet extends Page
             app(ReceivingService::class)->receivePallet($this->record);
 
             Notification::make()
-                ->title('Pallet received and finalized')
+                ->title('✓ Pallet received and finalized')
+                ->body('All items have been recorded. View the pallet for details.')
                 ->success()
                 ->send();
 

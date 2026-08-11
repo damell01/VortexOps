@@ -376,7 +376,7 @@ class InventoryItemResource extends Resource
                 ->columnSpanFull()
                 ->collapsed(fn (Get $get) => !$get('id'))
                 ->schema([
-                    \Filament\Schemas\Components\Html::make()
+                    \Filament\Schemas\Components\Html::make('relationships_hint')
                         ->html(fn (Get $get) => $get('id')
                             ? '<p class="text-xs text-gray-500 dark:text-gray-400">💡 Define what this item contains or what container it goes in below.</p>'
                             : '<p class="text-xs text-amber-600 dark:text-amber-400">📝 Save the item first, then you can add case/unit relationships.</p>')

@@ -16,6 +16,9 @@ return new class extends Migration {
      */
     public function up(): void
     {
+        // Drop if exists (handles case where table was created but migration failed)
+        Schema::dropIfExists('inventory_item_contents');
+
         Schema::create('inventory_item_contents', function (Blueprint $table) {
             $table->id();
 

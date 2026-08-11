@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
+        // Drop if exists (handles case where table was created but migration failed)
+        Schema::dropIfExists('missing_item_reports');
+
         Schema::create('missing_item_reports', function (Blueprint $table) {
             $table->id();
 

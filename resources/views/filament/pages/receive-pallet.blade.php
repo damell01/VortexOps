@@ -79,7 +79,7 @@
             <div class="flex items-center gap-3 flex-wrap">
                 <x-heroicon-o-qr-code class="h-5 w-5 text-violet-500" />
                 <h2 class="text-sm font-semibold text-violet-900 dark:text-violet-100">Barcode Scanner</h2>
-                <span class="text-xs text-violet-600 dark:text-violet-400">Scan a case or item barcode below</span>
+                <span class="text-xs text-violet-600 dark:text-violet-400">📱 Use phone camera or manual entry</span>
                 @php
                     $unmappedCount = collect($lineProgress)->filter(fn ($l) => !$l['mapped'])->count();
                 @endphp
@@ -91,23 +91,48 @@
                 @endif
             </div>
 
-            <div class="flex gap-3 items-center">
+            <div class="flex gap-2 items-center flex-wrap md:flex-nowrap">
                 <input
                     wire:model="barcodeInput"
                     wire:keydown.enter="submitBarcode"
+                    id="barcode-input"
                     type="text"
                     placeholder="Scan barcode here…"
                     autofocus
                     autocomplete="off"
-                    class="flex-1 rounded-lg border border-violet-300 dark:border-violet-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono"
+                    class="flex-1 min-w-0 rounded-lg border border-violet-300 dark:border-violet-600 bg-white dark:bg-gray-900 px-3 md:px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono"
                 />
                 <button
                     wire:click="submitBarcode"
                     type="button"
-                    class="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    class="hidden md:inline-block rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 active:bg-violet-800 focus:outline-none focus:ring-2 focus:ring-violet-500 flex-shrink-0"
                 >
                     Receive
                 </button>
+                <button type="button" id="camera-scan-btn" title="Scan with camera"
+                    class="flex-shrink-0 rounded-lg border border-violet-300 dark:border-violet-600 px-3 py-2.5 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 hidden md:flex md:items-center md:justify-center">
+                    <x-heroicon-o-video-camera class="h-5 w-5" />
+                </button>
+                <button
+                    wire:click="submitBarcode"
+                    type="button"
+                    class="md:hidden flex-shrink-0 rounded-lg bg-violet-600 px-3 py-2.5 text-white hover:bg-violet-700 active:bg-violet-800 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                >
+                    <x-heroicon-o-arrow-right class="h-5 w-5" />
+                </button>
+                <button type="button" id="camera-scan-btn-mobile" title="Scan with camera"
+                    class="md:hidden flex-shrink-0 rounded-lg border border-violet-300 dark:border-violet-600 px-3 py-2.5 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500">
+                    <x-heroicon-o-video-camera class="h-5 w-5" />
+                </button>
+            </div>
+
+            {{-- Camera View --}}
+            <div id="camera-container" class="hidden space-y-2">
+                <video id="camera-video" class="w-full rounded-lg border border-violet-300 dark:border-violet-600" autoplay playsinline muted></video>
+                <div class="flex items-center justify-between gap-2">
+                    <p class="text-xs text-violet-600 dark:text-violet-400">📷 Point camera at barcode. Detection is automatic.</p>
+                    <button type="button" id="camera-stop-btn" class="text-xs font-medium text-red-600 dark:text-red-400 hover:underline">Stop camera</button>
+                </div>
             </div>
 
             @if ($lastScannedResult)
@@ -422,14 +447,122 @@
                 <div class="flex-1 text-sm space-y-1">
                     <p class="font-semibold text-blue-900 dark:text-blue-100">Quick Tips</p>
                     <ul class="text-xs text-blue-800 dark:text-blue-200 space-y-0.5">
+                        <li>📱 <strong>Use camera button</strong> for hands-free scanning (click video camera icon)</li>
                         <li>💡 <strong>Scan cases first</strong> to see what's inside (case barcodes show contents)</li>
                         <li>💡 <strong>Scan individual items</strong> to receive them one-by-one or use "Receive All" for a line</li>
                         <li>💡 <strong>Map lines early</strong> — unmapped lines block receiving</li>
-                        <li>💡 <strong>Mobile friendly</strong> — use your phone's camera with a barcode app for scanning</li>
                     </ul>
                 </div>
             </div>
         </div>
 
     </div>
+
+    {{-- ── Camera Scanner Script ───────────────────────────────────────── --}}
+    <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const cameraButtons = document.querySelectorAll('#camera-scan-btn, #camera-scan-btn-mobile');
+            const container = document.getElementById('camera-container');
+            const video = document.getElementById('camera-video');
+            const stopBtn = document.getElementById('camera-stop-btn');
+            const input = document.getElementById('barcode-input');
+            let isScanning = false;
+            let cameraStream = null;
+
+            cameraButtons.forEach(btn => {
+                btn.addEventListener('click', startCamera);
+            });
+
+            stopBtn?.addEventListener('click', stopCamera);
+
+            async function startCamera() {
+                if (isScanning || cameraStream) return;
+                isScanning = true;
+
+                try {
+                    container.classList.remove('hidden');
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
+                    });
+                    cameraStream = stream;
+                    video.srcObject = stream;
+                    video.play();
+
+                    // Vibrate when camera starts
+                    if (navigator.vibrate) navigator.vibrate(100);
+
+                    setTimeout(() => startBarcodeDetection(video), 500);
+                } catch (error) {
+                    console.error('Camera error:', error);
+                    let message = 'Camera access not available.';
+                    if (error.name === 'NotAllowedError') {
+                        message = 'Camera permission denied. Please allow camera access in settings.';
+                    } else if (error.name === 'NotFoundError') {
+                        message = 'No camera found on this device. Use manual scanning instead.';
+                    }
+                    alert(message);
+                    container.classList.add('hidden');
+                    isScanning = false;
+                }
+            }
+
+            function stopCamera() {
+                isScanning = false;
+                if (cameraStream) {
+                    cameraStream.getTracks().forEach(track => track.stop());
+                    cameraStream = null;
+                }
+                if (Quagga) Quagga.stop();
+                video.srcObject = null;
+                container.classList.add('hidden');
+            }
+
+            function startBarcodeDetection(videoElement) {
+                Quagga.init({
+                    inputStream: { type: 'LiveStream', constraints: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } } },
+                    decoder: { workers: 2, debug: false, multiple: false }
+                }, function(err) {
+                    if (err) { console.error('Quagga error:', err); return; }
+                    Quagga.start();
+                });
+
+                Quagga.onDetected(function(result) {
+                    if (isScanning && result.codeResult) {
+                        const barcode = result.codeResult.code;
+                        console.log('📷 Detected barcode:', barcode);
+
+                        // Haptic feedback: double vibration for success
+                        if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+
+                        // Play success sound using Web Audio API
+                        try {
+                            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                            const oscillator = audioContext.createOscillator();
+                            const gainNode = audioContext.createGain();
+                            oscillator.connect(gainNode);
+                            gainNode.connect(audioContext.destination);
+                            oscillator.frequency.value = 1000;
+                            oscillator.type = 'sine';
+                            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                            oscillator.start(audioContext.currentTime);
+                            oscillator.stop(audioContext.currentTime + 0.1);
+                        } catch (e) { /* Audio not available */ }
+
+                        input.value = barcode;
+                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        stopCamera();
+
+                        // Trigger submit
+                        const submitBtn = input.parentElement?.querySelector('button[type="button"]:not(#camera-scan-btn):not(#camera-scan-btn-mobile)');
+                        if (submitBtn) submitBtn.click();
+                    }
+                });
+            }
+
+            // Stop camera on page unload
+            window.addEventListener('beforeunload', stopCamera);
+        });
+    </script>
 </x-filament-panels::page>

@@ -2,6 +2,43 @@
     {{-- Include shared camera scanner component inside page --}}
     @include('filament.components.camera-barcode-scanner')
 
+    <style>
+        /* Ensure form buttons are visible and accessible on mobile */
+        [x-filament::page] .fi-form {
+            position: relative;
+        }
+
+        @media (max-width: 768px) {
+            [x-filament::page] .fi-form {
+                display: flex;
+                flex-direction: column;
+            }
+
+            [x-filament::page] .fi-form > * {
+                width: 100%;
+            }
+
+            /* Ensure form actions stay visible and clickable on mobile */
+            [x-filament::page] .fi-form-actions {
+                position: relative !important;
+                bottom: auto !important;
+                display: flex !important;
+                flex-direction: column-reverse;
+                gap: 0.75rem;
+                margin-top: 1.5rem;
+                padding: 1rem;
+                background-color: inherit;
+                border-top: 1px solid rgb(229, 231, 235);
+            }
+
+            [x-filament::page] .fi-form-actions button {
+                width: 100% !important;
+                min-height: 44px !important;
+                font-size: 16px !important;
+            }
+        }
+    </style>
+
     @if ($this->containerScanMode)
         {{-- Scan Mode View --}}
         @include('filament.pages.create-inventory-item-scan')

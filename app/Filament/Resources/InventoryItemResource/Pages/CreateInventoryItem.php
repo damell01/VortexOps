@@ -80,7 +80,18 @@ class CreateInventoryItem extends CreateRecord
     {
         $barcode = trim($this->barcodeInput);
         $this->barcodeInput = '';
+        $this->processBarcodeValue($barcode);
+    }
 
+    public function submitBarcodeWithValue(string $value): void
+    {
+        $barcode = trim($value);
+        $this->barcodeInput = '';
+        $this->processBarcodeValue($barcode);
+    }
+
+    protected function processBarcodeValue(string $barcode): void
+    {
         if (empty($barcode)) {
             return;
         }

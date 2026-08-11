@@ -4,12 +4,20 @@ namespace App\Filament\Resources\ShowResource\Pages;
 
 use App\Filament\Resources\ShowResource;
 use App\Models\Show;
+use App\Models\Streamer;
+use App\Models\WhatnotChannel;
 use App\Services\FeatureFlagService;
 use App\Services\WhatnotScraper;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\MultiSelect;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\TimePicker;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
@@ -109,6 +117,74 @@ class ListShows extends ListRecords
             CreateAction::make()
                 ->label('Add Show Manually')
                 ->visible(fn () => auth()->user()?->isAdmin() ?? false),
+
+            Action::make('schedule_show')
+                ->label('📅 Schedule Future Show')
+                ->icon('heroicon-o-calendar-days')
+                ->color('success')
+                ->visible(fn () => auth()->user()?->isAdmin() ?? false)
+                ->form([
+                    Grid::make(2)->schema([
+                        DatePicker::make('show_date')
+                            ->label('Show Date')
+                            ->required()
+                            ->minDate(now()->startOfDay())
+                            ->columnSpan(1),
+
+                        TimePicker::make('start_time')
+                            ->label('Start Time (Optional)')
+                            ->columnSpan(1),
+
+                        TextInput::make('title')
+                            ->label('Show Title')
+                            ->placeholder('e.g., Upcoming Break #50')
+                            ->maxLength(255)
+                            ->columnSpan(2),
+
+                        Select::make('whatnot_channel_id')
+                            ->label('Channel (Optional)')
+                            ->options(WhatnotChannel::where('status', 'active')->pluck('name', 'id'))
+                            ->searchable()
+                            ->nullable()
+                            ->columnSpan(1),
+
+                        TimePicker::make('end_time')
+                            ->label('End Time (Optional)')
+                            ->columnSpan(1),
+
+                        MultiSelect::make('streamers')
+                            ->label('Streamers')
+                            ->options(Streamer::where('status', 'active')->orderBy('name')->pluck('name', 'id'))
+                            ->preload()
+                            ->searchable()
+                            ->columnSpan(2)
+                            ->helperText('Who will be streaming this show?'),
+                    ]),
+                ])
+                ->action(function (array $data): void {
+                    $show = Show::create([
+                        'show_date' => $data['show_date'],
+                        'start_time' => $data['start_time'] ?? null,
+                        'end_time' => $data['end_time'] ?? null,
+                        'title' => $data['title'],
+                        'whatnot_channel_id' => $data['whatnot_channel_id'] ?? null,
+                        'status' => 'draft',
+                        'import_source' => 'manual',
+                        'created_by' => auth()->id(),
+                    ]);
+
+                    if (!empty($data['streamers'])) {
+                        $show->streamers()->attach($data['streamers']);
+                    }
+
+                    Notification::make()
+                        ->title('Show scheduled successfully!')
+                        ->body("'{$show->title}' is set for {$show->show_date->format('M d, Y')}. Add items when you're ready.")
+                        ->success()
+                        ->send();
+
+                    $this->redirect(route('filament.admin.resources.shows.view', $show));
+                }),
 
             Action::make('import_whatnot')
                 ->label('Import from Whatnot')

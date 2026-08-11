@@ -60,8 +60,8 @@ return new class extends Migration
         } else {
             // For MySQL/PostgreSQL, drop and recreate constraints
             Schema::table('inventory_item_contents', function (Blueprint $table) {
-                $table->dropForeignKey('inventory_item_contents_parent_inventory_item_id_foreign');
-                $table->dropForeignKey('inventory_item_contents_child_inventory_item_id_foreign');
+                $table->dropForeign('inventory_item_contents_parent_inventory_item_id_foreign');
+                $table->dropForeign('inventory_item_contents_child_inventory_item_id_foreign');
             });
 
             Schema::table('inventory_item_contents', function (Blueprint $table) {

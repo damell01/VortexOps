@@ -1,7 +1,7 @@
-{{-- Include shared camera scanner component --}}
-@include('filament.components.camera-barcode-scanner')
-
 <x-filament-panels::page>
+    {{-- Include shared camera scanner component inside page --}}
+    @include('filament.components.camera-barcode-scanner')
+
     @if ($this->containerScanMode)
         {{-- Scan Mode View --}}
         @include('filament.pages.create-inventory-item-scan')

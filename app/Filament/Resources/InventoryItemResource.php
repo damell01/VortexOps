@@ -374,15 +374,9 @@ class InventoryItemResource extends Resource
             Section::make('Case/Unit Relationships')
                 ->description('Define hierarchical relationships (e.g., "Case contains 20 boxes")')
                 ->columnSpanFull()
-                ->collapsed(fn (Get $get) => !$get('id'))
+                ->visible(fn (Get $get) => !!$get('id'))
                 ->schema([
-                    \Filament\Schemas\Components\Html::make('relationships_hint')
-                        ->html(fn (Get $get) => $get('id')
-                            ? '<p class="text-xs text-gray-500 dark:text-gray-400">💡 Define what this item contains or what container it goes in below.</p>'
-                            : '<p class="text-xs text-amber-600 dark:text-amber-400">📝 Save the item first, then you can add case/unit relationships.</p>')
-                        ->columnSpanFull(),
                     Tabs::make('relationships')
-                        ->visible(fn (Get $get) => !!$get('id'))
                         ->tabs([
                             Tabs\Tab::make('Items Inside This Container')
                                 ->schema([

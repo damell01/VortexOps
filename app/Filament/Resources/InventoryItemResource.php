@@ -5,10 +5,12 @@ namespace App\Filament\Resources;
 use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\InventoryItemResource\Pages;
 use App\Models\InventoryItem;
+use App\Models\InventoryItemContent;
 use App\Models\InventoryLocation;
 use App\Models\Vendor;
 use App\Services\InventoryService;
 use App\Support\AdminModules;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -18,6 +20,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Actions\Action;
@@ -367,6 +370,106 @@ class InventoryItemResource extends Resource
                         ->addable(false)
                         ->deletable(false)
                         ->reorderable(false),
+                ]),
+
+            Section::make('Case/Unit Relationships')
+                ->description('Define hierarchical relationships (e.g., "Case contains 20 boxes")')
+                ->columnSpanFull()
+                ->visible(fn (Get $get) => !!$get('id'))
+                ->schema([
+                    \Filament\Forms\Components\Tabs::make('relationships')
+                        ->tabs([
+                            \Filament\Forms\Components\Tabs\Tab::make('Items Inside This Container')
+                                ->description('If this item is a case/box, define what it contains')
+                                ->schema([
+                                    Repeater::make('childContents')
+                                        ->relationship('childContents', modifyQueryUsing: fn ($query) => $query->with('childItem'))
+                                        ->label('Contents')
+                                        ->addActionLabel('Add Item Inside')
+                                        ->schema([
+                                            Grid::make(12)->schema([
+                                                Select::make('child_inventory_item_id')
+                                                    ->label('Item Inside')
+                                                    ->options(function (Get $get) {
+                                                        $parentId = $get('../../id');
+                                                        return InventoryItem::where('is_active', true)
+                                                            ->where('id', '!=', $parentId)
+                                                            ->orderBy('name')
+                                                            ->pluck('name', 'id')
+                                                            ->toArray();
+                                                    })
+                                                    ->searchable()
+                                                    ->required()
+                                                    ->columnSpan(5),
+                                                TextInput::make('quantity_per_parent')
+                                                    ->label('Quantity Inside')
+                                                    ->numeric()
+                                                    ->step(1)
+                                                    ->default(1)
+                                                    ->minValue(1)
+                                                    ->required()
+                                                    ->columnSpan(2),
+                                                TextInput::make('unit_type')
+                                                    ->label('Unit Type')
+                                                    ->placeholder('e.g., box, pack, bundle')
+                                                    ->helperText('Describes the container (case, box, etc.)')
+                                                    ->columnSpan(3),
+                                                TextInput::make('barcode')
+                                                    ->label('Container Barcode')
+                                                    ->placeholder('Barcode that scans this case')
+                                                    ->helperText('Scan this barcode to identify the container')
+                                                    ->columnSpan(2),
+                                            ]),
+                                        ])
+                                        ->columnSpanFull(),
+                                ]),
+
+                            \Filament\Forms\Components\Tabs\Tab::make('Containers This Is In')
+                                ->description('If this item goes in a case, define the parent container')
+                                ->schema([
+                                    Repeater::make('parentContents')
+                                        ->relationship('parentContents', modifyQueryUsing: fn ($query) => $query->with('parentItem'))
+                                        ->label('Parent Containers')
+                                        ->addActionLabel('Add Container')
+                                        ->schema([
+                                            Grid::make(12)->schema([
+                                                Select::make('parent_inventory_item_id')
+                                                    ->label('Container Item')
+                                                    ->options(function (Get $get) {
+                                                        $childId = $get('../../id');
+                                                        return InventoryItem::where('is_active', true)
+                                                            ->where('id', '!=', $childId)
+                                                            ->orderBy('name')
+                                                            ->pluck('name', 'id')
+                                                            ->toArray();
+                                                    })
+                                                    ->searchable()
+                                                    ->required()
+                                                    ->columnSpan(5),
+                                                TextInput::make('quantity_per_parent')
+                                                    ->label('Qty Per Case')
+                                                    ->numeric()
+                                                    ->step(1)
+                                                    ->default(1)
+                                                    ->minValue(1)
+                                                    ->required()
+                                                    ->columnSpan(2),
+                                                TextInput::make('unit_type')
+                                                    ->label('Unit Type')
+                                                    ->placeholder('e.g., case, box')
+                                                    ->helperText('Type of container this goes in')
+                                                    ->columnSpan(3),
+                                                TextInput::make('barcode')
+                                                    ->label('Container Barcode')
+                                                    ->placeholder('Barcode of the container')
+                                                    ->helperText('Scan this to identify the case')
+                                                    ->columnSpan(2),
+                                            ]),
+                                        ])
+                                        ->columnSpanFull(),
+                                ]),
+                        ])
+                        ->columnSpanFull(),
                 ]),
         ]);
     }

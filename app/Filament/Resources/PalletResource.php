@@ -275,6 +275,19 @@ class PalletResource extends Resource
                         return "{$received}/{$total} cases ({$percent}%)";
                     })
                     ->visible(fn (?Pallet $record) => $record && in_array($record->status, ['receiving', 'received', 'processed'])),
+                TextColumn::make('missing_items')
+                    ->label('Missing Items')
+                    ->state(function (Pallet $record): string {
+                        $missing = $record->missingItems()->count();
+                        if ($missing === 0) {
+                            return '—';
+                        }
+                        $cost = $record->missingItems()->sum('total_value');
+                        return "{$missing} item(s) · ${$cost}";
+                    })
+                    ->badge()
+                    ->color('warning')
+                    ->visible(fn (?Pallet $record) => $record && $record->missingItems()->count() > 0),
                 TextColumn::make('next_action')
                     ->label('Next Action')
                     ->state(fn (Pallet $record): string => match ($record->status) {

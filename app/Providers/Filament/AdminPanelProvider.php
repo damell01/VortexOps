@@ -206,6 +206,12 @@ class AdminPanelProvider extends PanelProvider
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : view('filament.components.camera-photo-capture'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
                 fn (): string => <<<'HTML'
                 <script>
                 // Mobile sidebar touch/swipe gesture handler

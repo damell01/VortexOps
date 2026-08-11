@@ -18,6 +18,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\View;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
@@ -224,7 +225,11 @@ class PalletResource extends Resource
                         ->visibility('public')
                         ->maxSize(5120) // 5MB per file
                         ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'image/gif'])
-                        ->helperText('Upload photos, PDFs, or documents (max 5MB each). For use during receiving process.'),
+                        ->helperText('Upload photos, PDFs, or documents (max 5MB each). For use during receiving process.')
+                        ->afterStateUpdated(function () {
+                            // Component will handle photo capture events via JavaScript
+                        }),
+                    View::make('filament.components.photo-capture-button'),
                 ]),
 
             Section::make('Receiving Details')

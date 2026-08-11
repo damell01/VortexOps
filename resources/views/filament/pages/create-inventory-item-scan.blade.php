@@ -224,7 +224,7 @@ document.addEventListener('barcode-scanned', function(e) {
         // Small delay to ensure camera scanner closes first
         setTimeout(() => {
             input.focus();
-            @this.dispatch('submit-barcode');
+            @this.call('submitBarcodeWithValue', e.detail.value);
         }, 150);
     }
 });

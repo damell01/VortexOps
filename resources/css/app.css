@@ -15,6 +15,7 @@
 @import 'enterprise-ui-refinements.css';
 @import 'responsive-component-patterns.css';
 @import 'table-actions-responsive.css';
+@import 'mobile-card-layouts.css';
 
 [x-cloak] { display: none !important; }
 

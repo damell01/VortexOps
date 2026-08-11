@@ -58,7 +58,7 @@ return new class extends Migration {
             $table->index('parent_inventory_item_id');
             $table->index('child_inventory_item_id');
             $table->index('barcode');
-            $table->unique(['parent_inventory_item_id', 'child_inventory_item_id']);
+            $table->unique(['parent_inventory_item_id', 'child_inventory_item_id'], 'item_contents_parent_child_unique');
         });
     }
 

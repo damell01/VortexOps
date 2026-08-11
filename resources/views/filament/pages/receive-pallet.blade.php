@@ -76,10 +76,19 @@
 
         {{-- ── Barcode Scanner Input ────────────────────────────────────────── --}}
         <div class="rounded-xl border-2 border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950 shadow-sm px-6 py-5 space-y-3">
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 flex-wrap">
                 <x-heroicon-o-qr-code class="h-5 w-5 text-violet-500" />
                 <h2 class="text-sm font-semibold text-violet-900 dark:text-violet-100">Barcode Scanner</h2>
-                <span class="text-xs text-violet-600 dark:text-violet-400">Click the field below, then scan a case or item barcode</span>
+                <span class="text-xs text-violet-600 dark:text-violet-400">Scan a case or item barcode below</span>
+                @php
+                    $unmappedCount = collect($lineProgress)->filter(fn ($l) => !$l['mapped'])->count();
+                @endphp
+                @if ($unmappedCount > 0)
+                    <span class="ml-auto inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+                        <x-heroicon-o-exclamation-circle class="h-3 w-3 mr-1" />
+                        {{ $unmappedCount }} line{{ $unmappedCount !== 1 ? 's' : '' }} need mapping
+                    </span>
+                @endif
             </div>
 
             <div class="flex gap-3 items-center">
@@ -106,17 +115,45 @@
                     {{ $lastScannedResult }}
                 </div>
                 @if ($lastScanDetails && $lastScanDetails['type'] === 'case')
-                    <div class="rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm space-y-1">
+                    <div class="rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm space-y-2">
                         <p class="font-semibold text-blue-900 dark:text-blue-100">📦 Case Contents</p>
                         <p class="text-blue-800 dark:text-blue-200">
                             <span class="font-medium">{{ $lastScanDetails['parent'] }}</span>
                             contains
                             <span class="font-medium">{{ $lastScanDetails['quantity'] }} × {{ $lastScanDetails['child'] }}</span>
                         </p>
+                        <p class="text-xs text-blue-700 dark:text-blue-300">Scan the individual items inside, or use "Receive All" for the line above.</p>
                     </div>
                 @endif
             @endif
         </div>
+
+        {{-- ── Unmapped Lines Warning ───────────────────────────────────────── --}}
+        @php
+            $unmappedLines = collect($lineProgress)->filter(fn ($l) => !$l['mapped'])->values();
+        @endphp
+        @if ($unmappedLines->count() > 0)
+            <div class="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 shadow-sm px-6 py-4 space-y-3">
+                <div class="flex items-start gap-3">
+                    <x-heroicon-o-exclamation-triangle class="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                            {{ $unmappedLines->count() }} line{{ $unmappedLines->count() !== 1 ? 's' : '' }} need mapping
+                        </h3>
+                        <p class="text-xs text-amber-800 dark:text-amber-200 mt-0.5">
+                            These lines must be mapped to an inventory item and location before you can receive their cases.
+                        </p>
+                        <div class="mt-2 space-y-1">
+                            @foreach ($unmappedLines as $line)
+                                <div class="flex items-center justify-between gap-2 text-xs">
+                                    <span class="text-amber-700 dark:text-amber-300">L{{ $line['line_number'] }}: {{ $line['description'] }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
 
         {{-- ── Manifest Lines ───────────────────────────────────────────────── --}}
         @php
@@ -169,7 +206,7 @@
 
                 {{-- Mobile card layout --}}
                 <div class="sm:hidden px-4 py-3.5 border-b border-gray-100 dark:border-gray-800 last:border-b-0 space-y-2
-                            {{ $done ? 'bg-green-50/40 dark:bg-green-950/20' : '' }}">
+                            {{ $done ? 'bg-green-50/40 dark:bg-green-950/20' : ($mapped ? '' : 'bg-amber-50/40 dark:bg-amber-950/20') }}">
                     <div class="flex items-start justify-between gap-2">
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center gap-1.5 flex-wrap">
@@ -178,12 +215,12 @@
                             </div>
                             <div class="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400">
                                 @if ($line['item_name'])
-                                    <span class="text-violet-600 dark:text-violet-400">→ {{ $line['item_name'] }}</span>
+                                    <span class="text-violet-600 dark:text-violet-400">✓ {{ $line['item_name'] }}</span>
                                 @else
-                                    <span class="text-amber-500 dark:text-amber-400">Needs mapping</span>
+                                    <span class="text-amber-600 dark:text-amber-400 font-medium">⚠ Needs mapping</span>
                                 @endif
                                 @if ($line['location'])
-                                    <span>@ {{ $line['location'] }}</span>
+                                    <span class="text-gray-500 dark:text-gray-400">@ {{ $line['location'] }}</span>
                                 @endif
                             </div>
                         </div>
@@ -195,11 +232,11 @@
                             @elseif ($mapped)
                                 <span class="text-sm font-bold text-gray-700 dark:text-gray-200 tabular-nums">{{ $line['received'] }}/{{ $line['case_count'] }}</span>
                                 <button wire:click="receiveLine({{ $line['id'] }})" type="button"
-                                    class="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700">
+                                    class="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 active:bg-violet-800">
                                     Receive All
                                 </button>
                             @else
-                                <span class="text-sm font-bold text-gray-400 tabular-nums">{{ $line['received'] }}/{{ $line['case_count'] }}</span>
+                                <span class="text-sm font-bold text-amber-600 dark:text-amber-400 tabular-nums">{{ $line['received'] }}/{{ $line['case_count'] }}</span>
                             @endif
                         </div>
                     </div>
@@ -212,7 +249,7 @@
                 {{-- Desktop table row --}}
                 <div class="hidden sm:grid grid-cols-12 gap-3 items-center px-6 py-3.5
                             border-b border-gray-100 dark:border-gray-800 last:border-b-0
-                            {{ $done ? 'bg-green-50/40 dark:bg-green-950/20' : ($idx % 2 === 1 ? 'bg-gray-50/60 dark:bg-gray-800/30' : '') }}
+                            {{ $done ? 'bg-green-50/40 dark:bg-green-950/20' : ($mapped ? ($idx % 2 === 1 ? 'bg-gray-50/60 dark:bg-gray-800/30' : '') : 'bg-amber-50/40 dark:bg-amber-950/20') }}
                             hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                     <div class="col-span-1 text-xs font-mono text-gray-400">L{{ $line['line_number'] }}</div>
                     <div class="col-span-4 min-w-0">
@@ -220,14 +257,14 @@
                     </div>
                     <div class="col-span-2 min-w-0">
                         @if ($line['item_name'])
-                            <p class="text-xs text-violet-700 dark:text-violet-400 truncate font-medium">{{ $line['item_name'] }}</p>
+                            <p class="text-xs text-violet-700 dark:text-violet-400 truncate font-medium">✓ {{ $line['item_name'] }}</p>
                         @else
                             <span class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                                Needs mapping
+                                <x-heroicon-o-exclamation-circle class="h-3 w-3 mr-1" /> Needs mapping
                             </span>
                         @endif
                         @if ($line['location'])
-                            <p class="text-xs text-gray-400 truncate mt-0.5">@ {{ $line['location'] }}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">@ {{ $line['location'] }}</p>
                         @endif
                     </div>
                     <div class="col-span-2">
@@ -239,20 +276,22 @@
                             <span class="text-[11px] text-gray-400 tabular-nums shrink-0">{{ $pct }}%</span>
                         </div>
                     </div>
-                    <div class="col-span-1 text-center text-sm text-gray-500 tabular-nums">{{ $line['case_count'] }}</div>
+                    <div class="col-span-1 text-center text-sm {{ $mapped ? 'text-gray-500' : 'text-amber-600 dark:text-amber-400' }} tabular-nums font-medium">{{ $line['case_count'] }}</div>
                     <div class="col-span-1 text-center">
                         <span class="text-sm font-bold {{ $done ? 'text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-200' }} tabular-nums">
                             {{ $line['received'] }}
                         </span>
                     </div>
-                    <div class="col-span-1 flex justify-end">
+                    <div class="col-span-1 flex justify-end gap-2">
                         @if ($done)
                             <x-heroicon-o-check-circle class="h-5 w-5 text-green-500" />
                         @elseif ($mapped)
                             <button wire:click="receiveLine({{ $line['id'] }})" type="button"
-                                class="rounded-lg bg-gray-100 dark:bg-gray-700 px-2.5 py-1 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-violet-600 hover:text-white dark:hover:bg-violet-600 transition-colors whitespace-nowrap">
+                                class="rounded-lg bg-violet-600 px-3 py-1 text-xs font-medium text-white hover:bg-violet-700 active:bg-violet-800 transition-colors whitespace-nowrap">
                                 Receive All
                             </button>
+                        @else
+                            <span class="text-xs text-amber-600 dark:text-amber-400 font-medium">⚠ Map first</span>
                         @endif
                     </div>
                 </div>
@@ -285,24 +324,40 @@
                 <div class="flex items-center gap-3">
                     <x-heroicon-o-camera class="h-5 w-5 text-gray-500" />
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Media & Documents</h2>
+                    @if ($this->record->attachments()->count() > 0)
+                        <span class="ml-auto inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900 px-2 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-300">
+                            {{ $this->record->attachments()->count() }} file{{ $this->record->attachments()->count() !== 1 ? 's' : '' }}
+                        </span>
+                    @endif
                 </div>
-                <p class="text-xs text-gray-400">Add photos, documents, or receipt images tied to this pallet.</p>
+                <p class="text-xs text-gray-400">Photos, documents, and receipt images. You can edit the pallet to upload files.</p>
 
                 @if ($this->record->attachments()->count() > 0)
-                    <div class="space-y-2">
+                    <div class="space-y-1.5">
                         @foreach ($this->record->attachments as $att)
                             <div class="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                <x-heroicon-o-document-text class="h-4 w-4 text-gray-400" />
-                                <span class="text-xs text-gray-700 dark:text-gray-300 truncate">{{ $att->file_name }}</span>
-                                <span class="text-[10px] text-gray-400 ml-auto">{{ \App\Models\PalletAttachment::typeLabels()[$att->type] ?? 'File' }}</span>
+                                @if ($att->isImage())
+                                    <x-heroicon-o-photo class="h-4 w-4 text-blue-500" />
+                                @elseif ($att->isPdf())
+                                    <x-heroicon-o-document-text class="h-4 w-4 text-red-500" />
+                                @else
+                                    <x-heroicon-o-paperclip class="h-4 w-4 text-gray-400" />
+                                @endif
+                                <span class="text-xs text-gray-700 dark:text-gray-300 truncate flex-1">{{ $att->file_name }}</span>
+                                <span class="text-[10px] text-gray-400">{{ \App\Models\PalletAttachment::typeLabels()[$att->type] ?? 'File' }}</span>
                             </div>
                         @endforeach
                     </div>
+                @else
+                    <div class="text-center py-3 px-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                        <x-heroicon-o-camera class="h-6 w-6 mx-auto text-gray-300 dark:text-gray-600 mb-1" />
+                        <p class="text-xs text-gray-500 dark:text-gray-400">No attachments yet</p>
+                    </div>
                 @endif
 
-                <div class="text-xs text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 border-l-2 border-gray-300 dark:border-gray-600">
-                    📁 Upload files via the Filament resource panel
-                </div>
+                <a href="{{ PalletResource::getUrl('edit', ['record' => $this->record]) }}" class="inline-flex items-center gap-2 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                    <x-heroicon-o-pencil class="h-3 w-3" /> Add files
+                </a>
             </div>
 
             {{-- Receiver Info --}}
@@ -340,19 +395,41 @@
                     <div class="flex-1 min-w-0">
                         <h2 class="text-sm font-semibold text-green-900 dark:text-green-100">All cases received! 🎉</h2>
                         <p class="text-xs text-green-700 dark:text-green-200 mt-0.5">
-                            You've received all expected cases for this pallet. Click "Finalize Pallet" to complete the receiving process.
+                            You've received all expected cases for this pallet. Enter the receiver name above, then finalize to complete.
                         </p>
                     </div>
-                    <button
-                        wire:click="finalizePallet"
-                        type="button"
-                        class="shrink-0 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
-                    >
-                        Finalize Pallet
-                    </button>
+                    @if ($receivedByName)
+                        <button
+                            wire:click="finalizePallet"
+                            type="button"
+                            class="shrink-0 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 active:bg-green-800 focus:outline-none focus:ring-2 focus:ring-green-500"
+                        >
+                            Finalize Pallet
+                        </button>
+                    @else
+                        <span class="shrink-0 rounded-lg bg-gray-200 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+                            Complete name above
+                        </span>
+                    @endif
                 </div>
             </div>
         @endif
+
+        {{-- ── Quick Tips ───────────────────────────────────────────────────── --}}
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-950/20 shadow-sm px-6 py-4">
+            <div class="flex items-start gap-3">
+                <x-heroicon-o-light-bulb class="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                <div class="flex-1 text-sm space-y-1">
+                    <p class="font-semibold text-blue-900 dark:text-blue-100">Quick Tips</p>
+                    <ul class="text-xs text-blue-800 dark:text-blue-200 space-y-0.5">
+                        <li>💡 <strong>Scan cases first</strong> to see what's inside (case barcodes show contents)</li>
+                        <li>💡 <strong>Scan individual items</strong> to receive them one-by-one or use "Receive All" for a line</li>
+                        <li>💡 <strong>Map lines early</strong> — unmapped lines block receiving</li>
+                        <li>💡 <strong>Mobile friendly</strong> — use your phone's camera with a barcode app for scanning</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
 
     </div>
 </x-filament-panels::page>

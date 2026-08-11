@@ -47,11 +47,11 @@
         </div>
 
         {{-- ── CSV Import Section ───────────────────────────────────────── --}}
-        <div class="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 shadow-sm px-6 py-5 space-y-3">
+        <div class="rounded-xl border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 shadow-sm px-6 py-5 space-y-3">
             <div class="flex items-center gap-3">
                 <x-heroicon-o-document-arrow-up class="h-5 w-5 text-amber-600 dark:text-amber-400" />
                 <h2 class="text-sm font-semibold text-amber-900 dark:text-amber-100">Import Manifest (CSV)</h2>
-                <span class="text-xs text-amber-600 dark:text-amber-400 ml-auto">Optional - or add lines manually below</span>
+                <span class="text-xs text-amber-600 dark:text-amber-400 ml-auto">⚡ Fastest way to add lines</span>
             </div>
 
             <form wire:submit="importCsv" class="space-y-3">
@@ -185,19 +185,53 @@ description,quantity,case_count,unit_cost
             @endif
         </div>
 
-        {{-- ── Next Steps ────────────────────────────────────────────── --}}
-        <div class="rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 shadow-sm px-6 py-4">
-            <div class="flex items-start gap-3">
-                <x-heroicon-o-light-bulb class="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                <div class="flex-1 min-w-0 text-sm text-green-800 dark:text-green-200">
-                    <p class="font-semibold mb-1">Next Steps:</p>
-                    <ol class="list-decimal list-inside space-y-0.5 text-xs">
-                        <li>Review manifest lines above</li>
-                        <li><a href="{{ PalletResource::getUrl('edit', ['record' => $this->record]) }}" class="font-medium underline">Edit pallet</a> to map items to inventory and assign receiving locations</li>
-                        <li>Click <strong>"Ready to Receive"</strong> above to start the receiving workflow when the pallet arrives</li>
-                    </ol>
+        {{-- ── Checklist & Next Steps ────────────────────────────────── --}}
+        @php
+            $hasLines = $this->record->lines()->count() > 0;
+            $allMapped = $this->record->lines()
+                ->where(fn ($q) => $q->where('inventory_item_id', '!=', null)
+                    ->where('inventory_location_id', '!=', null))
+                ->count() === $this->record->lines()->count();
+        @endphp
+        <div class="rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 shadow-sm px-6 py-5 space-y-4">
+            <div class="flex items-center gap-3">
+                <x-heroicon-o-check-circle class="h-5 w-5 text-green-600 dark:text-green-400" />
+                <h2 class="text-sm font-semibold text-green-900 dark:text-green-100">Ready to Receive?</h2>
+            </div>
+
+            <div class="space-y-2 text-xs text-green-800 dark:text-green-200">
+                <div class="flex items-center gap-2">
+                    @if ($hasLines)
+                        <x-heroicon-o-check-circle class="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+                        <span><strong>Manifest lines:</strong> {{ $this->record->lines()->count() }} line{{ $this->record->lines()->count() !== 1 ? 's' : '' }} added</span>
+                    @else
+                        <x-heroicon-o-circle class="h-4 w-4 text-gray-400 shrink-0" />
+                        <span><strong>Manifest lines:</strong> Add lines above using CSV import or manual entry</span>
+                    @endif
+                </div>
+
+                <div class="flex items-center gap-2">
+                    @if ($hasLines && $allMapped)
+                        <x-heroicon-o-check-circle class="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
+                        <span><strong>Line mapping:</strong> All lines mapped to inventory items and locations</span>
+                    @elseif ($hasLines)
+                        <x-heroicon-o-exclamation-circle class="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span>
+                            <strong>Line mapping:</strong>
+                            <a href="{{ PalletResource::getUrl('edit', ['record' => $this->record]) }}" class="font-medium underline hover:text-green-900 dark:hover:text-green-100">Map items and locations</a> before receiving
+                        </span>
+                    @else
+                        <x-heroicon-o-circle class="h-4 w-4 text-gray-400 shrink-0" />
+                        <span><strong>Line mapping:</strong> Will do this after adding lines</span>
+                    @endif
                 </div>
             </div>
+
+            @if ($hasLines && $allMapped)
+                <div class="pt-2">
+                    <p class="text-xs text-green-700 dark:text-green-300 mb-2">✓ All set! When the pallet arrives, start receiving:</p>
+                </div>
+            @endif
         </div>
 
     </div>

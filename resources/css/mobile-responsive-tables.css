@@ -1,11 +1,126 @@
 /* VortexOps Mobile-Responsive Tables & Cards */
 
 /* ═══════════════════════════════════════════════════════════════════ */
-/* MOBILE TABLE RESPONSIVENESS */
+/* MOBILE TABLE RESPONSIVENESS - HIDE TABLE, SHOW CARDS ON SMALL SCREENS */
 /* ═══════════════════════════════════════════════════════════════════ */
 
-/* Hide low-priority columns on mobile by default */
-@media (max-width: 768px) {
+/* On mobile (below 640px), transform table into card layout */
+@media (max-width: 640px) {
+    /* Hide traditional table layout completely */
+    .fi-table {
+        display: grid !important;
+        gap: 12px;
+        grid-template-columns: 1fr;
+        padding: 12px;
+    }
+
+    /* Hide header row on mobile */
+    .fi-table thead {
+        display: none !important;
+    }
+
+    /* Transform each row into a card */
+    .fi-table tbody {
+        display: contents;
+    }
+
+    .fi-table tbody tr {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 12px;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    }
+
+    html.dark .fi-table tbody tr {
+        background: #1f2937;
+        border-color: #374151;
+    }
+
+    /* Each cell - clean styling */
+    .fi-table td {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 0;
+        border: none;
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    /* Action cells - full width and horizontal */
+    .fi-table td:last-child {
+        padding-top: 8px;
+        border-top: 1px solid #f3f4f6;
+        flex-direction: row;
+        gap: 6px;
+    }
+
+    html.dark .fi-table td:last-child {
+        border-top-color: #374151;
+    }
+
+    /* Make action buttons horizontal and touchable */
+    .fi-ta-actions {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    .fi-ta-actions .fi-icon-btn {
+        min-height: 40px;
+        min-width: 40px;
+        padding: 8px;
+        flex-shrink: 0;
+    }
+
+    .fi-ta-actions .fi-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+        min-height: 40px;
+    }
+
+    /* Badge styling in cards - allow natural wrapping */
+    .fi-badge {
+        display: inline-block;
+        padding: 4px 8px;
+        font-size: 12px;
+        font-weight: 600;
+        border-radius: 6px;
+        white-space: normal;
+        line-height: 1.4;
+    }
+
+    /* Specific column handling */
+    .fi-table td[data-column-key="show_date"],
+    .fi-table td[data-column-key="title"],
+    .fi-table td[data-column-key="name"],
+    .fi-table td[data-column-key="reference"],
+    .fi-table td[data-column-key="vendor.name"] {
+        font-weight: 600;
+        color: #111827;
+    }
+
+    html.dark .fi-table td[data-column-key="show_date"],
+    html.dark .fi-table td[data-column-key="title"],
+    html.dark .fi-table td[data-column-key="name"],
+    html.dark .fi-table td[data-column-key="reference"],
+    html.dark .fi-table td[data-column-key="vendor.name"] {
+        color: #f3f4f6;
+    }
+}
+
+/* On tablet and up, use traditional horizontal table with scrolling */
+@media (min-width: 641px) {
     /* Table column visibility control - prioritize essential columns */
     .fi-table [data-column-key="category"],
     .fi-table [data-column-key="reorder_level"],
@@ -30,11 +145,12 @@
     /* Ensure essential columns remain visible and readable */
     .fi-table th,
     .fi-table td {
-        padding: 8px 6px;
-        font-size: 12px;
-        line-height: 1.4;
-        word-break: break-word;
-        overflow-wrap: break-word;
+        padding: 10px 8px;
+        font-size: 13px;
+        line-height: 1.5;
+        white-space: normal;
+        word-break: normal;
+        overflow-wrap: normal;
     }
 
     /* Table container scrolling */
@@ -60,8 +176,8 @@
     }
 
     .fi-table thead th {
-        padding: 10px 6px;
-        font-size: 11px;
+        padding: 10px 8px;
+        font-size: 12px;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -80,40 +196,40 @@
         background-color: rgba(124, 58, 237, 0.04);
     }
 
-    /* Text in cells - truncate long text */
+    /* Text in cells */
     .fi-table td {
         overflow: hidden;
         text-overflow: ellipsis;
-        white-space: nowrap;
     }
 
     /* Allow text to wrap for names and titles */
     .fi-table td[data-column-key="name"],
     .fi-table td[data-column-key="title"],
-    .fi-table td[data-column-key="sku"] {
+    .fi-table td[data-column-key="sku"],
+    .fi-table td[data-column-key="show_title"] {
         white-space: normal;
-        max-width: 120px;
+        max-width: 200px;
     }
 
     /* Make action buttons stack vertically in a compact way */
     .fi-ta-actions {
         display: flex;
-        gap: 2px;
+        gap: 4px;
         flex-wrap: wrap;
         justify-content: flex-end;
     }
 
     .fi-ta-actions .fi-btn {
-        padding: 4px 6px;
-        font-size: 11px;
+        padding: 6px 10px;
+        font-size: 12px;
         min-height: auto;
         min-width: auto;
     }
 
     .fi-ta-actions .fi-icon-btn {
-        min-height: 32px;
-        min-width: 32px;
-        padding: 4px;
+        min-height: 36px;
+        min-width: 36px;
+        padding: 6px;
     }
 
     /* Dark mode support */

@@ -393,7 +393,7 @@ class InventoryItemResource extends Resource
                     ->badge()
                     ->color('gray')
                     ->placeholder('—')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('stock_sum_quantity')
                     ->label('Stock')
                     ->numeric(decimalPlaces: 0)
@@ -419,7 +419,7 @@ class InventoryItemResource extends Resource
                     ->label('Avg Cost')
                     ->money('USD')
                     ->sortable()
-                    ->toggleable()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->description(fn ($record) =>
                         ((int) ($record->stock_sum_quantity ?? 0)) > 0
                             ? number_format((int) ($record->stock_sum_quantity ?? 0)) . ' units • $' . number_format(((int) ($record->stock_sum_quantity ?? 0)) * ((float) ($record->average_cost ?? 0)), 2)
@@ -429,11 +429,11 @@ class InventoryItemResource extends Resource
                     ->label('Inventory Value')
                     ->getStateUsing(fn ($record) => ((int) ($record->stock_sum_quantity ?? 0)) * ((float) ($record->average_cost ?? 0)))
                     ->money('USD')
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('is_active')
                     ->boolean()
                     ->label('Active')
-                    ->toggleable()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->width('w-12'),
                 TextColumn::make('barcode')
                     ->label('Barcode')

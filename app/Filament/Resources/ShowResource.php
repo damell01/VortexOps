@@ -671,7 +671,8 @@ class ShowResource extends Resource
                     ->description(fn (Show $record): ?string => $record->channel_attribution_suspect
                         ? '⚠ Verify channel — also scraped under another channel'
                         : null)
-                    ->color(fn (Show $record) => $record->channel_attribution_suspect ? 'warning' : null),
+                    ->color(fn (Show $record) => $record->channel_attribution_suspect ? 'warning' : null)
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('streamers.name')
                     ->label('Streamers')
@@ -704,11 +705,12 @@ class ShowResource extends Resource
                     ->color(fn (float $state): string => $state >= 0 ? 'success' : 'danger')
                     ->tooltip(fn (Show $record): string => 'Profit after COGS and payouts — ' . $record->profitAndLoss()['margin_pct'] . '% margin')
                     ->sortable(false)
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('units_sold')
                     ->label('Units')
-                    ->numeric(),
+                    ->numeric()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('status')
                     ->badge()
@@ -745,7 +747,7 @@ class ShowResource extends Resource
                         'rejected' => 'danger',
                         default => 'gray',
                     })
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('import_source')
                     ->badge()
@@ -754,7 +756,8 @@ class ShowResource extends Resource
                         'manual' => 'gray',
                         'auto_whatnot' => 'info',
                         default => 'gray',
-                    }),
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('buyers_count')
                     ->label('Buyers')

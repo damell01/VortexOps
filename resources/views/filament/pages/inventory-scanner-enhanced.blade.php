@@ -4,25 +4,25 @@
         {{-- ── Mode Tab Strip with Session Info ──────────────────────────────────── --}}
         <div class="space-y-2">
             <div class="flex rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-1 gap-1 overflow-x-auto md:overflow-visible">
-                <button wire:click="switchMode('lookup')" type="button"
+                <button wire:key="mode-lookup" wire:click="switchMode('lookup')" type="button"
                     class="flex-1 md:flex-1 min-w-max md:min-w-0 rounded-lg px-3 md:px-4 py-2.5 text-xs md:text-sm font-medium transition-colors whitespace-nowrap md:whitespace-normal {{ $mode === 'lookup' ? 'bg-violet-600 text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800' }}">
                     <x-heroicon-o-magnifying-glass class="h-4 w-4 inline -mt-0.5 mr-1" />
                     <span class="hidden sm:inline">Look Up</span>
                     <span class="sm:hidden">Lookup</span>
                 </button>
-                <button wire:click="switchMode('quickadd')" type="button"
+                <button wire:key="mode-quickadd" wire:click="switchMode('quickadd')" type="button"
                     class="flex-1 md:flex-1 min-w-max md:min-w-0 rounded-lg px-3 md:px-4 py-2.5 text-xs md:text-sm font-medium transition-colors whitespace-nowrap md:whitespace-normal {{ $mode === 'quickadd' ? 'bg-emerald-600 text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800' }}">
                     <x-heroicon-o-plus-circle class="h-4 w-4 inline -mt-0.5 mr-1" />
                     <span class="hidden sm:inline">Quick Add</span>
                     <span class="sm:hidden">Add</span>
                 </button>
-                <button wire:click="switchMode('receive')" type="button"
+                <button wire:key="mode-receive" wire:click="switchMode('receive')" type="button"
                     class="flex-1 md:flex-1 min-w-max md:min-w-0 rounded-lg px-3 md:px-4 py-2.5 text-xs md:text-sm font-medium transition-colors whitespace-nowrap md:whitespace-normal {{ $mode === 'receive' ? 'bg-blue-600 text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800' }}">
                     <x-heroicon-o-truck class="h-4 w-4 inline -mt-0.5 mr-1" />
                     <span class="hidden sm:inline">Receive Pallet</span>
                     <span class="sm:hidden">Receive</span>
                 </button>
-                <button wire:click="switchMode('stage')" type="button"
+                <button wire:key="mode-stage" wire:click="switchMode('stage')" type="button"
                     class="flex-1 md:flex-1 min-w-max md:min-w-0 rounded-lg px-3 md:px-4 py-2.5 text-xs md:text-sm font-medium transition-colors whitespace-nowrap md:whitespace-normal {{ $mode === 'stage' ? 'bg-amber-600 text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800' }}">
                     <x-heroicon-o-inbox-stack class="h-4 w-4 inline -mt-0.5 mr-1" />
                     <span class="hidden sm:inline">Stage Pallet</span>

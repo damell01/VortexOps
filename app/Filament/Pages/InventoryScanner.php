@@ -18,6 +18,7 @@ use App\Support\AdminModules;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Reactive;
 use Livewire\WithFileUploads;
 use RuntimeException;
 
@@ -66,6 +67,7 @@ class InventoryScanner extends Page
     // ── Mode ──────────────────────────────────────────────────────────────────
 
     /** 'lookup' | 'quickadd' | 'receive' */
+    #[Reactive]
     public string $mode = 'lookup';
 
     // ── Lookup state ──────────────────────────────────────────────────────────

@@ -66,73 +66,61 @@ Features:
 - Large, tappable buttons
 
 **Inventory Items Page**
-![Mobile Inventory](resources/screenshots/mobile-inventory.png)
+![Mobile Inventory](resources/screenshots/mobile-inventory-cards.png)
 
 Features:
 - Search bar with filter button
 - Active filter pills easily dismissible
 - Item cards with:
   - Avatar/icon (60×60px with gradient color)
-  - SKU and product name
-  - Stock count (bold, right-aligned)
-  - Status badge (color-coded)
-  - Action menu (three dots)
-- Pagination controls at bottom
+  - Product name
+  - Stock count
+  - Category/SKU info
+  - Pagination controls at bottom
 
 **Shows Page**
-![Mobile Shows](resources/screenshots/mobile-shows.png)
+![Mobile Shows](resources/screenshots/mobile-shows-cards.png)
 
 Features:
 - Card-based show listings
-- Show image thumbnail
-- Title and date information
-- Status indicators (Live, Upcoming, etc.)
-- Spot availability information
+- Colored avatar boxes (gradient backgrounds)
+- Title and show information
+- Streamer names displayed
+- Status indicators (Pending Review, Pending Approval, etc.)
 - One-tap navigation
 
 **Users Page**
-![Mobile Users](resources/screenshots/mobile-users.png)
+![Mobile Users](resources/screenshots/mobile-users-cards.png)
 
 Features:
-- User cards with avatar circles
+- User cards with colored avatar squares
 - Name and email display
 - Role badges (Admin, Manager, Streamer, etc.)
 - Status indicators (Active, Inactive)
+- Touch-friendly card layout
 - Quick action menu
 
 **Streamers Page**
-![Mobile Streamers](resources/screenshots/mobile-streamers.png)
+![Mobile Streamers](resources/screenshots/mobile-streamers-cards.png)
 
 Features:
 - Streamer cards with gradient avatars
 - Display name and email
-- Status indicators
-- Payout type information
-- Earnings summary
+- Status indicators (Active, On Leave)
+- Payout type information (Profit Share, Hourly, Package)
+- Clean card-based layout
 
 **Payouts Page**
-![Mobile Payouts](resources/screenshots/mobile-payouts.png)
+![Mobile Payouts](resources/screenshots/mobile-payouts-cards.png)
 
 Features:
 - Payout cards showing key information
 - Streamer/recipient name
-- Payout amount (bold, right-aligned)
+- Payout amount
 - Status badges (Paid, Processing, Pending, etc.)
 - Date information
-- Quick approval/action buttons
-
-**Orders Page**
-![Mobile Orders](resources/screenshots/mobile-orders.png)
-
-Features:
-- Order cards displaying:
-  - Order ID (bold)
-  - Customer name
-  - Order amount (right-aligned)
-  - Status badge (Paid, Shipped, Pending, Cancelled)
-  - Order date
-- Swipe actions for common operations
-- Quick access to order details
+- Colored avatars for visual distinction
+- Scrollable card layout
 
 ## Responsive Breakpoints
 

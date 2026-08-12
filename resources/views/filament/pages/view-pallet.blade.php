@@ -25,7 +25,7 @@
                             @elseif ($isActive)
                                 <x-heroicon-o-ellipsis-horizontal-circle class="h-4 w-4 animate-pulse" />
                             @else
-                                <x-heroicon-o-circle class="h-4 w-4" />
+                                <x-heroicon-o-check-circle class="h-4 w-4" />
                             @endif
                             {{ $phase['label'] }}
                         </span>

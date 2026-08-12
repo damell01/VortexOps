@@ -205,7 +205,7 @@ description,quantity,case_count,unit_cost
                         <x-heroicon-o-check-circle class="h-4 w-4 text-green-600 dark:text-green-400 shrink-0" />
                         <span><strong>Manifest lines:</strong> {{ $this->record->lines()->count() }} line{{ $this->record->lines()->count() !== 1 ? 's' : '' }} added</span>
                     @else
-                        <x-heroicon-o-circle class="h-4 w-4 text-gray-400 shrink-0" />
+                        <x-heroicon-o-check-circle class="h-4 w-4 text-gray-400 shrink-0" />
                         <span><strong>Manifest lines:</strong> Add lines above using CSV import or manual entry</span>
                     @endif
                 </div>
@@ -221,7 +221,7 @@ description,quantity,case_count,unit_cost
                             <a href="{{ PalletResource::getUrl('edit', ['record' => $this->record]) }}" class="font-medium underline hover:text-green-900 dark:hover:text-green-100">Map items and locations</a> before receiving
                         </span>
                     @else
-                        <x-heroicon-o-circle class="h-4 w-4 text-gray-400 shrink-0" />
+                        <x-heroicon-o-check-circle class="h-4 w-4 text-gray-400 shrink-0" />
                         <span><strong>Line mapping:</strong> Will do this after adding lines</span>
                     @endif
                 </div>

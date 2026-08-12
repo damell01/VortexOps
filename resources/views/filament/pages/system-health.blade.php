@@ -18,7 +18,7 @@
         <div class="rounded-xl border {{ $db['ok'] ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950' : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950' }} px-5 py-4">
             <div class="flex items-center gap-3">
                 <div class="rounded-full {{ $db['ok'] ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900' }} p-2">
-                    <x-heroicon-o-circle-stack class="h-5 w-5 {{ $db['ok'] ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}" />
+                    <x-heroicon-o-check-circle-stack class="h-5 w-5 {{ $db['ok'] ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}" />
                 </div>
                 <div>
                     <p class="text-sm font-semibold {{ $db['ok'] ? 'text-green-900 dark:text-green-100' : 'text-red-900 dark:text-red-100' }}">Database</p>

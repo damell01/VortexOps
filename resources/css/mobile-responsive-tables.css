@@ -27,44 +27,70 @@
     .fi-table tbody tr {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
         border: 1px solid #e5e7eb;
-        border-radius: 10px;
-        padding: 12px;
+        border-radius: 12px;
+        padding: 14px;
         background: white;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        margin-bottom: 4px;
+    }
+
+    .fi-table tbody tr:last-child {
+        margin-bottom: 0;
     }
 
     html.dark .fi-table tbody tr {
         background: #1f2937;
         border-color: #374151;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
     /* Each cell - clean styling */
     .fi-table td {
         display: flex;
         flex-wrap: wrap;
-        align-items: center;
+        align-items: flex-start;
         gap: 6px;
-        padding: 4px 0;
+        padding: 8px 0;
         border: none;
         white-space: normal;
         overflow: visible;
         text-overflow: clip;
         font-size: 13px;
         line-height: 1.5;
+        position: relative;
+    }
+
+    /* Show column label before each cell value using data attribute */
+    .fi-table td::before {
+        content: attr(data-label);
+        display: block;
+        width: 100%;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #9ca3af;
+        margin-bottom: 4px;
+    }
+
+    /* Don't show label for empty cells */
+    .fi-table td:empty::before {
+        display: none;
     }
 
     /* Action cells - full width and horizontal */
     .fi-table td:last-child {
-        padding-top: 8px;
-        border-top: 1px solid #f3f4f6;
+        padding-top: 10px;
+        border-top: 1px solid #f0f1f3;
         flex-direction: row;
-        gap: 6px;
+        gap: 8px;
+        justify-content: flex-start;
     }
 
     html.dark .fi-table td:last-child {
-        border-top-color: #374151;
+        border-top-color: #2d3748;
     }
 
     /* Make action buttons horizontal and touchable */
@@ -77,16 +103,33 @@
     }
 
     .fi-ta-actions .fi-icon-btn {
-        min-height: 40px;
-        min-width: 40px;
-        padding: 8px;
+        min-height: 44px;
+        min-width: 44px;
+        padding: 10px;
         flex-shrink: 0;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+
+    .fi-ta-actions .fi-icon-btn:active {
+        background: rgba(124, 58, 237, 0.1);
     }
 
     .fi-ta-actions .fi-btn {
-        padding: 8px 12px;
+        padding: 10px 14px;
         font-size: 13px;
-        min-height: 40px;
+        min-height: 44px;
+        border-radius: 8px;
+    }
+
+    /* Checkbox styling in mobile tables */
+    .fi-table td input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        min-width: 20px;
+        min-height: 20px;
+        cursor: pointer;
+        margin: 2px 0;
     }
 
     /* Badge styling in cards - allow natural wrapping */

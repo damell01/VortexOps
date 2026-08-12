@@ -465,7 +465,7 @@
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                 <div class="rounded-lg bg-teal-100 dark:bg-teal-900/40 p-2 shrink-0">
-                    <x-heroicon-o-check-circle-stack class="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                    <x-heroicon-o-check-badge class="h-5 w-5 text-teal-600 dark:text-teal-400" />
                 </div>
                 <div class="flex-1 min-w-0">
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Database Backup</h2>
@@ -544,7 +544,7 @@
                         type="button"
                         class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                        <span wire:loading.remove wire:target="runMigrations"><x-heroicon-o-check-circle-stack class="h-4 w-4 text-gray-500 dark:text-gray-400" /></span>
+                        <span wire:loading.remove wire:target="runMigrations"><x-heroicon-o-check-badge class="h-4 w-4 text-gray-500 dark:text-gray-400" /></span>
                         <span wire:loading wire:target="runMigrations">
                             <svg class="h-4 w-4 animate-spin text-violet-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>

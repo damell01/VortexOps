@@ -25,6 +25,35 @@
         display: contents;
     }
 
+    /* Hide non-essential columns on mobile */
+    .fi-table td[data-column-key="channel"],
+    .fi-table td[data-column-key="channel.name"],
+    .fi-table td[data-column-key="show_duration"],
+    .fi-table td[data-column-key="gross_revenue"],
+    .fi-table td[data-column-key="net_margin"],
+    .fi-table td[data-column-key="units_sold"],
+    .fi-table td[data-column-key="next_action"],
+    .fi-table td[data-column-key="latestDeductionRequest.status"],
+    .fi-table td[data-column-key="import_source"],
+    .fi-table td[data-column-key="buyers_count"],
+    .fi-table td[data-column-key="total_views"],
+    .fi-table td[data-column-key="avg_order_rating"],
+    .fi-table td[data-column-key="detail_url"],
+    .fi-table td[data-column-key="created_at"],
+    .fi-table td[data-column-key="duration"],
+    .fi-table td[data-column-key="reorder_level"],
+    .fi-table td[data-column-key="avg_cost"],
+    .fi-table td[data-column-key="average_cost"],
+    .fi-table td[data-column-key="inventory_value"],
+    .fi-table td[data-column-key="barcode"],
+    .fi-table td[data-column-key="updated_at"],
+    .fi-table td[data-column-key="created_at"],
+    .fi-table td[data-column-key="channel"],
+    .fi-table td[data-column-key="approval"],
+    .fi-table td[data-column-key="is_active"] {
+        display: none !important;
+    }
+
     /* Each row becomes a modern card */
     .fi-table tbody tr {
         display: grid;

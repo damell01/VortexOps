@@ -1,9 +1,10 @@
-/* VortexOps Mobile-Responsive Tables → Modern Card Layout */
+/* VortexOps Mobile-Responsive Tables & Cards */
 
 /* ═══════════════════════════════════════════════════════════════════ */
-/* MOBILE TABLE RESPONSIVENESS - Modern Card Design */
+/* MOBILE TABLE RESPONSIVENESS - HIDE TABLE, SHOW CARDS ON SMALL SCREENS */
 /* ═══════════════════════════════════════════════════════════════════ */
 
+/* On mobile (below 640px), transform table into card layout */
 @media (max-width: 640px) {
     /* Hide traditional table layout completely */
     .fi-table {
@@ -11,7 +12,6 @@
         gap: 12px;
         grid-template-columns: 1fr;
         padding: 12px;
-        background: transparent;
     }
 
     /* Hide header row on mobile */
@@ -19,381 +19,211 @@
         display: none !important;
     }
 
-    /* Transform each row into a modern card */
+    /* Transform each row into a card */
     .fi-table tbody {
         display: contents;
     }
 
     .fi-table tbody tr {
-        display: grid;
-        grid-template-columns: 60px 1fr 32px;
-        gap: 12px;
-        border: 1px solid rgba(229, 231, 235, 0.6);
-        border-radius: 12px;
-        padding: 16px;
-        background: #ffffff;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-        overflow: visible;
-        align-items: center;
-        margin-bottom: 10px;
-    }
-
-    .fi-table tbody tr:last-child {
-        margin-bottom: 0;
-    }
-
-    /* Dark mode */
-    html.dark .fi-table tbody tr {
-        background: #1f2937;
-        border-color: rgba(75, 85, 99, 0.4);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    }
-
-    /* ── Avatar/Icon Cell (Left) ── */
-    .fi-table tbody tr td:first-child {
-        grid-column: 1;
-        grid-row: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 60px;
-        height: 60px;
-        background: linear-gradient(135deg, #7c3aed, #a78bfa);
-        border-radius: 12px;
-        color: white;
-        font-weight: 700;
-        font-size: 20px;
-        flex-shrink: 0;
-        padding: 0;
-    }
-
-    .fi-table tbody tr td:first-child img {
-        width: 100%;
-        height: 100%;
-        border-radius: 12px;
-        object-fit: cover;
-    }
-
-    html.dark .fi-table tbody tr td:first-child {
-        background: linear-gradient(135deg, #6d28d9, #8b5cf6);
-    }
-
-    /* Alternate avatar colors for visual variety */
-    .fi-table tbody tr:nth-child(2n) td:first-child {
-        background: linear-gradient(135deg, #10b981, #34d399);
-    }
-
-    .fi-table tbody tr:nth-child(3n) td:first-child {
-        background: linear-gradient(135deg, #f59e0b, #fbbf24);
-    }
-
-    .fi-table tbody tr:nth-child(5n) td:first-child {
-        background: linear-gradient(135deg, #ef4444, #f87171);
-    }
-
-    .fi-table tbody tr:nth-child(7n) td:first-child {
-        background: linear-gradient(135deg, #06b6d4, #22d3ee);
-    }
-
-    /* ── Main Content (Center) ── */
-    .fi-table tbody tr td:nth-child(2) {
-        grid-column: 2;
-        grid-row: 1;
         display: flex;
         flex-direction: column;
-        gap: 4px;
-        padding: 0;
-        border: none;
-        align-items: flex-start;
-    }
-
-    /* Primary text - Item name */
-    .fi-table tbody tr td:nth-child(2) > * {
-        font-size: 16px !important;
-        font-weight: 600 !important;
-        color: #111827 !important;
-        margin: 0 !important;
-    }
-
-    html.dark .fi-table tbody tr td:nth-child(2) > * {
-        color: #f9fafb !important;
-    }
-
-    /* Secondary text - SKU or description */
-    .fi-table tbody tr td:nth-child(2) > * + * {
-        font-size: 13px !important;
-        font-weight: 500 !important;
-        color: #6b7280 !important;
-        margin: 0 !important;
-    }
-
-    html.dark .fi-table tbody tr td:nth-child(2) > * + * {
-        color: #d1d5db !important;
-    }
-
-    /* ── Status/Action Cell (Right) ── */
-    .fi-table tbody tr td:nth-child(3) {
-        grid-column: 3;
-        grid-row: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        border: none;
-    }
-
-    /* Arrow indicator */
-    .fi-table tbody tr td:nth-child(3)::after {
-        content: '›';
-        font-size: 24px;
-        color: #d1d5db;
-        font-weight: 300;
-    }
-
-    html.dark .fi-table tbody tr td:nth-child(3)::after {
-        color: #6b7280;
-    }
-
-    /* ── Additional Info Rows ── */
-    .fi-table tbody tr td:nth-child(n+4):not(:last-child) {
-        grid-column: 1 / 4;
-        grid-row: auto;
-        padding: 8px 0;
-        border: none;
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 16px;
-        margin-top: 8px;
-        padding-top: 8px;
-        border-top: 1px solid rgba(229, 231, 235, 0.4);
-        font-size: 13px;
-        color: #6b7280;
-        align-items: center;
-    }
-
-    html.dark .fi-table tbody tr td:nth-child(n+4):not(:last-child) {
-        color: #d1d5db;
-        border-top-color: rgba(75, 85, 99, 0.3);
-    }
-
-    /* ── Action Buttons (Bottom) ── */
-    .fi-table tbody tr td:last-child,
-    .fi-table tbody tr .fi-ta-actions {
-        grid-column: 1 / 4;
-        grid-row: auto;
-        padding: 12px 0 0 0;
-        border: none;
-        border-top: 1px solid rgba(229, 231, 235, 0.4);
-        margin-top: 8px;
-        display: flex;
         gap: 8px;
-        flex-wrap: wrap;
-        justify-content: flex-start;
-        align-items: center;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        padding: 12px;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     }
 
-    html.dark .fi-table tbody tr td:last-child,
-    html.dark .fi-table tbody tr .fi-ta-actions {
-        border-top-color: rgba(75, 85, 99, 0.3);
+    html.dark .fi-table tbody tr {
+        background: #1f2937;
+        border-color: #374151;
     }
 
-    /* Action buttons */
-    .fi-ta-actions {
-        display: flex !important;
-        gap: 8px !important;
-        flex-wrap: wrap !important;
-        width: 100% !important;
-        padding-top: 12px !important;
-    }
-
-    .fi-ta-actions .fi-btn {
-        padding: 8px 14px;
-        font-size: 13px;
-        font-weight: 600;
-        min-height: 36px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        flex: 1;
-        min-width: 100px;
-    }
-
-    .fi-ta-actions .fi-icon-btn {
-        min-height: 36px;
-        min-width: 36px;
-        padding: 8px;
-        flex-shrink: 0;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    /* Each cell - clean defaults */
+    /* Each cell - clean styling */
     .fi-table td {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         gap: 6px;
-        padding: 0;
+        padding: 4px 0;
         border: none;
         white-space: normal;
         overflow: visible;
-        line-height: 1.4;
+        text-overflow: clip;
+        font-size: 13px;
+        line-height: 1.5;
     }
 
-    /* Badge styling */
+    /* Action cells - full width and horizontal */
+    .fi-table td:last-child {
+        padding-top: 8px;
+        border-top: 1px solid #f3f4f6;
+        flex-direction: row;
+        gap: 6px;
+    }
+
+    html.dark .fi-table td:last-child {
+        border-top-color: #374151;
+    }
+
+    /* Make action buttons horizontal and touchable */
+    .fi-ta-actions {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        width: 100%;
+    }
+
+    .fi-ta-actions .fi-icon-btn {
+        min-height: 40px;
+        min-width: 40px;
+        padding: 8px;
+        flex-shrink: 0;
+    }
+
+    .fi-ta-actions .fi-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+        min-height: 40px;
+    }
+
+    /* Badge styling in cards - allow natural wrapping */
     .fi-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 4px 10px;
+        display: inline-block;
+        padding: 4px 8px;
         font-size: 12px;
         font-weight: 600;
         border-radius: 6px;
-        white-space: nowrap;
-        gap: 4px;
+        white-space: normal;
+        line-height: 1.4;
     }
 
-    /* Color-coded badges */
-    .fi-badge.badge-green,
-    .fi-badge.bg-green-100 {
-        background: #d1fae5;
-        color: #047857;
+    /* Specific column handling */
+    .fi-table td[data-column-key="show_date"],
+    .fi-table td[data-column-key="title"],
+    .fi-table td[data-column-key="name"],
+    .fi-table td[data-column-key="reference"],
+    .fi-table td[data-column-key="vendor.name"] {
+        font-weight: 600;
+        color: #111827;
     }
 
-    html.dark .fi-badge.badge-green,
-    html.dark .fi-badge.bg-green-100 {
-        background: rgba(16, 185, 129, 0.15);
-        color: #6ee7b7;
-    }
-
-    .fi-badge.badge-red,
-    .fi-badge.bg-red-100 {
-        background: #fee2e2;
-        color: #dc2626;
-    }
-
-    html.dark .fi-badge.badge-red,
-    html.dark .fi-badge.bg-red-100 {
-        background: rgba(239, 68, 68, 0.15);
-        color: #fca5a5;
-    }
-
-    .fi-badge.badge-yellow,
-    .fi-badge.bg-yellow-100,
-    .fi-badge.bg-amber-100 {
-        background: #fef3c7;
-        color: #d97706;
-    }
-
-    html.dark .fi-badge.badge-yellow,
-    html.dark .fi-badge.bg-yellow-100,
-    html.dark .fi-badge.bg-amber-100 {
-        background: rgba(245, 158, 11, 0.15);
-        color: #fcd34d;
-    }
-
-    .fi-badge.badge-blue,
-    .fi-badge.bg-blue-100 {
-        background: #dbeafe;
-        color: #2563eb;
-    }
-
-    html.dark .fi-badge.badge-blue,
-    html.dark .fi-badge.bg-blue-100 {
-        background: rgba(59, 130, 246, 0.15);
-        color: #93c5fd;
-    }
-
-    .fi-badge.badge-purple,
-    .fi-badge.bg-purple-100 {
-        background: #e9d5ff;
-        color: #9333ea;
-    }
-
-    html.dark .fi-badge.badge-purple,
-    html.dark .fi-badge.bg-purple-100 {
-        background: rgba(147, 51, 234, 0.15);
-        color: #d8b4fe;
+    html.dark .fi-table td[data-column-key="show_date"],
+    html.dark .fi-table td[data-column-key="title"],
+    html.dark .fi-table td[data-column-key="name"],
+    html.dark .fi-table td[data-column-key="reference"],
+    html.dark .fi-table td[data-column-key="vendor.name"] {
+        color: #f3f4f6;
     }
 }
 
-/* ═══════════════════════════════════════════════════════════════════ */
-/* TABLET & DESKTOP - Traditional table with enhancements */
-/* ═══════════════════════════════════════════════════════════════════ */
-
+/* On tablet and up, use traditional horizontal table with scrolling */
 @media (min-width: 641px) {
+    /* Table column visibility control - prioritize essential columns */
+    .fi-table [data-column-key="category"],
+    .fi-table [data-column-key="reorder_level"],
+    .fi-table [data-column-key="avg_cost"],
+    .fi-table [data-column-key="average_cost"],
+    .fi-table [data-column-key="inventory_value"],
+    .fi-table [data-column-key="barcode"],
+    .fi-table [data-column-key="updated_at"],
+    .fi-table [data-column-key="created_at"],
+    .fi-table [data-column-key="channel"],
+    .fi-table [data-column-key="duration"],
+    .fi-table [data-column-key="buyers_count"],
+    .fi-table [data-column-key="total_views"],
+    .fi-table [data-column-key="avg_order_rating"],
+    .fi-table [data-column-key="detail_url"],
+    .fi-table [data-column-key="import_source"],
+    .fi-table [data-column-key="approval"],
+    .fi-table [data-column-key="is_active"] {
+        display: none !important;
+    }
+
+    /* Ensure essential columns remain visible and readable */
+    .fi-table th,
+    .fi-table td {
+        padding: 10px 8px;
+        font-size: 13px;
+        line-height: 1.5;
+        white-space: normal;
+        word-break: normal;
+        overflow-wrap: normal;
+    }
+
+    /* Table container scrolling */
+    .fi-ta-ctn {
+        overflow-x: auto;
+        overflow-y: visible;
+        -webkit-overflow-scrolling: touch;
+        position: relative;
+    }
+
     .fi-table {
+        min-width: 100%;
         border-collapse: collapse;
     }
 
+    /* Sticky header on scroll */
     .fi-table thead {
-        background: #f9fafb;
         position: sticky;
         top: 0;
+        background: white;
         z-index: 10;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
 
-    html.dark .fi-table thead {
-        background: #1f2937;
-    }
-
-    .fi-table th {
-        padding: 12px 16px;
+    .fi-table thead th {
+        padding: 10px 8px;
         font-size: 12px;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
         color: #6b7280;
-        text-align: left;
         border-bottom: 2px solid #e5e7eb;
+        white-space: nowrap;
+        background: white;
     }
 
-    html.dark .fi-table th {
-        color: #9ca3af;
-        border-bottom-color: #374151;
-    }
-
-    .fi-table td {
-        padding: 12px 16px;
+    .fi-table tbody tr {
         border-bottom: 1px solid #f3f4f6;
-        font-size: 14px;
+        display: table-row;
     }
 
-    html.dark .fi-table td {
-        border-bottom-color: #2d3748;
+    .fi-table tbody tr:active {
+        background-color: rgba(124, 58, 237, 0.04);
     }
 
-    .fi-table tbody tr:hover {
-        background: #f9fafb;
+    /* Text in cells */
+    .fi-table td {
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    html.dark .fi-table tbody tr:hover {
-        background: #1f2937;
+    /* Allow text to wrap for names and titles */
+    .fi-table td[data-column-key="name"],
+    .fi-table td[data-column-key="title"],
+    .fi-table td[data-column-key="sku"],
+    .fi-table td[data-column-key="show_title"] {
+        white-space: normal;
+        max-width: 200px;
     }
 
-    /* Hide less important columns on desktop */
-    .fi-table [data-column-key="created_at"],
-    .fi-table [data-column-key="updated_at"],
-    .fi-table [data-column-key="detail_url"],
-    .fi-table [data-column-key="import_source"] {
-        display: none;
-    }
-
-    /* Action buttons */
+    /* Make action buttons stack vertically in a compact way */
     .fi-ta-actions {
         display: flex;
-        gap: 8px;
+        gap: 4px;
         flex-wrap: wrap;
         justify-content: flex-end;
     }
 
     .fi-ta-actions .fi-btn {
-        padding: 6px 12px;
-        font-size: 13px;
+        padding: 6px 10px;
+        font-size: 12px;
         min-height: auto;
+        min-width: auto;
     }
 
     .fi-ta-actions .fi-icon-btn {
@@ -402,93 +232,299 @@
         padding: 6px;
     }
 
-    /* Badges */
-    .fi-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 4px 8px;
-        font-size: 12px;
-        font-weight: 600;
-        border-radius: 6px;
-        gap: 4px;
+    /* Dark mode support */
+    html.dark .fi-table thead {
+        background: #1f2937;
+    }
+
+    html.dark .fi-table thead th {
+        color: #9ca3af;
+        border-bottom-color: #374151;
+    }
+
+    html.dark .fi-table tbody tr {
+        border-bottom-color: #2d3748;
+    }
+
+    html.dark .fi-table tbody tr:active {
+        background-color: rgba(124, 58, 237, 0.1);
     }
 }
 
 /* ═══════════════════════════════════════════════════════════════════ */
-/* PAGINATION - Mobile optimized */
+/* MOBILE CARD VIEW ALTERNATIVE (Optional future enhancement) */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+    /* Mobile list-card layout - shows key info in expanded rows */
+    .fi-table-mobile-card {
+        display: grid;
+        gap: 12px;
+        margin: 16px;
+    }
+
+    .fi-table-mobile-card-item {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 12px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        align-items: start;
+    }
+
+    html.dark .fi-table-mobile-card-item {
+        background: #111827;
+        border-color: #374151;
+    }
+
+    .fi-table-mobile-card-field {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .fi-table-mobile-card-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #9ca3af;
+    }
+
+    .fi-table-mobile-card-value {
+        font-size: 13px;
+        font-weight: 500;
+        color: #111827;
+        word-break: break-word;
+    }
+
+    html.dark .fi-table-mobile-card-value {
+        color: #f3f4f6;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* MOBILE FORM IMPROVEMENTS */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    /* Form sections - make them full-width */
+    .fi-form-section {
+        grid-column: 1 / -1;
+        padding: 12px;
+    }
+
+    /* Force single column layout on mobile */
+    .grid-cols-2,
+    .grid-cols-3,
+    .grid-cols-4 {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Form group layouts */
+    .fi-form-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+    }
+
+    /* Input fields - make larger and more touch-friendly */
+    .fi-input,
+    .fi-textarea,
+    .fi-select,
+    input[type="text"],
+    input[type="email"],
+    input[type="number"],
+    input[type="date"],
+    input[type="time"],
+    textarea,
+    select {
+        min-height: 44px;
+        padding: 10px 12px;
+        font-size: 16px;
+        border-radius: 8px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .fi-textarea,
+    textarea {
+        min-height: 100px;
+    }
+
+    /* Labels */
+    .fi-form-field-label,
+    label {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    /* Helper text - smaller but readable */
+    .fi-form-helper-text,
+    .fi-helper-text,
+    .text-sm {
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    /* Buttons - stack vertically */
+    .fi-btn-group,
+    .fi-form-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+    }
+
+    .fi-form-actions button,
+    .fi-btn-group button {
+        min-height: 48px;
+        padding: 12px 16px;
+        font-size: 16px;
+        width: 100%;
+        border-radius: 8px;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* MOBILE TABS & SECTIONS */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    /* Tab navigation - horizontal scroll */
+    .fi-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        display: flex;
+        gap: 4px;
+        padding: 0 16px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .fi-tab {
+        padding: 12px 16px;
+        font-size: 14px;
+        font-weight: 500;
+        white-space: nowrap;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        border: none;
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        touch-action: manipulation;
+    }
+
+    .fi-tab.active {
+        color: #7c3aed;
+        border-bottom-color: #7c3aed;
+    }
+
+    /* Collapsible sections on mobile */
+    .fi-section {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        overflow: hidden;
+    }
+
+    .fi-section-header {
+        padding: 12px 16px;
+        background: #f9fafb;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 44px;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+    }
+
+    .fi-section-header:active {
+        background: #f3f4f6;
+    }
+
+    .fi-section-title {
+        font-weight: 600;
+        font-size: 15px;
+    }
+
+    html.dark .fi-section {
+        border-color: #374151;
+    }
+
+    html.dark .fi-section-header {
+        background: #2d3748;
+    }
+
+    html.dark .fi-section-header:active {
+        background: #374151;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* BADGE & STATUS INDICATORS */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    .fi-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        border-radius: 6px;
+        white-space: nowrap;
+        min-height: auto;
+    }
+
+    .fi-table .fi-badge {
+        margin: 2px;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* MOBILE PAGINATION */
 /* ═══════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
     .fi-pagination {
         display: flex;
-        gap: 8px;
+        gap: 4px;
         justify-content: center;
-        padding: 16px 12px;
-        flex-wrap: wrap;
+        padding: 12px 16px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .fi-pagination button,
     .fi-pagination a {
         min-height: 40px;
         min-width: 40px;
-        padding: 8px 12px;
-        font-size: 13px;
-        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 12px;
+        touch-action: manipulation;
     }
 
     .fi-pagination-info {
-        font-size: 13px;
+        font-size: 12px;
+        margin: 12px 16px;
         text-align: center;
-        width: 100%;
-        order: -1;
     }
 }
 
 /* ═══════════════════════════════════════════════════════════════════ */
-/* EMPTY STATES */
-/* ═══════════════════════════════════════════════════════════════════ */
-
-@media (max-width: 768px) {
-    .fi-empty-state {
-        padding: 40px 20px;
-        text-align: center;
-    }
-
-    .fi-empty-state-icon {
-        font-size: 48px;
-        margin-bottom: 16px;
-    }
-
-    .fi-empty-state-heading {
-        font-size: 18px;
-        font-weight: 600;
-        color: #111827;
-        margin-bottom: 8px;
-    }
-
-    html.dark .fi-empty-state-heading {
-        color: #f9fafb;
-    }
-
-    .fi-empty-state-description {
-        font-size: 14px;
-        color: #6b7280;
-        margin-bottom: 20px;
-    }
-
-    html.dark .fi-empty-state-description {
-        color: #d1d5db;
-    }
-}
-
-/* ═══════════════════════════════════════════════════════════════════ */
-/* FILTERS & SEARCH - Mobile optimized */
+/* FILTER & SEARCH ON MOBILE */
 /* ═══════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
     .fi-ta-header-toolbar {
         display: flex;
-        gap: 12px;
+        gap: 8px;
         padding: 12px 16px;
         flex-wrap: wrap;
         align-items: center;
@@ -498,38 +534,148 @@
         width: 100%;
         min-height: 44px;
         font-size: 16px;
-        border-radius: 10px;
     }
 
-    .fi-ta-filter-button {
+    .fi-ta-filter-button,
+    .fi-ta-column-toggle-button {
         min-height: 44px;
-        padding: 10px 14px;
-        border-radius: 8px;
-        font-size: 13px;
+        padding: 8px 12px;
     }
 
-    /* Filter chips */
-    .fi-filter-chip {
-        display: inline-flex;
+    /* Filter panel - modal on mobile */
+    .fi-filter-panel {
+        position: fixed;
+        inset: 0;
+        background: white;
+        z-index: 40;
+        display: flex;
+        flex-direction: column;
+        max-width: 100%;
+        border-radius: 0;
+    }
+
+    html.dark .fi-filter-panel {
+        background: #111827;
+    }
+
+    .fi-filter-panel-header {
+        padding: 16px;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
         align-items: center;
-        gap: 6px;
-        padding: 6px 12px;
-        background: rgba(59, 130, 246, 0.1);
-        color: #3b82f6;
-        border: 1px solid rgba(59, 130, 246, 0.3);
-        border-radius: 20px;
+        min-height: 56px;
+    }
+
+    html.dark .fi-filter-panel-header {
+        border-bottom-color: #374151;
+    }
+
+    .fi-filter-panel-content {
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 16px;
+    }
+
+    .fi-filter-panel-actions {
+        display: flex;
+        gap: 12px;
+        padding: 16px;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .fi-filter-panel-actions button {
+        flex: 1;
+        min-height: 48px;
+        padding: 12px 16px;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* MOBILE LIST DENSITY OPTIMIZATION */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 540px) {
+    /* Extra small screens - minimize spacing */
+    .fi-table th,
+    .fi-table td {
+        padding: 6px 4px;
+        font-size: 11px;
+    }
+
+    .fi-ta-actions .fi-icon-btn {
+        min-height: 28px;
+        min-width: 28px;
+        padding: 2px;
+    }
+
+    /* Reduce form spacing on very small screens */
+    .fi-form-section {
+        padding: 10px;
+    }
+
+    .fi-form-field-label {
         font-size: 13px;
-        font-weight: 500;
+        margin-bottom: 6px;
     }
 
-    html.dark .fi-filter-chip {
-        background: rgba(59, 130, 246, 0.15);
-        border-color: rgba(59, 130, 246, 0.4);
-        color: #93c5fd;
+    input,
+    textarea,
+    select {
+        min-height: 40px;
+        padding: 8px 10px;
+        font-size: 15px;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* TABLET OPTIMIZATION */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (min-width: 769px) and (max-width: 1024px) {
+    /* Show more columns on tablet */
+    .fi-table [data-column-key="category"],
+    .fi-table [data-column-key="reorder_level"],
+    .fi-table [data-column-key="average_cost"],
+    .fi-table [data-column-key="updated_at"],
+    .fi-table [data-column-key="channel"],
+    .fi-table [data-column-key="duration"] {
+        display: table-cell !important;
     }
 
-    .fi-filter-chip-close {
-        cursor: pointer;
-        font-weight: 600;
+    .fi-table th,
+    .fi-table td {
+        padding: 10px 8px;
+        font-size: 13px;
+    }
+
+    .grid-cols-3 {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    .grid-cols-4 {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* IMPORTANT: Ensure display property is not overridden */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+.fi-table th[style*="display"],
+.fi-table td[style*="display"] {
+    display: table-cell !important;
+}
+
+/* Override inline styles for hidden columns on mobile */
+@media (max-width: 768px) {
+    .fi-table [data-column-key="category"][style*="display"],
+    .fi-table [data-column-key="reorder_level"][style*="display"],
+    .fi-table [data-column-key="average_cost"][style*="display"],
+    .fi-table [data-column-key="inventory_value"][style*="display"],
+    .fi-table [data-column-key="barcode"][style*="display"],
+    .fi-table [data-column-key="updated_at"][style*="display"] {
+        display: none !important;
     }
 }

@@ -2,7 +2,6 @@
 @import 'driver.js/dist/driver.css';
 @import 'animations.css';
 @import 'mobile-optimizations.css';
-@import 'mobile-responsive-tables.css';
 @import 'mobile-form-optimization.css';
 @import 'mobile-dashboard-cards.css';
 @import 'loading-skeletons.css';
@@ -18,6 +17,8 @@
 @import 'mobile-card-layouts.css';
 @import 'sidebar-topbar-integration.css';
 @import 'desktop-table-redesign.css';
+@import 'mobile-responsive-tables.css';
+@import 'mobile-responsive-simple.css';
 
 [x-cloak] { display: none !important; }
 

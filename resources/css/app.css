@@ -17,6 +17,7 @@
 @import 'table-actions-responsive.css';
 @import 'mobile-card-layouts.css';
 @import 'sidebar-topbar-integration.css';
+@import 'desktop-table-redesign.css';
 
 [x-cloak] { display: none !important; }
 

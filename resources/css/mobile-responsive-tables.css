@@ -9,9 +9,10 @@
     /* Hide traditional table layout completely */
     .fi-table {
         display: grid !important;
-        gap: 12px;
+        gap: 16px;
         grid-template-columns: 1fr;
-        padding: 12px;
+        padding: 16px;
+        background: transparent;
     }
 
     /* Hide header row on mobile */
@@ -25,140 +26,182 @@
     }
 
     .fi-table tbody tr {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 14px;
-        background: white;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        margin-bottom: 4px;
-    }
-
-    .fi-table tbody tr:last-child {
-        margin-bottom: 0;
-    }
-
-    html.dark .fi-table tbody tr {
+        display: grid;
+        grid-template-columns: 60px 1fr 40px;
+        grid-template-rows: auto auto auto auto;
+        gap: 0;
+        border: 1px solid #374151;
+        border-radius: 14px;
+        padding: 0;
         background: #1f2937;
-        border-color: #374151;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
     }
 
-    /* Each cell - clean styling */
+    /* Light mode */
+    html:not(.dark) .fi-table tbody tr {
+        background: #ffffff;
+        border-color: #e5e7eb;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    }
+
+    /* First cell - Icon/Thumbnail area */
+    .fi-table tbody tr td:first-child {
+        grid-column: 1;
+        grid-row: 1 / 4;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(124, 58, 237, 0.1);
+        padding: 16px 8px;
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        min-height: auto;
+    }
+
+    html:not(.dark) .fi-table tbody tr td:first-child {
+        background: #f9fafb;
+        border-right-color: #e5e7eb;
+    }
+
+    /* Second cell - Main name/title (large, prominent) */
+    .fi-table tbody tr td:nth-child(2) {
+        grid-column: 2;
+        grid-row: 1;
+        padding: 12px 16px 6px;
+        font-size: 16px;
+        font-weight: 600;
+        color: #ffffff;
+    }
+
+    html:not(.dark) .fi-table tbody tr td:nth-child(2) {
+        color: #111827;
+    }
+
+    /* Third cell - Status/Badge (top right) */
+    .fi-table tbody tr td:nth-child(3) {
+        grid-column: 3;
+        grid-row: 1;
+        padding: 12px 12px 6px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+    }
+
+    /* Row 2: SKU and secondary info */
+    .fi-table tbody tr td:nth-child(4) {
+        grid-column: 2 / 4;
+        grid-row: 2;
+        padding: 4px 16px;
+        font-size: 12px;
+        color: #9ca3af;
+    }
+
+    html:not(.dark) .fi-table tbody tr td:nth-child(4) {
+        color: #6b7280;
+    }
+
+    /* Row 3: Stock info and additional details */
+    .fi-table tbody tr td:nth-child(5) {
+        grid-column: 2 / 4;
+        grid-row: 3;
+        padding: 4px 16px 8px;
+        font-size: 13px;
+        display: flex;
+        gap: 16px;
+        color: #d1d5db;
+    }
+
+    html:not(.dark) .fi-table tbody tr td:nth-child(5) {
+        color: #4b5563;
+    }
+
+    /* Action buttons row */
+    .fi-table tbody tr td:last-child,
+    .fi-table tbody tr td.fi-ta-actions {
+        grid-column: 1 / 4;
+        grid-row: 4;
+        padding: 12px 16px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        gap: 10px;
+        justify-content: space-between;
+        flex-wrap: nowrap;
+    }
+
+    html:not(.dark) .fi-table tbody tr td:last-child,
+    html:not(.dark) .fi-table tbody tr td.fi-ta-actions {
+        border-top-color: #e5e7eb;
+    }
+
+    /* Each cell - default styling */
     .fi-table td {
         display: flex;
         flex-wrap: wrap;
-        align-items: flex-start;
-        gap: 6px;
-        padding: 8px 0;
+        align-items: center;
+        gap: 8px;
+        padding: 0;
         border: none;
         white-space: normal;
         overflow: visible;
         text-overflow: clip;
-        font-size: 13px;
         line-height: 1.5;
-        position: relative;
     }
 
-    /* Show column label before each cell value using data attribute */
-    .fi-table td::before {
-        content: attr(data-label);
-        display: block;
-        width: 100%;
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: #9ca3af;
-        margin-bottom: 4px;
-    }
-
-    /* Don't show label for empty cells */
-    .fi-table td:empty::before {
-        display: none;
-    }
-
-    /* Action cells - full width and horizontal */
-    .fi-table td:last-child {
-        padding-top: 10px;
-        border-top: 1px solid #f0f1f3;
-        flex-direction: row;
-        gap: 8px;
-        justify-content: flex-start;
-    }
-
-    html.dark .fi-table td:last-child {
-        border-top-color: #2d3748;
-    }
-
-    /* Make action buttons horizontal and touchable */
+    /* Make action buttons stack horizontally and touchable */
     .fi-ta-actions {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-        justify-content: flex-start;
-        width: 100%;
+        display: flex !important;
+        gap: 10px !important;
+        flex-wrap: nowrap !important;
+        justify-content: space-between !important;
+        width: 100% !important;
     }
 
     .fi-ta-actions .fi-icon-btn {
-        min-height: 44px;
-        min-width: 44px;
-        padding: 10px;
+        min-height: 40px;
+        min-width: 40px;
+        padding: 8px;
         flex-shrink: 0;
         border-radius: 8px;
         transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .fi-ta-actions .fi-icon-btn:active {
-        background: rgba(124, 58, 237, 0.1);
+        background: rgba(124, 58, 237, 0.2);
     }
 
     .fi-ta-actions .fi-btn {
-        padding: 10px 14px;
+        padding: 8px 16px;
         font-size: 13px;
-        min-height: 44px;
+        min-height: 40px;
         border-radius: 8px;
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
     }
 
-    /* Checkbox styling in mobile tables */
+    /* Checkbox styling in mobile cards */
     .fi-table td input[type="checkbox"] {
         width: 20px;
         height: 20px;
         min-width: 20px;
         min-height: 20px;
         cursor: pointer;
-        margin: 2px 0;
     }
 
-    /* Badge styling in cards - allow natural wrapping */
+    /* Badge styling */
     .fi-badge {
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
         padding: 4px 8px;
         font-size: 12px;
         font-weight: 600;
         border-radius: 6px;
-        white-space: normal;
-        line-height: 1.4;
-    }
-
-    /* Specific column handling */
-    .fi-table td[data-column-key="show_date"],
-    .fi-table td[data-column-key="title"],
-    .fi-table td[data-column-key="name"],
-    .fi-table td[data-column-key="reference"],
-    .fi-table td[data-column-key="vendor.name"] {
-        font-weight: 600;
-        color: #111827;
-    }
-
-    html.dark .fi-table td[data-column-key="show_date"],
-    html.dark .fi-table td[data-column-key="title"],
-    html.dark .fi-table td[data-column-key="name"],
-    html.dark .fi-table td[data-column-key="reference"],
-    html.dark .fi-table td[data-column-key="vendor.name"] {
-        color: #f3f4f6;
+        white-space: nowrap;
     }
 }
 

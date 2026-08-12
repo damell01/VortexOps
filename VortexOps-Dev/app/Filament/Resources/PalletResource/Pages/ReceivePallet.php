@@ -1,0 +1,251 @@
+<?php
+
+namespace App\Filament\Resources\PalletResource\Pages;
+
+use App\Filament\Resources\PalletResource;
+use App\Models\InventoryCase;
+use App\Models\InventoryItem;
+use App\Models\InventoryLocation;
+use App\Models\Pallet;
+use App\Models\PalletAttachment;
+use App\Models\PalletLine;
+use App\Services\PalletScanningService;
+use App\Services\ReceivingService;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
+use Filament\Resources\Pages\Page;
+use Illuminate\Support\Facades\Storage;
+
+class ReceivePallet extends Page
+{
+    protected static string $resource = PalletResource::class;
+
+    protected static ?string $title = 'Receive Pallet';
+
+    public Pallet $record;
+
+    public string $barcodeInput = '';
+    public ?string $lastScannedResult = null;
+    public bool $lastScanSuccess = false;
+    public ?array $lastScanDetails = null;
+
+    public ?string $receivedByName = null;
+    public ?array $uploadedAttachments = [];
+
+    /** @var array<int, array{id:int, line_number:int, description:string, case_count:int, received:int, mapped:bool}> */
+    public array $lineProgress = [];
+
+    public function getView(): string
+    {
+        return 'filament.pages.receive-pallet';
+    }
+
+    public function mount(Pallet $record): void
+    {
+        $this->record = $record->load(['vendor', 'lines.cases', 'lines.inventoryItem', 'lines.location']);
+        $this->refreshProgress();
+    }
+
+    public function refreshProgress(): void
+    {
+        $this->lineProgress = $this->record->lines->map(fn (PalletLine $line) => [
+            'id'          => $line->id,
+            'line_number' => $line->line_number,
+            'description' => $line->description,
+            'case_count'  => $line->case_count,
+            'received'    => $line->cases->where('status', '!=', 'expected')->count(),
+            'mapped'      => $line->isFullyMapped(),
+            'item_name'   => $line->inventoryItem?->name,
+            'location'    => $line->location?->name,
+        ])->toArray();
+    }
+
+    public function submitBarcode(): void
+    {
+        $barcode = trim($this->barcodeInput);
+        $this->barcodeInput = '';
+
+        if (empty($barcode)) {
+            return;
+        }
+
+        // Normalize barcode (remove common prefixes/checksums if needed)
+        $barcode = preg_replace('/^[^0-9]*/', '', $barcode); // Remove leading non-digits
+
+        try {
+            $scanner = app(PalletScanningService::class);
+            $scanResult = $scanner->scanBarcode($barcode);
+
+            if ($scanResult['type'] === 'case') {
+                // This is a case barcode - show what's inside
+                $this->lastScannedResult = "📦 {$scanResult['label']}";
+                $this->lastScanDetails = [
+                    'type'      => 'case',
+                    'parent'    => $scanResult['parent']->name,
+                    'child'     => $scanResult['child']->name,
+                    'quantity'  => $scanResult['quantity'],
+                ];
+                $this->lastScanSuccess = true;
+            } else {
+                // This is an individual item - try to receive it as a case
+                $case = app(ReceivingService::class)->receiveCaseByBarcode($barcode);
+                $this->lastScannedResult = "✓ Received item {$barcode} — {$case->palletLine->inventoryItem?->name}";
+                $this->lastScanDetails = null;
+                $this->lastScanSuccess = true;
+                $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+                $this->refreshProgress();
+            }
+        } catch (\RuntimeException $e) {
+            $this->lastScannedResult = "✗ {$e->getMessage()}";
+            $this->lastScanDetails = null;
+            $this->lastScanSuccess = false;
+        }
+    }
+
+    public function receiveLine(int $lineId): void
+    {
+        $line = PalletLine::where('id', $lineId)
+            ->where('pallet_id', $this->record->id)
+            ->firstOrFail();
+
+        try {
+            $count = app(ReceivingService::class)->receiveAllCasesForLine($line);
+            Notification::make()
+                ->title("Received {$count} cases for line #{$line->line_number}")
+                ->success()
+                ->send();
+        } catch (\RuntimeException $e) {
+            Notification::make()->title($e->getMessage())->danger()->send();
+        }
+
+        $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+        $this->refreshProgress();
+    }
+
+    public function markLineAsShort(int $lineId): void
+    {
+        $line = PalletLine::where('id', $lineId)
+            ->where('pallet_id', $this->record->id)
+            ->firstOrFail();
+
+        try {
+            $shortCount = $line->case_count - $line->cases->where('status', '!=', 'expected')->count();
+            if ($shortCount > 0) {
+                // Create missing item report
+                \App\Models\MissingItemReport::create([
+                    'pallet_id'          => $this->record->id,
+                    'inventory_item_id'  => $line->inventory_item_id,
+                    'expected_quantity'  => $shortCount,
+                    'unit_cost'          => $line->unit_cost,
+                    'total_value'        => $shortCount * ($line->unit_cost ?? 0),
+                    'reported_by'        => auth()->id(),
+                    'notes'              => "Marked as short during receiving: {$shortCount} units missing",
+                ]);
+
+                Notification::make()
+                    ->title("Marked {$shortCount} item(s) as missing")
+                    ->body("{$line->description} - {$shortCount} short")
+                    ->warning()
+                    ->send();
+            }
+        } catch (\Throwable $e) {
+            Notification::make()->title('Could not mark as short')->body($e->getMessage())->danger()->send();
+        }
+    }
+
+    public function finalizePallet(): void
+    {
+        try {
+            $this->record->update([
+                'status'              => 'received',
+                'received_by_name'    => $this->receivedByName,
+                'attachments_count'   => $this->record->attachments()->count(),
+            ]);
+
+            app(ReceivingService::class)->receivePallet($this->record);
+
+            Notification::make()
+                ->title('✓ Pallet received and finalized')
+                ->body('All items have been recorded. View the pallet for details.')
+                ->success()
+                ->send();
+
+            $this->redirect(PalletResource::getUrl('view', ['record' => $this->record]));
+        } catch (\RuntimeException $e) {
+            Notification::make()->title($e->getMessage())->danger()->send();
+        }
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('back_to_pallet')
+                ->label('Back to Pallet')
+                ->icon('heroicon-o-arrow-left')
+                ->color('gray')
+                ->url(fn () => PalletResource::getUrl('view', ['record' => $this->record])),
+
+            Action::make('map_line')
+                ->label('Map Line to Item')
+                ->icon('heroicon-o-link')
+                ->color('info')
+                ->form([
+                    Select::make('pallet_line_id')
+                        ->label('Manifest Line')
+                        ->options(fn () => $this->record->lines
+                            ->mapWithKeys(fn ($l) => [$l->id => "Line {$l->line_number}: {$l->description}"])
+                            ->toArray())
+                        ->required()
+                        ->searchable()
+                        ->live(),
+                    Select::make('inventory_item_id')
+                        ->label('Inventory Item')
+                        ->options(fn ($get) => InventoryItem::suggestForDescription(
+                            \App\Models\PalletLine::find($get('pallet_line_id'))?->description ?? ''
+                        ))
+                        ->getSearchResultsUsing(fn (string $search) => InventoryItem::where('is_active', true)
+                            ->where(fn ($q) => $q->where('name', 'like', "%{$search}%")
+                                ->orWhere('sku', 'like', "%{$search}%")
+                                ->orWhere('barcode', $search))
+                            ->orderBy('name')
+                            ->limit(30)
+                            ->pluck('name', 'id')
+                            ->toArray())
+                        ->getOptionLabelUsing(fn ($value) => InventoryItem::find($value)?->name)
+                        ->required()
+                        ->searchable()
+                        ->helperText('Suggestions based on previous show history. Type a name, SKU, or barcode to search all items.')
+                        ->createOptionForm([
+                            TextInput::make('name')->required(),
+                            TextInput::make('sku')->maxLength(100),
+                            TextInput::make('category')->maxLength(100),
+                        ])
+                        ->createOptionUsing(function (array $data) {
+                            return InventoryItem::create(array_merge($data, ['is_active' => true]))->getKey();
+                        }),
+                    Select::make('inventory_location_id')
+                        ->label('Receive Into Location')
+                        ->options(fn () => InventoryLocation::activeOptions())
+                        ->required()
+                        ->searchable(),
+                ])
+                ->action(function (array $data) {
+                    try {
+                        $line = PalletLine::where('id', $data['pallet_line_id'])
+                            ->where('pallet_id', $this->record->id)
+                            ->firstOrFail();
+                        $item     = InventoryItem::findOrFail($data['inventory_item_id']);
+                        $location = InventoryLocation::findOrFail($data['inventory_location_id']);
+                        app(ReceivingService::class)->mapLine($line, $item, $location);
+                        Notification::make()->title('Line mapped')->success()->send();
+                        $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+                        $this->refreshProgress();
+                    } catch (\Throwable $e) {
+                        Notification::make()->title('Could not map line')->body($e->getMessage())->danger()->send();
+                    }
+                }),
+        ];
+    }
+}

@@ -1,0 +1,73 @@
+<?php
+
+namespace App\Filament\Widgets;
+
+use App\Filament\Resources\InventoryItemResource;
+use App\Models\InventoryItem;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Table;
+use Filament\Widgets\TableWidget as BaseWidget;
+
+class LowStockWidget extends BaseWidget
+{
+    protected static ?int $sort = 2;
+    protected static ?string $heading = 'Low Stock Alerts';
+    protected int | string | array $columnSpan = 'full';
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query(
+                InventoryItem::query()
+                    ->withSum('stock', 'quantity')
+                    ->with('preferredVendor')
+                    ->where('is_active', true)
+                    ->whereNotNull('reorder_level')
+                    ->whereExists(function ($query) {
+                        $query->selectRaw('1')
+                            ->from('inventory_stock')
+                            ->whereColumn('inventory_stock.inventory_item_id', 'products.id')
+                            ->when(\App\Support\ChannelContext::isScoped(), fn ($q) => $q
+                                ->join('inventory_locations', 'inventory_locations.id', '=', 'inventory_stock.inventory_location_id')
+                                ->where('inventory_locations.whatnot_channel_id', \App\Support\ChannelContext::currentId()))
+                            ->groupBy('inventory_stock.inventory_item_id')
+                            ->havingRaw('SUM(inventory_stock.quantity) <= products.reorder_level');
+                    })
+            )
+            ->columns([
+                TextColumn::make('sku')
+                    ->label('SKU')
+                    ->placeholder('—'),
+                TextColumn::make('name')
+                    ->searchable(),
+                TextColumn::make('category')
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—'),
+                TextColumn::make('stock_sum_quantity')
+                    ->label('Current Qty')
+                    ->numeric(decimalPlaces: 0)
+                    ->default(0)
+                    ->color('danger'),
+                TextColumn::make('reorder_level')
+                    ->label('Reorder At'),
+                TextColumn::make('unit_cost')
+                    ->money('USD'),
+                TextColumn::make('suggested_reorder_qty')
+                    ->label('Suggested Reorder')
+                    ->state(fn (InventoryItem $record) => $record->suggestedReorderQuantity())
+                    ->placeholder('—')
+                    ->numeric(decimalPlaces: 0)
+                    ->color('warning')
+                    ->weight('semibold')
+                    ->tooltip('From trailing 30-day sales pace × vendor lead time + a 7-day buffer.'),
+            ])
+            ->recordUrl(fn ($record) => InventoryItemResource::getUrl('view', ['record' => $record]))
+            ->paginated([8, 25, 50])
+            ->defaultPaginationPageOption(8)
+            ->deferLoading()
+            ->emptyStateHeading('No low-stock items')
+            ->emptyStateDescription('All stocked items are above their reorder levels.')
+            ->emptyStateIcon('heroicon-o-check-circle');
+    }
+}

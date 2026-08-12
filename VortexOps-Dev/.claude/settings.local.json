@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(del \"c:\\\\Users\\\\Shild\\\\Downloads\\\\VortexOps\\\\resources\\\\views\\\\review\\\\layout.blade.php\")",
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "mcp__bf7c680d-5fdc-5ef4-b4a0-abadb619bf0a__list_environments"
+    ]
+  }
+}

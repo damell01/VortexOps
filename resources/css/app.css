@@ -2237,3 +2237,163 @@ a.fi-link:hover {
 [aria-expanded="false"] .fi-section-collapse-btn svg {
     transform: rotate(-90deg) !important;
 }
+
+/* --------------------------------------------------------------------------
+   RESPONSIVE DATA TABLES
+
+   Filament owns the table markup and interactions.  Desktop retains native,
+   semantic tables; below 768px those same records become card-like list items
+   so operational data can be scanned without horizontal scrolling or duplicate
+   content. `responsive-data-tables.js` supplies each cell's visible label and
+   hierarchy after every Livewire update.
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+    .fi-ta-content {
+        overflow: visible !important;
+    }
+
+    .fi-ta-table {
+        display: block !important;
+        min-width: 0 !important;
+        width: 100% !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+    }
+
+    .fi-ta-table thead,
+    .fi-ta-table tfoot {
+        /* Kept in the accessibility tree; the mobile card labels replace them visually. */
+        clip: rect(0 0 0 0) !important;
+        clip-path: inset(50%) !important;
+        height: 1px !important;
+        overflow: hidden !important;
+        position: absolute !important;
+        white-space: nowrap !important;
+        width: 1px !important;
+    }
+
+    .fi-ta-table tbody,
+    .fi-ta-table .fi-ta-tbody {
+        display: grid !important;
+        gap: 0.75rem !important;
+        width: 100% !important;
+    }
+
+    .fi-ta-table tbody > tr,
+    .fi-ta-table .fi-ta-record-content-ctn {
+        display: block !important;
+        position: relative !important;
+        border: 1px solid var(--vx-card-border) !important;
+        border-radius: var(--vx-radius-lg) !important;
+        background: var(--vx-card-bg) !important;
+        box-shadow: var(--vx-shadow-xs) !important;
+        overflow: hidden !important;
+    }
+
+    .fi-ta-table .fi-ta-record-content,
+    .fi-ta-table tbody > tr > .fi-ta-record-content {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        align-items: center !important;
+        min-height: 5.5rem !important;
+        padding: 0.25rem 0.875rem !important;
+        background: transparent !important;
+    }
+
+    .fi-ta-table tbody > tr > td,
+    .fi-ta-table .fi-ta-cell {
+        display: none !important;
+        min-width: 0 !important;
+        border: 0 !important;
+        padding: 0.25rem 0 !important;
+        background: transparent !important;
+    }
+
+    .fi-ta-table .vx-mobile-title,
+    .fi-ta-table .vx-mobile-detail,
+    .fi-ta-table .vx-mobile-highlight,
+    .fi-ta-table .vx-mobile-actions {
+        display: block !important;
+    }
+
+    .fi-ta-table .vx-mobile-title {
+        grid-column: 1 !important;
+        grid-row: 1 !important;
+        font-size: 0.9375rem !important;
+        font-weight: 700 !important;
+        color: var(--vx-text-primary) !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+
+    .fi-ta-table .vx-mobile-detail {
+        grid-column: 1 !important;
+        grid-row: 2 !important;
+        align-self: start !important;
+        font-size: 0.75rem !important;
+        color: var(--vx-text-secondary) !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+
+    .fi-ta-table .vx-mobile-detail::before,
+    .fi-ta-table .vx-mobile-highlight::before {
+        content: attr(data-vx-label) ": " !important;
+        color: var(--vx-text-tertiary) !important;
+        font-size: 0.6875rem !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.02em !important;
+    }
+
+    .fi-ta-table .vx-mobile-highlight {
+        grid-column: 2 !important;
+        grid-row: 1 / span 2 !important;
+        align-self: center !important;
+        justify-self: end !important;
+        max-width: 8.25rem !important;
+        text-align: right !important;
+    }
+
+    .fi-ta-table .vx-mobile-highlight + .vx-mobile-highlight {
+        display: none !important;
+    }
+
+    .fi-ta-table .vx-mobile-actions {
+        grid-column: 2 !important;
+        grid-row: 1 !important;
+        justify-self: end !important;
+        margin-left: 0.5rem !important;
+    }
+
+    .fi-ta-table .vx-mobile-actions .fi-btn,
+    .fi-ta-table .vx-mobile-actions button {
+        min-width: 2.75rem !important;
+        min-height: 2.75rem !important;
+    }
+
+    .fi-ta-header-toolbar {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 5 !important;
+        background: var(--vx-card-bg) !important;
+        box-shadow: 0 1px 0 var(--vx-divider) !important;
+    }
+
+    .fi-pagination {
+        gap: 0.5rem !important;
+        padding: 0.75rem !important;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+    /* Tablet keeps a readable table until its configured columns require more room. */
+    .fi-ta-cell { padding: 0.6875rem 0.75rem !important; }
+    .fi-ta-header-cell { padding-inline: 0.75rem !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fi-ta-record-content,
+    .fi-ta-record-actions .fi-btn { transition: none !important; }
+}

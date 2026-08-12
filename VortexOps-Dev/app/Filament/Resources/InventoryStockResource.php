@@ -1,0 +1,256 @@
+<?php
+
+namespace App\Filament\Resources;
+
+use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Resources\InventoryStockResource\Pages;
+use App\Models\InventoryItem;
+use App\Models\InventoryLocation;
+use App\Models\InventoryStock;
+use App\Support\AdminModules;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Actions\Action as TableAction;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
+
+class InventoryStockResource extends Resource
+{
+    use HasModuleAccess;
+
+    protected static string $moduleSlug  = 'inventory';
+
+    protected static ?string $model = InventoryStock::class;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
+    public static function getNavigationIcon(): string|\BackedEnum|null
+    {
+        return 'heroicon-o-chart-bar';
+    }
+
+    public static function getNavigationGroup(): string|\UnitEnum|null
+    {
+        return AdminModules::navigationGroupFor('inventory');
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 4;
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Stock Levels';
+    }
+
+    public static function getModelLabel(): string
+    {
+        return 'Stock Level';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Stock Levels';
+    }
+
+    public static function canCreate(): bool
+    {
+        return false;
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with(['item', 'location'])->inChannelContext();
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['item.name', 'item.sku', 'location.name'];
+    }
+
+    public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        return ($record->item->name ?? '?') . ' @ ' . ($record->location->name ?? '?');
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return ['Qty' => number_format((float) $record->quantity, 0)];
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return false;
+    }
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema->components([
+            Section::make()->columnSpanFull()->schema([
+                Grid::make(2)->schema([
+                    Select::make('inventory_item_id')
+                        ->label('Item')
+                        ->relationship('item', 'name')
+                        ->searchable()
+                        ->preload()
+                        ->required(),
+                    Select::make('inventory_location_id')
+                        ->label('Location')
+                        ->relationship('location', 'name')
+                        ->searchable()
+                        ->preload()
+                        ->required(),
+                    TextInput::make('quantity')
+                        ->numeric()
+                        ->required()
+                        ->minValue(0),
+                ]),
+            ]),
+        ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->emptyStateHeading('No stock on hand')
+            ->emptyStateDescription('Receive a pallet to populate stock levels.')
+            ->emptyStateIcon('heroicon-o-cube')
+            ->deferLoading()
+            ->columns([
+                TextColumn::make('item.name')
+                    ->label('Item')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('item.sku')
+                    ->label('SKU')
+                    ->searchable()
+                    ->placeholder('—'),
+                TextColumn::make('item.category')
+                    ->label('Category')
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—'),
+                TextColumn::make('location.name')
+                    ->label('Location')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('location.type')
+                    ->label('Location Type')
+                    ->formatStateUsing(fn ($state) => InventoryLocation::typeLabels()[$state] ?? $state)
+                    ->badge()
+                    ->color('info'),
+                TextColumn::make('quantity')
+                    ->label('Quantity')
+                    ->numeric(decimalPlaces: 0)
+                    ->sortable()
+                    ->weight('bold')
+                    ->icon(fn ($record) => match (true) {
+                        (int)$record->quantity <= 0 => 'heroicon-o-exclamation-triangle',
+                        $record->item?->reorder_level !== null && (int)$record->quantity <= (int)$record->item->reorder_level => 'heroicon-o-exclamation-circle',
+                        default => null
+                    })
+                    ->color(fn ($record) => match (true) {
+                        (int)$record->quantity <= 0 => 'danger',
+                        $record->item?->reorder_level !== null && (int)$record->quantity <= (int)$record->item->reorder_level => 'warning',
+                        default => 'success'
+                    })
+                    ->description(fn ($record) => $record->item?->reorder_level
+                        ? "(reorder at {$record->item->reorder_level})"
+                        : null),
+                TextColumn::make('item.unit_cost')
+                    ->label('Unit Cost')
+                    ->money('USD'),
+                TextColumn::make('stock_value')
+                    ->label('Stock Value')
+                    ->getStateUsing(fn ($record) => $record->quantity * ($record->item?->average_cost ?? $record->item?->unit_cost ?? 0))
+                    ->money('USD'),
+                TextColumn::make('updated_at')
+                    ->dateTime('M j, Y g:i A')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                Filter::make('low_stock')
+                    ->label('Low Stock Only')
+                    ->query(fn (Builder $query) => $query
+                        ->whereExists(function ($q) {
+                            $q->selectRaw('1')
+                                ->from('products')
+                                ->whereColumn('products.id', 'inventory_stock.inventory_item_id')
+                                ->whereNotNull('products.reorder_level')
+                                ->whereColumn('inventory_stock.quantity', '<=', 'products.reorder_level');
+                        })
+                    ),
+                SelectFilter::make('inventory_location_id')
+                    ->label('Location')
+                    ->relationship('location', 'name'),
+                SelectFilter::make('category')
+                    ->label('Category')
+                    ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
+                        ->distinct()
+                        ->pluck('category', 'category')
+                        ->toArray()))
+                    ->query(function (Builder $query, array $state): Builder {
+                        $value = $state['value'] ?? null;
+
+                        return $value
+                            ? $query->whereHas('item', fn ($q) => $q->where('category', $value))
+                            : $query;
+                    }),
+            ])
+            ->headerActions([
+                TableAction::make('export_csv')
+                    ->label('Export CSV')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->url(fn () => route('export.stock-levels'))
+                    ->openUrlInNewTab(),
+            ])
+            ->actions([
+                ViewAction::make()
+                    ->size('sm')
+                    ->iconButton(),
+                EditAction::make()
+                    ->size('sm')
+                    ->iconButton(),
+            ], position: \Filament\Tables\Enums\ActionsPosition::AfterColumns)
+            ->striped()
+            ->wrap()
+            ->persistFiltersInSession()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
+            ->defaultSort('updated_at', 'desc');
+    }
+
+    public static function getRelations(): array
+    {
+        return [];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index' => Pages\ListInventoryStock::route('/'),
+            'edit' => Pages\EditInventoryStock::route('/{record}/edit'),
+        ];
+    }
+}

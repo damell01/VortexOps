@@ -1,0 +1,654 @@
+/* ═══════════════════════════════════════════════════════
+   UX WORKFLOW IMPROVEMENTS
+   Better form validation, loading states, confirmations
+   ═══════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════
+   1. FORM VALIDATION & ERROR STATES
+   ═══════════════════════════════════════════ */
+
+/* Input with error state — stronger visual feedback */
+.fi-input-wrp.fi-error,
+input.error,
+textarea.error,
+select.error {
+    border-color: #f43f5e !important;
+    border-width: 2px !important;
+    background-color: rgb(244 63 94 / .05) !important;
+    box-shadow: 0 0 0 3px rgb(244 63 94 / .15) !important;
+}
+
+.dark .fi-input-wrp.fi-error,
+.dark input.error {
+    background-color: rgb(244 63 94 / .10) !important;
+    box-shadow: 0 0 0 3px rgb(244 63 94 / .20) !important;
+}
+
+/* Error message with icon */
+.fi-fo-field-wrp-error-message,
+.error-message {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    font-size: 0.8125rem !important;
+    font-weight: 500 !important;
+    color: #f43f5e !important;
+    margin-top: 0.5rem !important;
+    padding: 0.5rem 0.75rem !important;
+    background-color: rgb(244 63 94 / .08) !important;
+    border-left: 3px solid #f43f5e !important;
+    border-radius: 4px !important;
+}
+
+.fi-fo-field-wrp-error-message::before,
+.error-message::before {
+    content: '⚠️' !important;
+    font-size: 1rem !important;
+    flex-shrink: 0 !important;
+}
+
+/* Success validation feedback */
+.fi-input-wrp.fi-success,
+input.success {
+    border-color: #10b981 !important;
+    border-width: 2px !important;
+    background-color: rgb(16 185 129 / .03) !important;
+    box-shadow: 0 0 0 3px rgb(16 185 129 / .10) !important;
+}
+
+.fi-success-message {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    font-size: 0.8125rem !important;
+    font-weight: 500 !important;
+    color: #10b981 !important;
+    margin-top: 0.5rem !important;
+    padding: 0.5rem 0.75rem !important;
+    background-color: rgb(16 185 129 / .08) !important;
+    border-left: 3px solid #10b981 !important;
+    border-radius: 4px !important;
+}
+
+.fi-success-message::before {
+    content: '✓' !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    flex-shrink: 0 !important;
+}
+
+/* ═══════════════════════════════════════════
+   2. LOADING STATES & SPINNERS
+   ═══════════════════════════════════════════ */
+
+/* Loading spinner overlay */
+.loading-overlay,
+[wire\:loading] {
+    position: relative !important;
+}
+
+.loading-overlay::after,
+[wire\:loading].show-spinner::after {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background-color: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(2px) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: inherit !important;
+    z-index: 40 !important;
+}
+
+/* Spinner animation */
+@keyframes spin {
+    to { transform: rotate(360deg) !important; }
+}
+
+.spinner,
+[wire\:loading] .spinner {
+    width: 2rem !important;
+    height: 2rem !important;
+    border: 3px solid rgba(124, 58, 237, 0.2) !important;
+    border-top-color: #7c3aed !important;
+    border-radius: 99px !important;
+    animation: spin 600ms linear infinite !important;
+}
+
+/* Loading text */
+.loading-text {
+    font-size: 0.8125rem !important;
+    color: var(--vx-text-secondary) !important;
+    margin-top: 0.5rem !important;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1 !important; }
+    50% { opacity: .5 !important; }
+}
+
+/* Loading button state */
+button.loading,
+button[aria-busy="true"] {
+    position: relative !important;
+    color: transparent !important;
+    pointer-events: none !important;
+}
+
+button.loading::after,
+button[aria-busy="true"]::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 1rem !important;
+    height: 1rem !important;
+    border: 2px solid rgba(255, 255, 255, 0.3) !important;
+    border-top-color: white !important;
+    border-radius: 99px !important;
+    animation: spin 600ms linear infinite !important;
+}
+
+/* ═══════════════════════════════════════════
+   3. CONFIRMATION DIALOGS & MODALS
+   ═══════════════════════════════════════════ */
+
+/* Confirmation modal styling */
+.confirmation-modal,
+.fi-modal-window[data-destructive="true"] {
+    box-shadow: 0 20px 60px rgb(244 63 94 / .3) !important;
+    border: 2px solid rgb(244 63 94 / .5) !important;
+}
+
+/* Destructive action warning */
+.destructive-warning {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+    padding: 1rem !important;
+    background-color: rgb(244 63 94 / .08) !important;
+    border: 1px solid rgb(244 63 94 / .3) !important;
+    border-radius: 6px !important;
+    margin-bottom: 1rem !important;
+}
+
+.destructive-warning-icon {
+    flex-shrink: 0 !important;
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    color: #f43f5e !important;
+    margin-top: 0.125rem !important;
+}
+
+.destructive-warning-text {
+    font-size: 0.8125rem !important;
+    color: #991b1b !important;
+}
+
+.dark .destructive-warning-text {
+    color: #fca5a5 !important;
+}
+
+/* Confirm button (destructive) */
+button.btn-danger.confirm,
+button[data-confirm-destroy] {
+    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%) !important;
+    color: white !important;
+}
+
+button.btn-danger.confirm:hover,
+button[data-confirm-destroy]:hover {
+    background: linear-gradient(135deg, #e11d48 0%, #be185d 100%) !important;
+}
+
+/* ═══════════════════════════════════════════
+   4. SUCCESS & STATUS FEEDBACK
+   ═══════════════════════════════════════════ */
+
+/* Toast notification styling */
+.toast,
+.notification,
+.fi-no-notification {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 0.75rem !important;
+    padding: 1rem 1.25rem !important;
+    border-radius: 6px !important;
+    box-shadow: 0 10px 25px rgb(0 0 0 / .15) !important;
+    animation: slide-up 300ms cubic-bezier(.4, 0, .2, 1) !important;
+    z-index: 1000 !important;
+}
+
+@keyframes slide-up {
+    from {
+        opacity: 0 !important;
+        transform: translateY(1rem) !important;
+    }
+    to {
+        opacity: 1 !important;
+        transform: translateY(0) !important;
+    }
+}
+
+.toast-success {
+    background-color: #ecfdf5 !important;
+    border: 1px solid #86efac !important;
+    color: #166534 !important;
+}
+
+.dark .toast-success {
+    background-color: rgb(16 185 129 / .15) !important;
+    border-color: rgb(16 185 129 / .5) !important;
+    color: #86efac !important;
+}
+
+.toast-error {
+    background-color: #fef2f2 !important;
+    border: 1px solid #fca5a5 !important;
+    color: #991b1b !important;
+}
+
+.dark .toast-error {
+    background-color: rgb(244 63 94 / .15) !important;
+    border-color: rgb(244 63 94 / .5) !important;
+    color: #fca5a5 !important;
+}
+
+.toast-warning {
+    background-color: #fffbeb !important;
+    border: 1px solid #fcd34d !important;
+    color: #92400e !important;
+}
+
+.dark .toast-warning {
+    background-color: rgb(245 158 11 / .15) !important;
+    border-color: rgb(245 158 11 / .5) !important;
+    color: #fcd34d !important;
+}
+
+.toast-info {
+    background-color: #f0f9ff !important;
+    border: 1px solid #93c5fd !important;
+    color: #0c2d6b !important;
+}
+
+.dark .toast-info {
+    background-color: rgb(14 165 233 / .15) !important;
+    border-color: rgb(14 165 233 / .5) !important;
+    color: #93c5fd !important;
+}
+
+/* Success checkmark icon */
+.toast-icon {
+    flex-shrink: 0 !important;
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: 700 !important;
+}
+
+/* ═══════════════════════════════════════════
+   5. EMPTY STATES & GUIDANCE
+   ═══════════════════════════════════════════ */
+
+/* Empty state container */
+.empty-state,
+.fi-ta-empty-state {
+    padding: 3rem 1.5rem !important;
+    text-align: center !important;
+}
+
+.empty-state-icon {
+    width: 4rem !important;
+    height: 4rem !important;
+    margin: 0 auto 1rem !important;
+    padding: 1rem !important;
+    background-color: var(--vx-row-stripe) !important;
+    border-radius: var(--vx-radius) !important;
+    color: var(--vx-text-tertiary) !important;
+}
+
+.empty-state-title {
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    color: var(--vx-text-primary) !important;
+    margin-bottom: 0.5rem !important;
+}
+
+.empty-state-description {
+    font-size: 0.8125rem !important;
+    color: var(--vx-text-secondary) !important;
+    margin-bottom: 1.5rem !important;
+}
+
+.empty-state-action {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    padding: 0.625rem 1.125rem !important;
+    background-color: var(--vx-accent-subtle) !important;
+    color: var(--vx-accent-text) !important;
+    border-radius: 6px !important;
+    font-weight: 600 !important;
+    text-decoration: none !important;
+    transition: all 150ms !important;
+}
+
+.empty-state-action:hover {
+    background-color: var(--vx-accent-border) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* ═══════════════════════════════════════════
+   6. MOBILE INPUT IMPROVEMENTS
+   ═══════════════════════════════════════════ */
+
+/* Number input keyboard trigger */
+input[type="number"],
+input[inputmode="numeric"] {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none !important;
+    margin: 0 !important;
+}
+
+/* Ensure 44x44px min touch target on mobile */
+@media (max-width: 768px) {
+    input, textarea, select, button {
+        min-height: 2.75rem !important;
+        font-size: 16px !important; /* Prevents iOS zoom */
+    }
+
+    .fi-input-wrp {
+        min-height: 2.75rem !important;
+    }
+
+    /* Better touch targets for checkboxes/radios */
+    input[type="checkbox"],
+    input[type="radio"] {
+        width: 1.25rem !important;
+        height: 1.25rem !important;
+        cursor: pointer !important;
+    }
+}
+
+/* ═══════════════════════════════════════════
+   7. FOCUS & KEYBOARD NAVIGATION
+   ═══════════════════════════════════════════ */
+
+/* Keyboard focus visible (Tab key) */
+*:focus-visible {
+    outline: 2px solid var(--vx-accent-text) !important;
+    outline-offset: 2px !important;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+    outline: 2px solid var(--vx-accent-text) !important;
+    outline-offset: -2px !important;
+}
+
+/* Visible focus ring for better accessibility */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+    outline: 2px solid var(--vx-accent-text) !important;
+    outline-offset: 2px !important;
+    border-radius: 3px !important;
+}
+
+/* Remove focus outline for mouse users only */
+*:not(:focus-visible) {
+    outline: none !important;
+}
+
+/* ═══════════════════════════════════════════
+   8. DISABLED STATE CLARITY
+   ═══════════════════════════════════════════ */
+
+/* Clearly disabled buttons */
+button:disabled,
+button[aria-disabled="true"],
+.fi-btn:disabled,
+[role="button"][aria-disabled="true"] {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+    background-color: var(--vx-row-stripe) !important;
+    border-color: var(--vx-divider) !important;
+    color: var(--vx-text-tertiary) !important;
+}
+
+/* Disabled input styling */
+input:disabled,
+textarea:disabled,
+select:disabled {
+    background-color: var(--vx-row-stripe) !important;
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+}
+
+/* Tooltip for disabled buttons */
+button:disabled::after {
+    content: attr(data-disabled-reason) !important;
+    position: absolute !important;
+    bottom: -2.5rem !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    background-color: var(--vx-text-primary) !important;
+    color: var(--vx-card-bg) !important;
+    padding: 0.5rem 0.75rem !important;
+    border-radius: 4px !important;
+    font-size: 0.75rem !important;
+    white-space: nowrap !important;
+    z-index: 10 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: opacity 150ms !important;
+}
+
+button:disabled:hover::after {
+    opacity: 1 !important;
+}
+
+/* ═══════════════════════════════════════════
+   9. WORKFLOW STEP INDICATORS
+   ═══════════════════════════════════════════ */
+
+/* Step indicator / breadcrumb */
+.step-indicator,
+.workflow-steps {
+    display: flex !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    margin-bottom: 1.5rem !important;
+}
+
+.step {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+}
+
+.step-number {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 2rem !important;
+    height: 2rem !important;
+    border-radius: 99px !important;
+    background-color: var(--vx-accent-subtle) !important;
+    color: var(--vx-accent-text) !important;
+    font-weight: 700 !important;
+}
+
+.step.completed .step-number {
+    background-color: #10b981 !important;
+    color: white !important;
+}
+
+.step.active .step-number {
+    background-color: #7c3aed !important;
+    color: white !important;
+    box-shadow: 0 0 0 3px rgb(124 58 237 / .2) !important;
+}
+
+.step-connector {
+    flex: 1 !important;
+    height: 2px !important;
+    background-color: var(--vx-divider) !important;
+    margin: 0 0.5rem !important;
+}
+
+.step.completed ~ .step-connector {
+    background-color: #10b981 !important;
+}
+
+/* ═══════════════════════════════════════════
+   10. REQUIRED FIELD INDICATORS
+   ═══════════════════════════════════════════ */
+
+/* Required field styling */
+.fi-fo-field-label-required-mark {
+    color: #f43f5e !important;
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+}
+
+.field-required::after {
+    content: ' *' !important;
+    color: #f43f5e !important;
+    font-weight: 700 !important;
+}
+
+/* Required field helper text */
+.required-notice {
+    font-size: 0.75rem !important;
+    color: var(--vx-text-tertiary) !important;
+    margin-top: 0.25rem !important;
+}
+
+.required-notice::before {
+    content: 'Required field' !important;
+}
+
+/* ═══════════════════════════════════════════
+   11. FORM SECTION HEADERS
+   ═══════════════════════════════════════════ */
+
+/* Section header with description */
+.form-section-header {
+    margin-bottom: 1.5rem !important;
+    padding-bottom: 1rem !important;
+    border-bottom: 2px solid var(--vx-divider) !important;
+}
+
+.form-section-title {
+    font-size: 1.125rem !important;
+    font-weight: 700 !important;
+    color: var(--vx-text-primary) !important;
+    margin-bottom: 0.25rem !important;
+}
+
+.form-section-description {
+    font-size: 0.8125rem !important;
+    color: var(--vx-text-secondary) !important;
+}
+
+/* ═══════════════════════════════════════════
+   12. ACCESSIBILITY: HIGH CONTRAST MODE
+   ═══════════════════════════════════════════ */
+
+@media (prefers-contrast: more) {
+    button, a[role="button"], .fi-btn {
+        border: 2px solid currentColor !important;
+        font-weight: 700 !important;
+    }
+
+    input, textarea, select {
+        border-width: 2px !important;
+    }
+
+    .fi-btn-color-primary {
+        text-decoration: underline !important;
+    }
+
+    .fi-btn-color-danger {
+        border-color: #991b1b !important;
+    }
+}
+
+/* ═══════════════════════════════════════════
+   13. REDUCED MOTION SUPPORT
+   ═══════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .spinner {
+        animation: none !important;
+        border: 2px solid var(--vx-text-tertiary) !important;
+    }
+}
+
+/* ═══════════════════════════════════════════
+   14. READONLY FIELD STYLING
+   ═══════════════════════════════════════════ */
+
+input[readonly], textarea[readonly], select[readonly] {
+    background-color: var(--vx-row-stripe) !important;
+    border-color: var(--vx-divider) !important;
+    cursor: default !important;
+    color: var(--vx-text-secondary) !important;
+}
+
+.fi-input-wrp[readonly] {
+    background-color: var(--vx-row-stripe) !important;
+    border-color: var(--vx-divider) !important;
+}
+
+/* ═══════════════════════════════════════════
+   15. INLINE HELP & CONTEXT
+   ═══════════════════════════════════════════ */
+
+/* Inline help tooltip */
+.help-text, .field-help, .hint-text {
+    font-size: 0.75rem !important;
+    color: var(--vx-text-secondary) !important;
+    margin-top: 0.375rem !important;
+    font-weight: 400 !important;
+}
+
+.help-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 1.125rem !important;
+    height: 1.125rem !important;
+    background-color: var(--vx-accent-subtle) !important;
+    color: var(--vx-accent-text) !important;
+    border-radius: 99px !important;
+    font-size: 0.6875rem !important;
+    font-weight: 700 !important;
+    cursor: help !important;
+}
+
+.help-icon:hover {
+    background-color: var(--vx-accent-border) !important;
+}

@@ -1,0 +1,223 @@
+<?php
+
+namespace App\Filament\Resources;
+
+use App\Filament\Concerns\HasModuleAccess;
+use App\Filament\Resources\WeeklyPayoutBatchResource\Pages;
+use App\Filament\Resources\WeeklyPayoutBatchResource\RelationManagers;
+use App\Models\WeeklyPayoutBatch;
+use App\Services\PayoutService;
+use App\Support\AdminModules;
+use App\Support\StatusColor;
+use Filament\Actions\Action;
+use Filament\Actions\CreateAction;
+use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
+use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
+
+class WeeklyPayoutBatchResource extends Resource
+{
+    use HasModuleAccess;
+
+    protected static string $moduleSlug  = 'payouts';
+
+    protected static ?string $model = WeeklyPayoutBatch::class;
+
+    public static function getNavigationIcon(): string|\BackedEnum|null
+    {
+        return 'heroicon-o-calendar-days';
+    }
+
+    public static function getNavigationGroup(): string|\UnitEnum|null
+    {
+        return AdminModules::navigationGroupFor('payouts');
+    }
+
+    public static function getNavigationSort(): ?int
+    {
+        return 2;
+    }
+
+    public static function getNavigationBadge(): ?string
+    {
+        $count = Cache::remember('nav_badge:payout_batches_draft', 60, fn () =>
+            \App\Models\WeeklyPayoutBatch::where('status', 'draft')->count()
+        );
+        return $count > 0 ? (string) $count : null;
+    }
+
+    public static function getNavigationBadgeColor(): ?string
+    {
+        return 'info';
+    }
+
+    public static function getModelLabel(): string
+    {
+        return 'Pay Run';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Pay Runs';
+    }
+
+    // The nav item itself reads "Payouts" — the individual entity stays "Pay
+    // Run" in breadcrumbs/page titles ("View Pay Run", "New Pay Run"), since
+    // that's what it actually is; the old flat Payouts resource is hidden
+    // from navigation (still reachable via direct links) so there's only
+    // one "Payouts" entry in the sidebar.
+    public static function getNavigationLabel(): string
+    {
+        return 'Payouts';
+    }
+
+    protected static function passesModuleAccessCheck(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['week_start', 'status', 'notes'];
+    }
+
+    public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        return 'Pay Run — ' . $record->week_start?->format('M j, Y');
+    }
+
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        return [
+            'Week End' => $record->week_end?->format('M j, Y') ?? '—',
+            'Total'    => '$' . number_format((float) $record->total_payout, 2),
+            'Status'   => WeeklyPayoutBatch::statusLabels()[$record->status] ?? $record->status,
+        ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->with('finalizedBy');
+    }
+
+    public static function form(Schema $schema): Schema
+    {
+        return $schema->components([
+            Section::make('Pay Run Details')->columns(2)->columnSpanFull()->schema([
+                DatePicker::make('week_start')
+                    ->label('Week Start (Monday)')
+                    ->required(),
+
+                DatePicker::make('week_end')
+                    ->label('Week End (Sunday)')
+                    ->required(),
+
+                Textarea::make('notes')
+                    ->rows(2)
+                    ->columnSpanFull(),
+            ]),
+        ]);
+    }
+
+    public static function table(Table $table): Table
+    {
+        return $table
+            ->emptyStateHeading('No payout batches')
+            ->emptyStateDescription('Weekly batches are created when payouts are grouped for payment.')
+            ->emptyStateIcon('heroicon-o-queue-list')
+            ->columns([
+                TextColumn::make('week_start')
+                    ->label('Week Of')
+                    ->date('M j, Y')
+                    ->sortable(),
+
+                TextColumn::make('week_end')
+                    ->label('Week End')
+                    ->date('M j, Y'),
+
+                TextColumn::make('payouts_count')
+                    ->counts('payouts')
+                    ->label('Streamers'),
+
+                TextColumn::make('total_payout')
+                    ->label('Total Payout')
+                    ->money('USD')
+                    ->weight('bold'),
+
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => WeeklyPayoutBatch::statusLabels()[$state] ?? $state)
+                    ->color(fn ($state) => StatusColor::for($state)),
+
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (WeeklyPayoutBatch $record): string => match ($record->status) {
+                        'draft' => 'Review & approve',
+                        'approved' => 'Finalize & pay',
+                        'finalized' => 'Complete',
+                        default => 'Review',
+                    })
+                    ->badge()
+                    ->color(fn (WeeklyPayoutBatch $record): string => match ($record->status) {
+                        'draft' => 'warning',
+                        'approved' => 'info',
+                        'finalized' => 'success',
+                        default => 'gray',
+                    }),
+
+                TextColumn::make('finalizedBy.name')
+                    ->label('Finalized By')
+                    ->default('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('finalized_at')
+                    ->label('Finalized')
+                    ->dateTime('M j, Y g:i A')
+                    ->default('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->striped()
+            ->persistFiltersInSession()
+            ->paginationPageOptions([10, 25, 50])
+            ->defaultPaginationPageOption(25)
+            ->deferLoading()
+            ->defaultSort('week_start', 'desc')
+            ->filters([
+                SelectFilter::make('status')
+                    ->options(WeeklyPayoutBatch::statusLabels()),
+            ])
+            ->actions([
+                ViewAction::make()->iconButton(),
+                \Filament\Actions\EditAction::make()->iconButton()
+                    ->visible(fn ($record) => $record->status === 'draft'),
+                \Filament\Actions\DeleteAction::make()->iconButton()
+                    ->visible(fn ($record) => $record->status === 'draft'),
+            ]);
+    }
+
+    public static function getRelationManagers(): array
+    {
+        return [
+            RelationManagers\PayoutsRelationManager::class,
+        ];
+    }
+
+    public static function getPages(): array
+    {
+        return [
+            'index'  => Pages\ListWeeklyPayoutBatches::route('/'),
+            'create' => Pages\CreateWeeklyPayoutBatch::route('/create'),
+            'view'   => Pages\ViewWeeklyPayoutBatch::route('/{record}'),
+            'edit'   => Pages\EditWeeklyPayoutBatch::route('/{record}/edit'),
+        ];
+    }
+}

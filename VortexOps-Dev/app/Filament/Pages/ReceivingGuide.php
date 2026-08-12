@@ -1,0 +1,41 @@
+<?php
+
+namespace App\Filament\Pages;
+
+use App\Filament\Concerns\HasModuleAccess;
+use App\Support\AdminModules;
+use Filament\Pages\Page;
+
+class ReceivingGuide extends Page
+{
+    use HasModuleAccess;
+
+    protected static string $moduleSlug  = 'purchasing';
+    protected static ?string $title = 'Receiving Guide';
+    protected static ?string $navigationLabel = 'How It Works';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-academic-cap';
+    protected static ?int $navigationSort = 99;
+
+    public static function getNavigationGroup(): string|\UnitEnum|null
+    {
+        return AdminModules::navigationGroupFor('purchasing');
+    }
+
+    public function getView(): string
+    {
+        return 'filament.pages.receiving-guide';
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'A walkthrough of the receiving workflow — from creating a pallet to scanning it fully received.';
+    }
+
+    // Active tab for the guide sections
+    public string $tab = 'workflow';
+
+    public function setTab(string $tab): void
+    {
+        $this->tab = $tab;
+    }
+}

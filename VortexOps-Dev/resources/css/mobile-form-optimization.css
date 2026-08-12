@@ -1,0 +1,654 @@
+/* VortexOps Mobile Form Optimization */
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* MOBILE-FIRST FORM LAYOUT */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    /* Form sections take full width */
+    .fi-fo-component-ctn {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    /* Section grid - force single column on mobile */
+    .fi-section {
+        grid-column: 1 / -1;
+        margin-bottom: 0;
+    }
+
+    /* Section spacing */
+    .fi-section + .fi-section {
+        margin-top: 12px;
+    }
+
+    /* Form fields within sections */
+    .fi-section-content {
+        padding: 12px;
+    }
+
+    /* Grid inside form sections - force single column */
+    .fi-section-content > div[class*="grid"] {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+
+    /* Remove extra padding from form container */
+    .fi-form {
+        padding: 0;
+    }
+
+    /* Labels - larger and clear */
+    .fi-fo-field-label,
+    label {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        display: block;
+        color: #111318;
+    }
+
+    html.dark .fi-fo-field-label,
+    html.dark label {
+        color: #f3f4f6;
+    }
+
+    /* Helper text - readable but compact */
+    .fi-fo-field-hint,
+    .text-sm[class*="helper"],
+    .text-xs[class*="hint"] {
+        font-size: 12px;
+        line-height: 1.5;
+        margin-top: 4px;
+        color: #6b7280;
+    }
+
+    html.dark .fi-fo-field-hint,
+    html.dark .text-sm[class*="helper"],
+    html.dark .text-xs[class*="hint"] {
+        color: #9ca3af;
+    }
+
+    /* Input fields - large touch targets */
+    .fi-input,
+    .fi-textarea,
+    input[type="text"],
+    input[type="email"],
+    input[type="number"],
+    input[type="date"],
+    input[type="time"],
+    input[type="search"],
+    textarea,
+    select {
+        min-height: 44px;
+        padding: 12px;
+        font-size: 16px;
+        border-radius: 8px;
+        width: 100%;
+        box-sizing: border-box;
+        line-height: 1.5;
+    }
+
+    /* Textarea - larger minimum height */
+    .fi-textarea,
+    textarea {
+        min-height: 120px;
+        resize: vertical;
+    }
+
+    /* Select dropdowns */
+    select {
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 16px;
+        padding-right: 40px;
+    }
+
+    /* Focus states - clear visual feedback */
+    .fi-input:focus,
+    .fi-textarea:focus,
+    input:focus,
+    textarea:focus,
+    select:focus {
+        outline: 2px solid #7c3aed;
+        outline-offset: 2px;
+    }
+
+    /* Placeholder text */
+    .fi-input::placeholder,
+    input::placeholder,
+    textarea::placeholder {
+        color: #9ca3af;
+    }
+
+    /* Disable text scaling on input focus (iOS) */
+    input,
+    textarea,
+    select {
+        font-size: 16px !important;
+    }
+
+    /* Required field indicator */
+    .fi-fo-field-label-required-mark {
+        color: #f43f5e;
+        margin-left: 4px;
+    }
+
+    /* Error messages - clear and readable */
+    .fi-fo-field-wrp-error-message {
+        font-size: 12px;
+        font-weight: 500;
+        color: #f43f5e;
+        margin-top: 6px;
+        display: block;
+    }
+
+    /* Error input styling */
+    .fi-input[aria-invalid="true"],
+    input[aria-invalid="true"],
+    textarea[aria-invalid="true"],
+    select[aria-invalid="true"] {
+        border-color: #f43f5e !important;
+        background-color: #fef2f2 !important;
+    }
+
+    html.dark input[aria-invalid="true"],
+    html.dark textarea[aria-invalid="true"],
+    html.dark select[aria-invalid="true"] {
+        background-color: rgba(244, 63, 94, 0.05) !important;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* CHECKBOXES & RADIO BUTTONS — LARGER TOUCH TARGETS */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    input[type="checkbox"],
+    input[type="radio"] {
+        min-width: 20px;
+        min-height: 20px;
+        cursor: pointer;
+        accent-color: #7c3aed;
+    }
+
+    /* Wrapper labels - make full area clickable */
+    label:has(input[type="checkbox"]),
+    label:has(input[type="radio"]),
+    .fi-fo-field-label:has(input[type="checkbox"]),
+    .fi-fo-field-label:has(input[type="radio"]) {
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+        padding: 8px 12px;
+        gap: 12px;
+        cursor: pointer;
+        user-select: none;
+        -webkit-user-select: none;
+        border-radius: 6px;
+        transition: background-color 0.2s ease;
+        touch-action: manipulation;
+        margin-bottom: 0;
+    }
+
+    label:has(input[type="checkbox"]):active,
+    label:has(input[type="radio"]):active,
+    .fi-fo-field-label:has(input[type="checkbox"]):active,
+    .fi-fo-field-label:has(input[type="radio"]):active {
+        background-color: rgba(124, 58, 237, 0.08);
+    }
+
+    /* Toggle switches */
+    input[type="checkbox"][role="switch"],
+    .fi-toggle-input,
+    [class*="toggle"] {
+        min-height: 24px;
+        min-width: 48px;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* TABS & STEPS — MOBILE OPTIMIZATION */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    /* Tabs - horizontal scroll on mobile */
+    .fi-tabs {
+        display: flex;
+        gap: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-bottom: 2px solid #e5e7eb;
+        margin-bottom: 0;
+        padding: 0;
+    }
+
+    html.dark .fi-tabs {
+        border-bottom-color: #374151;
+    }
+
+    .fi-tab {
+        padding: 12px 16px;
+        font-size: 14px;
+        font-weight: 500;
+        white-space: nowrap;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        border: none;
+        border-bottom: 2px solid transparent;
+        cursor: pointer;
+        touch-action: manipulation;
+        flex-shrink: 0;
+    }
+
+    .fi-tab:active {
+        background-color: rgba(124, 58, 237, 0.05);
+    }
+
+    .fi-tab[aria-selected="true"],
+    .fi-tab.active {
+        color: #7c3aed;
+        border-bottom-color: #7c3aed;
+        font-weight: 600;
+    }
+
+    html.dark .fi-tab[aria-selected="true"],
+    html.dark .fi-tab.active {
+        color: #a78bfa;
+        border-bottom-color: #a78bfa;
+    }
+
+    /* Wizard steps - stack on mobile */
+    .fi-wizard-steps {
+        display: flex;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 8px;
+        padding: 0 16px;
+    }
+
+    .fi-wizard-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        min-width: auto;
+        flex-shrink: 0;
+    }
+
+    .fi-wizard-step-label {
+        font-size: 11px;
+        white-space: nowrap;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* FORM ACTIONS — BUTTONS */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    /* Button group - stack vertically on mobile */
+    .fi-form-actions,
+    .fi-actions,
+    .fi-btn-group {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
+        padding: 12px 0;
+    }
+
+    /* Buttons - full width and large */
+    .fi-form-actions button,
+    .fi-form-actions a[role="button"],
+    .fi-actions button,
+    .fi-actions a[role="button"],
+    .fi-btn-group button,
+    .fi-btn-group a[role="button"] {
+        min-height: 48px;
+        padding: 12px 16px;
+        font-size: 16px;
+        width: 100%;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+
+    /* Primary button styling */
+    .fi-form-actions .fi-btn-color-primary,
+    .fi-actions .fi-btn-color-primary {
+        background: #7c3aed;
+        color: white;
+        border: none;
+        box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
+    }
+
+    .fi-form-actions .fi-btn-color-primary:active,
+    .fi-actions .fi-btn-color-primary:active {
+        opacity: 0.9;
+        transform: scale(0.98);
+    }
+
+    /* Secondary button styling */
+    .fi-form-actions .fi-btn-color-gray,
+    .fi-actions .fi-btn-color-gray {
+        background: #f3f4f6;
+        color: #111318;
+        border: 1px solid #e5e7eb;
+    }
+
+    .fi-form-actions .fi-btn-color-gray:active,
+    .fi-actions .fi-btn-color-gray:active {
+        background: #e5e7eb;
+    }
+
+    html.dark .fi-form-actions .fi-btn-color-gray,
+    html.dark .fi-actions .fi-btn-color-gray {
+        background: #374151;
+        color: #f3f4f6;
+        border-color: #4b5563;
+    }
+
+    html.dark .fi-form-actions .fi-btn-color-gray:active,
+    html.dark .fi-actions .fi-btn-color-gray:active {
+        background: #4b5563;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* MULTI-SELECT & TAGS */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    /* Multi-select container */
+    .fi-fo-tags-input,
+    .fi-multi-select {
+        min-height: 44px;
+        padding: 8px 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        width: 100%;
+    }
+
+    /* Selected tags/pills */
+    .fi-fo-tags-input-option,
+    .fi-badge-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        font-size: 13px;
+        font-weight: 500;
+        border-radius: 20px;
+        background: rgba(124, 58, 237, 0.1);
+        color: #7c3aed;
+        border: 1px solid rgba(124, 58, 237, 0.25);
+        white-space: nowrap;
+    }
+
+    /* Remove button on tags */
+    .fi-fo-tags-input-option button,
+    .fi-badge-pill button {
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        font-size: 14px;
+        color: currentColor;
+        line-height: 1;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* SECTION HEADERS */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    .fi-section-header {
+        padding: 12px;
+    }
+
+    .fi-section-header-heading {
+        font-size: 15px;
+        font-weight: 600;
+        color: #111318;
+    }
+
+    html.dark .fi-section-header-heading {
+        color: #f3f4f6;
+    }
+
+    .fi-section-header-description {
+        font-size: 12px;
+        color: #6b7280;
+        margin-top: 4px;
+    }
+
+    html.dark .fi-section-header-description {
+        color: #9ca3af;
+    }
+
+    /* Collapsible section headers */
+    .fi-section-collapse-btn {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 8px;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* FILE UPLOAD ZONE */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    .fi-fo-file-upload-dropzone {
+        padding: 20px;
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        text-align: center;
+        border: 2px dashed #e5e7eb;
+        border-radius: 8px;
+        background: #f9fafb;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    html.dark .fi-fo-file-upload-dropzone {
+        background: #2d3748;
+        border-color: #4b5563;
+    }
+
+    .fi-fo-file-upload-dropzone:active {
+        background: #f3f4f6;
+        border-color: #7c3aed;
+    }
+
+    html.dark .fi-fo-file-upload-dropzone:active {
+        background: #374151;
+    }
+
+    .fi-fo-file-upload-dropzone-label {
+        font-size: 14px;
+        font-weight: 500;
+        color: #111318;
+    }
+
+    html.dark .fi-fo-file-upload-dropzone-label {
+        color: #f3f4f6;
+    }
+
+    .fi-fo-file-upload-dropzone-hint {
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+    html.dark .fi-fo-file-upload-dropzone-hint {
+        color: #9ca3af;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* REPEATER ITEMS */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    .fi-fo-repeater-item {
+        margin-bottom: 12px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    html.dark .fi-fo-repeater-item {
+        border-color: #374151;
+    }
+
+    .fi-fo-repeater-item-header {
+        padding: 12px;
+        background: #f9fafb;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 44px;
+    }
+
+    html.dark .fi-fo-repeater-item-header {
+        background: #2d3748;
+    }
+
+    .fi-fo-repeater-item-content {
+        padding: 12px;
+    }
+
+    /* Repeater item controls - large touch targets */
+    .fi-fo-repeater-item-header button,
+    .fi-fo-repeater-item-footer button {
+        min-height: 40px;
+        min-width: 40px;
+        padding: 8px;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* GRID COLUMN STACKING */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    /* Force single column for all grid layouts */
+    .grid-cols-2,
+    .grid-cols-3,
+    .grid-cols-4,
+    .grid-cols-5,
+    .grid-cols-6 {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+
+    /* Specifically target Filament grid components */
+    [class*="grid-cols-"]:not(.fi-wizard-steps) {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Ensure form column-span-full works correctly */
+    .fi-col-span-full {
+        grid-column: 1 / -1;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* MODAL FORMS ON MOBILE */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    .fi-modal-window {
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        margin: 0 !important;
+        border-radius: 12px 12px 0 0 !important;
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .fi-modal-content {
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        flex: 1 !important;
+    }
+
+    .fi-modal-footer-actions {
+        gap: 12px;
+        flex-direction: column;
+    }
+
+    .fi-modal-footer-actions button {
+        min-height: 48px;
+        padding: 12px 16px;
+        width: 100%;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* FORM VALIDATION FEEDBACK */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    /* Validation errors - clear and prominent */
+    [aria-invalid="true"] {
+        border-color: #f43f5e !important;
+        box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.1) !important;
+    }
+
+    .fi-form-field-wrp-error {
+        display: block !important;
+        margin-top: 6px !important;
+        padding: 8px 12px !important;
+        background: #fef2f2 !important;
+        border-left: 3px solid #f43f5e !important;
+        border-radius: 4px !important;
+        font-size: 12px !important;
+        color: #b91c1c !important;
+    }
+
+    html.dark .fi-form-field-wrp-error {
+        background: rgba(244, 63, 94, 0.08) !important;
+        color: #fca5a5 !important;
+    }
+
+    /* Success validation */
+    [aria-invalid="false"] {
+        border-color: #10b981 !important;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* PREVENT ZOOM ON INPUT FOCUS (iOS) */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    input[type="text"],
+    input[type="email"],
+    input[type="number"],
+    input[type="tel"],
+    input[type="url"],
+    input[type="date"],
+    input[type="time"],
+    input[type="search"],
+    textarea,
+    select {
+        font-size: 16px !important;
+    }
+}

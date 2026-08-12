@@ -79,6 +79,61 @@ Features:
   - Action menu (three dots)
 - Pagination controls at bottom
 
+**Shows Page**
+![Mobile Shows](resources/screenshots/mobile-shows.png)
+
+Features:
+- Card-based show listings
+- Show image thumbnail
+- Title and date information
+- Status indicators (Live, Upcoming, etc.)
+- Spot availability information
+- One-tap navigation
+
+**Users Page**
+![Mobile Users](resources/screenshots/mobile-users.png)
+
+Features:
+- User cards with avatar circles
+- Name and email display
+- Role badges (Admin, Manager, Streamer, etc.)
+- Status indicators (Active, Inactive)
+- Quick action menu
+
+**Streamers Page**
+![Mobile Streamers](resources/screenshots/mobile-streamers.png)
+
+Features:
+- Streamer cards with gradient avatars
+- Display name and email
+- Status indicators
+- Payout type information
+- Earnings summary
+
+**Payouts Page**
+![Mobile Payouts](resources/screenshots/mobile-payouts.png)
+
+Features:
+- Payout cards showing key information
+- Streamer/recipient name
+- Payout amount (bold, right-aligned)
+- Status badges (Paid, Processing, Pending, etc.)
+- Date information
+- Quick approval/action buttons
+
+**Orders Page**
+![Mobile Orders](resources/screenshots/mobile-orders.png)
+
+Features:
+- Order cards displaying:
+  - Order ID (bold)
+  - Customer name
+  - Order amount (right-aligned)
+  - Status badge (Paid, Shipped, Pending, Cancelled)
+  - Order date
+- Swipe actions for common operations
+- Quick access to order details
+
 ## Responsive Breakpoints
 
 | Screen Size | Layout | Table Type |

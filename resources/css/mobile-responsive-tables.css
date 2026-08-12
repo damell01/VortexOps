@@ -26,16 +26,17 @@
     }
 
     .fi-table tbody tr {
-        display: flex;
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: 70px 1fr 40px;
+        grid-template-rows: auto auto auto;
         gap: 0;
-        border: 1px solid #374151;
+        border: 1px solid rgba(59, 130, 246, 0.3);
         border-radius: 14px;
         padding: 0;
         background: #1f2937;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
         overflow: hidden;
-        margin-bottom: 8px;
+        margin-bottom: 12px;
     }
 
     .fi-table tbody tr:last-child {
@@ -45,50 +46,88 @@
     /* Light mode */
     html:not(.dark) .fi-table tbody tr {
         background: #ffffff;
-        border-color: #e5e7eb;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        border-color: rgba(59, 130, 246, 0.2);
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
     }
 
-    /* First cell - Icon/Thumbnail area */
+    /* First cell - Icon/Thumbnail in rounded square */
     .fi-table tbody tr td:first-child {
+        grid-column: 1;
+        grid-row: 1 / 3;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(124, 58, 237, 0.15);
-        padding: 16px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        min-height: 80px;
-        width: 100%;
+        background: rgba(59, 130, 246, 0.15);
+        padding: 12px;
+        border-radius: 12px;
+        margin: 12px;
+        min-width: 70px;
+        min-height: 70px;
+        flex-shrink: 0;
     }
 
     html:not(.dark) .fi-table tbody tr td:first-child {
-        background: #f9fafb;
-        border-bottom-color: #e5e7eb;
+        background: #f0f4ff;
+        border: 1px solid rgba(59, 130, 246, 0.2);
     }
 
-    /* Content area for name and secondary info */
-    .fi-table tbody tr td:not(:first-child):not(:last-child) {
-        padding: 8px 16px;
-        font-size: 13px;
-        color: #d1d5db;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    html:not(.dark) .fi-table tbody tr td:not(:first-child):not(:last-child) {
-        color: #4b5563;
-        border-bottom-color: #f3f4f6;
-    }
-
-    /* Make the second cell (usually name/title) more prominent */
+    /* Second cell - Main name/title (large, prominent) */
     .fi-table tbody tr td:nth-child(2) {
-        padding: 14px 16px 8px !important;
-        font-size: 16px !important;
-        font-weight: 600 !important;
+        grid-column: 2;
+        grid-row: 1;
+        padding: 14px 16px 4px 12px;
+        font-size: 18px !important;
+        font-weight: 700 !important;
         color: #ffffff !important;
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
 
     html:not(.dark) .fi-table tbody tr td:nth-child(2) {
         color: #111827 !important;
+    }
+
+    /* Third cell - Menu button (top right) */
+    .fi-table tbody tr td:nth-child(3) {
+        grid-column: 3;
+        grid-row: 1;
+        padding: 12px 12px 0 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Additional info cells - display as grid below */
+    .fi-table tbody tr td:nth-child(n+4):not(:last-child) {
+        grid-column: 2 / 4;
+        padding: 8px 16px 8px 12px;
+        font-size: 13px;
+        color: #d1d5db;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 16px;
+        align-items: center;
+    }
+
+    html:not(.dark) .fi-table tbody tr td:nth-child(n+4):not(:last-child) {
+        color: #4b5563;
+        border-top-color: #f0f1f3;
+    }
+
+    /* Make middle cells show as label: value pairs */
+    .fi-table tbody tr td:nth-child(n+4):not(:last-child) span {
+        display: block;
+        font-size: 12px;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 600;
+    }
+
+    html:not(.dark) .fi-table tbody tr td:nth-child(n+4):not(:last-child) span {
+        color: #6b7280;
     }
 
     /* Each cell - default styling */
@@ -108,34 +147,35 @@
     /* Action cells - always at bottom and full width */
     .fi-table tbody tr td:last-child,
     .fi-table tbody tr .fi-ta-actions {
+        grid-column: 1 / 4;
+        grid-row: 3;
         padding: 12px 16px !important;
         border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
         border-bottom: 0 !important;
-        margin-top: auto;
         width: 100%;
         flex-wrap: wrap;
         justify-content: flex-start;
-        gap: 8px;
+        gap: 10px;
     }
 
     html:not(.dark) .fi-table tbody tr td:last-child,
     html:not(.dark) .fi-table tbody tr .fi-ta-actions {
-        border-top-color: #e5e7eb !important;
+        border-top-color: #f0f1f3 !important;
     }
 
     /* Make action buttons stack horizontally and touchable */
     .fi-ta-actions {
         display: flex !important;
-        gap: 8px !important;
+        gap: 10px !important;
         flex-wrap: wrap !important;
         justify-content: flex-start !important;
         width: 100% !important;
     }
 
     .fi-ta-actions .fi-icon-btn {
-        min-height: 40px;
-        min-width: 40px;
-        padding: 8px;
+        min-height: 42px;
+        min-width: 42px;
+        padding: 10px;
         flex-shrink: 0;
         border-radius: 8px;
         transition: all 0.2s ease;
@@ -145,18 +185,21 @@
     }
 
     .fi-ta-actions .fi-icon-btn:active {
-        background: rgba(124, 58, 237, 0.2);
+        background: rgba(59, 130, 246, 0.2);
     }
 
     .fi-ta-actions .fi-btn {
-        padding: 8px 16px;
-        font-size: 13px;
-        min-height: 40px;
+        padding: 11px 18px;
+        font-size: 14px;
+        font-weight: 600;
+        min-height: 42px;
         border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
+        gap: 8px;
+        flex: 1;
+        min-width: 140px;
     }
 
     /* Checkbox styling in mobile cards */

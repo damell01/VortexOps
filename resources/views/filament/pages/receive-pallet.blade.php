@@ -386,7 +386,7 @@
                                 @elseif ($att->isPdf())
                                     <x-heroicon-o-document-text class="h-4 w-4 text-red-500" />
                                 @else
-                                    <x-heroicon-o-paperclip class="h-4 w-4 text-gray-400" />
+                                    <x-heroicon-o-link class="h-4 w-4 text-gray-400" />
                                 @endif
                                 <span class="text-xs text-gray-700 dark:text-gray-300 truncate flex-1">{{ $att->file_name }}</span>
                                 <span class="text-[10px] text-gray-400">{{ \App\Models\PalletAttachment::typeLabels()[$att->type] ?? 'File' }}</span>

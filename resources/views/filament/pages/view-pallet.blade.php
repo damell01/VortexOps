@@ -122,7 +122,7 @@
                                 @elseif ($attachment->isPdf())
                                     <x-heroicon-o-document-text class="h-5 w-5 text-red-500 shrink-0" />
                                 @else
-                                    <x-heroicon-o-paperclip class="h-5 w-5 text-gray-400 shrink-0" />
+                                    <x-heroicon-o-link class="h-5 w-5 text-gray-400 shrink-0" />
                                 @endif
                                 <div class="min-w-0 flex-1">
                                     <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">

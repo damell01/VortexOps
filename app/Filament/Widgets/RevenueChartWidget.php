@@ -38,7 +38,7 @@ class RevenueChartWidget extends ChartWidget
         try {
             if (($this->filter ?? 'weeks') === 'months') {
                 $trend = Trend::query(
-                    Show::query()->whereNotIn('status', ['cancelled'])
+                    Show::query()->whereNotIn('status', ['cancelled'])->inChannelContext()
                 )
                     ->between(now()->subMonths(11)->startOfMonth(), now()->endOfMonth())
                     ->perMonth()
@@ -49,7 +49,7 @@ class RevenueChartWidget extends ChartWidget
                 $values = $trend->pluck('aggregate')->toArray();
             } else {
                 $trend = Trend::query(
-                    Show::query()->whereNotIn('status', ['cancelled'])
+                    Show::query()->whereNotIn('status', ['cancelled'])->inChannelContext()
                 )
                     ->between(now()->subWeeks(11)->startOfWeek(), now()->endOfWeek())
                     ->perWeek()

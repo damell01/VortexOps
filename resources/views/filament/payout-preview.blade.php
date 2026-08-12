@@ -1,4 +1,6 @@
-@php($p = $preview)
+@php
+    $p = $preview;
+@endphp
 <div class="space-y-4">
     <p class="text-sm text-gray-500 dark:text-gray-400">
         What each streamer will receive if you finalize this pay run now, after loan

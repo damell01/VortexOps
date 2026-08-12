@@ -25,6 +25,7 @@ class StreamerBalanceWidget extends BaseWidget
             ->query(
                 Streamer::query()
                     ->where('status', 'active')
+                    ->inChannelContext()
                     ->orderByRaw('(total_earnings_due - total_earnings_paid) DESC')
                     ->orderBy('name')
             )

@@ -16,6 +16,11 @@ class ListPallets extends ListRecords
 {
     protected static string $resource = PalletResource::class;
 
+    public function getSubheading(): ?string
+    {
+        return 'Incoming vendor shipments. Create a pallet, map each line to a product, then receive by barcode scan or all at once.';
+    }
+
     protected function getHeaderActions(): array
     {
         return [

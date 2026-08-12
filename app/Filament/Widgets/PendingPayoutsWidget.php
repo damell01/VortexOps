@@ -28,6 +28,7 @@ class PendingPayoutsWidget extends BaseWidget
                 Payout::query()
                     ->with(['streamer', 'show'])
                     ->where('status', 'draft')
+                    ->inChannelContext()
                     ->orderBy('calculated_payout', 'desc')
             )
             ->columns([

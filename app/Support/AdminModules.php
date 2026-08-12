@@ -38,6 +38,12 @@ class AdminModules
                 'group'       => 'Inventory',
                 'order'       => 35,
             ],
+            'shipments' => [
+                'label'       => 'Shipments',
+                'description' => 'Vendor shipments and receipt tracking.',
+                'group'       => 'Inventory',
+                'order'       => 36,
+            ],
             'operations' => [
                 'label'       => 'Operations',
                 'description' => 'Streamers, channels, and other supporting ops tools.',
@@ -51,8 +57,8 @@ class AdminModules
                 'order'       => 45,
             ],
             'ai' => [
-                'label'       => 'AI Mapping & Vision',
-                'description' => 'AI show mapping, pallet-sheet vision parsing, and product embeddings. Requires Ollama. (Advanced)',
+                'label'       => 'AI Vision & Matching',
+                'description' => 'Pallet-sheet vision parsing, receiving item matching, and product embeddings. Requires Ollama. (Advanced)',
                 'group'       => 'AI',
                 'order'       => 60,
             ],
@@ -61,6 +67,12 @@ class AdminModules
                 'description' => 'Employee time tracking, shift logs, and labor cost reporting. (Owner only)',
                 'group'       => 'Operations',
                 'order'       => 42,
+            ],
+            'fulfillment' => [
+                'label'       => 'Fulfillment Center',
+                'description' => 'Shipping status and tracking for sold items, scoped per fulfillment team member to their assigned shows.',
+                'group'       => 'Operations',
+                'order'       => 44,
             ],
         ];
     }
@@ -79,7 +91,7 @@ class AdminModules
      */
     public static function defaultEnabledSlugs(): array
     {
-        return ['streams', 'payouts', 'inventory', 'purchasing', 'operations', 'reporting'];
+        return ['streams', 'payouts', 'inventory', 'purchasing', 'shipments', 'operations', 'reporting'];
     }
 
     /**
@@ -130,6 +142,34 @@ class AdminModules
     public static function flushMemo(): void
     {
         static::$memoizedSlugs = null;
+    }
+
+    /**
+     * Quick-select presets for a phased rollout — one click to jump the enabled
+     * module set to a known stage instead of hand-checking boxes each time.
+     * Slugs are normalized against definitions() at read time by the caller.
+     *
+     * @return array<string, array{label: string, description: string, slugs: array<int,string>}>
+     */
+    public static function presets(): array
+    {
+        return [
+            'basics' => [
+                'label'       => 'Month 1 — Basics',
+                'description' => 'Just shows, payouts, and inventory — everything else stays hidden.',
+                'slugs'       => ['streams', 'payouts', 'inventory'],
+            ],
+            'standard' => [
+                'label'       => 'Standard Ops',
+                'description' => 'Basics plus purchasing/receiving, operations, and reporting.',
+                'slugs'       => static::defaultEnabledSlugs(),
+            ],
+            'everything' => [
+                'label'       => 'Everything',
+                'description' => 'All modules enabled, including AI and timekeeping.',
+                'slugs'       => array_keys(static::definitions()),
+            ],
+        ];
     }
 
     // ── Navigation helpers ────────────────────────────────────────────────────

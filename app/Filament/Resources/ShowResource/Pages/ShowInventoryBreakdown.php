@@ -87,7 +87,6 @@ class ShowInventoryBreakdown extends Page
                 'item_name'       => $item?->name,
                 'item_sku'        => $item?->sku,
                 'location'        => $line->location?->name ?? '—',
-                'confidence'      => $line->ai_confidence,
                 'qty_suggested'   => (float) $line->quantity_suggested,
                 'qty_approved'    => $qtyApproved,
                 'unit_cost'       => (float) $line->unit_cost_snapshot,

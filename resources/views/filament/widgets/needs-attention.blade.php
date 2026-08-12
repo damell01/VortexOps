@@ -1,6 +1,6 @@
 <x-filament-widgets::widget>
     <x-filament::section>
-        <x-slot name="heading">Needs Attention</x-slot>
+        <x-slot name="heading">{{ $heading ?? 'Needs Attention' }}</x-slot>
 
         @if (empty($items))
             <div class="flex items-center gap-3 py-6 justify-center text-sm text-gray-500 dark:text-gray-400">

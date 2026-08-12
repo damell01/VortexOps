@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\DeductionRequestResource\Pages;
 use App\Models\DeductionRequest;
 use App\Support\AdminModules;
@@ -19,7 +18,7 @@ use Illuminate\Support\Facades\Cache;
 
 class DeductionRequestResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'streams';
 
@@ -60,8 +59,9 @@ class DeductionRequestResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = Cache::remember('nav_badge:deduction_requests_pending', 60, fn () =>
-            static::getModel()::query()->where('status', 'pending')->count()
+        $channel = \App\Support\ChannelContext::currentId() ?? 'all';
+        $count = Cache::remember("nav_badge:deduction_requests_pending:{$channel}", 60, fn () =>
+            static::getModel()::query()->where('status', 'pending')->inChannelContext()->count()
         );
 
         return $count > 0 ? (string) $count : null;
@@ -77,11 +77,30 @@ class DeductionRequestResource extends Resource
         return false;
     }
 
+    /** Once approved/processed, a deduction request has already affected a payout — leave it as a record. */
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return (auth()->user()?->isAdmin() ?? false) && ! in_array($record->status, ['approved', 'processed']);
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->with(['show', 'streamer'])
-            ->withSum('lines', 'line_total');
+            ->withSum('lines', 'line_total')
+            ->inChannelContext();
+
+        $user = auth()->user();
+        if ($user && $user->isStreamer() && ! $user->isAdmin()) {
+            $query->where('streamer_id', $user->streamer?->id ?? 0);
+        }
+
+        return $query;
     }
 
     public static function getGloballySearchableAttributes(): array
@@ -109,6 +128,9 @@ class DeductionRequestResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No deduction requests')
+            ->emptyStateDescription('Streamer deduction requests will land here for review.')
+            ->emptyStateIcon('heroicon-o-receipt-percent')
             ->columns([
                 TextColumn::make('show.title')
                     ->label('Show')
@@ -130,6 +152,25 @@ class DeductionRequestResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn ($state) => DeductionRequest::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => StatusColor::for($state)),
+
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (DeductionRequest $record): string => match ($record->status) {
+                        'pending' => 'Review costs & approve',
+                        'approved' => 'Ready for payout',
+                        'processed' => 'Complete',
+                        'rejected' => 'Fix & resubmit',
+                        default => 'Review',
+                    })
+                    ->badge()
+                    ->color(fn (DeductionRequest $record): string => match ($record->status) {
+                        'pending' => 'warning',
+                        'approved' => 'info',
+                        'processed' => 'success',
+                        'rejected' => 'danger',
+                        default => 'gray',
+                    })
+                    ->visible(fn () => auth()->user()?->isAdmin()),
 
                 TextColumn::make('lines_count')
                     ->counts('lines')
@@ -166,7 +207,12 @@ class DeductionRequestResource extends Resource
                     ->relationship('streamer', 'name'),
             ])
             ->actions([
-                ViewAction::make()->label('Review'),
+                ViewAction::make()
+                    ->label('Review')
+                    ->size('sm')
+                    ->iconButton(),
+                \Filament\Actions\DeleteAction::make()->iconButton()
+                    ->visible(fn (DeductionRequest $record) => static::canDelete($record)),
             ])
             ->striped()
             ->persistFiltersInSession()

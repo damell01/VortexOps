@@ -37,15 +37,14 @@ class SystemHealth extends Page
         return ($user?->isAdmin() || $user?->isOwner()) ?? false;
     }
 
-    // Diagnostic tool — only surface it in the owner's menu (still URL-reachable).
-    public static function shouldRegisterNavigation(): bool
-    {
-        return auth()->user()?->isOwner() ?? false;
-    }
-
     public function getView(): string
     {
         return 'filament.pages.system-health';
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'Diagnostic checks — queue, database, storage, and scraper connectivity — for confirming the app is actually healthy, not just running.';
     }
 
     // ── Metrics ───────────────────────────────────────────────────────────────
@@ -135,7 +134,22 @@ class SystemHealth extends Page
      */
     public function getAiHealthProperty(): array
     {
-        return app(\App\AI\Services\AiHealthReport::class)->generate();
+        try {
+            return app(\App\AI\Services\AiHealthReport::class)->generate();
+        } catch (\Throwable $e) {
+            return [
+                'status'           => 'unhealthy',
+                'reachable'        => false,
+                'provider'         => 'unknown',
+                'available_models' => [],
+                'missing_models'   => [],
+                'checks'           => [[
+                    'label'  => 'AI stack',
+                    'state'  => \App\AI\Services\AiHealthReport::CRITICAL,
+                    'detail' => 'Could not resolve the AI provider — ' . $e->getMessage(),
+                ]],
+            ];
+        }
     }
 
     public function getSchedulerStatusProperty(): array

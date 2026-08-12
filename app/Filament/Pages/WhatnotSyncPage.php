@@ -2,9 +2,10 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Concerns\HasModuleAccess;
 use App\Jobs\RunWhatnotSyncJob;
+use App\Jobs\SyncWhatnotShipmentsJob;
+use App\Models\Setting;
 use App\Models\WhatnotChannel;
 use App\Models\WhatnotSync;
 use App\Support\AdminModules;
@@ -13,14 +14,12 @@ use Filament\Pages\Page;
 
 class WhatnotSyncPage extends Page
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'streams';
 
     protected static ?string $title           = 'Whatnot Sync';
     protected static ?string $navigationLabel = 'Sync Dashboard';
-
-    protected static ?string $navigationParentItem = 'Import';
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
@@ -66,6 +65,28 @@ class WhatnotSyncPage extends Page
         return WhatnotSync::where('status', 'completed')->latest('started_at')->first();
     }
 
+    /**
+     * Shipment refresh (weight/dims/carrier/status) runs outside the whatnot_syncs
+     * table — it's tracked via Setting heartbeats instead, same pattern as the
+     * whatnot_last_import_success_at used for show imports.
+     */
+    public function getLastShipmentSyncProperty(): ?array
+    {
+        $at = Setting::get('whatnot_last_shipment_sync_at');
+        if (! $at) {
+            return null;
+        }
+
+        $summary = json_decode(Setting::get('whatnot_last_shipment_sync_summary', '{}'), true) ?: [];
+
+        return [
+            'at'            => \Illuminate\Support\Carbon::parse($at),
+            'updated'       => $summary['updated'] ?? 0,
+            'shows_checked' => $summary['shows_checked'] ?? 0,
+            'errors'        => $summary['errors'] ?? [],
+        ];
+    }
+
     // ── Actions ───────────────────────────────────────────────────────────────
 
     public function syncIncremental(?int $channelId = null): void
@@ -84,5 +105,11 @@ class WhatnotSyncPage extends Page
     {
         RunWhatnotSyncJob::dispatch($channelId, 'full');
         Notification::make()->title('Full resync queued')->warning()->send();
+    }
+
+    public function syncShipments(?int $channelId = null): void
+    {
+        SyncWhatnotShipmentsJob::dispatch($channelId);
+        Notification::make()->title('Shipment refresh queued')->success()->send();
     }
 }

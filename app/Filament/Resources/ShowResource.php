@@ -3,12 +3,13 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\ShowResource\Pages;
 use App\Filament\Resources\ShowResource\RelationManagers\OrdersRelationManager;
+use App\Filament\Resources\ShowResource\RelationManagers\ChangeLogsRelationManager;
 use App\Models\DeductionRequest;
 use App\Models\Show;
 use App\Models\Streamer;
+use App\Models\User;
 use App\Filament\Resources\WhatnotChannelResource;
 use App\Models\WhatnotChannel;
 use App\Support\AdminModules;
@@ -16,11 +17,13 @@ use App\Support\StatusColor;
 use Filament\Actions\Action as TableAction;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\MultiSelect;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -31,6 +34,8 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 use Filament\QueryBuilder\Constraints\DateConstraint;
 use Filament\QueryBuilder\Constraints\NumberConstraint;
@@ -38,6 +43,7 @@ use Filament\QueryBuilder\Constraints\SelectConstraint;
 use Filament\QueryBuilder\Constraints\TextConstraint;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\QueryBuilder;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -48,7 +54,7 @@ use Illuminate\Support\Facades\Cache;
 
 class ShowResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'streams';
 
@@ -58,9 +64,50 @@ class ShowResource extends Resource
     protected static function passesModuleAccessCheck(): bool { return true; }
 
     public static function canCreate(): bool    { return auth()->user()?->isAdmin() ?? false; }
-    public static function canEdit($r): bool    { return auth()->user()?->isAdmin() ?? false; }
-    public static function canDelete($r): bool  { return auth()->user()?->isAdmin() ?? false; }
+
+    public static function canEdit($r): bool
+    {
+        $user = auth()->user();
+
+        // Admins can always edit
+        if ($user?->isAdmin()) {
+            return true;
+        }
+
+        // Streamers can edit their own shows if draft or pending_review
+        if ($user?->isStreamer() && $r->streamers->contains($user->streamer?->id)) {
+            return in_array($r->status, ['draft', 'pending_review']);
+        }
+
+        return false;
+    }
+
     public static function canDeleteAny(): bool { return auth()->user()?->isAdmin() ?? false; }
+
+    /**
+     * deduction_requests, shipping_surcharges, streamer_log_entries,
+     * show_streamer, and show_fulfillment_user all cascadeOnDelete on
+     * show_id — deleting a show with any of those would silently wipe the
+     * entire deduction/COGS trail, shipping surcharges, and log history
+     * instead of erroring. orders/payouts/ingestion_logs are nullOnDelete
+     * (not destroyed, but orphaned) — block on those too so a show with
+     * real imported sales or payout history can't just vanish. In practice
+     * this only ever allows deleting a still-empty draft show.
+     */
+    public static function canDelete($r): bool
+    {
+        if (! (auth()->user()?->isAdmin() ?? false)) {
+            return false;
+        }
+
+        return ! $r->orders()->exists()
+            && ! $r->deductionRequests()->exists()
+            && ! $r->payouts()->exists()
+            && ! $r->shippingSurcharges()->exists()
+            && ! $r->streamers()->exists()
+            && ! $r->streamerLogEntry()->exists()
+            && ! $r->fulfillmentUsers()->exists();
+    }
 
     public static function getEloquentQuery(): Builder
     {
@@ -72,7 +119,8 @@ class ShowResource extends Resource
                 'payouts',
             ])
             // Payout aggregate for the Net Margin column, so P&L doesn't N+1.
-            ->withSum('payouts', 'calculated_payout');
+            ->withSum('payouts', 'calculated_payout')
+            ->inChannelContext();
 
         $user = auth()->user();
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {
@@ -100,8 +148,9 @@ class ShowResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $count = Cache::remember('nav_badge:shows_pending_review', 60, fn () =>
-            \App\Models\Show::where('status', 'pending_review')->count()
+        $channel = \App\Support\ChannelContext::currentId() ?? 'all';
+        $count = Cache::remember("nav_badge:shows_pending_review:{$channel}", 60, fn () =>
+            \App\Models\Show::where('status', 'pending_review')->inChannelContext()->count()
         );
         return $count > 0 ? (string) $count : null;
     }
@@ -142,7 +191,48 @@ class ShowResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Show Details')->columns(2)->schema([
+            Tabs::make('show_tabs')
+                ->columnSpanFull()
+                ->persistTab()
+                ->tabs([
+                    Tab::make('Overview')
+                        ->icon('heroicon-o-information-circle')
+                        ->schema([
+                            static::showDetailsSection(),
+                            static::notesSection(),
+                        ]),
+
+                    Tab::make('Financials')
+                        ->icon('heroicon-o-banknotes')
+                        ->schema([
+                            static::financialsSection(),
+                            static::paperSalesSection(),
+                            static::plSummarySection(),
+                        ]),
+
+                    Tab::make('Analytics')
+                        ->icon('heroicon-o-chart-bar')
+                        ->schema([
+                            static::whatnotAnalyticsSection(),
+                            static::engagementSection(),
+                            static::showRecapSection(),
+                        ]),
+
+                    Tab::make('Approval')
+                        ->icon('heroicon-o-clipboard-document-check')
+                        ->visible(fn (?Show $record) => (bool) $record?->latestDeductionRequest)
+                        ->schema([
+                            static::approvalSummarySection(),
+                        ]),
+                ]),
+        ]);
+    }
+
+    private static function showDetailsSection(): Section
+    {
+        return Section::make('Show Details')
+            ->description('Core information about this show — date, channel, title, and status.')
+            ->columns(3)->columnSpanFull()->schema([
                 DatePicker::make('show_date')
                     ->label('Show Date')
                     ->required()
@@ -185,11 +275,21 @@ class ShowResource extends Resource
                     ->numeric()
                     ->nullable(),
 
-                Select::make('streamers')
+                MultiSelect::make('streamers')
                     ->label('Streamers')
-                    ->multiple()
                     ->options(Streamer::where('status', 'active')->pluck('name', 'id'))
                     ->relationship('streamers', 'name')
+                    ->searchable()
+                    ->preload()
+                    ->columnSpanFull()
+                    ->placeholder('Search and select streamers...'),
+
+                Select::make('fulfillmentUsers')
+                    ->label('Fulfillment Team')
+                    ->multiple()
+                    ->options(fn () => \App\Models\User::role('fulfillment')->pluck('name', 'id'))
+                    ->relationship('fulfillmentUsers', 'name')
+                    ->helperText('Who this show shows up for in the Fulfillment Center.')
                     ->preload()
                     ->columnSpanFull(),
 
@@ -200,9 +300,23 @@ class ShowResource extends Resource
                     ->required()
                     ->visible(fn () => auth()->user()?->isOwner())
                     ->columnSpanFull(),
-            ]),
+            ]);
+    }
 
-            Section::make('Financials')->columns(3)->schema([
+    private static function notesSection(): Section
+    {
+        return Section::make('Notes')->columnSpanFull()->schema([
+            Textarea::make('notes')
+                ->rows(3)
+                ->columnSpanFull(),
+        ]);
+    }
+
+    private static function financialsSection(): Section
+    {
+        return Section::make('Financials')
+            ->description('Revenue from this show — gross, net from Whatnot, and tips received.')
+            ->columns(3)->columnSpanFull()->schema([
                 TextInput::make('gross_revenue')
                     ->label('Gross Revenue')
                     ->numeric()
@@ -220,9 +334,14 @@ class ShowResource extends Resource
                     ->numeric()
                     ->prefix('$')
                     ->default(0),
-            ]),
+            ]);
+    }
 
-            Section::make('Paper Sales')->columns(3)->schema([
+    private static function paperSalesSection(): Section
+    {
+        return Section::make('Paper Sales')
+            ->description('Manual paper sales or off-platform sales logged during the show.')
+            ->columns(3)->columnSpanFull()->schema([
                 TextInput::make('paper_sales_gross')
                     ->label('Paper Sales Gross')
                     ->numeric()
@@ -245,19 +364,17 @@ class ShowResource extends Resource
                     ->rows(2)
                     ->nullable()
                     ->columnSpanFull(),
-            ]),
+            ]);
+    }
 
-            Section::make('Notes')->schema([
-                Textarea::make('notes')
-                    ->rows(3)
-                    ->columnSpanFull(),
-            ]),
-
-            Section::make('Whatnot Analytics')
+    private static function whatnotAnalyticsSection(): Section
+    {
+        return Section::make('Whatnot Analytics')
                 ->description('Populated automatically during import. Values can be corrected manually.')
                 ->collapsible()
                 ->collapsed()
                 ->columns(3)
+                ->columnSpanFull()
                 ->schema([
                     TextInput::make('completed_earnings')
                         ->label('Completed Earnings')
@@ -311,10 +428,13 @@ class ShowResource extends Resource
                         ->url()
                         ->nullable()
                         ->columnSpanFull(),
-                ]),
+                ]);
+    }
 
-            Section::make('Approval Summary')
-                ->visible(fn (?Show $record) => (bool) $record?->latestDeductionRequest)
+    private static function approvalSummarySection(): Section
+    {
+        return Section::make('Approval Summary')
+                ->columnSpanFull()
                 ->schema([
                     Placeholder::make('approval_status')
                         ->label('Approval Status')
@@ -330,8 +450,8 @@ class ShowResource extends Resource
                         ->content(function (?Show $record): string {
                             return match ($record?->status) {
                                 'draft' => 'Finish entering show details, then assign streamers and revenue.',
-                                'pending_review' => 'Run AI mapping to build the approval packet.',
-                                'mapping' => 'AI mapping is in progress. Ops will be notified when review is ready.',
+                                'pending_review' => 'The streamer adds items sold from their log, or map items manually below to build the approval packet.',
+                                'mapping' => 'A deduction request has been raised — add or edit its line items, then move it to approval.',
                                 'pending_approval' => 'Review the mapped lines and approve the deduction request.',
                                 'reconciled' => 'Inventory is reconciled. Review payouts and close the show when ready.',
                                 'closed' => 'This show is fully complete.',
@@ -348,23 +468,9 @@ class ShowResource extends Resource
                                 return new \Illuminate\Support\HtmlString('<span style="color:#9ca3af;font-size:13px">No mapped items yet.</span>');
                             }
                             $lines = $request->lines->load('inventoryItem', 'location');
-                            $stageBadge = function (?string $stage): string {
-                                $map = [
-                                    'alias'     => ['Alias',     '#d1fae5','#065f46','#6ee7b7'],
-                                    'fuzzy'     => ['Fuzzy',     '#dbeafe','#1e40af','#93c5fd'],
-                                    'embedding' => ['Embedding', '#ede9fe','#5b21b6','#c4b5fd'],
-                                    'llm'       => ['LLM',       '#fef3c7','#92400e','#fcd34d'],
-                                ];
-                                if (! $stage || ! isset($map[$stage])) {
-                                    return '<span style="color:#9ca3af;font-size:10px">—</span>';
-                                }
-                                [$label, $bg, $color, $border] = $map[$stage];
-                                return "<span style=\"display:inline-flex;padding:1px 7px;border-radius:9999px;background:{$bg};color:{$color};border:1px solid {$border};font-size:10px;font-weight:700\">{$label}</span>";
-                            };
                             $rows = $lines->map(fn ($line) =>
                                 '<tr style="border-bottom:1px solid #f3f4f6">' .
                                 '<td style="padding:5px 10px;font-size:12px;color:#374151">' . e($line->inventoryItem?->name ?? '—') . '</td>' .
-                                '<td style="padding:5px 10px">' . $stageBadge($line->match_stage ?? null) . '</td>' .
                                 '<td style="padding:5px 10px;font-size:12px;text-align:right;color:#374151">' . number_format((float)$line->quantity_approved, 0) . '</td>' .
                                 '<td style="padding:5px 10px;font-size:12px;color:#6b7280">' . e($line->location?->name ?? '—') . '</td>' .
                                 '<td style="padding:5px 10px;font-size:12px;text-align:right;font-weight:600;color:#111827">$' . number_format((float)$line->line_total, 2) . '</td>' .
@@ -375,7 +481,6 @@ class ShowResource extends Resource
                                 <table style=\"width:100%;border-collapse:collapse\">
                                     <thead><tr style=\"background:#f9fafb\">
                                         <th style=\"padding:5px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase\">Item</th>
-                                        <th style=\"padding:5px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase\">Stage</th>
                                         <th style=\"padding:5px 10px;text-align:right;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase\">Qty</th>
                                         <th style=\"padding:5px 10px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase\">Location</th>
                                         <th style=\"padding:5px 10px;text-align:right;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase\">COGS</th>
@@ -397,10 +502,14 @@ class ShowResource extends Resource
                                 ? '$' . number_format((float) $request->lines->sum('line_total'), 2)
                                 : '$0.00';
                         }),
-                ]),
+                ]);
+    }
 
-            Section::make('Show Recap')
+    private static function showRecapSection(): Section
+    {
+        return Section::make('Show Recap')
                 ->visible(fn (?Show $record) => (bool) $record?->payouts?->count())
+                ->columnSpanFull()
                 ->schema([
                     Placeholder::make('payouts_summary')
                         ->label('Payout Summary')
@@ -432,11 +541,15 @@ class ShowResource extends Resource
                                 })
                                 ->implode("\n");
                         }),
-                ]),
+                ]);
+    }
 
-            Section::make('Engagement')
+    private static function engagementSection(): Section
+    {
+        return Section::make('Engagement')
                 ->description('How the audience engaged — imported with each show.')
                 ->visible(fn (?Show $record) => $record !== null && $record->engagement()['has_data'])
+                ->columnSpanFull()
                 ->schema([
                     Placeholder::make('engagement_card')
                         ->label('')
@@ -475,11 +588,15 @@ class ShowResource extends Resource
                                 </div>
                             ");
                         }),
-                ]),
+                ]);
+    }
 
-            Section::make('P&L Summary')
+    private static function plSummarySection(): Section
+    {
+        return Section::make('P&L Summary')
                 ->description('Profit & Loss: (Whatnot net + tips) − COGS − streamer payouts.')
                 ->visible(fn (?Show $record) => $record !== null)
+                ->columnSpanFull()
                 ->schema([
                     Placeholder::make('pl_card')
                         ->label('')
@@ -526,13 +643,13 @@ class ShowResource extends Resource
                                 </div>
                             ");
                         }),
-                ]),
-        ]);
+                ]);
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->extraAttributes(['data-sticky-header' => 'true'])
             ->columns([
                 TextColumn::make('show_date')
                     ->label('Date')
@@ -542,7 +659,11 @@ class ShowResource extends Resource
                 TextColumn::make('title')
                     ->label('Show Title')
                     ->default('—')
-                    ->searchable(),
+                    ->searchable()
+                    ->description(fn (Show $record): ?string => $record->financials_revised_after_lock
+                        ? '⚠ Financials changed after this show was locked in — review'
+                        : null)
+                    ->color(fn (Show $record) => $record->financials_revised_after_lock ? 'danger' : null),
 
                 TextColumn::make('channel.name')
                     ->label('Channel')
@@ -550,17 +671,31 @@ class ShowResource extends Resource
                     ->description(fn (Show $record): ?string => $record->channel_attribution_suspect
                         ? '⚠ Verify channel — also scraped under another channel'
                         : null)
-                    ->color(fn (Show $record) => $record->channel_attribution_suspect ? 'warning' : null),
+                    ->color(fn (Show $record) => $record->channel_attribution_suspect ? 'warning' : null)
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('streamers.name')
                     ->label('Streamers')
                     ->badge()
                     ->separator(', '),
 
+                TextColumn::make('show_duration')
+                    ->label('Duration')
+                    ->formatStateUsing(fn (?int $state): string => $state
+                        ? sprintf('%dh %dm', intdiv($state, 60), $state % 60)
+                        : '—')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->summarize(Sum::make()->label('Total Hours')->formatStateUsing(fn ($state) => number_format(((float) $state) / 60, 1) . 'h')),
+
                 TextColumn::make('gross_revenue')
                     ->label('Gross Revenue')
                     ->money('USD')
                     ->default('—')
+                    ->description(fn (Show $record): ?string => $record->isRevenueOutlier()
+                        ? '📈 Unusual vs recent shows — verify'
+                        : null)
+                    ->color(fn (Show $record) => $record->isRevenueOutlier() ? 'warning' : null)
                     ->summarize(Sum::make()->money('USD')->label('Total Gross')),
 
                 TextColumn::make('net_margin')
@@ -570,16 +705,36 @@ class ShowResource extends Resource
                     ->color(fn (float $state): string => $state >= 0 ? 'success' : 'danger')
                     ->tooltip(fn (Show $record): string => 'Profit after COGS and payouts — ' . $record->profitAndLoss()['margin_pct'] . '% margin')
                     ->sortable(false)
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('units_sold')
                     ->label('Units')
-                    ->numeric(),
+                    ->numeric()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => Show::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => StatusColor::for($state)),
+
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (Show $record): string => match ($record->status) {
+                        'pending_review' => 'Map items to inventory',
+                        'mapping' => 'Continue mapping → Review approval',
+                        'pending_approval' => 'Review & approve costs',
+                        'reconciled' => 'Calculate payout',
+                        'closed' => 'Done',
+                        default => 'Review',
+                    })
+                    ->badge()
+                    ->color(fn (Show $record): string => match ($record->status) {
+                        'pending_review', 'mapping' => 'warning',
+                        'pending_approval' => 'info',
+                        'reconciled' => 'warning',
+                        'closed' => 'success',
+                        default => 'gray',
+                    }),
 
                 TextColumn::make('latestDeductionRequest.status')
                     ->label('Approval')
@@ -592,7 +747,7 @@ class ShowResource extends Resource
                         'rejected' => 'danger',
                         default => 'gray',
                     })
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('import_source')
                     ->badge()
@@ -601,7 +756,8 @@ class ShowResource extends Resource
                         'manual' => 'gray',
                         'auto_whatnot' => 'info',
                         default => 'gray',
-                    }),
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('buyers_count')
                     ->label('Buyers')
@@ -652,6 +808,19 @@ class ShowResource extends Resource
                     ->visible(fn () => auth()->user()?->isAdmin() ?? false),
             ])
             ->filters([
+                // Active by default: the scraper imports upcoming/scheduled shows
+                // too, but day-to-day work happens on shows that already streamed.
+                // Untick the filter to see future-dated shows.
+                Filter::make('hide_upcoming')
+                    ->label('Hide upcoming shows')
+                    ->toggle()
+                    ->default()
+                    ->query(fn (Builder $query): Builder => $query->where(
+                        fn (Builder $q) => $q
+                            ->whereNull('show_date')
+                            ->orWhere('show_date', '<=', now()->endOfDay())
+                    )),
+
                 SelectFilter::make('status')
                     ->options(Show::statusLabels())
                     ->multiple(),
@@ -666,6 +835,12 @@ class ShowResource extends Resource
                     ->placeholder('All shows')
                     ->trueLabel('Needs channel review')
                     ->falseLabel('Attribution OK'),
+
+                TernaryFilter::make('financials_revised_after_lock')
+                    ->label('Financials revised')
+                    ->placeholder('All shows')
+                    ->trueLabel('Revised after lock — needs review')
+                    ->falseLabel('Not revised'),
 
                 QueryBuilder::make()
                     ->label('Advanced Filters')
@@ -685,12 +860,34 @@ class ShowResource extends Resource
                     ]),
             ])
             ->actions([
-                TableAction::make('view_deduction')
-                    ->label(fn (Show $record) => $record->status === 'pending_approval' ? 'Review Approval' : 'View Approval')
-                    ->icon('heroicon-o-clipboard-document-check')
-                    ->color('info')
-                    ->visible(fn (Show $record) => in_array($record->status, ['pending_approval', 'reconciled', 'closed']))
-                    ->url(fn (Show $record) => DeductionRequestResource::getUrl('index', ['tableFilters[show_id][value]' => $record->id])),
+                // One obvious, status-driven "what do I do with this show" button so
+                // admins scanning the list don't have to open each row to find it.
+                // pending_review/mapping route into the show itself, where the actual
+                // map/raise-deduction actions already live (ViewShow) — kept there
+                // rather than duplicated here so the logic has one home. Everything
+                // past that (pending_approval onward) has a real approval request to
+                // review, so it goes straight there instead.
+                TableAction::make('next_step')
+                    ->label(fn (Show $record) => match ($record->status) {
+                        'pending_review'   => 'Map Items',
+                        'mapping'          => 'Continue Mapping',
+                        'pending_approval' => 'Review Approval',
+                        'reconciled', 'closed' => 'View Approval',
+                        default => 'Review',
+                    })
+                    ->icon(fn (Show $record) => $record->status === 'pending_approval'
+                        ? 'heroicon-o-clipboard-document-check'
+                        : 'heroicon-o-arrow-right-circle')
+                    ->color(fn (Show $record) => match ($record->status) {
+                        'pending_review', 'mapping' => 'warning',
+                        'pending_approval' => 'info',
+                        default => 'gray',
+                    })
+                    ->visible(fn (Show $record) => (auth()->user()?->isAdmin() ?? false)
+                        && in_array($record->status, ['pending_review', 'mapping', 'pending_approval', 'reconciled', 'closed']))
+                    ->url(fn (Show $record) => in_array($record->status, ['pending_approval', 'reconciled', 'closed'])
+                        ? DeductionRequestResource::getUrl('index', ['tableFilters[show_id][value]' => $record->id])
+                        : ShowResource::getUrl('view', ['record' => $record])),
 
                 TableAction::make('cancel_show')
                     ->label('Cancel')
@@ -726,8 +923,106 @@ class ShowResource extends Resource
                         Notification::make()->title('Channel confirmed')->success()->send();
                     }),
 
+                TableAction::make('acknowledge_revision')
+                    ->label('Review Revision')
+                    ->icon('heroicon-o-exclamation-triangle')
+                    ->color('danger')
+                    ->visible(fn (Show $record) => (bool) $record->financials_revised_after_lock
+                        && (auth()->user()?->isAdmin() ?? false))
+                    ->modalHeading('Financials changed after this show was locked in')
+                    ->modalDescription(fn (Show $record) => new \Illuminate\Support\HtmlString(
+                        'A later Whatnot sync brought back different numbers for this show after it moved past Pending Review — deduction lines or payouts may already be based on the old figures. Recalculate anything downstream before clearing this flag.<br><br><strong>Changes:</strong><br>' . nl2br(e($record->revision_notes ?? '—'))
+                    ))
+                    ->modalSubmitActionLabel('Clear flag — reviewed')
+                    ->action(function (Show $record): void {
+                        $record->update(['financials_revised_after_lock' => false]);
+                        Notification::make()->title('Revision flag cleared')->success()->send();
+                    }),
+
+                TableAction::make('request_edit')
+                    ->label('Request Edit')
+                    ->icon('heroicon-o-pencil-square')
+                    ->color('warning')
+                    ->visible(fn (Show $record) => (bool) auth()->user()?->streamer
+                        && in_array($record->status, ['reconciled', 'closed', 'cancelled']))
+                    ->form([
+                        Textarea::make('reason')
+                            ->label('Why do you need to edit this show?')
+                            ->placeholder('Explain what items need to be added or corrected...')
+                            ->rows(3)
+                            ->nullable(),
+                    ])
+                    ->action(function (Show $record, array $data): void {
+                        $user = auth()->user();
+                        $streamer = $user->streamer;
+
+                        if (! $streamer) {
+                            Notification::make()
+                                ->title('Error')
+                                ->body('Could not find your streamer profile.')
+                                ->danger()
+                                ->send();
+                            return;
+                        }
+
+                        // Check if there's already a pending request
+                        $existing = $record->reopeningRequests()
+                            ->where('streamer_id', $streamer->id)
+                            ->where('status', 'pending')
+                            ->first();
+
+                        if ($existing) {
+                            Notification::make()
+                                ->title('Already requested')
+                                ->body('You already have a pending edit request for this show.')
+                                ->warning()
+                                ->send();
+                            return;
+                        }
+
+                        $request = $record->reopeningRequests()->create([
+                            'streamer_id' => $streamer->id,
+                            'reason' => $data['reason'] ?? null,
+                            'status' => 'pending',
+                        ]);
+
+                        // Notify admins
+                        $showTitle = $record->title ?? ('Show #' . $record->id);
+                        \App\Models\User::role('admin')->each(function (User $admin) use ($record, $streamer, $showTitle) {
+                            Notification::make()
+                                ->title('Show Reopening Requested')
+                                ->body("{$streamer->name} requested to edit {$showTitle}")
+                                ->actions([
+                                    \Filament\Notifications\Actions\Action::make('review')
+                                        ->label('Review')
+                                        ->url(ShowResource::getUrl('view', ['record' => $record])),
+                                ])
+                                ->sendToDatabase($admin);
+                        });
+
+                        Notification::make()
+                            ->title('Request sent')
+                            ->body('Admins have been notified of your edit request.')
+                            ->success()
+                            ->send();
+                    }),
+
+                TableAction::make('open_log')
+                    ->label('Log')
+                    ->icon('heroicon-o-document-text')
+                    ->color('info')
+                    ->visible(fn () => auth()->check())
+                    ->action(fn (Show $record) => null)
+                    ->iconButton(),
+
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->visible(fn (Show $record) => static::canDelete($record))
+                    ->tooltip(fn (Show $record) => static::canDelete($record)
+                        ? null
+                        : 'Has orders, deduction requests, payouts, or streamers attached — only an empty draft show can be deleted.'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
@@ -741,8 +1036,82 @@ class ShowResource extends Resource
                         ->modalDescription('Clear the channel-review flag on the selected shows, keeping their current channel.')
                         ->action(fn (Collection $records) => $records->each->update(['channel_attribution_suspect' => false]))
                         ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('clear_revision_flag')
+                        ->label('Clear revision flag')
+                        ->icon('heroicon-o-exclamation-triangle')
+                        ->color('danger')
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->requiresConfirmation()
+                        ->modalDescription('Clear the financials-revised flag on the selected shows without further action.')
+                        ->action(fn (Collection $records) => $records->each->update(['financials_revised_after_lock' => false]))
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('detect_streamers')
+                        ->label('Detect Streamers')
+                        ->icon('heroicon-o-user-circle')
+                        ->color('gray')
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->requiresConfirmation()
+                        ->modalDescription('Matches each selected show\'s title against the active streamer roster and attaches any high-confidence match. Shows that already have a streamer attached are skipped.')
+                        ->action(function (Collection $records): void {
+                            $matched = 0;
+                            $skipped = 0;
+
+                            foreach ($records as $show) {
+                                if ($show->streamers()->count() > 0) {
+                                    $skipped++;
+                                    continue;
+                                }
+
+                                $suggestions = $show->detectStreamers();
+                                if (collect($suggestions)->contains('confidence', 'high')) {
+                                    $matched++;
+                                }
+                            }
+
+                            Notification::make()
+                                ->title('Streamer detection complete')
+                                ->body("{$matched} show(s) matched. " . ($skipped > 0 ? "{$skipped} already had a streamer and were skipped." : 'None already had a streamer assigned.'))
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('mark_reconciled')
+                        ->label('Mark as Reconciled')
+                        ->icon('heroicon-o-check-circle')
+                        ->color('success')
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->requiresConfirmation()
+                        ->modalDescription('Mark the selected shows as reconciled.')
+                        ->action(fn (Collection $records) => $records->each->update(['status' => 'reconciled']))
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('mark_closed')
+                        ->label('Mark as Closed')
+                        ->icon('heroicon-o-x-circle')
+                        ->color('danger')
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->requiresConfirmation()
+                        ->modalDescription('Mark the selected shows as closed.')
+                        ->action(fn (Collection $records) => $records->each->update(['status' => 'closed']))
+                        ->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make()
-                        ->visible(fn () => auth()->user()?->isAdmin()),
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->action(function (Collection $records): void {
+                            $deletable = $records->filter(fn (Show $record) => static::canDelete($record));
+                            $blocked   = $records->count() - $deletable->count();
+
+                            $deletable->each->delete();
+
+                            if ($blocked > 0) {
+                                Notification::make()
+                                    ->title($deletable->count() . ' show(s) deleted')
+                                    ->body("{$blocked} skipped — not an empty draft show.")
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()->title($deletable->count() . ' show(s) deleted')->success()->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ]);
     }
@@ -751,6 +1120,7 @@ class ShowResource extends Resource
     {
         return [
             OrdersRelationManager::class,
+            ChangeLogsRelationManager::class,
         ];
     }
 
@@ -762,6 +1132,7 @@ class ShowResource extends Resource
             'view'      => Pages\ViewShow::route('/{record}'),
             'edit'      => Pages\EditShow::route('/{record}/edit'),
             'inventory' => Pages\ShowInventoryBreakdown::route('/{record}/inventory'),
+            'add-items' => Pages\AddShowItems::route('/{record}/add-items'),
         ];
     }
 }

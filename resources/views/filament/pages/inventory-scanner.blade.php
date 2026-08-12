@@ -33,7 +33,7 @@
                 <span class="text-xs text-violet-600 dark:text-violet-400">Scan a barcode, or type a SKU — works with any Bluetooth or USB scanner</span>
             </div>
 
-            <div class="flex gap-3 items-center">
+            <div class="flex gap-2 md:gap-3 items-center flex-wrap md:flex-nowrap">
                 <input
                     wire:model="scanInput"
                     wire:keydown.enter="submitScan"
@@ -42,15 +42,19 @@
                     placeholder="Scan barcode or type SKU…"
                     autofocus
                     autocomplete="off"
-                    class="flex-1 rounded-lg border border-violet-300 dark:border-violet-600 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono"
+                    class="flex-1 min-w-0 rounded-lg border border-violet-300 dark:border-violet-600 bg-white dark:bg-gray-900 px-3 md:px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none font-mono"
                 />
                 <button wire:click="submitScan" type="button"
-                    class="rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500">
+                    class="hidden md:inline-block rounded-lg bg-violet-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 flex-shrink-0">
                     Look Up
                 </button>
                 <button type="button" id="camera-scan-btn" title="Scan with camera"
-                    class="rounded-lg border border-violet-300 dark:border-violet-600 px-3 py-2.5 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 hidden">
+                    class="flex-shrink-0 rounded-lg border border-violet-300 dark:border-violet-600 px-3 py-2.5 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900 focus:outline-none focus:ring-2 focus:ring-violet-500 hidden">
                     <x-heroicon-o-camera class="h-5 w-5" />
+                </button>
+                <button wire:click="submitScan" type="button"
+                    class="md:hidden flex-shrink-0 rounded-lg bg-violet-600 px-3 py-2.5 text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500">
+                    <x-heroicon-o-arrow-right class="h-5 w-5" />
                 </button>
             </div>
 
@@ -206,11 +210,16 @@
 
         {{-- Empty state --}}
         @if (! $result && ! $errorMessage)
-            <div class="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-8 py-12 text-center space-y-2">
-                <x-heroicon-o-qr-code class="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600" />
-                <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Scan or type to look up any item</p>
-                <p class="text-xs text-gray-400 dark:text-gray-500">Works with Bluetooth scanners, USB scanners, or the camera button on supported browsers</p>
-            </div>
+            <x-empty-state
+                :icon="'<x-heroicon-o-qr-code class=\"h-12 w-12\" />'"
+                title="Ready to Scan"
+                description="Point your scanner at any item barcode or type the SKU to look up inventory details, stock levels, and recent movements."
+            >
+                <div class="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                    <p>💡 <strong>Pro tip:</strong> Use the camera button for quick hands-free scanning</p>
+                    <p>⚡ Works with Bluetooth scanners, USB scanners, or your phone's camera</p>
+                </div>
+            </x-empty-state>
         @endif
 
         @endif {{-- end lookup mode --}}
@@ -409,7 +418,6 @@
                 @endforeach
 
             </div>
-        @endif
 
         @else
 
@@ -426,67 +434,101 @@
 
     </div>
 
-    {{-- Camera scanning — active only in lookup mode (BarcodeDetector Web API + ZXing polyfill) --}}
+    {{-- Camera scanning — active only in lookup mode (uses global barcode scanner) --}}
     @if($mode === 'lookup')
-        @if(file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
-            @vite('resources/js/barcode-scanner.js')
-        @endif
-        <script type="module">
-        (async function () {
-            if (!('BarcodeDetector' in window)) return;
+        <script>
+        (function () {
+            function setup() {
+                const btn       = document.getElementById('camera-scan-btn');
+                const container = document.getElementById('camera-container');
+                const video     = document.getElementById('camera-video');
+                const stopBtn   = document.getElementById('camera-stop-btn');
 
-            const btn       = document.getElementById('camera-scan-btn');
-            const container = document.getElementById('camera-container');
-            const video     = document.getElementById('camera-video');
-            const stopBtn   = document.getElementById('camera-stop-btn');
-
-            if (!btn) return;
-            btn.classList.remove('hidden');
-
-            let stream    = null;
-            let detector  = null;
-            let scanning  = false;
-            let rafHandle = null;
-
-            btn.addEventListener('click', async () => {
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-                    video.srcObject = stream;
-                    await video.play();
-                    container.classList.remove('hidden');
-                    btn.classList.add('hidden');
-                    detector = new window.BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'qr_code', 'data_matrix', 'itf'] });
-                    scanning = true;
-                    detectLoop();
-                } catch {
-                    alert('Camera access denied or unavailable.');
-                }
-            });
-
-            stopBtn.addEventListener('click', stopCamera);
-
-            function stopCamera() {
-                scanning = false;
-                if (rafHandle) cancelAnimationFrame(rafHandle);
-                if (stream) stream.getTracks().forEach(t => t.stop());
-                video.srcObject = null;
-                container.classList.add('hidden');
+                if (!btn || btn.dataset.scannerBound === '1') return;
+                btn.dataset.scannerBound = '1';
                 btn.classList.remove('hidden');
-            }
 
-            async function detectLoop() {
-                if (!scanning) return;
-                try {
-                    const barcodes = await detector.detect(video);
-                    if (barcodes.length > 0) {
-                        const code = barcodes[0].rawValue;
-                        stopCamera();
-                        @this.set('scanInput', code).then(() => @this.call('submitScan'));
+                let codeReader  = null;
+                let stream      = null;
+                let scanning    = false;
+                let lastScanned = null;
+
+                btn.addEventListener('click', async () => {
+                    if (!window.barcodeScanner?.BrowserMultiFormatReader) {
+                        alert('Barcode scanner not available');
                         return;
                     }
-                } catch { /* continue */ }
-                rafHandle = requestAnimationFrame(detectLoop);
+
+                    try {
+                        codeReader = new window.barcodeScanner.BrowserMultiFormatReader();
+                        stream = await navigator.mediaDevices.getUserMedia({
+                            video: {
+                                facingMode: 'environment',
+                                width: { ideal: 1280 },
+                                height: { ideal: 720 }
+                            }
+                        });
+
+                        video.srcObject = stream;
+                        container.classList.remove('hidden');
+                        btn.classList.add('hidden');
+
+                        // Wait for video to be ready
+                        await new Promise(resolve => {
+                            const checkReady = () => {
+                                if (video.readyState >= video.HAVE_CURRENT_DATA) {
+                                    resolve();
+                                } else {
+                                    setTimeout(checkReady, 50);
+                                }
+                            };
+                            checkReady();
+                        });
+
+                        scanning = true;
+                        await codeReader.decodeFromVideoElement(
+                            video,
+                            (result, err) => {
+                                if (result && scanning) {
+                                    const barcode = result.getText();
+                                    if (barcode !== lastScanned) {
+                                        lastScanned = barcode;
+                                        console.log('[inventory-camera] Detected:', barcode);
+                                        stopCamera();
+                                        @@this.set('scanInput', barcode).then(() => @@this.call('submitScan'));
+                                    }
+                                }
+                            }
+                        );
+                    } catch (e) {
+                        console.error('Camera error:', e);
+                        alert('Camera error: ' + (e.message || 'Unable to start camera'));
+                    }
+                });
+
+                stopBtn.addEventListener('click', stopCamera);
+
+                function stopCamera() {
+                    scanning = false;
+                    if (codeReader) {
+                        try {
+                            codeReader.reset();
+                        } catch (e) {
+                            console.log('Error resetting reader:', e);
+                        }
+                    }
+                    if (stream) {
+                        stream.getTracks().forEach(t => t.stop());
+                        stream = null;
+                    }
+                    video.srcObject = null;
+                    container.classList.add('hidden');
+                    btn.classList.remove('hidden');
+                }
             }
+
+            setup();
+            document.addEventListener('livewire:navigated', setup);
         })();
         </script>
     @endif

@@ -39,12 +39,21 @@ class StreamerStatement extends Page
 
         return AdminModules::isEnabled('payouts')
             && ! NavVisibility::isHiddenForUser(static::class, $user)
-            && (bool) $user?->isAdmin();
+            && ((bool) $user?->isAdmin() || (bool) $user?->isStreamer());
     }
 
     public function getView(): string
     {
         return 'filament.pages.streamer-statement';
+    }
+
+    public function getSubheading(): ?string
+    {
+        $user = auth()->user();
+
+        return (($user?->isAdmin()) ?? false)
+            ? 'Pick a streamer and date range for a printable payout breakdown, show by show.'
+            : 'Your payout breakdown, show by show — pick a date range and print it if you need a copy.';
     }
 
     public ?int $streamerId = null;
@@ -55,11 +64,44 @@ class StreamerStatement extends Page
     {
         $this->dateFrom = now()->startOfMonth()->toDateString();
         $this->dateTo   = now()->toDateString();
+
+        $user = auth()->user();
+        if ($user && $user->isStreamer() && ! $user->isAdmin()) {
+            $this->streamerId = $user->streamer?->id;
+        }
+    }
+
+    /** True when the viewer is locked to their own streamer profile (can't browse others). */
+    public function getIsSelfServiceProperty(): bool
+    {
+        $user = auth()->user();
+
+        return (bool) ($user && $user->isStreamer() && ! $user->isAdmin());
     }
 
     public function getStreamersListProperty(): \Illuminate\Support\Collection
     {
+        if ($this->isSelfService) {
+            $user = auth()->user();
+
+            return Streamer::where('id', $user->streamer?->id ?? 0)->get(['id', 'name']);
+        }
+
         return Streamer::where('status', 'active')->orderBy('name')->get(['id', 'name']);
+    }
+
+    /**
+     * The streamer id actually used for querying — for self-service viewers this
+     * ignores whatever $this->streamerId holds (a public Livewire property can be
+     * tampered with client-side) and always forces their own linked profile.
+     */
+    private function effectiveStreamerId(): ?int
+    {
+        if ($this->isSelfService) {
+            return auth()->user()->streamer?->id ?? 0;
+        }
+
+        return $this->streamerId;
     }
 
     /**
@@ -67,19 +109,26 @@ class StreamerStatement extends Page
      */
     public function getStatementDataProperty(): array
     {
-        if (! $this->streamerId) {
+        $streamerId = $this->effectiveStreamerId();
+
+        if (! $streamerId) {
             return ['shows' => [], 'totals' => []];
         }
 
         $from = $this->dateFrom ?: now()->startOfMonth()->toDateString();
         $to   = $this->dateTo   ?: now()->toDateString();
 
+        // Upper bound needs a time component: show_date rows are stored with a
+        // midnight timestamp, which a bare date-string upper bound would exclude
+        // via lexical comparison (same gotcha documented in Show::weekPacing()).
+        $toDateTime = \Illuminate\Support\Carbon::parse($to)->endOfDay()->toDateTimeString();
+
         $shows = Show::with([
-                'payouts'           => fn ($q) => $q->where('streamer_id', $this->streamerId),
-                'shippingSurcharges'=> fn ($q) => $q->where('streamer_id', $this->streamerId),
+                'payouts'           => fn ($q) => $q->where('streamer_id', $streamerId),
+                'shippingSurcharges'=> fn ($q) => $q->where('streamer_id', $streamerId),
             ])
-            ->whereHas('streamers', fn ($q) => $q->where('streamer_id', $this->streamerId))
-            ->whereBetween('show_date', [$from, $to])
+            ->whereHas('streamers', fn ($q) => $q->where('streamer_id', $streamerId))
+            ->whereBetween('show_date', [$from, $toDateTime])
             ->orderBy('show_date')
             ->get();
 
@@ -133,9 +182,11 @@ class StreamerStatement extends Page
 
     public function getSelectedStreamerProperty(): ?Streamer
     {
-        if (! $this->streamerId) {
+        $streamerId = $this->effectiveStreamerId();
+
+        if (! $streamerId) {
             return null;
         }
-        return Streamer::find($this->streamerId);
+        return Streamer::find($streamerId);
     }
 }

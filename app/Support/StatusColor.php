@@ -50,6 +50,7 @@ class StatusColor
         'submitted_to_adp'  => 'info',
         'mapping'           => 'info',
         'received'          => 'info',
+        'shipped'           => 'info',
         'needs_info'        => 'info',
         'opened'            => 'info',
         'parsing'           => 'info',

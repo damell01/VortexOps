@@ -46,6 +46,7 @@ class ShowsCalendarWidget extends Widget
                 ->with('whatnotChannel:id,name')
                 ->whereBetween('show_date', [$start, $end])
                 ->whereNotIn('status', ['cancelled'])
+                ->inChannelContext()
                 ->get(['id', 'show_date', 'status', 'gross_revenue', 'whatnot_channel_id', 'title'])
                 ->groupBy(fn ($s) => $s->show_date->format('Y-m-d'));
         } catch (\Throwable) {

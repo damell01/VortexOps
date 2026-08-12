@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\StreamerLoanResource\Pages;
 use App\Models\StreamerLoan;
 use App\Support\AdminModules;
@@ -23,7 +22,7 @@ use Filament\Tables\Table;
 
 class StreamerLoanResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'operations';
     protected static ?string $model = StreamerLoan::class;
@@ -50,7 +49,7 @@ class StreamerLoanResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make()->columns(2)->schema([
+            Section::make()->columns(2)->columnSpanFull()->schema([
                 Select::make('streamer_id')
                     ->label('Streamer')
                     ->relationship('streamer', 'name')
@@ -104,6 +103,11 @@ class StreamerLoanResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->persistFiltersInSession()
+            ->deferLoading()
+            ->emptyStateHeading('No loans')
+            ->emptyStateDescription('Streamer loans and advances are tracked and repaid here.')
+            ->emptyStateIcon('heroicon-o-currency-dollar')
             ->columns([
                 TextColumn::make('streamer.name')
                     ->label('Streamer')
@@ -146,6 +150,20 @@ class StreamerLoanResource extends Resource
                         default    => 'gray',
                     }),
 
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (StreamerLoan $record): string => match ($record->status) {
+                        'active' => 'Track repayments',
+                        'paid_off' => 'Complete ✓',
+                        default => 'Review',
+                    })
+                    ->badge()
+                    ->color(fn (StreamerLoan $record): string => match ($record->status) {
+                        'active' => 'warning',
+                        'paid_off' => 'success',
+                        default => 'gray',
+                    }),
+
                 TextColumn::make('created_at')
                     ->dateTime('M j, Y')
                     ->sortable()
@@ -163,6 +181,7 @@ class StreamerLoanResource extends Resource
             ->actions([
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
+                \Filament\Actions\DeleteAction::make()->iconButton(),
             ]);
     }
 

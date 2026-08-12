@@ -31,6 +31,16 @@
                     <p class="text-xs text-gray-400 mt-1">Leave blank for all · Ctrl/Cmd to multi-select</p>
                 </div>
             </div>
+            <div class="mt-3 flex justify-end">
+                <a
+                    wire:click.prevent="exportCsv"
+                    href="#"
+                    class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700 transition"
+                >
+                    <x-heroicon-o-arrow-down-tray class="h-3.5 w-3.5" />
+                    Export CSV
+                </a>
+            </div>
         </div>
 
         {{-- Tabs --}}
@@ -55,6 +65,7 @@
             $totalShows  = collect($rows)->sum('show_count');
             $totalGross  = collect($rows)->sum('gross_revenue');
             $totalNet    = collect($rows)->sum('net_revenue');
+            $totalMargin = collect($rows)->sum('margin');
             $totalPayout = collect($rows)->sum('total_payout');
             $totalBal    = collect($rows)->sum('balance');
             $totalHrs    = collect($rows)->sum('total_hours');
@@ -110,6 +121,7 @@
                                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Hours</th>
                                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Gross</th>
                                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Net</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide cursor-help" title="Revenue minus COGS from sold items with a unit cost recorded.">Margin</th>
                                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">SPH</th>
                                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Tips</th>
                                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Payout</th>
@@ -121,7 +133,7 @@
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors {{ $i === 0 ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : '' }}">
                                     <td class="px-4 py-3 text-gray-400 dark:text-gray-500 font-mono text-xs">
                                         @if($i === 0)
-                                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 font-bold text-[10px]">1</span>
+                                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 font-bold text-xs">1</span>
                                         @else
                                             {{ $i + 1 }}
                                         @endif
@@ -141,9 +153,22 @@
                                     <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
                                         {{ $row['total_hours'] > 0 ? number_format($row['total_hours'], 1) : '—' }}
                                     </td>
-                                    <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">${{ number_format($row['gross_revenue'], 2) }}</td>
+                                    <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">
+                                        ${{ number_format($row['gross_revenue'], 2) }}
+                                        @if ($row['trend_gross'] !== null)
+                                            <div class="text-xs font-medium {{ $row['trend_gross'] > 0 ? 'text-emerald-600 dark:text-emerald-400' : ($row['trend_gross'] < 0 ? 'text-red-500 dark:text-red-400' : 'text-gray-400') }}">
+                                                {{ $row['trend_gross'] > 0 ? '↑' : ($row['trend_gross'] < 0 ? '↓' : '→') }} {{ abs($row['trend_gross']) }}% <span class="font-normal text-gray-400">vs prior</span>
+                                            </div>
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-3 text-right text-gray-500 dark:text-gray-400">
                                         {{ $row['net_revenue'] > 0 ? '$' . number_format($row['net_revenue'], 2) : '—' }}
+                                    </td>
+                                    <td class="px-4 py-3 text-right font-semibold {{ $row['margin'] >= 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-rose-600 dark:text-rose-400' }}">
+                                        ${{ number_format($row['margin'], 2) }}
+                                        @if (! is_null($row['margin_pct']))
+                                            <div class="text-xs font-normal text-gray-400">{{ $row['margin_pct'] }}%</div>
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 text-right font-semibold {{ $row['gmv_per_hour'] > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-400' }}">
                                         {{ $row['gmv_per_hour'] > 0 ? '$' . number_format($row['gmv_per_hour'], 2) : '—' }}
@@ -169,6 +194,7 @@
                                 <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">{{ number_format($totalHrs, 1) }}</td>
                                 <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">${{ number_format($totalGross, 2) }}</td>
                                 <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">${{ number_format($totalNet, 2) }}</td>
+                                <td class="px-4 py-3 text-right {{ $totalMargin >= 0 ? 'text-indigo-700 dark:text-indigo-300' : 'text-rose-600 dark:text-rose-400' }}">${{ number_format($totalMargin, 2) }}</td>
                                 <td class="px-4 py-3 text-right text-emerald-700 dark:text-emerald-300">${{ number_format($avgSph, 2) }}</td>
                                 <td class="px-4 py-3 text-right text-gray-900 dark:text-gray-100">${{ number_format(collect($rows)->sum('tips'), 2) }}</td>
                                 <td class="px-4 py-3 text-right text-blue-700 dark:text-blue-300">${{ number_format($totalPayout, 2) }}</td>
@@ -242,7 +268,7 @@
                                     <td class="px-4 py-3 font-medium text-gray-900 dark:text-gray-100">
                                         {{ $row['week'] }}
                                         @if($isBest)
-                                            <span class="ml-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">best</span>
+                                            <span class="ml-1.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300">best</span>
                                         @endif
                                     </td>
                                     <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">{{ $row['show_count'] }}</td>

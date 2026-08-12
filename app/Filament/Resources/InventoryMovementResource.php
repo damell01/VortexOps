@@ -3,31 +3,36 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\InventoryMovementResource\Pages;
 use App\Models\InventoryMovement;
 use App\Support\AdminModules;
 use Filament\Actions\Action as TableAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 class InventoryMovementResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'inventory';
 
     protected static ?string $model = InventoryMovement::class;
 
-    protected static ?string $navigationParentItem = 'Inventory Items';
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
@@ -84,7 +89,7 @@ class InventoryMovementResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['item', 'fromLocation', 'toLocation', 'createdByUser']);
+        return parent::getEloquentQuery()->with(['item', 'fromLocation', 'toLocation', 'createdByUser'])->inChannelContext();
     }
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
@@ -106,6 +111,7 @@ class InventoryMovementResource extends Resource
     {
         return $schema->components([
             Section::make('Movement Details')
+                ->columnSpanFull()
                 ->schema([
                     Grid::make(2)->schema([
                         Placeholder::make('created_at')
@@ -146,6 +152,9 @@ class InventoryMovementResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No stock movements yet')
+            ->emptyStateDescription('Receipts, transfers, and adjustments are logged here automatically.')
+            ->emptyStateIcon('heroicon-o-arrows-right-left')
             ->columns([
                 TextColumn::make('created_at')
                     ->label('Date & Time')
@@ -188,6 +197,26 @@ class InventoryMovementResource extends Resource
                     ->toggleable(),
             ])
             ->filters([
+                Filter::make('date_range')
+                    ->label('Date Range')
+                    ->schema([
+                        DatePicker::make('from')->label('From'),
+                        DatePicker::make('until')->label('Until'),
+                    ])
+                    ->query(fn (Builder $query, array $data) => $query
+                        ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
+                        ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '<=', $d)))
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+                        if ($data['from'] ?? null) {
+                            $indicators[] = 'From ' . Carbon::parse($data['from'])->toFormattedDateString();
+                        }
+                        if ($data['until'] ?? null) {
+                            $indicators[] = 'Until ' . Carbon::parse($data['until'])->toFormattedDateString();
+                        }
+
+                        return $indicators;
+                    }),
                 SelectFilter::make('movement_type')
                     ->options(InventoryMovement::movementTypeLabels()),
                 SelectFilter::make('inventory_item_id')
@@ -210,7 +239,9 @@ class InventoryMovementResource extends Resource
                     ->openUrlInNewTab(),
             ])
             ->actions([
-                ViewAction::make(),
+                ViewAction::make()
+                    ->size('sm')
+                    ->iconButton(),
             ])
             ->striped()
             ->persistFiltersInSession()

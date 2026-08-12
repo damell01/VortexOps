@@ -14,22 +14,66 @@ class InventoryItemPolicy
     
     public function viewAny(AuthUser $authUser): bool
     {
-        return $authUser->can('ViewAny:InventoryItem');
+        // Allow admins, owners, and streamers to view inventory items
+        if ($authUser->isAdmin() || $authUser->isOwner()) {
+            return $authUser->can('ViewAny:InventoryItem');
+        }
+
+        if ($authUser->isStreamer()) {
+            return true;
+        }
+
+        return false;
     }
 
     public function view(AuthUser $authUser, InventoryItem $inventoryItem): bool
     {
-        return $authUser->can('View:InventoryItem');
+        // Allow admins, owners, and streamers to view inventory items
+        if ($authUser->isAdmin() || $authUser->isOwner()) {
+            return $authUser->can('View:InventoryItem');
+        }
+
+        if ($authUser->isStreamer()) {
+            return true;
+        }
+
+        return false;
     }
 
     public function create(AuthUser $authUser): bool
     {
-        return $authUser->can('Create:InventoryItem');
+        // Allow admins, owners, and streamers to create inventory items
+        if ($authUser->isAdmin() || $authUser->isOwner()) {
+            return $authUser->can('Create:InventoryItem');
+        }
+
+        if ($authUser->isStreamer()) {
+            return true;
+        }
+
+        return false;
     }
 
     public function update(AuthUser $authUser, InventoryItem $inventoryItem): bool
     {
-        return $authUser->can('Update:InventoryItem');
+        // Allow admins and owners
+        if ($authUser->isAdmin() || $authUser->isOwner()) {
+            return $authUser->can('Update:InventoryItem');
+        }
+
+        // Streamers can only edit items in their assigned inventory locations
+        if ($authUser->isStreamer()) {
+            $streamer = $authUser->streamer;
+            if (!$streamer) {
+                return false;
+            }
+
+            return $inventoryItem->stock()
+                ->whereIn('inventory_location_id', $streamer->inventoryLocations()->pluck('id'))
+                ->exists();
+        }
+
+        return false;
     }
 
     public function delete(AuthUser $authUser, InventoryItem $inventoryItem): bool

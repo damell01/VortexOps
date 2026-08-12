@@ -27,11 +27,13 @@ class Streamer extends Model
 
     protected $fillable = [
         'user_id',
+        'whatnot_channel_id',
         'name',
         'legal_name',
         'email',
         'phone',
         'payout_type',
+        'payout_cadence',
         'payout_percentage',
         'package_rate',
         'hourly_rate',
@@ -77,6 +79,20 @@ class Streamer extends Model
         return $this->belongsTo(User::class);
     }
 
+    /** Primary channel this streamer is attributed to for stats/analytics. */
+    public function channel(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(WhatnotChannel::class, 'whatnot_channel_id');
+    }
+
+    /** Limit to the admin's currently active channel (App\Support\ChannelContext), if any. */
+    public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return \App\Support\ChannelContext::isScoped()
+            ? $query->where('whatnot_channel_id', \App\Support\ChannelContext::currentId())
+            : $query;
+    }
+
     public function inventoryLocations(): HasMany
     {
         return $this->hasMany(InventoryLocation::class);
@@ -102,6 +118,11 @@ class Streamer extends Model
     public function streamerLogEntries(): HasMany
     {
         return $this->hasMany(StreamerLogEntry::class);
+    }
+
+    public function profitSharePackets(): HasMany
+    {
+        return $this->hasMany(ProfitSharePacket::class);
     }
 
     public function outstandingBalance(): float
@@ -149,6 +170,46 @@ class Streamer extends Model
         ];
     }
 
+    /** Gross revenue for a single completed calendar week (Mon–Sun) starting on $weekStart. */
+    private function weekRevenue(\Illuminate\Support\Carbon $weekStart): float
+    {
+        return (float) $this->shows()
+            ->whereBetween('show_date', [$weekStart->toDateString(), $weekStart->copy()->endOfWeek()->toDateString()])
+            ->whereNotIn('shows.status', ['cancelled'])
+            ->sum('shows.gross_revenue');
+    }
+
+    /**
+     * True when this streamer's most recently completed week is down at least
+     * $thresholdPct from the average of the 3 completed weeks before it — a
+     * quick "worth a check-in" signal, not a hard judgment. Requires both the
+     * recent week and the baseline to have real revenue, so a streamer who
+     * simply didn't stream a given week (0 baseline) never false-positives.
+     */
+    public function isPerformanceTrendingDown(float $thresholdPct = 30.0): bool
+    {
+        $lastWeekStart = now()->copy()->subWeek()->startOfWeek();
+        $lastWeekRevenue = $this->weekRevenue($lastWeekStart);
+
+        if ($lastWeekRevenue <= 0) {
+            return false;
+        }
+
+        $baselineRevenues = [];
+        for ($i = 1; $i <= 3; $i++) {
+            $baselineRevenues[] = $this->weekRevenue($lastWeekStart->copy()->subWeeks($i));
+        }
+
+        $baselineAvg = array_sum($baselineRevenues) / count($baselineRevenues);
+        if ($baselineAvg <= 0) {
+            return false;
+        }
+
+        $changePct = (($lastWeekRevenue - $baselineAvg) / $baselineAvg) * 100;
+
+        return $changePct <= -$thresholdPct;
+    }
+
     public static function payoutTypeLabels(): array
     {
         return [
@@ -159,6 +220,14 @@ class Streamer extends Model
             'pwe_labels'     => 'PWE + Labels',
             'hybrid'         => 'Hybrid (Hourly + Tips + Profit Share)',
             'custom_formula' => 'Custom Formula',
+        ];
+    }
+
+    public static function payoutCadenceLabels(): array
+    {
+        return [
+            'weekly'  => 'Weekly',
+            'monthly' => 'Monthly',
         ];
     }
 

@@ -10,6 +10,13 @@ class ListPayouts extends ListRecords
 {
     protected static string $resource = PayoutResource::class;
 
+    public function getSubheading(): ?string
+    {
+        return (auth()->user()?->isAdmin() ?? false)
+            ? 'All streamer payouts. Admins now run pay runs from Payouts under Pay Runs — this flat list stays for reference and direct links.'
+            : 'Your payout history — every show you were part of and what you earned or are owed.';
+    }
+
     protected function getHeaderActions(): array
     {
         return [

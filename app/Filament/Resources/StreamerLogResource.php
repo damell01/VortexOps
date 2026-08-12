@@ -6,6 +6,8 @@ use App\Filament\Resources\StreamerLogResource\Pages;
 use App\Filament\Resources\StreamerLogResource\RelationManagers;
 use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
+use App\Models\InventoryItem;
+use App\Models\InventoryLocation;
 use App\Support\AdminModules;
 use App\Support\NavVisibility;
 use App\Support\StatusColor;
@@ -15,6 +17,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
@@ -27,11 +30,13 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use App\Filament\Concerns\HasAdminNavVisibility;
+use App\Filament\Concerns\HasModuleAccess;
 
 class StreamerLogResource extends Resource
 {
-    use HasAdminNavVisibility;
+    use HasModuleAccess;
+
+    protected static string $moduleSlug = 'streams';
 
     protected static ?string $model = StreamerLogEntry::class;
 
@@ -52,6 +57,11 @@ class StreamerLogResource extends Resource
         return 40;
     }
 
+    public static function getSlug(?\Filament\Panel $panel = null): string
+    {
+        return 'streamer-logs';
+    }
+
     public static function canAccess(): bool
     {
         $user = auth()->user();
@@ -59,18 +69,21 @@ class StreamerLogResource extends Resource
             return false;
         }
 
-        return $user?->isAdmin() || $user?->isStreamer();
+        // fulfillment_admin needs in: they're the ones who action the
+        // "Fulfillment Reviewed" step below for PWE + Labels streamers.
+        return $user?->isAdmin() || $user?->isStreamer() || $user?->isFulfillmentAdmin();
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return static::canAccess();
+        $user = auth()->user();
+        // Only show nav link for admins, not streamers
+        return ($user?->isAdmin() || $user?->isOwner()) && AdminModules::isEnabled('streams');
     }
 
     /**
-     * A streamer may only edit their entry (and its items) while it's still open.
-     * Once an admin has approved it, it's view-only for the streamer until an
-     * admin sends it back. Admins/owner can always edit.
+     * Streamers can edit their log entries until they submit. After submission,
+     * they can only edit within the allowed time window. Admins can always edit.
      */
     public static function isLockedForCurrentUser(?StreamerLogEntry $record): bool
     {
@@ -79,7 +92,13 @@ class StreamerLogResource extends Resource
             return false;
         }
 
-        return $record->status === 'admin_approved';
+        // Streamers can edit until submission or within the edit window
+        if ($user?->isStreamer()) {
+            return ! $record->canStreamerEdit();
+        }
+
+        // Fulfillment admins can edit when PWE/label review is pending
+        return false;
     }
 
     public static function form(Schema $schema): Schema
@@ -87,6 +106,7 @@ class StreamerLogResource extends Resource
         return $schema->components([
             Section::make('Show')
                 ->visible(fn (?StreamerLogEntry $record) => $record !== null)
+                ->columnSpanFull()
                 ->schema([
                     Placeholder::make('show_label')
                         ->label('')
@@ -99,84 +119,113 @@ class StreamerLogResource extends Resource
                 ]),
 
             Section::make('Show Info')
+                ->description('Record key metrics from your show — hours streamed, shipments, and package counts.')
                 ->disabled(fn (?StreamerLogEntry $record) => static::isLockedForCurrentUser($record))
+                ->columnSpanFull()
                 ->schema([
                 Grid::make(2)->schema([
                     Toggle::make('hard_copy')
-                        ->label('Hard Copy (physical log filed)'),
+                        ->label('Hard Copy (physical log filed)')
+                        ->helperText('Check if you filed a physical log sheet for this show'),
                     TextInput::make('hours_streamed')
                         ->label('Hours Streamed')
                         ->numeric()
-                        ->step(0.25),
+                        ->step(0.25)
+                        ->helperText('Total time you were on stream — used for payout calculation')
+                        ->extraAttributes(['data-validation' => json_encode(['min' => 0, 'minMessage' => 'Hours must be at least 0'])]),
                     TextInput::make('number_of_shipments')
                         ->label('Number of Shipments')
-                        ->integer(),
+                        ->integer()
+                        ->helperText('Total shipments sent for this show')
+                        ->extraAttributes(['data-validation' => json_encode(['min' => 0, 'minMessage' => 'Shipments must be at least 0'])]),
                     TextInput::make('number_of_packages_over_500')
                         ->label('Packages Over $500')
-                        ->helperText('Triggers shipping surcharge')
-                        ->integer(),
+                        ->helperText('Shipments over $500 value — these incur an extra shipping surcharge')
+                        ->integer()
+                        ->extraAttributes(['data-validation' => json_encode(['min' => 0])]),
+                    TextInput::make('pwe_count')
+                        ->label('PWE Count')
+                        ->helperText('Packages shipped PWE (PostagePaidEnvelope) — affects your payout')
+                        ->integer()
+                        ->visible(fn (?StreamerLogEntry $record) => $record?->streamer?->payout_type === 'pwe_labels')
+                        ->extraAttributes(['data-validation' => json_encode(['min' => 0])]),
+                    TextInput::make('label_count')
+                        ->label('Label-Only Count')
+                        ->helperText('Packages with label only (no PWE) — used to calculate your shipping pay')
+                        ->integer()
+                        ->visible(fn (?StreamerLogEntry $record) => $record?->streamer?->payout_type === 'pwe_labels')
+                        ->extraAttributes(['data-validation' => json_encode(['min' => 0])]),
                 ]),
             ]),
 
             Section::make('Revenue & Product Cost')
+                ->description('Enter revenue and product costs. Your profit is calculated from these numbers.')
                 ->disabled(fn (?StreamerLogEntry $record) => static::isLockedForCurrentUser($record))
+                ->columnSpanFull()
                 ->schema([
                 Grid::make(2)->schema([
                     TextInput::make('gross_revenue')
                         ->label('Gross Revenue')
                         ->numeric()
                         ->prefix('$')
-                        ->helperText('Auto-filled from show — override if needed'),
+                        ->helperText('Auto-filled from show data — update if you need to correct it')
+                        ->extraAttributes(['data-validation' => json_encode(['min' => 0, 'minMessage' => 'Revenue must be at least 0'])]),
                     TextInput::make('product_cost')
                         ->label('Product Cost Total')
                         ->numeric()
                         ->prefix('$')
-                        ->helperText('Total wholesale cost of products sold (from calculations sheet)'),
+                        ->helperText('Sum of wholesale costs for all items you sold (from your inventory records)')
+                        ->extraAttributes(['data-validation' => json_encode(['min' => 0, 'minMessage' => 'Cost must be at least 0'])]),
                 ]),
             ]),
 
-            Section::make('Pay Breakdown')
-                // Streamers can log their info and items, but their pay is set by
-                // an admin — so these fields are read-only for non-admins.
-                ->disabled(fn () => ! (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
+            Section::make('Inventory Assignment')
+                ->description('Admin only: Assign inventory items from stock locations to this streamer log')
+                ->visible(fn () => auth()->user()?->isAdmin())
+                ->collapsed(true)
+                ->columnSpanFull()
                 ->schema([
                 Grid::make(2)->schema([
-                    TextInput::make('profit_share_amount')
-                        ->label('Profit Share Amount')
+                    Select::make('inventory_item_id')
+                        ->label('Inventory Item')
+                        ->options(fn () => InventoryItem::where('is_active', true)
+                            ->orderBy('name')
+                            ->pluck('name', 'id'))
+                        ->searchable()
+                        ->placeholder('Select an item to pull from inventory')
+                        ->helperText('Choose which product to pull stock from')
+                        ->nullable(),
+                    Select::make('inventory_location_id')
+                        ->label('Stock Location')
+                        ->options(fn (Get $get) =>
+                            $get('inventory_item_id')
+                                ? InventoryLocation::whereHas('stock', fn ($q) =>
+                                    $q->where('inventory_item_id', $get('inventory_item_id'))
+                                        ->where('quantity', '>', 0)
+                                )
+                                    ->orderBy('name')
+                                    ->pluck('name', 'id')
+                                : collect()
+                        )
+                        ->searchable()
+                        ->placeholder('Select a location with available stock')
+                        ->helperText('Only locations with this item in stock are shown')
+                        ->nullable()
+                        ->visible(fn (Get $get) => !!$get('inventory_item_id')),
+                    TextInput::make('inventory_quantity')
+                        ->label('Quantity to Allocate')
                         ->numeric()
-                        ->prefix('$')
-                        ->helperText('(Gross − Product Cost) × PS%'),
-                    Toggle::make('profit_share_paid')
-                        ->label('Profit Share Paid'),
-                    TextInput::make('pwe_pay')
-                        ->label('PWE Pay')
-                        ->numeric()
-                        ->prefix('$'),
-                    TextInput::make('hourly_pay')
-                        ->label('Hourly Pay')
-                        ->numeric()
-                        ->prefix('$'),
-                    TextInput::make('tips_paid')
-                        ->label('Tips Paid')
-                        ->numeric()
-                        ->prefix('$'),
-                    TextInput::make('total_due')
-                        ->label('Total Due')
-                        ->numeric()
-                        ->prefix('$'),
-                    TextInput::make('total_paid')
-                        ->label('Total Paid')
-                        ->numeric()
-                        ->prefix('$'),
-                    TextInput::make('business_net_rev')
-                        ->label('Business Net Rev')
-                        ->numeric()
-                        ->prefix('$'),
+                        ->step(0.01)
+                        ->minValue(0)
+                        ->placeholder('Optional: amount pulled from inventory')
+                        ->helperText('Track how much inventory was allocated for this log')
+                        ->nullable(),
                 ]),
             ]),
 
             Section::make('Notes')
                 ->disabled(fn (?StreamerLogEntry $record) => static::isLockedForCurrentUser($record))
+                ->columnSpanFull()
                 ->schema([
                 Textarea::make('notes')
                     ->rows(3)
@@ -188,6 +237,10 @@ class StreamerLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No log entries')
+            ->emptyStateDescription('Streamer show logs land here for review and approval.')
+            ->emptyStateIcon('heroicon-o-clipboard-document-list')
+            ->extraAttributes(['data-sticky-header' => 'true'])
             ->columns([
                 TextColumn::make('show.show_date')
                     ->label('Date')
@@ -205,15 +258,48 @@ class StreamerLogResource extends Resource
                     ->placeholder('—')
                     ->toggleable(),
                 TextColumn::make('status')
+                    ->formatStateUsing(fn ($state) => view('components.status-badge', [
+                        'status' => $state,
+                        'label' => StreamerLogEntry::statusLabels()[$state] ?? ucfirst(str_replace('_', ' ', $state)),
+                    ])->render())
+                    ->html(),
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (StreamerLogEntry $record): string => match ($record->status) {
+                        'pending' => 'Add items & costs',
+                        'streamer_reviewed' => 'Admin review pending',
+                        'admin_approved' => 'Payout ready' . ($record->needsFulfillmentReview() ? ' (needs fulfillment review)' : ''),
+                        default => 'Review',
+                    })
                     ->badge()
-                    ->formatStateUsing(fn ($state) => StreamerLogEntry::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => StatusColor::for($state)),
+                    ->color(fn (StreamerLogEntry $record): string => match ($record->status) {
+                        'pending' => 'warning',
+                        'streamer_reviewed' => 'info',
+                        'admin_approved' => 'success',
+                        default => 'gray',
+                    }),
                 TextColumn::make('hours_streamed')
                     ->label('Hours')
                     ->numeric(),
                 TextColumn::make('number_of_shipments')
                     ->label('Shipments')
                     ->numeric(),
+                TextColumn::make('pwe_count')
+                    ->label('PWE')
+                    ->numeric()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('label_count')
+                    ->label('Labels')
+                    ->numeric()
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('fulfillment_reviewed_at')
+                    ->label('Fulfillment')
+                    ->visible(fn ($record) => $record?->streamer?->payout_type === 'pwe_labels')
+                    ->boolean()
+                    ->getStateUsing(fn (StreamerLogEntry $record) => $record->fulfillment_reviewed_at !== null)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('gross_revenue')
                     ->label('Gross Rev')
                     ->money('USD')
@@ -222,9 +308,6 @@ class StreamerLogResource extends Resource
                     ->label('Product Cost')
                     ->money('USD')
                     ->toggleable(),
-                TextColumn::make('profit_share_amount')
-                    ->label('Profit Share')
-                    ->money('USD'),
                 TextColumn::make('total_due')
                     ->label('Total Due')
                     ->money('USD'),
@@ -294,6 +377,27 @@ class StreamerLogResource extends Resource
                             ->success()
                             ->send();
                     }),
+                Action::make('fulfillment_review')
+                    ->label('Fulfillment Reviewed')
+                    ->icon('heroicon-o-truck')
+                    ->color('info')
+                    ->visible(fn (StreamerLogEntry $record) => $record->needsFulfillmentReview()
+                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner() || auth()->user()?->isFulfillmentAdmin()))
+                    ->requiresConfirmation()
+                    ->modalHeading('Confirm fulfillment review')
+                    ->modalDescription('Confirms the PWE and label counts above are correct for this payout-type streamer, after the streamer and admin review are already done.')
+                    ->action(function (StreamerLogEntry $record): void {
+                        $record->update([
+                            'fulfillment_reviewed_by' => auth()->id(),
+                            'fulfillment_reviewed_at' => now(),
+                        ]);
+
+                        Notification::make()
+                            ->title('Fulfillment review recorded')
+                            ->success()
+                            ->send();
+                    }),
+
                 // Send an already-reviewed/approved entry back to the streamer so
                 // they can edit it again (admins/owner only).
                 Action::make('send_back')
@@ -307,10 +411,12 @@ class StreamerLogResource extends Resource
                     ->modalDescription('Reopens this entry so the streamer can edit it again. Its status returns to pending.')
                     ->action(function (StreamerLogEntry $record): void {
                         $record->update([
-                            'status'               => 'pending',
-                            'streamer_reviewed_at' => null,
-                            'reviewed_by'          => null,
-                            'reviewed_at'          => null,
+                            'status'                  => 'pending',
+                            'streamer_reviewed_at'    => null,
+                            'reviewed_by'             => null,
+                            'reviewed_at'             => null,
+                            'fulfillment_reviewed_by' => null,
+                            'fulfillment_reviewed_at' => null,
                         ]);
                         Notification::make()->title('Sent back to streamer')->success()->send();
                     }),
@@ -332,7 +438,7 @@ class StreamerLogResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['show', 'streamer']);
+        $query = parent::getEloquentQuery()->with(['show', 'streamer'])->inChannelContext();
 
         $user = auth()->user();
         if ($user?->isStreamer() && ! $user?->isAdmin() && ! $user?->isOwner()) {
@@ -360,7 +466,7 @@ class StreamerLogResource extends Resource
     {
         return [
             'index' => Pages\ListStreamerLogEntries::route('/'),
-            'edit'  => Pages\EditStreamerLogEntry::route('/{record}/edit'),
+            'edit'  => Pages\EditStreamerLogEntry::route('/{record}'),
         ];
     }
 }

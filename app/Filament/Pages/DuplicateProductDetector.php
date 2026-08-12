@@ -3,7 +3,6 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Models\DeductionRequestLine;
 use App\Models\InventoryLot;
 use App\Models\InventoryMovement;
@@ -19,7 +18,7 @@ use Illuminate\Support\Facades\Log;
 
 class DuplicateProductDetector extends Page
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'purchasing';
     protected static ?string $title = 'Duplicate Detector';
@@ -32,9 +31,19 @@ class DuplicateProductDetector extends Page
         return AdminModules::navigationGroupFor('purchasing');
     }
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     public function getView(): string
     {
         return 'filament.pages.duplicate-product-detector';
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'Finds likely duplicate products (same name, close SKU, etc.) so you can merge them before they split stock and sales across two catalogue entries.';
     }
 
     // ── State ──────────────────────────────────────────────────────────────────

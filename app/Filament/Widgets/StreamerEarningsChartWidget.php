@@ -44,6 +44,7 @@ class StreamerEarningsChartWidget extends ChartWidget
         try {
             $query = Payout::query()
                 ->when($streamerId, fn ($q) => $q->where('streamer_id', $streamerId))
+                ->inChannelContext()
                 ->whereIn('status', ['approved', 'paid']);
 
             if (($this->filter ?? 'months') === 'weeks') {

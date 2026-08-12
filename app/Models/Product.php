@@ -45,6 +45,7 @@ class Product extends Model
         'total_units_received',
         'reorder_level',
         'is_active',
+        'is_container',
         'preferred_vendor_id',
         'notes',
     ];
@@ -54,6 +55,7 @@ class Product extends Model
         'average_cost'         => 'decimal:4',
         'total_units_received' => 'decimal:2',
         'is_active'            => 'boolean',
+        'is_container'         => 'boolean',
         'year'                 => 'integer',
     ];
 
@@ -76,12 +78,14 @@ class Product extends Model
 
     public function lots(): HasMany
     {
-        return $this->hasMany(InventoryLot::class);
+        // Explicit FK: the InventoryItem alias would otherwise infer inventory_item_id.
+        return $this->hasMany(InventoryLot::class, 'product_id');
     }
 
     public function identities(): HasMany
     {
-        return $this->hasMany(ProductIdentity::class);
+        // Explicit FK: the InventoryItem alias would otherwise infer inventory_item_id.
+        return $this->hasMany(ProductIdentity::class, 'product_id');
     }
 
     public function palletLines(): HasMany
@@ -105,6 +109,16 @@ class Product extends Model
     {
         // Explicit FK: the InventoryItem alias would otherwise infer inventory_item_id.
         return $this->hasOne(ProductEmbedding::class, 'product_id');
+    }
+
+    public function childContents(): HasMany
+    {
+        return $this->hasMany(InventoryItemContent::class, 'parent_inventory_item_id');
+    }
+
+    public function parentContents(): HasMany
+    {
+        return $this->hasMany(InventoryItemContent::class, 'child_inventory_item_id');
     }
 
     // ── Lookups ────────────────────────────────────────────────────────────────
@@ -191,6 +205,60 @@ class Product extends Model
         }
 
         return $this->totalQuantity() <= $this->reorder_level;
+    }
+
+    /**
+     * Suggested reorder quantity from trailing sales velocity, projected across
+     * the vendor's lead time plus a safety-stock buffer, minus what's already on
+     * hand. Null when there's no recent sales history to estimate a rate from, or
+     * when on-hand stock already covers projected demand — a forecast built on
+     * zero data is worse than no forecast.
+     */
+    public function suggestedReorderQuantity(int $trailingDays = 30, int $safetyDays = 7, int $defaultLeadTimeDays = 14): ?int
+    {
+        $trailingUnitsSold = (float) $this->orders()
+            ->where('show_date', '>=', now()->subDays($trailingDays)->toDateString())
+            ->sum('quantity');
+
+        $velocity = $trailingUnitsSold / $trailingDays;
+        if ($velocity <= 0) {
+            return null;
+        }
+
+        $leadTimeDays = $this->relationLoaded('preferredVendor')
+            ? ($this->preferredVendor?->lead_time_days ?? $defaultLeadTimeDays)
+            : ($this->preferredVendor()->value('lead_time_days') ?? $defaultLeadTimeDays);
+
+        $reorderPoint = $velocity * ($leadTimeDays + $safetyDays);
+        $onHand       = $this->totalQuantity();
+
+        return $onHand < $reorderPoint ? (int) ceil($reorderPoint - $onHand) : null;
+    }
+
+    /** Most recent time stock was added to this item (opening or return), or null if never. */
+    public function lastRestockedAt(): ?\Illuminate\Support\Carbon
+    {
+        $max = $this->relationLoaded('movements')
+            ? $this->movements->whereIn('movement_type', ['opening', 'return'])->max('created_at')
+            : $this->movements()->whereIn('movement_type', ['opening', 'return'])->max('created_at');
+
+        return $max ? \Illuminate\Support\Carbon::parse($max) : null;
+    }
+
+    /**
+     * True when this item currently has zero stock everywhere and hasn't been
+     * restocked in at least $days days (or ever) — a signal that a sale mapped
+     * to it is likely a mis-mapping rather than a real transaction.
+     */
+    public function hasBeenOutOfStockFor(int $days = 14): bool
+    {
+        if ($this->totalQuantity() > 0) {
+            return false;
+        }
+
+        $lastRestock = $this->lastRestockedAt();
+
+        return $lastRestock === null || $lastRestock->lt(now()->subDays($days));
     }
 
     /**

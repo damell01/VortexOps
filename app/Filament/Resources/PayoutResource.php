@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\PayoutResource\Pages;
 use App\Models\Payout;
 use App\Models\Streamer;
@@ -11,6 +10,7 @@ use App\Support\AdminModules;
 use App\Support\StatusColor;
 use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Placeholder;
 use Filament\Notifications\Notification;
@@ -33,7 +33,9 @@ use Illuminate\Support\Facades\Cache;
 
 class PayoutResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess {
+        HasModuleAccess::shouldRegisterNavigation as private moduleShouldRegisterNavigation;
+    }
 
     protected static string $moduleSlug  = 'payouts';
 
@@ -41,6 +43,25 @@ class PayoutResource extends Resource
 
     // Streamers can access their own payouts; row scoping handles filtering
     protected static function passesModuleAccessCheck(): bool { return true; }
+
+    // Admins now use the "Payouts" nav item under WeeklyPayoutBatchResource
+    // (week → streamer → shows) instead of this flat list — hide this one
+    // from their nav so there's only one "Payouts" entry, but keep the
+    // module-toggle/per-role checks HasModuleAccess already provides (this
+    // method would otherwise fully shadow the trait's, silently dropping
+    // that gating for everyone). Streamers still need this: it's their only
+    // nav path to their own payout history (row-scoped above), since the
+    // batch view is admin-only. Direct links here (e.g. PendingPayoutsWidget)
+    // keep working regardless — this only hides the sidebar entry, not the
+    // resource itself.
+    public static function shouldRegisterNavigation(): bool
+    {
+        if (! static::moduleShouldRegisterNavigation()) {
+            return false;
+        }
+
+        return ! (auth()->user()?->isAdmin() ?? false);
+    }
 
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
@@ -60,6 +81,22 @@ class PayoutResource extends Resource
     public static function canCreate(): bool
     {
         return false;
+    }
+
+    /**
+     * Nothing references payouts.id via FK, so deleting one is never
+     * destructive to other tables — but once approved/paid it represents a
+     * real financial decision that shouldn't quietly disappear. Only a
+     * still-draft payout (not yet reviewed) is fair game.
+     */
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return (auth()->user()?->isAdmin() ?? false) && $record->status === 'draft';
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public static function getGloballySearchableAttributes(): array
@@ -85,7 +122,9 @@ class PayoutResource extends Resource
     {
         return $schema->components([
             Section::make('Payout Summary')
+                ->description('Overview of the show and streamer for this payout.')
                 ->columns(2)
+                ->columnSpanFull()
                 ->schema([
                     Placeholder::make('show')
                         ->label('Show')
@@ -101,6 +140,8 @@ class PayoutResource extends Resource
                         ->content(fn (Payout $record): string => Payout::statusLabels()[$record->status] ?? $record->status),
                 ]),
             Section::make('Calculation')
+                ->description('Breakdown of how this payout was calculated — revenue, tips, deductions, and final amount.')
+                ->columnSpanFull()
                 ->schema([
                     Grid::make(2)->schema([
                         Placeholder::make('payout_type')
@@ -134,7 +175,7 @@ class PayoutResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['show', 'streamer', 'batch']);
+        $query = parent::getEloquentQuery()->with(['show', 'streamer', 'batch'])->inChannelContext();
 
         $user = auth()->user();
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {
@@ -148,6 +189,10 @@ class PayoutResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No payouts yet')
+            ->emptyStateDescription('Payouts are generated when shows are reconciled.')
+            ->emptyStateIcon('heroicon-o-banknotes')
+            ->extraAttributes(['data-sticky-header' => 'true'])
             ->columns([
                 TextColumn::make('show.show_date')
                     ->label('Show Date')
@@ -204,9 +249,28 @@ class PayoutResource extends Resource
                     ->formatStateUsing(fn ($state): string => $state ? $state->format('M j') : 'Unbatched'),
 
                 TextColumn::make('status')
+                    ->formatStateUsing(fn ($state) => view('components.status-badge', [
+                        'status' => $state,
+                        'label' => Payout::statusLabels()[$state] ?? ucfirst(str_replace('_', ' ', $state)),
+                    ])->render())
+                    ->html(),
+
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (Payout $record): string => match ($record->status) {
+                        'draft' => 'Review & approve',
+                        'approved' => 'Mark as paid',
+                        'paid' => 'Done',
+                        default => 'Review',
+                    })
                     ->badge()
-                    ->formatStateUsing(fn ($state) => Payout::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => StatusColor::for($state)),
+                    ->color(fn (Payout $record): string => match ($record->status) {
+                        'draft' => 'warning',
+                        'approved' => 'info',
+                        'paid' => 'success',
+                        default => 'gray',
+                    })
+                    ->visible(fn () => auth()->user()?->isAdmin()),
 
                 TextColumn::make('calculation_notes')
                     ->label('How Calculated')
@@ -257,6 +321,10 @@ class PayoutResource extends Resource
             ])
             ->actions([
                 ViewAction::make()->iconButton(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->visible(fn (Payout $record) => static::canDelete($record))
+                    ->tooltip(fn (Payout $record) => static::canDelete($record) ? null : 'Only a draft payout can be deleted — approve/paid records are kept.'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
@@ -303,6 +371,26 @@ class PayoutResource extends Resource
                                 ->send();
                         })
                         ->visible(fn () => auth()->user()?->isAdmin()),
+                    BulkAction::make('delete_drafts')
+                        ->label('Delete Drafts')
+                        ->icon('heroicon-o-trash')
+                        ->color('danger')
+                        ->requiresConfirmation()
+                        ->modalDescription('Only draft payouts are deleted; approved or paid ones are skipped so nothing already committed is lost.')
+                        ->action(function (\Illuminate\Database\Eloquent\Collection $records) {
+                            $deletable = $records->filter(fn (Payout $record) => static::canDelete($record));
+                            $blocked   = $records->count() - $deletable->count();
+
+                            $deletable->each->delete();
+
+                            Notification::make()
+                                ->title($deletable->count() . ' draft payout(s) deleted')
+                                ->body($blocked > 0 ? "{$blocked} skipped — not a draft." : null)
+                                ->success()
+                                ->send();
+                        })
+                        ->visible(fn () => auth()->user()?->isAdmin())
+                        ->deselectRecordsAfterCompletion(),
                     ExportBulkAction::make(),
                 ]),
             ]);

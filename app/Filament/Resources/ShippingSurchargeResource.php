@@ -58,6 +58,9 @@ class ShippingSurchargeResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No surcharges')
+            ->emptyStateDescription('Add shipping surcharges to pass carrier fees through to payouts.')
+            ->emptyStateIcon('heroicon-o-truck')
             ->columns([
                 TextColumn::make('show.show_date')
                     ->label('Show Date')
@@ -89,6 +92,15 @@ class ShippingSurchargeResource extends Resource
                     ->boolean()
                     ->trueColor('success')
                     ->falseColor('warning'),
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (ShippingSurcharge $record): string => $record->deducted_from_payout
+                        ? 'Complete ✓'
+                        : 'Apply to payout')
+                    ->badge()
+                    ->color(fn (ShippingSurcharge $record): string => $record->deducted_from_payout
+                        ? 'success'
+                        : 'info'),
             ])
             ->filters([
                 SelectFilter::make('streamer_id')

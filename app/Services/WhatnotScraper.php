@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Shipment;
 use App\Models\Show;
+use App\Models\ShowIngestionLog;
 use App\Models\StreamerLogEntry;
 use App\Models\WhatnotChannel;
 use App\Models\WhatnotLedgerEntry;
@@ -63,7 +65,7 @@ class WhatnotScraper
      *
      * @throws \RuntimeException on login/nav failures
      */
-    public function fetchShows(int $limit = 50, bool $debug = false, ?string $channelUsername = null): array
+    public function fetchShows(int $limit = 50, bool $debug = false, ?string $channelUsername = null, ?callable $onProgress = null): array
     {
         $env = $this->baseEnv($debug);
         $env['WHATNOT_MODE']  = 'analytics';
@@ -76,9 +78,26 @@ class WhatnotScraper
         // Analytics-nav walks the full channel history one show at a time, so a
         // channel with hundreds of past shows can legitimately run for many
         // minutes. 240s was too short and killed the walk mid-import; allow up to
-        // 20 minutes per channel (scales roughly with --limit).
-        $process = $this->makeProcess($env, timeout: 1200);
-        $this->withBrowserLock(fn () => $process->run());
+        // 20 minutes per channel at the ~50-show default. That ceiling was never
+        // actually scaled with $limit despite the comment claiming it did — a
+        // --type=full backfill (limit 500) hit the same 1200s wall and got killed
+        // mid-walk. Scale it so a full historical backfill gets proportionally
+        // more time instead of failing on any channel with deep history.
+        $timeoutSeconds = max(1200, (int) ceil($limit / 50) * 1200);
+        $process = $this->makeProcess($env, timeout: $timeoutSeconds);
+
+        // Wait-for-lock needs to scale the same way the process timeout above
+        // does — a --type=full run queued behind another long-running full
+        // sync could legitimately need to wait more than the 1200s default,
+        // and failing that wait isn't meaningfully different from the run
+        // itself timing out.
+        $this->withBrowserLock(function () use ($process, $onProgress) {
+            if ($onProgress) {
+                $this->streamProcess($process, $onProgress);
+            } else {
+                $process->run();
+            }
+        }, waitSeconds: $timeoutSeconds);
 
         $stderr = trim($process->getErrorOutput());
         $stdout = trim($process->getOutput());
@@ -256,7 +275,7 @@ class WhatnotScraper
      *
      * @return array{created: int, skipped: int}
      */
-    public function importShowOrders(Show $show, bool $debug = false): array
+    public function importShowOrders(Show $show, bool $debug = false, ?callable $onProgress = null): array
     {
         $liveId = $this->extractLiveIdFromUrl($show->detail_url);
         if (! $liveId) {
@@ -271,6 +290,7 @@ class WhatnotScraper
             [['live_id' => $liveId, 'show_key' => $show->id]],
             $show->channel?->whatnot_username,
             $debug,
+            $onProgress,
         );
 
         return $this->persistShowOrders($show, $ordersByShow[$show->id] ?? []);
@@ -287,17 +307,19 @@ class WhatnotScraper
     {
         $created = 0;
         $skipped = 0;
+        $updated = 0;
 
         // Default each new order's location to the show's streamer's own inventory
         // location, so the streamer's Items editor is pre-filled with their location.
         $defaultLocationId = $show->defaultInventoryLocation()?->id;
 
-        // Pre-load all existing order IDs and fallback keys in two queries instead of one per row
-        $existingOrderIds = WhatnotShowOrder::where('show_id', $show->id)
+        // Pre-load existing orders keyed by whatnot_order_id — needed as full models
+        // (not just an existence set) so a shipments-batch row carrying weight/dims/
+        // carrier can be merged onto the matching record instead of just skipped.
+        $existingByOrderId = WhatnotShowOrder::where('show_id', $show->id)
             ->whereNotNull('whatnot_order_id')
-            ->pluck('whatnot_order_id')
-            ->flip()
-            ->toArray();
+            ->get()
+            ->keyBy('whatnot_order_id');
 
         $existingFallbackKeys = WhatnotShowOrder::where('show_id', $show->id)
             ->whereNull('whatnot_order_id')
@@ -307,25 +329,30 @@ class WhatnotScraper
             ->toArray();
 
         foreach ($rows as $row) {
+            $orderId = $row['order_id'] ?? null;
+
+            if ($orderId && $existingByOrderId->has($orderId)) {
+                if ($this->mergeShipmentFields($existingByOrderId->get($orderId), $row)) {
+                    $updated++;
+                } else {
+                    $skipped++;
+                }
+                continue;
+            }
+
             if (empty($row['buyer']) && empty($row['item_name'])) {
                 $skipped++;
                 continue;
             }
 
-            $orderId = $row['order_id'] ?? null;
-
-            if ($orderId) {
-                $existing = isset($existingOrderIds[$orderId]);
-            } else {
-                $key      = ($row['buyer'] ?? '') . '|' . ($row['item_name'] ?? '') . '|' . ($row['lot_number'] ?? '');
-                $existing = isset($existingFallbackKeys[$key]);
+            if (! $orderId) {
+                $key = ($row['buyer'] ?? '') . '|' . ($row['item_name'] ?? '') . '|' . ($row['lot_number'] ?? '');
+                if (isset($existingFallbackKeys[$key])) {
+                    $skipped++;
+                    continue;
+                }
                 // Guard against duplicate rows within this same batch
                 $existingFallbackKeys[$key] = true;
-            }
-
-            if ($existing) {
-                $skipped++;
-                continue;
             }
 
             WhatnotShowOrder::create([
@@ -350,10 +377,217 @@ class WhatnotScraper
         Log::info('WhatnotScraper persistShowOrders complete', [
             'show_id' => $show->id,
             'created' => $created,
+            'updated' => $updated,
             'skipped' => $skipped,
         ]);
 
-        return compact('created', 'skipped');
+        return compact('created', 'skipped', 'updated');
+    }
+
+    /**
+     * Persist individual shipment records for a show from scraped shipment data.
+     * Creates new Shipment records and updates existing ones by tracking number.
+     *
+     * @return array{created: int, updated: int, skipped: int}
+     */
+    public function persistShipments(Show $show, array $rows): array
+    {
+        $created = 0;
+        $updated = 0;
+        $skipped = 0;
+
+        $existingByTracking = Shipment::where('show_id', $show->id)
+            ->whereNotNull('tracking_number')
+            ->get()
+            ->keyBy('tracking_number');
+
+        foreach ($rows as $row) {
+            $trackingNumber = $row['tracking_number'] ?? null;
+
+            if (! $trackingNumber) {
+                $skipped++;
+                continue;
+            }
+
+            if ($existingByTracking->has($trackingNumber)) {
+                $shipment = $existingByTracking->get($trackingNumber);
+                $updateData = array_filter([
+                    'buyer_username'     => $row['buyer'] ?? null,
+                    'item_count'         => $row['quantity'] ?? null,
+                    'shipping_cost'      => $row['total_price'] ?? null,
+                    'weight_oz'          => $row['weight_oz'] ?? null,
+                    'dimensions_json'    => $this->parseDimensions($row),
+                    'status'             => $row['shipping_status_scraped'] ?? null,
+                    'carrier'            => $row['shipping_carrier'] ?? null,
+                    'insurance_added'    => $this->detectInsuranceAdded($row),
+                    'signature_required' => $this->detectSignatureRequired($row),
+                    'raw_payload'        => $row,
+                ], fn ($v) => $v !== null && $v !== '');
+
+                if (! empty($updateData)) {
+                    $shipment->update($updateData);
+                    $updated++;
+                }
+                continue;
+            }
+
+            Shipment::create([
+                'show_id'            => $show->id,
+                'whatnot_order_id'   => $row['order_id'] ?? null,
+                'buyer_username'     => $row['buyer'] ?? null,
+                'created_at_whatnot' => $show->show_date,
+                'item_count'         => $row['quantity'] ?? null,
+                'shipping_cost'      => $row['total_price'] ?? null,
+                'weight_oz'          => $row['weight_oz'] ?? null,
+                'dimensions_json'    => $this->parseDimensions($row),
+                'status'             => $row['shipping_status_scraped'] ?? null,
+                'carrier'            => $row['shipping_carrier'] ?? null,
+                'tracking_number'    => $trackingNumber,
+                'insurance_added'    => $this->detectInsuranceAdded($row),
+                'signature_required' => $this->detectSignatureRequired($row),
+                'raw_payload'        => $row,
+            ]);
+
+            $created++;
+        }
+
+        Log::info('WhatnotScraper persistShipments complete', [
+            'show_id' => $show->id,
+            'created' => $created,
+            'updated' => $updated,
+            'skipped' => $skipped,
+        ]);
+
+        return compact('created', 'updated', 'skipped');
+    }
+
+    /**
+     * Parse box dimensions from raw row data into a structured format.
+     */
+    private function parseDimensions(array $row): ?array
+    {
+        $dims = array_filter([
+            'length_in' => $row['box_length_in'] ?? null,
+            'width_in'  => $row['box_width_in'] ?? null,
+            'height_in' => $row['box_height_in'] ?? null,
+        ], fn ($v) => $v !== null);
+
+        return ! empty($dims) ? $dims : null;
+    }
+
+    /**
+     * Detect if insurance was added from raw row data.
+     */
+    private function detectInsuranceAdded(array $row): bool
+    {
+        $text = ($row['raw_text'] ?? '') . ' ' . implode(' ', $row);
+        return (bool) preg_match('/insurance\s+added/i', $text);
+    }
+
+    /**
+     * Detect if signature was required from raw row data.
+     */
+    private function detectSignatureRequired(array $row): bool
+    {
+        $text = ($row['raw_text'] ?? '') . ' ' . implode(' ', $row);
+        return (bool) preg_match('/signature\s+required/i', $text);
+    }
+
+    /**
+     * Merge shipment metadata (weight/dims/carrier/shipping status) from a
+     * scraped row onto an already-persisted order. Only non-null incoming
+     * fields are applied, and shipping_status never regresses to an earlier
+     * stage — guards against a stale/cached shipments-page scrape overwriting
+     * a status ops already advanced manually. Returns true if anything changed.
+     */
+    private function mergeShipmentFields(WhatnotShowOrder $order, array $row): bool
+    {
+        $fields = array_filter([
+            'shipment_weight_oz' => $row['weight_oz'] ?? null,
+            'box_length_in'      => $row['box_length_in'] ?? null,
+            'box_width_in'       => $row['box_width_in'] ?? null,
+            'box_height_in'      => $row['box_height_in'] ?? null,
+            'shipping_carrier'   => $row['shipping_carrier'] ?? null,
+            'shipping_service'   => $row['shipping_service'] ?? null,
+            'shipping_status'    => $row['shipping_status_scraped'] ?? null,
+        ], fn ($v) => $v !== null && $v !== '');
+
+        if (empty($fields)) {
+            return false;
+        }
+
+        if (isset($fields['shipping_status'])) {
+            $rank         = array_flip(array_keys(WhatnotShowOrder::shippingStatusLabels()));
+            $incomingRank = $rank[$fields['shipping_status']] ?? 0;
+            $currentRank  = $order->shipping_status ? ($rank[$order->shipping_status] ?? 0) : -1;
+
+            if ($incomingRank < $currentRank) {
+                unset($fields['shipping_status']);
+            }
+        }
+
+        if (empty($fields)) {
+            return false;
+        }
+
+        $fields['shipment_synced_at'] = now();
+        $order->update($fields);
+
+        return true;
+    }
+
+    /**
+     * Refresh shipment metadata (weight/dims/carrier/status) for a batch of shows
+     * that already have orders imported. Shows with no resolvable livestream id
+     * are skipped (counted, not errored) — resolves against the same
+     * "/dashboard/live/<uuid>" / "?source=<uuid>" pattern used elsewhere.
+     *
+     * @param  \Illuminate\Support\Collection<int,Show>  $shows
+     * @return array{updated: int, skipped_shows: int}
+     */
+    public function refreshShipmentsForShows(\Illuminate\Support\Collection $shows, ?string $channelUsername = null, bool $debug = false): array
+    {
+        $sources = [];
+        $byKey   = [];
+        foreach ($shows as $show) {
+            $liveId = $this->extractLiveIdFromUrl($show->detail_url);
+            if (! $liveId) {
+                continue;
+            }
+            $sources[] = ['live_id' => $liveId, 'show_key' => $show->id];
+            $byKey[$show->id] = $show;
+        }
+
+        $skippedShows = $shows->count() - count($sources);
+
+        if (empty($sources)) {
+            return ['updated' => 0, 'skipped_shows' => $skippedShows];
+        }
+
+        try {
+            $shipmentsByShow = $this->fetchShipmentsForShows($sources, $channelUsername, $debug);
+        } catch (\Throwable $e) {
+            // Shipment refresh is best-effort — never blow up the caller over it.
+            Log::error('WhatnotScraper: shipments refresh failed — ' . $e->getMessage());
+            return ['updated' => 0, 'skipped_shows' => $shows->count()];
+        }
+
+        $updated = 0;
+        foreach ($shipmentsByShow as $showKey => $rows) {
+            $show = $byKey[$showKey] ?? null;
+            if (! $show || empty($rows)) {
+                continue;
+            }
+            // Update orders with shipment metadata
+            $orderRes = $this->persistShowOrders($show, $rows);
+            $updated += $orderRes['updated'] ?? 0;
+
+            // Also create individual Shipment records
+            $shipmentRes = $this->persistShipments($show, $rows);
+            $updated += $shipmentRes['created'] ?? 0;
+        }
+
+        return ['updated' => $updated, 'skipped_shows' => $skippedShows];
     }
 
     /**
@@ -362,18 +596,57 @@ class WhatnotScraper
      * @param  array<int,array{live_id:string, show_key:int|string}>  $sources
      * @return array<int|string, array<int,array<string,mixed>>>  map of show_key => order rows
      */
-    public function fetchOrdersForShows(array $sources, ?string $channelUsername = null, bool $debug = false): array
+    public function fetchOrdersForShows(array $sources, ?string $channelUsername = null, bool $debug = false, ?callable $onProgress = null): array
+    {
+        return $this->runBatchScrape('orders-batch', $sources, $channelUsername, $debug, $onProgress);
+    }
+
+    /**
+     * Refresh weight/dimensions/carrier/shipping-status for shows that already
+     * have orders imported, scraping /dashboard/shipments?source=<id> directly.
+     * Returned rows are merge-only — persistShowOrders() updates existing orders
+     * matched by whatnot_order_id and never creates new ones from this source.
+     *
+     * @param  array<int,array{live_id:string, show_key:int|string}>  $sources
+     * @return array<int|string, array<int,array<string,mixed>>>  map of show_key => shipment rows
+     */
+    public function fetchShipmentsForShows(array $sources, ?string $channelUsername = null, bool $debug = false, ?callable $onProgress = null): array
+    {
+        return $this->runBatchScrape('shipments-batch', $sources, $channelUsername, $debug, $onProgress);
+    }
+
+    /**
+     * Discover shows from /dashboard/lives and scrape shipments for each.
+     * Does not require pre-extracted livestream IDs — discovers them on demand
+     * by visiting the live shows page. Returns shipment rows keyed by livestream_id.
+     *
+     * @return array<string, array<int,array<string,mixed>>>  map of live_id => shipment rows
+     */
+    public function fetchShipmentsFromLivePage(?string $channelUsername = null, bool $debug = false, ?callable $onProgress = null): array
+    {
+        return $this->runSimpleScrape('shipments-live', $channelUsername, $debug, $onProgress);
+    }
+
+    /**
+     * Shared driver for the orders-batch and shipments-batch scraper modes —
+     * both take the same [{live_id, show_key}] input and return the same
+     * {show_key => rows} shape, differing only in which Whatnot page they scrape.
+     *
+     * @param  array<int,array{live_id:string, show_key:int|string}>  $sources
+     * @return array<int|string, array<int,array<string,mixed>>>
+     */
+    private function runBatchScrape(string $mode, array $sources, ?string $channelUsername, bool $debug, ?callable $onProgress = null): array
     {
         if (empty($sources)) {
             return [];
         }
 
-        $srcFile = tempnam(sys_get_temp_dir(), 'wn-orders-') . '.json';
+        $srcFile = tempnam(sys_get_temp_dir(), 'wn-' . $mode . '-') . '.json';
         file_put_contents($srcFile, json_encode(array_values($sources)));
 
         $env = $this->baseEnv($debug);
-        $env['WHATNOT_MODE']                = 'orders-batch';
-        $env['WHATNOT_ORDER_SOURCES_FILE']  = $srcFile;
+        $env['WHATNOT_MODE']               = $mode;
+        $env['WHATNOT_ORDER_SOURCES_FILE'] = $srcFile;
         if ($channelUsername) {
             $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
         }
@@ -384,20 +657,26 @@ class WhatnotScraper
 
         try {
             $process = $this->makeProcess($env, timeout: $timeout);
-            $this->withBrowserLock(fn () => $process->run());
+            $this->withBrowserLock(function () use ($process, $onProgress) {
+                if ($onProgress) {
+                    $this->streamProcess($process, $onProgress);
+                } else {
+                    $process->run();
+                }
+            });
 
             $stderr = trim($process->getErrorOutput());
             $stdout = trim($process->getOutput());
 
             if ($stderr) {
-                Log::channel('stack')->warning('WhatnotScraper orders-batch stderr', ['output' => $stderr]);
+                Log::channel('stack')->warning("WhatnotScraper {$mode} stderr", ['output' => $stderr]);
                 if ($debug) {
                     fwrite(STDERR, $stderr . "\n");
                 }
             }
 
             if (! $process->isSuccessful() || empty($stdout)) {
-                Log::warning('WhatnotScraper orders-batch produced no usable output', [
+                Log::warning("WhatnotScraper {$mode} produced no usable output", [
                     'exit' => $process->getExitCode(),
                 ]);
                 return [];
@@ -405,7 +684,7 @@ class WhatnotScraper
 
             $data = json_decode($stdout, true);
             if (json_last_error() !== JSON_ERROR_NONE || ! is_array($data)) {
-                Log::warning('WhatnotScraper orders-batch returned invalid JSON', ['error' => json_last_error_msg()]);
+                Log::warning("WhatnotScraper {$mode} returned invalid JSON", ['error' => json_last_error_msg()]);
                 return [];
             }
 
@@ -421,6 +700,69 @@ class WhatnotScraper
             return $map;
         } finally {
             @unlink($srcFile);
+        }
+    }
+
+    /**
+     * Run a scraper mode that doesn't require pre-extracted sources (e.g., shipments-live).
+     * The scraper discovers its own data on the page.
+     *
+     * @return array<string, array<int,array<string,mixed>>>  map of live_id => rows
+     */
+    private function runSimpleScrape(string $mode, ?string $channelUsername, bool $debug, ?callable $onProgress = null): array
+    {
+        $env = $this->baseEnv($debug);
+        $env['WHATNOT_MODE'] = $mode;
+        if ($channelUsername) {
+            $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
+        }
+
+        $timeout = 3600; // 1 hour max for discovery modes
+
+        try {
+            $process = $this->makeProcess($env, timeout: $timeout);
+            $this->withBrowserLock(function () use ($process, $onProgress) {
+                if ($onProgress) {
+                    $this->streamProcess($process, $onProgress);
+                } else {
+                    $process->run();
+                }
+            });
+
+            $stderr = trim($process->getErrorOutput());
+            $stdout = trim($process->getOutput());
+
+            if ($stderr) {
+                Log::channel('stack')->warning("WhatnotScraper {$mode} stderr", ['output' => $stderr]);
+                if ($debug) {
+                    fwrite(STDERR, $stderr . "\n");
+                }
+            }
+
+            if (!$process->isSuccessful() || empty($stdout)) {
+                Log::warning("WhatnotScraper {$mode} produced no usable output", [
+                    'exit' => $process->getExitCode(),
+                ]);
+                return [];
+            }
+
+            $data = json_decode($stdout, true);
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($data)) {
+                Log::warning("WhatnotScraper {$mode} returned invalid JSON", ['error' => json_last_error_msg()]);
+                return [];
+            }
+
+            $map = [];
+            foreach ($data as $entry) {
+                $key = $entry['live_id'] ?? null;
+                if ($key === null) {
+                    continue;
+                }
+                $map[$key] = $entry['orders'] ?? [];
+            }
+
+            return $map;
+        } finally {
         }
     }
 
@@ -571,7 +913,7 @@ class WhatnotScraper
         // Always default to /opt/pw-browsers (the shared install location) when the var
         // isn't set in the web-server environment.
         if (! isset($env['PLAYWRIGHT_BROWSERS_PATH'])) {
-            $pwPath = env('PLAYWRIGHT_BROWSERS_PATH');
+            $pwPath = config('vortex.whatnot.playwright_browsers_path');
             $env['PLAYWRIGHT_BROWSERS_PATH'] = $pwPath ?: '/opt/pw-browsers';
         }
 
@@ -579,7 +921,7 @@ class WhatnotScraper
         // skips the fs.existsSync check (which fails when the binary lives under /root/).
         // Precedence: explicit .env var > marker file written by artisan whatnot:setup-chromium
         if (! isset($env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'])) {
-            $explicit = env('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH');
+            $explicit = config('vortex.whatnot.playwright_chromium_executable');
             if ($explicit) {
                 $env['PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'] = $explicit;
             } else {
@@ -602,6 +944,38 @@ class WhatnotScraper
     }
 
     /**
+     * Run a process non-blocking, polling stderr and forwarding each line to
+     * $onProgress as it arrives — the live-output counterpart to $process->run().
+     * Still leaves getOutput()/getErrorOutput() fully populated afterward since
+     * Symfony Process buffers regardless of polling.
+     */
+    private function streamProcess(Process $process, callable $onProgress): void
+    {
+        $process->start();
+        while ($process->isRunning()) {
+            // isRunning() alone never enforces the timeout set via setTimeout() —
+            // only wait()/run() do that internally. This manual polling loop bypasses
+            // both, so without this call a wedged child process (network stall, a
+            // page that never reaches networkidle) runs forever instead of throwing
+            // ProcessTimedOutException like every non-streaming scraper call does.
+            $process->checkTimeout();
+
+            if ($err = $process->getIncrementalErrorOutput()) {
+                foreach (explode("\n", trim($err)) as $line) {
+                    if ($line !== '') $onProgress($line);
+                }
+            }
+            usleep(200_000);
+        }
+        // drain any remaining stderr after process exits
+        if ($err = $process->getIncrementalErrorOutput()) {
+            foreach (explode("\n", trim($err)) as $line) {
+                if ($line !== '') $onProgress($line);
+            }
+        }
+    }
+
+    /**
      * Serialize every Chromium-launching task behind one shared lock.
      *
      * All whatnot:* work (shows, orders, ledger, discover, cookie dumps) drives
@@ -609,8 +983,14 @@ class WhatnotScraper
      * profile and produce garbage/empty scrapes, so import/orders/ledger — run
      * from cron, Filament, or the CLI — must take turns. The callback holds the
      * lock only while the browser process runs; DB persistence happens after it
-     * is released. TTL (30 min) safely exceeds the longest process timeout
-     * (1200 s) so a crashed run can't wedge the lock forever.
+     * is released. TTL must safely exceed the longest process timeout any
+     * caller can pass to makeProcess() so a crashed run can't wedge the lock
+     * forever — but if the TTL is SHORTER than a legitimate still-running
+     * process, the lock auto-expires mid-operation and lets a second process
+     * start a competing Chromium instance against the same profile, which is
+     * its own (worse) way to corrupt things. Longest known caller today is
+     * fetchShows() with type=full (500 shows): up to 12000s. Keep this
+     * comfortably above that.
      *
      * @template T
      * @param  callable():T  $fn
@@ -618,22 +998,32 @@ class WhatnotScraper
      */
     protected function withBrowserLock(callable $fn, int $waitSeconds = 1200)
     {
-        $lock = Cache::lock('whatnot:browser', 1800);
+        $lock = Cache::lock('whatnot:browser', 13800);
 
         try {
             // block() waits up to $waitSeconds for the lock, throwing on timeout.
             $lock->block($waitSeconds);
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
             throw new \RuntimeException(
-                'Timed out waiting for the shared Whatnot browser lock — another import/orders/ledger task is still running.',
+                'Timed out waiting for the shared Whatnot browser lock — another import/orders/ledger task is still ' .
+                'running, OR a previous run was killed (pkill -9, Ctrl+C, OOM) before it could release the lock ' .
+                'cleanly, leaving it stuck for up to its TTL. Check `ps aux | grep whatnot-scraper` first — if ' .
+                'nothing real is running, clear it with `php artisan whatnot:unlock`.',
                 0,
                 $e
             );
         }
 
+        // A process killed with SIGKILL never reaches the finally block below,
+        // so the lock would otherwise sit "held" for its full TTL even though
+        // nothing is actually running. Track the holder's PID so whatnot:unlock
+        // can tell a genuinely stuck lock apart from a still-running one.
+        Cache::put('whatnot:browser:holder_pid', getmypid(), 13800);
+
         try {
             return $fn();
         } finally {
+            Cache::forget('whatnot:browser:holder_pid');
             $lock->release();
         }
     }
@@ -642,13 +1032,27 @@ class WhatnotScraper
      * Fetch shows and upsert them into the shows table for one channel.
      * Returns counts: ['created' => n, 'updated' => n, 'skipped' => n].
      */
-    public function importShows(?WhatnotChannel $channel = null, int $limit = 50, bool $debug = false, bool $withOrders = true): array
+    public function importShows(?WhatnotChannel $channel = null, int $limit = 50, bool $debug = false, bool $withOrders = true, ?callable $onProgress = null): array
     {
-        $rows = $this->fetchShows($limit, $debug, $channel?->whatnot_username);
+        try {
+            $rows = $this->fetchShows($limit, $debug, $channel?->whatnot_username, $onProgress);
+        } catch (\Throwable $e) {
+            ShowIngestionLog::create([
+                'source'        => 'whatnot',
+                'status'        => 'failed',
+                'error_message' => $e->getMessage(),
+                'raw_payload'   => ['channel' => $channel?->name, 'limit' => $limit],
+            ]);
+            throw $e;
+        }
 
         $created = 0;
         $updated = 0;
         $skipped = 0;
+
+        if ($onProgress) {
+            $onProgress(sprintf('Fetched %d show(s) from Whatnot — importing…', count($rows)));
+        }
 
         // Collect (Show, livestream id) pairs so we can batch-scrape their orders
         // in a single session after all shows are persisted.
@@ -657,6 +1061,15 @@ class WhatnotScraper
         foreach ($rows as $row) {
             if (empty($row['title']) && empty($row['show_date'])) {
                 $skipped++;
+                ShowIngestionLog::create([
+                    'source'        => 'whatnot',
+                    'status'        => 'failed',
+                    'error_message' => 'Scraped row had no title or show_date — could not identify the show.',
+                    'raw_payload'   => $row,
+                ]);
+                if ($onProgress) {
+                    $onProgress('Skipped: row had no title or show date');
+                }
                 continue;
             }
 
@@ -682,6 +1095,8 @@ class WhatnotScraper
                 'whatnot_channel_id'    => $channel?->id,
                 'title'                 => $lookupTitle,
                 'show_date'             => $lookupDate,
+                'start_time'            => $row['start_time'] ?? null,
+                'end_time'              => $row['end_time'] ?? null,
                 'show_duration'         => $row['show_duration'] ?? null,
                 'gross_revenue'         => $row['gross_revenue'] ?? null,
                 'whatnot_net'           => $row['whatnot_net'] ?? null,
@@ -705,6 +1120,7 @@ class WhatnotScraper
             if ($existing) {
                 $updateFields = array_intersect_key($payload, array_flip([
                     'gross_revenue', 'whatnot_net', 'tips', 'units_sold', 'show_duration', 'detail_url',
+                    'start_time', 'end_time',
                     'completed_earnings', 'avg_order_value', 'giveaway_spend', 'giveaways_count',
                     'buyers_count', 'first_time_buyers', 'returning_buyers', 'shares_count',
                     'max_concurrent_viewers', 'total_views', 'avg_order_rating',
@@ -719,23 +1135,93 @@ class WhatnotScraper
                     $updateFields['channel_attribution_suspect'] = true;
                 }
 
+                // Revision guard: a show past pending_review may already have deduction
+                // lines and payouts calculated off its current numbers. If a later scrape
+                // brings back different core financials, flag it rather than silently
+                // overwriting the figures ops already reviewed/approved.
+                if (in_array($existing->status, ['pending_approval', 'reconciled', 'closed'], true)) {
+                    $changes = [];
+                    foreach (['gross_revenue', 'whatnot_net', 'tips', 'units_sold'] as $field) {
+                        if (! array_key_exists($field, $updateFields)) {
+                            continue;
+                        }
+                        $old = (float) $existing->{$field};
+                        $new = (float) $updateFields[$field];
+                        if (abs($old - $new) > 0.01) {
+                            $changes[] = "{$field}: {$old} → {$new}";
+                        }
+                    }
+
+                    if (! empty($changes)) {
+                        $updateFields['financials_revised_after_lock'] = true;
+                        $updateFields['revision_notes'] = trim(
+                            ($existing->revision_notes ? $existing->revision_notes . "\n" : '')
+                            . now()->format('M j, Y g:ia') . ' — ' . implode('; ', $changes)
+                        );
+                    }
+                }
+
                 if (! empty($updateFields)) {
+                    $existing->trackChanges($updateFields, 'whatnot_import');
                     $existing->update($updateFields);
                     $updated++;
+                    ShowIngestionLog::create([
+                        'show_id'     => $existing->id,
+                        'source'      => 'whatnot',
+                        'status'      => 'success',
+                        'raw_payload' => $row,
+                    ]);
+                    if ($onProgress) {
+                        $onProgress("Updated: \"{$existing->title}\" ({$lookupDate}) — " . implode(', ', array_keys($updateFields)));
+                    }
                 } else {
                     $skipped++;
+                    if ($onProgress) {
+                        $onProgress("Unchanged: \"{$existing->title}\" ({$lookupDate}) — already up to date");
+                    }
                 }
                 $showModel = $existing;
+
+                // Catches shows that slipped through a prior import without a
+                // match (e.g. the streamer roster didn't have them yet at the
+                // time) — try again on every re-scrape until one sticks.
+                if ($showModel->streamers()->count() === 0) {
+                    $showModel->detectStreamers();
+                }
             } else {
                 // show_date is NOT NULL with no default — skip creation rather than crash
                 if (! $lookupDate) {
                     $skipped++;
+                    ShowIngestionLog::create([
+                        'source'        => 'whatnot',
+                        'status'        => 'failed',
+                        'error_message' => 'Scraped row had a title but no show_date (required) — show was not created.',
+                        'raw_payload'   => $row,
+                    ]);
+                    if ($onProgress) {
+                        $onProgress("Skipped: \"{$lookupTitle}\" has no show_date — cannot create");
+                    }
                     continue;
                 }
-                $show = Show::create(array_merge($payload, ['status' => 'draft', 'created_by' => auth()->id() ?? 1]));
+                // Set status to 'mapping' if units were sold (items need mapping), otherwise 'draft' (no items/test show)
+                $status = ($payload['units_sold'] ?? 0) > 0 ? 'mapping' : 'draft';
+                $show = Show::create(array_merge($payload, ['status' => $status, 'created_by' => auth()->id() ?? 1]));
                 $show->detectStreamers();
                 $created++;
                 $showModel = $show;
+                ShowIngestionLog::create([
+                    'show_id'     => $show->id,
+                    'source'      => 'whatnot',
+                    'status'      => 'success',
+                    'raw_payload' => $row,
+                ]);
+                if ($onProgress) {
+                    $show->load('streamers');
+                    $streamerNote = $show->streamers->isNotEmpty()
+                        ? ' → matched streamer: ' . $show->streamers->pluck('name')->join(', ')
+                        : '';
+                    $onProgress("Created: \"{$show->title}\" ({$lookupDate}){$streamerNote}");
+                }
             }
 
             // Auto-create the streamer's log entry for this show so they land
@@ -749,20 +1235,43 @@ class WhatnotScraper
             }
         }
 
+        if ($onProgress) {
+            $onProgress("Shows done: {$created} created, {$updated} updated, {$skipped} skipped.");
+        }
+
         $ordersCreated = 0;
+        $shipmentsCreated = 0;
         if ($withOrders && ! empty($orderTargets)) {
-            $ordersCreated = $this->importOrdersForTargets($orderTargets, $channel?->whatnot_username, $debug);
+            if ($onProgress) {
+                $onProgress(sprintf('Scraping orders for %d show(s)…', count($orderTargets)));
+            }
+            $ordersCreated = $this->importOrdersForTargets($orderTargets, $channel?->whatnot_username, $debug, $onProgress);
+            if ($onProgress) {
+                $onProgress("Orders done: {$ordersCreated} order(s) created.");
+            }
+
+            // Also scrape shipment data for shows that have orders
+            if ($onProgress) {
+                $onProgress(sprintf('Scraping shipments for %d show(s)…', count($orderTargets)));
+            }
+            $showsWithOrders = collect($orderTargets)->pluck('show')->unique('id');
+            $shipmentResults = $this->refreshShipmentsForShows($showsWithOrders, $channel?->whatnot_username, $debug);
+            $shipmentsCreated = $shipmentResults['updated'] ?? 0;
+            if ($onProgress) {
+                $onProgress("Shipments done: {$shipmentsCreated} shipment(s) imported.");
+            }
         }
 
         Log::info('WhatnotScraper import complete', [
-            'channel'        => $channel?->name,
-            'created'        => $created,
-            'updated'        => $updated,
-            'skipped'        => $skipped,
-            'orders_created' => $ordersCreated,
+            'channel'          => $channel?->name,
+            'created'          => $created,
+            'updated'          => $updated,
+            'skipped'          => $skipped,
+            'orders_created'   => $ordersCreated,
+            'shipments_created' => $shipmentsCreated,
         ]);
 
-        return compact('created', 'updated', 'skipped', 'ordersCreated');
+        return compact('created', 'updated', 'skipped', 'ordersCreated', 'shipmentsCreated');
     }
 
     /**
@@ -806,7 +1315,7 @@ class WhatnotScraper
      * @param  array<int,array{show: Show, live_id: string}>  $targets
      * @return int  total orders created across all shows
      */
-    private function importOrdersForTargets(array $targets, ?string $channelUsername, bool $debug): int
+    private function importOrdersForTargets(array $targets, ?string $channelUsername, bool $debug, ?callable $onProgress = null): int
     {
         $sources = [];
         $byKey   = [];
@@ -817,7 +1326,7 @@ class WhatnotScraper
         }
 
         try {
-            $ordersByShow = $this->fetchOrdersForShows($sources, $channelUsername, $debug);
+            $ordersByShow = $this->fetchOrdersForShows($sources, $channelUsername, $debug, $onProgress);
         } catch (\Throwable $e) {
             // Order scraping is best-effort — never fail the whole show import over it.
             Log::error('WhatnotScraper: batched order scrape failed — ' . $e->getMessage());
@@ -843,11 +1352,18 @@ class WhatnotScraper
                     'scraped'  => count($rows),
                     'expected' => $expected,
                 ]);
+                if ($onProgress) {
+                    $onProgress("Orders skipped for \"{$show->title}\" — scraped count far exceeds expected, likely unfiltered");
+                }
                 continue;
             }
 
             $res = $this->persistShowOrders($show, $rows);
             $ordersCreated += $res['created'];
+
+            if ($onProgress) {
+                $onProgress("Orders for \"{$show->title}\": {$res['created']} created, {$res['skipped']} skipped" . (($res['updated'] ?? 0) > 0 ? ", {$res['updated']} updated" : ''));
+            }
         }
 
         return $ordersCreated;
@@ -911,21 +1427,7 @@ class WhatnotScraper
 
         $this->withBrowserLock(function () use ($process, $onProgress) {
             if ($onProgress) {
-                $process->start();
-                while ($process->isRunning()) {
-                    if ($err = $process->getIncrementalErrorOutput()) {
-                        foreach (explode("\n", trim($err)) as $line) {
-                            if ($line !== '') $onProgress($line);
-                        }
-                    }
-                    usleep(200_000);
-                }
-                // drain any remaining stderr after process exits
-                if ($err = $process->getIncrementalErrorOutput()) {
-                    foreach (explode("\n", trim($err)) as $line) {
-                        if ($line !== '') $onProgress($line);
-                    }
-                }
+                $this->streamProcess($process, $onProgress);
             } else {
                 $process->run();
             }
@@ -980,20 +1482,7 @@ class WhatnotScraper
 
         $this->withBrowserLock(function () use ($process, $onProgress) {
             if ($onProgress) {
-                $process->start();
-                while ($process->isRunning()) {
-                    if ($err = $process->getIncrementalErrorOutput()) {
-                        foreach (explode("\n", trim($err)) as $line) {
-                            if ($line !== '') $onProgress($line);
-                        }
-                    }
-                    usleep(200_000);
-                }
-                if ($err = $process->getIncrementalErrorOutput()) {
-                    foreach (explode("\n", trim($err)) as $line) {
-                        if ($line !== '') $onProgress($line);
-                    }
-                }
+                $this->streamProcess($process, $onProgress);
             } else {
                 $process->run();
             }

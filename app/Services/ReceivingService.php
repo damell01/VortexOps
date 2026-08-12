@@ -46,6 +46,7 @@ class ReceivingService
     /**
      * Receive all expected cases for the pallet line whose item matches the
      * given barcode or SKU. Used by the scanner's Receive Pallet mode.
+     * Transitions pending items to received status.
      *
      * @throws RuntimeException if no matching line is found, line is unmapped,
      *                          or all cases for that line are already received.
@@ -54,16 +55,15 @@ class ReceivingService
     {
         $pallet->load(['lines.inventoryItem', 'lines.cases']);
 
-        $code = strtolower(trim($code));
+        // Product::findByScan() also checks product_identities, so a SKU with
+        // several barcodes registered (e.g. different vendor packaging for a
+        // restock) resolves to the same line here — this used to only compare
+        // against the item's single barcode/sku column directly.
+        $scannedItem = Product::findByScan(trim($code));
 
-        $line = $pallet->lines->first(function (PalletLine $line) use ($code) {
-            $item = $line->inventoryItem;
-            if (! $item) {
-                return false;
-            }
-            return ($item->barcode && strtolower($item->barcode) === $code)
-                || ($item->sku && strtolower($item->sku) === $code);
-        });
+        $line = $scannedItem
+            ? $pallet->lines->first(fn (PalletLine $line) => $line->inventory_item_id === $scannedItem->id)
+            : null;
 
         if (! $line) {
             throw new RuntimeException("No line in this pallet matches \"{$code}\". Check the item's SKU or barcode.");
@@ -86,7 +86,11 @@ class ReceivingService
 
         $received = $this->receiveAllCasesForLine($line);
 
+        // Update pallet line status from pending to received
+        $line->update(['line_status' => 'received']);
+
         return [
+            'line_id'        => $line->id,
             'line_number'    => $line->line_number,
             'item_name'      => $line->inventoryItem->name,
             'cases_received' => $received,
@@ -154,7 +158,7 @@ class ReceivingService
      *
      * @throws RuntimeException if line is not mapped.
      */
-    public function receiveAllCasesForLine(PalletLine $line): int
+    public function receiveAllCasesForLine(PalletLine $line, float $allocatedShippingCost = 0): int
     {
         if (! $line->inventory_item_id || ! $line->inventory_location_id) {
             throw new RuntimeException("Line #{$line->line_number} must be mapped to an item and location before bulk-receiving.");
@@ -171,14 +175,14 @@ class ReceivingService
             return 0;
         }
 
-        return $this->receiveCaseBatch($line, $expectedCases);
+        return $this->receiveCaseBatch($line, $expectedCases, $allocatedShippingCost);
     }
 
     /**
      * Receive a collection of cases belonging to the same line in one transaction.
      * Avoids N separate transactions, N PalletLine reloads, and N WAC updates.
      */
-    private function receiveCaseBatch(PalletLine $line, \Illuminate\Support\Collection $cases): int
+    private function receiveCaseBatch(PalletLine $line, \Illuminate\Support\Collection $cases, float $allocatedShippingCost = 0): int
     {
         $line->loadMissing(['inventoryItem', 'location']);
 
@@ -191,7 +195,11 @@ class ReceivingService
         $userId   = Auth::id();
         $totalQty = $qty * $count;
 
-        return DB::transaction(function () use ($cases, $item, $location, $qty, $unitCost, $line, $now, $userId, $count, $totalQty) {
+        // Allocate shipping cost per unit
+        $shippingCostPerUnit = $totalQty > 0 ? $allocatedShippingCost / $totalQty : 0;
+        $totalUnitCost = $unitCost + $shippingCostPerUnit;
+
+        return DB::transaction(function () use ($cases, $item, $location, $qty, $unitCost, $line, $now, $userId, $count, $totalQty, $allocatedShippingCost, $shippingCostPerUnit, $totalUnitCost) {
             // Bulk-mark all cases received
             InventoryCase::whereIn('id', $cases->pluck('id'))
                 ->update([
@@ -215,7 +223,7 @@ class ReceivingService
                 'to_location_id'    => $location->id,
                 'quantity'          => $qty,
                 'movement_type'     => 'opening',
-                'reason'            => "Received via pallet #{$line->pallet_id}, line #{$line->line_number}",
+                'reason'            => "Received via pallet #{$line->pallet_id}, line #{$line->line_number}" . ($allocatedShippingCost > 0 ? " (shipping: \${$allocatedShippingCost})" : ""),
                 'reference_type'    => 'inventory_case',
                 'reference_id'      => $case->id,
                 'created_by'        => $userId,
@@ -223,8 +231,8 @@ class ReceivingService
                 'updated_at'        => $now,
             ])->toArray());
 
-            // Single WAC recalculation for the entire batch
-            $this->recalculateAverageCost($item, $totalQty, $unitCost);
+            // Single WAC recalculation for the entire batch, including allocated shipping cost
+            $this->recalculateAverageCost($item, $totalQty, $totalUnitCost);
 
             return $count;
         });
@@ -234,6 +242,7 @@ class ReceivingService
      * Receive an entire pallet at once (all mapped lines, all cases).
      * All lines are processed inside a single outer transaction so a mid-pallet
      * failure does not leave partial stock committed.
+     * Updates all line statuses to 'received'.
      *
      * @throws RuntimeException if any line is unmapped.
      */
@@ -249,8 +258,18 @@ class ReceivingService
 
         return DB::transaction(function () use ($pallet) {
             $received = 0;
+
+            // Allocate shipping cost across lines based on their quantities
+            $totalLineQuantity = (float) $pallet->lines->sum(fn ($l) => (float) $l->quantity_per_case * (int) $l->case_count);
+            $shippingCost = (float) ($pallet->shipping_cost ?? 0);
+
             foreach ($pallet->lines as $line) {
-                $received += $this->receiveAllCasesForLine($line);
+                $lineQuantity = (float) $line->quantity_per_case * (int) $line->case_count;
+                $allocatedShipping = $totalLineQuantity > 0 ? ($shippingCost * $lineQuantity / $totalLineQuantity) : 0;
+
+                $received += $this->receiveAllCasesForLine($line, $allocatedShipping);
+                // Update line status to received
+                $line->update(['line_status' => 'received']);
             }
 
             $pallet->update(['status' => 'received']);

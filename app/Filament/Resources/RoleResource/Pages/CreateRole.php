@@ -10,8 +10,23 @@ class CreateRole extends CreateRecord
 {
     protected static string $resource = RoleResource::class;
 
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        // page_perms is virtual — persisted via NavVisibility in afterCreate(),
+        // never a column on the roles table. Role's mass-assignment is wide
+        // open (Spatie's model has no $fillable/$guarded restriction), so an
+        // unstripped nested array here would otherwise hit the DB as a raw
+        // "no such column" insert failure.
+        unset($data['page_perms']);
+
+        return $data;
+    }
+
     protected function afterCreate(): void
     {
-        NavVisibility::setHiddenForRole($this->record->name, $this->data['hidden_pages'] ?? []);
+        [$hidden, $readonly] = RoleResource::pagePermsToLists($this->data['page_perms'] ?? []);
+
+        NavVisibility::setHiddenForRole($this->record->name, $hidden);
+        NavVisibility::setReadonlyForRole($this->record->name, $readonly);
     }
 }

@@ -71,7 +71,7 @@ class LedgerResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make()->schema([
+            Section::make()->columnSpanFull()->schema([
                 Select::make('type')
                     ->options(LedgerEntry::typeLabels())
                     ->required(),
@@ -103,6 +103,9 @@ class LedgerResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No ledger entries')
+            ->emptyStateDescription('Financial entries appear here as shows are reconciled.')
+            ->emptyStateIcon('heroicon-o-book-open')
             ->columns([
                 TextColumn::make('transaction_date')
                     ->date()

@@ -2,24 +2,29 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\ProductIdentityResource\Pages;
+use App\Models\InventoryItem;
 use App\Models\ProductIdentity;
 use App\Support\AdminModules;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
+use Filament\Forms\Components\Select;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Collection;
 
 class ProductIdentityResource extends Resource
 {
+    use HasAdminNavVisibility;
     protected static ?string $model = ProductIdentity::class;
 
     protected static ?string $navigationLabel = 'Alias Manager';
-
-    protected static ?string $navigationParentItem = 'Shows';
 
     protected static ?string $label = 'Alias';
 
@@ -54,6 +59,7 @@ class ProductIdentityResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->persistFiltersInSession()
             ->modifyQueryUsing(fn ($query) => $query->where('type', ProductIdentity::TYPE_ALIAS)->with(['product', 'vendor', 'confirmedByUser']))
             ->columns([
                 TextColumn::make('value')
@@ -115,7 +121,35 @@ class ProductIdentityResource extends Resource
                 DeleteAction::make(),
             ])
             ->bulkActions([
-                BulkActionGroup::make([DeleteBulkAction::make()]),
+                BulkActionGroup::make([
+                    BulkAction::make('reassign_to_product')
+                        ->label('Reassign to Product')
+                        ->icon('heroicon-o-arrow-path-rounded-square')
+                        ->color('info')
+                        ->form([
+                            Select::make('product_id')
+                                ->label('Move selected aliases to')
+                                ->searchable()
+                                ->required()
+                                ->getSearchResultsUsing(fn (string $search) => InventoryItem::where(fn ($q) => $q
+                                        ->where('name', 'like', "%{$search}%")
+                                        ->orWhere('sku', 'like', "%{$search}%"))
+                                    ->orderBy('name')
+                                    ->limit(30)
+                                    ->pluck('name', 'id')
+                                    ->toArray())
+                                ->getOptionLabelUsing(fn ($value) => InventoryItem::find($value)?->name ?? $value),
+                        ])
+                        ->action(function (Collection $records, array $data): void {
+                            $records->each->update(['product_id' => $data['product_id']]);
+                            Notification::make()
+                                ->title($records->count() . ' alias(es) reassigned')
+                                ->success()
+                                ->send();
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                    DeleteBulkAction::make(),
+                ]),
             ])
             ->defaultSort('created_at', 'desc')
             ->striped()

@@ -55,6 +55,9 @@ class OrdersRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         $show = $this->getOwnerRecord();
+        if (!$show) {
+            return $table->recordTitleAttribute('item_name');
+        }
 
         return $table
             ->recordTitleAttribute('item_name')

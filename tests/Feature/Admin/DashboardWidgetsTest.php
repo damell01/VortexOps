@@ -4,10 +4,12 @@ namespace Tests\Feature\Admin;
 
 use App\Filament\Widgets\ActivityFeedWidget;
 use App\Filament\Widgets\NeedsAttentionWidget;
+use App\Filament\Widgets\RevenuePacingWidget;
 use App\Filament\Widgets\SetupChecklistWidget;
 use App\Filament\Widgets\ShowsCalendarWidget;
 use App\Models\Setting;
 use App\Models\Show;
+use App\Models\Streamer;
 use App\Models\User;
 use App\Support\AdminModules;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -125,6 +127,84 @@ class DashboardWidgetsTest extends TestCase
 
         Livewire::test(NeedsAttentionWidget::class)
             ->assertSee('dead on the shelf');
+    }
+
+    public function test_needs_attention_surfaces_zero_stock_mapped_sale(): void
+    {
+        $admin = $this->admin();
+
+        $item = \App\Models\InventoryItem::create(['name' => 'Ghost Card', 'unit_cost' => 10, 'is_active' => true]);
+        // No InventoryStock row at all for this item, and no restock movement.
+        \App\Models\WhatnotShowOrder::create([
+            'show_id' => Show::create(['title' => 'S', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $admin->id])->id,
+            'inventory_item_id' => $item->id, 'buyer_username' => 'b', 'item_name' => 'Ghost Card',
+            'quantity' => 1, 'unit_cost' => 10, 'total_price' => 12, 'status' => 'completed',
+            'show_date' => now()->subDays(3)->toDateString(),
+        ]);
+
+        Livewire::actingAs($admin);
+
+        Livewire::test(NeedsAttentionWidget::class)
+            ->assertSee('likely mis-mapped');
+    }
+
+    public function test_needs_attention_does_not_flag_item_with_stock(): void
+    {
+        $admin = $this->admin();
+
+        $item = \App\Models\InventoryItem::create(['name' => 'Real Card', 'unit_cost' => 10, 'is_active' => true]);
+        $loc  = \App\Models\InventoryLocation::create(['name' => 'Main']);
+        \App\Models\InventoryStock::create([
+            'inventory_item_id' => $item->id, 'inventory_location_id' => $loc->id, 'quantity' => 5,
+        ]);
+        \App\Models\WhatnotShowOrder::create([
+            'show_id' => Show::create(['title' => 'S', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $admin->id])->id,
+            'inventory_item_id' => $item->id, 'buyer_username' => 'b', 'item_name' => 'Real Card',
+            'quantity' => 1, 'unit_cost' => 10, 'total_price' => 12, 'status' => 'completed',
+            'show_date' => now()->subDays(3)->toDateString(),
+        ]);
+
+        Livewire::actingAs($admin);
+
+        Livewire::test(NeedsAttentionWidget::class)
+            ->assertDontSee('likely mis-mapped');
+    }
+
+    public function test_needs_attention_surfaces_trending_down_streamer(): void
+    {
+        $admin = $this->admin();
+        $streamer = Streamer::create(['name' => 'Fading', 'status' => 'active', 'payout_type' => 'flat_rate']);
+        $lastWeekStart = now()->copy()->subWeek()->startOfWeek();
+
+        $show = Show::create(['title' => 'Low', 'show_date' => $lastWeekStart->toDateString(), 'status' => 'reconciled', 'gross_revenue' => 20, 'created_by' => $admin->id]);
+        $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+        for ($i = 1; $i <= 3; $i++) {
+            $s = Show::create(['title' => "W-$i", 'show_date' => $lastWeekStart->copy()->subWeeks($i)->toDateString(), 'status' => 'reconciled', 'gross_revenue' => 100, 'created_by' => $admin->id]);
+            $s->streamers()->attach($streamer->id, ['is_primary' => true]);
+        }
+
+        Livewire::actingAs($admin);
+
+        Livewire::test(NeedsAttentionWidget::class)
+            ->assertSee('trending down');
+    }
+
+    // ── Revenue pacing ───────────────────────────────────────────────────────
+
+    public function test_revenue_pacing_widget_renders_for_admin(): void
+    {
+        Livewire::actingAs($this->admin());
+
+        Livewire::test(RevenuePacingWidget::class)
+            ->assertOk()
+            ->assertSee('This Week So Far')
+            ->assertSee('Projected This Month');
+    }
+
+    public function test_revenue_pacing_widget_hidden_for_non_admins(): void
+    {
+        $this->actingAs(User::factory()->create(['email' => 'plain2@test.com']));
+        $this->assertFalse(RevenuePacingWidget::canView());
     }
 
     // ── Blade widgets render (regression: $view must be set, not just getView) ──

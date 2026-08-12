@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\VendorResource\Pages;
 use App\Models\Vendor;
 use App\Support\AdminModules;
@@ -16,16 +15,20 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 
 class VendorResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'purchasing';
 
@@ -51,6 +54,22 @@ class VendorResource extends Resource
         return ['name', 'email', 'contact_name'];
     }
 
+    /**
+     * Soft-deletable and every FK to vendors (pallets, product_identities,
+     * receiving_sessions) is nullOnDelete — no data is destroyed either way.
+     * Still block while it has pallets so historical PO vendor attribution
+     * isn't silently orphaned by a stray delete.
+     */
+    public static function canDelete(Model $record): bool
+    {
+        return (auth()->user()?->isAdmin() ?? false) && ! $record->pallets()->exists();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     public static function getGlobalSearchResultTitle(\Illuminate\Database\Eloquent\Model $record): string
     {
         return $record->name;
@@ -59,8 +78,10 @@ class VendorResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Vendor Details')->schema([
-                Grid::make(2)->schema([
+            Section::make('Vendor Details')
+                ->description('Supplier information and contact details')
+                ->columnSpanFull()->schema([
+                Grid::make(3)->schema([
                     TextInput::make('name')
                         ->required()
                         ->maxLength(255),
@@ -79,6 +100,11 @@ class VendorResource extends Resource
                     TextInput::make('account_number')
                         ->label('Account #')
                         ->maxLength(100),
+                    TextInput::make('lead_time_days')
+                        ->label('Lead Time (days)')
+                        ->helperText('Typical days from order to delivery — feeds reorder suggestions on Product Insights.')
+                        ->numeric()
+                        ->minValue(0),
                     Select::make('status')
                         ->options(Vendor::statusLabels())
                         ->default('active')
@@ -92,6 +118,7 @@ class VendorResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->persistFiltersInSession()
             ->columns([
                 TextColumn::make('name')
                     ->searchable()
@@ -100,13 +127,16 @@ class VendorResource extends Resource
                 TextColumn::make('contact_name')
                     ->label('Contact')
                     ->searchable()
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('email')
                     ->searchable()
                     ->copyable()
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('phone')
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('status')
                     ->badge()
                     ->color(fn ($state) => StatusColor::for($state)),
@@ -129,11 +159,38 @@ class VendorResource extends Resource
                 SelectFilter::make('status')->options(Vendor::statusLabels()),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()
+                    ->size('sm')
+                    ->iconButton(),
+                EditAction::make()
+                    ->size('sm')
+                    ->iconButton(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->visible(fn (Vendor $record) => static::canDelete($record))
+                    ->tooltip(fn (Vendor $record) => static::canDelete($record) ? null : 'Has pallets on record — can\'t be deleted while those exist.'),
             ])
             ->bulkActions([
-                BulkActionGroup::make([DeleteBulkAction::make()]),
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->action(function (Collection $records): void {
+                            $deletable = $records->filter(fn (Vendor $record) => static::canDelete($record));
+                            $blocked   = $records->count() - $deletable->count();
+
+                            $deletable->each->delete();
+
+                            if ($blocked > 0) {
+                                Notification::make()
+                                    ->title($deletable->count() . ' vendor(s) deleted')
+                                    ->body("{$blocked} skipped — still have pallets on record.")
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()->title($deletable->count() . ' vendor(s) deleted')->success()->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
+                ]),
             ])
             ->defaultSort('name')
             ->striped();

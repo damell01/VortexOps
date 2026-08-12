@@ -3,12 +3,15 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\InventoryLocationResource\Pages;
+use App\Models\DeductionRequestLine;
 use App\Models\InventoryLocation;
 use App\Support\AdminModules;
+use App\Support\ChannelContext;
 use App\Support\StatusColor;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -16,28 +19,61 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Actions\Action as TableAction;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 
 class InventoryLocationResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'inventory';
 
     protected static ?string $model = InventoryLocation::class;
 
-    protected static ?string $navigationParentItem = 'Inventory Items';
+    // View-only for streamers — the row scoping below already limited them to
+    // their own + shared locations, but the access gate never actually let
+    // them in to see it.
+    protected static function passesModuleAccessCheck(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->isAdmin() || $user?->isOwner() || $user?->isStreamer()) ?? false;
+    }
+
+    public static function canAccess(): bool
+    {
+        // Allow admins and owners to access
+        return auth()->user()?->isAdmin() || auth()->user()?->isOwner() ?? false;
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        // Show locations for admins and owners
+        return auth()->user()?->isAdmin() || auth()->user()?->isOwner() ?? false;
+    }
+
+    public static function canCreate(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
 
     // Streamers see only their own locations + shared locations (no streamer assigned)
     public static function getEloquentQuery(): Builder
     {
-        $query = parent::getEloquentQuery()->with(['streamer']);
+        $query = parent::getEloquentQuery()->with(['streamer', 'channel']);
         $user  = auth()->user();
 
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {
@@ -46,6 +82,10 @@ class InventoryLocationResource extends Resource
                 $q->whereNull('streamer_id')
                   ->orWhere('streamer_id', $streamerId);
             });
+        }
+
+        if (ChannelContext::isScoped()) {
+            $query->where('whatnot_channel_id', ChannelContext::currentId());
         }
 
         return $query;
@@ -84,6 +124,30 @@ class InventoryLocationResource extends Resource
         ]);
     }
 
+    /**
+     * inventory_stock.inventory_location_id cascade-deletes, so a location still
+     * holding stock can't be removed without silently wiping those stock rows.
+     * deduction_request_lines.inventory_location_id has no delete rule (defaults
+     * to restrict), so a referenced location would otherwise 500 on delete.
+     */
+    public static function canDelete(Model $record): bool
+    {
+        if (! auth()->user()?->isAdmin()) {
+            return false;
+        }
+
+        if ($record->stock()->where('quantity', '>', 0)->exists()) {
+            return false;
+        }
+
+        return ! DeductionRequestLine::where('inventory_location_id', $record->id)->exists();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     public static function getNavigationLabel(): string
     {
         return 'Locations';
@@ -92,7 +156,7 @@ class InventoryLocationResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Location Details')->schema([
+            Section::make('Location Details')->columnSpanFull()->schema([
                 Grid::make(2)->schema([
                     TextInput::make('name')
                         ->required()
@@ -112,6 +176,12 @@ class InventoryLocationResource extends Resource
                         ->options(InventoryLocation::statusLabels())
                         ->required()
                         ->default('active'),
+                    Select::make('whatnot_channel_id')
+                        ->label('Channel')
+                        ->relationship('channel', 'name')
+                        ->searchable()
+                        ->preload()
+                        ->helperText('Which channel this location\'s stock is grouped under.'),
                 ]),
                 Textarea::make('notes')
                     ->rows(3)
@@ -123,6 +193,9 @@ class InventoryLocationResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No locations yet')
+            ->emptyStateDescription('Create a location to start tracking where stock lives.')
+            ->emptyStateIcon('heroicon-o-map-pin')
             ->deferLoading()
             ->columns([
                 TextColumn::make('name')
@@ -143,6 +216,12 @@ class InventoryLocationResource extends Resource
                     ->label('Streamer')
                     ->placeholder('—')
                     ->searchable(),
+                TextColumn::make('channel.name')
+                    ->label('Channel')
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('stock_count')
                     ->label('SKUs')
                     ->counts('stock'),
@@ -163,14 +242,52 @@ class InventoryLocationResource extends Resource
                 SelectFilter::make('streamer_id')
                     ->label('Streamer')
                     ->relationship('streamer', 'name'),
+                SelectFilter::make('whatnot_channel_id')
+                    ->label('Channel')
+                    ->relationship('channel', 'name'),
+            ])
+            ->headerActions([
+                TableAction::make('export_csv')
+                    ->label('Export CSV')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('gray')
+                    ->url(fn () => route('export.locations'))
+                    ->openUrlInNewTab(),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()
+                    ->size('sm')
+                    ->iconButton(),
+                EditAction::make()
+                    ->size('sm')
+                    ->iconButton(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->visible(fn (InventoryLocation $record) => static::canDelete($record))
+                    ->tooltip(fn (InventoryLocation $record) => $record->stock()->where('quantity', '>', 0)->exists()
+                        ? 'Still holds stock — move or zero it out first'
+                        : null),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->action(function (Collection $records): void {
+                            $deletable = $records->filter(fn (InventoryLocation $record) => static::canDelete($record));
+                            $blocked   = $records->count() - $deletable->count();
+
+                            $deletable->each->delete();
+
+                            if ($blocked > 0) {
+                                Notification::make()
+                                    ->title($deletable->count() . ' location(s) deleted')
+                                    ->body("{$blocked} skipped — still hold stock or are referenced by a deduction request.")
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()->title($deletable->count() . ' location(s) deleted')->success()->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ])
             ->striped()

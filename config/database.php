@@ -61,6 +61,16 @@ return [
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                // Opt-in: reuses one MySQL connection per PHP-FPM worker across
+                // requests instead of opening a fresh one every time. On hosts
+                // that cap new connections per hour (e.g. Hostinger's
+                // max_connections_per_hour), this is the standard fix — normal
+                // request traffic alone can burn through a tight quota with a
+                // non-persistent connection. Off by default: persistent
+                // connections can leak session/transaction state between
+                // requests on the same worker if a request errors out mid-query,
+                // so only turn it on if you're actually hitting the limit.
+                \PDO::ATTR_PERSISTENT => env('DB_PERSISTENT', false),
             ]) : [],
         ],
 
@@ -81,6 +91,16 @@ return [
             'engine' => null,
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 Mysql::ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+                // Opt-in: reuses one MySQL connection per PHP-FPM worker across
+                // requests instead of opening a fresh one every time. On hosts
+                // that cap new connections per hour (e.g. Hostinger's
+                // max_connections_per_hour), this is the standard fix — normal
+                // request traffic alone can burn through a tight quota with a
+                // non-persistent connection. Off by default: persistent
+                // connections can leak session/transaction state between
+                // requests on the same worker if a request errors out mid-query,
+                // so only turn it on if you're actually hitting the limit.
+                \PDO::ATTR_PERSISTENT => env('DB_PERSISTENT', false),
             ]) : [],
         ],
 

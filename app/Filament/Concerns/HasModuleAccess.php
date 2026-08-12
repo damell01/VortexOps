@@ -20,12 +20,28 @@ trait HasModuleAccess
 
     public static function shouldRegisterNavigation(): bool
     {
-        return AdminModules::isEnabled(static::$moduleSlug);
+        $user = auth()->user();
+
+        // Check module is enabled
+        if (! AdminModules::isEnabled(static::$moduleSlug)) {
+            return false;
+        }
+
+        // Check role visibility (owner always sees everything)
+        if ($user && ! $user->isOwner() && NavVisibility::isHiddenForUser(static::class, $user)) {
+            return false;
+        }
+
+        return true;
     }
 
+    /**
+     * Base access check — subclasses can override for stricter role-specific checks.
+     * Now that visibility is controlled by NavVisibility, this just checks basic auth.
+     * Resources that need stricter checks (admin-only, etc.) override canAccess() directly.
+     */
     protected static function passesModuleAccessCheck(): bool
     {
-        $user = auth()->user();
-        return ($user?->isAdmin() || $user?->isOwner()) ?? false;
+        return auth()->user() !== null;
     }
 }

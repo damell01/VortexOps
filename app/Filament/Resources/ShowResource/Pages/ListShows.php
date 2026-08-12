@@ -3,27 +3,43 @@
 namespace App\Filament\Resources\ShowResource\Pages;
 
 use App\Filament\Resources\ShowResource;
-use App\Jobs\RunShowAiMappingJob;
-use App\Models\AiTask;
-use App\Models\Setting;
 use App\Models\Show;
+use App\Models\Streamer;
+use App\Models\WhatnotChannel;
 use App\Services\FeatureFlagService;
 use App\Services\WhatnotScraper;
-use App\Support\AdminModules;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\MultiSelect;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\TimePicker;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Tabs\Tab;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
+use Livewire\Attributes\On;
 
 class ListShows extends ListRecords
 {
     protected static string $resource = ShowResource::class;
 
+    public function getView(): string
+    {
+        return 'filament.resources.show-resource.pages.list-shows';
+    }
+
     public function getSubheading(): ?string
     {
         return 'Shows import automatically from Whatnot. Net Margin shows profit per show; use the tabs to focus on what needs review.';
+    }
+
+    public function getDefaultActiveTab(): string|int|null
+    {
+        return 'past_7_days';
     }
 
     /** Saved-view chips above the table — quick one-tap filter presets. */
@@ -33,28 +49,55 @@ class ListShows extends ListRecords
         $weekEnd   = now()->endOfWeek()->toDateString();
 
         $tabs = [
+            // Default view: the working set. Day-to-day reviewing happens on
+            // shows that streamed in the last 7 days — yesterday, a few hours
+            // ago — not the full multi-year history. Upper bound carries a time
+            // component (see OperationsOverviewWidget for the SQLite lexical-
+            // comparison trap with bare date strings).
+            'past_7_days' => Tab::make('Past 7 Days')
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereBetween('show_date', [
+                    now()->subDays(7)->toDateString(),
+                    now()->endOfDay()->toDateTimeString(),
+                ])),
+
             'all' => Tab::make('All'),
 
             'needs_review' => Tab::make('Needs Review')
-                ->modifyQueryUsing(fn (Builder $q) => $q->whereIn('status', ['pending_review', 'pending_approval']))
-                ->badge(Show::whereIn('status', ['pending_review', 'pending_approval'])->count())
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('status', ['pending_review', 'pending_approval']))
+                ->badge(Cache::remember('tab_badge:shows_needs_review', 30, fn () =>
+                    Show::whereIn('status', ['pending_review', 'pending_approval'])->count()
+                ))
                 ->badgeColor('warning'),
 
             'this_week' => Tab::make('This Week')
-                ->modifyQueryUsing(fn (Builder $q) => $q->whereBetween('show_date', [$weekStart, $weekEnd])),
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereBetween('show_date', [$weekStart, $weekEnd])),
 
             'unreconciled' => Tab::make('Unreconciled')
-                ->modifyQueryUsing(fn (Builder $q) => $q->whereNotIn('status', ['reconciled', 'closed', 'cancelled'])),
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereNotIn('status', ['reconciled', 'closed', 'cancelled'])),
         ];
 
         // Channel-attribution review is admin-facing and only meaningful once a
         // flagged show exists.
         if (auth()->user()?->isAdmin()) {
-            $flagged = Show::where('channel_attribution_suspect', true)->count();
+            // Short TTL — these are tab badges, not the source of truth, and this
+            // runs on every page mount (even before deferred table data loads).
+            $flagged = Cache::remember('tab_badge:shows_channel_review', 30, fn () =>
+                Show::where('channel_attribution_suspect', true)->count()
+            );
             if ($flagged > 0) {
                 $tabs['flagged'] = Tab::make('Channel Review')
-                    ->modifyQueryUsing(fn (Builder $q) => $q->where('channel_attribution_suspect', true))
+                    ->modifyQueryUsing(fn (Builder $query) => $query->where('channel_attribution_suspect', true))
                     ->badge($flagged)
+                    ->badgeColor('danger');
+            }
+
+            $revised = Cache::remember('tab_badge:shows_financials_revised', 30, fn () =>
+                Show::where('financials_revised_after_lock', true)->count()
+            );
+            if ($revised > 0) {
+                $tabs['revised'] = Tab::make('Financials Revised')
+                    ->modifyQueryUsing(fn (Builder $query) => $query->where('financials_revised_after_lock', true))
+                    ->badge($revised)
                     ->badgeColor('danger');
             }
         }
@@ -62,10 +105,86 @@ class ListShows extends ListRecords
         return $tabs;
     }
 
+    #[\Livewire\Attributes\On('open-show')]
+    public function openShowLog(Show $show): void
+    {
+        $this->dispatch('open-show', $show);
+    }
+
     protected function getHeaderActions(): array
     {
         return [
-            CreateAction::make()->label('Add Show Manually'),
+            CreateAction::make()
+                ->label('Add Show Manually')
+                ->visible(fn () => auth()->user()?->isAdmin() ?? false),
+
+            Action::make('schedule_show')
+                ->label('📅 Schedule Future Show')
+                ->icon('heroicon-o-calendar-days')
+                ->color('success')
+                ->visible(fn () => auth()->user()?->isAdmin() ?? false)
+                ->form([
+                    Grid::make(2)->schema([
+                        DatePicker::make('show_date')
+                            ->label('Show Date')
+                            ->required()
+                            ->minDate(now()->startOfDay())
+                            ->columnSpan(1),
+
+                        TimePicker::make('start_time')
+                            ->label('Start Time (Optional)')
+                            ->columnSpan(1),
+
+                        TextInput::make('title')
+                            ->label('Show Title')
+                            ->placeholder('e.g., Upcoming Break #50')
+                            ->maxLength(255)
+                            ->columnSpan(2),
+
+                        Select::make('whatnot_channel_id')
+                            ->label('Channel (Optional)')
+                            ->options(WhatnotChannel::where('status', 'active')->pluck('name', 'id'))
+                            ->searchable()
+                            ->nullable()
+                            ->columnSpan(1),
+
+                        TimePicker::make('end_time')
+                            ->label('End Time (Optional)')
+                            ->columnSpan(1),
+
+                        MultiSelect::make('streamers')
+                            ->label('Streamers')
+                            ->options(Streamer::where('status', 'active')->orderBy('name')->pluck('name', 'id'))
+                            ->preload()
+                            ->searchable()
+                            ->columnSpan(2)
+                            ->helperText('Who will be streaming this show?'),
+                    ]),
+                ])
+                ->action(function (array $data): void {
+                    $show = Show::create([
+                        'show_date' => $data['show_date'],
+                        'start_time' => $data['start_time'] ?? null,
+                        'end_time' => $data['end_time'] ?? null,
+                        'title' => $data['title'],
+                        'whatnot_channel_id' => $data['whatnot_channel_id'] ?? null,
+                        'status' => 'draft',
+                        'import_source' => 'manual',
+                        'created_by' => auth()->id(),
+                    ]);
+
+                    if (!empty($data['streamers'])) {
+                        $show->streamers()->attach($data['streamers']);
+                    }
+
+                    Notification::make()
+                        ->title('Show scheduled successfully!')
+                        ->body("'{$show->title}' is set for {$show->show_date->format('M d, Y')}. Add items when you're ready.")
+                        ->success()
+                        ->send();
+
+                    $this->redirect(route('filament.admin.resources.shows.view', $show));
+                }),
 
             Action::make('import_whatnot')
                 ->label('Import from Whatnot')
@@ -81,8 +200,6 @@ class ListShows extends ListRecords
                 ->modalSubmitActionLabel('Run Import')
                 ->action(function () {
                     try {
-                        $importedAt = now();
-
                         $result = app(WhatnotScraper::class)->importAllEnabledChannels(
                             limit: (int) config('vortex.whatnot.limit', 50),
                         );
@@ -94,39 +211,6 @@ class ListShows extends ListRecords
                             ->body("{$result['created']} created, {$result['updated']} updated, {$result['skipped']} skipped{$channelNote}.")
                             ->success()
                             ->send();
-
-                        if ($result['created'] > 0
-                            && Setting::get('ai_auto_queue_on_import', false)
-                            && AdminModules::isEnabled('ai')
-                        ) {
-                            $newShows = Show::where('import_source', 'auto_whatnot')
-                                ->where('status', 'draft')
-                                ->where('created_at', '>=', $importedAt)
-                                ->get();
-
-                            $queued = 0;
-                            foreach ($newShows as $show) {
-                                $show->update(['status' => 'pending_review']);
-                                $task = AiTask::create([
-                                    'type'          => 'show_ai_mapping',
-                                    'status'        => 'pending',
-                                    'taskable_type' => Show::class,
-                                    'taskable_id'   => $show->id,
-                                    'triggered_by'  => auth()->id(),
-                                    'input'         => ['show_id' => $show->id, 'show_title' => $show->title],
-                                ]);
-                                RunShowAiMappingJob::dispatch($show->id, $task->id)->onQueue('ai');
-                                $queued++;
-                            }
-
-                            if ($queued > 0) {
-                                Notification::make()
-                                    ->title("Auto-queued {$queued} show" . ($queued === 1 ? '' : 's') . ' for AI mapping')
-                                    ->body('You will receive a notification for each show when mapping completes.')
-                                    ->info()
-                                    ->send();
-                            }
-                        }
                     } catch (\RuntimeException $e) {
                         Notification::make()
                             ->title('Whatnot import failed')
@@ -134,6 +218,33 @@ class ListShows extends ListRecords
                             ->danger()
                             ->send();
                     }
+                }),
+
+            Action::make('detect_streamers_all')
+                ->label('Detect Streamers')
+                ->icon('heroicon-o-user-circle')
+                ->color('gray')
+                ->visible(fn () => auth()->user()?->isAdmin())
+                ->requiresConfirmation()
+                ->modalHeading('Detect Streamers')
+                ->modalDescription('Matches every show with no streamer attached against the active streamer roster and attaches any high-confidence match. This also runs automatically on every Whatnot import — use this button to catch any that were missed (e.g. a streamer added to the roster after their show was already imported).')
+                ->modalSubmitActionLabel('Run Detection')
+                ->action(function () {
+                    $shows = Show::whereDoesntHave('streamers')->get();
+                    $matched = 0;
+
+                    foreach ($shows as $show) {
+                        $suggestions = $show->detectStreamers();
+                        if (collect($suggestions)->contains('confidence', 'high')) {
+                            $matched++;
+                        }
+                    }
+
+                    Notification::make()
+                        ->title('Streamer detection complete')
+                        ->body("{$matched} of {$shows->count()} unmapped show(s) matched.")
+                        ->success()
+                        ->send();
                 }),
 
             Action::make('export_excel')
@@ -144,51 +255,6 @@ class ListShows extends ListRecords
                 ->url(fn () => route('export.shows'))
                 ->openUrlInNewTab(),
 
-            Action::make('bulk_ai_mapping')
-                ->label('Map All Pending Review')
-                ->icon('heroicon-o-sparkles')
-                ->color('violet')
-                ->visible(fn () => auth()->user()?->isAdmin() && AdminModules::isEnabled('ai'))
-                ->requiresConfirmation()
-                ->modalHeading('Queue AI Mapping for All Pending Review Shows')
-                ->modalDescription(function (): string {
-                    $count = Show::where('status', 'pending_review')->count();
-                    return $count === 0
-                        ? 'There are no shows currently in Pending Review.'
-                        : "This will queue AI mapping jobs for {$count} show" . ($count === 1 ? '' : 's') . " currently in Pending Review. You will receive a notification for each when complete.";
-                })
-                ->action(function (): void {
-                    $shows = Show::where('status', 'pending_review')->get();
-
-                    if ($shows->isEmpty()) {
-                        Notification::make()
-                            ->title('No shows to map')
-                            ->body('No shows are currently in Pending Review.')
-                            ->warning()
-                            ->send();
-                        return;
-                    }
-
-                    $queued = 0;
-                    foreach ($shows as $show) {
-                        $task = AiTask::create([
-                            'type'          => 'show_ai_mapping',
-                            'status'        => 'pending',
-                            'taskable_type' => \App\Models\Show::class,
-                            'taskable_id'   => $show->id,
-                            'triggered_by'  => auth()->id(),
-                            'input'         => ['show_id' => $show->id, 'show_title' => $show->title],
-                        ]);
-                        RunShowAiMappingJob::dispatch($show->id, $task->id)->onQueue('ai');
-                        $queued++;
-                    }
-
-                    Notification::make()
-                        ->title("Queued {$queued} show" . ($queued === 1 ? '' : 's') . ' for AI mapping')
-                        ->body('You will receive a notification for each show when mapping completes.')
-                        ->info()
-                        ->send();
-                }),
         ];
     }
 }

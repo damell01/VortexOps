@@ -5,6 +5,8 @@ namespace App\Filament\Resources\PalletResource\Pages;
 use App\Filament\Resources\PalletResource;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
+use App\Models\Pallet;
+use App\Models\PalletAttachment;
 use App\Models\PalletLine;
 use App\Services\ReceivingService;
 use Filament\Actions\Action;
@@ -12,14 +14,22 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
+use Illuminate\Support\Facades\Storage;
 
 class ViewPallet extends ViewRecord
 {
     protected static string $resource = PalletResource::class;
 
+    public ?array $newAttachments = null;
+
     public function getRecord(): \App\Models\Pallet
     {
-        return parent::getRecord()->load(['vendor', 'lines.inventoryItem', 'lines.location', 'lines.cases']);
+        return parent::getRecord()->load(['vendor', 'lines.inventoryItem', 'lines.location', 'lines.cases', 'attachments']);
+    }
+
+    public function getView(): string
+    {
+        return 'filament.pages.view-pallet';
     }
 
     protected function getHeaderActions(): array
@@ -30,7 +40,7 @@ class ViewPallet extends ViewRecord
                 ->icon('heroicon-o-inbox-arrow-down')
                 ->color('success')
                 ->url(fn () => PalletResource::getUrl('receive', ['record' => $this->getRecord()]))
-                ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'receiving'])),
+                ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'shipped', 'receiving'])),
 
             Action::make('receive_all')
                 ->label('Bulk Receive All')
@@ -50,14 +60,14 @@ class ViewPallet extends ViewRecord
                         Notification::make()->title($e->getMessage())->danger()->send();
                     }
                 })
-                ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'receiving'])),
+                ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'shipped', 'receiving'])),
 
             Action::make('upload_manifest')
                 ->label('Upload Manifest')
                 ->icon('heroicon-o-document-arrow-up')
                 ->color('violet')
                 ->url(fn () => PalletResource::getUrl('import-manifest', ['record' => $this->getRecord()]))
-                ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'receiving'])),
+                ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'shipped', 'receiving'])),
 
             Action::make('map_line')
                 ->label('Map Line to Item')

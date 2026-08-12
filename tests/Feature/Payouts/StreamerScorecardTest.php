@@ -57,4 +57,56 @@ class StreamerScorecardTest extends TestCase
         $this->assertEquals(0, $card['shows']);
         $this->assertNull($card['avg_rating']);
     }
+
+    // ── Performance trend ────────────────────────────────────────────────────
+
+    private function weeklyShow(int $creatorId, Streamer $streamer, \Illuminate\Support\Carbon $weekStart, float $revenue): void
+    {
+        $show = Show::create([
+            'title' => 'W', 'show_date' => $weekStart->toDateString(), 'status' => 'reconciled',
+            'created_by' => $creatorId, 'gross_revenue' => $revenue,
+        ]);
+        $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+    }
+
+    public function test_trending_down_when_last_week_far_below_baseline(): void
+    {
+        $creator  = User::factory()->create()->id;
+        $streamer = Streamer::create(['name' => 'Down', 'status' => 'active', 'payout_type' => 'flat_rate']);
+        $lastWeekStart = now()->copy()->subWeek()->startOfWeek();
+
+        $this->weeklyShow($creator, $streamer, $lastWeekStart, 50); // last week: $50
+        for ($i = 1; $i <= 3; $i++) {
+            $this->weeklyShow($creator, $streamer, $lastWeekStart->copy()->subWeeks($i), 100); // baseline avg $100
+        }
+
+        // 50 vs 100 baseline = -50%, past the 30% threshold.
+        $this->assertTrue($streamer->isPerformanceTrendingDown());
+    }
+
+    public function test_not_trending_down_with_a_modest_dip(): void
+    {
+        $creator  = User::factory()->create()->id;
+        $streamer = Streamer::create(['name' => 'Steady', 'status' => 'active', 'payout_type' => 'flat_rate']);
+        $lastWeekStart = now()->copy()->subWeek()->startOfWeek();
+
+        $this->weeklyShow($creator, $streamer, $lastWeekStart, 85); // last week: $85
+        for ($i = 1; $i <= 3; $i++) {
+            $this->weeklyShow($creator, $streamer, $lastWeekStart->copy()->subWeeks($i), 100); // baseline avg $100
+        }
+
+        // 85 vs 100 baseline = -15%, under the 30% threshold.
+        $this->assertFalse($streamer->isPerformanceTrendingDown());
+    }
+
+    public function test_not_trending_down_without_baseline_history(): void
+    {
+        $creator  = User::factory()->create()->id;
+        $streamer = Streamer::create(['name' => 'New', 'status' => 'active', 'payout_type' => 'flat_rate']);
+
+        $this->weeklyShow($creator, $streamer, now()->copy()->subWeek()->startOfWeek(), 50);
+        // No shows in the 3 weeks before that — thin history, never flag.
+
+        $this->assertFalse($streamer->isPerformanceTrendingDown());
+    }
 }

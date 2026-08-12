@@ -3,6 +3,8 @@
 namespace App\Providers\Filament;
 
 use App\Models\Setting;
+use App\Models\WhatnotChannel;
+use App\Support\ChannelContext;
 use Awcodes\QuickCreate\QuickCreatePlugin;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use App\Support\AdminModules;
@@ -12,7 +14,8 @@ use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
-use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\DashboardImproved;
+use App\Filament\Pages\Auth\Login;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -44,20 +47,26 @@ class AdminPanelProvider extends PanelProvider
             $primaryColor = '#7c3aed';
         }
 
+        // Both resolved as Closures (not plain strings) so they're evaluated at
+        // render time rather than here at panel-registration time — registration
+        // runs before the session middleware boots, so ChannelContext (session-
+        // backed) would always read as unscoped if resolved eagerly here.
         $panel = $panel
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login()
+            ->login(Login::class)
             ->passwordReset()
             ->profile(isSimple: false)
-            ->brandName($brandName)
+            ->brandName(fn (): string => static::resolveBrandName(ChannelContext::current(), $brandName, $logoPath))
+            ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))
+            ->brandLogoHeight('2.75rem')
             ->font('Inter')
             ->sidebarCollapsibleOnDesktop()
-            ->sidebarFullyCollapsibleOnDesktop()
+            // Mobile-optimized: 6xl on desktop, full width on mobile
             ->maxContentWidth(\Filament\Support\Enums\Width::Full)
-            ->globalSearchKeyBindings(['mod+k'])
-            ->globalSearchDebounce('300ms')
+            ->globalSearchKeyBindings(['mod+k', '/'])
+            ->globalSearchDebounce('200ms')
             ->colors([
                 'primary' => Color::hex($primaryColor),
                 'gray'    => Color::Zinc,
@@ -66,18 +75,6 @@ class AdminPanelProvider extends PanelProvider
                 'warning' => Color::Amber,
                 'danger'  => Color::Rose,
             ]);
-
-        if ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {
-            $panel = $panel
-                ->brandLogo(asset('storage/' . $logoPath))
-                ->brandLogoHeight('2.75rem');
-        } elseif (file_exists(public_path('images/vb-logo-sidebar.svg'))) {
-            // Default to the built-in SVG logo when no custom logo is uploaded
-            $panel = $panel
-                ->brandLogo(asset('images/vb-logo-sidebar.svg'))
-                ->brandLogoHeight('2.75rem')
-                ->brandName('');   // text hidden — logo SVG already contains it
-        }
 
         $isAuthenticatedAdminView = fn (): bool => auth()->check();
         $hasViteManifest = fn (): bool => file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot'));
@@ -96,6 +93,12 @@ class AdminPanelProvider extends PanelProvider
                     : NavigationGroup::make($group)->collapsed(),
                 AdminModules::visibleNavigationGroups(),
             ))
+            ->renderHook(
+                PanelsRenderHook::HEAD_END,
+                fn (): string => <<<'HTML'
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+                HTML,
+            )
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => ! $hasViteManifest()
@@ -128,13 +131,150 @@ class AdminPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn (): string => ! $isAuthenticatedAdminView()
                     ? ''
-                    : Blade::render("@livewire('feedback-widget')"),
+                    : Blade::render(<<<'HTML'
+                    <style>
+                    .feedback-widget-container, .feedback-btn { display: none !important; }
+                    </style>
+                    @livewire('feedback-widget')
+                    <script>
+                    (function() {
+                        let notificationPanelOpen = false;
+                        const notificationBtn = document.querySelector('[aria-label*="notification"], [aria-label*="Notification"]');
+
+                        if (notificationBtn) {
+                            notificationBtn.addEventListener('click', function(e) {
+                                // Let the click propagate first to open the panel
+                                setTimeout(() => {
+                                    const panel = document.querySelector('[role="dialog"]') ||
+                                                  document.querySelector('.fi-dropdown-panel') ||
+                                                  document.querySelector('[class*="notification"]');
+
+                                    if (panel && panel.offsetParent !== null) {
+                                        notificationPanelOpen = true;
+                                    } else if (notificationPanelOpen) {
+                                        // If panel is closing, toggle the button to close it
+                                        notificationBtn.click();
+                                        notificationPanelOpen = false;
+                                    }
+                                }, 10);
+                            });
+                        }
+
+                        // Alternative: Listen for panel visibility changes
+                        document.addEventListener('click', function(e) {
+                            const notificationPanel = document.querySelector('[class*="notification"]');
+                            if (notificationPanel && !notificationPanel.contains(e.target) &&
+                                e.target !== notificationBtn && !notificationBtn.contains(e.target)) {
+                                notificationPanelOpen = false;
+                            }
+                        });
+                    })();
+                    </script>
+                    HTML),
+            )
+            ->renderHook(
+                PanelsRenderHook::SIDEBAR_NAV_START,
+                fn (): string => (auth()->user()?->canSwitchChannels() ?? false)
+                    ? Blade::render("@livewire('channel-switcher')")
+                    : '',
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : view('components.toast-container'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : Blade::render(<<<'HTML'
+                    <script>
+                    document.addEventListener('DOMContentLoaded', () => {
+                        // Show keyboard shortcuts hint in console
+                        const shortcuts = 'Press ? to see keyboard shortcuts';
+                        console.info('%c' + shortcuts, 'color: #7c3aed; font-size: 12px; font-weight: bold;');
+                    });
+                    </script>
+                    HTML),
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn () => ! $isAuthenticatedAdminView()
                     ? ''
                     : view('filament.components.camera-barcode-scanner'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn () => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : view('filament.components.camera-photo-capture'),
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): string => <<<'HTML'
+                <script>
+                // Mobile sidebar touch/swipe gesture handler
+                // Note: Filament v5 uses Alpine.js for sidebar state ($store.sidebar.isOpen)
+                // The toggle buttons already have x-on:click handlers, so we just add swipe support
+                function initMobileSidebarGestures() {
+                    const sidebar = document.querySelector('.fi-sidebar');
+                    if (!sidebar) return;
+
+                    let touchStartX = 0;
+                    let touchEndX = 0;
+
+                    // Swipe gesture support
+                    document.addEventListener('touchstart', (e) => {
+                        touchStartX = e.changedTouches[0].screenX;
+                    }, false);
+
+                    document.addEventListener('touchend', (e) => {
+                        touchEndX = e.changedTouches[0].screenX;
+                        const swipeThreshold = 50;
+                        const diff = touchStartX - touchEndX;
+
+                        // Check if Alpine store is available
+                        if (!window.Alpine) return;
+
+                        // Swipe right to open sidebar (from left edge)
+                        if (touchStartX < 50 && diff < -swipeThreshold) {
+                            const btn = document.querySelector('.fi-topbar-open-sidebar-btn');
+                            if (btn) btn.click();
+                        }
+                        // Swipe left to close sidebar
+                        else if (diff > swipeThreshold) {
+                            const btn = document.querySelector('.fi-topbar-close-sidebar-btn');
+                            if (btn) btn.click();
+                        }
+                    }, false);
+
+                    // Close sidebar when clicking on a nav link (better UX on mobile)
+                    const navItems = sidebar.querySelectorAll('a[href]');
+                    navItems.forEach(item => {
+                        item.addEventListener('click', () => {
+                            const closeBtn = document.querySelector('.fi-topbar-close-sidebar-btn');
+                            if (closeBtn && closeBtn.offsetParent !== null) { // Only if visible
+                                setTimeout(() => closeBtn.click(), 100);
+                            }
+                        });
+                    });
+                }
+
+                // Initialize once Alpine is ready
+                document.addEventListener('alpine:init', initMobileSidebarGestures);
+                document.addEventListener('DOMContentLoaded', () => {
+                    setTimeout(initMobileSidebarGestures, 100);
+                });
+
+                // Reinitialize on Livewire updates
+                if (window.Livewire) {
+                    Livewire.hook('morph.updated', () => {
+                        setTimeout(initMobileSidebarGestures, 100);
+                    });
+                }
+                </script>
+                HTML,
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
@@ -149,103 +289,136 @@ class AdminPanelProvider extends PanelProvider
                     </script>
                     HTML : '',
             )
-            // ── Login page: inject split-screen CSS ──────────────────────────────
+            // ── Login page: soft gradient background + light glassmorphic card ───
+            // Everything lives inside AUTH_LOGIN_FORM_BEFORE/AFTER — the only hooks
+            // confirmed to actually render on this page — rather than
+            // SIMPLE_LAYOUT_START/END, which don't fire reliably here.
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 function () use ($isAuthenticatedAdminView): string {
                     if ($isAuthenticatedAdminView()) return '';
                     return <<<'CSS'
                     <style>
-                    .vx-login-brand{display:none;position:relative;overflow:hidden;background:linear-gradient(155deg,#1a0535 0%,#3b0e72 45%,#6d28d9 100%);flex-direction:column;justify-content:center;flex-shrink:0}
-                    .vx-lb-bubble{position:absolute;border-radius:50%;pointer-events:none}
-                    .vx-lb-bubble-1{width:340px;height:340px;top:-110px;right:-110px;background:rgba(124,58,237,.2)}
-                    .vx-lb-bubble-2{width:200px;height:200px;bottom:-60px;left:-60px;background:rgba(124,58,237,.15)}
-                    .vx-lb-bubble-3{width:110px;height:110px;bottom:28%;right:30px;background:rgba(167,139,250,.12)}
-                    @media(max-width:899px){
-                        .vx-login-brand{display:flex;flex-direction:row;align-items:center;gap:1rem;padding:1.25rem 1.5rem}
-                        .vx-lb-tagline,.vx-lb-features,.vx-lb-footer{display:none!important}
-                        .vx-lb-bubble{display:none}
+                    body:has(.vx-login-hero){background:#f5f3ff!important}
+                    .fi-simple-layout:has(.vx-login-hero){
+                        position:relative!important;min-height:100vh!important;overflow:hidden!important;
+                        background:radial-gradient(ellipse 80% 50% at 15% -10%,rgba(139,92,246,.28),transparent 60%),
+                                   radial-gradient(ellipse 70% 50% at 100% 100%,rgba(99,102,241,.22),transparent 60%),
+                                   linear-gradient(160deg,#f5f3ff 0%,#ede9fe 50%,#e0e7ff 100%)!important;
                     }
-                    @media(min-width:900px){
-                        .vx-login-brand{display:flex;width:420px;padding:3rem 2.5rem}
-                        .fi-simple-layout:has(.vx-login-brand){display:flex!important;flex-direction:row!important;min-height:100vh}
-                        .fi-simple-layout:has(.vx-login-brand) .fi-simple-main-ctn{flex:1;display:flex;align-items:center;justify-content:center;padding:2rem;background:#f5f3ff}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main-ctn{
+                        position:relative!important;z-index:1!important;background:transparent!important;min-height:100vh!important;
+                        display:flex!important;align-items:center;justify-content:center;padding:2rem 1.5rem;
                     }
-                    .fi-simple-layout:has(.vx-login-brand) .fi-simple-header{display:none!important}
-                    .fi-simple-layout:has(.vx-login-brand) .fi-simple-main{background:#fff;border-radius:1.25rem;box-shadow:0 4px 40px rgba(109,40,217,.12),0 1px 4px rgba(0,0,0,.06);padding:2.5rem!important;width:100%}
-                    .vx-form-heading{text-align:center;margin-bottom:1.75rem}
-                    .vx-form-heading h2{font-size:1.4rem;font-weight:700;color:#111827;margin:0 0 .3rem}
-                    .vx-form-heading p{font-size:.85rem;color:#6b7280;margin:0}
-                    @media(prefers-color-scheme:dark){
-                        .fi-simple-layout:has(.vx-login-brand) .fi-simple-main-ctn{background:#0f0a1e}
-                        .fi-simple-layout:has(.vx-login-brand) .fi-simple-main{background:#1e1b2e;box-shadow:0 4px 40px rgba(0,0,0,.4)}
-                        .vx-form-heading h2{color:#f1f5f9}
-                        .vx-form-heading p{color:#94a3b8}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-header{display:none!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main{
+                        position:relative;
+                        background:rgba(255,255,255,.85)!important;
+                        backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+                        border:1px solid rgba(255,255,255,.6)!important;
+                        border-radius:1rem!important;
+                        box-shadow:0 10px 40px rgba(76,29,149,.12)!important;
+                        padding:2rem!important;
+                        width:100%;max-width:26rem;
+                        overflow:hidden;
                     }
-                    [data-theme=dark] .fi-simple-layout:has(.vx-login-brand) .fi-simple-main-ctn{background:#0f0a1e}
-                    [data-theme=dark] .fi-simple-layout:has(.vx-login-brand) .fi-simple-main{background:#1e1b2e;box-shadow:0 4px 40px rgba(0,0,0,.4)}
-                    [data-theme=dark] .vx-form-heading h2{color:#f1f5f9}
-                    [data-theme=dark] .vx-form-heading p{color:#94a3b8}
+                    /* Every nested wrapper Filament renders inside the card (sections,
+                       field groups, etc.) brings its own background/border — strip all
+                       of them so the glass card shows through uniformly, then
+                       re-apply distinct styling to the actual interactive controls. */
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main *{
+                        background-color:transparent!important;
+                        background-image:none!important;
+                        box-shadow:none!important;
+                        border-color:transparent!important;
+                    }
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main,
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main *{
+                        color:#4c1d95!important;
+                    }
+                    .vx-wave-banner{
+                        margin:-2rem -2rem 1.5rem;padding:1.5rem 2rem;position:relative;overflow:hidden;
+                        background:linear-gradient(135deg,#4c1d95 0%,#6d28d9 50%,#4f46e5 100%)!important;
+                    }
+                    .vx-wave-banner::before,.vx-wave-banner::after{
+                        content:'';position:absolute;border-radius:50%;pointer-events:none;
+                        background:rgba(255,255,255,.08);
+                    }
+                    .vx-wave-banner::before{width:140px;height:140px;top:-60px;right:-30px}
+                    .vx-wave-banner::after{width:90px;height:90px;bottom:-50px;left:20%}
+                    .vx-wave-banner-inner{position:relative;z-index:1;display:flex;align-items:center;gap:.6rem}
+                    .vx-wave-banner-word{font-size:1.05rem;font-weight:800;color:#fff!important;letter-spacing:-.2px;line-height:1.1}
+                    .vx-wave-banner-word span{font-weight:500;color:#ddd6fe!important;font-size:.85rem;margin-left:.35rem}
+                    .vx-login-heading{margin-bottom:1.5rem}
+                    .vx-login-heading h1{font-size:1.3rem;font-weight:700;color:#3b0764!important;margin:0 0 .3rem}
+                    .vx-login-heading p{font-size:.85rem;color:#7c6f9c!important;margin:0}
+                    .vx-login-footer{text-align:center;margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid rgba(124,58,237,.12)!important;font-size:.75rem;color:#9083b0!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input{
+                        background:#faf9fd!important;
+                        border:1px solid rgba(124,58,237,.18)!important;
+                        color:#3b0764!important;
+                        border-radius:.6rem!important;
+                    }
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input::placeholder{color:#b3a5cf!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main input:focus{
+                        border-color:#8b5cf6!important;
+                        box-shadow:0 0 0 3px rgba(139,92,246,.15)!important;
+                    }
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main svg{color:#8b5cf6!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a{color:#7c3aed!important;text-decoration:none;font-weight:500}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main a:hover{color:#5b21b6!important}
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"]{
+                        background:linear-gradient(135deg,#4a00e0 0%,#8e2de2 100%)!important;
+                        border:none!important;
+                        border-radius:.6rem!important;
+                        box-shadow:0 4px 16px rgba(114,9,183,.35)!important;
+                        color:#fff!important;
+                        transition:transform .15s ease,box-shadow .15s ease;
+                    }
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"]:hover{
+                        transform:translateY(-1px);
+                        box-shadow:0 6px 20px rgba(114,9,183,.45)!important;
+                    }
+                    .fi-simple-layout:has(.vx-login-hero) .fi-simple-main button[type="submit"] *{color:#fff!important}
                     </style>
                     CSS;
                 },
             )
-            // ── Login page: inject brand panel (left side) ───────────────────────
-            ->renderHook(
-                PanelsRenderHook::SIMPLE_LAYOUT_START,
-                function () use ($isAuthenticatedAdminView): string {
-                    if ($isAuthenticatedAdminView()) return '';
-                    return <<<'HTML'
-                    <div class="vx-login-brand">
-                        <div class="vx-lb-bubble vx-lb-bubble-1"></div>
-                        <div class="vx-lb-bubble vx-lb-bubble-2"></div>
-                        <div class="vx-lb-bubble vx-lb-bubble-3"></div>
-                        <div style="position:relative;z-index:1;display:flex;flex-direction:column;height:100%">
-                            <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:auto">
-                                <svg viewBox="0 0 100 100" width="54" height="54" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-                                    <defs><mask id="vx-lm"><rect width="100" height="100" fill="white"/><rect x="0" y="19.5" width="100" height="9" fill="black"/></mask></defs>
-                                    <path mask="url(#vx-lm)" d="M 23,15 L 77,15 Q 87,15 82,25 L 53,80 Q 50,87 47,80 L 18,25 Q 13,15 23,15 Z" stroke="#f0ece6" stroke-width="5.5" stroke-linejoin="round" fill="none"/>
-                                    <path d="M 30,24 L 70,24 Q 79,24 74.5,32 L 52.5,75 Q 50,81 47.5,75 L 25.5,32 Q 21,24 30,24 Z" stroke="#f0ece6" stroke-width="5" stroke-linejoin="round" fill="none"/>
-                                    <path d="M 23,15 L 77,15" stroke="#f0ece6" stroke-width="5.5" stroke-linecap="round"/>
-                                    <path d="M 30,24 L 70,24" stroke="#f0ece6" stroke-width="5" stroke-linecap="round"/>
-                                </svg>
-                                <div>
-                                    <div style="font-size:1.5rem;font-weight:800;color:#fff;letter-spacing:-.5px;line-height:1">VORTEX</div>
-                                    <div style="font-size:.7rem;font-weight:700;color:#c4b5fd;letter-spacing:4px;line-height:1.6">BREAKS</div>
-                                </div>
-                            </div>
-                            <div class="vx-lb-tagline" style="padding:2.5rem 0">
-                                <div style="font-size:1.35rem;font-weight:700;color:#fff;margin-bottom:.6rem;line-height:1.25">Operations<br>Platform</div>
-                                <div style="color:#c4b5fd;font-size:.83rem;line-height:1.65">Your all-in-one hub for show management, inventory tracking, and streamer payouts.</div>
-                            </div>
-                            <div class="vx-lb-features" style="display:flex;flex-direction:column;gap:.9rem">
-                                <div style="display:flex;align-items:center;gap:.75rem"><div style="width:30px;height:30px;border-radius:7px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">🎬</div><span style="color:#e9d5ff;font-size:.825rem">Show tracking &amp; reconciliation</span></div>
-                                <div style="display:flex;align-items:center;gap:.75rem"><div style="width:30px;height:30px;border-radius:7px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">📦</div><span style="color:#e9d5ff;font-size:.825rem">Inventory management</span></div>
-                                <div style="display:flex;align-items:center;gap:.75rem"><div style="width:30px;height:30px;border-radius:7px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">💰</div><span style="color:#e9d5ff;font-size:.825rem">Streamer payouts</span></div>
-                                <div style="display:flex;align-items:center;gap:.75rem"><div style="width:30px;height:30px;border-radius:7px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">✨</div><span style="color:#e9d5ff;font-size:.825rem">AI-powered assistant</span></div>
-                            </div>
-                            <div class="vx-lb-footer" style="margin-top:2rem;padding-top:1.25rem;border-top:1px solid rgba(255,255,255,.1)">
-                                <div style="color:rgba(255,255,255,.3);font-size:.72rem">Built by DBell Creations</div>
-                            </div>
-                        </div>
-                    </div>
-                    HTML;
-                },
-            )
-            // ── Login page: "Welcome back" heading above the form ────────────────
+            // ── Login page: gradient banner + heading inside the card ────────────
             ->renderHook(
                 PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE,
                 fn (): string => <<<'HTML'
-                <div class="vx-form-heading">
-                    <h2>Welcome back</h2>
-                    <p>Sign in to your VortexOps account</p>
+                <div class="vx-login-hero">
+                    <div class="vx-wave-banner">
+                        <div class="vx-wave-banner-inner">
+                            <svg viewBox="0 0 100 100" width="26" height="26" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+                                <defs><mask id="vx-lm2"><rect width="100" height="100" fill="white"/><rect x="0" y="19.5" width="100" height="9" fill="black"/></mask></defs>
+                                <path mask="url(#vx-lm2)" d="M 23,15 L 77,15 Q 87,15 82,25 L 53,80 Q 50,87 47,80 L 18,25 Q 13,15 23,15 Z" stroke="#fff" stroke-width="6" stroke-linejoin="round" fill="none"/>
+                                <path d="M 30,24 L 70,24 Q 79,24 74.5,32 L 52.5,75 Q 50,81 47.5,75 L 25.5,32 Q 21,24 30,24 Z" stroke="#fff" stroke-width="5.5" stroke-linejoin="round" fill="none"/>
+                                <path d="M 23,15 L 77,15" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+                                <path d="M 30,24 L 70,24" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/>
+                            </svg>
+                            <div class="vx-wave-banner-word">VORTEX<span>Operations Platform</span></div>
+                        </div>
+                    </div>
+                    <div class="vx-login-heading">
+                        <h1>Welcome Back!</h1>
+                        <p>Sign in to manage your operations hub.</p>
+                    </div>
                 </div>
+                HTML,
+            )
+            // ── Login page: footer credit inside the card, below the form ────────
+            ->renderHook(
+                PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
+                fn (): string => <<<'HTML'
+                <div class="vx-login-footer">Built by DBell Creations</div>
                 HTML,
             )
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
-                Dashboard::class,
+                DashboardImproved::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([])
@@ -268,10 +441,46 @@ class AdminPanelProvider extends PanelProvider
                         \App\Filament\Resources\WeeklyPayoutBatchResource::class,
                         \App\Filament\Resources\ActivityLogResource::class,
                     ])
-                    ->hidden(fn () => ! (auth()->user()?->isAdmin())),
+                    ->hidden(fn () => ! (auth()->user()?->isAdmin() || auth()->user()?->isOwner() || auth()->user()?->isStreamer())),
             ])
             ->authMiddleware([
                 Authenticate::class,
             ]);
+    }
+
+    /**
+     * Precedence: the active channel's own title, else the global brand name —
+     * except when falling back to the built-in SVG logo (no channel logo, no
+     * global logo), which already contains the wordmark so the text is hidden.
+     */
+    public static function resolveBrandName(?WhatnotChannel $channel, string $brandName, ?string $logoPath): string
+    {
+        if ($channel?->display_title) {
+            return $channel->display_title;
+        }
+
+        if (! $channel?->logo_path && ! $logoPath && file_exists(public_path('images/vb-logo-sidebar.svg'))) {
+            return '';
+        }
+
+        return $brandName;
+    }
+
+    /** Precedence: the active channel's own logo, else the global logo, else the built-in SVG. */
+    public static function resolveBrandLogo(?WhatnotChannel $channel, ?string $logoPath): ?string
+    {
+        if ($channel?->logo_path && file_exists(storage_path('app/public/' . $channel->logo_path))) {
+            return asset('storage/' . $channel->logo_path);
+        }
+
+        if ($logoPath && file_exists(storage_path('app/public/' . $logoPath))) {
+            return asset('storage/' . $logoPath);
+        }
+
+        if (file_exists(public_path('images/vb-logo-sidebar.svg'))) {
+            return asset('images/vb-logo-sidebar.svg');
+        }
+
+        return null;
     }
 }

@@ -26,11 +26,14 @@ class PalletLine extends Model
         'quantity_per_case',
         'unit_cost',
         'inventory_location_id',
+        'line_status',
+        'preflight_cost',
     ];
 
     protected $casts = [
         'quantity_per_case' => 'decimal:2',
         'unit_cost'         => 'decimal:4',
+        'preflight_cost'    => 'decimal:4',
         'match_confidence'  => 'float',
         'match_reasons'     => 'array',
         'matched_at'        => 'datetime',

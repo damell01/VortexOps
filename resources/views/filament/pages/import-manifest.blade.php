@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div class="space-y-6 max-w-3xl">
+    <div class="space-y-6">
 
         {{-- ── Progress stepper ────────────────────────────────────────────── --}}
         @php
@@ -7,7 +7,7 @@
             $stageKeys = array_keys($stages);
             $currentIdx = array_search($stage, $stageKeys);
         @endphp
-        <div class="flex items-center gap-0">
+        <div class="flex items-center gap-2 max-w-3xl mx-auto">
             @foreach ($stages as $key => $label)
                 @php
                     $idx    = array_search($key, $stageKeys);
@@ -37,7 +37,7 @@
              Stage 1 — Upload
         ═══════════════════════════════════════════════════════════════════ --}}
         @if ($stage === 'upload')
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-6 space-y-5">
+            <div class="max-w-3xl mx-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm px-6 py-6 space-y-5">
                 <div>
                     <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Upload Packing Slip</h2>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -159,8 +159,8 @@
              Stage 2 — AI Processing (polls every 3 s)
         ═══════════════════════════════════════════════════════════════════ --}}
         @if ($stage === 'processing')
-            <div wire:poll.3000ms="checkProcessing">
-                <div class="rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950 px-6 py-10 text-center space-y-4">
+            <div wire:poll.3000ms="checkProcessing" class="max-w-3xl mx-auto">
+                <div class="rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950 shadow-sm px-6 py-10 text-center space-y-4">
                     <div class="flex justify-center">
                         <svg class="animate-spin h-10 w-10 text-violet-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -182,12 +182,19 @@
              Stage 3 — Verify & Edit
         ═══════════════════════════════════════════════════════════════════ --}}
         @if ($stage === 'verify')
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-6 space-y-5">
-                <div>
-                    <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Verify Line Items</h2>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        AI found <strong>{{ count($parsedLines) }}</strong> line item(s). Check everything looks right — edit, add, or remove lines before importing.
-                    </p>
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm px-6 py-6 space-y-5">
+                <div class="flex items-center justify-between gap-4">
+                    <div>
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Verify Line Items</h2>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            AI found <strong>{{ count($parsedLines) }}</strong> line item(s). Check everything looks right — edit, add, or remove lines before importing.
+                        </p>
+                    </div>
+                    @if (count($parsedLines) > 0)
+                        <span class="hidden sm:inline-flex shrink-0 items-center rounded-full bg-violet-100 dark:bg-violet-900 px-3 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
+                            {{ collect($parsedLines)->filter(fn ($l) => !empty($l['matched_item_id']))->count() }}/{{ count($parsedLines) }} matched
+                        </span>
+                    @endif
                 </div>
 
                 @if (count($parsedLines) === 0)
@@ -222,7 +229,7 @@
                                 </div>
                                 <div class="grid grid-cols-3 gap-2">
                                     <div>
-                                        <label class="block text-[10px] text-gray-400 mb-0.5 uppercase">Cases</label>
+                                        <label class="block text-xs text-gray-400 mb-0.5 uppercase">Cases</label>
                                         <input
                                             wire:model="parsedLines.{{ $i }}.case_count"
                                             type="number"
@@ -232,7 +239,7 @@
                                         />
                                     </div>
                                     <div>
-                                        <label class="block text-[10px] text-gray-400 mb-0.5 uppercase">Unit Cost</label>
+                                        <label class="block text-xs text-gray-400 mb-0.5 uppercase">Unit Cost</label>
                                         <input
                                             wire:model="parsedLines.{{ $i }}.unit_cost"
                                             type="text"
@@ -241,7 +248,7 @@
                                         />
                                     </div>
                                     <div>
-                                        <label class="block text-[10px] text-gray-400 mb-0.5 uppercase">SKU</label>
+                                        <label class="block text-xs text-gray-400 mb-0.5 uppercase">SKU</label>
                                         <input
                                             wire:model="parsedLines.{{ $i }}.sku"
                                             type="text"
@@ -256,16 +263,16 @@
                                 @if (!empty($line['matched_item_id']))
                                     <div class="flex flex-col gap-1">
                                         <div class="flex items-center gap-1.5 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 px-2.5 py-1.5">
-                                            <x-heroicon-o-check-circle class="h-3.5 w-3.5 flex-shrink-0 text-green-600 dark:text-green-400" />
+                                            <x-heroicon-o-check-circle class="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />
                                             <span class="text-xs font-medium text-green-700 dark:text-green-300 truncate">{{ $line['matched_item_name'] }}</span>
                                         </div>
                                         @if ($conf || $stg)
                                             <div class="flex items-center gap-1 px-0.5">
                                                 @if ($conf)
-                                                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium {{ $conf === 'high' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : ($conf === 'medium' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500') }}">{{ ucfirst($conf) }}</span>
+                                                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium {{ $conf === 'high' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : ($conf === 'medium' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500') }}">{{ ucfirst($conf) }}</span>
                                                 @endif
                                                 @if ($stg)
-                                                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300">{{ $stg }}</span>
+                                                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300">{{ $stg }}</span>
                                                 @endif
                                             </div>
                                         @endif
@@ -273,14 +280,14 @@
                                 @else
                                     <div class="space-y-1.5">
                                         <div class="flex items-center gap-1.5 rounded-md bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5">
-                                            <x-heroicon-o-question-mark-circle class="h-3.5 w-3.5 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                                            <x-heroicon-o-question-mark-circle class="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
                                             <span class="text-xs font-medium text-amber-700 dark:text-amber-300">No inventory match</span>
                                         </div>
-                                        <label class="flex items-center gap-2 px-2.5 py-1 cursor-pointer">
+                                        <label class="flex items-center gap-2 px-3 py-2 cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                                             <input
                                                 wire:model="parsedLines.{{ $i }}.create_new_item"
                                                 type="checkbox"
-                                                class="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500"
+                                                class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500 cursor-pointer"
                                             />
                                             <span class="text-xs text-gray-600 dark:text-gray-400">Create new inventory item</span>
                                         </label>
@@ -296,7 +303,7 @@
                         $totalCost    = collect($parsedLines)->sum(fn ($l) => (float) ($l['unit_cost'] ?? 0) * (int) ($l['case_count'] ?? 0));
                         $matchedCount = collect($parsedLines)->filter(fn ($l) => !empty($l['matched_item_id']))->count();
                     @endphp
-                    <div class="hidden sm:block rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <div class="hidden sm:block rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                         {{-- Header --}}
                         <div class="grid grid-cols-12 gap-2 px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700
                                     text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
@@ -349,26 +356,26 @@
                                             class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
                                         />
                                     </div>
-                                    <div class="col-span-2 flex flex-col gap-0.5">
+                                    <div class="col-span-2 flex flex-col gap-2">
                                         @php $conf = $line['match_confidence'] ?? ''; $stg = $line['match_stage'] ?? ''; @endphp
                                         @if (!empty($line['matched_item_id']))
-                                            <span class="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900 px-2 py-0.5 text-[11px] font-medium text-green-700 dark:text-green-300 max-w-full">
-                                                <x-heroicon-o-check-circle class="h-3 w-3 flex-shrink-0" />
+                                            <span class="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900 px-3 py-1 text-[11px] font-medium text-green-700 dark:text-green-300 max-w-full">
+                                                <x-heroicon-o-check-circle class="h-4 w-4 flex-shrink-0" />
                                                 <span class="truncate">{{ $line['matched_item_name'] }}</span>
                                             </span>
                                             @if ($conf || $stg)
                                                 <div class="flex items-center gap-1">
                                                     @if ($conf)
-                                                        <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium {{ $conf === 'high' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : ($conf === 'medium' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500') }}">{{ ucfirst($conf) }}</span>
+                                                        <span class="inline-flex items-center rounded px-2 py-1 text-xs font-medium {{ $conf === 'high' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : ($conf === 'medium' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500') }}">{{ ucfirst($conf) }}</span>
                                                     @endif
                                                     @if ($stg)
-                                                        <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300">{{ $stg }}</span>
+                                                        <span class="inline-flex items-center rounded px-2 py-1 text-xs font-medium bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300">{{ $stg }}</span>
                                                     @endif
                                                 </div>
                                             @endif
                                         @else
                                             <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                                                <x-heroicon-o-question-mark-circle class="h-3 w-3 flex-shrink-0" />
+                                                <x-heroicon-o-question-mark-circle class="h-4 w-4 flex-shrink-0" />
                                                 No match
                                             </span>
                                         @endif
@@ -463,7 +470,7 @@
              Stage 4 — Done
         ═══════════════════════════════════════════════════════════════════ --}}
         @if ($stage === 'done')
-            <div class="rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 px-6 py-10 text-center space-y-4">
+            <div class="max-w-3xl mx-auto rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 shadow-sm px-6 py-10 text-center space-y-4">
                 <x-heroicon-o-check-circle class="h-12 w-12 mx-auto text-green-500" />
                 <div>
                     <h2 class="text-lg font-semibold text-green-900 dark:text-green-100">Imported</h2>

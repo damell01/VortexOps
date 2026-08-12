@@ -25,14 +25,13 @@ class HorizonDashboard extends Page
         return $user?->isOwner() || $user?->isAdmin();
     }
 
-    // Diagnostic tool — only surface it in the owner's menu (still URL-reachable).
-    public static function shouldRegisterNavigation(): bool
-    {
-        return auth()->user()?->isOwner() ?? false;
-    }
-
     public function getView(): string
     {
         return 'filament.pages.horizon-dashboard';
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'Background job queue status — what\'s running, what\'s failed, and how backed up things are.';
     }
 }

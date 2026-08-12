@@ -21,7 +21,7 @@ class ShowReadyNotification extends Notification
     {
         return FilamentNotification::make()
             ->title('Show Ready for Review')
-            ->body("Show \"{$this->show->title}\" is ready for streamer assignment and AI mapping.")
+            ->body("Show \"{$this->show->title}\" is ready for streamer assignment and item mapping.")
             ->icon('heroicon-o-video-camera')
             ->info()
             ->actions([

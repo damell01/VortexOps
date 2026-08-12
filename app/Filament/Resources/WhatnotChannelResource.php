@@ -3,11 +3,11 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\WhatnotChannelResource\Pages;
 use App\Models\WhatnotChannel;
 use App\Support\AdminModules;
 use App\Support\StatusColor;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -17,21 +17,31 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 
 class WhatnotChannelResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'operations';
 
     protected static ?string $model = WhatnotChannel::class;
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'whatnot_username'];
+    }
 
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
@@ -56,8 +66,8 @@ class WhatnotChannelResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Channel Details')->schema([
-                Grid::make(2)->schema([
+            Section::make('Channel Details')->columnSpanFull()->schema([
+                Grid::make(4)->schema([
                     TextInput::make('name')
                         ->required()
                         ->maxLength(255),
@@ -82,14 +92,54 @@ class WhatnotChannelResource extends Resource
                     ->rows(3)
                     ->columnSpanFull(),
             ]),
+            Section::make('Branding')
+                ->description('Shown at the top of the app whenever this channel is the active channel in the switcher. Leave blank to keep the default app branding.')
+                ->columnSpanFull()
+                ->schema([
+                    FileUpload::make('logo_path')
+                        ->label('Channel Logo')
+                        ->image()
+                        ->disk('public')
+                        ->directory('channel-logos')
+                        ->visibility('public')
+                        ->maxSize(2048),
+                    TextInput::make('display_title')
+                        ->label('Display Title')
+                        ->maxLength(255)
+                        ->placeholder('Defaults to the app name'),
+                ]),
         ]);
+    }
+
+    /**
+     * shows/streamers/inventory_locations/whatnot_syncs all nullOnDelete on
+     * whatnot_channel_id — no cascade destruction, but deleting a channel
+     * that's still attributed on shows or streamers would silently orphan
+     * that attribution across the business. Block while either exists.
+     */
+    public static function canDelete(Model $record): bool
+    {
+        return (auth()->user()?->isAdmin() ?? false)
+            && ! $record->shows()->exists()
+            && ! $record->streamers()->exists();
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No channels')
+            ->emptyStateDescription('Add your Whatnot channels to start importing shows.')
+            ->emptyStateIcon('heroicon-o-tv')
             ->deferLoading()
             ->columns([
+                ImageColumn::make('logo_path')
+                    ->label('')
+                    ->circular(),
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable(),
@@ -121,12 +171,37 @@ class WhatnotChannelResource extends Resource
                     ->options(WhatnotChannel::statusLabels()),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()
+                    ->size('sm')
+                    ->iconButton(),
+                EditAction::make()
+                    ->size('sm')
+                    ->iconButton(),
+                DeleteAction::make()
+                    ->iconButton()
+                    ->visible(fn (WhatnotChannel $record) => static::canDelete($record))
+                    ->tooltip(fn (WhatnotChannel $record) => static::canDelete($record) ? null : 'Has shows or streamers attributed to it — can\'t be deleted while those exist.'),
             ])
             ->bulkActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->action(function (Collection $records): void {
+                            $deletable = $records->filter(fn (WhatnotChannel $record) => static::canDelete($record));
+                            $blocked   = $records->count() - $deletable->count();
+
+                            $deletable->each->delete();
+
+                            if ($blocked > 0) {
+                                Notification::make()
+                                    ->title($deletable->count() . ' channel(s) deleted')
+                                    ->body("{$blocked} skipped — still have shows or streamers attributed.")
+                                    ->warning()
+                                    ->send();
+                            } else {
+                                Notification::make()->title($deletable->count() . ' channel(s) deleted')->success()->send();
+                            }
+                        })
+                        ->deselectRecordsAfterCompletion(),
                 ]),
             ])
             ->striped()

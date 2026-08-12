@@ -10,6 +10,11 @@ class ListLedgerEntries extends ListRecords
 {
     protected static string $resource = LedgerResource::class;
 
+    public function getSubheading(): ?string
+    {
+        return 'A running ledger of money in and out, by channel — credits and debits with a running net total.';
+    }
+
     public function getFooterWidgetsColumns(): int | array
     {
         return 3;

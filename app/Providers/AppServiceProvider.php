@@ -14,7 +14,10 @@ use App\Observers\ShowObserver;
 use App\Services\AI\OllamaClient;
 use App\Services\AI\Mapping\MappingEngine;
 use App\Services\EmbeddingService;
+use App\Services\InventoryVelocityService;
+use App\Services\PackingSlipAnalyzerService;
 use App\Services\ProductMatchingService;
+use App\Services\ReceivingReportService;
 use Filament\Support\Facades\FilamentView;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
@@ -44,6 +47,14 @@ class AppServiceProvider extends ServiceProvider
             $app->make(OllamaClient::class),
             $app->make(EmbeddingService::class),
         ));
+
+        $this->app->singleton(PackingSlipAnalyzerService::class, fn ($app) => new PackingSlipAnalyzerService(
+            $app->make(OllamaClient::class),
+        ));
+
+        $this->app->singleton(ReceivingReportService::class);
+
+        $this->app->singleton(InventoryVelocityService::class);
     }
 
     public function boot(): void

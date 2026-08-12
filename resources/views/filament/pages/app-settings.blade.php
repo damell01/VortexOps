@@ -120,12 +120,12 @@
                         role="switch"
                         :aria-checked="$wire.demo_mode.toString()"
                         @click="$wire.demo_mode = !$wire.demo_mode"
-                        class="relative inline-flex h-6 w-11 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+                        class="relative inline-flex h-8 w-16 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
                         :class="$wire.demo_mode ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'"
                     >
                         <span
-                            class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition duration-200 ease-in-out"
-                            :class="$wire.demo_mode ? 'translate-x-5' : 'translate-x-0'"
+                            class="pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow transform ring-0 transition duration-200 ease-in-out"
+                            :class="$wire.demo_mode ? 'translate-x-7' : 'translate-x-0.5'"
                         ></span>
                     </button>
                 </div>
@@ -160,6 +160,22 @@
             </button>
 
             <div x-show="open" class="border-t border-gray-200 dark:border-gray-700 px-6 py-4 space-y-3">
+                @if (auth()->user()?->isOwner())
+                    <div class="flex flex-wrap items-center gap-2 pb-1">
+                        <span class="text-xs font-medium text-gray-400 mr-1">Quick select:</span>
+                        @foreach ($this->modulePresets as $key => $preset)
+                            <button
+                                type="button"
+                                wire:click="applyModulePreset('{{ $key }}')"
+                                title="{{ $preset['description'] }}"
+                                class="inline-flex items-center rounded-full border border-gray-200 dark:border-gray-700 px-3 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 transition-colors"
+                            >
+                                {{ $preset['label'] }}
+                            </button>
+                        @endforeach
+                        <span class="text-xs text-gray-400">— still requires Save Changes below.</span>
+                    </div>
+                @endif
                 @foreach ($this->availableModules as $slug => $module)
                     @php
                         $moduleEnabled = in_array($slug, $enabled_modules);
@@ -449,7 +465,7 @@
             <button type="button" @click="open = !open"
                 class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                 <div class="rounded-lg bg-teal-100 dark:bg-teal-900/40 p-2 shrink-0">
-                    <x-heroicon-o-circle-stack class="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                    <x-heroicon-o-check-badge class="h-5 w-5 text-teal-600 dark:text-teal-400" />
                 </div>
                 <div class="flex-1 min-w-0">
                     <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Database Backup</h2>
@@ -497,7 +513,8 @@
         </div>
         @endif
 
-        {{-- ── System & Maintenance ────────────────────────────────────────── --}}
+        {{-- ── System & Maintenance (owner / super admin only) ─────────────── --}}
+        @if ($this->canSeeModuleToggles)
         <div wire:key="section-system" x-data="{ open: false }" class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
 
             <button type="button" @click="open = !open"
@@ -527,7 +544,7 @@
                         type="button"
                         class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                        <span wire:loading.remove wire:target="runMigrations"><x-heroicon-o-circle-stack class="h-4 w-4 text-gray-500 dark:text-gray-400" /></span>
+                        <span wire:loading.remove wire:target="runMigrations"><x-heroicon-o-check-badge class="h-4 w-4 text-gray-500 dark:text-gray-400" /></span>
                         <span wire:loading wire:target="runMigrations">
                             <svg class="h-4 w-4 animate-spin text-violet-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -594,26 +611,11 @@
                 <div class="px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                         <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Clear Demo Data</p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Permanently removes all shows, inventory, pallets, payouts, and related records. Users, streamers, vendors, channels, and settings are kept.</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Permanently removes all shows, inventory, pallets, payouts, and related records — real data included, not just seeded demo rows. Users, streamers, vendors, channels, and settings are kept.</p>
                     </div>
-                    <button
-                        wire:click="clearDemoData"
-                        wire:loading.attr="disabled"
-                        wire:target="clearDemoData"
-                        wire:confirm="This will permanently delete ALL shows, inventory, pallets, and payouts. Are you sure?"
-                        type="button"
-                        class="shrink-0 inline-flex items-center gap-2 rounded-lg border border-red-400 dark:border-red-600 bg-red-50 dark:bg-red-950 px-3 py-2 text-sm font-medium text-red-700 dark:text-red-300 shadow-sm hover:bg-red-100 dark:hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                        <span wire:loading.remove wire:target="clearDemoData"><x-heroicon-o-fire class="h-4 w-4" /></span>
-                        <span wire:loading wire:target="clearDemoData">
-                            <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                            </svg>
-                        </span>
-                        <span wire:loading.remove wire:target="clearDemoData">Clear Demo Data</span>
-                        <span wire:loading wire:target="clearDemoData">Clearing…</span>
-                    </button>
+                    <div class="shrink-0">
+                        {{ $this->clearDemoDataAction }}
+                    </div>
                 </div>
                 @endif
 
@@ -629,8 +631,10 @@
 
             </div>
         </div>
+        @endif
 
-        {{-- ── AI / Ollama ─────────────────────────────────────────────────── --}}
+        {{-- ── AI / Ollama (owner / super admin only) ───────────────────────── --}}
+        @if ($this->canSeeModuleToggles)
         <div wire:key="section-ai-ollama" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
 
             <button type="button" @click="open = !open"
@@ -799,20 +803,9 @@
                     </button>
                 </div>
 
-                {{-- Auto-queue toggle --}}
-                <div class="px-6 py-4 flex items-center justify-between gap-4">
-                    <div>
-                        <p class="text-sm font-medium text-gray-900 dark:text-gray-100">Auto-Queue AI Mapping on Import</p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">When enabled, shows created by the Whatnot import are automatically moved to Pending Review and queued for AI mapping.</p>
-                    </div>
-                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                        <input wire:model.live="ai_auto_queue_on_import" type="checkbox" class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary-500 dark:peer-focus:ring-primary-600 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600"></div>
-                    </label>
-                </div>
-
             </div>
         </div>
+        @endif
 
         {{-- ── Shipping Surcharge ──────────────────────────────────────────── --}}
         <div wire:key="section-shipping" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
@@ -839,6 +832,49 @@
                     <input wire:model.blur="shipping_surcharge_threshold" type="number" step="0.01" min="0" placeholder="500.00"
                         class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
                     <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Package value threshold that triggers the surcharge (default $500.00)</p>
+                </div>
+            </div>
+        </div>
+
+        {{-- ── Vortex Fee (default) ────────────────────────────────────────── --}}
+        <div wire:key="section-owner-fee" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+
+            <button type="button" @click="open = !open"
+                class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <x-heroicon-o-banknotes class="h-5 w-5 text-emerald-500 shrink-0" />
+                <div class="flex-1 min-w-0">
+                    <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Vortex Fee</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Default fee applied to a streamer's payout — used unless that streamer has their own override set</p>
+                </div>
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
+            </button>
+
+            <div x-show="open" class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 space-y-4">
+                <p class="text-xs text-gray-500 dark:text-gray-400">Applies to every streamer who doesn't have their own fee type set on their profile (Streamers → edit → Vortex Fee section). A streamer-level override always wins over this default.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Fee Type</label>
+                        <select wire:model.live="default_owner_fee_type"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                            <option value="">No default fee</option>
+                            <option value="percentage">Percentage (%)</option>
+                            <option value="flat">Flat Amount ($)</option>
+                        </select>
+                    </div>
+                    @if ($default_owner_fee_type)
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">{{ $default_owner_fee_type === 'flat' ? 'Fee Amount ($)' : 'Fee Percentage (%)' }}</label>
+                            <input wire:model.blur="default_owner_fee_value" type="number" step="0.01" min="0" placeholder="0.00"
+                                class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        </div>
+                        <div class="flex items-end pb-2">
+                            <label class="inline-flex items-center gap-2 cursor-pointer">
+                                <input wire:model="default_owner_fee_deduct_from_payout" type="checkbox"
+                                    class="rounded border-gray-300 dark:border-gray-600 text-primary-600 focus:ring-primary-500">
+                                <span class="text-sm text-gray-700 dark:text-gray-300">Deduct from payout</span>
+                            </label>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

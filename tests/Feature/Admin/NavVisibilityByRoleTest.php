@@ -95,4 +95,47 @@ class NavVisibilityByRoleTest extends TestCase
 
         $this->assertNotEmpty(LedgerResource::getNavigationItems());
     }
+
+    // ── Per-role edit access (view-only pages) — mirrors the hidden-page rules ──
+
+    public function test_page_readonly_when_the_users_only_role_marks_it_readonly(): void
+    {
+        NavVisibility::setReadonlyForRole('manager', [LedgerResource::class]);
+        $user = $this->userWithRoles(['manager']);
+
+        $this->assertTrue(NavVisibility::isReadOnlyForUser(LedgerResource::class, $user));
+    }
+
+    public function test_page_editable_when_another_role_grants_it(): void
+    {
+        NavVisibility::setReadonlyForRole('manager', [LedgerResource::class]);
+        $user = $this->userWithRoles(['manager', 'lead']);
+
+        $this->assertFalse(NavVisibility::isReadOnlyForUser(LedgerResource::class, $user));
+    }
+
+    public function test_page_readonly_only_when_all_roles_mark_it_readonly(): void
+    {
+        NavVisibility::setReadonlyForRole('manager', [LedgerResource::class]);
+        NavVisibility::setReadonlyForRole('lead', [LedgerResource::class]);
+        $user = $this->userWithRoles(['manager', 'lead']);
+
+        $this->assertTrue(NavVisibility::isReadOnlyForUser(LedgerResource::class, $user));
+    }
+
+    public function test_owner_is_never_readonly(): void
+    {
+        NavVisibility::setReadonlyForRole('manager', [LedgerResource::class]);
+        $owner = $this->userWithRoles(['manager'], 'dbellcreations@gmail.com');
+
+        $this->assertFalse(NavVisibility::isReadOnlyForUser(LedgerResource::class, $owner));
+    }
+
+    public function test_user_with_no_roles_is_never_readonly(): void
+    {
+        NavVisibility::setReadonlyForRole('manager', [LedgerResource::class]);
+        $user = User::factory()->create(['email' => 'noroles2@test.com']);
+
+        $this->assertFalse(NavVisibility::isReadOnlyForUser(LedgerResource::class, $user));
+    }
 }

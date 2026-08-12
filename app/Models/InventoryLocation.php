@@ -16,6 +16,7 @@ class InventoryLocation extends Model
         'name',
         'type',
         'streamer_id',
+        'whatnot_channel_id',
         'status',
         'notes',
     ];
@@ -28,6 +29,20 @@ class InventoryLocation extends Model
     public function streamer(): BelongsTo
     {
         return $this->belongsTo(Streamer::class);
+    }
+
+    /** Channel this location's stock is grouped under for reporting/costing. */
+    public function channel(): BelongsTo
+    {
+        return $this->belongsTo(WhatnotChannel::class, 'whatnot_channel_id');
+    }
+
+    /** Limit to the admin's currently active channel (App\Support\ChannelContext), if any. */
+    public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return \App\Support\ChannelContext::isScoped()
+            ? $query->where('whatnot_channel_id', \App\Support\ChannelContext::currentId())
+            : $query;
     }
 
     public function stock(): HasMany

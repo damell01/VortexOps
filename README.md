@@ -16,9 +16,113 @@ Full end-to-end walkthrough at 1440 × 900 — every workflow, every page, every
 
 ---
 
-## Screenshots
+## User Roles & Permissions
 
-Auto-captured by the Playwright UI tour and stored in [`tests/Browser/screenshots/`](tests/Browser/screenshots/). Each row shows the **desktop** view (1440 × 900) alongside the **mobile** view (390 × 844). Regenerate any time with `npx playwright test`.
+VortexOps has three distinct roles with scoped access:
+
+### 1. Super Admin (`super_admin`)
+
+**Access:** Everything, including role assignment and dangerous operations.  
+**Use case:** Dev/operations team only. Don't assign to production users.
+
+| Feature | Access |
+|---------|--------|
+| All resources (full CRUD) | ✅ |
+| Settings & configuration | ✅ |
+| User management & role assignment | ✅ |
+| Activity log viewer | ✅ |
+| Log viewer | ✅ |
+| Whatnot sync dashboard | ✅ |
+| Clear logs / dangerous actions | ✅ |
+
+**Default test account:** `dev@vortexbreaks.com` / `devpassword`
+
+---
+
+### 2. Admin (`admin`)
+
+**Access:** Full platform access, no role management.  
+**Use case:** Operations team — they drive the business workflows.
+
+| Feature | Access |
+|---------|--------|
+| Shows (create/edit/manage all) | ✅ |
+| Streamers (view + edit profiles) | ✅ |
+| Payouts (calculate + approve pay runs) | ✅ |
+| Inventory (all operations + adjustments) | ✅ |
+| Pallets & receiving (full workflow) | ✅ |
+| Deduction requests (approve/reject) | ✅ |
+| Whatnot channels + sync control | ✅ |
+| User management | ✅ |
+| Activity log viewer | ✅ |
+| Log viewer | ✅ |
+| Settings | Subset (can't disable modules) |
+
+**Permissions:** `admin` role (Spatie Laravel Permission v7)
+
+**Default test account:** `admin@vortexbreaks.com` / `password`
+
+---
+
+### 3. Streamer (`streamer`)
+
+**Access:** Limited self-service view of their own data.  
+**Use case:** Streamers log into the platform to see their own shows, payouts, and balances.
+
+| Feature | Access |
+|---------|--------|
+| Shows (view own only, scoped to their shows) | ✅ |
+| Add items to show logs (manual mapping) | ✅ |
+| View own payouts | ✅ |
+| View payout history | ✅ |
+| Inventory items (read-only list) | ✅ |
+| Inventory locations (own + shared only) | ✅ |
+| Movement log (view only) | ✅ |
+| Deduction requests (view own only) | ✅ |
+| **Cannot:** Create shows, manage payouts, access admin settings, assign roles | ❌ |
+
+**Setup:** Link a Streamer profile to a User record via the user form. Inventory scope applies automatically.
+
+**Test account example:** `streamer@example.com` / `password` (must be linked to a Streamer profile)
+
+---
+
+## Screenshots & Role-Based Views
+
+All screenshots are auto-captured by the **Playwright UI tour** (`tests/Browser/screenshot-tour.spec.ts`) and stored in [`tests/Browser/screenshots/`](tests/Browser/screenshots/). Each row shows the **desktop** view (1440 × 900) alongside the **mobile** view (390 × 844).
+
+### Regenerate Screenshots
+
+To capture fresh screenshots of all functionality across all user roles:
+
+```bash
+# Start the development server
+php artisan serve --port=8000 &
+
+# Clear caches
+php artisan config:clear && php artisan cache:clear
+
+# Run the Playwright tour (all roles, all pages, desktop + mobile, 14 test suites)
+npx playwright test tests/Browser/screenshot-tour.spec.ts --project=chromium
+
+# Results saved to tests/Browser/screenshots/{desktop,mobile}/
+```
+
+The tour tests 14 different scenarios:
+1. **Authentication** — Login page empty/filled
+2. **Owner Dashboard** — Full dashboard with stats and dark mode
+3. **Shows Resource** — List, search, filters, detail view
+4. **Streamers Resource** — List and detail view
+5. **Payouts Resource** — List, filters, grouping, detail view
+6. **Inventory Resources** — Items, locations, stock, movements
+7. **Pallets & Receiving** — List and detail workflows
+8. **Vendors & Settings** — Configuration pages
+9. **Admin Experience** — Admin-only features
+10. **Streamer Experience** — Scoped streamer view
+11. **Modals & Actions** — Create, edit, delete workflows
+12. **Responsive Design** — Tablet and small mobile testing
+13. **Toast Notifications** — Success, error, warning messages
+14. **Dark Mode** — Light/dark theme consistency
 
 ---
 
@@ -129,7 +233,7 @@ The Shows list carries a per-show **Net Margin** column (Whatnot net + tips − 
 
 ### Show Pipeline — Status Board
 
-A Kanban view of shows moving through the ops pipeline (Pending Review → AI Mapping → Pending Approval → Reconciled). Each card shows a **time-in-status** aging badge — grey when fresh, amber at 3+ days, red at 7+ — so shows stuck in the reconcile pipeline stand out at a glance.
+A Kanban view of shows moving through the ops pipeline (Pending Review → Mapping → Pending Approval → Reconciled). Each card shows a **time-in-status** aging badge — grey when fresh, amber at 3+ days, red at 7+ — so shows stuck in the reconcile pipeline stand out at a glance.
 
 | Desktop | Mobile |
 |---|---|
@@ -258,6 +362,100 @@ Features: select which log file to view, filter by level (debug/info/warning/err
 
 ---
 
+## Interactive UI Components & Actions
+
+All major workflows are supported by interactive modals, buttons, and real-time feedback. Below are the key components tested in the screenshot tour:
+
+### Modals & Dialogs
+
+| Component | Where | What it does |
+|-----------|-------|-------------|
+| **Create Modal** | Every resource list | Opens form to create new record |
+| **Edit Modal** | Every resource detail | Opens form to edit existing record |
+| **Delete Confirmation** | Action menu | Confirms destructive action |
+| **Item Selection Modal** | Deduction requests | Multi-select inventory items |
+| **Stock Adjustment Modal** | Inventory detail | Quick adjust quantity |
+| **Payout Approval Modal** | Payout list | Review + approve payout |
+| **Manifest Upload Modal** | Pallet create | Upload packing slip for AI parsing |
+
+### Buttons & Actions
+
+| Action Type | Behavior |
+|------------|----------|
+| **Create** | Opens create modal, saves on submit |
+| **Edit** | Opens edit modal with current data |
+| **Delete** | Shows confirmation before deleting |
+| **Bulk Actions** | Select rows, apply action to multiple |
+| **State Transitions** | Changes record status with validation |
+| **Export/Download** | Downloads data in requested format |
+| **Filters & Search** | Real-time table filtering |
+
+### Notifications
+
+| Type | Style | Duration |
+|------|-------|----------|
+| **Success** | Green ✅ | Auto-dismiss 3s |
+| **Error** | Red ❌ | Manual close |
+| **Warning** | Amber ⚠️ | Auto-dismiss 5s |
+| **Info** | Blue ℹ️ | Auto-dismiss 4s |
+
+All notifications use `window.showToast()` and appear in fixed top-right corner.
+
+### Dark Mode
+
+- ✅ Toggle in navbar (saves to session)
+- ✅ Respects system preference on first visit
+- ✅ All components styled for both themes
+- ✅ High contrast for accessibility
+
+### Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `?` | Show shortcuts (console) |
+| `Ctrl+K` | Global search |
+| `Escape` | Close modal |
+| `Ctrl+Enter` | Submit form |
+
+---
+
+## Testing Checklist
+
+Quick checklist to verify all functionality works:
+
+### Authentication
+- [ ] Login/logout works
+- [ ] Invalid credentials rejected
+- [ ] Sessions persist
+
+### Resources (Shows, Payouts, Inventory, etc.)
+- [ ] List pages load
+- [ ] Create/edit/delete modals work
+- [ ] Search and filters work
+- [ ] Forms validate correctly
+- [ ] Success/error messages appear
+
+### Mobile & Responsive
+- [ ] Desktop view (1440×900)
+- [ ] Mobile view (390×844)
+- [ ] Tablet view (768×1024)
+- [ ] No horizontal scroll
+- [ ] Touch-friendly buttons
+
+### User Roles
+- [ ] Super Admin sees everything
+- [ ] Admin restricted from role management
+- [ ] Streamer only sees own data
+- [ ] Unauthorized pages redirect
+
+### Accessibility
+- [ ] Keyboard navigation works
+- [ ] Dark mode readable
+- [ ] Focus indicators visible
+- [ ] ARIA labels present
+
+---
+
 ## Stack
 
 | Layer | Technology |
@@ -297,7 +495,7 @@ Dev (super admin): `dev@vortexbreaks.com` / `devpassword`
 
 Demo data includes 3 streamers, 8 inventory items, stock across all locations, 3 shows at different stages (reconciled / pending approval / draft), deduction requests, payouts, and 2 weekly pay run batches.
 
-To run the queue worker (required for AI mapping and low-stock notifications):
+To run the queue worker (required for pallet-manifest AI mapping, notifications, and Whatnot sync jobs):
 
 ```bash
 php artisan queue:work
@@ -365,10 +563,10 @@ Create Show
 pending_review ──► Assign streamers + enter financials
     │
     ▼
-[Run AI Mapping] ──► Jobs: ParseShowTitle → MapShowInventory
+[Map Items Manually / streamer maps items sold] ──► DeductionRequest + lines created
     │
     ▼
-mapping ──► AI reads show title + available inventory → creates DeductionRequest with suggested lines
+mapping ──► Ops/streamer assigns each line to an inventory item, location, and cost
     │
     ▼
 pending_approval ──► Ops reviews/edits deduction lines in the approval UI
@@ -382,8 +580,8 @@ pending_approval ──► Ops reviews/edits deduction lines in the approval UI
 | Status | Meaning |
 |---|---|
 | `draft` | Just created; no streamers or financials yet |
-| `pending_review` | Ready for ops to assign streamers and trigger AI mapping |
-| `mapping` | AI job running — deduction lines being generated |
+| `pending_review` | Ready for ops to assign streamers and map items |
+| `mapping` | Deduction lines are being manually assigned to inventory |
 | `pending_approval` | Deduction request created; waiting for ops to approve or reject |
 | `reconciled` | Approved and inventory deducted; payouts generated |
 | `closed` | Manually closed without reconciliation |
@@ -393,11 +591,10 @@ pending_approval ──► Ops reviews/edits deduction lines in the approval UI
 
 ## Deduction Requests
 
-Each show generates one `DeductionRequest` (one per streamer at the time of AI mapping). The request contains one or more `DeductionRequestLine` records, each representing one inventory item to be deducted.
+Each show generates one `DeductionRequest` (one per streamer, raised manually or via items the streamer adds to their log). The request contains one or more `DeductionRequestLine` records, each representing one inventory item to be deducted.
 
 **Approval UI** (`/admin/deduction-requests/{id}`):
 - Shows the full show summary (revenue, units sold, streamer)
-- Displays AI mapping notes and confidence levels per line
 - Ops can edit quantity approved, unit cost, and item/location per line
 - Ops can add or remove lines manually
 - Approve button persists all edits, then calls `InventoryService::deductStock()` for each approved line
@@ -518,44 +715,14 @@ The chatbot is a floating sparkles panel (`AiChatPanel` Livewire component) that
 
 ---
 
-### 2. Show AI Mapping Pipeline (4 Stages)
+### 2. Show Order → Inventory Mapping (Manual)
 
-The mapping engine reads raw Whatnot order lines (e.g. `"2023 Topps Chrome #145 Julio Rodriguez Auto PSA 9"`) and finds the matching `InventoryItem` in your catalogue. It short-circuits as soon as confidence reaches ≥ 0.95 — expensive stages are skipped when earlier stages are confident enough.
+Matching a sold item on a show to an `InventoryItem` is a manual step, not an AI one. Two paths:
 
-**Entry point:** `RunShowAiMappingJob` — queued on the `ai` queue, 5-minute timeout, 1 attempt.
+- **Streamer self-service** — on the Streamer Log page's "Items Sold" panel, the streamer maps each imported Whatnot order line to an inventory item (and location/cost) via a dropdown, or adds a line themselves for something that wasn't auto-imported.
+- **Admin bulk mapping** — "Map Items Manually" on a show's detail page creates one `DeductionRequestLine` per distinct sold-item description, then the admin assigns each to an inventory item/location on the Deduction Request review page (`ViewDeductionRequest`), which supports adding, editing, and removing lines before approval.
 
-**Job flow:**
-1. Sets show status → `mapping`
-2. Extracts raw order lines from the show's `raw_import_payload`
-3. Runs each line through `MappingEngine::match()`
-4. Persists a `DeductionRequest` + `DeductionRequestLine` records with match stage and confidence stored per line
-5. Sets show status → `pending_approval`
-6. Sends a Filament notification to whoever triggered the job
-
-**The 4 stages (inside `MappingEngine` + `ProductMatchingService`):**
-
-| Stage | Method | Speed | How it works |
-|---|---|---|---|
-| **1 — Alias** | `aliasMatch()` | ~0 ms | Looks up an exact learned alias in `ProductIdentity`. Vendor-scoped first, then global. Confidence = 1.0. |
-| **2 — Fuzzy** | `fuzzyMatch()` | ~5–20 ms | Jaccard similarity (token intersection ÷ union) plus field bonuses for card number, year, and brand matches. |
-| **3 — Embedding** | `embeddingMatch()` | ~10–50 ms | Converts both texts to float vectors via Ollama's `nomic-embed-text` model, then measures cosine similarity. Catches semantic matches that fuzzy misses. |
-| **4 — LLM** | `llmMatch()` | ~500 ms–5 s | Builds a catalogue of up to 20 candidate items (top Stage 1–3 hits + embedding-similar + random pool), sends a structured JSON prompt to Ollama, maps the returned confidence label (high → 0.88 / medium → 0.75 / low → 0.60). |
-
-**Auto-learning:** When Stage 4 returns high confidence (≥ 0.88), `MappingEngine::confirmMatch()` saves the description → `InventoryItem` mapping as a `ProductIdentity` alias. The next time that exact description appears, it hits Stage 1 instantly with zero AI cost.
-
-**Confidence thresholds:**
-
-| Score | Outcome |
-|---|---|
-| 1.0 | Exact alias — auto-accepted |
-| ≥ 0.95 | Pipeline stops, auto-accepted |
-| ≥ 0.80 | Matched but flagged for ops review |
-| < 0.80 | Unmatched — ops must assign manually |
-
-**Triggering mapping:**
-- Manually via the "Run AI Mapping" action on a show's detail page
-- In bulk via "Map All Pending Review" on the Shows list
-- Automatically after a Whatnot import when **Auto-Queue AI Mapping on Import** is enabled in Settings
+`MappingEngine`'s LLM-assisted stage is still used elsewhere (see the packing-slip parser below and the receiving/pallet manifest import) — it is intentionally not part of the show order reconciliation flow.
 
 ---
 
@@ -987,7 +1154,7 @@ app/
 │   │   ├── LogViewer.php              # log file browser with level filter + search
 │   │   └── WhatnotSyncPage.php        # sync dashboard: trigger syncs, view sync history
 │   ├── Resources/
-│   │   ├── ShowResource.php            # show CRUD + AI mapping action + QueryBuilder filters
+│   │   ├── ShowResource.php            # show CRUD + status-driven next-step action + QueryBuilder filters
 │   │   ├── DeductionRequestResource/
 │   │   │   └── Pages/ViewDeductionRequest.php   # approval/reject UI
 │   │   ├── FeedbackTicketResource/

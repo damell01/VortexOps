@@ -5,6 +5,11 @@
  *   analytics    (default) — scrape per-show analytics from the dashboard, newest first
  *   test         — verify credentials only, output {connected, email}
  *   show-orders  — scrape order/lot list for one show (requires WHATNOT_SHOW_URL)
+ *   orders-batch — scrape orders for many shows in one session (requires WHATNOT_ORDER_SOURCES_FILE)
+ *   shipments-batch — refresh weight/dims/carrier/shipping-status for many shows already
+ *                  imported, from /dashboard/shipments?source=<id> (requires WHATNOT_ORDER_SOURCES_FILE)
+ *   shipments-live  — discover shows from /dashboard/lives and scrape shipments for each
+ *                  (no sources file needed; discovers UUIDs on demand)
  *   shows        — legacy: scrape the /seller/shows list page (less data, kept as fallback)
  *   discover     — 3-phase deep crawl: (1) visit all Seller Hub nav pages, (2) drill into
  *                  individual show detail pages and click each tab (Orders/Lots/Sales/Buyers),
@@ -226,8 +231,15 @@ function writeJsonAndExit(value) {
 async function debugShot(page, name) {
   if (!DEBUG) return;
   const p = `/tmp/whatnot-debug-${name}.png`;
-  await page.screenshot({ path: p, fullPage: false });
-  log(`screenshot saved: ${p}`);
+  try {
+    await page.screenshot({ path: p, fullPage: false });
+    log(`screenshot saved: ${p}`);
+  } catch (e) {
+    // A failed diagnostic screenshot (stale file left by a different user,
+    // disk full, etc.) must never take down the run it's trying to help
+    // debug — log it and move on.
+    info(`WARNING: debug screenshot failed for "${name}": ${e.message}`);
+  }
 }
 
 function parseMoney(str) {
@@ -256,6 +268,39 @@ function parseDateString(str) {
   if (!m) return null;
   const [, mo, d, y] = m;
   return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
+}
+
+// Parse "7/1/2026, 7:42 PM CDT" → "19:42:00" (24h HH:MM:SS for a MySQL TIME column).
+// The show's actual stream start time — Whatnot renders it right alongside the
+// date on the analytics page, but parseDateString above discards it.
+function parseTimeString(str) {
+  if (!str) return null;
+  const m = str.match(/(\d{1,2}):(\d{2})\s*([AaPp][Mm])/);
+  if (!m) return null;
+  let hour = parseInt(m[1], 10);
+  const minute = m[2];
+  const isPM = /p/i.test(m[3]);
+  if (isPM && hour !== 12) hour += 12;
+  if (!isPM && hour === 12) hour = 0;
+  return `${String(hour).padStart(2, '0')}:${minute}:00`;
+}
+
+// Extract HH:MM:SS from an ISO-8601 datetime string ("2026-07-01T19:42:00Z" → "19:42:00").
+function parseTimeFromIso(str) {
+  const m = (str || '').match(/T(\d{2}):(\d{2})/);
+  return m ? `${m[1]}:${m[2]}:00` : null;
+}
+
+// Add a duration (minutes) to a "HH:MM:SS" time string, wrapping past midnight.
+// Used to derive end_time from start_time + Show Duration since Whatnot doesn't
+// expose a separate "stream ended at" value anywhere we've found.
+function addMinutesToTime(timeStr, minutes) {
+  if (!timeStr || minutes == null) return null;
+  const [h, m] = timeStr.split(':').map(Number);
+  let total = ((h * 60 + m + minutes) % 1440 + 1440) % 1440;
+  const hh = Math.floor(total / 60);
+  const mm = total % 60;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`;
 }
 
 function parseInteger(str) {
@@ -338,9 +383,23 @@ async function performLogin(page, email, password) {
   const url = page.url();
   info('post-login URL:', url);
   if (url.includes('/login') || url.includes('/signin') || url.includes('/auth') || url.includes('/verify')) {
-    const pageText = await page.textContent('body').catch(() => '');
+    // innerText (not textContent) — textContent includes raw <script> tag
+    // source, so a page still showing unrendered bot-detection loader scripts
+    // (Kasada/Source Defense) gets misread as real page text, and a stray word
+    // like "invalid" buried in that JS spuriously triggers the wrong branch
+    // below. innerText only reflects what's actually rendered/visible.
+    const pageText = await page.evaluate(() => (document.body.innerText || '').trim()).catch(() => '');
     const snippet  = pageText.replace(/\s+/g, ' ').trim().substring(0, 400);
     info('post-login page text:', snippet);
+
+    if (pageText.length < 100) {
+      await debugShot(page, 'post-login-blocked');
+      throw new Error(
+        `Login page never rendered real content after submitting (still on ${url}, only ${pageText.length} visible chars). ` +
+        `This is almost always bot-detection (Kasada/Source Defense) blocking the automated login, not a bad password. ` +
+        `Use a cookie bootstrap instead: php artisan whatnot:login --cookie-file=<cookies exported from a real logged-in browser session>.`
+      );
+    }
     if (pageText.toLowerCase().includes('incorrect') || pageText.toLowerCase().includes('invalid') ||
         pageText.toLowerCase().includes('wrong') || pageText.toLowerCase().includes('not found')) {
       throw new Error(`Login failed — credentials rejected by Whatnot. Page said: ${snippet.substring(0, 200)}`);
@@ -414,9 +473,24 @@ async function ensureSellerMode(page) {
   info('ensureSellerMode: locating "Switch to Selling" <a> anchor in drawer');
   const drawerText = await page.evaluate(() => (document.body.innerText || '').substring(0, 600)).catch(() => '');
   if (!/switch to selling/i.test(drawerText)) {
-    info('ensureSellerMode: "Switch to Selling" not in drawer text — drawer may not be open');
+    info('ensureSellerMode: "Switch to Selling" not in drawer text — this account has no individual seller channel of its own');
     await debugShot(page, 'seller-mode-03b-no-switch-to-selling');
-    throw new Error('"Switch to Selling" not found in open nav drawer.\nDrawer text: ' + drawerText.substring(0, 300));
+
+    // Some accounts are team members ONLY — no personal seller channel, so
+    // "Switch to Selling" never appears in the drawer. Fall back to Strategy 2:
+    // open the role switcher directly and select the target channel by name.
+    if (CHANNEL_NAME) {
+      info(`ensureSellerMode: falling back to switchToChannel("${CHANNEL_NAME}")`);
+      await page.keyboard.press('Escape').catch(() => {});
+      await switchToChannel(page, CHANNEL_NAME);
+      global._sellerModeActive = true;
+      return;
+    }
+
+    throw new Error(
+      '"Switch to Selling" not found in open nav drawer, and WHATNOT_CHANNEL_NAME is not set to fall back to Switch Role.\n' +
+      'Drawer text: ' + drawerText.substring(0, 300)
+    );
   }
 
   info('ensureSellerMode: JS-clicking <a> "Switch to Selling"');
@@ -485,7 +559,9 @@ async function switchToChannel(page, channelName) {
   await debugShot(page, 'role-switch-01-pre');
   info('switchToChannel: current URL before switch:', page.url());
 
-  const SWITCH_ROLE_SEL = '#team-invite-switch-role-anchor';
+  // Confirmed July 2026 (real markup): no id at all — it's an h4 with class ogVNN
+  // reading "Switch Role", inside a div.eCoev[role="presentation"] menu row.
+  const SWITCH_ROLE_SEL = 'div.eCoev h4.ogVNN';
 
   // The Switch Role button is inside the profile drawer — invisible until
   // the avatar button in the top-nav is clicked. Try the avatar first, then
@@ -503,13 +579,18 @@ async function switchToChannel(page, channelName) {
   // Confirmed July 2026: button:has([style*="--avatar-size"]) opens the seller sidebar
   // and triggers seller GraphQL calls even in buyer mode on the logged-in homepage.
   const avatarTriggers = [
+    // Confirmed July 2026 (real markup): the actual top-nav trigger is a bare
+    // <img alt="avatar" src="..."> with no wrapping button/aria-label/data-testid —
+    // none of the selectors below matched it. Click the image directly; the click
+    // bubbles to whatever handler (self or ancestor) opens the drawer.
+    'img[alt="avatar"]',
     'button:has([style*="--avatar-size"])',
     '[data-testid*="avatar"]',
     '[data-testid*="profile"]',
     'button[aria-label*="profile" i]',
     'button[aria-label*="account" i]',
     // Radix/headless menu triggers expose aria-haspopup — the profile menu that
-    // holds #team-invite-switch-role-anchor is one of these.
+    // holds the "Switch Role" item is one of these.
     'button[aria-haspopup="menu"]',
     'button[aria-haspopup="dialog"]',
     'button[aria-haspopup="true"]',
@@ -618,27 +699,47 @@ async function switchToChannel(page, channelName) {
   const roleListText = await page.evaluate(() => (document.body.innerText || '').substring(0, 600)).catch(() => '');
   info('switchToChannel: role list text:', roleListText.substring(0, 400));
 
-  // Try multiple name variants — handles cases where the caller passes
-  // "VortexBreaks" (camelCase) but the UI shows "Vortex Breaks" (spaced).
-  const nameVariants = [...new Set([
-    channelName,
-    channelName.replace(/([a-z])([A-Z])/g, '$1 $2'),   // VortexBreaks → Vortex Breaks
-    channelName.replace(/([A-Z])/g, ' $1').trim(),      // ABCBreaks → A B C Breaks
-  ])];
+  // Confirmed July 2026 (real markup): the account switcher is a plain HTML form
+  // (POST /api/v1/auth/switch-role), one <button formaction="/api/v1/auth/switch-role"
+  // name="id" value="<globalId>"> per account, with the username shown lowercase and
+  // unspaced (e.g. "vortexbreaks", not "Vortex Breaks"). Match on that directly instead
+  // of guessing spaced/camelCase variants — case-insensitive since getByText is
+  // case-sensitive by default and the UI casing may not match whatever the DB has.
+  const SWITCH_ROLE_BUTTON_SEL = 'button[formaction="/api/v1/auth/switch-role"]';
+  const targetKey = channelName.replace(/[^a-z0-9]/gi, '').toLowerCase();
 
   let target = null;
-  for (const variant of nameVariants) {
-    const loc = page.getByText(variant, { exact: false }).first();
-    if (await loc.isVisible().catch(() => false)) {
-      info(`switchToChannel: found channel option matching "${variant}"`);
-      target = loc;
+  const roleButtons = await page.$$(SWITCH_ROLE_BUTTON_SEL).catch(() => []);
+  for (const btn of roleButtons) {
+    const btnText = await btn.innerText().catch(() => '');
+    if (btnText.replace(/[^a-z0-9]/gi, '').toLowerCase().includes(targetKey)) {
+      info(`switchToChannel: found channel option matching "${channelName}" (button text: ${btnText.replace(/\s+/g, ' ').trim()})`);
+      target = btn;
       break;
+    }
+  }
+
+  // Fall back to the old spaced/camelCase text-match in case the account-switcher
+  // markup isn't the one currently sampled (older accounts, different UI variant).
+  if (!target) {
+    const nameVariants = [...new Set([
+      channelName,
+      channelName.replace(/([a-z])([A-Z])/g, '$1 $2'),   // VortexBreaks → Vortex Breaks
+      channelName.replace(/([A-Z])/g, ' $1').trim(),      // ABCBreaks → A B C Breaks
+    ])];
+    for (const variant of nameVariants) {
+      const loc = page.getByText(new RegExp(variant.replace(/[^a-z0-9]/gi, '.?'), 'i')).first();
+      if (await loc.isVisible().catch(() => false)) {
+        info(`switchToChannel: found channel option matching "${variant}" (fallback text search)`);
+        target = loc;
+        break;
+      }
     }
   }
 
   if (!target) {
     await debugShot(page, 'role-switch-failed-channel');
-    info(`switchToChannel: WARNING — channel "${channelName}" (variants: ${nameVariants.join(', ')}) not found in role list`);
+    info(`switchToChannel: WARNING — channel "${channelName}" not found among switch-role buttons or in role list`);
     info('switchToChannel: role list text was:', roleListText.substring(0, 300));
     return;
   }
@@ -942,14 +1043,17 @@ async function extractShowsListFromDom(page) {
     }
 
     // Pass 1: standard show URL patterns (e.g. "Open show" → /dashboard/live/<uuid>)
-    // Whatnot show URL patterns: /live/<user>/<id>, /show/<id>, /seller/shows/<id>,
-    // /dashboard/shows/<id>, /dashboard/live/<id>
+    // Whatnot show URL patterns: /live/<user>/<id>, /live/<id> (confirmed July 2026 —
+    // the real pattern on /dashboard/lives and /dashboard/home is this single-segment
+    // form, not /live/<user>/<id>; the two-segment regex below never matched it),
+    // /show/<id>, /seller/shows/<id>, /dashboard/shows/<id>, /dashboard/live/<id>
     for (const a of document.querySelectorAll('a[href]')) {
       const href = a.getAttribute('href') || '';
       const isKnownNonShow = /\/dashboard\/lives?\/(new|setup|edit|clone|schedule|preview|analytics)(?:[?#]|$)/i.test(href) ||
                              /\/account\/live\/[^/]+\/clone/.test(href);
       if (isKnownNonShow) continue;
       if (!(/\/live\/[^/]+\/[^/?#\s]+(?=[?#]|$)/.test(href) ||
+            /\/live\/[\w-]+(?=[?#]|$)/.test(href) ||
             /\/show\/[\w-]+(?=[?#]|$)/.test(href) ||
             /\/seller\/shows\/[\w-]+(?=[?#]|$)/.test(href) ||
             /\/dashboard\/shows\/[\w-]+(?=[?#]|$)/.test(href) ||
@@ -1063,11 +1167,15 @@ function normalizeApiShow(s) {
 
   const rawDate = String(find('date', 'show_date', 'started_at', 'startTime', 'start_time', 'created_at', 'scheduled_at', 'scheduledAt') || '');
   const showDate = rawDate.includes('T') ? rawDate.substring(0, 10) : parseDateString(rawDate);
+  const startTime = rawDate.includes('T') ? parseTimeFromIso(rawDate) : parseTimeString(rawDate);
+  const durationMin = parseDurationToMinutes(String(find('duration', 'show_duration', 'duration_minutes') || ''));
 
   return {
     title:                  find('title', 'show_title', 'name', 'show_name') || null,
     show_date:              showDate,
     show_date_raw:          rawDate || null,
+    start_time:             startTime,
+    end_time:               startTime && durationMin ? addMinutesToTime(startTime, durationMin) : null,
     detail_url:             find('url', 'detail_url', 'show_url', 'permalink', 'livestreamUrl', 'livestream_url', 'link') ||
                             (s.id ? `https://www.whatnot.com/dashboard/live/${s.id}` : null),
     gross_revenue:          parseMoney(String(find('gross_revenue', 'gross', 'revenue', 'sales', 'estimated_sales', 'total_sales') || '')),
@@ -1087,6 +1195,254 @@ function normalizeApiShow(s) {
     _raw_metrics:           {},
     _api_source:            true,
   };
+}
+
+// Signal the whole process group, not just the single PID Node handed us.
+// Chromium forks its own renderer/utility/GPU-helper processes as separate
+// OS processes we never get a handle to — signaling only `child`'s PID can
+// kill the top-level browser process while leaving those orphaned, still
+// holding the profile dir open (which is exactly what caused every
+// subsequent launch to see the SingletonLock as "genuinely still in use").
+// Requires spawn({ detached: true }), which makes child.pid the group id too.
+function killProcessGroup(child, signal) {
+  try {
+    process.kill(-child.pid, signal);
+  } catch (e) {
+    // Group kill fails if the child was never a group leader, or the group's
+    // leader already exited — fall back to the single PID we hold directly.
+    try { child.kill(signal); } catch (_e) {}
+  }
+}
+
+// Send a kill signal and wait for the OS process to actually exit — sending
+// the signal alone returns immediately, which isn't enough when a caller
+// needs the profile's SingletonLock to be verifiably released before
+// proceeding (e.g. launching the next channel's Chromium against the same
+// persistent profile dir).
+function killAndWait(child, signal = 'SIGTERM', timeoutMs = 5000) {
+  if (child.killed || child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
+  return new Promise((resolve) => {
+    const forceTimer = setTimeout(() => {
+      killProcessGroup(child, 'SIGKILL');
+    }, timeoutMs);
+    child.once('exit', () => {
+      clearTimeout(forceTimer);
+      resolve();
+    });
+    killProcessGroup(child, signal);
+  });
+}
+
+// Unconditionally kill anything already running against this profile dir
+// before we launch into it. This file's own withBrowserLock() (PHP side)
+// guarantees only one whatnot:* command is ever legitimately in flight at a
+// time, so by the time we get here, ANYTHING still alive against this exact
+// profile is leftover garbage from a previous crashed/orphaned run — not a
+// process we need to coexist with. Matches Chromium's own -f pattern
+// (user-data-dir=<path>), which every renderer/utility/GPU-helper child
+// process inherits on its command line too, not just the top-level browser
+// process — one pkill reaps the whole stale tree regardless of how it was
+// orphaned (killAndWait's process-group kill only helps for processes THIS
+// script spawned; this also cleans up ones a cron/queue run before it left
+// behind, e.g. from before that fix existed, or from a hard host-level kill
+// that bypassed our cleanup entirely).
+function killStaleProcessesForProfile(userDataDir) {
+  const { execSync } = require('child_process');
+  try {
+    execSync(`pkill -9 -f "user-data-dir=${userDataDir}"`, { stdio: 'ignore' });
+    info(`killed stale chromium process(es) already using profile: ${userDataDir}`);
+  } catch (e) {
+    // pkill exits 1 when nothing matched, which is the common/expected case — not an error.
+  }
+}
+
+// If a prior Chromium against this profile got killed hard enough (SIGKILL
+// from an external timeout, OOM, etc.) that it never reached its own cleanup,
+// its SingletonLock survives and every subsequent launch fails immediately
+// with exit code 21 (RESULT_CODE_NORMAL_EXIT_PROCESS_NOTIFICATION_FAILED) —
+// this file's own killAndWait() prevents that going forward, but can't help
+// with locks left by whatever killed things before that existed. Chrome's
+// SingletonLock is a symlink to "<hostname>-<pid>"; only clear it if that pid
+// isn't actually alive, so a genuinely-running instance is never disturbed.
+function clearStaleSingletonLock(userDataDir) {
+  const fs = require('fs');
+  const path = require('path');
+  const lockPath = path.join(userDataDir, 'SingletonLock');
+  let target;
+  try {
+    target = fs.readlinkSync(lockPath);
+  } catch {
+    return;
+  }
+  const m = target.match(/-(\d+)$/);
+  const pid = m ? parseInt(m[1], 10) : null;
+  let alive = false;
+  if (pid) {
+    try {
+      process.kill(pid, 0);
+      alive = true;
+    } catch (e) {
+      alive = e.code === 'EPERM'; // exists but not ours to signal — still alive
+    }
+  }
+  if (!alive) {
+    info(`clearing stale SingletonLock (pid ${pid} not running): ${lockPath}`);
+    for (const f of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+      fs.rmSync(path.join(userDataDir, f), { force: true });
+    }
+  }
+}
+
+// ── Launch Chromium and attach via CDP-over-TCP ─────────────────────────────
+// launchPersistentContext() always spawns Chromium with --remote-debugging-pipe
+// for its control channel, which relies on inherited fd 3/4. In some restrictive
+// container environments that pipe handshake never completes: Chromium starts
+// fine (confirmed independently with a plain --remote-debugging-port launch)
+// but Playwright times out waiting on the pipe and force-kills the process,
+// which surfaces as an opaque "signal=SIGTRAP" crash. TCP-based CDP works in
+// that same environment, so here we spawn Chromium ourselves with a dynamic
+// debugging port and attach via connectOverCDP() instead — everything
+// downstream still gets a normal Playwright BrowserContext.
+async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
+  const { spawn } = require('child_process');
+  const {
+    args = [], userAgent, viewport, locale, extraHTTPHeaders, env: extraEnv = {},
+  } = opts;
+
+  killStaleProcessesForProfile(userDataDir);
+  clearStaleSingletonLock(userDataDir);
+
+  const chromeArgs = [
+    ...args,
+    '--headless',
+    '--remote-debugging-port=0',
+    // Chrome ≥111 enforces an Origin/Host allowlist on the DevTools WebSocket
+    // and silently drops connections that fail it — surfaces as a bare "socket
+    // hang up" with no useful error from either side. This is a local loopback
+    // connection we're deliberately making ourselves, so wildcard it.
+    '--remote-allow-origins=*',
+    `--user-data-dir=${userDataDir}`,
+    ...(userAgent ? [`--user-agent=${userAgent}`] : []),
+    ...(locale ? [`--lang=${locale}`] : []),
+    'about:blank',
+  ];
+
+  const child = spawn(CHROMIUM_PATH, chromeArgs, {
+    env: { ...process.env, HOME: '/tmp', ...extraEnv },
+    stdio: ['ignore', 'ignore', 'pipe'],
+    // Make this process the leader of its own process group so killAndWait()
+    // can signal the whole Chromium tree (renderer/utility/GPU helper
+    // processes it forks internally aren't tracked by our `child` handle —
+    // killing only that single PID orphans them, and they keep the profile
+    // dir's SingletonLock effectively alive even after "our" process exits).
+    detached: true,
+  });
+
+  const wsEndpoint = await new Promise((resolve, reject) => {
+    let buf = '';
+    function cleanup() {
+      clearTimeout(timer);
+      child.stderr.off('data', onData);
+      child.off('exit', onExit);
+      child.off('error', onError);
+    }
+    function onData(chunk) {
+      buf += chunk.toString();
+      const m = buf.match(/DevTools listening on (ws:\/\/\S+)/);
+      if (m) { cleanup(); resolve(m[1]); }
+    }
+    function onExit(code, signal) {
+      cleanup();
+      reject(new Error(`Chromium exited before DevTools listener was ready (code=${code} signal=${signal})`));
+    }
+    function onError(err) {
+      cleanup();
+      reject(err);
+    }
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('Timed out waiting for Chromium DevTools listener'));
+    }, 15000);
+    child.stderr.on('data', onData);
+    child.once('exit', onExit);
+    child.once('error', onError);
+  });
+
+  // Keep draining stderr so a long scraping session (analytics mode can run
+  // 20+ minutes) doesn't fill the OS pipe buffer and stall Chromium once our
+  // one-time listener above is gone.
+  child.stderr.on('data', () => {});
+
+  // The startup-readiness listeners above are removed once wsEndpoint resolves,
+  // so without this, Chromium dying later (mid-connect-retry, or mid-scrape)
+  // shows up only as an opaque ECONNREFUSED/socket-hang-up with no indication
+  // of why the process actually went away. Always log it, not just under DEBUG.
+  child.on('exit', (code, signal) => {
+    info(`WARNING: chromium process exited unexpectedly (pid=${child.pid} code=${code} signal=${signal})`);
+  });
+
+  const port = new URL(wsEndpoint).port;
+
+  // The "DevTools listening" line can print fractionally before the WebSocket
+  // handler is actually ready to accept connections (observed on a resource-
+  // throttled container: a manual curl attempt a few seconds later succeeded
+  // cleanly with a proper 101 handshake, while connecting immediately here
+  // got a bare "socket hang up"). Retry with a short backoff instead of
+  // assuming the very first attempt lands.
+  let browser, lastConnectError;
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 500));
+    try {
+      browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
+      break;
+    } catch (e) {
+      lastConnectError = e;
+    }
+  }
+  if (!browser) {
+    await killAndWait(child, 'SIGKILL');
+    throw lastConnectError;
+  }
+
+  let context = browser.contexts()[0];
+  for (let i = 0; i < 20 && !context; i++) {
+    await new Promise(r => setTimeout(r, 100));
+    context = browser.contexts()[0];
+  }
+  if (!context) {
+    await killAndWait(child, 'SIGKILL');
+    throw new Error('No browser context available after connectOverCDP');
+  }
+
+  if (extraHTTPHeaders) await context.setExtraHTTPHeaders(extraHTTPHeaders).catch(() => {});
+  if (viewport) {
+    for (const page of context.pages()) await page.setViewportSize(viewport).catch(() => {});
+    context.on('page', (page) => { page.setViewportSize(viewport).catch(() => {}); });
+  }
+
+  // Every existing context.close() call site in this file should also reap the
+  // OS process we spawned — a CDP-connected context's close() only disconnects
+  // the session, it doesn't own (and won't kill) the underlying browser.
+  //
+  // Waiting for the actual OS exit (not just sending the signal) matters: modes
+  // that import multiple channels/shows in one run launch a fresh Chromium
+  // against the SAME persistent profile dir once per channel, sequentially.
+  // If close() returned as soon as SIGTERM was sent, the next channel's launch
+  // could race the previous Chromium's shutdown and find its SingletonLock
+  // still held — Chromium then exits immediately with code 21
+  // (RESULT_CODE_NORMAL_EXIT_PROCESS_NOTIFICATION_FAILED, "another instance
+  // is already using this profile") instead of ever reaching the DevTools
+  // listener. Blocking here until the process is actually gone closes that race.
+  const originalClose = context.close.bind(context);
+  context.close = async (...closeArgs) => {
+    try {
+      await originalClose(...closeArgs);
+    } finally {
+      await killAndWait(child);
+    }
+  };
+
+  return context;
 }
 
 // ── ws-explore standalone (no browser) ───────────────────────────────────────
@@ -1138,11 +1494,8 @@ async function runWsExploreStandalone(cookiesFilePath) {
   const topicsJoined = new Set();
   const httpCaptures = [];  // declared here so it's in scope after the try/finally
 
-  const tempContext = await chromium.launchPersistentContext(tempDir, {
-    executablePath: CHROMIUM_PATH,
-    headless:       true,
-    env: { ...process.env, HOME: '/tmp' },
-    args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
+  const tempContext = await launchPersistentContextViaCdp(tempDir, {
+    args: ['--no-sandbox', '--no-zygote', '--disable-dev-shm-usage', '--disable-gpu',
            '--disable-crash-reporter', '--crash-dumps-dir=/tmp'],
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
     viewport:  { width: 1280, height: 900 },
@@ -1527,6 +1880,8 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
     // then the response-harvested id matched by title, then by date. The URL's
     // live_id is stale and never used here.
     const showDate = parseDateString(dateText);
+    const startTime = parseTimeString(dateText);
+    const showDurationMin = parseDurationToMinutes(get('Show Duration'));
     const resolvedLiveId = showLiveId
       || idByTitle.get(normTitle(title))
       || (showDate ? idByDate.get(showDate) : null)
@@ -1536,6 +1891,10 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
       title,
       show_date:               showDate,
       show_date_raw:           dateText,
+      start_time:              startTime,
+      // Whatnot doesn't expose a separate "stream ended at" value anywhere we've
+      // found — derive it from the start time + the show's own reported duration.
+      end_time:                startTime && showDurationMin ? addMinutesToTime(startTime, showDurationMin) : null,
       // detail_url is built from the REAL livestream id (per-show request capture
       // or response-harvested by title/date) — not the stale URL live_id. null when
       // no id resolved. This id also drives per-show order import.
@@ -1552,7 +1911,7 @@ async function scrapeViaAnalyticsPage(page, startUuid, limit) {
       first_time_buyers:       parseInteger(get('First Time Buyers')),
       returning_buyers:        parseInteger(get('Returning Buyers')),
       shares_count:            parseInteger(get('Shares')),
-      show_duration:           parseDurationToMinutes(get('Show Duration')),
+      show_duration:           showDurationMin,
       max_concurrent_viewers:  parseInteger(get('Max Concurrent Viewers')),
       total_views:             parseInteger(get('Total Views')),
       avg_order_rating:        parseMoney(get('Average Order Rating')),
@@ -1609,7 +1968,7 @@ async function extractOrdersFromPage(page) {
     // data-testid="orders-N-row"; cells are positional:
     // [Order(title+Order #id), Date, Customer, Items(qty), Sales Channel, Price,
     //  Order Status, Earnings, Actions]. This is the most reliable shape.
-    const testidRows = Array.from(document.querySelectorAll('tbody[data-testid="orders-table-body"] tr, tr[data-testid$="-row"]'));
+    const testidRows = Array.from(document.querySelectorAll('tbody[data-testid="orders-table-body"] tr, tr[data-testid^="orders-"]'));
     if (testidRows.length > 0) {
       const parsePrice = (s) => {
         if (!s) return null;
@@ -1651,6 +2010,98 @@ async function extractOrdersFromPage(page) {
         });
       }
       if (rows.length > 0) return rows;
+    }
+
+    // Strategy S — Whatnot Shipments tab (/dashboard/shipments). Each shipment gets
+    // its own <tr data-testid="shipments-<id>-row"> carrying buyer/weight/dims/status
+    // inline. The "Order #N" that ties it back to an existing WhatnotShowOrder only
+    // renders in a nested detail <tr> after the row is expanded, but if Expand All
+    // doesn't work, we still extract shipment metadata (weight, dims, carrier, tracking,
+    // status) from the main row for manual matching.
+    const shipmentRows = Array.from(document.querySelectorAll('tr[data-testid^="shipments-"]'));
+    if (shipmentRows.length > 0) {
+      const rows = [];
+      for (const tr of shipmentRows) {
+        const mainText = tr.innerText || '';
+        const buyerLink = tr.querySelector('a[href*="/dashboard/inbox"]');
+        const buyer = buyerLink ? (buyerLink.textContent || '').trim() : null;
+
+        let detailText = '';
+        const next = tr.nextElementSibling;
+        if (next && next.tagName === 'TR' && next.querySelector('table')) {
+          detailText = next.innerText || '';
+        }
+
+        const meta = extractShipmentMeta(mainText + '\n' + detailText);
+        // Include row if it has buyer or any shipment metadata (weight, carrier, tracking, etc.)
+        const hasShipmentData = meta.weight_oz || meta.shipping_carrier || meta.tracking_number;
+        if (!buyer && !meta.order_id && !hasShipmentData) continue;
+
+        rows.push({
+          buyer,
+          item_name:   null,
+          lot_number:  null,
+          quantity:    1,
+          unit_price:  null,
+          total_price: null,
+          status:      'completed',
+          raw_text:    mainText.replace(/\s+/g, ' ').trim().substring(0, 400),
+          ...meta,
+        });
+      }
+      if (rows.length > 0) return rows;
+    }
+
+    // Best-effort shipment metadata — weight, box dimensions, and carrier/service —
+    // present only on the Shipments tab (not the Orders tab). Every field is
+    // optional; a row missing all of them just yields an object of nulls, which
+    // the caller drops via array_filter before it ever reaches the DB, so an
+    // unmatched pattern here degrades gracefully instead of breaking anything.
+    function extractShipmentMeta(text) {
+      const weightMatch = text.match(/(\d+(?:\.\d+)?)\s*oz\b/i);
+      const dimsMatch = text.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*in\b/i);
+
+      // Carrier regex — match "USPS", "UPS", "FedEx", "DHL" followed by service name.
+      // Accept service names with spaces, dashes, slashes (e.g. "Ground Advantage", "2nd Day Air")
+      const carrierMatch = text.match(/\b(USPS|UPS|FedEx|DHL)\b\s*([A-Za-z\d\s\-/]*[A-Za-z\d])?/i);
+
+      // Tracking number — USPS: 20-22 digits; UPS/FedEx: 12+ digits. Look for bare numbers
+      // that match carrier patterns, or numbers labeled as "tracking" / "tracking #" / "label"
+      let trackingNumber = null;
+      const trackingLabeled = text.match(/(?:tracking\s*#?|label\s*#?)\s*([0-9]{12,})/i);
+      if (trackingLabeled) {
+        trackingNumber = trackingLabeled[1];
+      } else if (carrierMatch) {
+        // Fall back to looking for long digit sequences after carrier name
+        const afterCarrier = text.substring(text.indexOf(carrierMatch[0]) + carrierMatch[0].length);
+        const digitsMatch = afterCarrier.match(/[\s\-]*([0-9]{12,})/);
+        if (digitsMatch) trackingNumber = digitsMatch[1];
+      }
+
+      const orderIdMatch = text.match(/Order\s*#\s*(\d+)/i);
+
+      let shippingStatus = null;
+      if (/ready\s*to\s*ship/i.test(text)) shippingStatus = 'ready_to_ship';
+      else if (/needs?\s*label/i.test(text)) shippingStatus = 'pending';
+      else if (/label\s*created/i.test(text)) shippingStatus = 'label_created';
+      else if (/\bdelivered\b/i.test(text)) shippingStatus = 'delivered';
+      else if (/\breturned\b/i.test(text)) shippingStatus = 'returned';
+      else if (/\bpacked\b/i.test(text)) shippingStatus = 'packed';
+      else if (/\bshipped\b/i.test(text)) shippingStatus = 'shipped';
+      else if (/in\s*transit/i.test(text)) shippingStatus = 'in_transit';
+      else if (/out\s*for\s*delivery/i.test(text)) shippingStatus = 'out_for_delivery';
+
+      return {
+        order_id: orderIdMatch ? orderIdMatch[1] : null,
+        weight_oz: weightMatch ? parseFloat(weightMatch[1]) : null,
+        box_length_in: dimsMatch ? parseFloat(dimsMatch[1]) : null,
+        box_width_in: dimsMatch ? parseFloat(dimsMatch[2]) : null,
+        box_height_in: dimsMatch ? parseFloat(dimsMatch[3]) : null,
+        shipping_carrier: carrierMatch ? carrierMatch[1].toUpperCase() : null,
+        shipping_service: carrierMatch && carrierMatch[2] ? carrierMatch[2].trim() : null,
+        shipping_status_scraped: shippingStatus,
+        tracking_number: trackingNumber,
+      };
     }
 
     function findParentWithText(el, maxLevels = 6) {
@@ -1699,6 +2150,7 @@ async function extractOrdersFromPage(page) {
         total_price: prices.length > 1 ? prices.reduce((a, b) => a + b, 0) : (prices[0] || null),
         status:      statusMatch ? statusMatch[1].toLowerCase() : 'completed',
         raw_text:    containerText.replace(/\s+/g, ' ').trim().substring(0, 400),
+        ...extractShipmentMeta(containerText),
       });
     }
 
@@ -1728,6 +2180,7 @@ async function extractOrdersFromPage(page) {
           total_price: prices[0] || null,
           status:      'completed',
           raw_text:    text.replace(/\s+/g, ' ').trim().substring(0, 400),
+          ...extractShipmentMeta(text),
         });
       }
     }
@@ -1757,6 +2210,14 @@ function normalizeOrders(rows) {
       sales_channel: o.sales_channel || null,
       status:        o.status || 'completed',
       raw_text:      o.raw_text || null,
+      // Shipments-tab-only fields — null on ordinary Orders-tab rows.
+      weight_oz:               o.weight_oz ?? null,
+      box_length_in:           o.box_length_in ?? null,
+      box_width_in:            o.box_width_in ?? null,
+      box_height_in:           o.box_height_in ?? null,
+      shipping_carrier:        o.shipping_carrier || null,
+      shipping_service:        o.shipping_service || null,
+      shipping_status_scraped: o.shipping_status_scraped || null,
     }));
 }
 
@@ -1838,12 +2299,10 @@ async function extractLedgerFromPage(page) {
   require('fs').mkdirSync(USER_DATA_DIR, { recursive: true });
   info('browser profile dir:', USER_DATA_DIR);
 
-  const context = await chromium.launchPersistentContext(USER_DATA_DIR, {
-    executablePath: CHROMIUM_PATH,
-    headless:       true,
-    env: { ...process.env, HOME: '/tmp' },
+  const context = await launchPersistentContextViaCdp(USER_DATA_DIR, {
     args: [
       '--no-sandbox',
+      '--no-zygote',
       '--disable-dev-shm-usage',
       '--disable-crash-reporter',
       '--crash-dumps-dir=/tmp',
@@ -1853,7 +2312,7 @@ async function extractLedgerFromPage(page) {
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
     viewport:  { width: 1280, height: 900 },
     locale:    'en-US',
-    timezoneId: 'America/Chicago',
+    env:       { TZ: 'America/Chicago' },
     // Client Hints headers must match the UA — inconsistency is a detection signal
     extraHTTPHeaders: {
       'sec-ch-ua':          '"Chromium";v="128", "Google Chrome";v="128", "Not-A.Brand";v="99"',
@@ -1861,10 +2320,12 @@ async function extractLedgerFromPage(page) {
       'sec-ch-ua-platform': '"Windows"',
       'Accept-Language':    'en-US,en;q=0.9',
     },
-    // In discover mode, block service workers so that fetch() calls go through the real
-    // network instead of being served from the SW cache (which bypasses page.on('response')).
-    // Other modes leave SWs enabled so session/auth SWs keep working normally.
-    ...(MODE === 'discover' ? { serviceWorkers: 'block' } : {}),
+    // NOTE: discover mode previously passed serviceWorkers: 'block' here (so
+    // fetch() calls hit the real network instead of the SW cache, which
+    // bypasses page.on('response')). That's a launchPersistentContext-only
+    // option with no equivalent once the context already exists — connectOverCDP
+    // attaches to a context Chromium created itself — so discover mode may miss
+    // some SW-cached responses now. Every other mode is unaffected.
   });
 
   // Mask automation signals that trigger bot detection on sites like Whatnot.
@@ -1917,36 +2378,60 @@ async function extractLedgerFromPage(page) {
     } catch (_) {}
   });
 
-  // ── Bootstrap session cookies (one-time first-run setup) ─────────────────────
+  // ── Bootstrap session cookies (one-time first-run setup + manual re-auth) ────
   // Export cookies from your logged-in browser (Cookie-Editor extension → Export
   // as JSON) and save to storage/whatnot-cookies.json on the server. The scraper
   // loads them here so goto(/signin) redirects to the dashboard — login page
-  // (and its bot detection) is never hit. Once the profile is primed, the file
-  // can be deleted; the persistent context keeps the session alive.
+  // (and its bot detection) is never hit.
+  //
+  // launchPersistentContext's cookie jar accumulates Whatnot's own Set-Cookie
+  // responses across runs — that's how the session actually stays alive past
+  // whatever the original export's lifetime was. Unconditionally re-injecting
+  // the bootstrap file on every run stomped that rotated state back to the
+  // original snapshot each time, which is why cookies were expiring in about a
+  // week instead of the 30-90 days sessions can otherwise last. So: only load
+  // the file when the profile has no session yet, OR when the file itself has
+  // been re-exported (mtime newer than the last time we loaded it) — the second
+  // case is what makes `whatnot:login --cookie-file=...` recovery still work
+  // after the profile's own session eventually does go stale.
+  const _fs = require('fs');
   const _cookiesFile = process.env.WHATNOT_COOKIES_FILE ||
     require('path').join(__dirname, '../storage/whatnot-cookies.json');
-  if (require('fs').existsSync(_cookiesFile)) {
-    try {
-      const _raw = JSON.parse(require('fs').readFileSync(_cookiesFile, 'utf8'));
-      const _sameSiteMap = { no_restriction: 'None', strict: 'Strict', lax: 'Lax' };
-      const _cookies = _raw
-        .filter(c => typeof c.name === 'string' && typeof c.value === 'string')
-        .map(c => ({
-          name:     c.name,
-          value:    c.value,
-          domain:   c.domain || '.whatnot.com',
-          path:     c.path   || '/',
-          expires:  c.expirationDate ?? c.expires ?? -1,
-          httpOnly: Boolean(c.httpOnly),
-          secure:   Boolean(c.secure),
-          sameSite: _sameSiteMap[(c.sameSite || '').toLowerCase()] || 'Lax',
-        }));
-      if (_cookies.length > 0) {
-        await context.addCookies(_cookies);
-        info('loaded', _cookies.length, 'session cookies from', _cookiesFile);
+  const _cookiesLoadedMarker = _cookiesFile + '.loaded-mtime';
+  if (_fs.existsSync(_cookiesFile)) {
+    const _fileMtimeMs = _fs.statSync(_cookiesFile).mtimeMs;
+    const _lastLoadedMtimeMs = _fs.existsSync(_cookiesLoadedMarker)
+      ? Number(_fs.readFileSync(_cookiesLoadedMarker, 'utf8')) || 0
+      : 0;
+    const _existingCookies = await context.cookies('https://www.whatnot.com');
+    const _shouldLoad = _existingCookies.length === 0 || _fileMtimeMs > _lastLoadedMtimeMs;
+
+    if (!_shouldLoad) {
+      info('persistent profile already has', _existingCookies.length, 'whatnot.com cookies and bootstrap file is unchanged — skipping to preserve session refresh');
+    } else {
+      try {
+        const _raw = JSON.parse(_fs.readFileSync(_cookiesFile, 'utf8'));
+        const _sameSiteMap = { no_restriction: 'None', strict: 'Strict', lax: 'Lax' };
+        const _cookies = _raw
+          .filter(c => typeof c.name === 'string' && typeof c.value === 'string')
+          .map(c => ({
+            name:     c.name,
+            value:    c.value,
+            domain:   c.domain || '.whatnot.com',
+            path:     c.path   || '/',
+            expires:  c.expirationDate ?? c.expires ?? -1,
+            httpOnly: Boolean(c.httpOnly),
+            secure:   Boolean(c.secure),
+            sameSite: _sameSiteMap[(c.sameSite || '').toLowerCase()] || 'Lax',
+          }));
+        if (_cookies.length > 0) {
+          await context.addCookies(_cookies);
+          _fs.writeFileSync(_cookiesLoadedMarker, String(_fileMtimeMs));
+          info('loaded', _cookies.length, 'session cookies from', _cookiesFile, _existingCookies.length === 0 ? '(first run)' : '(file re-exported since last load)');
+        }
+      } catch (e) {
+        info('cookie file found but failed to load:', e.message);
       }
-    } catch (e) {
-      info('cookie file found but failed to load:', e.message);
     }
   }
 
@@ -2062,6 +2547,11 @@ async function extractLedgerFromPage(page) {
         process.stderr.write('COOKIE_TEST_FAILED: redirected to login page — cookies are missing, expired, or invalid.\n');
         process.stderr.write('URL: ' + url + '\n');
         process.stderr.write('PAGE: ' + bodyText + '\n');
+        // Close (not exit) so the persistent profile's on-disk cookie store gets
+        // whatever the bootstrap load actually set, flushed properly — an abrupt
+        // process.exit() can kill Chromium before it writes newly-set cookies to
+        // disk, so the NEXT launch silently sees stale pre-import state.
+        await context.close().catch(() => {});
         process.exit(1);
       }
 
@@ -2069,6 +2559,7 @@ async function extractLedgerFromPage(page) {
       if (pageText.trim().length < 50) {
         process.stderr.write('COOKIE_TEST_FAILED: seller hub loaded but page appears empty — bot detection may still be active.\n');
         process.stderr.write('URL: ' + url + '\n');
+        await context.close().catch(() => {});
         process.exit(1);
       }
 
@@ -2100,6 +2591,10 @@ async function extractLedgerFromPage(page) {
       }
 
       process.stdout.write(JSON.stringify({ ok: true, url, page_length: pageText.length }) + '\n');
+      // Close cleanly so Chromium flushes the (possibly just-updated) cookie jar
+      // to the persistent profile's on-disk store before the process dies —
+      // see the note above the failure-path exits for why this matters.
+      await context.close().catch(() => {});
       process.exit(0);
     }
 
@@ -2292,6 +2787,207 @@ async function extractLedgerFromPage(page) {
 
       const total = out.reduce((n, s) => n + s.order_count, 0);
       info(`orders-batch: done — ${total} order(s) across ${out.length} show(s)`);
+      writeJsonAndExit(out);
+      return;
+    }
+
+    // ── Mode: shipments-batch ─────────────────────────────────────────────────
+    // Refreshes weight/dimensions/carrier/shipping-status for shows that ALREADY
+    // have orders imported. Unlike orders-batch (which tries the orders table
+    // first and only falls back to shipments when that's empty), this mode goes
+    // straight to /dashboard/shipments?source=<id> every time, since that's the
+    // only view carrying shipment-level detail. Rows without a resolvable
+    // "Order #N" are dropped — merge-matching in persistShowOrders requires it.
+    if (MODE === 'shipments-batch') {
+      const srcFile = process.env.WHATNOT_ORDER_SOURCES_FILE;
+      if (!srcFile || !require('fs').existsSync(srcFile)) {
+        process.stderr.write('Error: WHATNOT_ORDER_SOURCES_FILE (existing JSON) is required for shipments-batch mode\n');
+        process.exit(1);
+      }
+      let sources;
+      try {
+        sources = JSON.parse(require('fs').readFileSync(srcFile, 'utf8'));
+      } catch (e) {
+        process.stderr.write('shipments-batch: failed to parse sources file: ' + e.message + '\n');
+        process.exit(1);
+      }
+      if (!Array.isArray(sources)) sources = [];
+      info(`shipments-batch: ${sources.length} show(s) to refresh shipment data for`);
+
+      const PAGE_CAP = 40;
+      const out = [];
+      for (let i = 0; i < sources.length; i++) {
+        const { live_id, show_key } = sources[i] || {};
+        if (!live_id) { out.push({ show_key, live_id: null, order_count: 0, orders: [] }); continue; }
+
+        const url = `https://www.whatnot.com/dashboard/shipments?source=${live_id}`;
+        const byId = new Map();
+
+        try {
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+          await page.waitForFunction(
+            () => /\$[\d,]+\.?\d*/.test(document.body.innerText || ''),
+            { timeout: 7000 }
+          ).catch(() => {});
+          await page.waitForTimeout(400);
+
+          let pages = 0;
+          while (pages < PAGE_CAP) {
+            // Each shipment row's linked Order # only renders once expanded — click
+            // "Expand All" so every row's nested Item/Order # table is in the DOM
+            // before we read it. Re-run on every page since pagination re-renders
+            // the table collapsed. Safe no-op if the button isn't present.
+            await page.evaluate(() => {
+              const btn = Array.from(document.querySelectorAll('button[aria-label="Expand All"]'))[0];
+              if (btn) btn.click();
+            }).catch(() => {});
+            await page.waitForTimeout(300);
+
+            const extracted = await extractOrdersFromPage(page);
+            if (extracted && !extracted.fallback && extracted.length) {
+              for (const o of normalizeOrders(extracted)) {
+                // Only rows we can match back to an existing order are useful here.
+                if (o.order_id) byId.set(o.order_id, o);
+              }
+            } else if (pages === 0 && DEBUG) {
+              info(`shipments-batch: [${i + 1}/${sources.length}] no rows on ${url.replace('https://www.whatnot.com', '')} — text: ${((extracted && extracted.text) || '').replace(/\s+/g, ' ').substring(0, 140)}`);
+            }
+            const advanced = await page.evaluate(() => {
+              const svg = document.querySelector('svg[aria-label="Next page"]');
+              let btn = svg ? svg.closest('button') : null;
+              if (!btn) btn = document.querySelector('button[aria-label="Next page"]');
+              if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') { btn.click(); return true; }
+              return false;
+            }).catch(() => false);
+            pages++;
+            if (!advanced) break;
+            await page.waitForTimeout(700);
+          }
+        } catch (navErr) {
+          info(`shipments-batch: [${i + 1}/${sources.length}] nav error: ${navErr.message.substring(0, 100)}`);
+        }
+
+        const orders = [...byId.values()];
+        info(`shipments-batch: [${i + 1}/${sources.length}] show ${show_key} live_id=${live_id} → ${orders.length} shipment row(s)`);
+        out.push({ show_key, live_id, order_count: orders.length, orders });
+      }
+
+      const total = out.reduce((n, s) => n + s.order_count, 0);
+      info(`shipments-batch: done — ${total} shipment row(s) across ${out.length} show(s)`);
+      writeJsonAndExit(out);
+      return;
+    }
+
+    // ── Mode: shipments-live ──────────────────────────────────────────────────
+    // Discovers shows from /dashboard/lives and scrapes shipments for each,
+    // extracting livestream UUIDs directly from the page (no sources file needed).
+    // Useful when shows don't have stored livestream IDs.
+    if (MODE === 'shipments-live') {
+      info('shipments-live: navigating to /dashboard/lives to discover shows');
+      await page.goto(URLS.dashboardLives, { waitUntil: 'domcontentloaded', timeout: 25000 });
+      await page.waitForTimeout(800);
+
+      // Click on "Past" tab to see completed shows
+      info('shipments-live: clicking "Past" tab to view completed shows');
+      await page.evaluate(() => {
+        const tabs = Array.from(document.querySelectorAll('button, [role="tab"], a'));
+        const pastTab = tabs.find(el => /\bpast\b/i.test(el.textContent || ''));
+        if (pastTab) {
+          pastTab.click();
+          return true;
+        }
+        return false;
+      }).catch(() => {});
+
+      await page.waitForTimeout(1000);
+      await page.waitForFunction(
+        () => document.querySelectorAll('a[href*="/dashboard/live/"], a[href*="/live/"]').length > 0,
+        { timeout: 10000 }
+      ).catch(() => {});
+      await page.waitForTimeout(500);
+
+      // Extract livestream UUIDs from the live shows page.
+      // Pattern: href="/dashboard/live/38c4c01d-a1a8-4ee1-9aca-fc51e814742a"
+      const liveIds = await page.evaluate(() => {
+        const seen = new Set();
+        const ids = [];
+        for (const a of document.querySelectorAll('a[href]')) {
+          const href = a.getAttribute('href') || '';
+          const m = href.match(/\/(?:dashboard\/)?live\/([\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12})/i);
+          if (m && !seen.has(m[1])) {
+            seen.add(m[1]);
+            ids.push(m[1]);
+          }
+        }
+        return ids;
+      });
+
+      info(`shipments-live: discovered ${liveIds.length} unique show(s) from /dashboard/lives`);
+
+      const PAGE_CAP = 40;
+      const out = [];
+      for (let i = 0; i < liveIds.length; i++) {
+        const live_id = liveIds[i];
+        const url = `https://www.whatnot.com/dashboard/shipments?source=${live_id}`;
+        const byId = new Map();
+
+        try {
+          await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+          await page.waitForFunction(
+            () => /\$[\d,]+\.?\d*/.test(document.body.innerText || ''),
+            { timeout: 7000 }
+          ).catch(() => {});
+          await page.waitForTimeout(400);
+
+          let pages = 0;
+          while (pages < PAGE_CAP) {
+            // Click Expand All and wait for nested rows to render (up to 2 seconds)
+            await page.evaluate(() => {
+              const btn = Array.from(document.querySelectorAll('button[aria-label="Expand All"]'))[0];
+              if (btn) btn.click();
+            }).catch(() => {});
+
+            // Wait for expanded content to render
+            await page.waitForFunction(
+              () => {
+                const expandedRows = document.querySelectorAll('tr[data-testid^="shipments-"] + tr');
+                return expandedRows.length > 0;
+              },
+              { timeout: 2000 }
+            ).catch(() => {
+              // If no expanded rows found, that's ok — page might have no shipments
+            });
+            await page.waitForTimeout(500);
+
+            const extracted = await extractOrdersFromPage(page);
+            if (extracted && !extracted.fallback && extracted.length) {
+              for (const o of normalizeOrders(extracted)) {
+                if (o.order_id) byId.set(o.order_id, o);
+              }
+            }
+
+            const advanced = await page.evaluate(() => {
+              const svg = document.querySelector('svg[aria-label="Next page"]');
+              let btn = svg ? svg.closest('button') : null;
+              if (!btn) btn = document.querySelector('button[aria-label="Next page"]');
+              if (btn && !btn.disabled && btn.getAttribute('aria-disabled') !== 'true') { btn.click(); return true; }
+              return false;
+            }).catch(() => false);
+            pages++;
+            if (!advanced) break;
+            await page.waitForTimeout(700);
+          }
+        } catch (navErr) {
+          info(`shipments-live: [${i + 1}/${liveIds.length}] nav error: ${navErr.message.substring(0, 100)}`);
+        }
+
+        const orders = [...byId.values()];
+        info(`shipments-live: [${i + 1}/${liveIds.length}] live_id=${live_id} → ${orders.length} shipment row(s)`);
+        out.push({ live_id, order_count: orders.length, orders });
+      }
+
+      const total = out.reduce((n, s) => n + s.order_count, 0);
+      info(`shipments-live: done — ${total} shipment row(s) across ${out.length} show(s)`);
       writeJsonAndExit(out);
       return;
     }
@@ -3039,7 +3735,14 @@ async function extractLedgerFromPage(page) {
 
       for (const candidate of analyticsUrlCandidates) {
         log(`trying URL: ${candidate}`);
-        await page.goto(candidate, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        // Uncaught net::ERR_ABORTED here crashed the whole scrape (confirmed
+        // live): switchToChannel()'s role-switch is a real HTML form POST that
+        // triggers its own browser navigation, which can still be settling
+        // when this explicit goto() fires right after — Chromium aborts the
+        // newer request. Non-fatal: page.url() below still reflects wherever
+        // we actually landed, and the loop just tries the next candidate if
+        // this one didn't stick.
+        await page.goto(candidate, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
         // Wait for the SPA to fire its data-fetch API calls before we read anything.
         // networkidle (no network activity for 500ms) is more reliable than a fixed delay.
         await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
@@ -3054,7 +3757,7 @@ async function extractLedgerFromPage(page) {
           // Re-run channel switch after re-login
           if (CHANNEL_NAME) await switchToChannel(page, CHANNEL_NAME);
           // Retry this candidate
-          await page.goto(candidate, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          await page.goto(candidate, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
           await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
           await page.waitForTimeout(1000);
           currentUrl = page.url();
@@ -3319,6 +4022,18 @@ async function extractLedgerFromPage(page) {
         await page.waitForTimeout(800);
         await debugShot(page, '06-shows-list-scrolled');
 
+        // Capture the DOM list HERE, while still on the fully-scrolled "Past"
+        // tab, not after the analytics-nav detour below. That detour navigates
+        // this same `page` away to /account/analytics?... and, if it falls
+        // through to the DOM fallback, re-navigating back to currentPageUrl
+        // reloads the page fresh on its DEFAULT tab (confirmed live: 535
+        // scrolled-through links collapsed to 1, matching whatever the default
+        // tab happens to show) — the Past-tab click + scroll state doesn't
+        // survive a fresh page load. Grabbing it now avoids needing to replay
+        // any of that.
+        const listShowsFromPastTab = await extractShowsListFromDom(page);
+        info('shows-list DOM (pre-analytics): found', listShowsFromPastTab.length, 'show links on', currentPageUrl);
+
         // ── PRIMARY: analytics-page navigation (channel-scoped, gets ALL shows) ──
         // /dashboard/lives renders show action buttons ("Open show", "See Analytics")
         // as <button> elements with onClick handlers — NOT <a> tags — so link-based
@@ -3368,21 +4083,49 @@ async function extractLedgerFromPage(page) {
           const normalized = analyticsShows
             .slice(0, LIMIT)
             .filter(s => s.title || s.show_date || s.gross_revenue !== null);
+          const withResolvedId = normalized.filter(s => s.detail_url).length;
+          // Analytics-nav extracts financial metrics (whatnot_net, tips, etc) from
+          // the detail pages. When GraphQL id-harvesting fails (0 ids resolved), we
+          // still have the analytics data — try to fill in missing detail_urls by
+          // matching against DOM list by title+date, then use the enriched results.
           if (normalized.length > 0) {
-            info(`analytics-nav: returned ${normalized.length} shows`);
-            writeJsonAndExit(normalized);
-            return;
+            if (withResolvedId > 0) {
+              info(`analytics-nav: returned ${normalized.length} shows (${withResolvedId} with a resolved id)`);
+              writeJsonAndExit(normalized);
+              return;
+            }
+            // ID resolution failed — try to fill in detail_urls from DOM list by title+date
+            const normTitle = (t) => (t || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
+            const domByTitle = new Map();
+            const domByDate = new Map();
+            for (const show of listShowsFromPastTab) {
+              const nt = normTitle(show.title);
+              if (nt && !domByTitle.has(nt)) domByTitle.set(nt, show);
+              const sd = show.show_date;
+              if (sd && !domByDate.has(sd)) domByDate.set(sd, show);
+            }
+            const enriched = normalized.map(s => ({
+              ...s,
+              detail_url: s.detail_url ||
+                         domByTitle.get(normTitle(s.title))?.detail_url ||
+                         (s.show_date ? domByDate.get(s.show_date)?.detail_url : null)
+            }));
+            const enrichedWithId = enriched.filter(s => s.detail_url).length;
+            if (enrichedWithId > 0) {
+              info(`analytics-nav: enriched ${enrichedWithId} of ${enriched.length} shows with detail_url from DOM list`);
+              writeJsonAndExit(enriched);
+              return;
+            }
+            info(`analytics-nav: produced ${normalized.length} shows but couldn't resolve or enrich ids — falling back to DOM/API extraction`);
           }
-          info('analytics-nav: produced no usable shows — falling back to DOM/API extraction');
         } else {
           info('shows-list: no seed UUID found for analytics-nav — falling back to DOM/API extraction');
         }
 
-        // DOM extraction runs FIRST on list pages — GetDashboardLivestreamsByUserId is
-        // scoped to the logged-in user as host, so it misses shows hosted by other
-        // channel streamers. The DOM renders ALL channel shows after scrolling.
-        const listShows = await extractShowsListFromDom(page);
-        info('shows-list DOM: found', listShows.length, 'show links on', currentPageUrl);
+        // Use the list captured before the analytics-nav detour — see the
+        // comment above that capture for why we don't re-extract here.
+        const listShows = listShowsFromPastTab;
+        info('shows-list DOM: using', listShows.length, 'show link(s) captured before analytics-nav ran');
         if (listShows.length > 0) {
           info('shows-list DOM: first 3 raw results:', JSON.stringify(
             listShows.slice(0, 3).map(s => ({ title: s.title, show_date: s.show_date, detail_url: s.detail_url }))

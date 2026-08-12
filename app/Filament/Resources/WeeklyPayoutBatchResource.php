@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\WeeklyPayoutBatchResource\Pages;
 use App\Filament\Resources\WeeklyPayoutBatchResource\RelationManagers;
 use App\Models\WeeklyPayoutBatch;
@@ -27,7 +26,7 @@ use Illuminate\Support\Facades\Cache;
 
 class WeeklyPayoutBatchResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'payouts';
 
@@ -71,6 +70,16 @@ class WeeklyPayoutBatchResource extends Resource
         return 'Pay Runs';
     }
 
+    // The nav item itself reads "Payouts" — the individual entity stays "Pay
+    // Run" in breadcrumbs/page titles ("View Pay Run", "New Pay Run"), since
+    // that's what it actually is; the old flat Payouts resource is hidden
+    // from navigation (still reachable via direct links) so there's only
+    // one "Payouts" entry in the sidebar.
+    public static function getNavigationLabel(): string
+    {
+        return 'Payouts';
+    }
+
     protected static function passesModuleAccessCheck(): bool
     {
         return auth()->user()?->isAdmin() ?? false;
@@ -103,7 +112,7 @@ class WeeklyPayoutBatchResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Pay Run Details')->columns(2)->schema([
+            Section::make('Pay Run Details')->columns(2)->columnSpanFull()->schema([
                 DatePicker::make('week_start')
                     ->label('Week Start (Monday)')
                     ->required(),
@@ -122,6 +131,9 @@ class WeeklyPayoutBatchResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No payout batches')
+            ->emptyStateDescription('Weekly batches are created when payouts are grouped for payment.')
+            ->emptyStateIcon('heroicon-o-queue-list')
             ->columns([
                 TextColumn::make('week_start')
                     ->label('Week Of')
@@ -145,6 +157,22 @@ class WeeklyPayoutBatchResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn ($state) => WeeklyPayoutBatch::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => StatusColor::for($state)),
+
+                TextColumn::make('next_action')
+                    ->label('Next Action')
+                    ->state(fn (WeeklyPayoutBatch $record): string => match ($record->status) {
+                        'draft' => 'Review & approve',
+                        'approved' => 'Finalize & pay',
+                        'finalized' => 'Complete',
+                        default => 'Review',
+                    })
+                    ->badge()
+                    ->color(fn (WeeklyPayoutBatch $record): string => match ($record->status) {
+                        'draft' => 'warning',
+                        'approved' => 'info',
+                        'finalized' => 'success',
+                        default => 'gray',
+                    }),
 
                 TextColumn::make('finalizedBy.name')
                     ->label('Finalized By')

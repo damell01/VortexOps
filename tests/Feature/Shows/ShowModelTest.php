@@ -2,8 +2,11 @@
 
 namespace Tests\Feature\Shows;
 
+use App\Models\DeductionRequest;
+use App\Models\Payout;
 use App\Models\Show;
 use App\Models\Streamer;
+use App\Models\StreamerLogEntry;
 use App\Models\User;
 use App\Models\WhatnotChannel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -128,5 +131,306 @@ class ShowModelTest extends TestCase
 
         $this->assertNull($show->gross_revenue);
         $this->assertNull($show->whatnot_net);
+    }
+
+    private function stepStatus(array $steps, string $key): string
+    {
+        return collect($steps)->firstWhere('key', $key)['status'];
+    }
+
+    public function test_pipeline_steps_for_draft_show(): void
+    {
+        $show  = $this->makeShow();
+        $steps = $show->pipelineSteps();
+
+        $this->assertSame('done', $this->stepStatus($steps, 'created'));
+        $this->assertSame('pending', $this->stepStatus($steps, 'mapped'));
+        $this->assertSame('pending', $this->stepStatus($steps, 'deduction_approved'));
+        $this->assertSame('pending', $this->stepStatus($steps, 'streamer_reviewed'));
+        $this->assertSame('pending', $this->stepStatus($steps, 'log_approved'));
+        $this->assertSame('pending', $this->stepStatus($steps, 'payout'));
+    }
+
+    public function test_pipeline_steps_for_show_pending_approval(): void
+    {
+        $show     = $this->makeShow(['status' => 'pending_approval']);
+        $streamer = Streamer::create(['name' => 'Alice', 'status' => 'active', 'include_tips' => false, 'payout_type' => 'hourly', 'hourly_rate' => 15]);
+        DeductionRequest::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'pending']);
+
+        $steps = $show->pipelineSteps();
+
+        $this->assertSame('done', $this->stepStatus($steps, 'mapped'));
+        $this->assertSame('current', $this->stepStatus($steps, 'deduction_approved'));
+        $this->assertSame('pending', $this->stepStatus($steps, 'streamer_reviewed'));
+    }
+
+    public function test_pipeline_steps_for_reconciled_show_awaiting_streamer_review(): void
+    {
+        $show     = $this->makeShow(['status' => 'reconciled']);
+        $streamer = Streamer::create(['name' => 'Alice', 'status' => 'active', 'include_tips' => false, 'payout_type' => 'hourly', 'hourly_rate' => 15]);
+        DeductionRequest::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'processed']);
+        StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'pending']);
+
+        $steps = $show->pipelineSteps();
+
+        $this->assertSame('done', $this->stepStatus($steps, 'deduction_approved'));
+        $this->assertSame('current', $this->stepStatus($steps, 'streamer_reviewed'));
+        $this->assertSame('pending', $this->stepStatus($steps, 'log_approved'));
+    }
+
+    public function test_pipeline_steps_for_fully_completed_show(): void
+    {
+        $show     = $this->makeShow(['status' => 'reconciled']);
+        $streamer = Streamer::create(['name' => 'Bob', 'status' => 'active', 'include_tips' => false, 'payout_type' => 'flat_rate']);
+        DeductionRequest::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'processed']);
+        StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'admin_approved']);
+        Payout::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'payout_type' => 'flat_rate', 'calculated_payout' => 50, 'status' => 'draft']);
+
+        $steps = $show->pipelineSteps();
+
+        foreach (['created', 'mapped', 'deduction_approved', 'streamer_reviewed', 'log_approved', 'payout'] as $key) {
+            $this->assertSame('done', $this->stepStatus($steps, $key), "Expected step '{$key}' to be done");
+        }
+    }
+
+    public function test_revenue_outlier_false_with_insufficient_history(): void
+    {
+        $streamer = Streamer::create(['name' => 'Alice', 'status' => 'active', 'include_tips' => false, 'payout_type' => 'hourly', 'hourly_rate' => 15]);
+
+        // Only 3 prior shows — below the 5-show minimum.
+        for ($i = 0; $i < 3; $i++) {
+            $prior = $this->makeShow(['gross_revenue' => 500, 'status' => 'reconciled', 'show_date' => now()->subDays($i + 1)->toDateString()]);
+            $prior->streamers()->attach($streamer->id, ['is_primary' => true]);
+        }
+
+        $show = $this->makeShow(['gross_revenue' => 5000, 'status' => 'reconciled']);
+        $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+
+        $this->assertFalse($show->isRevenueOutlier());
+    }
+
+    public function test_revenue_outlier_true_for_far_above_average(): void
+    {
+        $streamer = Streamer::create(['name' => 'Bob', 'status' => 'active', 'include_tips' => false, 'payout_type' => 'hourly', 'hourly_rate' => 15]);
+
+        for ($i = 0; $i < 6; $i++) {
+            $prior = $this->makeShow(['gross_revenue' => 500, 'status' => 'reconciled', 'show_date' => now()->subDays($i + 1)->toDateString()]);
+            $prior->streamers()->attach($streamer->id, ['is_primary' => true]);
+        }
+
+        $show = $this->makeShow(['gross_revenue' => 5000, 'status' => 'reconciled']);
+        $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+
+        $this->assertTrue($show->isRevenueOutlier());
+    }
+
+    public function test_revenue_outlier_false_for_consistent_revenue(): void
+    {
+        $streamer = Streamer::create(['name' => 'Carol', 'status' => 'active', 'include_tips' => false, 'payout_type' => 'hourly', 'hourly_rate' => 15]);
+
+        for ($i = 0; $i < 6; $i++) {
+            $prior = $this->makeShow(['gross_revenue' => 500, 'status' => 'reconciled', 'show_date' => now()->subDays($i + 1)->toDateString()]);
+            $prior->streamers()->attach($streamer->id, ['is_primary' => true]);
+        }
+
+        $show = $this->makeShow(['gross_revenue' => 520, 'status' => 'reconciled']);
+        $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+
+        $this->assertFalse($show->isRevenueOutlier());
+    }
+
+    public function test_pipeline_steps_include_fulfillment_step_for_pwe_labels_streamer(): void
+    {
+        $show     = $this->makeShow(['status' => 'reconciled']);
+        $streamer = Streamer::create(['name' => 'Fulfillment Bob', 'status' => 'active', 'payout_type' => 'pwe_labels']);
+        $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+        DeductionRequest::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'processed']);
+        StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $streamer->id, 'status' => 'admin_approved']);
+
+        $steps = $show->pipelineSteps();
+
+        $this->assertSame('current', $this->stepStatus($steps, 'fulfillment_reviewed'));
+
+        StreamerLogEntry::where('show_id', $show->id)->update(['fulfillment_reviewed_at' => now()]);
+        $steps = $show->fresh()->pipelineSteps();
+        $this->assertSame('done', $this->stepStatus($steps, 'fulfillment_reviewed'));
+    }
+
+    public function test_pipeline_steps_omit_fulfillment_step_for_non_pwe_labels_streamer(): void
+    {
+        $show     = $this->makeShow(['status' => 'reconciled']);
+        $streamer = Streamer::create(['name' => 'Hourly Ann', 'status' => 'active', 'payout_type' => 'hourly', 'hourly_rate' => 15]);
+        $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+
+        $steps = $show->pipelineSteps();
+
+        $this->assertNull(collect($steps)->firstWhere('key', 'fulfillment_reviewed'));
+    }
+
+    // ── Week pacing ──────────────────────────────────────────────────────────
+
+    public function test_week_pacing_computes_pct_vs_trailing_4_week_average(): void
+    {
+        $weekStart = now()->startOfWeek();
+
+        $this->makeShow(['gross_revenue' => 200, 'status' => 'reconciled', 'show_date' => $weekStart->toDateString()]);
+
+        for ($i = 1; $i <= 4; $i++) {
+            $this->makeShow([
+                'gross_revenue' => 100,
+                'status'        => 'reconciled',
+                'show_date'     => $weekStart->copy()->subWeeks($i)->toDateString(),
+            ]);
+        }
+
+        $pacing = Show::weekPacing();
+
+        $this->assertEqualsWithDelta(200.0, $pacing['this_week_revenue'], 0.01);
+        $this->assertEqualsWithDelta(100.0, $pacing['baseline_avg'], 0.01);
+        $this->assertEqualsWithDelta(100.0, $pacing['pacing_pct'], 0.1); // 100% ahead
+        $this->assertEquals(now()->dayOfWeekIso, $pacing['days_into_week']);
+    }
+
+    public function test_week_pacing_null_pct_without_baseline_history(): void
+    {
+        $this->makeShow(['gross_revenue' => 200, 'status' => 'reconciled', 'show_date' => now()->startOfWeek()->toDateString()]);
+
+        $pacing = Show::weekPacing();
+
+        $this->assertEqualsWithDelta(0.0, $pacing['baseline_avg'], 0.01);
+        $this->assertNull($pacing['pacing_pct']);
+    }
+
+    public function test_week_pacing_excludes_cancelled_shows(): void
+    {
+        $weekStart = now()->startOfWeek();
+        $this->makeShow(['gross_revenue' => 200, 'status' => 'cancelled', 'show_date' => $weekStart->toDateString()]);
+
+        $pacing = Show::weekPacing();
+
+        $this->assertEqualsWithDelta(0.0, $pacing['this_week_revenue'], 0.01);
+    }
+
+    // ── Month pacing ─────────────────────────────────────────────────────────
+
+    public function test_month_pacing_computes_pct_vs_trailing_3_month_average(): void
+    {
+        $monthStart = now()->startOfMonth();
+
+        $this->makeShow(['gross_revenue' => 200, 'status' => 'reconciled', 'show_date' => $monthStart->toDateString()]);
+
+        for ($i = 1; $i <= 3; $i++) {
+            $this->makeShow([
+                'gross_revenue' => 100,
+                'status'        => 'reconciled',
+                'show_date'     => $monthStart->copy()->subMonths($i)->toDateString(),
+            ]);
+        }
+
+        $pacing = Show::monthPacing();
+
+        $this->assertEqualsWithDelta(200.0, $pacing['this_month_revenue'], 0.01);
+        $this->assertEqualsWithDelta(100.0, $pacing['baseline_avg'], 0.01);
+        $this->assertEqualsWithDelta(100.0, $pacing['pacing_pct'], 0.1); // 100% ahead
+        $this->assertEquals(now()->day, $pacing['days_into_month']);
+    }
+
+    public function test_month_pacing_null_pct_without_baseline_history(): void
+    {
+        $this->makeShow(['gross_revenue' => 200, 'status' => 'reconciled', 'show_date' => now()->startOfMonth()->toDateString()]);
+
+        $pacing = Show::monthPacing();
+
+        $this->assertEqualsWithDelta(0.0, $pacing['baseline_avg'], 0.01);
+        $this->assertNull($pacing['pacing_pct']);
+    }
+
+    public function test_month_pacing_projects_full_month_from_current_run_rate(): void
+    {
+        $today         = now();
+        $daysIntoMonth = $today->day;
+        $monthStart    = $today->copy()->startOfMonth();
+
+        // Revenue-so-far equals days elapsed → a $1/day run rate.
+        $this->makeShow(['gross_revenue' => $daysIntoMonth, 'status' => 'reconciled', 'show_date' => $monthStart->toDateString()]);
+
+        $pacing = Show::monthPacing();
+
+        $this->assertEqualsWithDelta((float) $today->daysInMonth, $pacing['projected_month_total'], 0.5);
+    }
+
+    public function test_month_pacing_excludes_cancelled_shows(): void
+    {
+        $monthStart = now()->startOfMonth();
+        $this->makeShow(['gross_revenue' => 200, 'status' => 'cancelled', 'show_date' => $monthStart->toDateString()]);
+
+        $pacing = Show::monthPacing();
+
+        $this->assertEqualsWithDelta(0.0, $pacing['this_month_revenue'], 0.01);
+    }
+
+    public function test_pipeline_steps_for_cancelled_show_are_skipped(): void
+    {
+        $show  = $this->makeShow(['status' => 'cancelled']);
+        $steps = $show->pipelineSteps();
+
+        $this->assertSame('done', $this->stepStatus($steps, 'created'));
+        foreach (['mapped', 'deduction_approved', 'streamer_reviewed', 'log_approved', 'payout'] as $key) {
+            $this->assertSame('skipped', $this->stepStatus($steps, $key), "Expected step '{$key}' to be skipped");
+        }
+    }
+
+    // ── detectStreamers() ────────────────────────────────────────────────────
+
+    private function makeStreamer(string $name): Streamer
+    {
+        return Streamer::create(['name' => $name, 'status' => 'active', 'include_tips' => false]);
+    }
+
+    public function test_short_name_does_not_false_positive_inside_a_longer_similar_name(): void
+    {
+        $this->makeStreamer('Ty');
+        $tyler = $this->makeStreamer('Tyler');
+
+        $show = $this->makeShow(['title' => 'Tyler Break Night']);
+        $suggestions = $show->detectStreamers();
+
+        $names = collect($suggestions)->pluck('streamer_name')->all();
+        $this->assertEquals(['Tyler'], $names, '"Ty" should not match as a substring of "Tyler"');
+
+        $show->refresh();
+        $this->assertCount(1, $show->streamers);
+        $this->assertEquals($tyler->id, $show->streamers->first()->id);
+    }
+
+    public function test_short_name_still_matches_when_it_genuinely_stands_alone(): void
+    {
+        $ty = $this->makeStreamer('Ty');
+        $this->makeStreamer('Tyler');
+
+        $show = $this->makeShow(['title' => 'Ty & Luna Break Night']);
+        $suggestions = $show->detectStreamers();
+
+        $names = collect($suggestions)->pluck('streamer_name')->all();
+        $this->assertEquals(['Ty'], $names);
+
+        $show->refresh();
+        $this->assertCount(1, $show->streamers);
+        $this->assertEquals($ty->id, $show->streamers->first()->id);
+    }
+
+    public function test_detects_multiple_genuinely_distinct_streamers_in_one_title(): void
+    {
+        $josh   = $this->makeStreamer('Josh');
+        $daniel = $this->makeStreamer('Daniel');
+
+        $show = $this->makeShow(['title' => 'Josh and Daniel Break Night']);
+        $suggestions = $show->detectStreamers();
+
+        $names = collect($suggestions)->pluck('streamer_name')->sort()->values()->all();
+        $this->assertEquals(['Daniel', 'Josh'], $names);
+
+        $show->refresh();
+        $this->assertCount(2, $show->streamers);
     }
 }

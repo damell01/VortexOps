@@ -4,13 +4,10 @@ namespace App\Filament\Resources\ShowResource\Pages;
 
 use App\Filament\Resources\ShowResource;
 use App\Filament\Resources\DeductionRequestResource;
-use App\Jobs\RunShowAiMappingJob;
-use App\Models\AiTask;
 use App\Models\DeductionRequest;
 use App\Models\DeductionRequestLine;
 use App\Services\PayoutService;
 use App\Services\WhatnotScraper;
-use App\Support\AdminModules;
 use Filament\Actions\EditAction;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -28,8 +25,16 @@ class ViewShow extends ViewRecord
             'channel',
             'payouts.streamer',
             'latestDeductionRequest.lines.inventoryItem',
+            'streamerLogEntry',
             'orders',
         ])->findOrFail($key);
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            \App\Filament\Widgets\ShowPipelineStatusWidget::class,
+        ];
     }
 
     protected function getHeaderActions(): array
@@ -42,7 +47,16 @@ class ViewShow extends ViewRecord
                 ->visible(fn () => auth()->user()?->isAdmin() && $this->record->streamers->isNotEmpty())
                 ->requiresConfirmation()
                 ->modalHeading('Calculate Payout')
-                ->modalDescription('Computes and saves payout records for all streamers on this show based on their configured payout type and the show revenue data.')
+                ->modalDescription(function (): string {
+                    $base = 'Computes and saves payout records for all streamers on this show based on their configured payout type and the show revenue data.';
+                    $log  = $this->record->streamerLogEntry;
+
+                    if ($log?->needsFulfillmentReview()) {
+                        $base .= ' ⚠ This show has a PWE + Labels streamer whose fulfillment review is not yet complete — the payout will use an estimated PWE/label count (from units sold) until that review happens.';
+                    }
+
+                    return $base;
+                })
                 ->action(function (): void {
                     try {
                         $payouts = app(PayoutService::class)->calculateForShow($this->record);
@@ -70,6 +84,49 @@ class ViewShow extends ViewRecord
                 ->url(fn () => route('export.show-pl-pdf', ['show' => $this->record->id]))
                 ->openUrlInNewTab(),
 
+            // Streamers log their end-of-stream data here (hours, shipments, costs).
+            // This is the quick-entry form that precedes the full log review.
+            Action::make('end_of_stream')
+                ->label('End of Stream')
+                ->icon('heroicon-o-camera')
+                ->color('warning')
+                ->visible(function (): bool {
+                    $user = auth()->user();
+                    if (in_array($this->record->status, ['cancelled', 'closed'])) {
+                        return false;
+                    }
+                    if ($user?->isAdmin()) {
+                        return true;
+                    }
+                    return ($user?->isStreamer() ?? false)
+                        && $user->streamer
+                        && $this->record->streamers->contains('id', $user->streamer->id);
+                })
+                ->url(fn () => route('filament.admin.pages.end-of-stream-form', ['showId' => $this->record->id]))
+                ->tooltip('Quickly log your show metrics (hours, shipments, costs)'),
+
+            // Kept as its own top-level button (not buried in the "More actions"
+            // dropdown below) since streamers — not just ops — need to reach this
+            // quickly during/after a show to log what went out, without needing
+            // to enter cost.
+            Action::make('add_items')
+                ->label('Add Items')
+                ->icon('heroicon-o-plus-circle')
+                ->color('primary')
+                ->visible(function (): bool {
+                    $user = auth()->user();
+                    if (in_array($this->record->status, ['cancelled', 'closed'])) {
+                        return false;
+                    }
+                    if ($user?->isAdmin()) {
+                        return true;
+                    }
+                    return ($user?->isStreamer() ?? false)
+                        && $user->streamer
+                        && $this->record->streamers->contains('id', $user->streamer->id);
+                })
+                ->url(fn () => ShowResource::getUrl('add-items', ['record' => $this->record])),
+
             // Secondary/contextual actions live in a "More actions" dropdown so the
             // header row never overflows (12 buttons inline was cutting off the last
             // ones and forcing horizontal scroll). Each action keeps its own
@@ -80,35 +137,6 @@ class ViewShow extends ViewRecord
                 ->icon('heroicon-o-chart-bar-square')
                 ->color('gray')
                 ->url(fn () => ShowResource::getUrl('inventory', ['record' => $this->record])),
-
-            Action::make('run_ai_mapping')
-                ->label('Run AI Mapping')
-                ->icon('heroicon-o-sparkles')
-                ->color('violet')
-                ->visible(fn () => $this->record->status === 'pending_review' && AdminModules::isEnabled('ai'))
-                ->requiresConfirmation()
-                ->modalHeading('Queue AI Mapping')
-                ->modalDescription('This will queue a background job to match each sold item to your inventory catalogue using Ollama. You\'ll receive a notification when it\'s done. The show will move to Pending Approval automatically.')
-                ->action(function () {
-                    $task = AiTask::create([
-                        'type'         => 'show_ai_mapping',
-                        'status'       => 'pending',
-                        'taskable_type' => \App\Models\Show::class,
-                        'taskable_id'   => $this->record->id,
-                        'triggered_by'  => auth()->id(),
-                        'input'         => ['show_id' => $this->record->id, 'show_title' => $this->record->title],
-                    ]);
-
-                    RunShowAiMappingJob::dispatch($this->record->id, $task->id)->onQueue('ai');
-
-                    Notification::make()
-                        ->title('AI Mapping queued')
-                        ->body('You\'ll be notified when the job completes.')
-                        ->info()
-                        ->send();
-
-                    $this->refreshFormData(['status']);
-                }),
 
             Action::make('review_approval')
                 ->label('Review Approval')
@@ -175,7 +203,31 @@ class ViewShow extends ViewRecord
                         $show->update(['status' => 'pending_review']);
                     }
 
-                    // Aggregate orders by item name and create a line per distinct item
+                    // Group by lot_number — the identifier Whatnot actually gives
+                    // reliably ("Lot #123"), not item_name. Whatnot listings often
+                    // carry no real product description at all, and the old
+                    // groupBy('item_name') silently dropped every order with an
+                    // empty item_name instead of creating a line for it — lots
+                    // with no lot_number either (rare) still get their own line via
+                    // the per-order fallback key, so nothing is ever lost.
+                    $groupKey = fn ($o) => $o->lot_number !== null
+                        ? "lot:{$o->lot_number}"
+                        : ($o->item_name ? 'name:' . strtolower(trim($o->item_name)) : "order:{$o->id}");
+
+                    $label = function ($o) {
+                        if ($o->lot_number === null) {
+                            return $o->item_name ?: "Order #{$o->id}";
+                        }
+
+                        // Skip item_name when it's just another generic restatement
+                        // of the lot number itself ("Item #123", "Lot 123") —
+                        // Whatnot often has nothing more descriptive than that.
+                        $isGenericRestatement = $o->item_name
+                            && preg_match('/^\s*(item|lot)\s*#?\s*' . preg_quote((string) $o->lot_number, '/') . '\s*$/i', $o->item_name);
+
+                        return 'Lot #' . $o->lot_number . ($o->item_name && ! $isGenericRestatement ? " — {$o->item_name}" : '');
+                    };
+
                     $existingDescriptions = $dr->lines->pluck('raw_description')
                         ->map(fn ($d) => strtolower(trim($d)))
                         ->all();
@@ -183,13 +235,15 @@ class ViewShow extends ViewRecord
                     $defaultLocation = $show->defaultInventoryLocation();
 
                     $created = 0;
-                    foreach ($show->orders->filter(fn ($o) => ! empty($o->item_name))->groupBy('item_name') as $itemName => $group) {
-                        if (in_array(strtolower(trim($itemName)), $existingDescriptions)) {
+                    foreach ($show->orders->groupBy($groupKey) as $group) {
+                        $description = $label($group->first());
+
+                        if (in_array(strtolower(trim($description)), $existingDescriptions)) {
                             continue;
                         }
                         DeductionRequestLine::create([
                             'deduction_request_id'  => $dr->id,
-                            'raw_description'       => $itemName,
+                            'raw_description'       => $description,
                             'quantity_suggested'    => $group->sum('quantity'),
                             'quantity_approved'     => $group->sum('quantity'),
                             'unit_cost_snapshot'    => 0,
@@ -220,7 +274,7 @@ class ViewShow extends ViewRecord
                 )
                 ->requiresConfirmation()
                 ->modalHeading('Raise a Manual Deduction Request')
-                ->modalDescription('This creates a blank deduction request for this show that you can fill in manually. Use this when AI mapping is not needed.')
+                ->modalDescription('This creates a blank deduction request for this show — use it when there\'s no imported order data to map from, and you\'ll add each line item yourself.')
                 ->action(function () {
                     $dr = DeductionRequest::create([
                         'show_id'     => $this->record->id,

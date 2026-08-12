@@ -25,12 +25,6 @@ class LogViewer extends Page
         return ($user?->isAdmin() || $user?->isOwner()) ?? false;
     }
 
-    // Diagnostic tool — only surface it in the owner's menu (still URL-reachable).
-    public static function shouldRegisterNavigation(): bool
-    {
-        return auth()->user()?->isOwner() ?? false;
-    }
-
     public string $selectedFile = '';
     public string $levelFilter  = '';
     public string $search       = '';
@@ -43,6 +37,11 @@ class LogViewer extends Page
     }
 
     public function getView(): string { return 'filament.pages.log-viewer'; }
+
+    public function getSubheading(): ?string
+    {
+        return 'Raw Laravel log files — useful for tracing down an error a user reported.';
+    }
 
     // ── Log file discovery ────────────────────────────────────────────────────
 
@@ -57,6 +56,11 @@ class LogViewer extends Page
 
     // ── Parsed entries ────────────────────────────────────────────────────────
 
+    // Only the newest entries are ever shown, so cap how much of the file we
+    // read into memory — a multi-hundred-MB log otherwise exhausts PHP's
+    // memory_limit just to parse and discard everything but the last page.
+    private const MAX_TAIL_BYTES = 5 * 1024 * 1024;
+
     public function getEntriesProperty(): array
     {
         if (! $this->selectedFile) return [];
@@ -64,7 +68,16 @@ class LogViewer extends Page
         $path = storage_path('logs/' . basename($this->selectedFile));
         if (! File::exists($path)) return [];
 
-        $contents = File::get($path);
+        $size = File::size($path);
+
+        if ($size > self::MAX_TAIL_BYTES) {
+            $handle = fopen($path, 'r');
+            fseek($handle, -self::MAX_TAIL_BYTES, SEEK_END);
+            $contents = fread($handle, self::MAX_TAIL_BYTES);
+            fclose($handle);
+        } else {
+            $contents = File::get($path);
+        }
 
         // Split on log entry boundaries: [YYYY-MM-DD HH:MM:SS]
         $pattern = '/\[(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[+-]\d{2}:\d{2}|Z)?)\] (\w+)\.(\w+): (.*?)(?=\[\d{4}-\d{2}-\d{2}|\z)/s';

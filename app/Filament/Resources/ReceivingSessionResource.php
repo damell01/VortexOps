@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\ReceivingSessionResource\Pages;
 use App\Models\ReceivingSession;
 use App\Models\Vendor;
@@ -25,7 +24,7 @@ use Filament\Forms\Components\TextInput;
 
 class ReceivingSessionResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'purchasing';
 
@@ -45,7 +44,7 @@ class ReceivingSessionResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Session Details')->schema([
+            Section::make('Session Details')->columnSpanFull()->schema([
                 Grid::make(2)->schema([
                     Select::make('vendor_id')
                         ->label('Vendor')
@@ -75,6 +74,12 @@ class ReceivingSessionResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->striped()
+            ->persistFiltersInSession()
+            ->deferLoading()
+            ->emptyStateHeading('No receiving sessions')
+            ->emptyStateDescription('Start a session from the Receive page to log incoming stock.')
+            ->emptyStateIcon('heroicon-o-inbox-arrow-down')
             ->columns([
                 TextColumn::make('id')
                     ->label('#')

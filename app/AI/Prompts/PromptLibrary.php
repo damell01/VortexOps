@@ -28,4 +28,155 @@ final class PromptLibrary
         Include every line item. If multiple pages, include all.
         PROMPT;
     }
+
+    /**
+     * Turns a week-over-week operational snapshot into an instruction for a
+     * 3-4 sentence plain-English business briefing. Used by OpsDigestService
+     * for the scheduled Wednesday/Friday ops emails.
+     *
+     * @param array<string,mixed> $snapshot
+     */
+    public function opsDigest(array $snapshot): string
+    {
+        $lines = [];
+
+        $lines[] = 'Revenue so far this week: $' . number_format($snapshot['week_revenue'], 2)
+            . ($snapshot['week_pacing_pct'] !== null
+                ? ' (' . ($snapshot['week_pacing_pct'] >= 0 ? '+' : '') . $snapshot['week_pacing_pct'] . '% vs. the trailing 4-week average for this point in the week)'
+                : ' (no trailing average yet to compare)');
+
+        if ($snapshot['top_streamer']) {
+            $lines[] = "Top streamer this week: {$snapshot['top_streamer']}.";
+        }
+
+        if ($snapshot['month_projected'] !== null) {
+            $lines[] = 'Projected month total: $' . number_format($snapshot['month_projected'], 2)
+                . ($snapshot['month_pacing_pct'] !== null
+                    ? ' (' . ($snapshot['month_pacing_pct'] >= 0 ? '+' : '') . $snapshot['month_pacing_pct'] . '% vs. the trailing 3-month average)'
+                    : '');
+        }
+
+        if (! empty($snapshot['trending_down'])) {
+            $lines[] = 'Streamers trending down vs. their own recent average: ' . implode(', ', $snapshot['trending_down']) . '.';
+        }
+
+        if (! empty($snapshot['outlier_shows'])) {
+            $lines[] = 'Shows with unusual revenue this week (verify the numbers): ' . implode(', ', $snapshot['outlier_shows']) . '.';
+        }
+
+        if ($snapshot['reorder_count'] > 0) {
+            $lines[] = "{$snapshot['reorder_count']} product(s) are pacing toward running out before they can be restocked.";
+        }
+
+        if ($snapshot['pending_review'] > 0) {
+            $lines[] = "{$snapshot['pending_review']} show(s) are still waiting on review/approval.";
+        }
+
+        $data = implode("\n", $lines);
+
+        return <<<PROMPT
+        You are writing a short business briefing for the owner of a sports-card livestream sales operation. Below is this week's operational data. Write a 3-4 sentence plain-English summary highlighting what matters most — lead with the most important thing, mention specific names/numbers from the data, and end with anything that needs action. Do not invent numbers or reasons not present in the data. Do not use bullet points or headers — write flowing prose. Do not add a greeting or sign-off.
+
+        Data:
+        {$data}
+
+        Summary:
+        PROMPT;
+    }
+
+    /**
+     * Same briefing, but for an arbitrary date range (e.g. the Reports page's
+     * period selector) rather than the fixed "this week" window.
+     *
+     * @param array<string,mixed> $snapshot
+     */
+    public function opsDigestForRange(array $snapshot): string
+    {
+        $lines = [];
+
+        $lines[] = "Period: {$snapshot['label']} ({$snapshot['shows']} show(s)).";
+        $lines[] = 'Gross revenue: $' . number_format($snapshot['gross'], 2)
+            . ($snapshot['trend_pct'] !== null
+                ? ' (' . ($snapshot['trend_pct'] >= 0 ? '+' : '') . $snapshot['trend_pct'] . '% vs. the prior equal-length period)'
+                : ' (no prior period to compare)');
+
+        if ($snapshot['top_streamer']) {
+            $lines[] = "Top streamer this period: {$snapshot['top_streamer']}.";
+        }
+
+        if (! empty($snapshot['trending_down'])) {
+            $lines[] = 'Streamers currently trending down vs. their own recent average: ' . implode(', ', $snapshot['trending_down']) . '.';
+        }
+
+        if (! empty($snapshot['outlier_shows'])) {
+            $lines[] = 'Shows in this period with unusual revenue (verify the numbers): ' . implode(', ', $snapshot['outlier_shows']) . '.';
+        }
+
+        if ($snapshot['reorder_count'] > 0) {
+            $lines[] = "{$snapshot['reorder_count']} product(s) are currently pacing toward running out before they can be restocked.";
+        }
+
+        if ($snapshot['pending_review'] > 0) {
+            $lines[] = "{$snapshot['pending_review']} show(s) are currently waiting on review/approval.";
+        }
+
+        $data = implode("\n", $lines);
+
+        return <<<PROMPT
+        You are writing a short business briefing for the owner of a sports-card livestream sales operation, summarizing a report for a specific date range they selected. Below is the data for that period. Write a 3-4 sentence plain-English summary highlighting what matters most — lead with the most important thing, mention specific names/numbers from the data, and end with anything that needs action. Do not invent numbers or reasons not present in the data. Do not use bullet points or headers — write flowing prose. Do not add a greeting or sign-off.
+
+        Data:
+        {$data}
+
+        Summary:
+        PROMPT;
+    }
+
+    /**
+     * Turns a Product Insights snapshot (catalogue-wide KPIs plus top margin,
+     * dead-stock, and reorder items) into an instruction for a 3-4 sentence
+     * plain-English inventory briefing. Used by ProductInsightsDigestService.
+     *
+     * @param array<string,mixed> $snapshot
+     */
+    public function productInsights(array $snapshot): string
+    {
+        $lines = [];
+
+        $lines[] = 'Catalogue: ' . number_format($snapshot['active_skus']) . ' active SKU(s), '
+            . number_format($snapshot['sold_skus']) . ' have sold.';
+        $lines[] = 'Total inventory value on hand: $' . number_format($snapshot['inventory_value'], 2) . '.';
+        $lines[] = 'Dead stock (no sale in ' . $snapshot['dead_days'] . ' days): $' . number_format($snapshot['dead_value'], 2) . ' tied up.';
+
+        if (! empty($snapshot['top_margin'])) {
+            $items = array_map(fn ($r) => "{$r['name']} (\${$this->money($r['margin'])} margin)", $snapshot['top_margin']);
+            $lines[] = 'Best margin performers: ' . implode(', ', $items) . '.';
+        }
+
+        if (! empty($snapshot['top_dead'])) {
+            $items = array_map(fn ($r) => "{$r['name']} (\${$this->money($r['capital'])}, " . ($r['days_since_sold'] !== null ? "{$r['days_since_sold']} days since last sale" : 'never sold') . ')', $snapshot['top_dead']);
+            $lines[] = 'Biggest dead-stock items: ' . implode(', ', $items) . '.';
+        }
+
+        if (! empty($snapshot['top_reorder'])) {
+            $items = array_map(fn ($r) => "{$r['name']} (suggest {$r['suggested_qty']} more)", $snapshot['top_reorder']);
+            $lines[] = 'Products pacing toward running out: ' . implode(', ', $items) . '.';
+        }
+
+        $data = implode("\n", $lines);
+
+        return <<<PROMPT
+        You are writing a short inventory briefing for the owner of a sports-card livestream sales operation. Below is a snapshot of their product catalogue's financial and stock health. Write a 3-4 sentence plain-English summary highlighting what matters most — lead with the most important thing, mention specific product names/numbers from the data, and end with anything that needs action (e.g. reordering a fast seller, clearing dead stock). Do not invent numbers, products, or reasons not present in the data. Do not use bullet points or headers — write flowing prose. Do not add a greeting or sign-off.
+
+        Data:
+        {$data}
+
+        Summary:
+        PROMPT;
+    }
+
+    private function money(float $amount): string
+    {
+        return number_format($amount, 2);
+    }
 }

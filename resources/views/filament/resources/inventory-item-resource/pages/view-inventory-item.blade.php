@@ -7,6 +7,7 @@
         'receiving'  => 'Receiving History',
         'movements'  => 'Movements',
         'cost'       => 'Cost History',
+        'analysis'   => 'Cost Analysis',
         'aliases'    => 'Aliases & AI',
     ];
 @endphp
@@ -43,7 +44,7 @@
 </div>
 
 {{-- ── Tab Bar ───────────────────────────────────────────────────────────────── --}}
-<div class="flex gap-0.5 overflow-x-auto border-b border-gray-200 dark:border-gray-700 pb-px scrollbar-none -mx-1 px-1">
+<div class="flex gap-2.5 overflow-x-auto border-b border-gray-200 dark:border-gray-700 pb-px scrollbar-none -mx-1 px-1">
     @foreach($tabs as $key => $label)
     <button wire:click="setTab('{{ $key }}')" type="button"
         class="flex-shrink-0 px-3.5 py-2 text-sm font-medium rounded-t transition-colors whitespace-nowrap
@@ -382,6 +383,112 @@
         </tbody>
     </table>
     @endif
+</div>
+@endif
+
+{{-- ════════════════════════════════════════════════════════════════════════════ --}}
+{{-- TAB: COST ANALYSIS                                                          --}}
+{{-- ════════════════════════════════════════════════════════════════════════════ --}}
+@if($tab === 'analysis')
+<div class="space-y-6">
+    @php $analysis = $this->costAnalysis; @endphp
+
+    {{-- Cost Summary Cards --}}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
+            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Total Invested</p>
+            <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">${{ number_format($analysis['total_invested'], 2) }}</p>
+            <p class="text-xs text-gray-500 mt-2">Across all lots (historic)</p>
+        </div>
+
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
+            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Current Inventory Value</p>
+            <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">${{ number_format($analysis['current_value'], 2) }}</p>
+            <p class="text-xs text-gray-500 mt-2">{{ number_format($analysis['current_stock']) }} units @ {{ number_format($analysis['weighted_avg_cost'], 2) }}/unit</p>
+        </div>
+
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5">
+            <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Weighted Avg Cost</p>
+            <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">${{ number_format($analysis['current_avg_cost'], 2) }}</p>
+            <p class="text-xs text-gray-500 mt-2">Combined from all active lots</p>
+        </div>
+    </div>
+
+    {{-- By Vendor Breakdown --}}
+    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-800">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Cost by Vendor</h3>
+        </div>
+        @if(count($analysis['by_vendor']) === 0)
+            <div class="px-5 py-10 text-center text-gray-400 text-sm">No vendor data available.</div>
+        @else
+        <div class="divide-y divide-gray-100 dark:divide-gray-800">
+            @foreach($analysis['by_vendor'] as $vendor)
+            <div class="px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition">
+                <div class="flex items-start justify-between mb-2">
+                    <div>
+                        <p class="font-medium text-gray-900 dark:text-gray-100">{{ $vendor['vendor'] }}</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">{{ $vendor['lots_count'] }} lot(s)</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold text-gray-900 dark:text-gray-100">${{ number_format($vendor['total_cost'], 2) }}</p>
+                        <p class="text-xs text-gray-500">{{ number_format($vendor['total_units']) }} units</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4 text-xs">
+                    <div class="flex-grow">
+                        <div class="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div class="h-full bg-primary-500" style="width: {{ ($vendor['total_cost'] / ($analysis['total_invested'] || 1)) * 100 }}%"></div>
+                        </div>
+                    </div>
+                    <span class="text-gray-500 dark:text-gray-400 whitespace-nowrap">${{ number_format($vendor['avg_unit_cost'], 2) }}/unit</span>
+                </div>
+            </div>
+            @endforeach
+        </div>
+        @endif
+    </div>
+
+    {{-- Active Lots with Cost Breakdown --}}
+    <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+        <div class="px-5 py-3 border-b border-gray-100 dark:border-gray-800">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Active Lots - Cost Breakdown</h3>
+        </div>
+        @if(count($analysis['active_lots']) === 0)
+            <div class="px-5 py-10 text-center text-gray-400 text-sm">No active lots.</div>
+        @else
+        <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                <tr class="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                    <th class="px-4 py-3 text-left">Vendor</th>
+                    <th class="px-4 py-3 text-left">Received</th>
+                    <th class="px-4 py-3 text-right">Qty on Hand</th>
+                    <th class="px-4 py-3 text-right">Unit Cost</th>
+                    <th class="px-4 py-3 text-right">Total Cost</th>
+                    <th class="px-4 py-3 text-right">% of Stock</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                @foreach($analysis['active_lots'] as $i => $lot)
+                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $i % 2 === 1 ? 'bg-gray-50/50 dark:bg-gray-800/20' : '' }}">
+                    <td class="px-4 py-3 text-gray-700 dark:text-gray-300">{{ $lot['vendor'] }}</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">{{ $lot['received_at'] }}</td>
+                    <td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-gray-100">{{ number_format($lot['remaining']) }}</td>
+                    <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300">${{ number_format($lot['unit_cost'], 2) }}</td>
+                    <td class="px-4 py-3 text-right font-bold text-gray-900 dark:text-gray-100">${{ number_format($lot['total_cost'], 2) }}</td>
+                    <td class="px-4 py-3 text-right">
+                        <span class="inline-flex items-center rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 text-xs font-semibold">
+                            {{ $lot['pct_of_stock'] }}%
+                        </span>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+        </div>
+        @endif
+    </div>
 </div>
 @endif
 

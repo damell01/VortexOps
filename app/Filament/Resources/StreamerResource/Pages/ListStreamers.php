@@ -10,6 +10,11 @@ class ListStreamers extends ListRecords
 {
     protected static string $resource = StreamerResource::class;
 
+    public function getSubheading(): ?string
+    {
+        return 'Your streamer roster — payout type and rate, channel routing rules, and the login each one is linked to.';
+    }
+
     protected function getHeaderActions(): array
     {
         return [CreateAction::make()];

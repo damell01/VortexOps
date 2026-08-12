@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\WeeklyPayoutBatchResource\RelationManagers;
 
+use App\Filament\Resources\ShowResource;
 use App\Models\Payout;
 use App\Models\Streamer;
 use App\Support\StatusColor;
@@ -19,6 +20,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 
 class PayoutsRelationManager extends RelationManager
@@ -29,7 +31,8 @@ class PayoutsRelationManager extends RelationManager
 
     public function form(Schema $schema): Schema
     {
-        $batchStatus = $this->getOwnerRecord()->status ?? 'draft';
+        $batch       = $this->getOwnerRecord();
+        $batchStatus = $batch?->status ?? 'draft';
         $isLocked    = $batchStatus !== 'draft';
 
         return $schema->components([
@@ -101,6 +104,9 @@ class PayoutsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         $batch = $this->getOwnerRecord();
+        if (!$batch) {
+            return $table->recordTitleAttribute('id');
+        }
 
         return $table
             ->recordTitleAttribute('id')
@@ -113,8 +119,14 @@ class PayoutsRelationManager extends RelationManager
 
                 TextColumn::make('show.title')
                     ->label('Show')
+                    ->badge()
+                    ->color('gray')
                     ->placeholder('Manual entry')
-                    ->limit(30),
+                    ->limit(30)
+                    ->url(fn (Payout $record) => $record->show_id
+                        ? ShowResource::getUrl('view', ['record' => $record->show_id])
+                        : null)
+                    ->openUrlInNewTab(),
 
                 TextColumn::make('payout_type')
                     ->label('Type')
@@ -187,6 +199,28 @@ class PayoutsRelationManager extends RelationManager
                     ->visible(fn ($record) => $batch->status === 'draft')
                     ->after(fn () => $batch->recalculateTotal()),
             ])
+            // A pay period's payouts are one row per show per streamer — grouping
+            // by streamer, collapsed by default, is the "open the week, open a
+            // streamer, see their shows for that period" view. groupsOnly() means
+            // this is the actual table, not an optional toggle on top of a flat one.
+            ->groups([
+                Group::make('streamer.name')
+                    ->label('Streamer')
+                    ->getDescriptionFromRecordUsing(function (Payout $record) use ($batch): string {
+                        $total = Payout::where('weekly_payout_batch_id', $batch->id)
+                            ->where('streamer_id', $record->streamer_id)
+                            ->sum('calculated_payout');
+                        $count = Payout::where('weekly_payout_batch_id', $batch->id)
+                            ->where('streamer_id', $record->streamer_id)
+                            ->count();
+
+                        return $count . ' ' . ($count === 1 ? 'show' : 'shows') . ' — $' . number_format((float) $total, 2) . ' total';
+                    })
+                    ->collapsible(),
+            ])
+            ->defaultGroup('streamer.name')
+            ->collapsedGroupsByDefault()
+            ->groupsOnly()
             ->defaultSort('streamer.name');
     }
 }

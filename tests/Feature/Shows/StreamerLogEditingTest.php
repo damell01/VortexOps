@@ -138,4 +138,67 @@ class StreamerLogEditingTest extends TestCase
             ->assertOk()
             ->assertSee('My Stream'); // the show label is shown
     }
+
+    // ── Fulfillment review (pwe_labels streamers only) ────────────────────────
+
+    public function test_pwe_labels_entry_needs_fulfillment_review_once_admin_approved(): void
+    {
+        $s = Streamer::create(['name' => 'A', 'status' => 'active', 'payout_type' => 'pwe_labels']);
+        $show = Show::create(['title' => 'S', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $this->creatorId]);
+        $entry = StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $s->id, 'status' => 'pending']);
+
+        $this->assertFalse($entry->needsFulfillmentReview());
+
+        $entry->update(['status' => 'admin_approved']);
+        $this->assertTrue($entry->fresh()->needsFulfillmentReview());
+    }
+
+    public function test_non_pwe_labels_entry_never_needs_fulfillment_review(): void
+    {
+        $s = Streamer::create(['name' => 'A', 'status' => 'active', 'payout_type' => 'hourly', 'hourly_rate' => 15]);
+        $show = Show::create(['title' => 'S', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $this->creatorId]);
+        $entry = StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $s->id, 'status' => 'admin_approved']);
+
+        $this->assertFalse($entry->needsFulfillmentReview());
+    }
+
+    public function test_admin_marks_fulfillment_reviewed(): void
+    {
+        $s = Streamer::create(['name' => 'A', 'status' => 'active', 'payout_type' => 'pwe_labels']);
+        $show = Show::create(['title' => 'S', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $this->creatorId]);
+        $entry = StreamerLogEntry::create(['show_id' => $show->id, 'streamer_id' => $s->id, 'status' => 'admin_approved', 'pwe_count' => 10, 'label_count' => 5]);
+
+        $admin = User::factory()->create(['email' => 'admin@test.com']);
+        $admin->assignRole('admin');
+        Livewire::actingAs($admin);
+
+        Livewire::test(ListStreamerLogEntries::class)
+            ->callTableAction('fulfillment_review', $entry);
+
+        $entry->refresh();
+        $this->assertNotNull($entry->fulfillment_reviewed_at);
+        $this->assertEquals($admin->id, $entry->fulfillment_reviewed_by);
+        $this->assertFalse($entry->needsFulfillmentReview());
+    }
+
+    public function test_send_back_clears_fulfillment_review(): void
+    {
+        $s = Streamer::create(['name' => 'A', 'status' => 'active', 'payout_type' => 'pwe_labels']);
+        $show = Show::create(['title' => 'S', 'show_date' => now()->toDateString(), 'status' => 'reconciled', 'created_by' => $this->creatorId]);
+        $entry = StreamerLogEntry::create([
+            'show_id' => $show->id, 'streamer_id' => $s->id, 'status' => 'admin_approved',
+            'fulfillment_reviewed_at' => now(), 'fulfillment_reviewed_by' => $this->creatorId,
+        ]);
+
+        $admin = User::factory()->create(['email' => 'admin@test.com']);
+        $admin->assignRole('admin');
+        Livewire::actingAs($admin);
+
+        Livewire::test(ListStreamerLogEntries::class)
+            ->callTableAction('send_back', $entry);
+
+        $entry->refresh();
+        $this->assertNull($entry->fulfillment_reviewed_at);
+        $this->assertNull($entry->fulfillment_reviewed_by);
+    }
 }

@@ -3,17 +3,20 @@
 namespace App\Console\Commands;
 
 use App\Models\Setting;
-use App\Models\User;
 use App\Notifications\SystemHealthAlert;
+use App\Services\NotificationRouter;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
 class CheckSystemHealth extends Command
 {
-    protected $signature = 'health:check {--notify : Send database notification to owner on issues}';
-    protected $description = 'Check queue, disk, and failed jobs; notify owner when problems are detected';
+    /** How long an unchanged set of issues stays quiet before re-alerting. */
+    private const RENOTIFY_AFTER_MINUTES = 60;
 
-    public function handle(): int
+    protected $signature = 'health:check {--notify : Notify admins (database + email) on issues}';
+    protected $description = 'Check queue, disk, and failed jobs; notify admins when problems are detected';
+
+    public function handle(NotificationRouter $router): int
     {
         $issues = [];
 
@@ -61,6 +64,9 @@ class CheckSystemHealth extends Command
 
         if (empty($issues)) {
             $this->info('System healthy.');
+            // Clear any throttle state so a fresh problem later alerts immediately
+            // instead of being silently suppressed by a stale prior signature.
+            Setting::set('health_alert_last_signature', '');
             return self::SUCCESS;
         }
 
@@ -68,15 +74,42 @@ class CheckSystemHealth extends Command
             $this->warn($issue);
         }
 
-        if ($this->option('notify')) {
-            $ownerEmail = config('app.owner_email', 'dbellcreations@gmail.com');
-            $owner = User::where('email', $ownerEmail)->first();
-            if ($owner) {
-                $owner->notify(new SystemHealthAlert($issues));
-                $this->line("Owner notified via database notification.");
+        if ($this->option('notify') && $this->shouldNotify($issues)) {
+            $recipients = $router->getRecipients('system_health');
+
+            foreach ($recipients as $user) {
+                $user->notify(new SystemHealthAlert($issues));
             }
+
+            $this->line("Notified {$recipients->count()} admin(s) via database + email.");
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Throttles repeat alerts: a given set of issues only re-notifies once
+     * RENOTIFY_AFTER_MINUTES has passed, so a persistent problem doesn't spam
+     * admins every 15 minutes. A *different* set of issues always notifies
+     * immediately, since that's new information.
+     */
+    private function shouldNotify(array $issues): bool
+    {
+        $signature = md5(implode('|', $issues));
+        $lastSignature = Setting::get('health_alert_last_signature', '');
+        $lastNotifiedAt = Setting::get('health_alert_last_notified_at');
+
+        $stillFresh = $lastSignature === $signature
+            && $lastNotifiedAt
+            && \Carbon\Carbon::parse($lastNotifiedAt)->gt(now()->subMinutes(self::RENOTIFY_AFTER_MINUTES));
+
+        if ($stillFresh) {
+            return false;
+        }
+
+        Setting::set('health_alert_last_signature', $signature);
+        Setting::set('health_alert_last_notified_at', now()->toISOString());
+
+        return true;
     }
 }

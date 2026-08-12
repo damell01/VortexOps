@@ -4,8 +4,10 @@ namespace Tests\Feature\Admin;
 
 use App\Filament\Pages\DemoData;
 use App\Models\InventoryCase;
+use App\Models\Show;
 use App\Models\StreamerLogEntry;
 use App\Models\User;
+use App\Models\WhatnotChannel;
 use App\Models\WhatnotShowOrder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -84,5 +86,24 @@ class DemoDataPageTest extends TestCase
 
         Livewire::test(DemoData::class)->callAction('load');
         $this->assertSame($firstCount, WhatnotShowOrder::count(), 'Re-running should not duplicate orders');
+    }
+
+    public function test_clear_action_wipes_operational_data_but_keeps_users_and_channels(): void
+    {
+        $owner   = $this->owner();
+        $channel = WhatnotChannel::create(['name' => 'Keep Me', 'status' => 'active']);
+
+        Livewire::actingAs($owner);
+        Livewire::test(DemoData::class)->callAction('load');
+
+        $this->assertGreaterThan(0, WhatnotShowOrder::count());
+        $this->assertGreaterThan(0, Show::count());
+
+        Livewire::test(DemoData::class)->callAction('clear');
+
+        $this->assertSame(0, WhatnotShowOrder::count());
+        $this->assertSame(0, Show::count());
+        $this->assertTrue(User::where('id', $owner->id)->exists());
+        $this->assertTrue(WhatnotChannel::where('id', $channel->id)->exists());
     }
 }

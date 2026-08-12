@@ -10,6 +10,11 @@ class ListInventoryLocations extends ListRecords
 {
     protected static string $resource = InventoryLocationResource::class;
 
+    public function getSubheading(): ?string
+    {
+        return 'Physical or virtual storage locations stock is tracked against — a shelf, a bin, a channel\'s staging area.';
+    }
+
     protected function getHeaderActions(): array
     {
         return [CreateAction::make()];

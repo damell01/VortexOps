@@ -6,6 +6,7 @@ use App\Filament\Resources\FeedbackTicketResource;
 use App\Models\FeedbackTicket;
 use App\Models\User;
 use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Placeholder;
@@ -19,6 +20,16 @@ use Illuminate\Support\Facades\Storage;
 class ViewFeedbackTicket extends EditRecord
 {
     protected static string $resource = FeedbackTicketResource::class;
+
+    // This page doubles as the read-only detail view for non-managers (who
+    // can view + comment but not edit), so its reachability is gated by
+    // canView() rather than EditRecord's default canEdit() — the "Admin"
+    // section and save action are separately hidden for them below, making
+    // this effectively read-only in that case.
+    protected function authorizeAccess(): void
+    {
+        abort_unless(FeedbackTicketResource::canView($this->getRecord()), 403);
+    }
 
     public function form(Schema $schema): Schema
     {
@@ -96,30 +107,39 @@ class ViewFeedbackTicket extends EditRecord
                     }),
             ]),
 
-            Section::make('Admin')->columns(2)->schema([
-                Select::make('assigned_to')
-                    ->label('Assigned To')
-                    ->options(User::pluck('name', 'id'))
-                    ->searchable()
-                    ->placeholder('Unassigned')
-                    ->nullable(),
+            Section::make('Admin')
+                ->columns(2)
+                ->hidden(fn () => ! (auth()->user()?->canManageFeedback() ?? false))
+                ->schema([
+                    Select::make('assigned_to')
+                        ->label('Assigned To')
+                        ->options(User::pluck('name', 'id'))
+                        ->searchable()
+                        ->placeholder('Unassigned')
+                        ->nullable(),
 
-                Select::make('priority')
-                    ->label('Priority')
-                    ->options(FeedbackTicket::priorityLabels())
-                    ->required(),
+                    Select::make('priority')
+                        ->label('Priority')
+                        ->options(FeedbackTicket::priorityLabels())
+                        ->required(),
 
-                Textarea::make('admin_notes')
-                    ->label('Admin Notes')
-                    ->rows(3)
-                    ->placeholder('Internal notes, follow-up actions…')
-                    ->columnSpanFull(),
-            ]),
+                    Textarea::make('admin_notes')
+                        ->label('Admin Notes')
+                        ->rows(3)
+                        ->placeholder('Internal notes, follow-up actions…')
+                        ->columnSpanFull(),
+                ]),
         ]);
     }
 
     protected function getFormActions(): array
     {
+        // Only the "Admin" section above is actually editable, and it's hidden
+        // for non-managers — nothing left to save, so skip the button for them.
+        if (! (auth()->user()?->canManageFeedback() ?? false)) {
+            return [];
+        }
+
         return [
             parent::getSaveFormAction()->label('Save Notes'),
         ];
@@ -128,13 +148,14 @@ class ViewFeedbackTicket extends EditRecord
     protected function getHeaderActions(): array
     {
         $ticket = $this->record;
+        $canManage = fn () => auth()->user()?->canManageFeedback() ?? false;
 
         return [
             Action::make('mark_in_progress')
                 ->label('Mark In Progress')
                 ->icon('heroicon-o-play')
                 ->color('warning')
-                ->visible(fn () => $ticket->status === 'open')
+                ->visible(fn () => $canManage() && $ticket->status === 'open')
                 ->action(function () use ($ticket) {
                     $ticket->update(['status' => 'in_progress']);
                     Notification::make()->title('Ticket marked as in progress.')->warning()->send();
@@ -145,7 +166,7 @@ class ViewFeedbackTicket extends EditRecord
                 ->label('Mark Resolved')
                 ->icon('heroicon-o-check-circle')
                 ->color('success')
-                ->visible(fn () => in_array($ticket->status, ['open', 'in_progress']))
+                ->visible(fn () => $canManage() && in_array($ticket->status, ['open', 'in_progress']))
                 ->requiresConfirmation()
                 ->action(function () use ($ticket) {
                     $ticket->update(['status' => 'resolved', 'resolved_at' => now()]);
@@ -157,7 +178,7 @@ class ViewFeedbackTicket extends EditRecord
                 ->label('Close')
                 ->icon('heroicon-o-x-circle')
                 ->color('gray')
-                ->visible(fn () => ! in_array($ticket->status, ['closed']))
+                ->visible(fn () => $canManage() && ! in_array($ticket->status, ['closed']))
                 ->requiresConfirmation()
                 ->modalDescription('Closing this ticket marks it as done with no further action needed.')
                 ->action(function () use ($ticket) {
@@ -170,12 +191,15 @@ class ViewFeedbackTicket extends EditRecord
                 ->label('Re-open')
                 ->icon('heroicon-o-arrow-path')
                 ->color('info')
-                ->visible(fn () => in_array($ticket->status, ['resolved', 'closed']))
+                ->visible(fn () => $canManage() && in_array($ticket->status, ['resolved', 'closed']))
                 ->action(function () use ($ticket) {
                     $ticket->update(['status' => 'open', 'resolved_at' => null]);
                     Notification::make()->title('Ticket re-opened.')->info()->send();
                     $this->refreshFormData(['status', 'resolved_at']);
                 }),
+
+            DeleteAction::make()
+                ->visible(fn () => $canManage()),
         ];
     }
 

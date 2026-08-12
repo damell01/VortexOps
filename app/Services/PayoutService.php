@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Payout;
+use App\Models\Setting;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WeeklyPayoutBatch;
@@ -28,10 +29,21 @@ class PayoutService
             ->get()
             ->keyBy('streamer_id');
 
+        // Prefer the pivot's actual is_primary flag. Shows that predate that
+        // flag (or where detectStreamers() never set one) have no streamer
+        // flagged primary at all — fall back to treating the first attached
+        // streamer as primary so solo-streamer shows and older data keep
+        // computing exactly as before.
+        $hasExplicitPrimary = $streamers->contains(fn (Streamer $s) => (bool) ($s->pivot->is_primary ?? false));
+
         foreach ($streamers as $index => $streamer) {
             $existing = $existingPayouts->get($streamer->id);
 
-            $result = $this->computeStreamerPayout($streamer, $show, $streamers->count(), $index === 0);
+            $isPrimary = $hasExplicitPrimary
+                ? (bool) ($streamer->pivot->is_primary ?? false)
+                : $index === 0;
+
+            $result = $this->computeStreamerPayout($streamer, $show, $streamers->count(), $isPrimary);
 
             $payout = $existing
                 ? $existing->fill($result)
@@ -52,7 +64,14 @@ class PayoutService
         $netRevenue    = (float) $show->whatnot_net;
         $grossRevenue  = (float) $show->gross_revenue;
         $tips          = (float) $show->tips;
-        $streamerShare = $streamerCount > 1 ? $netRevenue / $streamerCount : $netRevenue;
+        // On a collab show, the primary streamer keeps the full revenue share
+        // for profit-share-based calculations (profit_share, hybrid's profit
+        // component, custom_formula's streamer_share_net) — splitting with
+        // collaborators is handled manually outside the system, not by
+        // dividing it automatically. Non-primary streamers' other payout
+        // components (hourly, PWE/labels, package, flat rate) are unaffected,
+        // since none of those read $streamerShare.
+        $streamerShare = ($isPrimary || $streamerCount <= 1) ? $netRevenue : 0.0;
         $tipShare      = $streamerCount > 0 ? round($tips / $streamerCount, 2) : 0;
         // Give any sub-cent rounding remainder to the primary streamer (e.g. $10 ÷ 3 = $3.33×3 = $9.99; primary gets $3.34)
         if ($isPrimary && $streamerCount > 1 && $tips > 0) {
@@ -67,15 +86,22 @@ class PayoutService
         $labelCount = 0;
         $burdenRateApplied = null;
 
+        $logEntry = $show->relationLoaded('streamerLogEntry')
+            ? $show->getRelation('streamerLogEntry')
+            : $show->streamerLogEntry()->first();
+
         switch ($streamer->payout_type) {
             case 'profit_share':
                 $pct              = (float) $streamer->payout_percentage / 100;
                 $calculatedPayout = round($streamerShare * $pct, 2);
+                $notPrimaryNote   = $streamerCount > 1 && ! $isPrimary
+                    ? ' — non-primary on collab show, revenue share goes to the primary streamer; split manually outside VortexOps'
+                    : '';
                 if ($streamer->include_tips) {
                     $calculatedPayout += $tipShare;
-                    $calculationNotes  = "Profit share {$streamer->payout_percentage}% of \${$streamerShare} + \${$tipShare} tips";
+                    $calculationNotes  = "Profit share {$streamer->payout_percentage}% of \${$streamerShare} + \${$tipShare} tips{$notPrimaryNote}";
                 } else {
-                    $calculationNotes = "Profit share {$streamer->payout_percentage}% of \${$streamerShare}";
+                    $calculationNotes = "Profit share {$streamer->payout_percentage}% of \${$streamerShare}{$notPrimaryNote}";
                 }
                 break;
 
@@ -111,14 +137,20 @@ class PayoutService
 
             case 'pwe_labels':
                 // Per-package (PWE) + per-label model, with optional hourly component.
-                // pwe_count and label_count come from show metadata or are prompted at payout review.
-                $pweCount   = (int) ($show->units_sold ?? 0);
-                $labelCount = $pweCount;
+                // Prefer the real counts fulfillment/the streamer entered on the log
+                // entry; fall back to units_sold as a rough estimate only when those
+                // haven't been entered yet.
+                $countsAreActual = $logEntry && ($logEntry->pwe_count !== null || $logEntry->label_count !== null);
+                $pweCount   = $logEntry?->pwe_count   ?? (int) ($show->units_sold ?? 0);
+                $labelCount = $logEntry?->label_count ?? (int) ($show->units_sold ?? 0);
                 $pweEarned    = round((float) ($streamer->pwe_rate ?? 0) * $pweCount, 2);
                 $labelEarned  = round((float) ($streamer->label_rate ?? 0) * $labelCount, 2);
                 $hourlyEarned = $hours > 0 ? round((float) ($streamer->hourly_rate ?? 0) * $hours, 2) : 0;
                 $calculatedPayout = $pweEarned + $labelEarned + $hourlyEarned;
                 $calculationNotes = "\${$streamer->pwe_rate}/PWE × {$pweCount} + \${$streamer->label_rate}/label × {$labelCount}";
+                if (! $countsAreActual) {
+                    $calculationNotes .= ' (estimated from units sold — no fulfillment counts entered yet)';
+                }
                 if ($hourlyEarned > 0) {
                     $calculationNotes .= " + \${$streamer->hourly_rate}/hr × {$hours}hrs";
                 }
@@ -174,14 +206,21 @@ class PayoutService
                 break;
         }
 
-        // Owner fee — calculated against the gross payout before deduction
-        $ownerFeeDeducted = 0;
-        if ($streamer->owner_fee_type && (float) $streamer->owner_fee_value > 0) {
-            $ownerFeeDeducted = $streamer->owner_fee_type === 'percentage'
-                ? round($calculatedPayout * ((float) $streamer->owner_fee_value / 100), 2)
-                : (float) $streamer->owner_fee_value;
+        // Owner fee — calculated against the gross payout before deduction.
+        // A streamer's own fee override always wins; if they don't have one
+        // set, fall back to the global default from Settings so the owner
+        // doesn't have to configure the same fee on every streamer by hand.
+        [$feeType, $feeValue, $feeDeductFromPayout] = $streamer->owner_fee_type
+            ? [$streamer->owner_fee_type, (float) $streamer->owner_fee_value, $streamer->owner_fee_deduct_from_payout]
+            : $this->defaultOwnerFee();
 
-            if ($streamer->owner_fee_deduct_from_payout) {
+        $ownerFeeDeducted = 0;
+        if ($feeType && $feeValue > 0) {
+            $ownerFeeDeducted = $feeType === 'percentage'
+                ? round($calculatedPayout * ($feeValue / 100), 2)
+                : $feeValue;
+
+            if ($feeDeductFromPayout) {
                 $calculatedPayout = max(0, round($calculatedPayout - $ownerFeeDeducted, 2));
                 $calculationNotes .= " − \${$ownerFeeDeducted} owner fee";
             }
@@ -199,6 +238,28 @@ class PayoutService
             'calculation_notes'    => $calculationNotes,
             'routing_bank_label'   => $this->resolveRoutingLabel($streamer, $show),
             'status'               => 'draft',
+        ];
+    }
+
+    /**
+     * The global owner-fee fallback, set once in Settings instead of on every
+     * streamer. Returns [type, value, deductFromPayout]; type is null when no
+     * default is configured.
+     *
+     * @return array{0: ?string, 1: float, 2: bool}
+     */
+    private function defaultOwnerFee(): array
+    {
+        $type = Setting::get('default_owner_fee_type', '');
+
+        if (! in_array($type, ['percentage', 'flat'], true)) {
+            return [null, 0.0, false];
+        }
+
+        return [
+            $type,
+            (float) Setting::get('default_owner_fee_value', 0),
+            (bool) Setting::get('default_owner_fee_deduct_from_payout', true),
         ];
     }
 

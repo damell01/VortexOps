@@ -3,9 +3,10 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Models\Show;
+use App\Services\AI\OpsDigestService;
 use App\Support\AdminModules;
+use App\Support\ChannelContext;
 use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -14,7 +15,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class Reports extends Page
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'reporting';
     protected static ?string $title = 'Reports & Analytics';
@@ -43,6 +44,7 @@ class Reports extends Page
     public string $dateFrom  = '';
     public string $dateTo    = '';
     public bool $showAllWeeks = false;
+    public ?string $narrative = null;
 
     public function mount(): void
     {
@@ -66,12 +68,14 @@ class Reports extends Page
         $this->dateFrom  = now()->subDays((int) $days)->toDateString();
         $this->dateTo    = now()->toDateString();
         $this->showAllWeeks = false;
+        $this->narrative = null;
     }
 
     public function applyCustomRange(): void
     {
         $this->period = 'custom';
         $this->showAllWeeks = false;
+        $this->narrative = null;
     }
 
     public function toggleAllWeeks(): void
@@ -79,12 +83,41 @@ class Reports extends Page
         $this->showAllWeeks = ! $this->showAllWeeks;
     }
 
+    public function aiNarrativeEnabled(): bool
+    {
+        return AdminModules::isEnabled('ai');
+    }
+
+    /**
+     * On-demand, not computed — an LLM call is too slow/expensive to run on
+     * every render. Fires only when the owner clicks "Summarize this period".
+     * Cached for an hour per period/channel so a re-click (or another admin
+     * asking for the same window) returns instantly instead of re-running a
+     * 30-second generation for identical inputs.
+     */
+    public function generateNarrative(): void
+    {
+        $key = $this->cacheKey('narrative');
+
+        $cached = Cache::get($key);
+        if ($cached !== null) {
+            $this->narrative = $cached;
+            return;
+        }
+
+        $this->narrative = app(OpsDigestService::class)->generateForRange($this->periodStart(), $this->periodEnd());
+
+        if ($this->narrative !== null) {
+            Cache::put($key, $this->narrative, 3600);
+        }
+    }
+
     // ── Cache key ────────────────────────────────────────────────────────────
 
     private function cacheKey(string $section): string
     {
         $key = $this->period === 'custom' ? "{$this->dateFrom}_{$this->dateTo}" : $this->period;
-        return "reports_{$section}_{$key}_" . auth()->id();
+        return "reports_{$section}_{$key}_" . auth()->id() . '_ch' . (ChannelContext::currentId() ?? 'all');
     }
 
     private function periodStart(): Carbon
@@ -114,6 +147,7 @@ class Reports extends Page
             ->with(['whatnotChannel:id,name', 'streamers:id,name'])
             ->whereBetween('show_date', [$start, $end])
             ->whereNotIn('status', ['cancelled'])
+            ->inChannelContext()
             ->orderBy('show_date')
             ->get(['id', 'title', 'show_date', 'gross_revenue', 'whatnot_net', 'tips', 'units_sold', 'status', 'whatnot_channel_id']);
 
@@ -151,6 +185,7 @@ class Reports extends Page
             $cur = DB::table('shows')
                 ->whereBetween('show_date', [$start, $end])
                 ->whereNotIn('status', ['cancelled'])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', ChannelContext::currentId()))
                 ->selectRaw('
                     COUNT(*) as shows,
                     COALESCE(SUM(gross_revenue), 0) as gross,
@@ -167,6 +202,7 @@ class Reports extends Page
                     $start->copy()->subDay(),
                 ])
                 ->whereNotIn('status', ['cancelled'])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', ChannelContext::currentId()))
                 ->selectRaw('
                     COUNT(*) as shows,
                     COALESCE(SUM(gross_revenue), 0) as gross,
@@ -174,18 +210,40 @@ class Reports extends Page
                 ')
                 ->first();
 
+            $cogs = (float) DB::table('whatnot_show_orders')
+                ->join('shows', 'whatnot_show_orders.show_id', '=', 'shows.id')
+                ->whereBetween('shows.show_date', [$start, $end])
+                ->whereNotIn('shows.status', ['cancelled'])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
+                ->sum('whatnot_show_orders.total_cost');
+
+            $prevCogs = (float) DB::table('whatnot_show_orders')
+                ->join('shows', 'whatnot_show_orders.show_id', '=', 'shows.id')
+                ->whereBetween('shows.show_date', [$start->copy()->subDays($span), $start->copy()->subDay()])
+                ->whereNotIn('shows.status', ['cancelled'])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
+                ->sum('whatnot_show_orders.total_cost');
+
             $trend = fn ($cur, $prev) => $prev > 0 ? round((($cur - $prev) / $prev) * 100, 1) : null;
 
+            $gross  = (float) ($cur->gross ?? 0);
+            $margin = round($gross - $cogs, 2);
+            $prevMargin = round((float) ($prev->gross ?? 0) - $prevCogs, 2);
+
             return [
-                'gross'       => (float) ($cur->gross ?? 0),
-                'net'         => (float) ($cur->net ?? 0),
-                'tips'        => (float) ($cur->tips ?? 0),
-                'paper'       => (float) ($cur->paper ?? 0),
-                'shows'       => (int) ($cur->shows ?? 0),
-                'units'       => (int) ($cur->units ?? 0),
-                'trend_gross' => $trend($cur->gross ?? 0, $prev->gross ?? 0),
-                'trend_net'   => $trend($cur->net ?? 0, $prev->net ?? 0),
-                'trend_shows' => $trend($cur->shows ?? 0, $prev->shows ?? 0),
+                'gross'        => $gross,
+                'net'          => (float) ($cur->net ?? 0),
+                'tips'         => (float) ($cur->tips ?? 0),
+                'paper'        => (float) ($cur->paper ?? 0),
+                'shows'        => (int) ($cur->shows ?? 0),
+                'units'        => (int) ($cur->units ?? 0),
+                'cogs'         => round($cogs, 2),
+                'margin'       => $margin,
+                'margin_pct'   => $gross > 0 ? round($margin / $gross * 100, 1) : null,
+                'trend_gross'  => $trend($cur->gross ?? 0, $prev->gross ?? 0),
+                'trend_net'    => $trend($cur->net ?? 0, $prev->net ?? 0),
+                'trend_shows'  => $trend($cur->shows ?? 0, $prev->shows ?? 0),
+                'trend_margin' => $trend($margin, $prevMargin),
             ];
         });
     }
@@ -199,6 +257,7 @@ class Reports extends Page
                 ->leftJoin('whatnot_channels', 'shows.whatnot_channel_id', '=', 'whatnot_channels.id')
                 ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])
                 ->whereNotIn('shows.status', ['cancelled'])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
                 ->selectRaw('
                     COALESCE(whatnot_channels.name, "Unknown") as channel,
                     COUNT(*) as shows,
@@ -228,6 +287,7 @@ class Reports extends Page
             return DB::table('shows')
                 ->whereBetween('show_date', [$this->periodStart(), $this->periodEnd()])
                 ->whereNotIn('status', ['cancelled'])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('whatnot_channel_id', ChannelContext::currentId()))
                 ->selectRaw("
                     {$weekExpr} as week_start,
                     COUNT(*) as shows,
@@ -259,6 +319,7 @@ class Reports extends Page
                 ->join('shows', 'payouts.show_id', '=', 'shows.id')
                 ->join('streamers', 'payouts.streamer_id', '=', 'streamers.id')
                 ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
                 ->selectRaw('
                     streamers.name as streamer,
                     COUNT(DISTINCT payouts.show_id) as shows,
@@ -282,13 +343,15 @@ class Reports extends Page
             $rows = DB::table('payouts')
                 ->join('shows', 'payouts.show_id', '=', 'shows.id')
                 ->whereBetween('shows.show_date', [$this->periodStart(), $this->periodEnd()])
+                ->when(ChannelContext::isScoped(), fn ($q) => $q->where('shows.whatnot_channel_id', ChannelContext::currentId()))
                 ->selectRaw('
                     payouts.status,
                     COUNT(*) as cnt,
                     COALESCE(SUM(payouts.calculated_payout), 0) as total
                 ')
                 ->groupBy('payouts.status')
-                ->pluck(null, 'status');
+                ->get()
+                ->keyBy('status');
 
             $get = fn ($key) => [
                 'count' => (int) ($rows[$key]->cnt ?? 0),

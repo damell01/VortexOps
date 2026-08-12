@@ -81,4 +81,47 @@ class StatusBoardAgingTest extends TestCase
         $this->assertNotNull($boardShow);
         $this->assertEquals(3, $boardShow->days_in_status);
     }
+
+    /**
+     * "Reconciled" is a terminal status — every finished show lands there
+     * and stays forever, so without a window it grows without bound and the
+     * board keeps getting taller. Recently-reconciled shows still appear;
+     * anything older is summarized as a count with a link to the full list
+     * instead of an ever-growing card list.
+     */
+    public function test_reconciled_column_only_shows_recent_completions(): void
+    {
+        $recent = Show::create([
+            'title' => 'Recent', 'show_date' => now()->toDateString(),
+            'status' => 'reconciled', 'created_by' => auth()->id(),
+        ]);
+        $recent->update(['status_changed_at' => now()->subDays(2)]);
+
+        $old = Show::create([
+            'title' => 'Old', 'show_date' => now()->subMonths(2)->toDateString(),
+            'status' => 'reconciled', 'created_by' => auth()->id(),
+        ]);
+        $old->update(['status_changed_at' => now()->subDays(30)]);
+
+        $columns = (new ShowStatusBoard)->getColumns();
+        $reconciledColumn = collect($columns)->firstWhere('status', 'reconciled');
+
+        $this->assertTrue($reconciledColumn['shows']->contains('id', $recent->id));
+        $this->assertFalse($reconciledColumn['shows']->contains('id', $old->id));
+        $this->assertSame(1, $reconciledColumn['hiddenOlder']);
+    }
+
+    public function test_reconciled_column_has_no_hidden_count_when_nothing_is_older(): void
+    {
+        $show = Show::create([
+            'title' => 'Recent', 'show_date' => now()->toDateString(),
+            'status' => 'reconciled', 'created_by' => auth()->id(),
+        ]);
+        $show->update(['status_changed_at' => now()->subDay()]);
+
+        $columns = (new ShowStatusBoard)->getColumns();
+        $reconciledColumn = collect($columns)->firstWhere('status', 'reconciled');
+
+        $this->assertSame(0, $reconciledColumn['hiddenOlder']);
+    }
 }

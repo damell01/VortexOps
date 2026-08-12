@@ -73,7 +73,7 @@ class ActivityLogResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Event')->columns(2)->schema([
+            Section::make('Event')->columns(2)->columnSpanFull()->schema([
                 Placeholder::make('description')
                     ->content(fn (Activity $record): string => ucfirst($record->description)),
 
@@ -95,7 +95,7 @@ class ActivityLogResource extends Resource
                     ->content(fn (Activity $record): string => $record->created_at->format('M j, Y g:i:s A')),
             ]),
 
-            Section::make('Changes')->schema([
+            Section::make('Changes')->columnSpanFull()->schema([
                 Placeholder::make('changes_display')
                     ->label('')
                     ->columnSpanFull()
@@ -154,6 +154,10 @@ class ActivityLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No activity yet')
+            ->emptyStateDescription('User and system actions are logged here as people work.')
+            ->emptyStateIcon('heroicon-o-clock')
+            ->extraAttributes(['data-sticky-header' => 'true'])
             ->deferLoading()
             ->columns([
                 TextColumn::make('id')

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exports\PayoutsExport;
 use App\Exports\ShowsExport;
 use App\Models\InventoryItem;
+use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\Payout;
@@ -44,6 +45,42 @@ class ExportController extends Controller
         });
     }
 
+    public function inventoryPdf(Request $request)
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
+        $items = InventoryItem::with('stock.location')
+            ->where('is_active', true)
+            ->orderBy('sku')
+            ->get();
+
+        $data = [
+            'items' => $items,
+            'exportDate' => now()->format('M d, Y'),
+            'exportTime' => now()->format('h:i A'),
+            'totalItems' => $items->count(),
+            'totalValue' => $items->sum(fn ($item) =>
+                ($item->stock->sum('quantity') ?? 0) * ($item->average_cost ?? 0)
+            ),
+        ];
+
+        $pdf = Pdf::loadView('exports.inventory-report', $data)
+            ->setPaper('a4')
+            ->setOption('margin-top', 10)
+            ->setOption('margin-bottom', 10)
+            ->setOption('margin-left', 10)
+            ->setOption('margin-right', 10);
+
+        $filename = 'inventory-report-' . now()->format('Y-m-d-His') . '.pdf';
+
+        // If download=1 is in query, force download; otherwise stream in browser
+        if ($request->query('download')) {
+            return $pdf->download($filename);
+        }
+
+        return $pdf->stream($filename);
+    }
+
     public function stockLevels(): StreamedResponse
     {
         abort_unless(auth()->user()?->isAdmin(), 403);
@@ -52,11 +89,11 @@ class ExportController extends Controller
             $this->row(['Item', 'SKU', 'Category', 'Location', 'Location Type', 'Quantity', 'Avg Cost', 'Stock Value']);
 
             InventoryStock::with(['item', 'location'])
-                ->join('products', 'inventory_stocks.inventory_item_id', '=', 'products.id')
-                ->join('inventory_locations', 'inventory_stocks.inventory_location_id', '=', 'inventory_locations.id')
+                ->join('products', 'inventory_stock.inventory_item_id', '=', 'products.id')
+                ->join('inventory_locations', 'inventory_stock.inventory_location_id', '=', 'inventory_locations.id')
                 ->orderBy('products.name')
                 ->orderBy('inventory_locations.name')
-                ->select('inventory_stocks.*')
+                ->select('inventory_stock.*')
                 ->lazy(500)
                 ->each(function (InventoryStock $stock) {
                     $avgCost = (float) ($stock->item->average_cost > 0 ? $stock->item->average_cost : $stock->item->unit_cost ?? 0);
@@ -106,6 +143,31 @@ class ExportController extends Controller
         });
     }
 
+    public function locations(): StreamedResponse
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
+        return $this->streamCsv('locations', function () {
+            $this->row(['Name', 'Type', 'Streamer', 'Channel', 'Status', 'SKUs Stocked', 'Notes']);
+
+            InventoryLocation::with(['streamer', 'channel'])
+                ->withCount('stock')
+                ->orderBy('name')
+                ->lazy(500)
+                ->each(function (InventoryLocation $location) {
+                    $this->row([
+                        $location->name,
+                        InventoryLocation::typeLabels()[$location->type] ?? $location->type,
+                        $location->streamer->name ?? '',
+                        $location->channel->name ?? '',
+                        InventoryLocation::statusLabels()[$location->status] ?? $location->status,
+                        $location->stock_count,
+                        $location->notes ?? '',
+                    ]);
+                });
+        });
+    }
+
     public function shows(): mixed
     {
         abort_unless(auth()->user()?->isAdmin(), 403);
@@ -132,6 +194,45 @@ class ExportController extends Controller
         $slug = str($payout->streamer?->name ?? 'payout')->slug();
         $date = $payout->show?->show_date?->format('Y-m-d') ?? now()->format('Y-m-d');
         return $pdf->download("payout-{$slug}-{$date}.pdf");
+    }
+
+    public function inventoryAnalyticsPdf(Request $request)
+    {
+        $user = auth()->user();
+        abort_unless(
+            $user?->isAdmin() || $user?->isOwner() || $user?->isStreamer(),
+            403
+        );
+
+        $page = app(\App\Filament\Pages\InventoryAnalytics::class);
+
+        $data = [
+            'title' => 'Inventory Analytics Summary',
+            'date' => now()->format('F j, Y'),
+            'time' => now()->format('H:i'),
+            'summary' => $page->getSummary(),
+            'lowStock' => $page->getLowStockItems(),
+            'topVendors' => $page->getTopVendors(),
+            'locations' => $page->getLocationHealth(),
+            'fastMovers' => $page->getFastMovers(),
+            'deadStock' => $page->getDeadStock(),
+        ];
+
+        $pdf = Pdf::loadView('filament.pages.inventory-analytics-pdf', $data)
+            ->setPaper('a4', 'landscape')
+            ->setOption('enable-local-file-access', true)
+            ->setOption('margin-top', 10)
+            ->setOption('margin-bottom', 10)
+            ->setOption('margin-left', 5)
+            ->setOption('margin-right', 5);
+
+        $filename = 'analytics-summary-' . now()->format('Y-m-d-His') . '.pdf';
+
+        if ($request->query('download')) {
+            return $pdf->download($filename);
+        }
+
+        return $pdf->stream($filename);
     }
 
     public function showPlPdf(Show $show): mixed

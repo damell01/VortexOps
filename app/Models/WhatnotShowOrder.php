@@ -31,23 +31,35 @@ class WhatnotShowOrder extends Model
         'status',
         'tracking_number',
         'shipping_status',
+        'shipment_weight_oz',
+        'box_length_in',
+        'box_width_in',
+        'box_height_in',
+        'shipping_carrier',
+        'shipping_service',
+        'shipment_synced_at',
         'show_date',
         'raw_data',
     ];
 
     protected $casts = [
-        'show_date'       => 'date',
-        'raw_data'        => 'array',
-        'quantity'        => 'integer',
-        'unit_price'      => 'decimal:2',
-        'total_price'     => 'decimal:2',
-        'unit_cost'       => 'decimal:2',
-        'total_cost'      => 'decimal:2',
-        'shipping_amount' => 'decimal:2',
-        'tax_amount'      => 'decimal:2',
-        'fees_amount'     => 'decimal:2',
-        'net_amount'      => 'decimal:2',
-        'lot_number'      => 'integer',
+        'show_date'           => 'date',
+        'raw_data'            => 'array',
+        'quantity'            => 'integer',
+        'unit_price'          => 'decimal:2',
+        'total_price'         => 'decimal:2',
+        'unit_cost'           => 'decimal:2',
+        'total_cost'          => 'decimal:2',
+        'shipping_amount'     => 'decimal:2',
+        'tax_amount'          => 'decimal:2',
+        'fees_amount'         => 'decimal:2',
+        'net_amount'          => 'decimal:2',
+        'lot_number'          => 'integer',
+        'shipment_weight_oz'  => 'decimal:2',
+        'box_length_in'       => 'decimal:2',
+        'box_width_in'        => 'decimal:2',
+        'box_height_in'       => 'decimal:2',
+        'shipment_synced_at'  => 'datetime',
     ];
 
     protected static function booted(): void
@@ -64,6 +76,18 @@ class WhatnotShowOrder extends Model
     public function show(): BelongsTo
     {
         return $this->belongsTo(Show::class);
+    }
+
+    /** Limit to the admin's currently active channel (App\Support\ChannelContext), if any. */
+    public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        if (! \App\Support\ChannelContext::isScoped()) {
+            return $query;
+        }
+
+        return $query->whereHas('show', fn (\Illuminate\Database\Eloquent\Builder $q) =>
+            $q->where('whatnot_channel_id', \App\Support\ChannelContext::currentId())
+        );
     }
 
     public function buyer(): BelongsTo
@@ -88,6 +112,18 @@ class WhatnotShowOrder extends Model
             'refunded'  => 'Refunded',
             'cancelled' => 'Cancelled',
             'pending'   => 'Pending',
+        ];
+    }
+
+    public static function shippingStatusLabels(): array
+    {
+        return [
+            'pending'       => 'Pending',
+            'label_created' => 'Label Created',
+            'packed'        => 'Packed',
+            'shipped'       => 'Shipped',
+            'delivered'     => 'Delivered',
+            'returned'      => 'Returned',
         ];
     }
 }

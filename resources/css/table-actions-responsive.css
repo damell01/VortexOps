@@ -1,0 +1,282 @@
+/* VortexOps Table Actions Responsive Fix */
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* TABLE ACTION BUTTONS - PREVENT OVERFLOW */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Action cell container - ensure it doesn't overflow */
+.fi-ta-cell-action,
+.fi-ta-actions {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.25rem !important;
+    justify-content: flex-end !important;
+    flex-wrap: nowrap !important;
+    min-width: 0 !important;
+}
+
+/* Action cell must handle overflow gracefully */
+td[class*="action"],
+.fi-ta-cell-action {
+    overflow: visible !important;
+    white-space: nowrap !important;
+    padding-right: 0.75rem !important;
+}
+
+/* Icon buttons should be consistently sized */
+.fi-ta-actions .fi-icon-btn,
+.fi-ta-actions button[class*="icon"],
+.fi-ta-actions a[class*="icon"] {
+    min-height: 36px !important;
+    min-width: 36px !important;
+    padding: 0.5rem !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+}
+
+/* Label buttons (like "+ Add Stock") should be properly spaced */
+.fi-ta-actions .fi-btn:not(.fi-icon-btn),
+.fi-ta-actions button:not([class*="icon"]) {
+    padding: 0.5rem 0.75rem !important;
+    font-size: 0.875rem !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    min-height: 36px !important;
+}
+
+/* ActionGroup dropdown trigger button */
+.fi-ta-actions .fi-dropdown-trigger,
+.fi-ta-actions [role="button"].fi-dropdown-list-trigger {
+    min-height: 36px !important;
+    min-width: 36px !important;
+    padding: 0.5rem !important;
+    flex-shrink: 0 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* TABLE ACTIONS ON MOBILE - COMPACT LAYOUT */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 1024px) {
+    /* On tablets, be more aggressive about space */
+    .fi-ta-actions {
+        gap: 0.125rem !important;
+    }
+
+    .fi-ta-actions .fi-btn:not(.fi-icon-btn) {
+        font-size: 0.8125rem !important;
+        padding: 0.5rem 0.625rem !important;
+    }
+}
+
+@media (max-width: 768px) {
+    /* On mobile, convert label buttons to icons or hide non-critical actions */
+    .fi-ta-cell-action {
+        position: relative !important;
+        min-width: unset !important;
+        max-width: 100% !important;
+    }
+
+    /* Reduce gap between action buttons on mobile */
+    .fi-ta-actions {
+        gap: 0 !important;
+        max-width: 100% !important;
+    }
+
+    /* Icon buttons stay small and compact */
+    .fi-ta-actions .fi-icon-btn,
+    .fi-ta-actions button[class*="icon"] {
+        min-height: 34px !important;
+        min-width: 34px !important;
+        padding: 0.375rem !important;
+        font-size: 0.875rem !important;
+    }
+
+    /* Label buttons (Add Stock, etc.) - reduce size more aggressively */
+    .fi-ta-actions .fi-btn:not(.fi-icon-btn),
+    .fi-ta-actions button:not([class*="icon"]):not([role="button"]) {
+        font-size: 0.75rem !important;
+        padding: 0.375rem 0.5rem !important;
+        min-height: 32px !important;
+        border-radius: 0.25rem !important;
+    }
+
+    /* Hide non-critical text labels if needed - show only icons */
+    .fi-ta-actions .fi-btn-label {
+        display: none !important;
+    }
+
+    /* But keep action group dropdown visible */
+    .fi-ta-actions .fi-dropdown-list-trigger,
+    .fi-ta-actions [role="button"].fi-dropdown-list-trigger {
+        display: inline-flex !important;
+    }
+
+    /* Ensure table cell with actions has overflow handling */
+    td:has(.fi-ta-actions),
+    .fi-table td[class*="action"] {
+        padding: 0.5rem !important;
+        overflow: visible !important;
+    }
+
+    /* Dark mode table header */
+    html.dark .fi-table thead {
+        background-color: #1f2937 !important;
+    }
+
+    html.dark .fi-table thead th {
+        background-color: #1f2937 !important;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* ENSURE ACTIONS DON'T GET CLIPPED BY PARENT CONTAINER */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Table row should not clip actions */
+.fi-table tbody tr {
+    overflow: visible !important;
+}
+
+/* Table container should allow scrolling to see actions */
+.fi-ta-ctn {
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+}
+
+.fi-table {
+    overflow: visible !important;
+}
+
+/* Action dropdown menu should appear above table */
+.fi-dropdown-list,
+[role="dialog"][class*="dropdown"],
+.fi-popover {
+    z-index: 50 !important;
+    position: relative !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* RESPONSIVE ACTION LAYOUT REFINEMENTS */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* For very small screens, collapse to dropdown only */
+@media (max-width: 500px) {
+    /* Hide individual label action buttons on very small screens */
+    .fi-ta-actions .fi-btn:not(.fi-icon-btn) {
+        display: none !important;
+    }
+
+    /* Show only the action group dropdown */
+    .fi-ta-actions .fi-dropdown-list-trigger,
+    .fi-ta-actions [role="button"][class*="dropdown"] {
+        display: inline-flex !important;
+        min-height: 40px !important;
+        min-width: 40px !important;
+    }
+
+    /* Keep icon buttons visible */
+    .fi-ta-actions .fi-icon-btn {
+        min-height: 40px !important;
+        min-width: 40px !important;
+        padding: 0.5rem !important;
+    }
+
+    /* Ensure the action cell doesn't overflow */
+    .fi-ta-cell-action {
+        max-width: 100% !important;
+    }
+
+    /* Table cell padding for actions */
+    td:has(.fi-ta-actions) {
+        padding: 0.5rem 0.375rem !important;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* ACTION BUTTON STATES AND INTERACTIONS */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Hover state for action buttons */
+.fi-ta-actions button:hover,
+.fi-ta-actions a:hover {
+    transform: translateY(-1px) !important;
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Focus state for accessibility */
+.fi-ta-actions button:focus-visible,
+.fi-ta-actions a:focus-visible {
+    outline: 2px solid #7c3aed !important;
+    outline-offset: 2px !important;
+}
+
+/* Active/pressed state */
+.fi-ta-actions button:active,
+.fi-ta-actions a:active {
+    transform: translateY(0) !important;
+}
+
+/* Disabled state */
+.fi-ta-actions button:disabled,
+.fi-ta-actions a[aria-disabled="true"] {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════ */
+/* DROPDOWN MENU FOR GROUPED ACTIONS */
+/* ═══════════════════════════════════════════════════════════════════ */
+
+/* Ensure dropdown menus appear correctly */
+.fi-dropdown-list {
+    background-color: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 0.5rem !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+    padding: 0.25rem 0 !important;
+    min-width: 160px !important;
+}
+
+html.dark .fi-dropdown-list {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Dropdown menu items */
+.fi-dropdown-list button,
+.fi-dropdown-list a,
+.fi-dropdown-list [role="menuitem"] {
+    width: 100% !important;
+    padding: 0.75rem 1rem !important;
+    text-align: left !important;
+    font-size: 0.9375rem !important;
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.fi-dropdown-list button:hover,
+.fi-dropdown-list a:hover,
+.fi-dropdown-list [role="menuitem"]:hover {
+    background-color: #f3f4f6 !important;
+}
+
+html.dark .fi-dropdown-list button:hover,
+html.dark .fi-dropdown-list a:hover,
+html.dark .fi-dropdown-list [role="menuitem"]:hover {
+    background-color: #374151 !important;
+}
+
+/* Divider in dropdown */
+.fi-dropdown-list hr {
+    margin: 0.25rem 0 !important;
+    border: none !important;
+    border-top: 1px solid #e5e7eb !important;
+}
+
+html.dark .fi-dropdown-list hr {
+    border-top-color: #374151 !important;
+}

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Payouts;
 
+use App\Filament\Resources\WeeklyPayoutBatchResource\Pages\CreateWeeklyPayoutBatch;
 use App\Models\Payout;
 use App\Models\Show;
 use App\Models\Streamer;
@@ -11,6 +12,8 @@ use App\Models\WeeklyPayoutBatch;
 use App\Models\WhatnotChannel;
 use App\Services\PayoutService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class WeeklyBatchTest extends TestCase
@@ -210,6 +213,21 @@ class WeeklyBatchTest extends TestCase
 
         $this->assertEquals('paid', $payout->status);
         $this->assertGreaterThan(0, (float) $streamer->total_earnings_paid);
+    }
+
+    public function test_new_pay_run_form_defaults_to_weekly_cadence_streamers_only(): void
+    {
+        Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $weeklyStreamer  = $this->makeStreamer(['name' => 'Weekly Wendy', 'payout_type' => 'hourly', 'payout_cadence' => 'weekly', 'hourly_rate' => 15]);
+        $monthlyStreamer = $this->makeStreamer(['name' => 'Monthly Mo', 'payout_type' => 'profit_share', 'payout_cadence' => 'monthly']);
+
+        Livewire::actingAs($admin);
+
+        Livewire::test(CreateWeeklyPayoutBatch::class)
+            ->assertFormSet(['streamer_ids' => [$weeklyStreamer->id]]);
     }
 
     public function test_finalize_draft_only_guard(): void

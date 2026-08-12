@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Models\Setting;
 use App\Support\AdminModules;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
 class AdminModulesTest extends TestCase
@@ -14,11 +15,17 @@ class AdminModulesTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        Cache::forget('setting:enabled_admin_modules');
         AdminModules::flushMemo();
     }
 
     protected function tearDown(): void
     {
+        // flushMemo() alone only clears the static in-process memo —
+        // Setting::get()'s own cache()->remember() layer isn't test-scoped,
+        // so a value this class wrote could otherwise leak into whatever
+        // test runs next in this PHPUnit process.
+        Cache::forget('setting:enabled_admin_modules');
         AdminModules::flushMemo();
         parent::tearDown();
     }
@@ -27,7 +34,7 @@ class AdminModulesTest extends TestCase
     {
         $defs = AdminModules::definitions();
 
-        $expected = ['streams', 'payouts', 'inventory', 'purchasing', 'operations', 'reporting', 'ai', 'timekeeping'];
+        $expected = ['streams', 'payouts', 'inventory', 'purchasing', 'shipments', 'operations', 'reporting', 'ai', 'timekeeping', 'fulfillment'];
 
         foreach ($expected as $slug) {
             $this->assertArrayHasKey($slug, $defs, "Module '{$slug}' missing from definitions");
@@ -126,5 +133,32 @@ class AdminModulesTest extends TestCase
 
         $this->assertEquals('Streams', AdminModules::navigationGroupFor('streams'));
         $this->assertEquals('Payouts & Pay Runs', AdminModules::navigationGroupFor('payouts'));
+    }
+
+    public function test_presets_only_reference_real_module_slugs(): void
+    {
+        $valid = array_keys(AdminModules::definitions());
+
+        foreach (AdminModules::presets() as $key => $preset) {
+            foreach ($preset['slugs'] as $slug) {
+                $this->assertContains($slug, $valid, "Preset '{$key}' references unknown module '{$slug}'");
+            }
+        }
+    }
+
+    public function test_basics_preset_is_shows_payouts_and_inventory_only(): void
+    {
+        $this->assertEqualsCanonicalizing(
+            ['streams', 'payouts', 'inventory'],
+            AdminModules::presets()['basics']['slugs']
+        );
+    }
+
+    public function test_everything_preset_covers_every_definition(): void
+    {
+        $this->assertEqualsCanonicalizing(
+            array_keys(AdminModules::definitions()),
+            AdminModules::presets()['everything']['slugs']
+        );
     }
 }

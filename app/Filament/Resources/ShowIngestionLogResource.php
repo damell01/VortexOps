@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\ShowIngestionLogResource\Pages;
 use App\Models\ShowIngestionLog;
 use App\Support\AdminModules;
@@ -21,12 +20,10 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ShowIngestionLogResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'streams';
     protected static ?string $model = ShowIngestionLog::class;
-
-    protected static ?string $navigationParentItem = 'Import';
 
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-arrow-down-tray'; }
     public static function getNavigationGroup(): string|\UnitEnum|null  { return AdminModules::navigationGroupFor('streams'); }
@@ -58,7 +55,7 @@ class ShowIngestionLogResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Ingestion Details')->schema([
+            Section::make('Ingestion Details')->columnSpanFull()->schema([
                 \Filament\Forms\Components\Placeholder::make('source')
                     ->label('Source')
                     ->content(fn ($record) => $record?->source ?? '—'),
@@ -87,6 +84,11 @@ class ShowIngestionLogResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->persistFiltersInSession()
+            ->deferLoading()
+            ->emptyStateHeading('No ingestion logs')
+            ->emptyStateDescription('Whatnot import runs are logged here with their results.')
+            ->emptyStateIcon('heroicon-o-arrow-down-tray')
             ->columns([
                 TextColumn::make('show.title')
                     ->label('Show')
@@ -136,6 +138,8 @@ class ShowIngestionLogResource extends Resource
             ])
             ->actions([
                 ViewAction::make()->iconButton(),
+                \Filament\Actions\DeleteAction::make()->iconButton()
+                    ->visible(fn (ShowIngestionLog $record) => static::canDelete($record)),
             ]);
     }
 

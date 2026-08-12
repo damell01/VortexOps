@@ -62,6 +62,28 @@ class TimekeepingTest extends TestCase
         $this->assertFalse(Timekeeping::canAccess());
     }
 
+    public function test_streamer_and_fulfillment_roles_can_access_timekeeping(): void
+    {
+        Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'fulfillment', 'guard_name' => 'web']);
+        Role::firstOrCreate(['name' => 'fulfillment_admin', 'guard_name' => 'web']);
+
+        $streamer = User::factory()->create();
+        $streamer->assignRole('streamer');
+        $this->actingAs($streamer);
+        $this->assertTrue(Timekeeping::canAccess());
+
+        $fulfillment = User::factory()->create();
+        $fulfillment->assignRole('fulfillment');
+        $this->actingAs($fulfillment);
+        $this->assertTrue(Timekeeping::canAccess());
+
+        $fulfillmentAdmin = User::factory()->create();
+        $fulfillmentAdmin->assignRole('fulfillment_admin');
+        $this->actingAs($fulfillmentAdmin);
+        $this->assertTrue(Timekeeping::canAccess());
+    }
+
     public function test_admin_cannot_access_when_module_disabled(): void
     {
         Setting::set('enabled_admin_modules', json_encode([]));
@@ -179,7 +201,7 @@ class TimekeepingTest extends TestCase
 
     // ── entry scoping ─────────────────────────────────────────────────────────
 
-    public function test_admin_sees_only_their_own_entries(): void
+    public function test_admin_sees_the_whole_teams_entries(): void
     {
         $other = User::factory()->create();
 
@@ -191,8 +213,7 @@ class TimekeepingTest extends TestCase
         $component = Livewire::test(Timekeeping::class);
         $entries   = $component->instance()->getEntriesProperty();
 
-        $this->assertEquals(1, $entries->total());
-        $this->assertEquals($this->admin->id, $entries->first()->user_id);
+        $this->assertEquals(2, $entries->total());
     }
 
     public function test_owner_sees_all_entries(): void
@@ -208,19 +229,58 @@ class TimekeepingTest extends TestCase
         $this->assertEquals(2, $entries->total());
     }
 
-    public function test_team_summary_only_returned_for_owner(): void
+    public function test_team_hours_returned_for_owner_and_admin(): void
     {
-        // Anchor inside the current week so the summary's week filter can't drop
-        // it when the suite runs just after midnight on the first day of the week.
+        // Anchor inside the current week so the "this week" default filter
+        // can't drop it when the suite runs just after midnight on Sunday.
         $in = now()->startOfWeek()->addHours(6);
-        TimeEntry::create(['user_id' => $this->admin->id, 'clocked_in_at' => $in, 'clocked_out_at' => $in->copy()->addHour()]);
+        TimeEntry::create(['user_id' => $this->regular->id, 'clocked_in_at' => $in, 'clocked_out_at' => $in->copy()->addHour()]);
 
         $this->actingAs($this->admin);
-        $adminSummary = Livewire::test(Timekeeping::class)->instance()->getTeamSummaryProperty();
-        $this->assertEmpty($adminSummary);
+        $adminView = Livewire::test(Timekeeping::class)->instance()->getTeamHoursProperty();
+        $this->assertNotEmpty($adminView);
+        $this->assertEquals($this->regular->name, $adminView[0]['name']);
 
         $this->actingAs($this->owner);
-        $ownerSummary = Livewire::test(Timekeeping::class)->instance()->getTeamSummaryProperty();
-        $this->assertNotEmpty($ownerSummary);
+        $ownerView = Livewire::test(Timekeeping::class)->instance()->getTeamHoursProperty();
+        $this->assertNotEmpty($ownerView);
+    }
+
+    public function test_team_hours_excludes_admin_and_owner_entries(): void
+    {
+        $in = now()->startOfWeek()->addHours(6);
+        TimeEntry::create(['user_id' => $this->admin->id, 'clocked_in_at' => $in, 'clocked_out_at' => $in->copy()->addHour()]);
+        TimeEntry::create(['user_id' => $this->owner->id, 'clocked_in_at' => $in, 'clocked_out_at' => $in->copy()->addHour()]);
+
+        $this->actingAs($this->admin);
+        $teamHours = Livewire::test(Timekeeping::class)->instance()->getTeamHoursProperty();
+
+        $this->assertEmpty($teamHours, 'Team Hours is for hourly/non-admin workers, not admins clocking their own time');
+    }
+
+    public function test_pay_period_preset_uses_the_covering_weekly_payout_batch(): void
+    {
+        $batchStart = now()->subDays(2)->toDateString();
+        $batchEnd   = now()->addDays(4)->toDateString();
+        \App\Models\WeeklyPayoutBatch::create([
+            'week_start' => $batchStart,
+            'week_end'   => $batchEnd,
+            'status'     => 'draft',
+        ]);
+
+        TimeEntry::create([
+            'user_id'        => $this->regular->id,
+            'clocked_in_at'  => now()->subDay(),
+            'clocked_out_at' => now()->subDay()->addHour(),
+        ]);
+
+        $this->actingAs($this->admin);
+        $component = Livewire::test(Timekeeping::class)->call('setPeriodMode', 'pay_period');
+
+        $teamHours = $component->instance()->getTeamHoursProperty();
+        $this->assertNotEmpty($teamHours);
+
+        $label = $component->instance()->getPeriodLabelProperty();
+        $this->assertStringContainsString(\Illuminate\Support\Carbon::parse($batchStart)->format('M j'), $label);
     }
 }

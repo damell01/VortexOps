@@ -51,7 +51,7 @@ class InventoryValueChartWidget extends ChartWidget
 
         try {
             $trend = Trend::query(
-                InventoryMovement::query()->where('movement_type', $type)
+                InventoryMovement::query()->where('movement_type', $type)->inChannelContext()
             )
                 ->between(now()->subWeeks(11)->startOfWeek(), now()->endOfWeek())
                 ->perWeek()

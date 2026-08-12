@@ -35,7 +35,7 @@ class RecentShowsWidget extends BaseWidget
 
     public function table(Table $table): Table
     {
-        $query = Show::query()->with('channel');
+        $query = Show::query()->with('channel')->inChannelContext();
 
         // A streamer only sees shows they were on (shows are many-to-many with
         // streamers, so co-hosted shows count). Apply unconditionally when scoped

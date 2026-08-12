@@ -18,7 +18,7 @@
         <div class="rounded-xl border {{ $db['ok'] ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950' : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950' }} px-5 py-4">
             <div class="flex items-center gap-3">
                 <div class="rounded-full {{ $db['ok'] ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900' }} p-2">
-                    <x-heroicon-o-circle-stack class="h-5 w-5 {{ $db['ok'] ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}" />
+                    <x-heroicon-o-check-badge class="h-5 w-5 {{ $db['ok'] ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}" />
                 </div>
                 <div>
                     <p class="text-sm font-semibold {{ $db['ok'] ? 'text-green-900 dark:text-green-100' : 'text-red-900 dark:text-red-100' }}">Database</p>
@@ -49,9 +49,9 @@
                         {{ $ollama['ok'] ? (count($ollama['models']) . ' model(s) loaded') : $ollama['label'] }}
                     </p>
                     @if ($ollama['ok'] && count($ollama['models']) > 0)
-                        <p class="text-[10px] text-gray-400 truncate mt-0.5">{{ implode(', ', $ollama['models']) }}</p>
+                        <p class="text-xs text-gray-400 truncate mt-0.5">{{ implode(', ', $ollama['models']) }}</p>
                     @elseif (! $ollama['ok'])
-                        <p class="text-[10px] text-gray-400 truncate mt-0.5">{{ $ollama['url'] }}</p>
+                        <p class="text-xs text-gray-400 truncate mt-0.5">{{ $ollama['url'] }}</p>
                     @endif
                 </div>
                 <div class="ml-auto flex-shrink-0">
@@ -78,7 +78,7 @@
                     <p class="text-sm font-semibold {{ $schedulerOk ? 'text-green-900 dark:text-green-100' : ($schedulerUnknown ? 'text-gray-700 dark:text-gray-300' : 'text-amber-900 dark:text-amber-100') }}">Scheduler</p>
                     <p class="text-xs {{ $schedulerOk ? 'text-green-600 dark:text-green-400' : ($schedulerUnknown ? 'text-gray-500' : 'text-amber-600 dark:text-amber-400') }}">{{ $scheduler['label'] }}</p>
                     @if ($schedulerUnknown)
-                        <p class="text-[10px] text-gray-400 mt-0.5">Run: <code class="font-mono">php artisan schedule:run</code></p>
+                        <p class="text-xs text-gray-400 mt-0.5">Run: <code class="font-mono">php artisan schedule:run</code></p>
                     @endif
                 </div>
             </div>
@@ -96,12 +96,12 @@
                     <p class="text-xs {{ $queueOk ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400' }}">
                         {{ $queue['default_pending'] }} pending · {{ $queue['active'] }} active
                     </p>
-                    <p class="text-[10px] {{ $worker['ok'] === false ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-400' }} mt-0.5">{{ $worker['label'] }}</p>
+                    <p class="text-xs {{ $worker['ok'] === false ? 'text-amber-600 dark:text-amber-400 font-semibold' : 'text-gray-400' }} mt-0.5">{{ $worker['label'] }}</p>
                     @if ($worker['ok'] === false)
-                        <p class="text-[10px] text-gray-400 mt-0.5">Start: <code class="font-mono">php artisan queue:work</code></p>
+                        <p class="text-xs text-gray-400 mt-0.5">Start: <code class="font-mono">php artisan queue:work</code></p>
                     @endif
                     @if ($queue['failed'] > 0)
-                        <p class="text-[10px] text-red-500 font-semibold mt-0.5">{{ $queue['failed'] }} failed job(s)</p>
+                        <p class="text-xs text-red-500 font-semibold mt-0.5">{{ $queue['failed'] }} failed job(s)</p>
                     @endif
                 </div>
             </div>
@@ -137,7 +137,7 @@
                             style="width: {{ min(100, $storage['pct']) }}%"
                         ></div>
                     </div>
-                    <p class="text-[10px] text-gray-400 mt-0.5">{{ $storage['pct'] }}% used · {{ $storage['free'] }} free</p>
+                    <p class="text-xs text-gray-400 mt-0.5">{{ $storage['pct'] }}% used · {{ $storage['free'] }} free</p>
                 </div>
             </div>
         </div>

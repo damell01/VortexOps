@@ -3,6 +3,8 @@
 namespace Tests\Feature\Shows;
 
 use App\Models\Show;
+use App\Models\ShowIngestionLog;
+use App\Models\Streamer;
 use App\Models\User;
 use App\Models\WhatnotChannel;
 use App\Models\WhatnotShowOrder;
@@ -42,6 +44,13 @@ class WhatnotScraperTest extends TestCase
         $process->allows('getOutput')->andReturn($stdout);
         $process->allows('getErrorOutput')->andReturn($stderr);
         $process->allows('isSuccessful')->andReturn($exitCode === 0);
+
+        // Streaming path (used whenever an onProgress callback is passed) drives
+        // the process via start()/isRunning() instead of the blocking run().
+        $process->allows('start')->andReturnNull();
+        $process->allows('isRunning')->andReturn(false);
+        $process->allows('checkTimeout')->andReturnNull();
+        $process->allows('getIncrementalErrorOutput')->andReturn('');
 
         $scraper = Mockery::mock(WhatnotScraper::class)
             ->makePartial()
@@ -165,6 +174,20 @@ class WhatnotScraperTest extends TestCase
         $this->assertEquals('draft', $show->status);
     }
 
+    public function test_import_persists_start_and_end_time(): void
+    {
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow([
+            'start_time' => '19:00:00',
+            'end_time'   => '20:30:00',
+        ])]));
+
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Test Break Show')->first();
+        $this->assertEquals('19:00:00', $show->start_time);
+        $this->assertEquals('20:30:00', $show->end_time);
+    }
+
     public function test_import_updates_financial_fields_on_existing_show(): void
     {
         Show::create([
@@ -194,6 +217,130 @@ class WhatnotScraperTest extends TestCase
         $this->assertEquals(1500.00, (float) $show->gross_revenue);
         $this->assertEquals(40, $show->units_sold);
         $this->assertEquals('reconciled', $show->status); // status not overwritten
+    }
+
+    public function test_import_attaches_a_streamer_to_a_new_show_when_the_title_matches(): void
+    {
+        Streamer::create(['name' => 'Josh', 'status' => 'active', 'include_tips' => false]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow([
+            'title' => 'Josh Break Night',
+        ])]));
+
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Josh Break Night')->first();
+        $this->assertCount(1, $show->streamers);
+        $this->assertEquals('Josh', $show->streamers->first()->name);
+    }
+
+    public function test_import_retries_streamer_detection_on_an_existing_show_with_no_streamer(): void
+    {
+        $existing = Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'              => 'Josh Break Night',
+            'show_date'          => '2026-06-15',
+            'gross_revenue'      => 1000.00,
+            'import_source'      => 'auto_whatnot',
+            'status'             => 'draft',
+            'created_by'         => 1,
+        ]);
+        $this->assertCount(0, $existing->streamers);
+
+        // The streamer didn't exist yet at the time of the first import — it
+        // does now, so a re-scrape should catch the match this time.
+        Streamer::create(['name' => 'Josh', 'status' => 'active', 'include_tips' => false]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow([
+            'title'         => 'Josh Break Night',
+            'gross_revenue' => 1500.00,
+        ])]));
+
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Josh Break Night')->first();
+        $this->assertCount(1, $show->streamers);
+        $this->assertEquals('Josh', $show->streamers->first()->name);
+    }
+
+    public function test_import_flags_financials_revised_when_locked_show_numbers_change(): void
+    {
+        Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'              => 'Test Break Show',
+            'show_date'          => '2026-06-15',
+            'gross_revenue'      => 1000.00,
+            'whatnot_net'        => 900.00,
+            'tips'               => 10.00,
+            'units_sold'         => 20,
+            'import_source'      => 'auto_whatnot',
+            'status'             => 'reconciled',
+            'created_by'         => 1,
+        ]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow([
+            'gross_revenue' => 1500.00,
+            'units_sold'    => 40,
+        ])]));
+
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Test Break Show')->first();
+        $this->assertTrue((bool) $show->financials_revised_after_lock);
+        $this->assertStringContainsString('gross_revenue: 1000 → 1500', $show->revision_notes);
+        $this->assertStringContainsString('units_sold: 20 → 40', $show->revision_notes);
+    }
+
+    public function test_import_does_not_flag_financials_revised_for_shows_still_in_review(): void
+    {
+        Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'              => 'Test Break Show',
+            'show_date'          => '2026-06-15',
+            'gross_revenue'      => 1000.00,
+            'units_sold'         => 20,
+            'import_source'      => 'auto_whatnot',
+            'status'             => 'pending_review',
+            'created_by'         => 1,
+        ]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow([
+            'gross_revenue' => 1500.00,
+            'units_sold'    => 40,
+        ])]));
+
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Test Break Show')->first();
+        $this->assertFalse((bool) $show->financials_revised_after_lock);
+        $this->assertNull($show->revision_notes);
+    }
+
+    public function test_import_does_not_flag_financials_revised_for_negligible_change(): void
+    {
+        Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'              => 'Test Break Show',
+            'show_date'          => '2026-06-15',
+            'gross_revenue'      => 1500.00,
+            'whatnot_net'        => 1350.00,
+            'tips'               => 25.00,
+            'units_sold'         => 40,
+            'import_source'      => 'auto_whatnot',
+            'status'             => 'reconciled',
+            'created_by'         => 1,
+        ]);
+
+        // Identical figures to the current row — no real revision, just a re-scrape.
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow([
+            'gross_revenue' => 1500.00,
+            'units_sold'    => 40,
+        ])]));
+
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Test Break Show')->first();
+        $this->assertFalse((bool) $show->financials_revised_after_lock);
     }
 
     public function test_import_does_not_overwrite_non_financial_fields(): void
@@ -264,6 +411,149 @@ class WhatnotScraperTest extends TestCase
         $counts = $scraper->importShows($this->channel);
 
         $this->assertEquals(['created' => 0, 'updated' => 0, 'skipped' => 0, 'ordersCreated' => 0], $counts);
+    }
+
+    // ── Live progress output ──────────────────────────────────────────────────
+
+    public function test_import_streams_a_created_line_for_a_new_show(): void
+    {
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow()]));
+
+        $lines = [];
+        $scraper->importShows($this->channel, onProgress: function (string $line) use (&$lines) {
+            $lines[] = $line;
+        });
+
+        $this->assertTrue(collect($lines)->contains(fn ($l) => str_starts_with($l, 'Fetched 1 show(s)')));
+        $this->assertTrue(collect($lines)->contains(fn ($l) => str_contains($l, 'Created: "Test Break Show"')));
+        $this->assertTrue(collect($lines)->contains(fn ($l) => str_starts_with($l, 'Shows done: 1 created, 0 updated, 0 skipped')));
+    }
+
+    public function test_import_streams_an_updated_line_for_an_existing_show(): void
+    {
+        Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'              => 'Test Break Show',
+            'show_date'          => '2026-06-15',
+            'gross_revenue'      => 1000.00,
+            'import_source'      => 'auto_whatnot',
+            'status'             => 'draft',
+            'created_by'         => 1,
+        ]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow(['gross_revenue' => 1500.00])]));
+
+        $lines = [];
+        $scraper->importShows($this->channel, onProgress: function (string $line) use (&$lines) {
+            $lines[] = $line;
+        });
+
+        $this->assertTrue(collect($lines)->contains(fn ($l) => str_contains($l, 'Updated: "Test Break Show"')));
+    }
+
+    public function test_import_streams_a_matched_streamer_note_on_create(): void
+    {
+        Streamer::create(['name' => 'Josh', 'status' => 'active', 'include_tips' => false]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow(['title' => 'Josh Break Night'])]));
+
+        $lines = [];
+        $scraper->importShows($this->channel, onProgress: function (string $line) use (&$lines) {
+            $lines[] = $line;
+        });
+
+        $this->assertTrue(collect($lines)->contains(fn ($l) => str_contains($l, 'matched streamer: Josh')));
+    }
+
+    // ── Ingestion log ─────────────────────────────────────────────────────────
+
+    public function test_import_logs_a_success_entry_for_a_new_show(): void
+    {
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow()]));
+        $scraper->importShows($this->channel);
+
+        $show = Show::where('title', 'Test Break Show')->first();
+        $log  = ShowIngestionLog::first();
+
+        $this->assertNotNull($log);
+        $this->assertEquals($show->id, $log->show_id);
+        $this->assertEquals('whatnot', $log->source);
+        $this->assertEquals('success', $log->status);
+        $this->assertNull($log->error_message);
+    }
+
+    public function test_import_logs_a_success_entry_for_an_updated_show(): void
+    {
+        Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'              => 'Test Break Show',
+            'show_date'          => '2026-06-15',
+            'gross_revenue'      => 1000.00,
+            'units_sold'         => 20,
+            'import_source'      => 'auto_whatnot',
+            'status'             => 'draft',
+            'created_by'         => 1,
+        ]);
+
+        $scraper = $this->mockScraper(0, json_encode([$this->showRow(['gross_revenue' => 1500.00])]));
+        $scraper->importShows($this->channel);
+
+        $log = ShowIngestionLog::where('status', 'success')->first();
+        $this->assertNotNull($log);
+        $this->assertEquals(Show::first()->id, $log->show_id);
+    }
+
+    public function test_import_logs_a_failed_entry_for_a_row_missing_title_and_date(): void
+    {
+        $scraper = $this->mockScraper(0, json_encode([
+            ['title' => '', 'show_date' => ''],
+        ]));
+
+        $scraper->importShows($this->channel);
+
+        $log = ShowIngestionLog::first();
+        $this->assertNotNull($log);
+        $this->assertNull($log->show_id);
+        $this->assertEquals('failed', $log->status);
+        $this->assertStringContainsString('no title or show_date', $log->error_message);
+    }
+
+    public function test_import_logs_a_failed_entry_when_the_scraper_fetch_throws(): void
+    {
+        $scraper = $this->mockScraper(1, '', 'Login failed: invalid credentials');
+
+        try {
+            $scraper->importShows($this->channel);
+        } catch (\RuntimeException $e) {
+            // expected — importShows rethrows after logging
+        }
+
+        $log = ShowIngestionLog::first();
+        $this->assertNotNull($log);
+        $this->assertNull($log->show_id);
+        $this->assertEquals('failed', $log->status);
+        $this->assertStringContainsString('Login failed', $log->error_message);
+    }
+
+    public function test_import_does_not_log_when_existing_show_has_no_overlapping_update_fields(): void
+    {
+        Show::create([
+            'whatnot_channel_id' => $this->channel->id,
+            'title'              => 'Test Break Show',
+            'show_date'          => '2026-06-15',
+            'import_source'      => 'auto_whatnot',
+            'status'             => 'draft',
+            'created_by'         => 1,
+        ]);
+
+        // Row carries only the identifying fields — nothing in the updatable
+        // field whitelist, so importShows() counts it as skipped, not updated.
+        $scraper = $this->mockScraper(0, json_encode([
+            ['title' => 'Test Break Show', 'show_date' => '2026-06-15'],
+        ]));
+        $scraper->importShows($this->channel);
+
+        $this->assertEquals(0, ShowIngestionLog::count());
     }
 
     // ── Channel attribution ───────────────────────────────────────────────────
@@ -398,7 +688,7 @@ class WhatnotScraperTest extends TestCase
                 parent::__construct();
             }
 
-            public function fetchOrdersForShows(array $sources, ?string $channelUsername = null, bool $debug = false): array
+            public function fetchOrdersForShows(array $sources, ?string $channelUsername = null, bool $debug = false, ?callable $onProgress = null): array
             {
                 return $this->stubOrders;
             }

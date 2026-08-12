@@ -3,13 +3,12 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Support\AdminModules;
 use Filament\Pages\Page;
 
 class ReceivingGuide extends Page
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'purchasing';
     protected static ?string $title = 'Receiving Guide';
@@ -25,6 +24,11 @@ class ReceivingGuide extends Page
     public function getView(): string
     {
         return 'filament.pages.receiving-guide';
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'A walkthrough of the receiving workflow — from creating a pallet to scanning it fully received.';
     }
 
     // Active tab for the guide sections

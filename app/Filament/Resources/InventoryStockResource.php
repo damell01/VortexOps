@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Concerns\HasModuleAccess;
-use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Resources\InventoryStockResource\Pages;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
@@ -19,6 +18,7 @@ use Filament\Schemas\Schema;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -26,13 +26,16 @@ use Illuminate\Support\Facades\Cache;
 
 class InventoryStockResource extends Resource
 {
-    use HasModuleAccess, HasAdminNavVisibility;
+    use HasModuleAccess;
 
     protected static string $moduleSlug  = 'inventory';
 
     protected static ?string $model = InventoryStock::class;
 
-    protected static ?string $navigationParentItem = 'Inventory Items';
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
@@ -71,7 +74,7 @@ class InventoryStockResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['item', 'location']);
+        return parent::getEloquentQuery()->with(['item', 'location'])->inChannelContext();
     }
 
     public static function getGloballySearchableAttributes(): array
@@ -102,7 +105,7 @@ class InventoryStockResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make()->schema([
+            Section::make()->columnSpanFull()->schema([
                 Grid::make(2)->schema([
                     Select::make('inventory_item_id')
                         ->label('Item')
@@ -128,6 +131,9 @@ class InventoryStockResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No stock on hand')
+            ->emptyStateDescription('Receive a pallet to populate stock levels.')
+            ->emptyStateIcon('heroicon-o-cube')
             ->deferLoading()
             ->columns([
                 TextColumn::make('item.name')
@@ -153,9 +159,23 @@ class InventoryStockResource extends Resource
                     ->badge()
                     ->color('info'),
                 TextColumn::make('quantity')
+                    ->label('Quantity')
                     ->numeric(decimalPlaces: 0)
                     ->sortable()
-                    ->color(fn ($record) => $record->item?->reorder_level !== null && $record->quantity <= $record->item->reorder_level ? 'danger' : null),
+                    ->weight('bold')
+                    ->icon(fn ($record) => match (true) {
+                        (int)$record->quantity <= 0 => 'heroicon-o-exclamation-triangle',
+                        $record->item?->reorder_level !== null && (int)$record->quantity <= (int)$record->item->reorder_level => 'heroicon-o-exclamation-circle',
+                        default => null
+                    })
+                    ->color(fn ($record) => match (true) {
+                        (int)$record->quantity <= 0 => 'danger',
+                        $record->item?->reorder_level !== null && (int)$record->quantity <= (int)$record->item->reorder_level => 'warning',
+                        default => 'success'
+                    })
+                    ->description(fn ($record) => $record->item?->reorder_level
+                        ? "(reorder at {$record->item->reorder_level})"
+                        : null),
                 TextColumn::make('item.unit_cost')
                     ->label('Unit Cost')
                     ->money('USD'),
@@ -169,6 +189,17 @@ class InventoryStockResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                Filter::make('low_stock')
+                    ->label('Low Stock Only')
+                    ->query(fn (Builder $query) => $query
+                        ->whereExists(function ($q) {
+                            $q->selectRaw('1')
+                                ->from('products')
+                                ->whereColumn('products.id', 'inventory_stock.inventory_item_id')
+                                ->whereNotNull('products.reorder_level')
+                                ->whereColumn('inventory_stock.quantity', '<=', 'products.reorder_level');
+                        })
+                    ),
                 SelectFilter::make('inventory_location_id')
                     ->label('Location')
                     ->relationship('location', 'name'),
@@ -195,10 +226,15 @@ class InventoryStockResource extends Resource
                     ->openUrlInNewTab(),
             ])
             ->actions([
-                ViewAction::make(),
-                EditAction::make(),
-            ])
+                ViewAction::make()
+                    ->size('sm')
+                    ->iconButton(),
+                EditAction::make()
+                    ->size('sm')
+                    ->iconButton(),
+            ], position: \Filament\Tables\Enums\ActionsPosition::AfterColumns)
             ->striped()
+            ->wrap()
             ->persistFiltersInSession()
             ->paginationPageOptions([10, 25, 50])
             ->defaultPaginationPageOption(25)

@@ -8,6 +8,7 @@ use App\Models\WhatnotChannel;
 use App\Services\WhatnotScraper;
 use App\Support\AdminModules;
 use Filament\Actions\Action;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Artisan;
@@ -74,6 +75,15 @@ class AppSettings extends Page
     public string $shipping_surcharge_rate      = '4.00';
     public string $shipping_surcharge_threshold = '500.00';
 
+    // ── Vortex Fee (default) ─────────────────────────────────────────────────
+    // Applied to a streamer's payout when that streamer doesn't have their own
+    // fee override set on their profile — set here once instead of on every
+    // streamer individually. A streamer-level override always wins.
+
+    public ?string $default_owner_fee_type             = null; // null|'percentage'|'flat'
+    public string  $default_owner_fee_value             = '';
+    public bool    $default_owner_fee_deduct_from_payout = true;
+
     // ── AI / Ollama ──────────────────────────────────────────────────────────
 
     public string $ai_provider              = 'ollama';
@@ -89,7 +99,6 @@ class AppSettings extends Page
     public string $ai_temperature           = '';
     public string $ai_max_tokens            = '';
     public bool   $ai_streaming             = true;
-    public bool   $ai_auto_queue_on_import  = false;
     public string $ollamaTestResult         = '';
     public string $ollamaTestStatus         = ''; // 'success' | 'error' | ''
 
@@ -140,6 +149,11 @@ class AppSettings extends Page
         $this->shipping_surcharge_rate      = Setting::get('shipping_surcharge_rate', '4.00');
         $this->shipping_surcharge_threshold = Setting::get('shipping_surcharge_threshold', '500.00');
 
+        $defaultOwnerFeeType = Setting::get('default_owner_fee_type', '');
+        $this->default_owner_fee_type              = in_array($defaultOwnerFeeType, ['percentage', 'flat'], true) ? $defaultOwnerFeeType : null;
+        $this->default_owner_fee_value              = Setting::get('default_owner_fee_value', '');
+        $this->default_owner_fee_deduct_from_payout = (bool) Setting::get('default_owner_fee_deduct_from_payout', true);
+
         $this->ai_provider             = Setting::get('ai_provider', config('ai.default_provider', 'ollama'));
         $this->ollama_base_url         = Setting::get('ollama_base_url', config('services.ollama.url', 'http://localhost:11434'));
         $this->ollama_model            = Setting::get('ollama_model', config('services.ollama.model', 'llama3.2:3b'));
@@ -153,7 +167,6 @@ class AppSettings extends Page
         $this->ai_temperature          = (string) Setting::get('ai_temperature', (string) config('ai.generation.temperature.default', '0.7'));
         $this->ai_max_tokens           = (string) Setting::get('ai_max_tokens', (string) config('ai.generation.max_tokens.default', '1024'));
         $this->ai_streaming            = (bool) Setting::get('ai_streaming', config('ai.streaming.default', true));
-        $this->ai_auto_queue_on_import = (bool) Setting::get('ai_auto_queue_on_import', false);
     }
 
     public function getAllUsersProperty(): \Illuminate\Support\Collection
@@ -173,6 +186,34 @@ class AppSettings extends Page
     {
         $user = auth()->user();
         return ($user?->isOwner() || $user?->isSuperAdmin()) ?? false;
+    }
+
+    /**
+     * @return array<string, array{label: string, description: string, slugs: array<int,string>}>
+     */
+    public function getModulePresetsProperty(): array
+    {
+        return AdminModules::presets();
+    }
+
+    /**
+     * Jump the (unsaved) enabled_modules selection to a named preset — still
+     * requires hitting Save Changes to persist, same as hand-checking boxes.
+     */
+    public function applyModulePreset(string $preset): void
+    {
+        if (! (auth()->user()?->isOwner())) {
+            Notification::make()->title('Access denied')->danger()->send();
+            return;
+        }
+
+        $slugs = AdminModules::presets()[$preset]['slugs'] ?? null;
+
+        if ($slugs === null) {
+            return;
+        }
+
+        $this->enabled_modules = AdminModules::normalizeEnabledSlugs($slugs);
     }
 
     protected function getHeaderActions(): array
@@ -213,6 +254,8 @@ class AppSettings extends Page
             'notify_show_reconciled_users.*'   => 'integer|exists:users,id',
             'shipping_surcharge_rate'          => 'required|numeric|min:0',
             'shipping_surcharge_threshold'     => 'required|numeric|min:0',
+            'default_owner_fee_type'           => 'nullable|in:percentage,flat',
+            'default_owner_fee_value'          => 'nullable|numeric|min:0',
             'ai_temperature'                   => 'required|numeric|min:0|max:2',
             'ai_max_tokens'                    => 'required|integer|min:1|max:32768',
             'ai_provider'                      => 'required|in:ollama,openai',
@@ -249,6 +292,10 @@ class AppSettings extends Page
         Setting::set('shipping_surcharge_rate',      $this->shipping_surcharge_rate);
         Setting::set('shipping_surcharge_threshold', $this->shipping_surcharge_threshold);
 
+        Setting::set('default_owner_fee_type',              $this->default_owner_fee_type ?? '');
+        Setting::set('default_owner_fee_value',              $this->default_owner_fee_type ? $this->default_owner_fee_value : '');
+        Setting::set('default_owner_fee_deduct_from_payout', $this->default_owner_fee_deduct_from_payout ? '1' : '0');
+
         Setting::set('ai_provider',             in_array($this->ai_provider, ['ollama', 'openai'], true) ? $this->ai_provider : 'ollama');
         Setting::set('ollama_base_url',         rtrim(trim($this->ollama_base_url), '/') ?: 'http://localhost:11434');
         Setting::set('ollama_chat_model',       trim($this->ollama_chat_model) ?: 'llama3.2:3b');
@@ -263,7 +310,6 @@ class AppSettings extends Page
         Setting::set('ai_temperature', (string) max(0, min(2, (float) $this->ai_temperature)));
         Setting::set('ai_max_tokens',  (string) max(1, (int) $this->ai_max_tokens));
         Setting::set('ai_streaming',   $this->ai_streaming ? '1' : '0');
-        Setting::set('ai_auto_queue_on_import', $this->ai_auto_queue_on_import ? '1' : '0');
         if (auth()->user()?->isSuperAdmin() || auth()->user()?->isOwner()) {
             Setting::set('demo_mode', $this->demo_mode ? '1' : '0');
         }
@@ -460,26 +506,46 @@ class AppSettings extends Page
         }
     }
 
-    public function clearDemoData(): void
+    /**
+     * Deletes real production data just as readily as seeded demo rows — the
+     * name is a holdover from when this only ran in demo environments. A
+     * native browser confirm() is too easy to click through on reflex, so
+     * this requires typing DELETE into a form field before it'll run.
+     */
+    public function clearDemoDataAction(): Action
     {
-        if (! (auth()->user()?->isOwner())) {
-            Notification::make()->title('Access denied')->danger()->send();
-            return;
-        }
-
-        try {
-            Artisan::call('demo:clear', ['--force' => true]);
-            $output = trim(Artisan::output());
-            $this->lastCommandOutput = $output ?: 'Demo data cleared.';
-            Notification::make()
-                ->title('Demo data cleared')
-                ->body('All shows, inventory, pallets, and payouts have been removed.')
-                ->success()
-                ->send();
-        } catch (\Throwable $e) {
-            $this->lastCommandOutput = $e->getMessage();
-            Notification::make()->title('Clear failed')->body($e->getMessage())->danger()->send();
-        }
+        return Action::make('clearDemoData')
+            ->label('Clear Demo Data')
+            ->icon('heroicon-o-fire')
+            ->color('danger')
+            ->visible(fn () => auth()->user()?->isOwner() ?? false)
+            ->requiresConfirmation()
+            ->modalHeading('Clear ALL operational data?')
+            ->modalDescription('This permanently deletes every show, order, deduction request, payout, pay run, ledger entry, time entry, and inventory record — real data included, not just seeded demo rows. Users, streamers, vendors, Whatnot channels, and settings are kept. This cannot be undone.')
+            ->modalSubmitActionLabel('Delete everything')
+            ->form([
+                TextInput::make('confirm')
+                    ->label('Type DELETE to confirm')
+                    ->required()
+                    ->rules(['in:DELETE'])
+                    ->validationMessages(['confirm.in' => 'You must type DELETE exactly to confirm.'])
+                    ->autocomplete('off'),
+            ])
+            ->action(function () {
+                try {
+                    Artisan::call('demo:clear', ['--force' => true]);
+                    $output = trim(Artisan::output());
+                    $this->lastCommandOutput = $output ?: 'Demo data cleared.';
+                    Notification::make()
+                        ->title('Demo data cleared')
+                        ->body('All shows, inventory, pallets, and payouts have been removed.')
+                        ->success()
+                        ->send();
+                } catch (\Throwable $e) {
+                    $this->lastCommandOutput = $e->getMessage();
+                    Notification::make()->title('Clear failed')->body($e->getMessage())->danger()->send();
+                }
+            });
     }
 
     public function runMigrations(): void

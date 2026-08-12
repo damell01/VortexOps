@@ -1,5 +1,7 @@
 <x-filament-panels::page>
-    @php($payout = $this->record)
+    @php
+        $payout = $this->record;
+    @endphp
 
     <div class="space-y-6">
 

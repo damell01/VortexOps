@@ -27,6 +27,7 @@ class InventoryByLocationWidget extends BaseWidget
                     ->leftJoin('products as i', 'i.id', '=', 's.inventory_item_id')
                     ->groupBy('inventory_locations.id')
                     ->where('inventory_locations.status', 'active')
+                    ->inChannelContext()
                     ->with('streamer')
             )
             ->columns([

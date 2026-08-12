@@ -6,6 +6,7 @@ use App\AI\Services\AiUsageReport;
 use App\AI\Services\LearningService;
 use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Support\AdminModules;
+use App\Support\NavVisibility;
 use Filament\Pages\Page;
 
 /**
@@ -40,18 +41,19 @@ class AiMonitoring extends Page
     {
         $user = auth()->user();
 
-        return AdminModules::isEnabled('ai') && (($user?->isAdmin() || $user?->isOwner()) ?? false);
-    }
-
-    // Owner-facing diagnostic; keep it out of admins' nav but URL-reachable.
-    public static function shouldRegisterNavigation(): bool
-    {
-        return (auth()->user()?->isOwner() ?? false) && AdminModules::isEnabled('ai');
+        return AdminModules::isEnabled('ai')
+            && ! NavVisibility::isHiddenForUser(static::class, $user)
+            && (($user?->isAdmin() || $user?->isOwner()) ?? false);
     }
 
     public function getView(): string
     {
         return 'filament.pages.ai-monitoring';
+    }
+
+    public function getSubheading(): ?string
+    {
+        return 'Read-only observability for the AI stack — call volume, success rate, latency, recent failures, and what the matcher has learned.';
     }
 
     public function setDays(int $days): void

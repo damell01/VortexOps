@@ -19,9 +19,10 @@ class InventoryService
         InventoryLocation $location,
         float $quantity,
         string $movementType = 'opening',
-        ?string $reason = null
+        ?string $reason = null,
+        ?float $unitCost = null,
     ): InventoryMovement {
-        return DB::transaction(function () use ($item, $location, $quantity, $movementType, $reason) {
+        return DB::transaction(function () use ($item, $location, $quantity, $movementType, $reason, $unitCost) {
             $stock = InventoryStock::firstOrCreate(
                 ['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id],
                 ['quantity' => 0]
@@ -34,10 +35,19 @@ class InventoryService
                 'from_location_id' => null,
                 'to_location_id' => $location->id,
                 'quantity' => $quantity,
+                'unit_cost' => $movementType === 'opening' ? $unitCost : null,
                 'movement_type' => $movementType,
                 'reason' => $reason,
                 'created_by' => Auth::id(),
             ]);
+
+            // Only "opening" represents actual goods received at a cost — an
+            // adjustment is a correction and a return typically comes back at
+            // whatever cost was already recorded, so neither should re-average
+            // the item's weighted average cost against a newly-entered figure.
+            if ($movementType === 'opening' && $unitCost !== null && $unitCost > 0) {
+                app(ReceivingService::class)->recalculateAverageCost($item, $quantity, $unitCost);
+            }
 
             $this->notifyIfLowStock($item);
 

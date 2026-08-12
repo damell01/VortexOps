@@ -9,6 +9,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use DateTimeZone;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -24,9 +25,22 @@ class UserResource extends Resource
     use HasAdminNavVisibility;
 
     /** Roles only the owner may grant/revoke. */
-    public const PRIVILEGED_ROLES = ['admin', 'super_admin'];
+    public const PRIVILEGED_ROLES = ['admin', 'super_admin', 'fulfillment_admin'];
+
+    /**
+     * Roles nobody may grant from the UI — not even the owner. The owner
+     * account's powers come from the email check (User::isOwner()), so no
+     * new super admins should ever be minted here; existing holders are
+     * left untouched.
+     */
+    public const UNGRANTABLE_ROLES = ['super_admin'];
 
     protected static ?string $model = User::class;
+
+    public static function getGloballySearchableAttributes(): array
+    {
+        return ['name', 'email'];
+    }
 
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
@@ -58,16 +72,54 @@ class UserResource extends Resource
         return parent::getEloquentQuery()->with(['roles', 'streamer']);
     }
 
+    private static function getTimezoneOptions(): array
+    {
+        $timezones = DateTimeZone::listIdentifiers();
+        return array_combine($timezones, $timezones);
+    }
+
     public static function canAccess(): bool
     {
         $user = auth()->user();
         return ($user?->isAdmin() || $user?->isOwner()) ?? false;
     }
 
+    /**
+     * Never yourself, never the owner account, and privileged-role holders
+     * (admin/super_admin/fulfillment_admin) only by the owner — mirrors the
+     * role-escalation protection in EditUser/CreateUser: if only the owner
+     * can grant a privileged role, only the owner should be able to remove
+     * the account holding one.
+     */
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        $user = auth()->user();
+
+        if (! $user?->isAdmin()) {
+            return false;
+        }
+        if ($record->id === $user->id) {
+            return false;
+        }
+        if ($record->isOwner()) {
+            return false;
+        }
+        if ($record->getRoleNames()->intersect(self::PRIVILEGED_ROLES)->isNotEmpty()) {
+            return $user->isOwner();
+        }
+
+        return true;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Account Details')->columns(2)->schema([
+            Section::make('Account Details')->columns(2)->columnSpanFull()->schema([
                 TextInput::make('name')
                     ->required()
                     ->maxLength(255),
@@ -77,6 +129,12 @@ class UserResource extends Resource
                     ->required()
                     ->unique(ignoreRecord: true)
                     ->maxLength(255),
+
+                Select::make('timezone')
+                    ->label('Timezone')
+                    ->options(static::getTimezoneOptions())
+                    ->default('UTC')
+                    ->searchable(),
 
                 TextInput::make('password')
                     ->password()
@@ -92,20 +150,22 @@ class UserResource extends Resource
                     ->columnSpanFull(),
             ]),
 
-            Section::make('Roles & Access')->schema([
+            Section::make('Roles & Access')->columnSpanFull()->schema([
                 Select::make('roles')
                     ->multiple()
                     // Options come from the relationship (keyed by id, labelled by
                     // name). Only the owner sees the privileged roles, so other
                     // admins can manage non-privileged roles (e.g. streamer) but
-                    // cannot create more admins. Enforced again on save below.
+                    // cannot create more admins. super_admin is never offered to
+                    // anyone. Enforced again on save below.
                     ->relationship('roles', 'name', modifyQueryUsing: function ($query) {
+                        $query->whereNotIn('name', UserResource::UNGRANTABLE_ROLES);
                         if (! (auth()->user()?->isOwner() ?? false)) {
                             $query->whereNotIn('name', UserResource::PRIVILEGED_ROLES);
                         }
                     })
                     ->preload()
-                    ->helperText('Admin — full access. Streamer — scoped to their own inventory locations.'),
+                    ->helperText('Admin — full access. Streamer — scoped to their own inventory locations. Fulfillment — scoped to their assigned shows. Fulfillment Admin — sees every channel\'s fulfillment work.'),
 
                 Select::make('streamer_id')
                     ->label('Linked Streamer Profile')
@@ -121,6 +181,9 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->emptyStateHeading('No users found')
+            ->emptyStateDescription('Use the Create button to add a teammate or streamer login.')
+            ->emptyStateIcon('heroicon-o-users')
             ->deferLoading()
             ->columns([
                 TextColumn::make('name')
@@ -161,6 +224,8 @@ class UserResource extends Resource
             ->actions([
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
+                DeleteAction::make()->iconButton()
+                    ->visible(fn (User $record) => static::canDelete($record)),
             ])
             ->bulkActions([]);
     }

@@ -7,13 +7,16 @@ use App\Models\InventoryCase;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\Pallet;
+use App\Models\PalletAttachment;
 use App\Models\PalletLine;
+use App\Services\PalletScanningService;
 use App\Services\ReceivingService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
+use Illuminate\Support\Facades\Storage;
 
 class ReceivePallet extends Page
 {
@@ -26,6 +29,10 @@ class ReceivePallet extends Page
     public string $barcodeInput = '';
     public ?string $lastScannedResult = null;
     public bool $lastScanSuccess = false;
+    public ?array $lastScanDetails = null;
+
+    public ?string $receivedByName = null;
+    public ?array $uploadedAttachments = [];
 
     /** @var array<int, array{id:int, line_number:int, description:string, case_count:int, received:int, mapped:bool}> */
     public array $lineProgress = [];
@@ -60,19 +67,40 @@ class ReceivePallet extends Page
         $barcode = trim($this->barcodeInput);
         $this->barcodeInput = '';
 
-        if ($barcode === '') {
+        if (empty($barcode)) {
             return;
         }
 
+        // Normalize barcode (remove common prefixes/checksums if needed)
+        $barcode = preg_replace('/^[^0-9]*/', '', $barcode); // Remove leading non-digits
+
         try {
-            $case = app(ReceivingService::class)->receiveCaseByBarcode($barcode);
-            $this->lastScannedResult = "✓ Received case {$barcode} — {$case->palletLine->inventoryItem?->name}";
-            $this->lastScanSuccess   = true;
-            $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
-            $this->refreshProgress();
+            $scanner = app(PalletScanningService::class);
+            $scanResult = $scanner->scanBarcode($barcode);
+
+            if ($scanResult['type'] === 'case') {
+                // This is a case barcode - show what's inside
+                $this->lastScannedResult = "📦 {$scanResult['label']}";
+                $this->lastScanDetails = [
+                    'type'      => 'case',
+                    'parent'    => $scanResult['parent']->name,
+                    'child'     => $scanResult['child']->name,
+                    'quantity'  => $scanResult['quantity'],
+                ];
+                $this->lastScanSuccess = true;
+            } else {
+                // This is an individual item - try to receive it as a case
+                $case = app(ReceivingService::class)->receiveCaseByBarcode($barcode);
+                $this->lastScannedResult = "✓ Received item {$barcode} — {$case->palletLine->inventoryItem?->name}";
+                $this->lastScanDetails = null;
+                $this->lastScanSuccess = true;
+                $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+                $this->refreshProgress();
+            }
         } catch (\RuntimeException $e) {
             $this->lastScannedResult = "✗ {$e->getMessage()}";
-            $this->lastScanSuccess   = false;
+            $this->lastScanDetails = null;
+            $this->lastScanSuccess = false;
         }
     }
 
@@ -94,6 +122,60 @@ class ReceivePallet extends Page
 
         $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
         $this->refreshProgress();
+    }
+
+    public function markLineAsShort(int $lineId): void
+    {
+        $line = PalletLine::where('id', $lineId)
+            ->where('pallet_id', $this->record->id)
+            ->firstOrFail();
+
+        try {
+            $shortCount = $line->case_count - $line->cases->where('status', '!=', 'expected')->count();
+            if ($shortCount > 0) {
+                // Create missing item report
+                \App\Models\MissingItemReport::create([
+                    'pallet_id'          => $this->record->id,
+                    'inventory_item_id'  => $line->inventory_item_id,
+                    'expected_quantity'  => $shortCount,
+                    'unit_cost'          => $line->unit_cost,
+                    'total_value'        => $shortCount * ($line->unit_cost ?? 0),
+                    'reported_by'        => auth()->id(),
+                    'notes'              => "Marked as short during receiving: {$shortCount} units missing",
+                ]);
+
+                Notification::make()
+                    ->title("Marked {$shortCount} item(s) as missing")
+                    ->body("{$line->description} - {$shortCount} short")
+                    ->warning()
+                    ->send();
+            }
+        } catch (\Throwable $e) {
+            Notification::make()->title('Could not mark as short')->body($e->getMessage())->danger()->send();
+        }
+    }
+
+    public function finalizePallet(): void
+    {
+        try {
+            $this->record->update([
+                'status'              => 'received',
+                'received_by_name'    => $this->receivedByName,
+                'attachments_count'   => $this->record->attachments()->count(),
+            ]);
+
+            app(ReceivingService::class)->receivePallet($this->record);
+
+            Notification::make()
+                ->title('✓ Pallet received and finalized')
+                ->body('All items have been recorded. View the pallet for details.')
+                ->success()
+                ->send();
+
+            $this->redirect(PalletResource::getUrl('view', ['record' => $this->record]));
+        } catch (\RuntimeException $e) {
+            Notification::make()->title($e->getMessage())->danger()->send();
+        }
     }
 
     protected function getHeaderActions(): array

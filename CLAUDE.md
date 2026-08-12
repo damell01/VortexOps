@@ -23,6 +23,43 @@ docker compose up -d
 
 ---
 
+## Email Configuration (Resend)
+
+VortexOps uses **Resend** for email delivery in production. Get your API key from [resend.com/api-keys](https://resend.com/api-keys).
+
+### Setup
+
+```bash
+# .env
+MAIL_MAILER=resend
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxx
+```
+
+### Development
+
+For local development, use `log` driver (emails logged to storage/logs):
+```bash
+MAIL_MAILER=log  # default — emails go to laravel.log
+```
+
+Or use `array` for testing:
+```bash
+MAIL_MAILER=array  # in-memory queue for tests
+```
+
+### Sending emails
+
+```php
+use Illuminate\Support\Facades\Mail;
+
+Mail::to('user@example.com')
+    ->send(new YourMailable($data));
+```
+
+Resend is configured in `config/services.php` and `config/mail.php`.
+
+---
+
 ## Running tests
 
 ```bash

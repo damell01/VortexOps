@@ -29,19 +29,35 @@ class ListStreamerLogEntries extends ListRecords
     /** Quick filter presets. The "To Review" count respects per-streamer scoping. */
     public function getTabs(): array
     {
+        $count = fn (callable $filter): int => $filter(StreamerLogResource::getEloquentQuery())->count();
+
         $tabs = [
             'all' => Tab::make('All'),
 
-            'to_review' => Tab::make('To Review')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'pending'))
-                ->badge(StreamerLogResource::getEloquentQuery()->where('status', 'pending')->count())
+            // Started but not yet sent for review.
+            'in_progress' => Tab::make('In Progress')
+                ->modifyQueryUsing(fn (Builder $query) => $query
+                    ->where('status', 'pending')
+                    ->whereNull('submitted_at'))
+                ->badge($count(fn ($q) => $q->where('status', 'pending')->whereNull('submitted_at'))),
+
+            'submitted' => Tab::make('Submitted')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'streamer_reviewed'))
+                ->badge($count(fn ($q) => $q->where('status', 'streamer_reviewed')))
+                ->badgeColor('info'),
+
+            // Sent back by an admin; the streamer needs to revise and resubmit.
+            'changes_requested' => Tab::make('Changes Requested')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'changes_requested'))
+                ->badge($count(fn ($q) => $q->where('status', 'changes_requested')))
                 ->badgeColor('warning'),
 
-            'reviewed' => Tab::make('Reviewed')
-                ->modifyQueryUsing(fn (Builder $query) => $query->whereIn('status', ['streamer_reviewed', 'admin_approved'])),
-
             'approved' => Tab::make('Approved')
-                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'admin_approved')),
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'admin_approved'))
+                ->badgeColor('success'),
+
+            'paid' => Tab::make('Paid')
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereNotNull('total_paid')->where('total_paid', '>', 0)),
         ];
 
         // Fulfillment review tab — only show if column exists and there are items

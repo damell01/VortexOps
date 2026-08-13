@@ -3460,3 +3460,75 @@ html.dark .vx-log-cell dt {
     font-size: 0.875rem;
     line-height: 1.45;
 }
+
+/* ── Compact stat tiles (custom overview pages) ──────────────────── */
+
+.vx-stat-tile {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    padding: 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.625rem;
+    background-color: #ffffff;
+}
+
+html.dark .vx-stat-tile {
+    border-color: var(--vxn-border);
+    background-color: #131c2e;
+}
+
+.vx-stat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.5rem;
+}
+
+.vx-stat-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.2;
+}
+
+.vx-stat-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #6b7280;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vx-stat-value {
+    margin-top: 0.125rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.15;
+}
+
+.vx-stat-sub {
+    margin-top: 0.0625rem;
+    font-size: 0.6875rem;
+    color: #9ca3af;
+}
+
+html.dark .vx-stat-label { color: #8b95a9; }
+html.dark .vx-stat-value { color: #ffffff; }
+html.dark .vx-stat-sub   { color: #6b7280; }
+
+.vx-tone-blue   { background: rgb(59 130 246 / .12);  color: #3b82f6; }
+.vx-tone-green  { background: rgb(16 185 129 / .12);  color: #10b981; }
+.vx-tone-amber  { background: rgb(245 158 11 / .14);  color: #f59e0b; }
+.vx-tone-purple { background: rgb(124 58 237 / .14);  color: #8b5cf6; }
+.vx-tone-orange { background: rgb(249 115 22 / .13);  color: #f97316; }
+
+@media (max-width: 767px) {
+    .vx-stat-tile { padding: 0.625rem; gap: 0.5rem; }
+    .vx-stat-value { font-size: 1.0625rem; }
+}

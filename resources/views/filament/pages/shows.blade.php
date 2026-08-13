@@ -8,16 +8,16 @@
         @endif
 
         {{-- Filters & Search --}}
-        <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 space-y-4">
+        <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 space-y-3">
             <div class="flex items-center justify-between">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Filters</h2>
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-white">Filters</h2>
                 <button wire:click="clearFilters" type="button"
                     class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
                     Clear all
                 </button>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {{-- Search --}}
                 <div>
                     <label class="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-2">Search</label>
@@ -65,66 +65,41 @@
         </div>
 
         {{-- Stats Summary --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            @php
-                $stats = $this->shows;
-                $activeCount = $stats->where('status', 'active')->count();
-                $completedCount = $stats->where('status', 'completed')->count();
-                $pendingSubmissions = $stats->filter(fn ($s) => $s->status !== 'closed' && !$s->streamerLogEntry)->count();
-                $totalRevenue = $stats->sum('gross_revenue');
-                $avgRevenue = $completedCount > 0 ? $totalRevenue / $completedCount : 0;
-            @endphp
+        @php
+            $stats = $this->shows;
+            $activeCount = $stats->where('status', 'active')->count();
+            $completedCount = $stats->where('status', 'completed')->count();
+            $pendingSubmissions = $stats->filter(fn ($s) => $s->status !== 'closed' && !$s->streamerLogEntry)->count();
+            $totalRevenue = $stats->sum('gross_revenue');
+            $avgRevenue = $completedCount > 0 ? $totalRevenue / $completedCount : 0;
 
-            <div class="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs text-blue-600 dark:text-blue-400 font-medium">Active</p>
-                        <p class="text-2xl font-bold text-blue-900 dark:text-blue-100">{{ $activeCount }}</p>
-                    </div>
-                    <div class="text-3xl">🔴</div>
-                </div>
-            </div>
+            // Compact tiles: a neutral card with a small tinted icon, rather
+            // than a full colour wash with a 3xl emoji. Five fit on one row
+            // and the table rises about 300px up the page.
+            $tiles = [
+                ['Active Shows',       $activeCount,                              'Currently live', 'blue',   'heroicon-o-play-circle'],
+                ['Completed Shows',    $completedCount,                           'This month',     'green',  'heroicon-o-check-circle'],
+                ['Pending Submission', $pendingSubmissions,                       'Awaiting review','amber',  'heroicon-o-clock'],
+                ['Total Revenue',      '$' . number_format($totalRevenue, 0),     'All time',       'purple', 'heroicon-o-currency-dollar'],
+                ['Avg Revenue',        '$' . number_format($avgRevenue, 0),       'Per show',       'orange', 'heroicon-o-chart-bar'],
+            ];
+        @endphp
 
-            <div class="rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 p-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs text-green-600 dark:text-green-400 font-medium">Completed</p>
-                        <p class="text-2xl font-bold text-green-900 dark:text-green-100">{{ $completedCount }}</p>
-                    </div>
-                    <div class="text-3xl">✓</div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            @foreach ($tiles as [$label, $value, $sub, $tone, $icon])
+                <div class="vx-stat-tile">
+                    <span class="vx-stat-icon vx-tone-{{ $tone }}">
+                        <x-filament::icon :icon="$icon" class="h-4 w-4" />
+                    </span>
+                    <span class="vx-stat-body">
+                        <span class="vx-stat-label">{{ $label }}</span>
+                        <span class="vx-stat-value">{{ $value }}</span>
+                        <span class="vx-stat-sub">{{ $sub }}</span>
+                    </span>
                 </div>
-            </div>
-
-            <div class="rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 p-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs text-red-600 dark:text-red-400 font-medium">📝 Pending Submission</p>
-                        <p class="text-2xl font-bold text-red-900 dark:text-red-100">{{ $pendingSubmissions }}</p>
-                    </div>
-                    <div class="text-3xl">⚠️</div>
-                </div>
-            </div>
-
-            <div class="rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 p-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs text-purple-600 dark:text-purple-400 font-medium">Total Revenue</p>
-                        <p class="text-2xl font-bold text-purple-900 dark:text-purple-100">${{ number_format($totalRevenue, 0) }}</p>
-                    </div>
-                    <div class="text-3xl">💰</div>
-                </div>
-            </div>
-
-            <div class="rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 p-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs text-orange-600 dark:text-orange-400 font-medium">Avg Revenue</p>
-                        <p class="text-2xl font-bold text-orange-900 dark:text-orange-100">${{ number_format($avgRevenue, 0) }}</p>
-                    </div>
-                    <div class="text-3xl">📊</div>
-                </div>
-            </div>
+            @endforeach
         </div>
+
 
         {{-- Shows Table --}}
         <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">

@@ -482,10 +482,13 @@ table th {
    6. FORM LAYOUT RESPONSIVENESS
    ────────────────────────────────────────── */
 
-/* Form grid adjustments */
+/* Form grid adjustments.
+   `.grid` is deliberately NOT matched here. Including it applied
+   `repeat(auto-fit, minmax(300px, 1fr)) !important` to every Tailwind grid
+   in the app, overriding every grid-cols-* utility -- a five-tile
+   `lg:grid-cols-5` row silently collapsed to three. Scoped to form grids. */
 .fi-fo-component-ctn,
-.form-grid,
-.grid {
+.form-grid {
     display: grid !important;
     gap: 1rem !important;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)) !important;
@@ -493,8 +496,7 @@ table th {
 
 @media (max-width: 768px) {
     .fi-fo-component-ctn,
-    .form-grid,
-    .grid {
+    .form-grid {
         grid-template-columns: 1fr !important;
         gap: 0.875rem !important;
     }

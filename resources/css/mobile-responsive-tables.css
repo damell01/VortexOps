@@ -62,9 +62,9 @@
         width: 60px !important;
         height: 60px !important;
         padding: 0 !important;
-        background: linear-gradient(135deg, #7c3aed, #a78bfa) !important;
+        background: #e5e7eb !important;
         border-radius: 12px !important;
-        color: white !important;
+        color: #6b7280 !important;
         font-weight: 700 !important;
         font-size: 14px !important;
         flex-shrink: 0 !important;
@@ -77,25 +77,10 @@
         object-fit: cover;
     }
 
-    /* Avatar colors - rotate by row */
+    /* Avatar background - neutral gray */
     html.dark .fi-ta-row td:nth-child(1) {
-        background: linear-gradient(135deg, #6d28d9, #8b5cf6) !important;
-    }
-
-    .fi-ta-row:nth-child(2n) td:nth-child(1) {
-        background: linear-gradient(135deg, #10b981, #34d399) !important;
-    }
-
-    .fi-ta-row:nth-child(3n) td:nth-child(1) {
-        background: linear-gradient(135deg, #f59e0b, #fbbf24) !important;
-    }
-
-    .fi-ta-row:nth-child(5n) td:nth-child(1) {
-        background: linear-gradient(135deg, #ef4444, #f87171) !important;
-    }
-
-    .fi-ta-row:nth-child(7n) td:nth-child(1) {
-        background: linear-gradient(135deg, #06b6d4, #22d3ee) !important;
+        background: #4b5563 !important;
+        color: #e5e7eb !important;
     }
 
     /* Content wrapper - grid column 2 */

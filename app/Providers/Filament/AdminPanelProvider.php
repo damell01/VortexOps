@@ -456,6 +456,14 @@ class AdminPanelProvider extends PanelProvider
                         \App\Filament\Resources\PayoutResource::class,
                         \App\Filament\Resources\WeeklyPayoutBatchResource::class,
                         \App\Filament\Resources\ActivityLogResource::class,
+                        // Quick Create inserts with whatever the form supplies.
+                        // These records cannot exist without a parent show, so
+                        // an empty create hits a NOT NULL show_id and 500s.
+                        // They are created from the show they belong to.
+                        \App\Filament\Resources\ShipmentResource::class,
+                        \App\Filament\Resources\ShippingSurchargeResource::class,
+                        \App\Filament\Resources\DeductionRequestResource::class,
+                        \App\Filament\Resources\StreamerLogResource::class,
                     ])
                     ->hidden(fn () => ! (auth()->user()?->isAdmin() || auth()->user()?->isOwner() || auth()->user()?->isStreamer())),
             ])

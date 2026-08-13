@@ -2739,3 +2739,306 @@ nav.fi-topbar {
 .fi-sidebar-group-items {
     padding: 0 0.625rem !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   NAVIGATION FIXES — measured against the rendered DOM
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Icon buttons were computing 100px wide because a generic `.fi-topbar
+   button` rule set a min-width. Pin the real size. */
+.fi-topbar .fi-icon-btn,
+.fi-topbar button.fi-icon-btn,
+.fi-topbar-open-sidebar-btn,
+.fi-topbar-close-sidebar-btn,
+.fi-topbar-open-collapse-sidebar-btn,
+.fi-topbar-close-collapse-sidebar-btn {
+    width: 2.25rem !important;
+    min-width: 2.25rem !important;
+    max-width: 2.25rem !important;
+    height: 2.25rem !important;
+    padding: 0 !important;
+    flex: 0 0 auto !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* ── Drawer toggle: exactly one button, and only under lg ─────────
+   Both the open and close buttons render at once; Filament relies on
+   its own state classes, which were not resolving here. Drive them off
+   the sidebar's actual open state instead. */
+@media (min-width: 1024px) {
+    .fi-topbar-open-sidebar-btn,
+    .fi-topbar-close-sidebar-btn {
+        display: none !important;
+    }
+}
+
+@media (max-width: 1023px) {
+    /* Desktop-only collapse controls have no meaning in the drawer */
+    .fi-topbar-collapse-sidebar-btn-ctn,
+    .fi-topbar-open-collapse-sidebar-btn,
+    .fi-topbar-close-collapse-sidebar-btn {
+        display: none !important;
+    }
+
+    .fi-topbar-open-sidebar-btn {
+        display: inline-flex !important;
+    }
+
+    .fi-topbar-close-sidebar-btn {
+        display: none !important;
+    }
+
+    /* When the drawer is open, swap hamburger for the close control */
+    body:has(.fi-sidebar.fi-sidebar-open) .fi-topbar-open-sidebar-btn {
+        display: none !important;
+    }
+
+    body:has(.fi-sidebar.fi-sidebar-open) .fi-topbar-close-sidebar-btn {
+        display: inline-flex !important;
+    }
+
+    /* Logo collapsed to 0x0 on mobile; the design centres it */
+    .fi-topbar-start {
+        flex: 1 1 auto !important;
+        justify-content: center !important;
+        min-width: 0 !important;
+    }
+
+    .fi-topbar .fi-logo,
+    .fi-topbar-start img {
+        display: block !important;
+        height: 1.75rem !important;
+        width: auto !important;
+        max-width: 60vw !important;
+        object-fit: contain !important;
+    }
+}
+
+/* ── Avatar ───────────────────────────────────────────────────────
+   The default avatar points at ui-avatars.com, which this deployment
+   cannot reach (naturalWidth 0), so the browser painted a broken-image
+   box. Render it as a solid violet disc instead of alt text. */
+.fi-user-menu img,
+.fi-avatar img,
+img[src*="ui-avatars.com"] {
+    border-radius: 9999px !important;
+    background-color: var(--vxn-violet) !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    text-indent: -9999px !important;
+    overflow: hidden !important;
+    width: 2rem !important;
+    height: 2rem !important;
+    object-fit: cover !important;
+}
+
+.fi-user-menu .fi-dropdown-trigger > button,
+.fi-user-menu-trigger {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    width: auto !important;
+    min-width: 0 !important;
+}
+
+/* ── Page header: heading was squeezed into a 136px column ───────── */
+.fi-header {
+    flex-wrap: wrap !important;
+    gap: 0.75rem 1rem !important;
+    align-items: flex-start !important;
+}
+
+.fi-header-heading-ctn,
+.fi-header-heading,
+.fi-header-subheading {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+}
+
+.fi-header-heading {
+    font-size: 1.5rem !important;
+    line-height: 1.25 !important;
+}
+
+.fi-header-actions {
+    flex: 1 1 100% !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-start !important;
+    gap: 0.5rem !important;
+}
+
+/* ── Sidebar account card (PanelsRenderHook::SIDEBAR_FOOTER) ─────── */
+
+.vx-account {
+    margin: 0.5rem 0.625rem 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid var(--vxn-border);
+    border-radius: 0.75rem;
+    background-color: var(--vxn-bg-elevated);
+}
+
+.vx-account-row {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    min-width: 0;
+}
+
+.vx-account-avatar {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 9999px;
+    background: linear-gradient(150deg, #8b5cf6 0%, var(--vxn-violet) 100%);
+    color: #ffffff;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.vx-account-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    line-height: 1.25;
+}
+
+.vx-account-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--vxn-text-strong);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vx-account-role {
+    font-size: 0.75rem;
+    color: var(--vxn-label);
+}
+
+.vx-account-logout-form {
+    margin: 0.625rem 0 0;
+}
+
+.vx-account-logout {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--vxn-border);
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--vxn-text);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.vx-account-logout:hover {
+    background-color: rgb(255 255 255 / .06);
+    color: var(--vxn-text-strong);
+}
+
+.vx-account-logout-icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+}
+
+/* Keep the card pinned below the scrolling nav */
+.fi-sidebar {
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.fi-sidebar .fi-sidebar-nav {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    min-height: 0 !important;
+}
+
+/* Brand logo collapsed to 0x0 in the mobile topbar */
+@media (max-width: 1023px) {
+    .fi-topbar .fi-logo,
+    .fi-topbar-start a,
+    .fi-topbar-start img {
+        min-width: 1px !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+
+    .fi-topbar-start a {
+        display: inline-flex !important;
+        align-items: center !important;
+    }
+}
+
+/* The topbar brand image loads (naturalWidth 300) but was painting 0x0 on
+   mobile, collapsing its anchor too. Give it explicit intrinsic size. */
+@media (max-width: 1023px) {
+    html body .fi-topbar-start a,
+    html body .fi-topbar-start a img,
+    html body .fi-topbar img.fi-logo {
+        display: block !important;
+        height: 1.75rem !important;
+        min-height: 1.75rem !important;
+        width: auto !important;
+        min-width: 2rem !important;
+        max-width: 55vw !important;
+        object-fit: contain !important;
+        opacity: 1 !important;
+    }
+
+    html body .fi-topbar-start a {
+        height: auto !important;
+    }
+}
+
+/* .fi-topbar-start itself is display:none under lg (the logo reported
+   display:block but a 0x0 box — the signature of a hidden ancestor). */
+@media (max-width: 1023px) {
+    html body .fi-topbar .fi-topbar-start {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        visibility: visible !important;
+    }
+}
+
+/* A global button rule was filling the logout control violet; the design
+   has it as a bordered ghost button. */
+html body .fi-sidebar .vx-account .vx-account-logout,
+html body .vx-account-logout {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    border: 1px solid var(--vxn-border) !important;
+    box-shadow: none !important;
+    color: var(--vxn-text) !important;
+    font-weight: 500 !important;
+}
+
+html body .fi-sidebar .vx-account .vx-account-logout:hover,
+html body .vx-account-logout:hover {
+    background-color: rgb(255 255 255 / .06) !important;
+    color: var(--vxn-text-strong) !important;
+}
+
+html body .vx-account-logout svg {
+    width: 1rem !important;
+    height: 1rem !important;
+    color: currentColor !important;
+}

@@ -127,6 +127,15 @@ class AdminPanelProvider extends PanelProvider
                     ]);
                 },
             )
+            // Account card pinned to the bottom of the sidebar. Filament renders
+            // no sidebar footer in this panel (.fi-sidebar-footer was absent from
+            // the DOM), so the design's user block is supplied through this hook.
+            ->renderHook(
+                PanelsRenderHook::SIDEBAR_FOOTER,
+                fn (): string => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : Blade::render('@include(\'filament.components.sidebar-account\')'),
+            )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn (): string => ! $isAuthenticatedAdminView()

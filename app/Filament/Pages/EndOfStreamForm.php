@@ -53,13 +53,20 @@ class EndOfStreamForm extends Page implements HasForms
 
     public function getView(): string
     {
-        return 'filament.pages.end-of-stream-form';
+        // Rebuilt Items step. The previous view is kept at
+        // filament.pages.end-of-stream-form so this is one line to revert.
+        return 'filament.pages.end-of-stream-items';
     }
 
     public function mount(?string $showId = null): void
     {
+        // Filament pages do not bind query strings to mount arguments, so the
+        // ?showId= link from the shows list arrived null and the form always
+        // opened on the show picker. Fall back to the request.
+        $showId = $showId ?: request()->query('showId');
+
         if ($showId) {
-            $this->show = Show::findOrFail($showId);
+            $this->show = Show::find($showId);
         }
     }
 

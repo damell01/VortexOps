@@ -559,10 +559,12 @@
         display: table-row !important;
     }
 
-    .fi-ta-row > td,
-    .fi-ta-row > .fi-ta-cell {
-        display: table-cell !important;
-    }
+    /* Deliberately no `display: table-cell` on cells here.
+       Forcing it overrode Filament's own responsive hiding, so columns
+       marked hiddenFrom('md') — reorder_level, updated_at — reappeared on
+       desktop as unlabeled columns (their headers were correctly hidden).
+       The mobile rules are scoped to max-width 767px, so cells need no
+       reset at this breakpoint. */
 }
 
 @media (max-width: 767px) {

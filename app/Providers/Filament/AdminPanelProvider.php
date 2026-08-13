@@ -62,7 +62,10 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))
             ->brandLogoHeight('2.75rem')
             ->font('Inter')
-            ->sidebarCollapsibleOnDesktop()
+            // Collapsible-on-desktop added a second toggle (the chevron) beside
+            // the hamburger, which collided with the logo, and its collapsed
+            // state left wide gaps next to the icons. One control is enough:
+            // the hamburger for the mobile drawer, always-open on desktop.
             // Mobile-optimized: 6xl on desktop, full width on mobile
             ->maxContentWidth(\Filament\Support\Enums\Width::Full)
             ->globalSearchKeyBindings(['mod+k', '/'])

@@ -269,7 +269,7 @@
                         <x-heroicon-o-x-mark class="h-5 w-5 mx-auto" />
                     </button>
                     @endif
-                    <button class="camera-scan-btn flex-1 px-3 py-3 rounded-lg bg-violet-500 text-white hover:bg-violet-600 active:bg-violet-700 transition font-medium text-sm" title="Scan with camera" type="button">
+                    <button x-on:click.prevent.stop="window.vxOpenCameraScanner($event.currentTarget)" class="camera-scan-btn flex-1 px-3 py-3 rounded-lg bg-violet-500 text-white hover:bg-violet-600 active:bg-violet-700 transition font-medium text-sm" title="Scan with camera" type="button">
                         <x-heroicon-o-video-camera class="h-5 w-5 mx-auto" />
                         Camera
                     </button>
@@ -659,7 +659,7 @@
                         <x-heroicon-o-x-mark class="h-5 w-5 mx-auto" />
                     </button>
                     @endif
-                    <button class="camera-scan-btn flex-1 px-3 py-3 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 active:bg-emerald-700 transition font-medium text-sm" title="Scan with camera" type="button">
+                    <button x-on:click.prevent.stop="window.vxOpenCameraScanner($event.currentTarget)" class="camera-scan-btn flex-1 px-3 py-3 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 active:bg-emerald-700 transition font-medium text-sm" title="Scan with camera" type="button">
                         <x-heroicon-o-video-camera class="h-5 w-5 mx-auto" />
                     </button>
                     <button wire:click="submitScan" type="button"
@@ -1373,6 +1373,13 @@
                 alert('Error opening camera: ' + (error.message || 'Unknown error'));
             }
         }
+
+        // Exposed for the buttons' x-on:click. Declarative binding survives
+        // Livewire morphs; the old approach attached listeners once and the
+        // re-rendered button (e.g. after switching to Quick Add) had none.
+        window.vxOpenCameraScanner = function (btn) {
+            handleCameraClick(btn);
+        };
 
         function bindCameraButtons() {
             console.log('[Camera] bindCameraButtons() called');

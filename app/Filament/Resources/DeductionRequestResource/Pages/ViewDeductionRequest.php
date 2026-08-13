@@ -317,7 +317,7 @@ class ViewDeductionRequest extends EditRecord
                             ->title('Approval failed')
                             ->body($e->getMessage())
                             ->danger()
-                            ->persistent()
+                            ->duration(8000)
                             ->send();
                     }
                 }),
@@ -358,7 +358,7 @@ class ViewDeductionRequest extends EditRecord
                             ->title('Approval failed')
                             ->body($e->getMessage())
                             ->danger()
-                            ->persistent()
+                            ->duration(8000)
                             ->send();
                     }
                 }),

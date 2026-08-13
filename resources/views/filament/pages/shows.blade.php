@@ -187,7 +187,7 @@
                                             class="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-800 font-medium text-center">
                                             📋 View Submission
                                         </a>
-                                        @if(auth()->user()?->isAdmin())
+                                        @if(auth()->user()?->isAdmin() || auth()->user()?->isOwner())
                                             <button wire:click="requestFormResubmission('{{ $show->id }}')"
                                                 class="text-xs px-2 py-1 rounded bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-200 hover:bg-orange-200 dark:hover:bg-orange-800 font-medium">
                                                 🔄 Request Changes
@@ -195,7 +195,7 @@
                                         @endif
                                     @elseif($show->status !== 'closed')
                                         @if(auth()->user()?->isStreamer())
-                                            <a href="{{ route('filament.admin.pages.end-of-stream', ['show' => $show->id]) }}"
+                                            <a href="{{ route('filament.admin.pages.end-of-stream', ['showId' => $show->id]) }}"
                                                 class="text-xs px-2 py-1 rounded bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-800 font-medium">
                                                 📝 Submit Form
                                             </a>

@@ -76,7 +76,7 @@ class DemoData extends Page
                             ->title('Demo data failed to load')
                             ->body($e->getMessage())
                             ->danger()
-                            ->persistent()
+                            ->duration(8000)
                             ->send();
 
                         return;
@@ -111,7 +111,7 @@ class DemoData extends Page
                             ->title('Clear failed')
                             ->body($e->getMessage())
                             ->danger()
-                            ->persistent()
+                            ->duration(8000)
                             ->send();
 
                         return;

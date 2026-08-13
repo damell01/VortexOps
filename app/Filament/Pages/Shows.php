@@ -158,8 +158,9 @@ class Shows extends Page
             ->success()
             ->send();
 
-        // Reload page after brief delay to show notification
-        $this->js('setTimeout(() => location.reload(), 500)');
+        // No location.reload() here. It fired 500ms after the notification and
+        // wiped it along with any sign the action had run, which is why this
+        // looked like it did nothing. Livewire re-renders the list itself.
     }
 
     public function requestFormResubmission($showId): void

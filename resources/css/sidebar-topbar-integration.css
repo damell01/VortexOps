@@ -99,26 +99,42 @@ html.dark .fi-sidebar-header {
 .fi-sidebar-group-btn {
     display: flex !important;
     align-items: center !important;
-    cursor: pointer;
-    background: transparent !important;
-    border: none !important;
     padding: 12px 16px !important;
-    width: 100%;
-    margin: 0;
+    width: 100% !important;
+    height: auto !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    margin: 0 !important;
 }
 
-/* Hide the collapse button inside */
+/* Hide the collapse button */
 .fi-sidebar-group-btn .fi-sidebar-group-collapse-btn {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.fi-sidebar-group-collapse-btn {
     display: none !important;
 }
 
 /* Style the label inside the group button */
 .fi-sidebar-group-label {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.8px;
-    color: #6b7280;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.8px !important;
+    color: #6b7280 !important;
+    flex: 1;
 }
 
 html.dark .fi-sidebar-nav-group-header {

@@ -95,15 +95,14 @@ html.dark .fi-sidebar-header {
     color: #9ca3af;
 }
 
-/* Hide toggle button/icon in nav group header */
-.fi-sidebar-nav-group-header button,
-.fi-sidebar-nav-group-header svg {
+/* Hide toggle button/icon in nav group */
+.fi-sidebar-group-btn button,
+.fi-sidebar-group-collapse-btn {
     display: none !important;
 }
 
-/* Hide the right side toggle button */
-.fi-sidebar-nav-group-header::after {
-    display: none !important;
+.fi-sidebar-group-btn {
+    pointer-events: none;
 }
 
 html.dark .fi-sidebar-nav-group-header {

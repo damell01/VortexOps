@@ -250,91 +250,73 @@ class EndOfStreamForm extends Page implements HasForms
 
     public function submit(): void
     {
-        if (!$this->show) {
+        if (! $this->show) {
             Notification::make()
                 ->title('No show selected')
                 ->body('Please select a show first.')
                 ->danger()
                 ->send();
+
             return;
         }
 
-        if (empty($this->selectedItems)) {
+        $entry = $this->logEntry();
+
+        if (! $entry) {
+            Notification::make()->title('Could not open the log for this show')->danger()->send();
+
+            return;
+        }
+
+        // Reads the line items the streamer actually sees, rather than the old
+        // selectedItems array writing WhatnotShowOrder rows. Items are entered
+        // by hand now, so there are no scraped orders to reconcile against.
+        $lines = $entry->items()->with('inventoryItem')->get();
+
+        if ($lines->isEmpty()) {
             Notification::make()
-                ->title('No items selected')
-                ->body('Please select at least one item from inventory.')
+                ->title('No items added')
+                ->body('Add at least one item you sold during this show.')
                 ->warning()
                 ->send();
-            return;
-        }
 
-        $streamer = auth()->user()?->streamer;
-        if (!$streamer) {
-            Notification::make()
-                ->title('Streamer not found')
-                ->danger()
-                ->send();
             return;
         }
 
         try {
-            // Get or create streamer log entry
-            $logEntry = $this->show->streamerLogEntry()
-                ->firstOrCreate(['streamer_id' => $streamer->id], ['status' => 'pending']);
+            // Product cost is derived from the lines so it cannot drift from
+            // what was logged.
+            $entry->update([
+                'product_cost' => $lines->sum(fn ($line) => $line->total_cost),
+                'status'       => 'streamer_reviewed',
+            ]);
 
-            // Add/update items to the show
-            foreach ($this->selectedItems as $itemId) {
-                $quantity = $this->itemQuantities[$itemId] ?? 1;
-                $item = InventoryItem::find($itemId);
+            $problems = $entry->submitReport();
 
-                // Create or update order record
-                WhatnotShowOrder::updateOrCreate(
-                    [
-                        'show_id' => $this->show->id,
-                        'inventory_item_id' => $itemId,
-                    ],
-                    [
-                        'item_name' => $item?->name,
-                        'quantity' => $quantity,
-                        'show_date' => $this->show->show_date,
-                        'status' => 'completed',
-                    ]
-                );
+            if (empty($problems)) {
+                Notification::make()
+                    ->title('Report submitted')
+                    ->body($lines->count() . ' item(s) logged and stock deducted.')
+                    ->success()
+                    ->send();
+            } else {
+                // Submission still stands, but the streamer is told exactly what
+                // did not deduct instead of being shown a clean success.
+                Notification::make()
+                    ->title('Submitted, but some stock did not deduct')
+                    ->body(implode("\n", $problems))
+                    ->warning()
+                    ->duration(12000)
+                    ->send();
             }
 
-            // Submit the report (sets submitted_at timestamp)
-            $logEntry->submitReport();
+            $this->selectedItems = [];
+            $this->itemQuantities = [];
+        } catch (\Throwable $e) {
+            report($e);
 
             Notification::make()
-                ->title('✓ Report submitted')
-                ->body(count($this->selectedItems) . ' item(s) logged. You have 2 hours to make changes.')
-                ->success()
-                ->send();
-
-            // Notify admins of the submission
-            $streamerName = $streamer->name ?? 'Unknown Streamer';
-            $showTitle = $this->show->title ?? ('Show #' . $this->show->id);
-            $itemCount = $logEntry->items_count ?? count($this->selectedItems);
-            User::role('admin')->each(function (User $admin) use ($logEntry, $streamerName, $showTitle, $itemCount) {
-                Notification::make()
-                    ->title('Streamer Submitted Items')
-                    ->body("{$streamerName} submitted {$itemCount} items for {$showTitle}")
-                    ->actions([
-                        \Filament\Notifications\Actions\Action::make('review')
-                            ->label('Review')
-                            ->url(route('filament.admin.resources.streamer-logs.edit', $logEntry)),
-                    ])
-                    ->sendToDatabase($admin);
-            });
-
-            // Redirect to streamer log to review
-            $this->redirect(
-                route('filament.admin.resources.streamer-logs.edit', $logEntry),
-                navigate: true
-            );
-        } catch (\Exception $e) {
-            Notification::make()
-                ->title('Error saving items')
+                ->title('Could not submit the report')
                 ->body($e->getMessage())
                 ->danger()
                 ->send();

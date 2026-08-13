@@ -82,7 +82,8 @@ class InventoryScanner extends Page
 
     public int    $qaLocationId = 0;
     public string $qaQty        = '1';
-    public ?array $qaFlash      = null; // ['name', 'qty', 'location']
+    public string $qaName       = ''; // optional: creates the item when the scan is unknown
+    public ?array $qaFlash      = null; // ['name', 'qty', 'location', 'created']
 
     // ── Receive Pallet state ──────────────────────────────────────────────────
 
@@ -280,9 +281,29 @@ class InventoryScanner extends Page
         }
 
         $item = InventoryItem::findByScan($code);
+        $createdItem = false;
+
         if (! $item) {
-            $this->qaFlash = ['error' => "No item found for \"{$code}\"."];
-            return;
+            // An unknown barcode used to dead-end here. With a name supplied the
+            // item is created on the spot, so receiving something new does not
+            // mean leaving the scanner to go and add it first.
+            $name = trim($this->qaName);
+
+            if ($name === '') {
+                $this->qaFlash = [
+                    'error' => "No item found for \"{$code}\". Enter an item name above to create it.",
+                ];
+                return;
+            }
+
+            $item = InventoryItem::create([
+                'name'      => $name,
+                'barcode'   => $code,
+                'sku'       => 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4)),
+                'is_active' => true,
+            ]);
+
+            $createdItem = true;
         }
 
         $location = InventoryLocation::find($this->qaLocationId);
@@ -302,7 +323,7 @@ class InventoryScanner extends Page
             'movement_type'     => 'adjustment',
             'quantity'          => $qty,
             'to_location_id'    => $location->id,
-            'reason'            => 'Quick Add via scanner',
+            'reason'            => $createdItem ? 'Quick Add via scanner (new item)' : 'Quick Add via scanner',
             'created_by'        => auth()->id(),
         ]);
 
@@ -310,7 +331,11 @@ class InventoryScanner extends Page
             'name'     => $item->name,
             'qty'      => $qty,
             'location' => $location->name,
+            'created'  => $createdItem,
         ];
+
+        // Clear the name so the next scan does not silently reuse it.
+        $this->qaName = '';
     }
 
     // ── Receive Pallet mode ───────────────────────────────────────────────────

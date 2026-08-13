@@ -628,11 +628,18 @@
                 </select>
             </div>
 
-            {{-- Quantity --}}
-            <div class="flex gap-3 items-stretch sm:items-center">
-                <div class="flex-1">
+            {{-- Quantity + optional name for unknown barcodes --}}
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
                     <label class="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-1">Quantity per Scan</label>
                     <input type="number" wire:model="qaQty" min="0.01" step="0.01" inputmode="decimal" class="w-full rounded-lg border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-gray-900 px-4 py-3 sm:py-2.5 text-base sm:text-sm" />
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-1">
+                        Item Name <span class="text-gray-400 font-normal">— only needed for a barcode we don't know yet</span>
+                    </label>
+                    <input type="text" wire:model="qaName" placeholder="e.g. 2024 Topps Chrome Hobby Box"
+                        class="w-full rounded-lg border border-emerald-300 dark:border-emerald-600 bg-white dark:bg-gray-900 px-4 py-3 sm:py-2.5 text-base sm:text-sm" />
                 </div>
             </div>
 
@@ -680,7 +687,12 @@
             @else
             <div class="rounded-lg bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-800 px-6 py-4 space-y-2">
                 <p class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">✓ Added to {{ $qaFlash['location'] }}</p>
-                <p class="text-sm text-emerald-700 dark:text-emerald-300"><strong>{{ $qaFlash['name'] }}</strong> • {{ $qaFlash['qty'] }} units</p>
+                <p class="text-sm text-emerald-700 dark:text-emerald-300">
+                    <strong>{{ $qaFlash['name'] }}</strong> • {{ $qaFlash['qty'] }} units
+                    @if (! empty($qaFlash['created']))
+                        <span class="ml-1 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">New item</span>
+                    @endif
+                </p>
             </div>
             @endif
         @endif

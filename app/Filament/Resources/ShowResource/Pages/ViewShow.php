@@ -102,7 +102,7 @@ class ViewShow extends ViewRecord
                         && $user->streamer
                         && $this->record->streamers->contains('id', $user->streamer->id);
                 })
-                ->url(fn () => route('filament.admin.pages.end-of-stream-form', ['showId' => $this->record->id]))
+                ->url(fn () => \App\Filament\Pages\EndOfStreamForm::getUrl(['showId' => $this->record->id]))
                 ->tooltip('Quickly log your show metrics (hours, shipments, costs)'),
 
             // Kept as its own top-level button (not buried in the "More actions"

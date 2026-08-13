@@ -37,7 +37,7 @@
                             <div class="text-center">
                                 <h3 class="font-bold text-gray-900 dark:text-gray-100 text-sm">Log Items</h3>
                                 <p class="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                                    <a href="{{ route('filament.admin.pages.end-of-stream-form') }}" class="text-purple-600 dark:text-purple-400 hover:underline">
+                                    <a href="{{ \App\Filament\Pages\EndOfStreamForm::getUrl() }}" class="text-purple-600 dark:text-purple-400 hover:underline">
                                         End of Stream Form
                                     </a>
                                 </p>
@@ -156,7 +156,7 @@
         <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <a href="{{ route('filament.admin.pages.end-of-stream-form') }}"
+                <a href="{{ \App\Filament\Pages\EndOfStreamForm::getUrl() }}"
                    class="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-3 text-sm font-semibold text-white hover:bg-purple-500 transition-colors">
                     <x-heroicon-o-camera class="h-5 w-5" />
                     End of Stream

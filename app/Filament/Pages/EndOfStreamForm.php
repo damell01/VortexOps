@@ -217,7 +217,14 @@ class EndOfStreamForm extends Page implements HasForms
     public static function canAccess(): bool
     {
         $user = auth()->user();
-        return AdminModules::isEnabled('streams') && $user?->isStreamer();
+
+        // ShowResource's "End of Stream" action is visible to admins as well as
+        // the show's own streamers, so gating this page to streamers alone sent
+        // admins from a visible button straight to a 403.
+        return AdminModules::isEnabled('streams')
+            && (($user?->isStreamer() ?? false)
+                || ($user?->isAdmin() ?? false)
+                || ($user?->isOwner() ?? false));
     }
 
     public static function getSlug(?Panel $panel = null): string

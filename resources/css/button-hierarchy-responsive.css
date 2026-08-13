@@ -426,14 +426,19 @@ p, span, div, li, td, th {
     hyphens: auto !important;
 }
 
-/* Table cells don't overflow */
+/* Table cells don't overflow.
+   `word-break: break-word` made a column's min-content width one character,
+   so with table-layout:auto any column could collapse to ~60px and break
+   titles mid-word ("$100,0 00 HI G H..."). `overflow-wrap` still wraps long
+   unbreakable strings but leaves min-content at the longest word. */
 .fi-ta-cell,
 table td,
 table th {
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: normal !important;
-    word-break: break-word !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
 }
 
 /* Numbers and codes stay contained */

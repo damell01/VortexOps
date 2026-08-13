@@ -248,8 +248,12 @@
             </div>
 
             <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                {{-- Debounced model + updatedScanInput() on the server auto-runs
+                     the lookup once input settles, so a scan resolves on its own.
+                     An Alpine timer was tried first but wire:model.live morphs
+                     the input on every keystroke, which cleared it. --}}
                 <input
-                    wire:model.live="scanInput"
+                    wire:model.live.debounce.300ms="scanInput"
                     wire:keydown.enter="submitScan"
                     id="scanner-input"
                     type="text"
@@ -284,7 +288,7 @@
             <div class="text-xs text-violet-700 dark:text-violet-300 bg-white/50 dark:bg-gray-800/50 rounded px-3 py-2">
                 <p class="font-medium mb-1">💡 Scanner Tips:</p>
                 <ul class="space-y-0.5 list-disc list-inside">
-                    <li>Press Enter or tap "Look Up" after scanning</li>
+                    <li>Scanning looks the item up automatically — no need to press anything</li>
                     <li>Paste events from mobile scanners work automatically</li>
                     <li>Use camera button for barcode detection</li>
                 </ul>

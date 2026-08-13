@@ -181,7 +181,9 @@ class Shows extends Page
 
         // Reset submitted_at and reviewed_at to allow re-editing, but keep other fields
         $logEntry->update([
-            'status' => 'pending',
+            // Distinct from 'pending' (never submitted) so the UI can say
+            // "Changes Requested" rather than falling through to "Submitted".
+            'status' => 'changes_requested',
             'submitted_at' => null,
             'reviewed_by' => null,
             'reviewed_at' => null,

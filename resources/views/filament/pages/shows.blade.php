@@ -170,6 +170,16 @@
                                         $statusLabel = 'Approved';
                                         $statusClass = 'bg-green-100 dark:bg-green-950 text-green-800 dark:text-green-200';
                                         $statusIcon = '✓';
+                                    } elseif ($logEntry->status === 'changes_requested') {
+                                        // Without this branch the row fell through to "Submitted",
+                                        // so requesting changes appeared to do nothing.
+                                        $statusLabel = 'Changes Requested';
+                                        $statusClass = 'bg-orange-100 dark:bg-orange-950 text-orange-800 dark:text-orange-200';
+                                        $statusIcon = '🔄';
+                                    } elseif (! $logEntry->submitted_at) {
+                                        $statusLabel = 'Awaiting Submission';
+                                        $statusClass = 'bg-yellow-100 dark:bg-yellow-950 text-yellow-800 dark:text-yellow-200';
+                                        $statusIcon = '⏱';
                                     } else {
                                         $statusLabel = 'Submitted';
                                         $statusClass = 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200';

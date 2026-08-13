@@ -267,6 +267,7 @@ class StreamerLogResource extends Resource
                     ->label('Next Action')
                     ->state(fn (StreamerLogEntry $record): string => match ($record->status) {
                         'pending' => 'Add items & costs',
+                        'changes_requested' => 'Streamer to revise & resubmit',
                         'streamer_reviewed' => 'Admin review pending',
                         'admin_approved' => 'Payout ready' . ($record->needsFulfillmentReview() ? ' (needs fulfillment review)' : ''),
                         default => 'Review',
@@ -274,6 +275,7 @@ class StreamerLogResource extends Resource
                     ->badge()
                     ->color(fn (StreamerLogEntry $record): string => match ($record->status) {
                         'pending' => 'warning',
+                        'changes_requested' => 'danger',
                         'streamer_reviewed' => 'info',
                         'admin_approved' => 'success',
                         default => 'gray',

@@ -715,3 +715,70 @@
     html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-actions,
     html body .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-actions-cell { order: 5 !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Card content: name + description, stats, actions. No SKU tile.
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 767px) {
+    /* Codes (SKU / barcode / ids) are omitted — the name is the identity */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-omit,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile {
+        display: none !important;
+    }
+
+    /* Heading spans the row now that nothing sits beside it */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title,
+    html body .fi-ta-table > tbody > tr.fi-ta-row:not(.vx-has-tile) > td.vx-mobile-title {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+        padding: 14px 16px 12px !important;
+    }
+
+    /* Filament renders ->description() inside the same cell as the column,
+       so the item description arrives with the title. Make it a subtitle
+       rather than inheriting the heading's size and weight. */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title .fi-ta-text-description {
+        display: block !important;
+        margin-top: 3px !important;
+        font-size: 13px !important;
+        font-weight: 400 !important;
+        line-height: 1.4 !important;
+        color: var(--vx-text-dim) !important;
+        white-space: normal !important;
+    }
+
+    html:not(.dark) body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title .fi-ta-text-description {
+        color: #6b7280 !important;
+    }
+}
+
+@media (max-width: 767px) {
+    /* Five actions overflowed 330px and pushed Delete onto its own line.
+       Trim the paddings so the strip stays one row. */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-actions,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-actions-cell {
+        gap: 4px !important;
+        padding: 10px 12px 12px !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td .fi-icon-btn {
+        width: 30px !important;
+        min-width: 30px !important;
+        height: 30px !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td .fi-btn,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td .fi-link {
+        font-size: 11.5px !important;
+        padding: 4px 6px !important;
+        gap: 3px !important;
+        white-space: nowrap !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td .fi-btn svg,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td .fi-link svg {
+        width: 14px !important;
+        height: 14px !important;
+    }
+}

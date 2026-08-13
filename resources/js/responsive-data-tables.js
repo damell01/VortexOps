@@ -20,7 +20,8 @@
 
 // Order matters: the product/person name should win the heading over a code.
 const titleTerms = ['name', 'title', 'customer', 'streamer', 'recipient', 'item', 'product', 'show'];
-// Short codes render as the tile to the left of the heading.
+// Short codes (SKU, barcode, internal ids) are omitted from the card; the
+// name carries the identity and the codes just added noise.
 const tileTerms = ['sku', 'code', 'barcode', 'reference', 'id', 'number'];
 // Numeric-ish columns promoted into the two-up stat row.
 const statTerms = ['stock', 'qty', 'quantity', 'amount', 'total', 'value', 'balance', 'price', 'revenue', 'reorder', 'rate', 'count'];
@@ -35,6 +36,7 @@ const hits = (label, terms) => terms.some((term) => label.includes(term));
 const CLASSES = [
     'vx-mobile-title', 'vx-mobile-tile', 'vx-mobile-stat', 'vx-mobile-detail',
     'vx-mobile-foot', 'vx-mobile-highlight', 'vx-mobile-actions', 'vx-mobile-selection',
+    'vx-mobile-omit',
 ];
 
 function decorateTable(table) {
@@ -48,7 +50,6 @@ function decorateTable(table) {
         if (!cells.length) return;
 
         let titleAssigned = false;
-        let tileAssigned = false;
         let footAssigned = false;
         let statCount = 0;
 
@@ -88,9 +89,8 @@ function decorateTable(table) {
                 return;
             }
 
-            if (!tileAssigned && hits(label, tileTerms)) {
-                cell.classList.add('vx-mobile-tile');
-                tileAssigned = true;
+            if (hits(label, tileTerms)) {
+                cell.classList.add('vx-mobile-omit');
                 return;
             }
 
@@ -114,7 +114,6 @@ function decorateTable(table) {
             row.querySelector(':scope > td.vx-mobile-stat')?.classList.add('vx-mobile-stat-solo');
         }
 
-        row.classList.toggle('vx-has-tile', tileAssigned);
     });
 }
 

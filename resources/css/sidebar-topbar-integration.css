@@ -165,6 +165,7 @@ html.dark .fi-sidebar-nav-group-header:hover {
     position: relative;
     background: transparent !important;
     border: none !important;
+    margin: 0 !important;
 }
 
 .fi-sidebar-nav-item > a:hover {
@@ -182,6 +183,7 @@ html.dark .fi-sidebar-nav-item > a:hover {
     color: #e5e7eb;
 }
 
+/* Only the active item gets the background */
 .fi-sidebar-nav-item.fi-sidebar-nav-item-active > a {
     background: rgba(139, 92, 246, 0.25) !important;
     color: #d8b4fe;
@@ -203,6 +205,11 @@ html.dark .fi-sidebar-nav-item > a:hover {
 html.dark .fi-sidebar-nav-item.fi-sidebar-nav-item-active > a {
     background: rgba(139, 92, 246, 0.25) !important;
     color: #d8b4fe;
+}
+
+/* Make sure inactive items don't get highlighted */
+.fi-sidebar-nav-item:not(.fi-sidebar-nav-item-active) > a {
+    background: transparent !important;
 }
 
 /* Icons in sidebar */

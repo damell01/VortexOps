@@ -15,7 +15,6 @@
 @import 'responsive-component-patterns.css';
 @import 'table-actions-responsive.css';
 @import 'mobile-card-layouts.css';
-@import 'sidebar-topbar-integration.css';
 @import 'desktop-table-redesign.css';
 @import 'mobile-responsive-tables.css';
 @import 'mobile-responsive-grid.css';
@@ -2465,4 +2464,278 @@ a.fi-link:hover {
 @media (prefers-reduced-motion: reduce) {
     .fi-ta-record-content,
     .fi-ta-record-actions .fi-btn { transition: none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   NAVIGATION — authoritative sidebar + topbar
+   ═══════════════════════════════════════════════════════════════════
+   Deliberately last in this file. Sidebar rules were previously split
+   between app.css and sidebar-topbar-integration.css; because @imports
+   resolve before inline rules, the imported file was dead code and every
+   edit to it was discarded. That file is gone and this block is the only
+   source. Being last also beats Filament's own stylesheet, which is
+   linked after our bundle and otherwise wins equal-specificity ties.
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+    --vxn-bg:          #0b1120;
+    --vxn-bg-elevated: #131c2e;
+    --vxn-border:      #1b2438;
+    --vxn-text:        #c2cad9;
+    --vxn-text-strong: #ffffff;
+    --vxn-label:       #737f96;
+    --vxn-violet:      #7c3aed;
+    --vxn-violet-soft: rgb(124 58 237 / .22);
+    --vxn-violet-text: #c4b5fd;
+}
+
+/* ── Shell ───────────────────────────────────────────────────────── */
+
+.fi-sidebar,
+.fi-main-sidebar {
+    background-color: var(--vxn-bg) !important;
+    border-right: 1px solid var(--vxn-border) !important;
+    box-shadow: none !important;
+}
+
+.fi-sidebar-header {
+    background-color: var(--vxn-bg) !important;
+    border-bottom: 1px solid var(--vxn-border) !important;
+    padding: 1.125rem 1.125rem 1rem !important;
+    min-height: 0 !important;
+    box-shadow: none !important;
+}
+
+.fi-sidebar-nav {
+    padding: 0.5rem 0 1rem !important;
+}
+
+.fi-sidebar-nav-groups {
+    gap: 0 !important;
+}
+
+/* Hairline between sections, as in the design */
+.fi-sidebar-group + .fi-sidebar-group {
+    border-top: 1px solid var(--vxn-border) !important;
+    margin-top: 0.375rem !important;
+    padding-top: 0.375rem !important;
+}
+
+/* ── Section labels (REPORTS / FINANCE / …) ──────────────────────── */
+
+.fi-sidebar-group-btn {
+    padding: 0.875rem 1.125rem 0.5rem !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.fi-sidebar-group-btn:hover {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.fi-sidebar-group-label {
+    font-size: 0.65rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.09em !important;
+    text-transform: uppercase !important;
+    color: var(--vxn-label) !important;
+    line-height: 1 !important;
+}
+
+/* Chevron: subdued, right-aligned, never a filled box */
+.fi-sidebar-group-collapse-btn {
+    margin-left: auto !important;
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+    padding: 0 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--vxn-label) !important;
+    opacity: 0.8 !important;
+}
+
+.fi-sidebar-group-collapse-btn:hover {
+    background: transparent !important;
+    background-color: transparent !important;
+    opacity: 1 !important;
+}
+
+.fi-sidebar-group-collapse-btn svg {
+    width: 1rem !important;
+    height: 1rem !important;
+}
+
+/* ── Items ───────────────────────────────────────────────────────── */
+
+.fi-sidebar-group-items {
+    padding: 0 0.625rem !important;
+    gap: 0.125rem !important;
+}
+
+.fi-sidebar-item-btn {
+    position: relative !important;
+    gap: 0.75rem !important;
+    padding: 0.5rem 0.75rem !important;
+    border-radius: 0.5rem !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    color: var(--vxn-text) !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.fi-sidebar-item-btn:hover {
+    background-color: rgb(255 255 255 / .055) !important;
+    color: var(--vxn-text-strong) !important;
+}
+
+.fi-sidebar-item-btn svg {
+    width: 1.15rem !important;
+    height: 1.15rem !important;
+    opacity: 0.8 !important;
+    flex-shrink: 0 !important;
+}
+
+/* Active: violet fill + left accent bar */
+.fi-sidebar-item.fi-active .fi-sidebar-item-btn,
+.fi-active > .fi-sidebar-item-btn,
+[aria-current="page"].fi-sidebar-item-btn {
+    background: linear-gradient(90deg, rgb(124 58 237 / .30) 0%, rgb(124 58 237 / .12) 100%) !important;
+    color: var(--vxn-violet-text) !important;
+    font-weight: 600 !important;
+    box-shadow: inset 3px 0 0 0 var(--vxn-violet) !important;
+}
+
+.fi-active > .fi-sidebar-item-btn svg,
+[aria-current="page"].fi-sidebar-item-btn svg {
+    color: var(--vxn-violet-text) !important;
+    opacity: 1 !important;
+}
+
+/* ── Footer / account ────────────────────────────────────────────── */
+
+.fi-sidebar-footer {
+    background-color: var(--vxn-bg) !important;
+    border-top: 1px solid var(--vxn-border) !important;
+    padding: 0.75rem !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   TOPBAR
+   ═══════════════════════════════════════════════════════════════════ */
+
+.fi-topbar,
+nav.fi-topbar {
+    background-color: var(--vxn-bg) !important;
+    background-image: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-bottom: 1px solid var(--vxn-border) !important;
+    box-shadow: none !important;
+}
+
+.fi-topbar-ctn {
+    padding: 0 0.875rem !important;
+    min-height: 3.5rem !important;
+    gap: 0.75rem !important;
+}
+
+.fi-topbar .fi-icon-btn {
+    width: 2.25rem !important;
+    height: 2.25rem !important;
+    border-radius: 0.5rem !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--vxn-text) !important;
+}
+
+.fi-topbar .fi-icon-btn:hover {
+    background-color: rgb(255 255 255 / .07) !important;
+    color: var(--vxn-text-strong) !important;
+}
+
+.fi-topbar .fi-icon-btn svg {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+}
+
+/* No topbar search in the design */
+.fi-global-search-ctn,
+.fi-topbar .fi-global-search {
+    display: none !important;
+}
+
+/* Quick-create "+" is the single solid accent control */
+.quick-create-component .fi-icon-btn,
+.quick-create-component .fi-dropdown-trigger > button {
+    background-color: var(--vxn-violet) !important;
+    color: #ffffff !important;
+    border-radius: 0.5rem !important;
+}
+
+.quick-create-component .fi-icon-btn:hover,
+.quick-create-component .fi-dropdown-trigger > button:hover {
+    background-color: #6d28d9 !important;
+    color: #ffffff !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MOBILE DRAWER
+   Filament's own stylesheet loads after this bundle and was keeping the
+   panel at translateX(-100%) even while .fi-sidebar-open was present,
+   so the drawer never appeared. Pin both states explicitly.
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 1023px) {
+    html body .fi-sidebar.fi-main-sidebar {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        height: 100dvh !important;
+        width: 17rem !important;
+        max-width: 85vw !important;
+        z-index: 50 !important;
+        transform: translateX(-100%);
+        transition: transform 0.25s ease !important;
+    }
+
+    html body .fi-sidebar.fi-main-sidebar.fi-sidebar-open {
+        transform: translateX(0) !important;
+    }
+
+    .fi-sidebar-item-btn {
+        padding: 0.6875rem 0.75rem !important;
+        font-size: 0.9375rem !important;
+    }
+}
+
+/* Filament's sidebar is built from <ul>/<li>; without an explicit reset the
+   browser draws list markers beside every nav item. */
+.fi-sidebar-nav-groups,
+.fi-sidebar-nav-groups > li,
+.fi-sidebar-group-items,
+.fi-sidebar-group-items > li,
+.fi-sidebar-nav ul,
+.fi-sidebar-nav li {
+    list-style: none !important;
+    list-style-type: none !important;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+}
+
+.fi-sidebar-nav ul::marker,
+.fi-sidebar-nav li::marker {
+    content: '' !important;
+    font-size: 0 !important;
+}
+
+/* Keep the group items' horizontal inset after the padding reset above */
+.fi-sidebar-group-items {
+    padding: 0 0.625rem !important;
 }

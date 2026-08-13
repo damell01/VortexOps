@@ -33,10 +33,6 @@ use Filament\Actions\ViewAction;
 use Filament\Actions\Action as TableAction;
 use pxlrbt\FilamentExcel\Actions\Tables\ExportBulkAction;
 use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\Layout\Panel;
-use Filament\Tables\Columns\Layout\Split;
-use Filament\Tables\Columns\Layout\Stack;
-use Filament\Support\Enums\TextSize;
 use Filament\Tables\Columns\TextColumn;
 use Filament\QueryBuilder\Constraints\BooleanConstraint;
 use Filament\QueryBuilder\Constraints\NumberConstraint;
@@ -437,67 +433,17 @@ class InventoryItemResource extends Resource
     {
         return $table
             ->columns([
-                // ── Mobile card (<768px). Real Split/Stack markup, not CSS on <td>.
-                //    Three rows, matching the design mockups:
-                //      1. violet SKU tile + item name
-                //      2. Stock / Reorder Level stat pair (label above value)
-                //      3. "Updated <date>" footer
-                Stack::make([
-                    Split::make([
-                        TextColumn::make('sku')
-                            ->formatStateUsing(fn ($state) => $state
-                                ? implode('', array_slice(str_split(preg_replace('/[^A-Za-z0-9]/', '', (string) $state), 2), -3))
-                                : '—')
-                            ->searchable()
-                            ->grow(false)
-                            ->extraAttributes(['class' => 'vx-mc-avatar']),
-                        TextColumn::make('name')
-                            ->weight('bold')
-                            ->size(TextSize::Large)
-                            ->searchable()
-                            ->extraAttributes(['class' => 'vx-mc-title']),
-                    ])->extraAttributes(['class' => 'vx-mc-head']),
-
-                    Split::make([
-                        TextColumn::make('stock_sum_quantity')
-                            ->default(0)
-                            ->description('Stock', position: 'above')
-                            ->formatStateUsing(fn ($state) => number_format((int) $state))
-                            ->color(fn ($record) => match (true) {
-                                (int) ($record->stock_sum_quantity ?? 0) <= 0 => 'danger',
-                                isset($record->reorder_level) && (int) ($record->stock_sum_quantity ?? 0) <= (int) $record->reorder_level => 'warning',
-                                default => 'success'
-                            })
-                            ->extraAttributes(['class' => 'vx-mc-stat']),
-                        TextColumn::make('reorder_level')
-                            ->description('Reorder Level', position: 'above')
-                            ->placeholder('—')
-                            ->extraAttributes(['class' => 'vx-mc-stat']),
-                    ])->extraAttributes(['class' => 'vx-mc-stats']),
-
-                    TextColumn::make('updated_at')
-                        ->date('M j, Y')
-                        ->prefix('Updated ')
-                        ->icon('heroicon-m-clock')
-                        ->extraAttributes(['class' => 'vx-mc-foot']),
-                ])
-                    ->hiddenFrom('md')
-                    ->extraAttributes(['class' => 'vx-mobile-card']),
-
-                // ── Desktop table columns (≥768px) ──
                 TextColumn::make('sku')
                     ->label('SKU')
                     ->searchable()
                     ->sortable()
                     ->copyable()
                     ->placeholder('—')
-                    ->weight('semibold')
-                    ->visibleFrom('md'),
+                    ->weight('semibold'),
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable()
                     ->weight('semibold')
-                    ->visibleFrom('md')
                     ->description(fn ($record) => $record->description),
                 TextColumn::make('category')
                     ->searchable()
@@ -511,7 +457,6 @@ class InventoryItemResource extends Resource
                     ->numeric(decimalPlaces: 0)
                     ->default(0)
                     ->sortable()
-                    ->visibleFrom('md')
                     ->summarize(Sum::make()->label('Total'))
                     ->color(fn ($record) => match (true) {
                         (int) ($record->stock_sum_quantity ?? 0) <= 0 => 'danger',

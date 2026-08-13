@@ -3,13 +3,39 @@
  *
  * The records, Livewire actions, filters, pagination, and accessible table
  * semantics remain Filament-owned.  On phones the accompanying stylesheet
- * uses these classes to present the same rows as scan-friendly record cards.
+ * uses these classes to lay each row out as a card:
+ *
+ *     ┌──────┬───────────────────────┐
+ *     │ tile │ title                 │   .vx-mobile-tile / .vx-mobile-title
+ *     ├──────┴───────────────────────┤
+ *     │ stat        │ stat           │   .vx-mobile-stat  (max 2)
+ *     ├──────────────────────────────┤
+ *     │ detail rows (label / value)  │   .vx-mobile-detail
+ *     ├──────────────────────────────┤
+ *     │ footer (date)                │   .vx-mobile-foot
+ *     ├──────────────────────────────┤
+ *     │ actions                      │   .vx-mobile-actions
+ *     └──────────────────────────────┘
  */
-const priorityTitles = ['name', 'title', 'customer', 'streamer', 'recipient', 'item', 'product', 'sku', 'id'];
-const keyDetails = ['email', 'description', 'date', 'show', 'order', 'payout', 'barcode', 'category'];
-const highlights = ['status', 'stock', 'qty', 'quantity', 'amount', 'total', 'value', 'balance', 'price', 'role', 'active', 'availability'];
+
+// Order matters: the product/person name should win the heading over a code.
+const titleTerms = ['name', 'title', 'customer', 'streamer', 'recipient', 'item', 'product', 'show'];
+// Short codes render as the tile to the left of the heading.
+const tileTerms = ['sku', 'code', 'barcode', 'reference', 'id', 'number'];
+// Numeric-ish columns promoted into the two-up stat row.
+const statTerms = ['stock', 'qty', 'quantity', 'amount', 'total', 'value', 'balance', 'price', 'revenue', 'reorder', 'rate', 'count'];
+// Dates fall to the card footer.
+const footTerms = ['updated', 'created', 'date', 'last seen', 'when'];
+
+const MAX_STATS = 2;
 
 const normalise = (value) => value.replace(/\s+/g, ' ').trim().toLowerCase();
+const hits = (label, terms) => terms.some((term) => label.includes(term));
+
+const CLASSES = [
+    'vx-mobile-title', 'vx-mobile-tile', 'vx-mobile-stat', 'vx-mobile-detail',
+    'vx-mobile-foot', 'vx-mobile-highlight', 'vx-mobile-actions', 'vx-mobile-selection',
+];
 
 function decorateTable(table) {
     const headers = [...table.querySelectorAll('thead th')]
@@ -22,35 +48,73 @@ function decorateTable(table) {
         if (!cells.length) return;
 
         let titleAssigned = false;
-        let detailAssigned = false;
+        let tileAssigned = false;
+        let footAssigned = false;
+        let statCount = 0;
 
-        cells.forEach((cell, index) => {
+        // First pass: classify the structural cells (selection / actions), and
+        // find the heading before anything else can claim it.
+        const meta = cells.map((cell, index) => {
             const label = headers[index] || '';
-            const hasControl = Boolean(cell.querySelector('button, [role="menu"], input[type="checkbox"]'));
-
-            cell.dataset.vxLabel = label || 'Details';
-            cell.classList.remove('vx-mobile-title', 'vx-mobile-detail', 'vx-mobile-highlight', 'vx-mobile-actions', 'vx-mobile-selection');
-
-            if (cell.querySelector('input[type="checkbox"]')) {
-                cell.classList.add('vx-mobile-selection');
-            } else if (hasControl && (!label || label.includes('action'))) {
-                cell.classList.add('vx-mobile-actions');
-            } else if (!titleAssigned && priorityTitles.some((term) => label.includes(term))) {
-                cell.classList.add('vx-mobile-title');
-                titleAssigned = true;
-            } else if (!detailAssigned && keyDetails.some((term) => label.includes(term))) {
-                cell.classList.add('vx-mobile-detail');
-                detailAssigned = true;
-            } else if (highlights.some((term) => label.includes(term))) {
-                cell.classList.add('vx-mobile-highlight');
-            }
+            const isSelection = Boolean(cell.querySelector('input[type="checkbox"]'));
+            const hasControl = Boolean(cell.querySelector('button, [role="menu"], a[wire\\:click]'));
+            const isActions = !isSelection && hasControl && (!label || label.includes('action'));
+            return { cell, label, isSelection, isActions };
         });
 
-        // Tables with generic headings still need a useful heading in each card.
-        if (!titleAssigned) {
-            const firstContentCell = cells.find((cell) => !cell.classList.contains('vx-mobile-selection') && !cell.classList.contains('vx-mobile-actions'));
-            firstContentCell?.classList.add('vx-mobile-title');
+        // Heading: prefer a real name over a code, in header order.
+        const titleCell =
+            meta.find((m) => !m.isSelection && !m.isActions && hits(m.label, titleTerms)) ||
+            meta.find((m) => !m.isSelection && !m.isActions && m.label && !hits(m.label, tileTerms)) ||
+            meta.find((m) => !m.isSelection && !m.isActions);
+
+        meta.forEach(({ cell, label, isSelection, isActions }) => {
+            cell.dataset.vxLabel = label || 'Details';
+            cell.classList.remove(...CLASSES);
+
+            if (isSelection) {
+                cell.classList.add('vx-mobile-selection');
+                return;
+            }
+
+            if (isActions) {
+                cell.classList.add('vx-mobile-actions');
+                return;
+            }
+
+            if (!titleAssigned && titleCell && cell === titleCell.cell) {
+                cell.classList.add('vx-mobile-title');
+                titleAssigned = true;
+                return;
+            }
+
+            if (!tileAssigned && hits(label, tileTerms)) {
+                cell.classList.add('vx-mobile-tile');
+                tileAssigned = true;
+                return;
+            }
+
+            if (statCount < MAX_STATS && hits(label, statTerms)) {
+                cell.classList.add('vx-mobile-stat');
+                statCount += 1;
+                return;
+            }
+
+            if (!footAssigned && hits(label, footTerms)) {
+                cell.classList.add('vx-mobile-foot');
+                footAssigned = true;
+                return;
+            }
+
+            cell.classList.add('vx-mobile-detail');
+        });
+
+        // An odd number of stats would leave a ragged half-width cell.
+        if (statCount === 1) {
+            row.querySelector(':scope > td.vx-mobile-stat')?.classList.add('vx-mobile-stat-solo');
         }
+
+        row.classList.toggle('vx-has-tile', tileAssigned);
     });
 }
 
@@ -72,13 +136,12 @@ function start() {
 }
 
 // This module is imported dynamically, so DOMContentLoaded has usually
-// already fired by the time it evaluates — listening for it alone meant
-// the decorator never ran and cells got no labels.
+// already fired by the time it evaluates — listening for it alone meant the
+// decorator never ran and cells got no labels.
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', start);
 } else {
     start();
 }
 
-// Livewire swaps table markup wholesale on navigation; re-decorate then too.
 document.addEventListener('livewire:navigated', () => decorateTables());

@@ -238,29 +238,32 @@
         white-space: nowrap !important;
     }
 }
-
 /* ═══════════════════════════════════════════════════════════════════
-   GENERIC CARDS for classic <tr>/<td> tables (every resource that does
-   not use layout columns). Driven by the classes that
-   resources/js/responsive-data-tables.js already puts on each cell:
-     data-vx-label      → the column's header text
-     .vx-mobile-title   → primary column (name / title / sku …)
-     .vx-mobile-detail  → secondary column (email / date / description …)
-     .vx-mobile-highlight → status / stock / amount / total …
-     .vx-mobile-actions / .vx-mobile-selection
+   MOBILE CARDS for classic <tr>/<td> tables — every resource.
+
+   The row becomes a CSS grid whose areas mirror the design:
+
+       tile │ title
+       ─────┴──────
+       stat │ stat
+       detail rows
+       footer
+       actions
+
+   Cell roles come from responsive-data-tables.js (.vx-mobile-tile,
+   .vx-mobile-title, .vx-mobile-stat, .vx-mobile-detail, .vx-mobile-foot,
+   .vx-mobile-actions) so this works without per-resource PHP.
    ═══════════════════════════════════════════════════════════════════ */
 
 @media (max-width: 767px) {
     /* The table wrapper scrolls horizontally by default; cards must instead
-       wrap inside the viewport. Without this the "table" stays ~640px wide. */
+       wrap inside the viewport. Filament ships min-width:640px here and its
+       stylesheet loads after ours, so these selectors outrank it. */
     .fi-ta-content,
     .fi-ta-ctn {
         overflow: visible !important;
     }
 
-    /* Filament ships `.fi-ta-table { min-width: 640px }` and its stylesheet
-       is linked AFTER this bundle, so a plain !important ties and loses on
-       source order. These selectors outrank it. */
     html body table.fi-ta-table,
     .fi-ta-content-ctn table.fi-ta-table,
     table.fi-ta-table {
@@ -282,8 +285,13 @@
         min-width: 0 !important;
     }
 
-    .fi-ta-table > tbody > tr.fi-ta-row {
-        display: block !important;
+    /* ── Card shell ─────────────────────────────────────────────── */
+    html body .fi-ta-table > tbody > tr.fi-ta-row {
+        display: grid !important;
+        grid-template-columns: auto 1fr !important;
+        align-items: center !important;
+        column-gap: 12px !important;
+        row-gap: 0 !important;
         width: 100% !important;
         margin: 0 0 12px !important;
         padding: 0 !important;
@@ -294,21 +302,28 @@
         overflow: hidden !important;
     }
 
-    /* Light theme fallback */
-    html:not(.dark) .fi-ta-table > tbody > tr.fi-ta-row {
+    html:not(.dark) body .fi-ta-table > tbody > tr.fi-ta-row,
+    html:not(.dark) body .fi-ta-table > tbody > tr.fi-ta-row:nth-child(even) {
         background: #ffffff !important;
         border-color: #e5e7eb !important;
     }
 
-    .fi-ta-table > tbody > tr.fi-ta-row > td {
+    html body .fi-ta-table > tbody > tr.fi-ta-row:nth-child(even) {
+        background: var(--vx-card-bg) !important;
+    }
+
+    /* Base cell: full-width label/value row */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-cell {
+        grid-column: 1 / -1 !important;
         display: flex !important;
         align-items: center !important;
         justify-content: space-between !important;
         gap: 12px !important;
         width: 100% !important;
-        max-width: 100% !important;
         min-width: 0 !important;
-        padding: 9px 16px !important;
+        min-height: 0 !important;
+        height: auto !important;
+        padding: 7px 16px !important;
         border: none !important;
         background: transparent !important;
         text-align: right !important;
@@ -316,8 +331,18 @@
         color: var(--vx-text) !important;
     }
 
+    html:not(.dark) body .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-cell {
+        color: #111827 !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td .fi-ta-col-wrp {
+        min-height: 0 !important;
+        width: auto !important;
+        justify-content: flex-end !important;
+    }
+
     /* Label from the column header */
-    .fi-ta-table > tbody > tr.fi-ta-row > td::before {
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-cell::before {
         content: attr(data-vx-label);
         flex: 0 0 auto;
         text-align: left;
@@ -328,103 +353,67 @@
         white-space: nowrap;
     }
 
-    html:not(.dark) .fi-ta-table > tbody > tr.fi-ta-row > td {
-        color: #111827 !important;
+    /* ── Tile: violet square holding the SKU / code ─────────────── */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile {
+        grid-column: 1 !important;
+        grid-row: 1 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 56px !important;
+        height: 56px !important;
+        min-width: 56px !important;
+        margin: 14px 0 0 16px !important;
+        padding: 4px !important;
+        border-radius: 12px !important;
+        background: linear-gradient(150deg, #8b5cf6 0%, #6d28d9 100%) !important;
+        color: #ffffff !important;
+        font-size: 11px !important;
+        font-weight: 800 !important;
+        line-height: 1.15 !important;
+        text-align: center !important;
+        word-break: break-all !important;
+        overflow: hidden !important;
     }
 
-    /* ── Title row: full-width heading, no label, hairline under ── */
-    .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title {
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile::before {
+        display: none !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile .fi-ta-col-wrp,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile .fi-ta-text {
+        justify-content: center !important;
+        text-align: center !important;
+        color: #ffffff !important;
+    }
+
+    /* Copy buttons inside the tile would break the block */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile button {
+        pointer-events: none !important;
+        color: #ffffff !important;
+    }
+
+    /* ── Title ──────────────────────────────────────────────────── */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title {
+        grid-column: 2 !important;
+        grid-row: 1 !important;
         display: block !important;
         text-align: left !important;
-        padding: 14px 16px 12px !important;
-        font-size: 17px !important;
+        padding: 14px 16px 12px 0 !important;
+        font-size: 16px !important;
         font-weight: 700 !important;
         line-height: 1.3 !important;
         color: var(--vx-text) !important;
-        border-bottom: 1px solid var(--vx-card-hairline) !important;
     }
 
-    .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title::before {
+    /* Without a tile the title spans the full width */
+    html body .fi-ta-table > tbody > tr.fi-ta-row:not(.vx-has-tile) > td.vx-mobile-title {
+        grid-column: 1 / -1 !important;
+        padding-left: 16px !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title::before {
         display: none !important;
-    }
-
-    html:not(.dark) .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title {
-        color: #111827 !important;
-        border-bottom-color: #eef1f5 !important;
-    }
-
-    /* ── Highlight cells (status / stock / amount) read stronger ── */
-    .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-highlight {
-        font-weight: 700 !important;
-    }
-
-    /* ── Selection checkbox hidden on mobile ── */
-    .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-selection,
-    .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-selection-cell {
-        display: none !important;
-    }
-
-    /* ── Empty cells collapse instead of leaving a blank label row ── */
-    .fi-ta-table > tbody > tr.fi-ta-row > td:empty {
-        display: none !important;
-    }
-
-    /* ── Actions: one horizontal strip with a hairline above ── */
-    .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-actions,
-    .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-actions-cell {
-        display: flex !important;
-        flex-wrap: wrap !important;
-        justify-content: flex-start !important;
-        gap: 6px !important;
-        padding: 10px 16px 12px !important;
-        border-top: 1px solid var(--vx-card-hairline) !important;
-    }
-
-    .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-actions::before,
-    .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-actions-cell::before {
-        display: none !important;
-    }
-
-    /* Dissolve Filament's per-action wrappers so buttons sit inline */
-    .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-actions > div,
-    .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-actions-cell > div,
-    .fi-ta-table > tbody > tr.fi-ta-row > td .fi-ac,
-    .fi-ta-table > tbody > tr.fi-ta-row > td .fi-ac-btn-ctn {
-        display: contents !important;
-    }
-
-    /* Striping and hover borders would fight the card look */
-    .fi-ta-table > tbody > tr.fi-ta-row:nth-child(even) {
-        background: var(--vx-card-bg) !important;
-    }
-
-    html:not(.dark) .fi-ta-table > tbody > tr.fi-ta-row:nth-child(even) {
-        background: #ffffff !important;
-    }
-
-    /* ── Specificity overrides ──────────────────────────────────────
-       Filament's stylesheet is linked after this bundle, so its
-       `.fi-ta-cell` rules tie and win on source order. These outrank it. */
-
-    html body .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-cell {
-        padding: 7px 16px !important;
-        min-height: 0 !important;
-        height: auto !important;
-        vertical-align: middle !important;
-    }
-
-    /* Filament wraps cell content in .fi-ta-col-wrp, which adds its own
-       min-height and was making every row ~3x taller than needed. */
-    html body .fi-ta-table > tbody > tr.fi-ta-row > td .fi-ta-col-wrp {
-        min-height: 0 !important;
-        width: auto !important;
-        justify-content: flex-end !important;
-    }
-
-    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title {
-        font-size: 17px !important;
-        font-weight: 700 !important;
-        padding: 14px 16px 12px !important;
     }
 
     html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title .fi-ta-col-wrp {
@@ -432,7 +421,7 @@
     }
 
     html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title .fi-ta-text-item {
-        font-size: 17px !important;
+        font-size: 16px !important;
         font-weight: 700 !important;
         color: var(--vx-text) !important;
     }
@@ -441,19 +430,110 @@
         color: #111827 !important;
     }
 
-    /* Long badges (payout type, status) must wrap inside the card */
+    /* ── Stats: two-up row, label above value ───────────────────── */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat {
+        grid-column: span 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
+        gap: 2px !important;
+        padding: 12px 16px 14px !important;
+        border-top: 1px solid var(--vx-card-hairline) !important;
+        text-align: left !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat:nth-of-type(odd) {
+        grid-column: 1 !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat-solo {
+        grid-column: 1 / -1 !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat::before {
+        order: -1 !important;
+        font-size: 13px !important;
+        color: var(--vx-text-dim) !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat .fi-ta-col-wrp {
+        justify-content: flex-start !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat .fi-ta-text-item {
+        font-size: 17px !important;
+        font-weight: 600 !important;
+    }
+
+    /* Stat icons (the stray tick above stock counts) add noise in a card */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat svg {
+        display: none !important;
+    }
+
+    /* ── Detail rows ────────────────────────────────────────────── */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-detail {
+        border-top: 1px solid var(--vx-card-hairline) !important;
+    }
+
+    /* ── Footer (date) ──────────────────────────────────────────── */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-foot {
+        justify-content: flex-start !important;
+        gap: 8px !important;
+        padding: 11px 16px 13px !important;
+        border-top: 1px solid var(--vx-card-hairline) !important;
+        font-size: 13px !important;
+        color: var(--vx-text-dim) !important;
+        text-align: left !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-foot .fi-ta-col-wrp {
+        justify-content: flex-start !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-foot .fi-ta-text-item {
+        font-size: 13px !important;
+        color: var(--vx-text-dim) !important;
+    }
+
+    /* ── Hidden / structural ────────────────────────────────────── */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-selection,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-selection-cell {
+        display: none !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td:empty {
+        display: none !important;
+    }
+
+    /* ── Actions ────────────────────────────────────────────────── */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-actions,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-actions-cell {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        justify-content: flex-start !important;
+        gap: 6px !important;
+        padding: 10px 16px 12px !important;
+        border-top: 1px solid var(--vx-card-hairline) !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-actions::before,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-actions-cell::before {
+        display: none !important;
+    }
+
+    /* Dissolve Filament's per-action wrappers so buttons sit inline */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-actions > div,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-actions-cell > div,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td .fi-ac,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td .fi-ac-btn-ctn {
+        display: contents !important;
+    }
+
     html body .fi-ta-table > tbody > tr.fi-ta-row > td .fi-badge {
         white-space: normal !important;
         max-width: 100% !important;
         text-align: right !important;
-    }
-
-    /* The actions cell carries a "actions" header label — suppress it */
-    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-actions::before,
-    html body .fi-ta-table > tbody > tr.fi-ta-row > td[data-vx-label='actions']::before,
-    html body .fi-ta-table > tbody > tr.fi-ta-row > td[data-vx-label='Details']::before {
-        content: '' !important;
-        display: none !important;
     }
 }
 
@@ -483,4 +563,155 @@
     .fi-ta-row > .fi-ta-cell {
         display: table-cell !important;
     }
+}
+
+@media (max-width: 767px) {
+    /* The tile's text overflowed its 56px box and got clipped to the middle
+       two characters ("0 2" out of BCH-2024-001). Shrink and pack it so the
+       whole code wraps inside. */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile {
+        align-items: center !important;
+        padding: 5px 3px !important;
+        font-size: 9px !important;
+        line-height: 1.05 !important;
+        letter-spacing: -0.2px !important;
+        word-break: break-all !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile .fi-ta-col-wrp,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile .fi-ta-text,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile .fi-ta-text-item,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile span {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        font-size: 9px !important;
+        line-height: 1.05 !important;
+        letter-spacing: -0.2px !important;
+        white-space: normal !important;
+        word-break: break-all !important;
+        overflow-wrap: anywhere !important;
+        text-align: center !important;
+        color: #ffffff !important;
+        text-decoration: none !important;
+    }
+
+    /* Cell contents are links; the underline read as a text input */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td a,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td .fi-ta-text-item {
+        text-decoration: none !important;
+        border-bottom: none !important;
+    }
+
+    /* Tighten the stat block — it was leaving a large gap under the label */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat {
+        padding: 10px 16px 12px !important;
+        gap: 1px !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat .fi-ta-col-wrp,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat .fi-ta-text {
+        min-height: 0 !important;
+        line-height: 1.2 !important;
+    }
+}
+
+@media (max-width: 767px) {
+    /* width:100% resolved against a shrink-wrapped ancestor, so the code was
+       breaking one character per line. Pin the inner box in px. */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile > *,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile > * > *,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile > * > * > * {
+        display: block !important;
+        width: 50px !important;
+        min-width: 50px !important;
+        max-width: 50px !important;
+        flex: none !important;
+        text-align: center !important;
+        white-space: normal !important;
+        word-break: break-all !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    /* The copy affordance inside the tile adds an icon we don't want here */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile svg {
+        display: none !important;
+    }
+}
+
+@media (max-width: 767px) {
+    /* Grid forced every row onto the same column template, so the two stats
+       could not sit side by side under a 56px tile column. Flex-wrap lets
+       each cell declare its own share of the line. */
+    html body .fi-ta-table > tbody > tr.fi-ta-row {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        column-gap: 0 !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-cell {
+        box-sizing: border-box !important;
+        flex: 0 0 100% !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile {
+        flex: 0 0 56px !important;
+        margin: 14px 12px 12px 16px !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+        padding: 14px 16px 12px 0 !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row:not(.vx-has-tile) > td.vx-mobile-title {
+        flex: 0 0 100% !important;
+        padding-left: 16px !important;
+    }
+
+    /* Two stats share the line; a lone stat takes the full width */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat {
+        flex: 0 0 50% !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat-solo {
+        flex: 0 0 100% !important;
+    }
+
+    /* Only the first stat draws the divider, so the pair shares one hairline */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat ~ td.vx-mobile-stat {
+        border-left: none !important;
+    }
+}
+
+@media (max-width: 767px) {
+    /* flex-basis:0 let the first stat share the heading line, squeezing the
+       title to one character per line. Basis = row minus the tile and its
+       margins, so tile + title fill the line exactly and stats wrap below. */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title {
+        flex: 1 1 calc(100% - 84px) !important;
+        min-width: 0 !important;
+        max-width: calc(100% - 84px) !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row:not(.vx-has-tile) > td.vx-mobile-title {
+        flex: 0 0 100% !important;
+        max-width: 100% !important;
+    }
+}
+
+@media (max-width: 767px) {
+    /* Cells lay out in column order, so a resource whose date column comes
+       first (Shows) rendered its footer above the heading. Pin the card's
+       reading order independently of the table's column order. */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-tile    { order: 0 !important; }
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title   { order: 1 !important; }
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat    { order: 2 !important; }
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-detail  { order: 3 !important; }
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-foot    { order: 4 !important; }
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-actions,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-actions-cell { order: 5 !important; }
 }

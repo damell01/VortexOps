@@ -470,9 +470,11 @@ class InventoryItemResource extends Resource
                         default => 'heroicon-o-check-circle'
                     }),
                 TextColumn::make('reorder_level')
-                    ->label('Reorder At')
+                    // Shown only on phones, where the card pairs it with Stock
+                    // as the two-up stat row; the desktop table stays lean.
+                    ->label('Reorder Level')
                     ->placeholder('—')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->hiddenFrom('md'),
                 TextColumn::make('average_cost')
                     ->label('Avg Cost')
                     ->money('USD')
@@ -500,9 +502,11 @@ class InventoryItemResource extends Resource
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
-                    ->dateTime('M j, Y g:i A')
+                    // Card footer on phones only.
+                    ->label('Updated')
+                    ->date('M j, Y')
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->hiddenFrom('md'),
             ])
             ->striped()
             ->emptyStateIcon('heroicon-o-cube')

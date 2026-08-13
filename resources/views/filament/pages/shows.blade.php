@@ -129,7 +129,7 @@
         {{-- Shows Table --}}
         <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
             <div class="overflow-x-auto">
-                <table class="w-full">
+                <table class="w-full vx-cardify">
                     <thead class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                         <tr>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-900 dark:text-white">Show</th>

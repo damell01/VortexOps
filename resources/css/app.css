@@ -3081,33 +3081,104 @@ html body .fi-sidebar-group-collapse-btn svg {
     height: 1rem !important;
 }
 
-/* No desktop collapse control any more — the hamburger is the only toggle */
-html body .fi-topbar-collapse-sidebar-btn-ctn,
-html body .fi-topbar-open-collapse-sidebar-btn,
-html body .fi-topbar-close-collapse-sidebar-btn {
-    display: none !important;
+/* Exactly one sidebar toggle, drawn as a hamburger.
+   Filament ships two controls: the drawer hamburger (mobile) and a chevron
+   pair for desktop collapse. Showing both put a chevron against the logo.
+   Below lg the drawer hamburger is used; at lg and up the collapse control
+   is kept (it is the only one that actually collapses the desktop sidebar)
+   and its chevron is redrawn as a hamburger with CSS bars. */
+@media (min-width: 1024px) {
+    html body .fi-topbar-collapse-sidebar-btn-ctn {
+        display: flex !important;
+        align-items: center !important;
+        order: -1 !important;
+    }
+
+    /* No `display` override here on purpose: Alpine's x-show toggles these
+       with an inline style, and !important beat it, showing both buttons. */
+    html body .fi-topbar-open-collapse-sidebar-btn,
+    html body .fi-topbar-close-collapse-sidebar-btn {
+        align-items: center !important;
+        justify-content: center !important;
+        width: 2.25rem !important;
+        height: 2.25rem !important;
+        margin-right: 0.25rem !important;
+        border-radius: 0.5rem !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: var(--vxn-text) !important;
+    }
+
+    html body .fi-topbar-open-collapse-sidebar-btn:hover,
+    html body .fi-topbar-close-collapse-sidebar-btn:hover {
+        background-color: rgb(255 255 255 / .07) !important;
+    }
+
+    /* Swap the chevron glyph for a hamburger drawn from the bar + shadows */
+    html body .fi-topbar-open-collapse-sidebar-btn svg,
+    html body .fi-topbar-close-collapse-sidebar-btn svg {
+        display: none !important;
+    }
+
+    html body .fi-topbar-open-collapse-sidebar-btn::before,
+    html body .fi-topbar-close-collapse-sidebar-btn::before {
+        content: '' !important;
+        display: block !important;
+        width: 1.125rem !important;
+        height: 2px !important;
+        border-radius: 2px !important;
+        background-color: currentColor !important;
+        box-shadow: 0 -6px 0 currentColor, 0 6px 0 currentColor !important;
+    }
 }
 
 /* Sidebar always expanded on desktop, so the collapsed-width rules that
    left large gaps beside the icons must not apply. */
 @media (min-width: 1024px) {
+    /* No width pin here: fixing the width blocked the collapse toggle
+       entirely (the sidebar stayed 272px however often it was clicked).
+       Filament owns the width so it can animate between the two states. */
     html body .fi-sidebar.fi-main-sidebar {
         position: sticky !important;
         transform: none !important;
-        width: 17rem !important;
-        min-width: 17rem !important;
     }
 
-    html body .fi-sidebar .fi-sidebar-item-label,
-    html body .fi-sidebar .fi-sidebar-group-label {
+    /* Only force labels visible in the expanded state — applying it while
+       collapsed is what left wide gaps beside the icons. */
+    html body .fi-sidebar:not([data-collapsed="true"]) .fi-sidebar-item-label,
+    html body .fi-sidebar:not([data-collapsed="true"]) .fi-sidebar-group-label {
         display: block !important;
         opacity: 1 !important;
         width: auto !important;
     }
 
-    html body .fi-sidebar .fi-sidebar-item-btn {
+    html body .fi-sidebar:not([data-collapsed="true"]) .fi-sidebar-item-btn {
         justify-content: flex-start !important;
         gap: 0.75rem !important;
         padding: 0.5rem 0.75rem !important;
+    }
+
+    /* Collapsed: icon-only, centred, no leftover label space */
+    html body .fi-sidebar[data-collapsed="true"] .fi-sidebar-item-btn {
+        justify-content: center !important;
+        gap: 0 !important;
+        padding: 0.5rem !important;
+    }
+
+    html body .fi-sidebar[data-collapsed="true"] .fi-sidebar-item-label,
+    html body .fi-sidebar[data-collapsed="true"] .fi-sidebar-group-label,
+    html body .fi-sidebar[data-collapsed="true"] .vx-account-meta,
+    html body .fi-sidebar[data-collapsed="true"] .vx-account-logout span,
+    html body .fi-sidebar[data-collapsed="true"] .vx-channel-switcher {
+        display: none !important;
+    }
+
+    html body .fi-sidebar[data-collapsed="true"] .vx-account {
+        padding: 0.5rem !important;
+    }
+
+    html body .fi-sidebar[data-collapsed="true"] .vx-account-row {
+        justify-content: center !important;
     }
 }

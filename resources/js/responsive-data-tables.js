@@ -118,6 +118,17 @@ function decorateTable(table) {
 }
 
 function decorateTables(root = document) {
+    // Hand-written Blade tables opt in with .vx-cardify. Tagging them with
+    // Filament's structural classes lets them reuse the same card stylesheet
+    // instead of duplicating every rule for a second selector family.
+    root.querySelectorAll('.vx-cardify').forEach((table) => {
+        table.classList.add('fi-ta-table');
+        table.querySelectorAll(':scope > tbody > tr').forEach((row) => {
+            row.classList.add('fi-ta-row');
+            row.querySelectorAll(':scope > td').forEach((cell) => cell.classList.add('fi-ta-cell'));
+        });
+    });
+
     root.querySelectorAll('.fi-ta-table').forEach(decorateTable);
 }
 

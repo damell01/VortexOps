@@ -62,10 +62,11 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogo(fn (): ?string => static::resolveBrandLogo(ChannelContext::current(), $logoPath))
             ->brandLogoHeight('2.75rem')
             ->font('Inter')
-            // Collapsible-on-desktop added a second toggle (the chevron) beside
-            // the hamburger, which collided with the logo, and its collapsed
-            // state left wide gaps next to the icons. One control is enough:
-            // the hamburger for the mobile drawer, always-open on desktop.
+            // Needed so the sidebar can be opened/closed on desktop. Filament
+            // renders this as a chevron next to the drawer hamburger; the
+            // stylesheet hides the duplicate and redraws the remaining control
+            // as a hamburger so there is exactly one, consistent toggle.
+            ->sidebarCollapsibleOnDesktop()
             // Mobile-optimized: 6xl on desktop, full width on mobile
             ->maxContentWidth(\Filament\Support\Enums\Width::Full)
             ->globalSearchKeyBindings(['mod+k', '/'])

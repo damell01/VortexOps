@@ -23,15 +23,42 @@ use Illuminate\Support\Carbon;
 
 class InventoryMovementResource extends Resource
 {
-    use HasModuleAccess;
+    use HasModuleAccess {
+        HasModuleAccess::shouldRegisterNavigation as moduleShouldRegisterNavigation;
+    }
 
     protected static string $moduleSlug  = 'inventory';
 
     protected static ?string $model = InventoryMovement::class;
 
+    /**
+     * Was hardcoded to false, which hid the movement log from every account
+     * regardless of what the navigation-visibility settings said. Now gated on
+     * role, then deferred to the trait so module gating and the visibility
+     * settings still apply.
+     */
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        if (! static::isVisibleToRole()) {
+            return false;
+        }
+
+        return static::moduleShouldRegisterNavigation();
+    }
+
+    public static function canAccess(): bool
+    {
+        return static::isVisibleToRole() && parent::canAccess();
+    }
+
+    /** Movement history is an operational audit trail, not streamer-facing. */
+    protected static function isVisibleToRole(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->isOwner() ?? false)
+            || ($user?->isAdmin() ?? false)
+            || ($user?->isFulfillmentAdmin() ?? false);
     }
 
     public static function getNavigationIcon(): string|\BackedEnum|null

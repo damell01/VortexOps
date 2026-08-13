@@ -1,12 +1,27 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Mobile card layout (<768px)
-   Single source of truth. Styles the REAL Split/Stack markup emitted by
-   Filament layout columns (.vx-mobile-card), not <td> nth-child hacks.
+   Mobile card layout (<768px) — built to the design mockups.
+
+   NOTE: when a Filament v5 table uses layout columns (Split/Stack) it
+   renders DIVS (.fi-ta-record / .fi-ta-record-content), not <tr>/<td>.
+   These rules target that real markup.
    ═══════════════════════════════════════════════════════════════════ */
 
+:root {
+    --vx-card-bg: #131c2e;
+    --vx-card-border: #1f2a3d;
+    --vx-card-hairline: #1f2a3d;
+    --vx-text: #ffffff;
+    --vx-text-dim: #8b95a9;
+    --vx-violet: #7c5cff;
+    --vx-violet-2: #a78bfa;
+    --vx-green: #4ade80;
+}
+
 @media (max-width: 767px) {
-    /* Strip table chrome so rows can become cards */
-    .fi-ta-table thead {
+    /* ── Strip table chrome ─────────────────────────────────────── */
+    .fi-ta-table thead,
+    .fi-ta-header-ctn .fi-ta-header,
+    .fi-ta-record .fi-ta-record-checkbox-ctn {
         display: none !important;
     }
 
@@ -18,99 +33,16 @@
         border: none !important;
     }
 
-    .fi-ta-table tbody {
-        padding: 12px !important;
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 10px !important;
-    }
-
-    /* Each row becomes a card */
-    .fi-ta-row {
-        display: block !important;
-        background: #ffffff !important;
-        border: 1px solid #e5e7eb !important;
-        border-radius: 12px !important;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
-        overflow: hidden !important;
-    }
-
-    html.dark .fi-ta-row {
-        background: #131c2e !important;
-        border-color: #1f2a3d !important;
-        box-shadow: none !important;
-    }
-
-    .fi-ta-row:hover {
-        border-color: #c7d2fe !important;
-    }
-
-    html.dark .fi-ta-row:hover {
-        border-color: #2d3f5e !important;
-    }
-
-    /* Cells are plain blocks; the Split component handles layout */
-    .fi-ta-row > td,
-    .fi-ta-row > .fi-ta-cell {
-        display: block !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        padding: 14px 16px !important;
-        border: none !important;
-        background: transparent !important;
-    }
-
-    /* Filament wraps column content in .fi-ta-col-wrp — must span the cell */
-    .fi-ta-row .fi-ta-col-wrp {
-        width: 100% !important;
-        min-width: 0 !important;
-        display: block !important;
-    }
-
-    /* Filament lays columns out in a CSS grid; each column gets its own
-       track, which left the mobile Split stuck in a ~139px track. Collapse
-       the row-level grid to a single full-width track on mobile. */
-    .fi-ta-row .fi-ta-col-wrp > .fi-grid,
-    .fi-ta-row .fi-ta-cell > .fi-grid,
-    .fi-ta-row .fi-ta-cell > div[class*='fi-grid']:not(.fi-grid-col) {
-        display: block !important;
-        grid-template-columns: none !important;
-        width: 100% !important;
-    }
-
-    /* The grid cell that holds the mobile card must span the full width.
-       Scoped with :has() so the Split's own children are unaffected. */
-    .fi-ta-row .fi-grid-col:has(> .vx-mobile-card) {
-        width: 100% !important;
-        max-width: 100% !important;
-        min-width: 0 !important;
-        flex: 1 1 100% !important;
-        grid-column: 1 / -1 !important;
-    }
-
-    /* Selection checkbox cell collapses on mobile */
-    .fi-ta-row > .fi-ta-selection-cell {
-        display: none !important;
-    }
-
-    /* ── Record-based layout ──────────────────────────────────────────
-       Filament renders layout-column tables as divs (.fi-ta-record…),
-       NOT <tr>/<td>. These are the elements that actually exist here. */
-
+    /* ── Card shell ─────────────────────────────────────────────── */
     .fi-ta-record {
         display: block !important;
         width: 100% !important;
-        background: #ffffff !important;
-        border: 1px solid #e5e7eb !important;
-        border-radius: 12px !important;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+        margin: 0 0 12px !important;
+        background: var(--vx-card-bg) !important;
+        border: 1px solid var(--vx-card-border) !important;
+        border-radius: 14px !important;
+        box-shadow: none !important;
         overflow: hidden !important;
-    }
-
-    html.dark .fi-ta-record {
-        background: #131c2e !important;
-        border-color: #1f2a3d !important;
     }
 
     .fi-ta-record-content-ctn {
@@ -119,86 +51,145 @@
         min-width: 0 !important;
     }
 
-    /* The inline-flex anchor was capping the card at ~139px */
+    /* The inline-flex anchor capped the card at ~139px */
     .fi-ta-record-content {
-        display: flex !important;
+        display: block !important;
         width: 100% !important;
         min-width: 0 !important;
-        padding: 14px 16px !important;
+        padding: 0 !important;
         text-decoration: none !important;
     }
 
-    /* Desktop column wrappers still occupy flex space on mobile and were
-       squeezing the card to ~35px. Only the card's wrapper survives here. */
+    /* Desktop column wrappers still consumed flex space on mobile and
+       squeezed the card to ~35px. Only the card's wrapper survives. */
     .fi-ta-record-content > .fi-grid-col:not(:has(.vx-mobile-card)) {
         display: none !important;
     }
 
     .fi-ta-record-content > .fi-grid-col:has(.vx-mobile-card) {
-        flex: 1 1 100% !important;
+        display: block !important;
         width: 100% !important;
         min-width: 0 !important;
-        display: block !important;
+        flex: 1 1 100% !important;
     }
 
-    /* ── Card interior (Split: [Stack: title, sku]  [stock badge]) ── */
+    /* ── Card body ──────────────────────────────────────────────── */
     .vx-mobile-card {
+        display: block !important;
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    .vx-mobile-card * {
+        min-width: 0 !important;
+    }
+
+    /* Row 1 — violet SKU tile + title */
+    .vx-mc-head {
         display: flex !important;
         align-items: center !important;
-        gap: 12px !important;
+        gap: 14px !important;
         width: 100% !important;
-        min-width: 0 !important;
-        flex-wrap: nowrap !important;
+        padding: 14px 16px 12px !important;
     }
 
-    /* Flex children default to min-width:auto, which lets the text column
-       collapse to ~1 character wide. Force it to actually grow. */
-    .vx-mobile-card > .fi-growable,
-    .vx-mobile-card > .fi-grid-col:first-child {
-        flex: 1 1 auto !important;
-        min-width: 0 !important;
-        width: auto !important;
-    }
-
-    .vx-mobile-card > .fi-growable * {
-        min-width: 0 !important;
-    }
-
-    /* Badge column keeps its intrinsic width but never squeezes the title */
-    .vx-mobile-card > .fi-ta-col:last-child {
+    .vx-mc-avatar {
         flex: 0 0 auto !important;
-        width: auto !important;
+        width: 56px !important;
+        height: 56px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+        border-radius: 12px !important;
+        background: linear-gradient(150deg, var(--vx-violet) 0%, #6d3fe0 100%) !important;
+        color: #ffffff !important;
+        font-size: 13px !important;
+        font-weight: 800 !important;
+        line-height: 1.15 !important;
+        letter-spacing: 0.4px !important;
+        overflow: hidden !important;
+        word-break: break-all !important;
+    }
+
+    .vx-mc-avatar .fi-ta-text-item,
+    .vx-mc-avatar .fi-ta-text {
+        color: #ffffff !important;
+        justify-content: center !important;
+        text-align: center !important;
     }
 
     .vx-mc-title {
-        font-size: 16px !important;
+        flex: 1 1 auto !important;
+        font-size: 17px !important;
         font-weight: 700 !important;
         line-height: 1.3 !important;
-        color: #111827 !important;
+        color: var(--vx-text) !important;
     }
 
-    html.dark .vx-mc-title {
-        color: #f8fafc !important;
+    .vx-mc-title .fi-ta-text-item {
+        color: var(--vx-text) !important;
     }
 
-    .vx-mc-sku {
-        font-size: 12px !important;
+    /* Row 2 — Stock / Reorder Level, hairline above */
+    .vx-mc-stats {
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 0 !important;
+        width: 100% !important;
+        padding: 12px 16px 14px !important;
+        margin: 0 16px !important;
+        width: calc(100% - 32px) !important;
+        border-top: 1px solid var(--vx-card-hairline) !important;
+    }
+
+    .vx-mc-stat {
+        flex: 1 1 50% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 3px !important;
+    }
+
+    /* label (description position: above) */
+    .vx-mc-stat .fi-ta-text-description {
+        order: -1 !important;
+        font-size: 13px !important;
         font-weight: 500 !important;
-        line-height: 1.3 !important;
-        color: #6b7280 !important;
-        font-variant-numeric: tabular-nums !important;
+        color: var(--vx-text-dim) !important;
     }
 
-    html.dark .vx-mc-sku {
-        color: #8b95a9 !important;
+    /* value */
+    .vx-mc-stat .fi-ta-text-item {
+        font-size: 17px !important;
+        font-weight: 600 !important;
+        line-height: 1.2 !important;
     }
 
-    .vx-mc-badge {
-        flex-shrink: 0 !important;
-        white-space: nowrap !important;
+    /* Row 3 — Updated … footer with hairline */
+    .vx-mc-foot {
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        width: calc(100% - 32px) !important;
+        margin: 0 16px !important;
+        padding: 12px 0 14px !important;
+        border-top: 1px solid var(--vx-card-hairline) !important;
+        font-size: 13px !important;
+        color: var(--vx-text-dim) !important;
     }
 
-    /* Row actions: one horizontal strip under the card body, not a stack */
+    .vx-mc-foot .fi-ta-text-item,
+    .vx-mc-foot svg {
+        color: var(--vx-text-dim) !important;
+        font-size: 13px !important;
+    }
+
+    .vx-mc-foot svg {
+        width: 16px !important;
+        height: 16px !important;
+    }
+
+    /* ── Row actions: single horizontal strip ───────────────────── */
     .fi-ta-record .fi-ta-actions,
     .fi-ta-actions {
         display: flex !important;
@@ -206,24 +197,31 @@
         flex-wrap: wrap !important;
         align-items: center !important;
         justify-content: flex-start !important;
-        width: 100% !important;
-        padding: 0 16px 14px !important;
+        width: calc(100% - 32px) !important;
+        margin: 0 16px !important;
+        padding: 10px 0 14px !important;
         gap: 6px !important;
-        border-top: 1px solid #eef1f5 !important;
-        margin-top: 0 !important;
-        padding-top: 12px !important;
+        border-top: 1px solid var(--vx-card-hairline) !important;
     }
 
-    html.dark .fi-ta-record .fi-ta-actions,
-    html.dark .fi-ta-actions {
-        border-top-color: #1f2a3d !important;
-    }
-
-    .fi-ta-actions > *,
+    /* Filament nests each action in wrapper divs, which forced one action
+       per line. `display: contents` dissolves the wrappers so the buttons
+       themselves become flex items of the strip. */
+    .fi-ta-actions > div,
     .fi-ta-actions .fi-ac,
     .fi-ta-actions .fi-ac-btn-ctn {
+        display: contents !important;
+    }
+
+    .fi-ta-actions .fi-btn,
+    .fi-ta-actions .fi-link,
+    .fi-ta-actions .fi-icon-btn,
+    .fi-ta-actions .fi-dropdown,
+    .fi-ta-actions .fi-dropdown-trigger {
         display: inline-flex !important;
+        align-items: center !important;
         width: auto !important;
+        max-width: none !important;
         flex: 0 0 auto !important;
         margin: 0 !important;
     }
@@ -242,7 +240,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   Desktop (≥768px) — make sure nothing above leaks into the table
+   Desktop (≥768px) — keep the normal table
    ═══════════════════════════════════════════════════════════════════ */
 
 @media (min-width: 768px) {
@@ -257,19 +255,14 @@
 
     .fi-ta-table tbody {
         display: table-row-group !important;
-        padding: 0 !important;
-        gap: 0 !important;
     }
 
     .fi-ta-row {
         display: table-row !important;
-        border-radius: 0 !important;
-        box-shadow: none !important;
     }
 
     .fi-ta-row > td,
     .fi-ta-row > .fi-ta-cell {
         display: table-cell !important;
-        width: auto !important;
     }
 }

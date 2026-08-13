@@ -437,35 +437,49 @@ class InventoryItemResource extends Resource
     {
         return $table
             ->columns([
-                // ── Mobile card layout (<768px). Real Split/Stack markup, not CSS on <td>. ──
-                Split::make([
-                    Stack::make([
+                // ── Mobile card (<768px). Real Split/Stack markup, not CSS on <td>.
+                //    Three rows, matching the design mockups:
+                //      1. violet SKU tile + item name
+                //      2. Stock / Reorder Level stat pair (label above value)
+                //      3. "Updated <date>" footer
+                Stack::make([
+                    Split::make([
+                        TextColumn::make('sku')
+                            ->formatStateUsing(fn ($state) => $state
+                                ? implode('', array_slice(str_split(preg_replace('/[^A-Za-z0-9]/', '', (string) $state), 2), -3))
+                                : '—')
+                            ->searchable()
+                            ->grow(false)
+                            ->extraAttributes(['class' => 'vx-mc-avatar']),
                         TextColumn::make('name')
                             ->weight('bold')
                             ->size(TextSize::Large)
                             ->searchable()
                             ->extraAttributes(['class' => 'vx-mc-title']),
-                        TextColumn::make('sku')
-                            ->label('SKU')
-                            ->prefix('SKU · ')
-                            ->color('gray')
-                            ->size(TextSize::Small)
-                            ->searchable()
+                    ])->extraAttributes(['class' => 'vx-mc-head']),
+
+                    Split::make([
+                        TextColumn::make('stock_sum_quantity')
+                            ->default(0)
+                            ->description('Stock', position: 'above')
+                            ->formatStateUsing(fn ($state) => number_format((int) $state))
+                            ->color(fn ($record) => match (true) {
+                                (int) ($record->stock_sum_quantity ?? 0) <= 0 => 'danger',
+                                isset($record->reorder_level) && (int) ($record->stock_sum_quantity ?? 0) <= (int) $record->reorder_level => 'warning',
+                                default => 'success'
+                            })
+                            ->extraAttributes(['class' => 'vx-mc-stat']),
+                        TextColumn::make('reorder_level')
+                            ->description('Reorder Level', position: 'above')
                             ->placeholder('—')
-                            ->extraAttributes(['class' => 'vx-mc-sku']),
-                    ])->space(1),
-                    TextColumn::make('stock_sum_quantity')
-                        ->label('Stock')
-                        ->badge()
-                        ->default(0)
-                        ->formatStateUsing(fn ($state) => number_format((int) $state) . ' in stock')
-                        ->color(fn ($record) => match (true) {
-                            (int) ($record->stock_sum_quantity ?? 0) <= 0 => 'danger',
-                            isset($record->reorder_level) && (int) ($record->stock_sum_quantity ?? 0) <= (int) $record->reorder_level => 'warning',
-                            default => 'success'
-                        })
-                        ->grow(false)
-                        ->extraAttributes(['class' => 'vx-mc-badge']),
+                            ->extraAttributes(['class' => 'vx-mc-stat']),
+                    ])->extraAttributes(['class' => 'vx-mc-stats']),
+
+                    TextColumn::make('updated_at')
+                        ->date('M j, Y')
+                        ->prefix('Updated ')
+                        ->icon('heroicon-m-clock')
+                        ->extraAttributes(['class' => 'vx-mc-foot']),
                 ])
                     ->hiddenFrom('md')
                     ->extraAttributes(['class' => 'vx-mobile-card']),

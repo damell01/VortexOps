@@ -106,6 +106,12 @@ class StreamerLogEntry extends Model
      * The items sold on this entry's show — matched on show_id so the streamer
      * can enrich them from the log page without opening the show.
      */
+    /** Line items the streamer logged as sold; replaces the scraped orders. */
+    public function items(): HasMany
+    {
+        return $this->hasMany(StreamerLogItem::class, 'streamer_log_entry_id');
+    }
+
     public function showOrders(): HasMany
     {
         return $this->hasMany(WhatnotShowOrder::class, 'show_id', 'show_id');
@@ -187,7 +193,8 @@ class StreamerLogEntry extends Model
         return max(0, $minutesRemaining);
     }
 
-    public function submitReport(): void
+    /** @return array<int, string> deduction problems, empty when clean */
+    public function submitReport(): array
     {
         $this->update([
             'submitted_at' => now(),
@@ -195,7 +202,10 @@ class StreamerLogEntry extends Model
             'edit_window_minutes' => $this->edit_window_minutes ?? 120, // 2 hours default
         ]);
 
-        $this->deductInventoryOnSubmission();
+        // Returns any lines that could not be deducted (unmatched item or not
+        // enough stock). Surfaced rather than swallowed, so a streamer is not
+        // told the submission is clean when inventory did not move.
+        return $this->deductInventoryOnSubmission();
     }
 
     public function lockReport(): void
@@ -252,63 +262,115 @@ class StreamerLogEntry extends Model
         }
     }
 
-    public function deductInventoryOnSubmission(): void
+    /**
+     * Deduct logged line items from the streamer's stock on submission.
+     *
+     * Returns any lines that could not be deducted so the caller can surface
+     * them. Previously this walked scraped Whatnot orders and silently skipped
+     * both unmapped items and locations without enough stock, so a streamer
+     * could submit believing inventory had reconciled when nothing moved.
+     *
+     * @return array<int, string> human-readable problems, empty when clean
+     */
+    public function deductInventoryOnSubmission(): array
     {
-        if (!$this->show) return;
+        $problems = [];
+
+        if (! $this->show) {
+            return ['No show attached to this log entry.'];
+        }
+
+        $streamer = $this->streamer;
+        if (! $streamer) {
+            return ['No streamer attached to this log entry.'];
+        }
 
         $inventoryService = app(\App\Services\InventoryService::class);
-        $streamer = $this->streamer;
-        if (!$streamer) return;
+        $locations = $streamer->inventoryLocations;
 
-        $orders = $this->show->orders()
-            ->with('inventoryItem')
-            ->whereNotNull('inventory_item_id')
-            ->get();
+        foreach ($this->items()->with('inventoryItem')->get() as $line) {
+            if (! $line->inventoryItem) {
+                $problems[] = "\"{$line->item_name}\" is not linked to an inventory product, so no stock was deducted.";
+                continue;
+            }
 
-        foreach ($orders as $order) {
-            if (!$order->inventoryItem) continue;
+            $item = $line->inventoryItem;
+            $quantity = max(0, (int) $line->quantity);
+            if ($quantity === 0) {
+                continue;
+            }
 
-            $item = $order->inventoryItem;
-            $quantity = $order->quantity ?? 1;
+            // Prefer the location recorded on the line, else the streamer's.
+            $candidates = $line->inventory_location_id
+                ? $locations->where('id', $line->inventory_location_id)
+                : $locations;
 
-            foreach ($streamer->inventoryLocations as $location) {
+            $deducted = false;
+
+            foreach ($candidates as $location) {
                 $stock = InventoryStock::where('inventory_item_id', $item->id)
                     ->where('inventory_location_id', $location->id)
                     ->first();
 
-                if ($stock && $stock->quantity >= $quantity) {
+                if ($stock && (float) $stock->quantity >= $quantity) {
                     $inventoryService->adjustStock(
                         $item,
                         $location,
                         (float) $stock->quantity - $quantity,
                         "Inventory deducted - Streamer submitted log for show: {$this->show->title}"
                     );
+                    $line->update([
+                        'inventory_location_id' => $location->id,
+                        'deducted_quantity'     => $quantity,
+                    ]);
+                    $deducted = true;
                     break;
                 }
             }
+
+            if (! $deducted) {
+                $onHand = InventoryStock::where('inventory_item_id', $item->id)
+                    ->whereIn('inventory_location_id', $locations->pluck('id'))
+                    ->sum('quantity');
+
+                $problems[] = "\"{$item->name}\" needed {$quantity} but only "
+                    . (float) $onHand . " on hand, so no stock was deducted.";
+            }
         }
+
+        return $problems;
     }
 
+    /** Put back everything deduction took, when changes are requested. */
     public function restoreInventoryOnRejection(): void
     {
-        if (!$this->show) return;
+        if (! $this->show) {
+            return;
+        }
+
+        $streamer = $this->streamer;
+        if (! $streamer) {
+            return;
+        }
 
         $inventoryService = app(\App\Services\InventoryService::class);
-        $streamer = $this->streamer;
-        if (!$streamer) return;
+        $locations = $streamer->inventoryLocations;
 
-        $orders = $this->show->orders()
-            ->with('inventoryItem')
-            ->whereNotNull('inventory_item_id')
-            ->get();
+        // Only lines that actually came out of stock go back in. Using the
+        // logged quantity here would return units that were never deducted.
+        foreach ($this->items()->with('inventoryItem')->where('deducted_quantity', '>', 0)->get() as $line) {
+            if (! $line->inventoryItem) {
+                continue;
+            }
 
-        foreach ($orders as $order) {
-            if (!$order->inventoryItem) continue;
+            $item = $line->inventoryItem;
+            $quantity = (int) $line->deducted_quantity;
 
-            $item = $order->inventoryItem;
-            $quantity = $order->quantity ?? 1;
+            $candidates = $line->inventory_location_id
+                ? $locations->where('id', $line->inventory_location_id)
+                : $locations;
 
-            foreach ($streamer->inventoryLocations as $location) {
+            foreach ($candidates as $location) {
                 $stock = InventoryStock::where('inventory_item_id', $item->id)
                     ->where('inventory_location_id', $location->id)
                     ->first();
@@ -318,8 +380,9 @@ class StreamerLogEntry extends Model
                         $item,
                         $location,
                         (float) $stock->quantity + $quantity,
-                        "Inventory restored - Streamer log rejected/changes requested for show: {$this->show->title}"
+                        "Inventory restored - changes requested for show: {$this->show->title}"
                     );
+                    $line->update(['deducted_quantity' => 0]);
                     break;
                 }
             }

@@ -14,6 +14,7 @@
         background: transparent !important;
         border: none !important;
         border-collapse: separate !important;
+        margin-top: 0 !important;
     }
 
     .fi-ta-table thead {
@@ -22,27 +23,29 @@
 
     .fi-ta-table tbody {
         display: contents !important;
+        margin-top: 0 !important;
     }
 
     /* Card-style rows - use .fi-ta-row class */
     .fi-ta-row {
         display: grid !important;
         grid-template-columns: 60px 1fr auto !important;
-        gap: 12px !important;
+        gap: 14px !important;
         align-items: center !important;
-        padding: 12px !important;
+        padding: 14px !important;
         background: #ffffff !important;
-        border: none !important;
-        border-radius: 12px !important;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+        border: 1px solid #e0e6ed !important;
+        border-radius: 10px !important;
+        box-shadow: none !important;
         width: 100% !important;
         min-height: auto !important;
         height: auto !important;
     }
 
     html.dark .fi-ta-row {
-        background: #1f2937 !important;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+        background: #1a2332 !important;
+        border-color: #2d3a4f !important;
+        box-shadow: none !important;
     }
 
     /* Hide all cells by default */
@@ -62,9 +65,10 @@
         width: 60px !important;
         height: 60px !important;
         padding: 0 !important;
-        background: #e5e7eb !important;
-        border-radius: 12px !important;
-        color: #6b7280 !important;
+        background: #f0f4f9 !important;
+        border: 1.5px solid #3b82f6 !important;
+        border-radius: 10px !important;
+        color: #3b82f6 !important;
         font-weight: 700 !important;
         font-size: 14px !important;
         flex-shrink: 0 !important;
@@ -73,14 +77,16 @@
     .fi-ta-row td:nth-child(1) img {
         width: 100%;
         height: 100%;
-        border-radius: 12px;
+        border-radius: 9px;
         object-fit: cover;
+        border: none !important;
     }
 
-    /* Avatar background - neutral gray */
+    /* Avatar background - blue border on dark */
     html.dark .fi-ta-row td:nth-child(1) {
-        background: #4b5563 !important;
-        color: #e5e7eb !important;
+        background: #1a2d47 !important;
+        border-color: #3b82f6 !important;
+        color: #3b82f6 !important;
     }
 
     /* Content wrapper - grid column 2 */
@@ -98,6 +104,7 @@
         margin: 0 !important;
         min-height: auto !important;
         height: auto !important;
+        gap: 4px !important;
     }
 
     .fi-ta-row td:nth-child(2) {
@@ -108,28 +115,29 @@
     }
 
     html.dark .fi-ta-row td:nth-child(2) {
-        color: #f9fafb !important;
+        color: #f0f4f9 !important;
     }
 
     .fi-ta-row td:nth-child(3),
     .fi-ta-row td:nth-child(4),
     .fi-ta-row td:nth-child(5) {
-        font-size: 12px !important;
-        font-weight: 500 !important;
+        font-size: 13px !important;
+        font-weight: 400 !important;
         color: #6b7280 !important;
-        margin-top: 2px !important;
     }
 
     html.dark .fi-ta-row td:nth-child(3),
     html.dark .fi-ta-row td:nth-child(4),
     html.dark .fi-ta-row td:nth-child(5) {
-        color: #d1d5db !important;
+        color: #a0aac0 !important;
     }
 
     .fi-ta-row td:nth-child(6) {
-        font-size: 13px !important;
-        font-weight: 600 !important;
-        padding-top: 4px !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px !important;
     }
 
     /* Action cell - grid column 3 */

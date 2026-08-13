@@ -26,7 +26,9 @@ use App\Filament\Concerns\HasAdminNavVisibility;
 
 class LedgerResource extends Resource
 {
-    use HasAdminNavVisibility;
+    use HasAdminNavVisibility {
+        HasAdminNavVisibility::shouldRegisterNavigation as navVisibilityShouldRegisterNavigation;
+    }
 
     protected static ?string $model = LedgerEntry::class;
 
@@ -53,15 +55,34 @@ class LedgerResource extends Resource
 
         return AdminModules::isEnabled('reporting')
             && ! NavVisibility::isHiddenForUser(static::class, $user)
-            && (bool) $user?->isAdmin();
+            && static::isVisibleToRole();
     }
 
     // Retired from the nav: the Whatnot-fed "Ledger" (WhatnotLedgerResource) is now
     // the single ledger view. The internal accounting entries remain in the DB and
     // are still reachable via LedgerService; this resource is just hidden.
+    /**
+     * Was hardcoded to false, hiding the ledger from every account regardless
+     * of the navigation-visibility settings. Gated on role, then deferred to
+     * HasAdminNavVisibility so those settings still apply.
+     */
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        // Gate on canAccess too: it also checks the reporting module, and
+        // without it the entry showed in the menu while the page 403'd.
+        if (! static::canAccess()) {
+            return false;
+        }
+
+        return static::navVisibilityShouldRegisterNavigation();
+    }
+
+    /** Financial history, so admins and owners only. */
+    protected static function isVisibleToRole(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->isOwner() ?? false) || ($user?->isAdmin() ?? false);
     }
 
     public static function canCreate(): bool   { return false; }

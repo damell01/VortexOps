@@ -26,15 +26,41 @@ use Illuminate\Support\Facades\Cache;
 
 class InventoryStockResource extends Resource
 {
-    use HasModuleAccess;
+    use HasModuleAccess {
+        HasModuleAccess::shouldRegisterNavigation as moduleShouldRegisterNavigation;
+    }
 
     protected static string $moduleSlug  = 'inventory';
 
     protected static ?string $model = InventoryStock::class;
 
+    /**
+     * Was hardcoded to false, hiding this from every account regardless of the
+     * navigation-visibility settings. Gated on role, then deferred to the trait
+     * so module gating and those settings still apply.
+     */
     public static function shouldRegisterNavigation(): bool
     {
-        return false;
+        if (! static::isVisibleToRole()) {
+            return false;
+        }
+
+        return static::moduleShouldRegisterNavigation();
+    }
+
+    public static function canAccess(): bool
+    {
+        return static::isVisibleToRole() && parent::canAccess();
+    }
+
+    /** Stock levels are operational, so fulfillment admins see them too. */
+    protected static function isVisibleToRole(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->isOwner() ?? false)
+            || ($user?->isAdmin() ?? false)
+            || ($user?->isFulfillmentAdmin() ?? false);
     }
 
     public static function getNavigationIcon(): string|\BackedEnum|null

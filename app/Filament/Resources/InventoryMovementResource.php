@@ -78,17 +78,17 @@ class InventoryMovementResource extends Resource
 
     public static function getNavigationLabel(): string
     {
-        return 'Movement Log';
+        return 'Inventory Log';
     }
 
     public static function getModelLabel(): string
     {
-        return 'Movement';
+        return 'Inventory Log Entry';
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'Movement Log';
+        return 'Inventory Log';
     }
 
     public static function canCreate(): bool
@@ -218,10 +218,21 @@ class InventoryMovementResource extends Resource
                     ->limit(50)
                     ->placeholder('—')
                     ->toggleable(),
+                TextColumn::make('unit_cost')
+                    ->label('Unit Cost')
+                    ->money('USD')
+                    ->placeholder('—')
+                    ->sortable()
+                    ->description(fn ($record) => $record->unit_cost !== null && $record->quantity
+                        ? 'Line: $' . number_format(((float) $record->unit_cost) * ((float) $record->quantity), 2)
+                        : null),
+                // Who did it is the point of an audit trail, so it is not
+                // hidden behind a column toggle.
                 TextColumn::make('createdByUser.name')
                     ->label('By')
-                    ->placeholder('—')
-                    ->toggleable(),
+                    ->placeholder('System')
+                    ->searchable()
+                    ->sortable(),
             ])
             ->filters([
                 Filter::make('date_range')
@@ -244,6 +255,14 @@ class InventoryMovementResource extends Resource
 
                         return $indicators;
                     }),
+                SelectFilter::make('created_by')
+                    ->label('Performed By')
+                    ->relationship('createdByUser', 'name')
+                    ->searchable()
+                    ->preload(),
+                Filter::make('has_cost')
+                    ->label('Cost changes only')
+                    ->query(fn ($query) => $query->whereNotNull('unit_cost')),
                 SelectFilter::make('movement_type')
                     ->options(InventoryMovement::movementTypeLabels()),
                 SelectFilter::make('inventory_item_id')

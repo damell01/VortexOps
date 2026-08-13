@@ -58,8 +58,10 @@
                     ['Label Count',     $num($log->label_count)],
                     ['Gross Revenue',   $money($log->gross_revenue)],
                     ['Product Cost',    $money($log->product_cost)],
-                    ['Profit Share',    $money($log->profit_share_amount)],
-                    ['Total Due',       $money($log->total_due)],
+                    // Deliberately no profit share here: it is a monthly,
+                    // per-streamer figure settled in the profit share view,
+                    // not a per-show number. Showing it against one show
+                    // implied a breakdown that does not exist.
                 ] as [$label, $value])
                     <div class="vx-log-cell">
                         <dt>{{ $label }}</dt>

@@ -112,19 +112,35 @@ html.dark .fi-sidebar-header {
     box-shadow: none !important;
     outline: none !important;
     margin: 0 !important;
+    gap: 0 !important;
+    cursor: pointer !important;
 }
 
-/* Hide the collapse button */
+/* Style the collapse button - show chevron */
 .fi-sidebar-group-btn .fi-sidebar-group-collapse-btn {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
-    margin: 0 !important;
+    display: flex !important;
+    width: auto !important;
+    height: auto !important;
+    margin-left: auto !important;
     padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    color: #6b7280 !important;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+.fi-sidebar-group-btn .fi-sidebar-group-collapse-btn:hover {
+    opacity: 1;
+}
+
+.fi-sidebar-group-btn .fi-sidebar-group-collapse-btn svg {
+    width: 18px;
+    height: 18px;
 }
 
 .fi-sidebar-group-collapse-btn {
-    display: none !important;
+    display: flex !important;
 }
 
 /* Style the label inside the group button */
@@ -134,7 +150,7 @@ html.dark .fi-sidebar-header {
     text-transform: uppercase !important;
     letter-spacing: 0.8px !important;
     color: #6b7280 !important;
-    flex: 1;
+    flex: 0;
 }
 
 html.dark .fi-sidebar-nav-group-header {
@@ -185,25 +201,27 @@ html.dark .fi-sidebar-nav-item > a:hover {
 
 /* Only the active item gets the background */
 .fi-sidebar-nav-item.fi-sidebar-nav-item-active > a {
-    background: rgba(139, 92, 246, 0.25) !important;
+    background: rgba(139, 92, 246, 0.3) !important;
     color: #d8b4fe;
     font-weight: 600;
+    border-radius: 8px !important;
+    margin: 0 8px !important;
 }
 
 .fi-sidebar-nav-item.fi-sidebar-nav-item-active > a::before {
     content: '';
     position: absolute;
-    left: 8px;
+    left: 16px;
     top: 50%;
     transform: translateY(-50%);
     width: 3px;
-    height: 22px;
+    height: 24px;
     background: #8b5cf6;
     border-radius: 0 2px 2px 0;
 }
 
 html.dark .fi-sidebar-nav-item.fi-sidebar-nav-item-active > a {
-    background: rgba(139, 92, 246, 0.25) !important;
+    background: rgba(139, 92, 246, 0.3) !important;
     color: #d8b4fe;
 }
 

@@ -451,7 +451,7 @@ class InventoryItemResource extends Resource
                     ->badge()
                     ->color('gray')
                     ->placeholder('—')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(),
                 TextColumn::make('stock_sum_quantity')
                     ->label('Stock')
                     ->numeric(decimalPlaces: 0)
@@ -492,11 +492,13 @@ class InventoryItemResource extends Resource
                     ->getStateUsing(fn ($record) => ((int) ($record->stock_sum_quantity ?? 0)) * ((float) ($record->average_cost ?? 0)))
                     ->money('USD')
                     ->toggleable(isToggledHiddenByDefault: true),
-                IconColumn::make('is_active')
-                    ->boolean()
-                    ->label('Active')
-                    ->toggleable(isToggledHiddenByDefault: true)
-                    ->width('w-12'),
+                TextColumn::make('is_active')
+                    ->label('Status')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => $state ? 'Active' : 'Inactive')
+                    ->color(fn ($state) => $state ? 'success' : 'gray')
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('barcode')
                     ->label('Barcode')
                     ->searchable()
@@ -523,6 +525,9 @@ class InventoryItemResource extends Resource
                         return ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
                     }),
             ])
+            // Filters sit above the table rather than behind the drawer icon,
+            // so category/stock/status are visible without a click.
+            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContent)
             ->filters([
                 SelectFilter::make('category')
                     ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')

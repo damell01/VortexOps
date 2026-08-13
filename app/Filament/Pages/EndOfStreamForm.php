@@ -126,6 +126,121 @@ class EndOfStreamForm extends Page implements HasForms
         }
     }
 
+    /**
+     * ── Line items ────────────────────────────────────────────────────────
+     * These operate on streamer_log_items rows for the show's log entry, so
+     * what the streamer sees is the same data submission will deduct from.
+     * The older selectedItems/itemQuantities arrays are left in place for the
+     * current view; the rebuilt view uses these instead.
+     */
+
+    /** The log entry for the selected show, created on first use. */
+    public function logEntry(): ?\App\Models\StreamerLogEntry
+    {
+        if (! $this->show) {
+            return null;
+        }
+
+        return \App\Models\StreamerLogEntry::firstOrCreate(
+            ['show_id' => $this->show->id],
+            [
+                // Queried rather than auth()->user()->streamer: lazy loading is
+                // disabled outside production, so the relation accessor throws.
+                'streamer_id' => \App\Models\Streamer::where('user_id', auth()->id())->value('id'),
+                'status'      => 'pending',
+            ],
+        );
+    }
+
+    /** Line items for the current show, newest last. */
+    public function getLineItemsProperty()
+    {
+        $entry = $this->logEntry();
+
+        return $entry
+            ? $entry->items()->with('inventoryItem')->orderBy('id')->get()
+            : collect();
+    }
+
+    /** Totals for the summary panel. */
+    public function getSummaryProperty(): array
+    {
+        $lines = $this->lineItems;
+
+        return [
+            'items'       => $lines->count(),
+            'units'       => (int) $lines->sum('quantity'),
+            'productCost' => (float) $lines->sum(fn ($l) => $l->total_cost),
+            'unmatched'   => $lines->whereNull('inventory_item_id')->count(),
+        ];
+    }
+
+    public function addLineItem(int $inventoryItemId, int $quantity = 1): void
+    {
+        $entry = $this->logEntry();
+        if (! $entry) {
+            return;
+        }
+
+        $item = \App\Models\InventoryItem::find($inventoryItemId);
+        if (! $item) {
+            return;
+        }
+
+        // Adding the same product twice bumps the existing line rather than
+        // creating a duplicate the streamer then has to reconcile by hand.
+        $line = $entry->items()->where('inventory_item_id', $item->id)->first();
+
+        if ($line) {
+            $line->increment('quantity', max(1, $quantity));
+        } else {
+            $entry->items()->create([
+                'inventory_item_id' => $item->id,
+                'item_name'         => $item->name,
+                'quantity'          => max(1, $quantity),
+                'unit_cost'         => $item->average_cost,
+            ]);
+        }
+
+        $this->showInventoryPicker = false;
+        $this->search = '';
+    }
+
+    /** For something not in the catalogue yet; stays unmatched by design. */
+    public function addManualLineItem(string $name, int $quantity = 1, ?float $unitCost = null): void
+    {
+        $entry = $this->logEntry();
+        $name = trim($name);
+
+        if (! $entry || $name === '') {
+            return;
+        }
+
+        $entry->items()->create([
+            'inventory_item_id' => null,
+            'item_name'         => $name,
+            'quantity'          => max(1, $quantity),
+            'unit_cost'         => $unitCost,
+        ]);
+    }
+
+    public function setLineQuantity(int $lineId, int $quantity): void
+    {
+        $line = $this->logEntry()?->items()->find($lineId);
+        $line?->update(['quantity' => max(1, $quantity)]);
+    }
+
+    public function setLineCost(int $lineId, float $unitCost): void
+    {
+        $line = $this->logEntry()?->items()->find($lineId);
+        $line?->update(['unit_cost' => max(0, $unitCost)]);
+    }
+
+    public function removeLineItem(int $lineId): void
+    {
+        $this->logEntry()?->items()->find($lineId)?->delete();
+    }
+
     public function submit(): void
     {
         if (!$this->show) {

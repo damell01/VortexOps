@@ -258,9 +258,8 @@ class InventoryStockResource extends Resource
                 EditAction::make()
                     ->size('sm')
                     ->iconButton(),
-            ], position: \Filament\Tables\Enums\ActionsPosition::AfterColumns)
+            ], position: \Filament\Tables\Enums\RecordActionsPosition::AfterColumns)
             ->striped()
-            ->wrap()
             ->persistFiltersInSession()
             ->paginationPageOptions([10, 25, 50])
             ->defaultPaginationPageOption(25)

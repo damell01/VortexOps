@@ -76,11 +76,11 @@ html.dark .fi-sidebar-header {
 
 /* Nav group header - clean section labels */
 .fi-sidebar-nav-group-header {
-    padding: 12px 16px;
-    font-size: 11px;
-    font-weight: 700;
+    padding: 16px 16px 10px 16px;
+    font-size: 10px;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.8px;
+    letter-spacing: 1px;
     color: #6b7280;
     display: flex;
     align-items: center;
@@ -89,6 +89,11 @@ html.dark .fi-sidebar-header {
     background: transparent !important;
     border: none !important;
     width: 100%;
+    margin-top: 12px;
+}
+
+.fi-sidebar-nav-group:first-child .fi-sidebar-nav-group-header {
+    margin-top: 0;
 }
 
 .fi-sidebar-nav-group-header:hover {
@@ -164,17 +169,17 @@ html.dark .fi-sidebar-nav-group-header:hover {
 /* Sidebar nav items - clean minimal styling */
 .fi-sidebar-nav-item {
     padding: 0 8px;
-    margin: 0;
+    margin: 4px 0;
 }
 
 .fi-sidebar-nav-item > a {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 12px;
+    padding: 8px 12px;
     border-radius: 6px;
     color: #9ca3af;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     transition: all 0.2s ease;
     text-decoration: none;
@@ -247,15 +252,15 @@ html.dark .fi-sidebar-nav-item.fi-sidebar-nav-item-active > a {
 /* ═══════════════════════════════════════════════════════════════════ */
 
 .fi-topbar {
-    background: #111a27;
+    background: #0f172a;
     border-bottom: 1px solid #1a2844;
     box-shadow: none;
-    padding: 12px 24px;
+    padding: 12px 20px;
     display: flex;
     align-items: center;
-    gap: 24px;
+    gap: 16px;
     height: auto;
-    min-height: 4rem;
+    min-height: 3.5rem;
 }
 
 html.dark .fi-topbar {
@@ -280,16 +285,16 @@ html.dark .fi-topbar {
 
 /* Topbar buttons - minimal styling */
 .fi-topbar button {
-    padding: 6px;
+    padding: 4px;
     border-radius: 6px;
     transition: all 0.2s ease;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     border: none;
     background: transparent;
     color: #9ca3af;
-    min-width: 36px;
-    min-height: 36px;
+    min-width: 32px;
+    min-height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;

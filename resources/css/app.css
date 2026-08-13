@@ -3274,3 +3274,189 @@ html body nav.fi-topbar {
     padding-left: 0.875rem !important;
     padding-right: 0.875rem !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   DENSITY
+   Default spacing pushed real data well below the fold — page headers,
+   section padding, stat cards and filter panels were all oversized.
+   This tightens the shell without shrinking body copy below 14px.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Page header */
+html body .fi-header {
+    padding-top: 0.875rem !important;
+    padding-bottom: 0.875rem !important;
+    gap: 0.5rem 1rem !important;
+}
+
+html body .fi-header-heading {
+    font-size: 1.375rem !important;
+    line-height: 1.2 !important;
+}
+
+html body .fi-header-subheading {
+    font-size: 0.8125rem !important;
+    line-height: 1.4 !important;
+    margin-top: 0.125rem !important;
+}
+
+html body .fi-breadcrumbs {
+    margin-bottom: 0.25rem !important;
+    font-size: 0.75rem !important;
+}
+
+/* Page shell */
+html body .fi-page .fi-page-content,
+html body .fi-main-ctn > .fi-main {
+    padding-top: 0.875rem !important;
+    padding-bottom: 1.25rem !important;
+}
+
+html body .fi-page-content,
+html body .fi-resource-list-records-page {
+    gap: 0.875rem !important;
+}
+
+/* Sections / cards */
+html body .fi-section-content,
+html body .fi-section-content-ctn > .fi-section-content {
+    padding: 0.875rem !important;
+}
+
+html body .fi-section-header {
+    padding: 0.75rem 0.875rem !important;
+    gap: 0.5rem !important;
+}
+
+html body .fi-section-header-heading {
+    font-size: 0.9375rem !important;
+}
+
+html body .fi-section-header-description {
+    font-size: 0.8125rem !important;
+}
+
+/* Widgets and stat cards */
+html body .fi-wi,
+html body .fi-wi-stats-overview {
+    gap: 0.75rem !important;
+}
+
+html body .fi-wi-stats-overview-stat {
+    padding: 0.875rem !important;
+}
+
+html body .fi-wi-stats-overview-stat-value {
+    font-size: 1.375rem !important;
+    line-height: 1.15 !important;
+}
+
+html body .fi-wi-stats-overview-stat-label {
+    font-size: 0.75rem !important;
+}
+
+html body .fi-wi-stats-overview-stat-description {
+    font-size: 0.6875rem !important;
+}
+
+/* Filters panel */
+html body .fi-ta-filters,
+html body .fi-ta-filters-form {
+    padding: 0.75rem 0.875rem !important;
+    gap: 0.625rem !important;
+}
+
+html body .fi-ta-header-ctn,
+html body .fi-ta-header {
+    padding: 0.625rem 0.875rem !important;
+    gap: 0.625rem !important;
+}
+
+/* Form fields */
+html body .fi-fo-field-wrp-label {
+    font-size: 0.8125rem !important;
+    margin-bottom: 0.1875rem !important;
+}
+
+html body .fi-input,
+html body .fi-select-input {
+    padding-top: 0.4375rem !important;
+    padding-bottom: 0.4375rem !important;
+    font-size: 0.875rem !important;
+}
+
+html body .fi-fo-component-ctn {
+    gap: 0.75rem !important;
+}
+
+/* Desktop table rows */
+@media (min-width: 768px) {
+    html body .fi-ta-cell,
+    html body .fi-ta-header-cell {
+        padding-top: 0.4375rem !important;
+        padding-bottom: 0.4375rem !important;
+    }
+
+    html body .fi-ta-text-item {
+        line-height: 1.35 !important;
+    }
+}
+
+/* Streamer-log widget on the show page */
+.vx-log-header-end {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.vx-log-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 0.5rem;
+    margin: 0;
+}
+
+.vx-log-cell {
+    padding: 0.5rem 0.625rem;
+    border: 1px solid var(--vx-card-border, #e5e7eb);
+    border-radius: 0.5rem;
+}
+
+.vx-log-cell dt {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6b7280;
+}
+
+html.dark .vx-log-cell dt {
+    color: #8b95a9;
+}
+
+.vx-log-cell dd {
+    margin: 0.125rem 0 0;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.vx-log-notes {
+    margin-top: 0.75rem;
+    padding-top: 0.625rem;
+    border-top: 1px solid var(--vx-card-border, #e5e7eb);
+}
+
+.vx-log-notes-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6b7280;
+}
+
+.vx-log-notes p {
+    margin: 0.25rem 0 0;
+    font-size: 0.875rem;
+    line-height: 1.45;
+}

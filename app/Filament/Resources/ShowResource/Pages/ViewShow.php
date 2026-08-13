@@ -37,6 +37,22 @@ class ViewShow extends ViewRecord
         ];
     }
 
+    protected function getFooterWidgets(): array
+    {
+        return [
+            \App\Filament\Widgets\ShowStreamerLogWidget::class,
+        ];
+    }
+
+    /**
+     * Both show widgets need the record; Filament only passes it through
+     * getWidgetData(), not automatically.
+     */
+    public function getWidgetData(): array
+    {
+        return ['record' => $this->record];
+    }
+
     protected function getHeaderActions(): array
     {
         return [

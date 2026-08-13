@@ -36,6 +36,11 @@ class EndOfStreamForm extends Page implements HasForms
     public array $selectedItems = [];
     public array $itemQuantities = [];
 
+    // The view toggles this with $set('showInventoryPicker', ...) but the
+    // property was never declared, so opening the item picker threw
+    // PublicPropertyNotFoundException and 500'd the page.
+    public bool $showInventoryPicker = false;
+
     public function getTitle(): string | Htmlable
     {
         return $this->show ? "End of Stream: {$this->show->title}" : 'End of Stream';

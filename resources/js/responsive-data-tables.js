@@ -58,7 +58,7 @@ function decorateTables(root = document) {
     root.querySelectorAll('.fi-ta-table').forEach(decorateTable);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function start() {
     decorateTables();
 
     // Livewire replaces table markup after searches, filters, and pagination.
@@ -69,4 +69,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
-});
+}
+
+// This module is imported dynamically, so DOMContentLoaded has usually
+// already fired by the time it evaluates — listening for it alone meant
+// the decorator never ran and cells got no labels.
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+} else {
+    start();
+}
+
+// Livewire swaps table markup wholesale on navigation; re-decorate then too.
+document.addEventListener('livewire:navigated', () => decorateTables());

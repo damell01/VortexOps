@@ -158,9 +158,11 @@ class Shows extends Page
             ->success()
             ->send();
 
-        // No location.reload() here. It fired 500ms after the notification and
-        // wiped it along with any sign the action had run, which is why this
-        // looked like it did nothing. Livewire re-renders the list itself.
+        // No location.reload() here: it fired 500ms after the notification and
+        // wiped it along with any sign the action had run. The list is a
+        // #[Computed] property, which caches within the request, so it has to
+        // be invalidated explicitly or the re-render serves the stale rows.
+        unset($this->shows);
     }
 
     public function requestFormResubmission($showId): void
@@ -195,7 +197,10 @@ class Shows extends Page
             ->success()
             ->send();
 
-        // Reload page after brief delay to show notification
-        $this->js('setTimeout(() => location.reload(), 500)');
+        // No location.reload() here: it fired 500ms after the notification and
+        // wiped it along with any sign the action had run. The list is a
+        // #[Computed] property, which caches within the request, so it has to
+        // be invalidated explicitly or the re-render serves the stale rows.
+        unset($this->shows);
     }
 }

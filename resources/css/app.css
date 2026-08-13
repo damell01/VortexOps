@@ -18,7 +18,6 @@
 @import 'sidebar-topbar-integration.css';
 @import 'desktop-table-redesign.css';
 @import 'mobile-responsive-tables.css';
-@import 'mobile-responsive-simple.css';
 @import 'mobile-responsive-grid.css';
 
 [x-cloak] { display: none !important; }

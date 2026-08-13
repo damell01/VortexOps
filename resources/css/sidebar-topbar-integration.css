@@ -1,478 +1,367 @@
-/* VortexOps Sidebar & Top Bar - Clean Minimal Design */
+/* ═══════════════════════════════════════════════════════════════════
+   VortexOps Sidebar & Topbar
+   Targets the real Filament v5 DOM:
+     .fi-sidebar > .fi-sidebar-header-ctn / .fi-sidebar-nav
+     .fi-sidebar-nav-groups > .fi-sidebar-group
+         > .fi-sidebar-group-btn  (section label + chevron)
+         > .fi-sidebar-group-items > .fi-sidebar-item
+     .fi-topbar > .fi-topbar-start / .fi-topbar-end
+   ═══════════════════════════════════════════════════════════════════ */
 
-/* ═══════════════════════════════════════════════════════════════════ */
-/* SIDEBAR STYLING - Clean minimal dark sidebar */
-/* ═══════════════════════════════════════════════════════════════════ */
+:root {
+    --vx-nav-bg: #0b1120;
+    --vx-nav-border: #1b2438;
+    --vx-nav-text: #c2cad9;
+    --vx-nav-muted: #737f96;
+    --vx-nav-accent: #7c5cff;
+    --vx-nav-accent-soft: rgba(124, 92, 255, 0.16);
+}
 
-.fi-sidebar {
-    background: #0f172a;
-    border-right: 1px solid #1a2844;
+/* ── Shell ───────────────────────────────────────────────────────── */
+
+.fi-sidebar,
+html.dark .fi-sidebar {
+    background: var(--vx-nav-bg);
+    border-right: 1px solid var(--vx-nav-border);
     box-shadow: none;
     display: flex;
     flex-direction: column;
 }
 
-html.dark .fi-sidebar {
-    background: #0f172a;
-    border-right-color: #1a2844;
-    box-shadow: none;
-}
+/* ── Logo header ─────────────────────────────────────────────────── */
 
-/* Sidebar header - logo area minimal */
-.fi-sidebar-header {
-    padding: 20px 16px;
-    border-bottom: 1px solid #1a2844;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    background: none;
-    flex-shrink: 0;
-}
-
+.fi-sidebar-header,
 html.dark .fi-sidebar-header {
-    border-bottom-color: #1a2844;
-    background: none;
+    padding: 18px 18px 16px;
+    background: transparent;
+    border-bottom: 1px solid var(--vx-nav-border);
+    box-shadow: none;
+    flex-shrink: 0;
+    height: auto;
+    min-height: 0;
 }
 
-/* Logo image in sidebar */
-.fi-sidebar-header img {
-    height: 2rem;
+.fi-sidebar-header img,
+.fi-sidebar-header .fi-logo {
+    height: 30px;
     width: auto;
     object-fit: contain;
 }
 
-/* Collapsed sidebar styling */
-.fi-sidebar.fi-sidebar-collapse-point {
-    min-width: 5rem;
-}
+/* ── Nav scroll area ─────────────────────────────────────────────── */
 
-.fi-sidebar-collapse-point .fi-brand-name {
-    display: none;
-}
-
-.fi-sidebar-collapse-point .fi-sidebar-nav {
-    padding: 8px 0;
-}
-
-/* Sidebar navigation */
 .fi-sidebar-nav {
-    padding: 16px 0;
-    gap: 0;
+    padding: 10px 0 16px;
     flex: 1;
     overflow-y: auto;
+    gap: 0;
 }
 
-.fi-sidebar-nav-group {
-    margin-bottom: 24px;
-}
-
-.fi-sidebar-nav-group:first-child {
-    margin-top: 0;
-}
-
-.fi-sidebar-nav-group:last-child {
-    margin-bottom: 0;
-}
-
-/* Nav group header - clean section labels */
-.fi-sidebar-nav-group-header {
-    padding: 16px 16px 10px 16px;
-    font-size: 10px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #6b7280;
+.fi-sidebar-nav-groups {
     display: flex;
-    align-items: center;
-    cursor: pointer;
-    transition: color 0.2s ease;
-    background: transparent !important;
-    border: none !important;
-    width: 100%;
-    margin-top: 12px;
+    flex-direction: column;
+    gap: 0;
 }
 
-.fi-sidebar-nav-group:first-child .fi-sidebar-nav-group-header {
-    margin-top: 0;
+/* Divider between sections, like the mockup's hairlines */
+.fi-sidebar-group + .fi-sidebar-group {
+    border-top: 1px solid var(--vx-nav-border);
+    margin-top: 6px;
+    padding-top: 6px;
 }
 
-.fi-sidebar-nav-group-header:hover {
-    color: #9ca3af;
-}
+/* ── Section label row (REPORTS / FINANCE / …) ───────────────────── */
 
-/* Style nav group button container */
 .fi-sidebar-group-btn {
     display: flex !important;
     align-items: center !important;
-    padding: 12px 16px !important;
     width: 100% !important;
-    height: auto !important;
+    padding: 14px 18px 8px !important;
+    margin: 0 !important;
     background: transparent !important;
-    background-color: transparent !important;
     border: none !important;
-    border-left: none !important;
-    border-right: none !important;
-    border-top: none !important;
-    border-bottom: none !important;
     box-shadow: none !important;
     outline: none !important;
-    margin: 0 !important;
-    gap: 0 !important;
     cursor: pointer !important;
 }
 
-/* Style the collapse button - show chevron */
-.fi-sidebar-group-btn .fi-sidebar-group-collapse-btn {
-    display: flex !important;
-    width: auto !important;
-    height: auto !important;
-    margin-left: auto !important;
-    padding: 0 !important;
-    background: transparent !important;
-    border: none !important;
-    color: #6b7280 !important;
-    opacity: 0.6;
-    transition: opacity 0.2s ease;
-}
-
-.fi-sidebar-group-btn .fi-sidebar-group-collapse-btn:hover {
-    opacity: 1;
-}
-
-.fi-sidebar-group-btn .fi-sidebar-group-collapse-btn svg {
-    width: 18px;
-    height: 18px;
-}
-
-.fi-sidebar-group-collapse-btn {
-    display: flex !important;
-}
-
-/* Style the label inside the group button */
+/* The label itself */
+.fi-sidebar-group-btn .fi-sidebar-group-label,
 .fi-sidebar-group-label {
-    font-size: 11px !important;
+    font-size: 10.5px !important;
     font-weight: 700 !important;
     text-transform: uppercase !important;
-    letter-spacing: 0.8px !important;
-    color: #6b7280 !important;
-    flex: 0;
+    letter-spacing: 1.1px !important;
+    color: var(--vx-nav-muted) !important;
+    line-height: 1 !important;
 }
 
-html.dark .fi-sidebar-nav-group-header {
-    color: #6b7280;
+/* Chevron pushed to the right, subdued — no white box */
+.fi-sidebar-group-collapse-btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-left: auto !important;
+    width: 20px !important;
+    height: 20px !important;
+    padding: 0 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    color: var(--vx-nav-muted) !important;
+    opacity: 0.75;
+    transition: opacity 0.15s ease, transform 0.2s ease;
 }
 
-html.dark .fi-sidebar-nav-group-header:hover {
-    color: #9ca3af;
+.fi-sidebar-group-collapse-btn:hover {
+    opacity: 1;
+    background: transparent !important;
 }
 
-/* Sidebar nav items - clean minimal styling */
-.fi-sidebar-nav-item {
-    padding: 0 8px;
-    margin: 4px 0;
+.fi-sidebar-group-collapse-btn svg {
+    width: 16px;
+    height: 16px;
 }
 
-.fi-sidebar-nav-item > a {
+/* Group icon (if the group has one) sits before the label */
+.fi-sidebar-group-btn > svg,
+.fi-sidebar-group-btn .fi-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 10px;
+    color: var(--vx-nav-muted);
+}
+
+/* ── Nav items ───────────────────────────────────────────────────── */
+
+.fi-sidebar-group-items {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0 10px;
+}
+
+.fi-sidebar-item {
+    padding: 0;
+    margin: 0;
+}
+
+.fi-sidebar-item .fi-sidebar-item-btn,
+.fi-sidebar-item > a {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 8px 12px;
-    border-radius: 6px;
-    color: #9ca3af;
-    font-size: 13px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 14px;
     font-weight: 500;
-    transition: all 0.2s ease;
+    line-height: 1.2;
+    color: var(--vx-nav-text);
     text-decoration: none;
-    position: relative;
     background: transparent !important;
     border: none !important;
-    margin: 0 !important;
+    box-shadow: none !important;
+    transition: background 0.15s ease, color 0.15s ease;
 }
 
-.fi-sidebar-nav-item > a:hover {
-    background: transparent !important;
-    color: #d1d5db;
+.fi-sidebar-item .fi-sidebar-item-btn:hover,
+.fi-sidebar-item > a:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #ffffff;
 }
 
-html.dark .fi-sidebar-nav-item > a {
-    color: #9ca3af;
-    background: transparent !important;
+.fi-sidebar-item-icon,
+.fi-sidebar-item svg {
+    width: 19px;
+    height: 19px;
+    flex-shrink: 0;
+    opacity: 0.85;
 }
 
-html.dark .fi-sidebar-nav-item > a:hover {
-    background: transparent !important;
-    color: #e5e7eb;
+.fi-sidebar-item-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-/* Only the active item gets the background */
-.fi-sidebar-nav-item.fi-sidebar-nav-item-active > a {
-    background: rgba(139, 92, 246, 0.3) !important;
-    color: #d8b4fe;
+/* ── Active item: violet fill + left accent bar (mockup) ─────────── */
+
+.fi-sidebar-item.fi-active .fi-sidebar-item-btn,
+.fi-sidebar-item.fi-active > a,
+.fi-sidebar-item-active .fi-sidebar-item-btn,
+.fi-sidebar-item-active > a {
+    background: var(--vx-nav-accent-soft) !important;
+    color: #ffffff !important;
     font-weight: 600;
-    border-radius: 8px !important;
-    margin: 0 8px !important;
 }
 
-.fi-sidebar-nav-item.fi-sidebar-nav-item-active > a::before {
+.fi-sidebar-item.fi-active .fi-sidebar-item-btn::before,
+.fi-sidebar-item.fi-active > a::before,
+.fi-sidebar-item-active .fi-sidebar-item-btn::before,
+.fi-sidebar-item-active > a::before {
     content: '';
     position: absolute;
-    left: 16px;
+    left: 0;
     top: 50%;
     transform: translateY(-50%);
     width: 3px;
-    height: 24px;
-    background: #8b5cf6;
-    border-radius: 0 2px 2px 0;
+    height: 60%;
+    border-radius: 0 3px 3px 0;
+    background: var(--vx-nav-accent);
 }
 
-html.dark .fi-sidebar-nav-item.fi-sidebar-nav-item-active > a {
-    background: rgba(139, 92, 246, 0.3) !important;
-    color: #d8b4fe;
-}
-
-/* Make sure inactive items don't get highlighted */
-.fi-sidebar-nav-item:not(.fi-sidebar-nav-item-active) > a {
-    background: transparent !important;
-}
-
-/* Icons in sidebar */
-.fi-sidebar-nav-item svg {
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
-    opacity: 0.8;
-}
-
-.fi-sidebar-nav-item.fi-sidebar-nav-item-active svg {
+.fi-sidebar-item.fi-active svg,
+.fi-sidebar-item-active svg {
     opacity: 1;
+    color: #c4b5fd;
 }
 
-/* ═══════════════════════════════════════════════════════════════════ */
-/* TOP BAR STYLING - Clean minimal topbar */
-/* ═══════════════════════════════════════════════════════════════════ */
+/* ── Channel switcher (project-specific control) ─────────────────── */
 
-.fi-topbar {
-    background: #0f172a;
-    border-bottom: 1px solid #1a2844;
-    box-shadow: none;
-    padding: 12px 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    height: auto;
-    min-height: 3.5rem;
+.vx-channel-switcher {
+    padding: 10px 14px 12px;
+    border-bottom: 1px solid var(--vx-nav-border);
+    margin-bottom: 4px;
 }
 
+.vx-channel-switcher-label {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.1px;
+    color: var(--vx-nav-muted);
+    margin-bottom: 6px;
+}
+
+.vx-channel-switcher-select {
+    background: #131c2e;
+    border: 1px solid var(--vx-nav-border);
+    border-radius: 8px;
+    color: var(--vx-nav-text);
+    font-size: 13px;
+    padding: 8px 10px;
+    width: 100%;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   TOPBAR
+   ═══════════════════════════════════════════════════════════════════ */
+
+.fi-topbar,
 html.dark .fi-topbar {
-    background: #111a27;
-    border-bottom-color: #1a2844;
+    background: var(--vx-nav-bg);
+    border-bottom: 1px solid var(--vx-nav-border);
     box-shadow: none;
-}
-
-/* Topbar logo area */
-.fi-topbar .fi-logo,
-.fi-topbar [class*="logo"] {
+    min-height: 56px;
+    height: 56px;
+    padding: 0 14px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
 }
 
+.fi-topbar > nav,
+.fi-topbar-start {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.fi-topbar-end {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.fi-topbar .fi-logo,
 .fi-topbar img {
-    height: 1.75rem;
+    height: 26px;
     width: auto;
     object-fit: contain;
 }
 
-/* Topbar buttons - minimal styling */
-.fi-topbar button {
-    padding: 4px;
-    border-radius: 6px;
-    transition: all 0.2s ease;
-    font-size: 12px;
-    font-weight: 500;
-    border: none;
-    background: transparent;
-    color: #9ca3af;
-    min-width: 32px;
-    min-height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.fi-topbar button:hover {
-    background: rgba(139, 92, 246, 0.1);
-    color: #d1d5db;
-}
-
-html.dark .fi-topbar button {
-    color: #9ca3af;
-}
-
-html.dark .fi-topbar button:hover {
-    background: rgba(139, 92, 246, 0.1);
-    color: #e5e7eb;
-}
-
-/* Global search in topbar - always hide */
-.fi-global-search {
-    display: none !important;
-}
-
-.fi-global-search input {
-    background: #1a2844;
-    border: 1px solid #2d3a4f;
-    border-radius: 6px;
-    padding: 9px 14px;
-    font-size: 13px;
-    transition: all 0.2s ease;
-    width: 100%;
-    color: #b8bfd8;
-}
-
-.fi-global-search input:focus {
-    background: #1e3250;
-    border-color: #8b5cf6;
-    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
-}
-
-html.dark .fi-global-search input {
-    background: #1a2844;
-    border-color: #2d3a4f;
-    color: #b8bfd8;
-}
-
-html.dark .fi-global-search input:focus {
-    background: #1e3250;
-    border-color: #8b5cf6;
-    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
-}
-
-/* Topbar actions (notifications, profile, etc.) */
-.fi-topbar-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-left: auto;
-}
-
-/* ═══════════════════════════════════════════════════════════════════ */
-/* RESPONSIVE ADJUSTMENTS */
-/* ═══════════════════════════════════════════════════════════════════ */
-
-@media (max-width: 768px) {
-    .fi-sidebar {
-        min-width: 4rem;
-        position: fixed;
-        left: 0;
-        top: 0;
-        height: 100vh;
-        z-index: 40;
-        transform: translateX(-100%);
-        transition: transform 0.3s ease;
-    }
-
-    .fi-sidebar.fi-sidebar-open {
-        transform: translateX(0);
-        box-shadow: none;
-    }
-
-    .fi-sidebar-header {
-        padding: 16px 12px;
-    }
-
-    .fi-topbar {
-        padding: 12px 16px;
-        height: 3.5rem;
-        min-height: 3.5rem;
-    }
-
-    .fi-global-search {
-        display: none;
-    }
-
-    .fi-sidebar-nav {
-        padding: 16px 0;
-    }
-
-    .fi-sidebar-nav-group {
-        margin-bottom: 20px;
-    }
-
-    .fi-sidebar-nav-group-header {
-        padding: 8px 16px;
-        font-size: 10px;
-    }
-
-    .fi-sidebar-nav-item > a {
-        padding: 10px 16px;
-        gap: 12px;
-        margin: 0;
-    }
-
-    .fi-sidebar-nav-item svg {
-        width: 18px;
-        height: 18px;
-    }
-}
-
-/* ═══════════════════════════════════════════════════════════════════ */
-/* SIDEBAR TOGGLE BUTTON */
-/* ═══════════════════════════════════════════════════════════════════ */
-
-.fi-topbar-open-sidebar-btn,
-.fi-topbar-close-sidebar-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+/* Icon buttons: flat, no boxes */
+.fi-topbar .fi-icon-btn {
     width: 36px;
     height: 36px;
     padding: 0;
-    border-radius: 6px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: transparent;
-    color: #9ca3af;
-    transition: all 0.2s ease;
     border: none;
+    box-shadow: none;
+    color: var(--vx-nav-text);
+    transition: background 0.15s ease, color 0.15s ease;
 }
 
-.fi-topbar-open-sidebar-btn:hover,
-.fi-topbar-close-sidebar-btn:hover {
-    background: rgba(139, 92, 246, 0.1);
-    color: #d1d5db;
+.fi-topbar .fi-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.07);
+    color: #ffffff;
 }
 
-html.dark .fi-topbar-open-sidebar-btn:hover,
-html.dark .fi-topbar-close-sidebar-btn:hover {
-    background: rgba(139, 92, 246, 0.1);
-    color: #e5e7eb;
-}
-
-.fi-topbar-open-sidebar-btn svg,
-.fi-topbar-close-sidebar-btn svg {
+.fi-topbar .fi-icon-btn svg {
     width: 20px;
     height: 20px;
 }
 
-/* ═══════════════════════════════════════════════════════════════════ */
-/* MAIN CONTENT AREA ALIGNMENT */
-/* ═══════════════════════════════════════════════════════════════════ */
-
-.fi-main {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    overflow: hidden;
+/* Global search hidden — the mockup has no topbar search */
+.fi-global-search-ctn,
+.fi-global-search {
+    display: none !important;
 }
 
-.fi-layout {
-    display: flex;
-    flex-direction: row;
-    min-height: 100vh;
+/* Quick-create "+" is the one solid accent control in the bar */
+.quick-create-component .fi-dropdown-trigger > button,
+.quick-create-component .fi-icon-btn {
+    background: var(--vx-nav-accent);
+    color: #ffffff;
+    border-radius: 8px;
+    width: 36px;
+    height: 36px;
 }
 
-/* Ensure topbar and sidebar are flush */
-@supports (gap: 1px) {
-    .fi-layout {
-        gap: 0;
+.quick-create-component .fi-dropdown-trigger > button:hover,
+.quick-create-component .fi-icon-btn:hover {
+    background: #6d4ef0;
+    color: #ffffff;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 767px) {
+    .fi-topbar,
+    html.dark .fi-topbar {
+        height: 54px;
+        min-height: 54px;
+        padding: 0 10px;
+    }
+
+    .fi-sidebar-header {
+        padding: 16px 16px 14px;
+    }
+
+    .fi-sidebar-group-btn {
+        padding: 13px 16px 7px !important;
+    }
+
+    .fi-sidebar-group-items {
+        padding: 0 8px;
+    }
+
+    .fi-sidebar-item .fi-sidebar-item-btn,
+    .fi-sidebar-item > a {
+        padding: 11px 12px;
+        font-size: 15px;
     }
 }

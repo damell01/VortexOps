@@ -128,7 +128,7 @@ class InventoryReport extends Page
 
     public function getStockHealthProperty(): array
     {
-        $products = Product::with(['stock', 'lots'])->where('is_active', true)->get();
+        $products = Product::with(['stock.location.streamer', 'lots'])->where('is_active', true)->get();
 
         $healthy = 0;
         $lowStock = 0;
@@ -161,7 +161,7 @@ class InventoryReport extends Page
 
     public function getLowStockItemsProperty(): array
     {
-        return Product::with(['stock', 'lots'])
+        return Product::with(['stock.location.streamer', 'lots'])
             ->where('is_active', true)
             ->whereNotNull('reorder_level')
             ->get()
@@ -211,7 +211,7 @@ class InventoryReport extends Page
 
     public function getAbcAnalysisProperty(): array
     {
-        $products = Product::with(['stock'])->where('is_active', true)->get();
+        $products = Product::with(['stock.location.streamer'])->where('is_active', true)->get();
 
         $items = $products->map(function ($item) {
             $qty = (float) $item->totalQuantity();
@@ -264,7 +264,7 @@ class InventoryReport extends Page
     {
         $velocityService = app(InventoryVelocityService::class);
 
-        return InventoryItem::with(['stock'])
+        return InventoryItem::with(['stock.location.streamer'])
             ->where('is_active', true)
             ->get()
             ->map(function ($item) use ($velocityService) {
@@ -343,7 +343,7 @@ class InventoryReport extends Page
 
     public function getCategoryBreakdownProperty(): array
     {
-        return Product::with(['stock', 'lots'])
+        return Product::with(['stock.location.streamer', 'lots'])
             ->where('is_active', true)
             ->get()
             ->groupBy('category')
@@ -619,7 +619,7 @@ class InventoryReport extends Page
     {
         $csv = Writer::createFromFileObject(new SplTempFileObject());
 
-        $products = Product::with(['stock', 'lots'])->where('is_active', true)->get();
+        $products = Product::with(['stock.location.streamer', 'lots'])->where('is_active', true)->get();
 
         $csv->insertOne([
             'SKU',

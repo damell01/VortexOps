@@ -23,7 +23,9 @@ class BarcodePrinter extends Page implements HasForms
     protected static string $moduleSlug = 'inventory';
     protected static ?string $title = 'Barcode Label Printer';
 
-    public Collection $selectedItems;
+    // Form state for the multi-select is an array of ids, not a Collection;
+    // the Collection type made Livewire's hydration throw on every load.
+    public ?array $selectedItems = [];
     public string $labelSize = '4x6';
     public string $itemsPerSheet = '8';
 
@@ -34,7 +36,7 @@ class BarcodePrinter extends Page implements HasForms
 
     public function mount(): void
     {
-        $this->selectedItems = collect();
+        $this->selectedItems = [];
         $this->form->fill();
     }
 
@@ -72,11 +74,17 @@ class BarcodePrinter extends Page implements HasForms
     {
         return [
             Grid::make()->columns(2)->schema([
+                // ->relationship() needs an Eloquent record to resolve against.
+                // This is a Page, so there is none, and Select tried to call
+                // hasAttribute() on null. Options are supplied directly.
                 MultiSelect::make('selectedItems')
-                    ->relationship('inventoryItems', 'name')
                     ->label('Select Items')
+                    ->options(fn () => \App\Models\InventoryItem::query()
+                        ->where('is_active', true)
+                        ->orderBy('name')
+                        ->pluck('name', 'id')
+                        ->all())
                     ->searchable()
-                    ->preload()
                     ->columnSpanFull(),
 
                 Select::make('labelSize')

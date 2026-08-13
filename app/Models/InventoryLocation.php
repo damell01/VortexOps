@@ -21,6 +21,14 @@ class InventoryLocation extends Model
         'notes',
     ];
 
+    /**
+     * Locations are almost always rendered with their streamer, and lazy
+     * loading is disabled outside production, so several pages fataled the
+     * first time they touched it. Always loading it removes a whole class of
+     * LazyLoadingViolationException without hunting every call site.
+     */
+    protected $with = ['streamer'];
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()->logAll()->logOnlyDirty();

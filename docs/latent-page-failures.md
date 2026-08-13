@@ -1,5 +1,9 @@
 # Latent page failures — sweep of 2026-08-13
 
+> **Resolved.** All five were fixed and a re-run of the sweep reports zero
+> 500s across all 106 admin pages. Kept as a record of the causes, and of the
+> method, which is worth re-running after opening up more of the app.
+
 Every admin GET route (106) was loaded as an admin. Five 500'd. All are
 pre-existing: code paths that had simply never been exercised, which is why
 they only surface as pages get opened up.

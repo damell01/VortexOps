@@ -47,10 +47,12 @@ class MobileScannerPro extends Page
 
     private ScanningService $scanningService;
 
-    public function __construct()
+    // No __construct() here: Filament's Page has no constructor to call, and
+    // building the service at construction runs before the container is ready.
+    // Resolved on demand instead.
+    protected function scanningService(): ScanningService
     {
-        parent::__construct();
-        $this->scanningService = new ScanningService();
+        return $this->scanningService ??= app(ScanningService::class);
     }
 
     public function getPalletsProperty()
@@ -86,7 +88,7 @@ class MobileScannerPro extends Page
             $metadata['pallet_id'] = $this->selectedPalletId;
         }
 
-        $this->session = $this->scanningService->createSession(
+        $this->session = $this->scanningService()->createSession(
             $this->mode,
             $this->selectedPalletId,
             'Pallet',
@@ -106,7 +108,7 @@ class MobileScannerPro extends Page
             return;
         }
 
-        $result = $this->scanningService->scanBarcode($barcode, $this->mode);
+        $result = $this->scanningService()->scanBarcode($barcode, $this->mode);
 
         if ($result['success']) {
             $this->scannedItems[] = $result['item'];
@@ -130,7 +132,7 @@ class MobileScannerPro extends Page
     public function endSession(): void
     {
         if ($this->session) {
-            $this->scanningService->endSession();
+            $this->scanningService()->endSession();
             $this->session->refresh();
         }
 
@@ -148,7 +150,7 @@ class MobileScannerPro extends Page
                 ? InventoryLocation::find($this->selectedLocationId)
                 : InventoryLocation::where('type', 'receiving')->first();
 
-            $result = $this->scanningService->commitScansToInventory($location);
+            $result = $this->scanningService()->commitScansToInventory($location);
 
             if ($result['success']) {
                 Notification::make()
@@ -164,7 +166,7 @@ class MobileScannerPro extends Page
                     ->send();
             }
 
-            $this->scanningService->endSession();
+            $this->scanningService()->endSession();
 
             // Redirect to session review/results page
             $this->redirect(route('filament.admin.pages.scan-results', [

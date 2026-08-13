@@ -21,9 +21,24 @@
             </div>
         </x-filament::section>
     @else
+        {{-- Wizard position. Steps are clickable so a streamer can go back
+             without losing anything; leaving step 2 persists it. --}}
+        <ol class="vx-eos-steps">
+            @foreach ([1 => 'Items Sold', 2 => 'Show Details', 3 => 'Review & Submit'] as $n => $label)
+                <li>
+                    <button type="button" wire:click="goToStep({{ $n }})"
+                        class="vx-eos-step @if($this->step === $n) is-current @elseif($this->step > $n) is-done @endif">
+                        <span class="vx-eos-step-n">{{ $n }}</span>
+                        <span class="vx-eos-step-label">{{ $label }}</span>
+                    </button>
+                </li>
+            @endforeach
+        </ol>
+
         <div class="vx-eos">
             {{-- ── Main column ──────────────────────────────────────────── --}}
             <div class="vx-eos-main">
+                @if ($this->step === 1)
                 <x-filament::section>
                     <x-slot name="heading">Add Items Sold</x-slot>
                     <x-slot name="description">
@@ -135,6 +150,92 @@
                         </div>
                     @endif
                 </x-filament::section>
+                @endif
+
+                @if ($this->step === 2)
+                    <x-filament::section>
+                        <x-slot name="heading">Show Details</x-slot>
+                        <x-slot name="description">Hours, shipments and package counts for this show.</x-slot>
+
+                        <div class="vx-eos-fields">
+                            @foreach ([
+                                ['hoursStreamed',   'Hours Streamed',        '0.5'],
+                                ['shipments',       'Shipments',             '1'],
+                                ['pweCount',        'PWE Count',             '1'],
+                                ['labelCount',      'Label Count',           '1'],
+                                ['packagesOver500', 'Packages over $500',    '1'],
+                            ] as [$model, $label, $stepAttr])
+                                <label class="vx-eos-field">
+                                    <span>{{ $label }}</span>
+                                    <input type="number" min="0" step="{{ $stepAttr }}" inputmode="decimal"
+                                        wire:model.blur="{{ $model }}" />
+                                </label>
+                            @endforeach
+                        </div>
+
+                        <label class="vx-eos-field vx-eos-field-wide">
+                            <span>Notes (optional)</span>
+                            <textarea rows="3" wire:model.blur="logNotes"
+                                placeholder="Anything the admin should know about this show"></textarea>
+                        </label>
+                    </x-filament::section>
+                @endif
+
+                @if ($this->step === 3)
+                    <x-filament::section>
+                        <x-slot name="heading">Review & Submit</x-slot>
+                        <x-slot name="description">Check this over, then send it for admin review.</x-slot>
+
+                        <dl class="vx-eos-review">
+                            <div><dt>Items</dt><dd>{{ $summary['items'] }}</dd></div>
+                            <div><dt>Units Sold</dt><dd>{{ $summary['units'] }}</dd></div>
+                            <div><dt>Product Cost</dt><dd>${{ number_format($summary['productCost'], 2) }}</dd></div>
+                            <div><dt>Hours</dt><dd>{{ $this->hoursStreamed !== '' ? $this->hoursStreamed : '—' }}</dd></div>
+                            <div><dt>Shipments</dt><dd>{{ $this->shipments !== '' ? $this->shipments : '—' }}</dd></div>
+                            <div><dt>PWE / Label</dt><dd>{{ $this->pweCount !== '' ? $this->pweCount : '0' }} / {{ $this->labelCount !== '' ? $this->labelCount : '0' }}</dd></div>
+                        </dl>
+
+                        {{-- Problems are shown before submitting, not after. --}}
+                        @php ($preview = $this->deductionPreview)
+                        @if (! empty($preview))
+                            <div class="vx-eos-problems">
+                                <p class="vx-eos-warn">These will not deduct stock:</p>
+                                <ul>
+                                    @foreach ($preview as $problem)
+                                        <li>{{ $problem }}</li>
+                                    @endforeach
+                                </ul>
+                                <p class="vx-eos-empty">You can still submit — an admin will see the same list.</p>
+                            </div>
+                        @else
+                            <p class="vx-eos-ok">Everything is linked and in stock. Ready to submit.</p>
+                        @endif
+
+                        <div class="vx-eos-actions">
+                            <x-filament::button type="button" color="gray" wire:click="goToStep(2)">
+                                Back
+                            </x-filament::button>
+                            <x-filament::button type="button" wire:click="submit"
+                                wire:confirm="Submit this log for admin review?">
+                                Submit for Review
+                            </x-filament::button>
+                        </div>
+                    </x-filament::section>
+                @endif
+
+                @if ($this->step < 3)
+                    <div class="vx-eos-actions">
+                        @if ($this->step > 1)
+                            <x-filament::button type="button" color="gray" wire:click="goToStep({{ $this->step - 1 }})">
+                                Back
+                            </x-filament::button>
+                        @endif
+                        <x-filament::button type="button" wire:click="goToStep({{ $this->step + 1 }})"
+                            icon="heroicon-m-arrow-right" icon-position="after">
+                            {{ $this->step === 1 ? 'Continue to Show Details' : 'Continue to Review' }}
+                        </x-filament::button>
+                    </div>
+                @endif
             </div>
 
             {{-- ── Summary ──────────────────────────────────────────────── --}}

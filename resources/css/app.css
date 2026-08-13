@@ -3634,3 +3634,23 @@ html body .vx-channel-switcher {
     padding: .625rem .75rem; border: 1px solid var(--vxn-border, #e5e7eb); border-radius: .5rem; text-align: left; }
 .vx-eos-show-title { font-size: .875rem; font-weight: 600; }
 .vx-eos-show-meta { font-size: .75rem; color: #6b7280; }
+
+/* End of Stream wizard */
+.vx-eos-steps { display: flex; gap: .5rem; list-style: none; margin: 0 0 1rem; padding: 0; flex-wrap: wrap; }
+.vx-eos-step { display: flex; align-items: center; gap: .5rem; padding: .5rem .75rem; border-radius: .5rem;
+    border: 1px solid var(--vxn-border, #e5e7eb); background: transparent; font-size: .8125rem; color: #6b7280; }
+.vx-eos-step-n { display: inline-flex; align-items: center; justify-content: center; width: 1.375rem; height: 1.375rem;
+    border-radius: 9999px; background: #e5e7eb; color: #374151; font-size: .75rem; font-weight: 700; }
+.vx-eos-step.is-current { border-color: #7c3aed; color: #6d28d9; font-weight: 600; }
+.vx-eos-step.is-current .vx-eos-step-n { background: #7c3aed; color: #fff; }
+.vx-eos-step.is-done .vx-eos-step-n { background: #10b981; color: #fff; }
+.vx-eos-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; }
+.vx-eos-field { display: flex; flex-direction: column; gap: .25rem; font-size: .75rem; color: #6b7280; }
+.vx-eos-field input, .vx-eos-field textarea { padding: .4375rem .625rem; font-size: .875rem; color: inherit;
+    border: 1px solid var(--vxn-border, #e5e7eb); border-radius: .375rem; background: transparent; width: 100%; }
+.vx-eos-field-wide { margin-top: .75rem; }
+.vx-eos-review { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .75rem; margin: 0 0 1rem; }
+.vx-eos-review dt { font-size: .6875rem; text-transform: uppercase; letter-spacing: .04em; color: #6b7280; }
+.vx-eos-review dd { margin: .125rem 0 0; font-size: 1.125rem; font-weight: 700; }
+.vx-eos-problems ul { margin: .375rem 0 .5rem; padding-left: 1.125rem; font-size: .8125rem; color: #b45309; }
+.vx-eos-actions { display: flex; gap: .5rem; justify-content: flex-end; margin-top: 1rem; }

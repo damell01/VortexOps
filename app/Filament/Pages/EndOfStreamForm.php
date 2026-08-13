@@ -32,6 +32,18 @@ class EndOfStreamForm extends Page implements HasForms
     protected static ?string $title = 'End of Stream';
 
     public ?Show $show = null;
+
+    /** Wizard position: 1 Items, 2 Show Details, 3 Review & Submit. */
+    public int $step = 1;
+
+    // Step 2 fields, mirrored from the log entry so the form can be edited
+    // without writing on every keystroke.
+    public string $hoursStreamed   = '';
+    public string $shipments       = '';
+    public string $pweCount        = '';
+    public string $labelCount      = '';
+    public string $packagesOver500 = '';
+    public string $logNotes        = '';
     public string $search = '';
     public array $selectedItems = [];
     public array $itemQuantities = [];
@@ -246,6 +258,80 @@ class EndOfStreamForm extends Page implements HasForms
     public function removeLineItem(int $lineId): void
     {
         $this->logEntry()?->items()->find($lineId)?->delete();
+    }
+
+    /** Load step 2 fields from the entry when the wizard reaches them. */
+    public function loadDetails(): void
+    {
+        $entry = $this->logEntry();
+        if (! $entry) {
+            return;
+        }
+
+        $this->hoursStreamed   = (string) ($entry->hours_streamed ?? '');
+        $this->shipments       = (string) ($entry->number_of_shipments ?? '');
+        $this->pweCount        = (string) ($entry->pwe_count ?? '');
+        $this->labelCount      = (string) ($entry->label_count ?? '');
+        $this->packagesOver500 = (string) ($entry->number_of_packages_over_500 ?? '');
+        $this->logNotes        = (string) ($entry->notes ?? '');
+    }
+
+    public function saveDetails(): void
+    {
+        $this->logEntry()?->update([
+            'hours_streamed'              => $this->hoursStreamed !== '' ? (float) $this->hoursStreamed : null,
+            'number_of_shipments'         => $this->shipments !== '' ? (int) $this->shipments : null,
+            'pwe_count'                   => $this->pweCount !== '' ? (int) $this->pweCount : null,
+            'label_count'                 => $this->labelCount !== '' ? (int) $this->labelCount : null,
+            'number_of_packages_over_500' => $this->packagesOver500 !== '' ? (int) $this->packagesOver500 : null,
+            'notes'                       => $this->logNotes !== '' ? $this->logNotes : null,
+        ]);
+    }
+
+    public function goToStep(int $step): void
+    {
+        $step = max(1, min(3, $step));
+
+        // Leaving the details step persists it, so moving between steps never
+        // silently discards what was typed.
+        if ($this->step === 2 && $step !== 2) {
+            $this->saveDetails();
+        }
+
+        if ($step === 2) {
+            $this->loadDetails();
+        }
+
+        $this->step = $step;
+    }
+
+    /** Problems submission would hit, shown on the review step beforehand. */
+    public function getDeductionPreviewProperty(): array
+    {
+        $entry = $this->logEntry();
+        if (! $entry) {
+            return [];
+        }
+
+        $problems = [];
+
+        foreach ($entry->items()->with('inventoryItem')->get() as $line) {
+            if (! $line->inventoryItem) {
+                $problems[] = "\"{$line->item_name}\" is not linked to an inventory product.";
+                continue;
+            }
+
+            $onHand = \App\Models\InventoryStock::where('inventory_item_id', $line->inventory_item_id)
+                ->whereIn('inventory_location_id', \App\Models\Streamer::where('user_id', auth()->id())
+                    ->first()?->inventoryLocations->pluck('id') ?? [])
+                ->sum('quantity');
+
+            if ((float) $onHand < (int) $line->quantity) {
+                $problems[] = "\"{$line->item_name}\" needs {$line->quantity} but only " . (float) $onHand . " on hand.";
+            }
+        }
+
+        return $problems;
     }
 
     public function submit(): void

@@ -6,13 +6,15 @@ use App\Filament\Concerns\HasModuleAccess;
 use App\Models\InventoryItem;
 use App\Services\BarcodeService;
 use App\Support\AdminModules;
-use Filament\Forms\Components\Grid;
+use Filament\Schemas\Components\Grid;
 use Filament\Forms\Components\MultiSelect;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
 use Filament\Pages\Page;
-use Illuminate\Database\Eloquent\Collection;
+// collect() returns a Support collection; typing this as the Eloquent
+// one made every page load a TypeError.
+use Illuminate\Support\Collection;
 
 class BarcodePrinter extends Page implements HasForms
 {

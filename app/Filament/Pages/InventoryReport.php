@@ -85,7 +85,9 @@ class InventoryReport extends Page
     public function getData(): array
     {
         $currentSnapshot = InventorySnapshot::latest('snapshot_date')->first();
-        $stocks = InventoryStock::with(['item', 'location'])->get();
+                // location.streamer is reached while building the report; lazy loading
+        // is disabled outside production so it must be eager-loaded.
+        $stocks = InventoryStock::with(['item', 'location.streamer'])->get();
 
         if (! $currentSnapshot || $currentSnapshot->snapshot_date->diffInHours(now()) > 1) {
             $currentSnapshot = InventorySnapshot::generateCurrent();
@@ -293,7 +295,9 @@ class InventoryReport extends Page
 
     public function getLocationHealthProperty(): array
     {
-        return InventoryLocation::with(['stock' => fn ($q) => $q->with('item')])
+        // `streamer` is eager-loaded because lazy loading is disabled outside
+        // production, so touching it while mapping fataled the whole report.
+        return InventoryLocation::with(['streamer', 'stock' => fn ($q) => $q->with('item')])
             ->where('status', 'active')
             ->get()
             ->map(function ($location) {

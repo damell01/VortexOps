@@ -37,6 +37,12 @@ class ManagerHub extends Page
         return auth()->user() ?? abort(403);
     }
 
+    /** Filament passes page view data through here; the view reads $stats. */
+    public function getViewData(): array
+    {
+        return ['stats' => $this->getStats()];
+    }
+
     public function getStats()
     {
         $manager = $this->getManager();

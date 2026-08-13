@@ -163,7 +163,7 @@
                         <span class="font-semibold text-sm">View All Streamers</span>
                     </a>
                     @if ($this->getManager()->isAdmin())
-                        <a href="{{ route('filament.admin.pages.inventory-dashboard') }}"
+                        <a href="{{ route('filament.admin.pages.inventory') }}"
                             class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg transition text-gray-900 dark:text-white">
                             <span class="text-lg">📦</span>
                             <span class="font-semibold text-sm">Inventory Dashboard</span>

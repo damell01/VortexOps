@@ -275,6 +275,8 @@
 
     .fi-ta-row {
         display: table-row !important;
+        grid-template-columns: unset !important;
+        grid-template-rows: unset !important;
         border-bottom: 1px solid #f3f4f6 !important;
         padding: 0 !important;
         background: transparent !important;
@@ -293,12 +295,27 @@
         display: table-cell !important;
         padding: 10px 8px !important;
         border: none !important;
-        background: transparent !important;
+        background: transparent !important !important;
         flex: none !important;
+        grid-column: unset !important;
+        width: auto !important;
+        height: auto !important;
+        min-height: auto !important;
+        border-radius: 0 !important;
+        color: inherit !important;
+        font-weight: normal !important;
+        font-size: inherit !important;
     }
 
-    /* All columns visible again */
-    .fi-ta-row td {
+    /* Show all columns on desktop */
+    .fi-ta-row td:nth-child(1),
+    .fi-ta-row td:nth-child(2),
+    .fi-ta-row td:nth-child(3),
+    .fi-ta-row td:nth-child(4),
+    .fi-ta-row td:nth-child(5),
+    .fi-ta-row td:nth-child(6),
+    .fi-ta-row td:nth-child(7),
+    .fi-ta-row td:nth-child(n) {
         display: table-cell !important;
     }
 

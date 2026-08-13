@@ -32,7 +32,7 @@
         display: none !important;
     }
 
-    /* Avatar cell */
+    /* Avatar cell - clean neutral style */
     .fi-ta-row td:nth-child(2) {
         display: flex !important;
         width: 60px !important;
@@ -40,25 +40,31 @@
         align-items: center !important;
         justify-content: center !important;
         border-radius: 12px !important;
-        color: white !important;
+        color: #9ca3af !important;
         font-weight: 700 !important;
-        background: linear-gradient(135deg, #7c3aed, #a78bfa) !important;
+        background: #f3f4f6 !important;
+        border: 1px solid #e5e7eb !important;
     }
 
+    /* All rows get the same neutral style */
     .fi-ta-row:nth-child(2n) td:nth-child(2) {
-        background: linear-gradient(135deg, #10b981, #34d399) !important;
+        background: #f3f4f6 !important;
+        border-color: #e5e7eb !important;
     }
 
     .fi-ta-row:nth-child(3n) td:nth-child(2) {
-        background: linear-gradient(135deg, #f59e0b, #fbbf24) !important;
+        background: #f3f4f6 !important;
+        border-color: #e5e7eb !important;
     }
 
     .fi-ta-row:nth-child(5n) td:nth-child(2) {
-        background: linear-gradient(135deg, #ef4444, #f87171) !important;
+        background: #f3f4f6 !important;
+        border-color: #e5e7eb !important;
     }
 
     .fi-ta-row:nth-child(7n) td:nth-child(2) {
-        background: linear-gradient(135deg, #06b6d4, #22d3ee) !important;
+        background: #f3f4f6 !important;
+        border-color: #e5e7eb !important;
     }
 
     /* Content cells */

@@ -21,9 +21,13 @@
 
 [x-cloak] { display: none !important; }
 
-/* Topbar full width on all screen sizes */
+/* Topbar full width on all screen sizes.
+   -webkit-fill-available resolved to 1400px starting at x=14, leaving a
+   14px notch at the top-left where the white body showed through between
+   the topbar and the sidebar. */
 nav.fi-topbar {
-    width: -webkit-fill-available;
+    width: 100%;
+    margin-inline: 0;
 }
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -2874,11 +2878,15 @@ img[src*="ui-avatars.com"] {
 /* ── Sidebar account card (PanelsRenderHook::SIDEBAR_FOOTER) ─────── */
 
 .vx-account {
-    margin: 0.5rem 0.625rem 0.75rem;
-    padding: 0.75rem;
-    border: 1px solid var(--vxn-border);
-    border-radius: 0.75rem;
-    background-color: var(--vxn-bg-elevated);
+    /* Flat and flush with the nav rather than a floating card: a hairline
+       above it and the sidebar's own background, so it reads as the end of
+       the menu instead of a panel dropped on top of it. */
+    margin: 0;
+    padding: 0.75rem 0.625rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+    border: none;
+    border-top: 1px solid var(--vxn-border);
+    border-radius: 0;
+    background-color: transparent;
 }
 
 .vx-account-row {
@@ -3181,4 +3189,88 @@ html body .fi-sidebar-group-collapse-btn svg {
     html body .fi-sidebar[data-collapsed="true"] .vx-account-row {
         justify-content: center !important;
     }
+}
+
+/* ── Account block: quieter, part of the menu ─────────────────────
+   Previously a bordered card with an outlined button, which read as a
+   separate panel. Now it sits on the sidebar background with the row and
+   the log-out control styled like the nav items above them. */
+
+.vx-account-row {
+    padding: 0.375rem 0.5rem;
+    border-radius: 0.5rem;
+}
+
+.vx-account-avatar {
+    width: 2rem;
+    height: 2rem;
+    font-size: 0.75rem;
+}
+
+.vx-account-name {
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.vx-account-role {
+    font-size: 0.6875rem;
+}
+
+.vx-account-logout-form {
+    margin-top: 0.125rem;
+}
+
+html body .vx-account .vx-account-logout,
+html body .vx-account-logout {
+    justify-content: flex-start !important;
+    gap: 0.75rem !important;
+    padding: 0.5rem !important;
+    border: none !important;
+    border-radius: 0.5rem !important;
+    background: transparent !important;
+    color: var(--vxn-text) !important;
+    font-size: 0.8125rem !important;
+    font-weight: 500 !important;
+}
+
+html body .vx-account .vx-account-logout:hover,
+html body .vx-account-logout:hover {
+    background-color: rgb(255 255 255 / .055) !important;
+    color: var(--vxn-text-strong) !important;
+}
+
+html body .vx-account-logout-icon,
+html body .vx-account-logout svg {
+    width: 1.15rem !important;
+    height: 1.15rem !important;
+    opacity: 0.8 !important;
+}
+
+/* Collapsed rail: avatar and icon only, centred, nothing clipped */
+@media (min-width: 1024px) {
+    html body .fi-sidebar[data-collapsed="true"] .vx-account {
+        padding: 0.5rem 0.375rem !important;
+    }
+
+    html body .fi-sidebar[data-collapsed="true"] .vx-account-row,
+    html body .fi-sidebar[data-collapsed="true"] .vx-account-logout {
+        justify-content: center !important;
+        gap: 0 !important;
+        padding: 0.5rem 0 !important;
+    }
+}
+
+/* The topbar's container carried 14px of horizontal padding, which inset the
+   bar to x=14 and left a white notch at the top-left where the body showed
+   between the topbar and the sidebar. Padding belongs on the bar itself. */
+html body .fi-topbar-ctn {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+html body nav.fi-topbar {
+    width: 100% !important;
+    margin: 0 !important;
+    padding-left: 0.875rem !important;
+    padding-right: 0.875rem !important;
 }

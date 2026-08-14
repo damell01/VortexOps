@@ -1,4 +1,6 @@
 <x-filament-panels::page>
+    <x-kpi-row :stats="$this->getStats()" />
+
     {{ $this->table }}
 
     <div id="show-log-panel-container">

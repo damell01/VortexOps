@@ -11,9 +11,63 @@ class ListStreamerLogEntries extends ListRecords
 {
     protected static string $resource = StreamerLogResource::class;
 
+    /** Per-request memo — the tiles run several aggregates over the same set. */
+    protected ?array $statsMemo = null;
+
     public function getView(): string
     {
         return 'filament.resources.streamer-log-resource.pages.list-streamer-log-entries';
+    }
+
+    /**
+     * Headline tiles above the table, scoped through the resource query so a
+     * streamer's numbers cover their own entries only — same rows they see.
+     */
+    public function getStats(): array
+    {
+        if ($this->statsMemo !== null) {
+            return $this->statsMemo;
+        }
+
+        $base = fn () => StreamerLogResource::getEloquentQuery();
+
+        return $this->statsMemo = [
+            [
+                'label' => 'Total Submissions',
+                'value' => number_format($base()->count()),
+                'sub'   => 'All entries',
+                'icon'  => 'heroicon-o-document-text',
+                'tone'  => 'purple',
+            ],
+            [
+                'label' => 'Pending Review',
+                'value' => number_format($base()->where('status', 'streamer_reviewed')->count()),
+                'sub'   => 'Awaiting admin review',
+                'icon'  => 'heroicon-o-clock',
+                'tone'  => 'blue',
+            ],
+            [
+                'label' => 'Changes Requested',
+                'value' => number_format($base()->where('status', 'changes_requested')->count()),
+                'sub'   => 'Needs streamer updates',
+                'icon'  => 'heroicon-o-arrow-uturn-left',
+                'tone'  => 'amber',
+            ],
+            [
+                'label' => 'Approved',
+                'value' => number_format($base()->where('status', 'admin_approved')->count()),
+                'sub'   => 'Ready for payout',
+                'icon'  => 'heroicon-o-check-circle',
+                'tone'  => 'green',
+            ],
+            [
+                'label' => 'Total Payout',
+                'value' => '$' . number_format((float) $base()->sum('total_due'), 2),
+                'sub'   => 'Across all entries',
+                'icon'  => 'heroicon-o-banknotes',
+                'tone'  => 'orange',
+            ],
+        ];
     }
 
     public function getSubheading(): ?string

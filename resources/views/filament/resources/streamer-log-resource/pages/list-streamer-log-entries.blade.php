@@ -3,15 +3,12 @@ use Filament\Support\Enums\MaxWidth;
 @endphp
 
 <x-filament-panels::page>
-    <!-- Skeleton loader for initial page load -->
-    <div wire:loading.delay class="space-y-4">
-        <x-skeleton-loader type="table" :columns="4" :rows="3" />
-    </div>
+    <x-kpi-row :stats="$this->getStats()" />
 
-    <!-- Actual content -->
-    <div wire:loading.delay.remove>
-        {{ $this->table }}
-    </div>
+    {{-- Rendered directly rather than behind a skeleton swap: the two
+         wrappers were flex siblings, so the hidden one still spent a gap
+         between the tiles and the table. --}}
+    {{ $this->table }}
 
     <!-- Bottom action bar for bulk operations on mobile -->
     <x-bottom-action-bar>

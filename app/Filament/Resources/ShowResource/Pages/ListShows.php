@@ -27,9 +27,75 @@ class ListShows extends ListRecords
 {
     protected static string $resource = ShowResource::class;
 
+    /** Per-request memo — the tiles run several aggregates over the same set. */
+    protected ?array $statsMemo = null;
+
     public function getView(): string
     {
         return 'filament.resources.show-resource.pages.list-shows';
+    }
+
+    /**
+     * Headline tiles above the table.
+     *
+     * Scoped through the resource's own query, so channel scoping and any
+     * role restrictions apply to the tiles exactly as they do to the rows.
+     * The tabs filter the table below but deliberately not these — the tiles
+     * describe the whole picture, which is what makes them worth a glance.
+     */
+    public function getStats(): array
+    {
+        if ($this->statsMemo !== null) {
+            return $this->statsMemo;
+        }
+
+        $base = fn () => ShowResource::getEloquentQuery()->whereNotIn('status', ['cancelled']);
+
+        $active    = $base()->whereIn('status', ['draft', 'mapping'])->count();
+        $completed = $base()->whereIn('status', ['reconciled', 'closed'])->count();
+        $pending   = $base()->whereIn('status', ['pending_review', 'pending_approval'])->count();
+        $revenue   = (float) $base()->sum('gross_revenue');
+        $counted   = $base()->count();
+
+        $money = fn (float $v) => '$' . number_format($v, 2);
+
+        return $this->statsMemo = [
+            [
+                'label' => 'Active Shows',
+                'value' => number_format($active),
+                'sub'   => 'Draft or mapping',
+                'icon'  => 'heroicon-o-signal',
+                'tone'  => 'purple',
+            ],
+            [
+                'label' => 'Completed Shows',
+                'value' => number_format($completed),
+                'sub'   => 'Reconciled or closed',
+                'icon'  => 'heroicon-o-check-circle',
+                'tone'  => 'green',
+            ],
+            [
+                'label' => 'Pending Submission',
+                'value' => number_format($pending),
+                'sub'   => 'Awaiting review',
+                'icon'  => 'heroicon-o-clock',
+                'tone'  => 'amber',
+            ],
+            [
+                'label' => 'Total Revenue',
+                'value' => $money($revenue),
+                'sub'   => 'All shows',
+                'icon'  => 'heroicon-o-banknotes',
+                'tone'  => 'blue',
+            ],
+            [
+                'label' => 'Avg Revenue',
+                'value' => $money($counted > 0 ? $revenue / $counted : 0),
+                'sub'   => 'Per show',
+                'icon'  => 'heroicon-o-chart-bar',
+                'tone'  => 'orange',
+            ],
+        ];
     }
 
     public function getSubheading(): ?string

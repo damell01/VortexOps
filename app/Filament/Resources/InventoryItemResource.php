@@ -191,10 +191,26 @@ class InventoryItemResource extends Resource
 
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
     {
+        // Keys drive the layout in the global-search override: 'sku' is the
+        // muted second line, 'status' becomes a pill, 'figure' is pinned
+        // right. Anything else renders as a plain label/value pair.
+        $onHand = (int) ($record->stock_sum_quantity ?? $record->stock()->sum('quantity'));
+
         return array_filter([
-            'SKU'      => $record->sku,
-            'Category' => $record->category,
+            'sku'    => $record->sku,
+            'status' => match (static::stockStatus($record)) {
+                'out'   => 'Out of Stock',
+                'low'   => 'Low Stock',
+                default => 'In Stock',
+            },
+            'figure' => number_format($onHand) . ' units',
         ]);
+    }
+
+    /** Global search hits need the stock sum the details above read. */
+    public static function getGlobalSearchEloquentQuery(): Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->withSum('stock', 'quantity');
     }
 
     public static function form(Schema $schema): Schema

@@ -466,6 +466,11 @@ class InventoryItemResource extends Resource
                     ->label('Item Name')
                     ->searchable()
                     ->sortable()
+                    // Containers get a marker so it's obvious which rows have
+                    // something to open; the Contents action does the rest.
+                    ->icon(fn ($record) => $record->is_container ? 'heroicon-m-archive-box' : null)
+                    ->iconPosition(\Filament\Support\Enums\IconPosition::Before)
+                    ->iconColor('primary')
                     ->description(fn ($record) => filled($record->description)
                         ? \Illuminate\Support\Str::limit($record->description, 70)
                         : null),
@@ -614,6 +619,26 @@ class InventoryItemResource extends Resource
                     ]),
             ])
             ->actions([
+                // Only rendered for containers, so it sits alongside view/edit
+                // as a third icon rather than adding a column to every row.
+                TableAction::make('contents')
+                    ->label('Contents')
+                    ->icon('heroicon-o-archive-box')
+                    ->color('primary')
+                    ->size('sm')
+                    ->iconButton()
+                    ->tooltip('See what is inside')
+                    ->visible(fn ($record) => (bool) $record->is_container)
+                    ->modalHeading(fn ($record) => 'Inside ' . $record->name)
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->modalWidth('2xl')
+                    ->modalContent(fn ($record) => view(
+                        'filament.modals.container-contents',
+                        // Eager-loaded here: lazy loading is off outside
+                        // production, so the view would fatal otherwise.
+                        ['record' => $record->load('childContents.childItem.stock')],
+                    )),
                 ViewAction::make()
                     ->size('sm')
                     ->iconButton(),

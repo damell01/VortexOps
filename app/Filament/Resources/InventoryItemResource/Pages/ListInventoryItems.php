@@ -73,7 +73,7 @@ class ListInventoryItems extends ListRecords
             [
                 'label' => 'Total Items',
                 'value' => number_format($total),
-                'sub'   => 'All inventory items',
+                'sub'   => 'All items',
                 'icon'  => 'heroicon-o-cube',
                 'tone'  => 'purple',
             ],

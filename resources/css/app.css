@@ -4168,6 +4168,11 @@ html body .fi-ta-filter-indicators { display: none !important; }
     }
     html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title .fi-ta-text-item {
         font-size: 0.9375rem !important;
+        /* Keeps the container marker beside the name instead of stacking
+           it on a line of its own above the title. */
+        display: flex !important;
+        align-items: center !important;
+        gap: 0.375rem !important;
     }
     html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat {
         padding: 0.5rem 0.875rem !important;
@@ -4213,4 +4218,60 @@ html body .fi-page-main { gap: 0.875rem !important; }
     html body .vx-inv-stats { margin-bottom: 0 !important; }
     html body .fi-page-header-main-ctn { gap: 0.75rem !important; padding-top: 0.75rem !important; }
     html body .fi-page-main { gap: 0.75rem !important; }
+}
+
+/* ── Container contents modal ──────────────────────────────────────
+   What's inside a case/box: child SKU, how many per container, and the
+   child's own stock on hand. */
+
+.vx-contents-intro { margin: 0 0 0.75rem; font-size: 0.875rem; color: #6b7280; }
+.vx-contents-empty { margin: 0; font-size: 0.875rem; color: #6b7280; }
+
+.vx-contents-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+
+.vx-contents-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+}
+
+.vx-contents-main { display: flex; flex-direction: column; min-width: 0; }
+.vx-contents-name { font-size: 0.875rem; font-weight: 600; color: #111827; }
+.vx-contents-sku { font-size: 0.6875rem; color: #9ca3af; }
+
+.vx-contents-qty, .vx-contents-stock { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; }
+.vx-contents-qty-value, .vx-contents-stock-value { font-size: 0.9375rem; font-weight: 700; color: #111827; }
+.vx-contents-qty-label, .vx-contents-stock-label { font-size: 0.6875rem; color: #9ca3af; }
+
+.vx-contents-link { font-size: 0.75rem; font-weight: 600; color: #7c3aed; white-space: nowrap; }
+.vx-contents-link:hover { text-decoration: underline; }
+
+html.dark .vx-contents-row { border-color: var(--vxn-border); }
+html.dark .vx-contents-name,
+html.dark .vx-contents-qty-value,
+html.dark .vx-contents-stock-value { color: #ffffff; }
+
+@media (max-width: 639px) {
+    /* Stack: name on its own line, the two figures and the link beneath. */
+    .vx-contents-row { grid-template-columns: minmax(0, 1fr) auto auto; row-gap: 0.5rem; }
+    .vx-contents-main { grid-column: 1 / -1; }
+}
+
+/* ── Mobile trims on the inventory list ────────────────────────────
+   The tiles read fine without their captions once the numbers are
+   labelled, and "Added" isn't worth a row on a phone — the card is for
+   identifying an item and acting on it. SKU is already dropped by the
+   card decorator. */
+
+@media (max-width: 767px) {
+    html body .vx-inv-stats .vx-stat-sub { display: none !important; }
+    /* mobile-responsive-grid.css forces every cell to display:flex with a
+       deeper selector, so this has to match its shape to win. */
+    html body .fi-resource-inventory-items .fi-ta-table > tbody > tr.fi-ta-row > td.fi-ta-cell-created-at {
+        display: none !important;
+    }
 }

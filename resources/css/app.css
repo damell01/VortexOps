@@ -4878,3 +4878,62 @@ html.dark .vx-choice-cards > *:has(input:checked) { background: rgb(124 58 237 /
 }
 .vx-review-note { margin: 0.875rem 0 0; font-size: 0.8125rem; color: #6b7280; }
 html.dark .vx-review-grid dd { color: #ffffff; }
+
+/* ── Toggles ───────────────────────────────────────────────────────
+   Filament renders a toggle as <button type="button" role="switch">, and
+   accessibility-enterprise-polish.css styles button[type="button"] as a
+   secondary button — grey fill, border, 1rem padding, 40px min-height. So
+   every toggle in the app rendered ~100x40 and stayed grey when on.
+
+   The knob is drawn as a pseudo-element and Filament's own knob div is
+   hidden: its inline offsets and transform kept fighting ours, and this
+   way the geometry has exactly one owner. */
+
+html body button.fi-toggle,
+html body button[role="switch"] {
+    position: relative !important;
+    display: inline-block !important;
+    flex: 0 0 auto !important;
+    width: 2.75rem !important;
+    height: 1.5rem !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 9999px !important;
+    background-color: #d1d5db !important;
+    box-shadow: none !important;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: background-color 150ms ease;
+}
+
+html body button.fi-toggle.fi-toggle-on,
+html body button[role="switch"][aria-checked="true"] {
+    background-color: var(--vxn-violet, #7c3aed) !important;
+}
+
+html body button.fi-toggle > *,
+html body button[role="switch"] > * { display: none !important; }
+
+html body button.fi-toggle::after,
+html body button[role="switch"]::after {
+    content: '';
+    position: absolute;
+    top: 0.125rem;
+    left: 0.125rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 9999px;
+    background-color: #ffffff;
+    box-shadow: 0 1px 2px rgb(0 0 0 / .25);
+    transition: left 150ms ease;
+}
+
+html body button.fi-toggle.fi-toggle-on::after,
+html body button[role="switch"][aria-checked="true"]::after {
+    left: 1.375rem;
+}
+
+html.dark button.fi-toggle,
+html.dark button[role="switch"] { background-color: #374151 !important; }

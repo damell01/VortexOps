@@ -2669,10 +2669,76 @@ nav.fi-topbar {
     height: 1.25rem !important;
 }
 
-/* No topbar search in the design */
-.fi-global-search-ctn,
+/* Topbar search. Filament puts the field on the left of the topbar; the
+   design gives it real width and a ⌘K affordance, so it reads as the
+   primary way into the catalogue rather than an afterthought. */
+/* Filament nests the field inside .fi-topbar-end alongside the bell,
+   quick-create and user menu. Letting that group grow, and the search
+   inside it, spreads the field across the middle with the icon cluster
+   still pinned right. */
+.fi-topbar .fi-topbar-end { flex: 1 1 auto !important; }
+
+.fi-topbar .fi-global-search-ctn,
 .fi-topbar .fi-global-search {
-    display: none !important;
+    display: block !important;
+    flex: 1 1 auto !important;
+    max-width: 34rem !important;
+    margin-inline-end: auto !important;
+}
+
+.fi-topbar .fi-global-search-field { position: relative; width: 100%; }
+
+.fi-topbar .fi-global-search-field .fi-input-wrp {
+    /* Filament caps the field at ~380px. Without lifting the cap as well as
+       setting the width, the box stays short and the ⌘K chip — anchored to
+       the full-width field — floats outside it. */
+    width: 100% !important;
+    max-width: none !important;
+    background: rgb(255 255 255 / .06) !important;
+    border: 1px solid rgb(255 255 255 / .09) !important;
+    border-radius: 0.625rem !important;
+    box-shadow: none !important;
+}
+
+.fi-topbar .fi-global-search-field .fi-input-wrp:focus-within {
+    border-color: var(--vxn-violet, #7c3aed) !important;
+    background: rgb(255 255 255 / .09) !important;
+}
+
+.fi-topbar .fi-global-search-field input {
+    background: transparent !important;
+    color: #ffffff !important;
+    font-size: 0.875rem !important;
+    padding-inline-end: 3.25rem !important;
+}
+
+.fi-topbar .fi-global-search-field input::placeholder { color: #8b95a9 !important; }
+.fi-topbar .fi-global-search-field .fi-input-wrp-icon { color: #8b95a9 !important; }
+
+/* Keyboard hint. The binding is real (mod+k, registered on the panel);
+   this is the label for it, which Filament doesn't render itself. */
+.fi-topbar .fi-global-search-field::after {
+    content: '⌘K';
+    position: absolute;
+    top: 50%;
+    inset-inline-end: 0.5rem;
+    transform: translateY(-50%);
+    padding: 0.125rem 0.375rem;
+    border: 1px solid rgb(255 255 255 / .12);
+    border-radius: 0.3125rem;
+    background: rgb(255 255 255 / .06);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #8b95a9;
+    pointer-events: none;
+}
+
+@media (max-width: 767px) {
+    /* No room beside the logo and the action cluster on a phone — the
+       design puts search in the page body there, which the table's own
+       search field already provides. */
+    .fi-topbar .fi-global-search-ctn,
+    .fi-topbar .fi-global-search { display: none !important; }
 }
 
 /* Quick-create "+" is the single solid accent control */
@@ -3926,3 +3992,35 @@ html.dark .vx-an-table td { border-bottom-color: rgb(255 255 255 / .06); }
     .vx-stat-tile.is-lg .vx-stat-value { font-size: 1.375rem; }
     .vx-stat-glyph { width: 1.0625rem; height: 1.0625rem; }
 }
+
+/* ── Inventory list chrome ─────────────────────────────────────────
+   Row actions as separate outlined controls, matching the design's
+   three boxed icons rather than three bare glyphs running together. */
+
+.fi-ta-actions .fi-icon-btn {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 0.375rem;
+}
+
+.fi-ta-actions .fi-icon-btn:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+}
+
+html.dark .fi-ta-actions .fi-icon-btn { border-color: var(--vxn-border); }
+html.dark .fi-ta-actions .fi-icon-btn:hover { background: rgb(255 255 255 / .05); }
+
+.fi-ta-actions { gap: 0.375rem !important; }
+
+/* On a phone the actions sit in their own card footer, where the boxes
+   read as clutter against the hairline above them. */
+@media (max-width: 767px) {
+    .fi-ta-actions .fi-icon-btn { border: 0; }
+}
+
+/* The applied-filter strip repeats what the Filters button's count
+   already says, and pushed the table down by a full row. Filament's
+   stylesheet loads after this bundle, so the tie needs the extra
+   html body specificity to win on source order. */
+html body .fi-ta-filter-indicators { display: none !important; }

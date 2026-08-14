@@ -4388,3 +4388,88 @@ html body .fi-ta-table td.vx-nowrap .fi-ta-text-item {
     html body .fi-ta-table td.vx-col-tight,
     html body .fi-ta-table th.vx-col-tight { max-width: 9rem; }
 }
+
+/* ── Inventory Age ─────────────────────────────────────────────────
+   Stock on hand grouped into age bands, each with a risk label and a
+   bar showing its share of total value. */
+
+.vx-age { display: flex; flex-direction: column; gap: 0.875rem; }
+
+.vx-age-filter { display: flex; flex-direction: column; gap: 0.25rem; max-width: 20rem; }
+.vx-age-filter-label { font-size: 0.75rem; font-weight: 500; color: #6b7280; }
+.vx-age-filter select {
+    padding: 0.5rem 0.625rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: #ffffff;
+    font-size: 0.875rem;
+    color: #111827;
+}
+
+.vx-age-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.625rem; }
+
+.vx-age-row {
+    padding: 0.875rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    background: #ffffff;
+}
+
+.vx-age-head { display: flex; align-items: center; gap: 0.625rem; }
+.vx-age-label { font-size: 0.9375rem; font-weight: 600; color: #111827; }
+
+.vx-age-pill {
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.vx-age-pill.is-green  { background: rgb(16 185 129 / .13); color: #047857; }
+.vx-age-pill.is-amber  { background: rgb(245 158 11 / .16); color: #b45309; }
+.vx-age-pill.is-orange { background: rgb(249 115 22 / .14); color: #c2410c; }
+.vx-age-pill.is-red    { background: rgb(239 68 68 / .12);  color: #dc2626; }
+
+.vx-age-figures {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 0.75rem; margin-top: 0.375rem;
+}
+.vx-age-value { font-size: 1.125rem; font-weight: 700; color: #111827; white-space: nowrap; }
+.vx-age-pct   { font-size: 0.8125rem; font-weight: 500; color: #6b7280; }
+.vx-age-units { font-size: 0.75rem; color: #9ca3af; white-space: nowrap; }
+
+.vx-age-track {
+    margin-top: 0.5rem; height: 0.375rem; border-radius: 9999px;
+    background: #f1f3f6; overflow: hidden;
+}
+.vx-age-fill { height: 100%; border-radius: 9999px; }
+.vx-age-fill.is-green  { background: #10b981; }
+.vx-age-fill.is-amber  { background: #f59e0b; }
+.vx-age-fill.is-orange { background: #f97316; }
+.vx-age-fill.is-red    { background: #ef4444; }
+
+.vx-age-total {
+    display: flex; justify-content: space-between; gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e5e7eb; border-radius: 0.75rem; background: #ffffff;
+    font-size: 0.875rem; font-weight: 600; color: #111827;
+}
+
+.vx-age-blank { padding: 2rem 1rem; text-align: center; }
+.vx-age-blank p { margin: 0; font-size: 0.875rem; color: #6b7280; }
+.vx-age-blank-note { margin-top: 0.25rem !important; font-size: 0.75rem !important; color: #9ca3af !important; }
+
+html.dark .vx-age-row,
+html.dark .vx-age-total,
+html.dark .vx-age-filter select { background: #131c2e; border-color: var(--vxn-border); color: #fff; }
+html.dark .vx-age-label,
+html.dark .vx-age-value,
+html.dark .vx-age-total { color: #ffffff; }
+html.dark .vx-age-track { background: rgb(255 255 255 / .07); }
+
+@media (max-width: 639px) {
+    .vx-age-filter { max-width: none; }
+    .vx-age-row { padding: 0.75rem 0.875rem; }
+    .vx-age-value { font-size: 1rem; }
+    .vx-age-figures { flex-direction: column; align-items: flex-start; gap: 0.125rem; }
+}

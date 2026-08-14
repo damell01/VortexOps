@@ -15,6 +15,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Support\NavVisibility;
 
 class DuplicateProductDetector extends Page
 {
@@ -33,6 +34,13 @@ class DuplicateProductDetector extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
+        // Nav visibility is configured per role in Settings; without this
+        // check an override here silently ignored that setting and the link
+        // stayed in the sidebar regardless.
+        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
+            return false;
+        }
+
         return false;
     }
 

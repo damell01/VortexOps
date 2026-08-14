@@ -16,6 +16,7 @@ use Livewire\Component;
 use Symfony\Component\HttpFoundation\Response;
 use League\Csv\Writer;
 use SplTempFileObject;
+use App\Support\NavVisibility;
 
 class InventoryReport extends Page
 {
@@ -54,6 +55,13 @@ class InventoryReport extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
+        // Nav visibility is configured per role in Settings; without this
+        // check an override here silently ignored that setting and the link
+        // stayed in the sidebar regardless.
+        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
+            return false;
+        }
+
         return false;
     }
 

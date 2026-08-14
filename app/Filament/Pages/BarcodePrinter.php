@@ -15,6 +15,7 @@ use Filament\Pages\Page;
 // collect() returns a Support collection; typing this as the Eloquent
 // one made every page load a TypeError.
 use Illuminate\Support\Collection;
+use App\Support\NavVisibility;
 
 class BarcodePrinter extends Page implements HasForms
 {
@@ -31,6 +32,13 @@ class BarcodePrinter extends Page implements HasForms
 
     public static function shouldRegisterNavigation(): bool
     {
+        // Nav visibility is configured per role in Settings; without this
+        // check an override here silently ignored that setting and the link
+        // stayed in the sidebar regardless.
+        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
+            return false;
+        }
+
         return false;
     }
 

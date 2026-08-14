@@ -30,6 +30,7 @@ use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
+use App\Support\NavVisibility;
 
 class PayoutResource extends Resource
 {
@@ -56,6 +57,13 @@ class PayoutResource extends Resource
     // resource itself.
     public static function shouldRegisterNavigation(): bool
     {
+        // Nav visibility is configured per role in Settings; without this
+        // check an override here silently ignored that setting and the link
+        // stayed in the sidebar regardless.
+        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
+            return false;
+        }
+
         if (! static::moduleShouldRegisterNavigation()) {
             return false;
         }

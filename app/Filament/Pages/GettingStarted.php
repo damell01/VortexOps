@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use Filament\Pages\Page;
+use App\Support\NavVisibility;
 
 class GettingStarted extends Page
 {
@@ -19,6 +20,13 @@ class GettingStarted extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
+        // Nav visibility is configured per role in Settings; without this
+        // check an override here silently ignored that setting and the link
+        // stayed in the sidebar regardless.
+        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
+            return false;
+        }
+
         return false;
     }
 }

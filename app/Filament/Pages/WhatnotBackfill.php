@@ -13,6 +13,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Actions\Action;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use App\Support\NavVisibility;
 
 class WhatnotBackfill extends Page implements HasForms
 {
@@ -25,6 +26,13 @@ class WhatnotBackfill extends Page implements HasForms
 
     public static function shouldRegisterNavigation(): bool
     {
+        // Nav visibility is configured per role in Settings; without this
+        // check an override here silently ignored that setting and the link
+        // stayed in the sidebar regardless.
+        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
+            return false;
+        }
+
         return false;
     }
 

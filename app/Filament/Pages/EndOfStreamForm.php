@@ -20,6 +20,7 @@ use Filament\Pages\Page;
 use Filament\Panel;
 use Filament\Schemas\Schema;
 use Illuminate\Contracts\Support\Htmlable;
+use App\Support\NavVisibility;
 
 class EndOfStreamForm extends Page implements HasForms
 {
@@ -110,10 +111,20 @@ class EndOfStreamForm extends Page implements HasForms
             ->get();
     }
 
+    /** Browse Inventory shows the full list; searching filters it. */
+    public function toggleBrowse(): void
+    {
+        $this->showInventoryPicker = ! $this->showInventoryPicker;
+    }
+
     public function getInventoryProperty()
     {
         $query = InventoryItem::query()
             ->where('is_active', true)
+            // The list reads stock_sum_quantity, which only exists with
+            // withSum — eager-loading the relation left every row showing
+            // "In stock: 0" no matter how much was on hand.
+            ->withSum('stock', 'quantity')
             ->with(['stock' => fn ($q) => $q->where('quantity', '>', 0)]);
 
         if ($this->search) {
@@ -429,6 +440,13 @@ class EndOfStreamForm extends Page implements HasForms
 
     public static function shouldRegisterNavigation(): bool
     {
+        // Nav visibility is configured per role in Settings; without this
+        // check an override here silently ignored that setting and the link
+        // stayed in the sidebar regardless.
+        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
+            return false;
+        }
+
         // Show to streamers who can access the form
         return auth()->user()?->isStreamer() ?? false;
     }

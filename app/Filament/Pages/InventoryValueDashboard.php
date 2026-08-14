@@ -8,6 +8,7 @@ use App\Models\InventoryLocation;
 use App\Services\InventoryCostService;
 use App\Support\AdminModules;
 use Filament\Pages\Page;
+use App\Support\NavVisibility;
 
 class InventoryValueDashboard extends Page
 {
@@ -28,6 +29,13 @@ class InventoryValueDashboard extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
+        // Nav visibility is configured per role in Settings; without this
+        // check an override here silently ignored that setting and the link
+        // stayed in the sidebar regardless.
+        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
+            return false;
+        }
+
         return false;
     }
 

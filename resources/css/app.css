@@ -4666,3 +4666,34 @@ html body .fi-no-notification .fi-icon {
 @media (max-width: 639px) {
     html body .fi-no { max-width: none !important; }
 }
+
+/* ── End of Stream: item picker on a phone ─────────────────────────
+   The search row and each result were fixed flex rows, so the browse
+   toggle ran past the panel edge and "In stock: 26" wrapped over three
+   lines beside it. */
+
+@media (max-width: 639px) {
+    html body .vx-eos-search-row {
+        flex-wrap: wrap;
+    }
+    html body .vx-eos-search-row .vx-eos-search {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+    html body .vx-eos-search-row > .fi-btn,
+    html body .vx-eos-search-row button {
+        flex: 1 1 auto;
+        justify-content: center;
+        white-space: nowrap;
+    }
+
+    /* Name on its own line, then stock and the Add button side by side. */
+    html body .vx-eos-result {
+        flex-wrap: wrap;
+        row-gap: 0.5rem;
+    }
+    html body .vx-eos-result-main { flex: 1 1 100%; }
+    html body .vx-eos-result-stock { flex: 1 1 auto; white-space: nowrap; }
+    html body .vx-eos-result > .fi-btn,
+    html body .vx-eos-result button { flex: 0 0 auto; }
+}

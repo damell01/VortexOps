@@ -44,6 +44,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Cache;
+use App\Support\NavVisibility;
 
 class InventoryItemResource extends Resource
 {
@@ -89,6 +90,13 @@ class InventoryItemResource extends Resource
 
     public static function shouldRegisterNavigation(): bool
     {
+        // Nav visibility is configured per role in Settings; without this
+        // check an override here silently ignored that setting and the link
+        // stayed in the sidebar regardless.
+        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
+            return false;
+        }
+
         $user = auth()->user();
 
         // Show navigation for streamers even if inventory module is disabled

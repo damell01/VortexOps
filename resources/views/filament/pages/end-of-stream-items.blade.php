@@ -57,15 +57,19 @@
                             type="button"
                             color="gray"
                             icon="heroicon-m-plus"
-                            wire:click="$set('showInventoryPicker', true)"
+                            wire:click="toggleBrowse"
                         >
-                            Browse Inventory
+                            {{ $this->showInventoryPicker ? 'Hide Inventory' : 'Browse Inventory' }}
                         </x-filament::button>
                     </div>
 
-                    {{-- Live results: adding straight from here is the fast path,
-                         so a streamer never has to open the modal at all. --}}
-                    @if (filled($this->search))
+                    {{-- Results render inline rather than in a modal. The modal
+                         was a <x-filament::modal visible> inside an @if, and
+                         Filament modals are Alpine-driven: the markup arrived
+                         after the Livewire round-trip and Alpine initialised it
+                         closed, so Browse Inventory appeared to do nothing.
+                         Inline is also easier to use one-handed on a phone. --}}
+                    @if (filled($this->search) || $this->showInventoryPicker)
                         <ul class="vx-eos-results">
                             @forelse ($this->inventory as $item)
                                 <li class="vx-eos-result">
@@ -86,7 +90,13 @@
                                     </x-filament::button>
                                 </li>
                             @empty
-                                <li class="vx-eos-empty">Nothing matched “{{ $this->search }}”.</li>
+                                <li class="vx-eos-empty">
+                                    @if (filled($this->search))
+                                        Nothing matched “{{ $this->search }}”.
+                                    @else
+                                        No active inventory items to show.
+                                    @endif
+                                </li>
                             @endforelse
                         </ul>
                     @endif
@@ -271,49 +281,5 @@
             </aside>
         </div>
 
-        {{-- ── Inventory picker ─────────────────────────────────────────── --}}
-        @if ($this->showInventoryPicker)
-            <x-filament::modal id="vx-inventory-picker" visible width="2xl">
-                <x-slot name="heading">Add Item from Inventory</x-slot>
-
-                <input
-                    type="text"
-                    wire:model.live.debounce.300ms="search"
-                    placeholder="Search items by name, SKU, or category…"
-                    class="vx-eos-search"
-                    autocomplete="off"
-                />
-
-                <ul class="vx-eos-results">
-                    @forelse ($this->inventory as $item)
-                        <li class="vx-eos-result">
-                            <span class="vx-eos-result-main">
-                                <span class="vx-eos-result-name">{{ $item->name }}</span>
-                                <span class="vx-eos-result-sku">SKU: {{ $item->sku ?? '—' }}</span>
-                            </span>
-                            <span class="vx-eos-result-stock">
-                                In stock: {{ (int) ($item->stock_sum_quantity ?? 0) }}
-                            </span>
-                            <x-filament::button
-                                type="button"
-                                size="xs"
-                                icon="heroicon-m-plus"
-                                wire:click="addLineItem({{ $item->id }})"
-                            >
-                                Add
-                            </x-filament::button>
-                        </li>
-                    @empty
-                        <li class="vx-eos-empty">No inventory matched.</li>
-                    @endforelse
-                </ul>
-
-                <x-slot name="footerActions">
-                    <x-filament::button color="gray" wire:click="$set('showInventoryPicker', false)">
-                        Done
-                    </x-filament::button>
-                </x-slot>
-            </x-filament::modal>
-        @endif
     @endif
 </x-filament-panels::page>

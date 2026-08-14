@@ -6,6 +6,7 @@ use App\Models\Show;
 use App\Models\StreamerLogEntry;
 use App\Support\AdminModules;
 use Filament\Pages\Page;
+use App\Support\NavVisibility;
 
 class StreamWorkflow extends Page
 {
@@ -20,6 +21,13 @@ class StreamWorkflow extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
+        // Nav visibility is configured per role in Settings; without this
+        // check an override here silently ignored that setting and the link
+        // stayed in the sidebar regardless.
+        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
+            return false;
+        }
+
         return false;
     }
 

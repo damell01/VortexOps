@@ -23,8 +23,10 @@ const titleTerms = ['name', 'title', 'customer', 'streamer', 'recipient', 'item'
 // Short codes (SKU, barcode, internal ids) are omitted from the card; the
 // name carries the identity and the codes just added noise.
 const tileTerms = ['sku', 'code', 'barcode', 'reference', 'id', 'number'];
-// Numeric-ish columns promoted into the two-up stat row.
-const statTerms = ['stock', 'qty', 'quantity', 'amount', 'total', 'value', 'balance', 'price', 'revenue', 'reorder', 'rate', 'count'];
+// Headline columns promoted into the two-up stat row. Mostly numeric, plus
+// status: it's the first thing you look for on a card, and pairing it with a
+// count fills the row instead of leaving a solo half-width cell.
+const statTerms = ['status', 'stock', 'qty', 'quantity', 'amount', 'total', 'value', 'balance', 'price', 'revenue', 'reorder', 'rate', 'count'];
 // Dates fall to the card footer.
 const footTerms = ['updated', 'created', 'date', 'last seen', 'when'];
 

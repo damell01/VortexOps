@@ -38,7 +38,6 @@ use Filament\QueryBuilder\Constraints\BooleanConstraint;
 use Filament\QueryBuilder\Constraints\NumberConstraint;
 use Filament\QueryBuilder\Constraints\SelectConstraint;
 use Filament\QueryBuilder\Constraints\TextConstraint;
-use Filament\Tables\Columns\Summarizers\Sum;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\QueryBuilder;
 use Filament\Tables\Filters\SelectFilter;
@@ -429,6 +428,25 @@ class InventoryItemResource extends Resource
         ]);
     }
 
+    /**
+     * Stock health for a row: 'out', 'low' or 'ok'.
+     *
+     * An item with no reorder level set can only be out or in stock — there's
+     * no threshold to be "low" against.
+     */
+    public static function stockStatus(InventoryItem $record): string
+    {
+        $onHand = (float) ($record->stock_sum_quantity ?? 0);
+
+        if ($onHand <= 0) {
+            return 'out';
+        }
+
+        return $record->reorder_level !== null && $onHand <= (float) $record->reorder_level
+            ? 'low'
+            : 'ok';
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -439,36 +457,58 @@ class InventoryItemResource extends Resource
                     ->sortable()
                     ->copyable()
                     ->placeholder('—')
-                    ->weight('semibold'),
+                    ->weight('semibold')
+                    // Null rather than an em dash: Filament skips the second
+                    // line entirely, so rows without a barcode stay one line
+                    // tall instead of carrying an empty placeholder.
+                    ->description(fn ($record) => filled($record->barcode) ? $record->barcode : null),
                 TextColumn::make('name')
+                    ->label('Item Name')
                     ->searchable()
                     ->sortable()
+                    ->description(fn ($record) => filled($record->description)
+                        ? \Illuminate\Support\Str::limit($record->description, 70)
+                        : null),
+                // Stock health, not the active flag — this is the status the
+                // tiles above the table count, so the two agree at a glance.
+                TextColumn::make('stock_status')
+                    ->label('Status')
+                    ->badge()
+                    ->getStateUsing(fn ($record) => static::stockStatus($record))
+                    ->formatStateUsing(fn (string $state) => match ($state) {
+                        'out'   => 'Out of Stock',
+                        'low'   => 'Low Stock',
+                        default => 'In Stock',
+                    })
+                    ->color(fn (string $state) => match ($state) {
+                        'out'   => 'danger',
+                        'low'   => 'warning',
+                        default => 'success',
+                    }),
+                TextColumn::make('stock_sum_quantity')
+                    ->label('Qty on Hand')
+                    ->numeric(decimalPlaces: 0)
+                    ->default(0)
+                    ->sortable()
                     ->weight('semibold')
-                    ->description(fn ($record) => $record->description),
+                    // The tiles above the table already carry the totals, so
+                    // the summary row is redundant noise under every page.
+                    ->color(fn ($record) => match (static::stockStatus($record)) {
+                        'out'   => 'danger',
+                        'low'   => 'warning',
+                        default => 'success',
+                    }),
+                TextColumn::make('created_at')
+                    ->label('Added')
+                    ->date('M j, Y')
+                    ->sortable(),
                 TextColumn::make('category')
                     ->searchable()
                     ->sortable()
                     ->badge()
                     ->color('gray')
                     ->placeholder('—')
-                    ->toggleable(),
-                TextColumn::make('stock_sum_quantity')
-                    ->label('Stock')
-                    ->numeric(decimalPlaces: 0)
-                    ->default(0)
-                    ->sortable()
-                    ->summarize(Sum::make()->label('Total'))
-                    ->color(fn ($record) => match (true) {
-                        (int) ($record->stock_sum_quantity ?? 0) <= 0 => 'danger',
-                        isset($record->reorder_level) && (int) ($record->stock_sum_quantity ?? 0) <= (int) $record->reorder_level => 'warning',
-                        default => 'success'
-                    })
-                    ->weight(fn ($record) => (int) ($record->stock_sum_quantity ?? 0) <= 0 ? 'bold' : 'normal')
-                    ->icon(fn ($record) => match (true) {
-                        (int) ($record->stock_sum_quantity ?? 0) <= 0 => 'heroicon-o-exclamation-triangle',
-                        isset($record->reorder_level) && (int) ($record->stock_sum_quantity ?? 0) <= (int) $record->reorder_level => 'heroicon-o-exclamation-circle',
-                        default => 'heroicon-o-check-circle'
-                    }),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('reorder_level')
                     // hiddenFrom('md') hid the header but not the data cells,
                     // leaving an unlabeled column on desktop, so this is simply
@@ -476,7 +516,7 @@ class InventoryItemResource extends Resource
                     ->label('Reorder Level')
                     ->placeholder('—')
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('average_cost')
                     ->label('Avg Cost')
                     ->money('USD')
@@ -493,12 +533,12 @@ class InventoryItemResource extends Resource
                     ->money('USD')
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('is_active')
-                    ->label('Status')
+                    ->label('Active')
                     ->badge()
                     ->formatStateUsing(fn ($state) => $state ? 'Active' : 'Inactive')
                     ->color(fn ($state) => $state ? 'success' : 'gray')
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('barcode')
                     ->label('Barcode')
                     ->searchable()
@@ -510,7 +550,7 @@ class InventoryItemResource extends Resource
                     ->label('Updated')
                     ->date('M j, Y')
                     ->sortable()
-                    ->toggleable(),
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->striped()
             ->emptyStateIcon('heroicon-o-cube')
@@ -525,9 +565,15 @@ class InventoryItemResource extends Resource
                         return ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
                     }),
             ])
-            // Filters sit above the table rather than behind the drawer icon,
-            // so category/stock/status are visible without a click.
-            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContent)
+            // AboveContent turned the Advanced Filters query builder into a
+            // full-height panel that pushed the table below the fold. The
+            // dropdown keeps a compact trigger with an active-filter count.
+            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::Dropdown)
+            ->filtersTriggerAction(fn (TableAction $action) => $action
+                ->label('Filters')
+                ->icon('heroicon-m-funnel')
+                ->button()
+                ->color('gray'))
             ->filters([
                 SelectFilter::make('category')
                     ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
@@ -574,11 +620,14 @@ class InventoryItemResource extends Resource
                 EditAction::make()
                     ->size('sm')
                     ->iconButton(),
-                Action::make('add_stock')
-                    ->label('+ Add Stock')
-                    ->icon('heroicon-o-plus-circle')
-                    ->color('success')
-                    ->form([
+                // Everything past view/edit lives behind the overflow menu, so
+                // a row is three controls wide instead of five.
+                ActionGroup::make([
+                    Action::make('add_stock')
+                        ->label('Add Stock')
+                        ->icon('heroicon-o-plus-circle')
+                        ->color('success')
+                        ->form([
                             Grid::make(2)->schema([
                                 Select::make('location_id')
                                     ->label('Location')
@@ -624,7 +673,6 @@ class InventoryItemResource extends Resource
                             );
                             Notification::make()->title('Stock added successfully')->success()->send();
                         }),
-                ActionGroup::make([
                     Action::make('transfer_stock')
                         ->label('Transfer Stock')
                         ->icon('heroicon-o-arrows-right-left')
@@ -743,8 +791,8 @@ class InventoryItemResource extends Resource
                                 ->info()
                                 ->send();
                         }),
+                    DeleteAction::make(),
                 ]),
-                DeleteAction::make(),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

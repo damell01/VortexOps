@@ -4473,3 +4473,196 @@ html.dark .vx-age-track { background: rgb(255 255 255 / .07); }
     .vx-age-value { font-size: 1rem; }
     .vx-age-figures { flex-direction: column; align-items: flex-start; gap: 0.125rem; }
 }
+
+/* ── Container scan ────────────────────────────────────────────────
+   Scan a case, scan what's inside it, review. */
+
+.vx-cs { display: flex; flex-direction: column; gap: 0.875rem; }
+
+.vx-cs-steps { display: flex; gap: 0.5rem; list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
+.vx-cs-step {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.5rem 0.75rem; border-radius: 0.5rem;
+    border: 1px solid #e5e7eb; background: transparent;
+    font-size: 0.8125rem; color: #6b7280;
+}
+.vx-cs-step-n {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.375rem; height: 1.375rem; border-radius: 9999px;
+    background: #e5e7eb; color: #374151; font-size: 0.75rem; font-weight: 700;
+}
+.vx-cs-step.is-current { border-color: #7c3aed; color: #6d28d9; font-weight: 600; }
+.vx-cs-step.is-current .vx-cs-step-n { background: #7c3aed; color: #fff; }
+.vx-cs-step.is-done .vx-cs-step-n { background: #10b981; color: #fff; }
+
+.vx-cs-error {
+    margin: 0; padding: 0.5rem 0.75rem; border-radius: 0.5rem;
+    background: rgb(239 68 68 / .1); color: #b91c1c; font-size: 0.8125rem;
+}
+
+.vx-cs-scanbox {
+    display: flex; flex-direction: column; align-items: center; gap: 0.75rem;
+    padding: 2rem 1rem;
+    border: 2px dashed #d8b4fe; border-radius: 0.75rem;
+    background: rgb(124 58 237 / .04);
+    text-align: center;
+}
+.vx-cs-scanbox-glyph { width: 2.5rem; height: 2.5rem; color: #7c3aed; }
+.vx-cs-or { margin: 0; font-size: 0.75rem; color: #9ca3af; }
+
+.vx-cs-input {
+    width: 100%; max-width: 24rem;
+    padding: 0.5rem 0.75rem; font-size: 0.875rem;
+    border: 1px solid #e5e7eb; border-radius: 0.5rem;
+    background: #fff; color: #111827;
+}
+.vx-cs-scanrow { display: flex; gap: 0.5rem; align-items: center; }
+.vx-cs-scanrow .vx-cs-input { max-width: none; flex: 1 1 auto; }
+
+.vx-cs-container-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+    padding: 0.625rem 0.75rem; margin-bottom: 0.75rem;
+    border: 1px solid #e5e7eb; border-radius: 0.5rem; background: #f9fafb;
+}
+.vx-cs-container-label { display: block; font-size: 0.6875rem; color: #9ca3af; }
+.vx-cs-container-name { font-size: 0.875rem; font-weight: 600; color: #111827; }
+.vx-cs-container-sku { margin-left: 0.375rem; font-size: 0.75rem; color: #6b7280; }
+
+.vx-cs-table-wrap { overflow-x: auto; }
+.vx-cs-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+.vx-cs-table th {
+    padding: 0.5rem 0.625rem; text-align: left;
+    font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em;
+    color: #9ca3af; border-bottom: 1px solid #e5e7eb; white-space: nowrap;
+}
+.vx-cs-table td { padding: 0.5rem 0.625rem; border-bottom: 1px solid #f3f4f6; }
+.vx-cs-table tr:last-child td { border-bottom: 0; }
+.vx-cs-table .is-num { text-align: right; }
+.vx-cs-name { font-weight: 600; color: #111827; }
+.vx-cs-sku { color: #6b7280; font-size: 0.75rem; }
+
+.vx-cs-stepper { display: inline-flex; align-items: center; gap: 0.25rem; }
+.vx-cs-stepper button {
+    width: 1.75rem; height: 1.75rem; border-radius: 0.375rem;
+    border: 1px solid #e5e7eb; background: #fff;
+    font-size: 0.9375rem; font-weight: 700; color: #374151; line-height: 1;
+}
+.vx-cs-stepper button:hover { background: #f3f4f6; }
+.vx-cs-stepper input {
+    width: 3.25rem; text-align: center;
+    padding: 0.25rem; font-size: 0.875rem;
+    border: 1px solid #e5e7eb; border-radius: 0.375rem; background: #fff; color: #111827;
+}
+
+.vx-cs-totals {
+    display: flex; gap: 1.5rem; margin-top: 0.75rem; padding-top: 0.75rem;
+    border-top: 1px solid #e5e7eb; font-size: 0.9375rem; font-weight: 700; color: #111827;
+}
+.vx-cs-total-label { display: block; font-size: 0.6875rem; font-weight: 500; color: #9ca3af; }
+
+.vx-cs-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 0.75rem; margin: 0 0 1rem; }
+.vx-cs-summary dt { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af; }
+.vx-cs-summary dd { margin: 0.125rem 0 0; font-size: 1.0625rem; font-weight: 700; color: #111827; }
+
+.vx-cs-review-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.375rem; }
+.vx-cs-review-list li {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto;
+    align-items: center; gap: 0.75rem;
+    padding: 0.5rem 0.625rem; border: 1px solid #e5e7eb; border-radius: 0.5rem;
+}
+.vx-cs-review-qty { font-size: 0.75rem; color: #6b7280; white-space: nowrap; }
+.vx-cs-review-cost { font-weight: 700; color: #111827; white-space: nowrap; }
+
+.vx-cs-empty { margin: 0; font-size: 0.875rem; color: #6b7280; }
+.vx-cs-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+
+html.dark .vx-cs-input,
+html.dark .vx-cs-stepper input,
+html.dark .vx-cs-stepper button,
+html.dark .vx-cs-container-bar,
+html.dark .vx-cs-review-list li { background: #131c2e; border-color: var(--vxn-border); color: #fff; }
+html.dark .vx-cs-name,
+html.dark .vx-cs-container-name,
+html.dark .vx-cs-summary dd,
+html.dark .vx-cs-totals,
+html.dark .vx-cs-review-cost { color: #ffffff; }
+
+@media (max-width: 639px) {
+    .vx-cs-scanrow { flex-direction: column; align-items: stretch; }
+    .vx-cs-review-list li { grid-template-columns: minmax(0, 1fr) auto; row-gap: 0.25rem; }
+    .vx-cs-table-wrap { overflow-x: visible; }
+    .vx-cs-table, .vx-cs-table tbody, .vx-cs-table tr, .vx-cs-table td { display: block; width: 100%; }
+    .vx-cs-table thead { display: none; }
+    .vx-cs-table tr { padding: 0.625rem 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; }
+    .vx-cs-table tr + tr { margin-top: 0.5rem; }
+    .vx-cs-table td { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; border-bottom: 0; padding: 0.1875rem 0; }
+    .vx-cs-table td::before {
+        content: attr(data-label);
+        font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af;
+    }
+    .vx-cs-table td.vx-cs-name { display: block; font-size: 0.9375rem; margin-bottom: 0.25rem; }
+    .vx-cs-table td.vx-cs-name::before { content: none; }
+    html.dark .vx-cs-table tr { border-color: var(--vxn-border); }
+}
+
+/* ── Notification toasts ───────────────────────────────────────────
+   Three stylesheets were each setting their own padding on
+   .fi-no-notification, and nothing capped the width or the title size,
+   so a toast rendered as a full-height panel with a headline-sized
+   title. One authoritative sizing block, last in the file. */
+
+html body .fi-no {
+    max-width: 22rem !important;
+    width: 100% !important;
+}
+
+html body .fi-no-notification {
+    padding: 0.75rem 0.875rem !important;
+    gap: 0.625rem !important;
+    border-radius: 0.625rem !important;
+    box-shadow: 0 6px 18px rgb(0 0 0 / .12) !important;
+}
+
+html body .fi-no-notification .fi-no-notification-title {
+    font-size: 0.875rem !important;
+    font-weight: 600 !important;
+    line-height: 1.35 !important;
+}
+
+html body .fi-no-notification .fi-no-notification-body {
+    font-size: 0.8125rem !important;
+    line-height: 1.4 !important;
+    margin-top: 0.125rem !important;
+}
+
+html body .fi-no-notification .fi-icon {
+    width: 1.125rem !important;
+    height: 1.125rem !important;
+}
+
+/* The close control rendered as a large outlined box. Match the button
+   element itself, not just .fi-icon-btn — mobile-optimizations.css gives
+   it a 44px touch target, which is right on a phone and oversized here. */
+@media (min-width: 640px) {
+    html body .fi-no-notification button,
+    html body .fi-no-notification .fi-icon-btn {
+        width: 1.5rem !important;
+        height: 1.5rem !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        flex: 0 0 auto !important;
+    }
+    html body .fi-no-notification button .fi-icon,
+    html body .fi-no-notification .fi-icon-btn .fi-icon {
+        width: 1rem !important;
+        height: 1rem !important;
+    }
+}
+
+@media (max-width: 639px) {
+    html body .fi-no { max-width: none !important; }
+}

@@ -16,11 +16,9 @@
         @endforeach
     </div>
 
-    <div wire:loading.delay>
-        <x-skeleton-loader type="table" :columns="5" :rows="3" />
-    </div>
-
-    <div wire:loading.delay.remove>
-        {{ $this->table }}
-    </div>
+    {{-- The table renders directly rather than behind a skeleton swap: the
+         two wrappers were flex siblings, so the hidden one still spent a
+         gap between the tiles and the table. Filament's own deferred
+         loading state covers the wait. --}}
+    {{ $this->table }}
 </x-filament-panels::page>

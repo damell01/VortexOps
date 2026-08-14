@@ -4135,3 +4135,82 @@ html body .fi-ta-filter-indicators { display: none !important; }
         padding-bottom: 0.5rem !important;
     }
 }
+
+/* ── Density pass ──────────────────────────────────────────────────
+   Matching the design's compactness. Desktop row height already lines
+   up; what didn't was the dead space between bands, and on phones the
+   nested wrappers inside every cell. */
+
+/* Desktop: reclaim the gaps between header, tiles and table. */
+@media (min-width: 768px) {
+    html body .fi-main { padding-block: 1.25rem !important; gap: 1.25rem !important; }
+    html body .fi-page { gap: 0.75rem !important; }
+    html body .fi-page-header-main-ctn .fi-header { padding-block: 0.25rem !important; }
+    html body .fi-ta-header-toolbar { padding: 0.5rem 0.75rem !important; }
+}
+
+@media (max-width: 767px) {
+    /* Every cell wraps its content in .fi-ta-col (padded, min-height 44px
+       for touch) and .fi-ta-text-item (padded again). Fine for a table
+       row; in a card that stacks four of them it tripled the height. The
+       action buttons keep their own hit area — they aren't .fi-ta-col. */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td .fi-ta-col {
+        min-height: 0 !important;
+        padding: 0 !important;
+    }
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td .fi-ta-text-item {
+        padding: 0 !important;
+    }
+
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title {
+        padding: 0.625rem 0.875rem 0.375rem !important;
+        font-size: 0.9375rem !important;
+    }
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title .fi-ta-text-item {
+        font-size: 0.9375rem !important;
+    }
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat {
+        padding: 0.5rem 0.875rem !important;
+    }
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat .fi-ta-text-item {
+        font-size: 0.9375rem !important;
+    }
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-detail,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-foot {
+        padding: 0.375rem 0.875rem !important;
+    }
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-actions {
+        padding: 0.25rem 0.625rem !important;
+    }
+
+    /* Card-to-card spacing and the page bands around them. */
+    html body .fi-ta-table > tbody > tr.fi-ta-row { margin-bottom: 0.625rem !important; }
+    html body .fi-main { padding-block: 0.875rem !important; gap: 0.875rem !important; }
+    html body .fi-page { gap: 0.625rem !important; }
+}
+
+/* Page header: the subheading carried a 24px bottom margin and the action
+   row another 12px on top, on top of the header's own 12px gap — three
+   spacings stacked for one break. Let the gap do the job alone. */
+html body .fi-header-subheading { margin-bottom: 0 !important; }
+html body .fi-header-actions-ctn { margin-top: 0 !important; }
+html body .fi-page-header-main-ctn { margin-bottom: 0 !important; padding-bottom: 0 !important; }
+
+/* .fi-page-header-main-ctn is the flex parent for header / tiles / table,
+   so its gap — not .fi-page's — is what separates the bands. */
+html body .fi-page-header-main-ctn {
+    gap: 0.875rem !important;
+    /* 32px of padding sat above the title for no reason. */
+    padding-top: 1rem !important;
+}
+html body .fi-page-header-main-ctn > .fi-header { margin-top: 0 !important; }
+/* Tiles and the table card are siblings inside .fi-page-main, so this is
+   the gap between them. */
+html body .fi-page-main { gap: 0.875rem !important; }
+
+@media (max-width: 767px) {
+    html body .fi-header { padding-block: 0.25rem !important; gap: 0.625rem !important; }
+    html body .vx-inv-stats { margin-bottom: 0 !important; }
+    html body .fi-page-header-main-ctn { gap: 0.75rem !important; padding-top: 0.75rem !important; }
+    html body .fi-page-main { gap: 0.75rem !important; }
+}

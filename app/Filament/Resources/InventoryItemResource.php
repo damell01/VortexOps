@@ -10,6 +10,7 @@ use App\Models\InventoryLocation;
 use App\Models\Vendor;
 use App\Services\InventoryService;
 use App\Support\AdminModules;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -217,6 +218,7 @@ class InventoryItemResource extends Resource
     {
         return $schema->components([
             Section::make('Item Identification')
+                ->icon('heroicon-o-identification')
                 ->description('Name, SKU, and barcode for tracking and scanning')
                 ->columnSpanFull()
                 ->schema([
@@ -266,13 +268,27 @@ class InventoryItemResource extends Resource
                     ]),
                 ]),
 
-            Section::make('Container Items')
-                ->description('Define if this item is a container (case, box, pack) with individual items inside')
+            Section::make('Container / Case Settings')
+                ->icon('heroicon-o-cube')
+                ->description('Define if this item is a container that holds other inventory items.')
                 ->columnSpanFull()
                 ->schema([
-                    Toggle::make('is_container')
-                        ->label('This is a container with items inside')
-                        ->helperText('Enable if this case/box/pack holds other inventory items with their own SKUs')
+                    // Two labelled choices rather than a toggle: "container or
+                    // not" is a decision about what the thing is, and a bare
+                    // switch gave no hint which way to go.
+                    Radio::make('is_container')
+                        ->label('')
+                        ->options([
+                            1 => 'This is a container (case, box, pack)',
+                            0 => 'This is a single item',
+                        ])
+                        ->descriptions([
+                            1 => 'Holds individual items (SKUs) inside it. Recommended for cases, boxes, or packs.',
+                            0 => 'Sold and tracked on its own.',
+                        ])
+                        ->default(0)
+                        ->inline()
+                        ->extraAttributes(['class' => 'vx-choice-cards'])
                         ->live(),
                     Repeater::make('childContents')
                         ->relationship('childContents', modifyQueryUsing: fn ($query) => $query->with('childItem'))
@@ -322,6 +338,7 @@ class InventoryItemResource extends Resource
                 ]),
 
             Section::make('Classification & Sourcing')
+                ->icon('heroicon-o-rectangle-stack')
                 ->description('Organize and track inventory by category and vendor')
                 ->columnSpanFull()
                 ->schema([
@@ -351,6 +368,7 @@ class InventoryItemResource extends Resource
                 ]),
 
             Section::make('Pricing & Inventory Levels')
+                ->icon('heroicon-o-currency-dollar')
                 ->description('Set costs and reorder points')
                 ->columnSpanFull()
                 ->schema([
@@ -380,6 +398,7 @@ class InventoryItemResource extends Resource
                 ]),
 
             Section::make('Notes & Description')
+                ->icon('heroicon-o-document-text')
                 ->description('Additional details about this item')
                 ->columnSpanFull()
                 ->schema([
@@ -394,6 +413,7 @@ class InventoryItemResource extends Resource
                 ]),
 
             Section::make('Initial Stock (Optional)')
+                ->icon('heroicon-o-inbox-arrow-down')
                 ->description('Add stock when creating this item')
                 ->columnSpanFull()
                 ->visible(fn (Get $get) => !$get('id'))
@@ -423,6 +443,7 @@ class InventoryItemResource extends Resource
                 ]),
 
             Section::make('Stock by Location')
+                ->icon('heroicon-o-map-pin')
                 ->description('Current inventory levels by location')
                 ->columnSpanFull()
                 ->visible(fn (Get $get) => !!$get('id'))

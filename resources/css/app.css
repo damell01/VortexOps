@@ -4833,3 +4833,37 @@ html.dark .vx-cs-matches li { border-color: var(--vxn-border); }
     .vx-cs-matches li { flex-wrap: wrap; row-gap: 0.5rem; }
     .vx-cs-match-main { flex: 1 1 100%; }
 }
+
+/* ── Choice cards ──────────────────────────────────────────────────
+   A radio whose options read as pickable cards rather than a list of
+   dots — used for "container or single item", where the choice is
+   about what the thing is, not a minor setting. */
+
+.vx-choice-cards {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: 0.75rem;
+}
+
+.vx-choice-cards > * {
+    padding: 0.875rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.625rem;
+    background: #ffffff;
+    transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.vx-choice-cards > *:hover { border-color: #c4b5fd; }
+
+/* :has() lets the whole card react to its own radio being chosen. */
+.vx-choice-cards > *:has(input:checked) {
+    border-color: #7c3aed;
+    background: rgb(124 58 237 / .05);
+}
+
+html.dark .vx-choice-cards > * { background: #131c2e; border-color: var(--vxn-border); }
+html.dark .vx-choice-cards > *:has(input:checked) { background: rgb(124 58 237 / .16); border-color: #7c3aed; }
+
+@media (max-width: 639px) {
+    .vx-choice-cards { grid-template-columns: minmax(0, 1fr); }
+}

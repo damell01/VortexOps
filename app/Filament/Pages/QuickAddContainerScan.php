@@ -128,8 +128,10 @@ class QuickAddContainerScan extends Page
         $item = InventoryItem::findByScan($code);
 
         if (! $item) {
-            $this->offerToCreate('container', $code);
-
+            // No exact hit. Don't jump into a form — the view lists partial
+            // matches with their own buttons, and offers "create new" beside
+            // them. Typing a few characters is a way to pick something, not a
+            // failed lookup.
             return;
         }
 
@@ -187,8 +189,6 @@ class QuickAddContainerScan extends Page
         $item = InventoryItem::findByScan($code);
 
         if (! $item) {
-            $this->offerToCreate('item', $code);
-
             return;
         }
 
@@ -266,14 +266,86 @@ class QuickAddContainerScan extends Page
         $this->lines = [];
     }
 
+    /* ── Picking from what's typed ─────────────────────────────────── */
+
+    /**
+     * Partial matches for whatever is in the active box.
+     *
+     * An exact scan resolves itself and never reaches here; this is for
+     * someone typing part of a name or SKU, who wants to pick from a short
+     * list rather than get a yes/no lookup.
+     *
+     * @return \Illuminate\Support\Collection<int, InventoryItem>
+     */
+    public function getMatchesProperty()
+    {
+        $term = trim($this->step === 1 ? $this->containerCode : $this->itemCode);
+
+        if (strlen($term) < 2) {
+            return collect();
+        }
+
+        return InventoryItem::query()
+            ->where('is_active', true)
+            ->when($this->step === 2 && $this->containerId, fn ($q) => $q->whereKeyNot($this->containerId))
+            ->where(fn ($q) => $q
+                ->where('name', 'like', "%{$term}%")
+                ->orWhere('sku', 'like', "%{$term}%")
+                ->orWhere('barcode', 'like', "%{$term}%"))
+            ->orderBy('name')
+            ->limit(8)
+            ->get();
+    }
+
+    /** Chosen from the candidate list rather than scanned. */
+    public function useAsContainer(int $id): void
+    {
+        $this->containerCode = (string) (InventoryItem::find($id)?->sku ?? $id);
+        $this->lookupContainer();
+
+        // lookupContainer matches on scan codes; fall back to the id when the
+        // item has no SKU to match on.
+        if (! $this->containerId) {
+            $this->containerId = $id;
+            $this->containerCode = '';
+            $this->lines = [];
+            $this->step = 2;
+        }
+    }
+
+    public function addItem(int $id): void
+    {
+        $item = InventoryItem::find($id);
+
+        if (! $item || $item->getKey() === $this->containerId) {
+            return;
+        }
+
+        if (isset($this->lines[$id])) {
+            $this->lines[$id]['qty']++;
+        } else {
+            $this->lines[$id] = [
+                'id'        => $id,
+                'name'      => $item->name,
+                'sku'       => $item->sku,
+                'unit_cost' => (float) ($item->average_cost ?? $item->unit_cost ?? 0),
+                'qty'       => 1,
+            ];
+        }
+
+        $this->itemCode = '';
+        $this->lookupError = '';
+    }
+
     /* ── Creating something that isn't in the catalogue yet ────────── */
 
-    protected function offerToCreate(string $for, string $code): void
+    /** Opened from an explicit button, prefilled with whatever was typed. */
+    public function startCreate(string $for): void
     {
-        $this->lookupError = "Nothing in the catalogue matches “{$code}”.";
+        $this->lookupError = '';
         $this->showCreate  = true;
         $this->createFor   = $for;
-        $this->createSku   = $code;
+        $this->createSku   = trim($this->step === 1 ? $this->containerCode : $this->itemCode);
         $this->createName  = '';
         $this->createCost  = '';
     }

@@ -100,12 +100,44 @@
                     <input
                         type="text"
                         class="vx-cs-input"
-                        placeholder="Container SKU, barcode or UPC"
+                        placeholder="Type or scan a name, SKU, barcode or UPC"
                         autocomplete="off"
                         autofocus
                         wire:model.live.debounce.400ms="containerCode"
                         wire:keydown.enter.prevent="lookupContainer"
                     />
+                </div>
+
+                {{-- Typing is a way to pick something, not a yes/no lookup:
+                     partial matches get their own button, and creating a new
+                     container is always one click away. --}}
+                @if (strlen(trim($this->containerCode)) >= 2)
+                    <ul class="vx-cs-matches">
+                        @forelse ($this->matches as $match)
+                            <li wire:key="cmatch-{{ $match->id }}">
+                                <span class="vx-cs-match-main">
+                                    <span class="vx-cs-name">{{ $match->name }}</span>
+                                    <span class="vx-cs-sku">
+                                        SKU: {{ $match->sku ?: '—' }}
+                                        @if ($match->is_container) · container @endif
+                                    </span>
+                                </span>
+                                <x-filament::button type="button" size="xs"
+                                    wire:click="useAsContainer({{ $match->id }})">
+                                    Use as Container
+                                </x-filament::button>
+                            </li>
+                        @empty
+                            <li class="vx-cs-empty">No match for “{{ trim($this->containerCode) }}”.</li>
+                        @endforelse
+                    </ul>
+                @endif
+
+                <div class="vx-cs-actions">
+                    <x-filament::button type="button" color="gray" icon="heroicon-m-plus"
+                        wire:click="startCreate('container')">
+                        New Container
+                    </x-filament::button>
                 </div>
             </x-filament::section>
         @endif
@@ -146,6 +178,32 @@
                         onclick="window.dispatchEvent(new Event('open-camera-scanner'))"
                     >
                         Camera
+                    </x-filament::button>
+                </div>
+
+                @if (strlen(trim($this->itemCode)) >= 2)
+                    <ul class="vx-cs-matches">
+                        @forelse ($this->matches as $match)
+                            <li wire:key="imatch-{{ $match->id }}">
+                                <span class="vx-cs-match-main">
+                                    <span class="vx-cs-name">{{ $match->name }}</span>
+                                    <span class="vx-cs-sku">SKU: {{ $match->sku ?: '—' }}</span>
+                                </span>
+                                <x-filament::button type="button" size="xs" icon="heroicon-m-plus"
+                                    wire:click="addItem({{ $match->id }})">
+                                    Add
+                                </x-filament::button>
+                            </li>
+                        @empty
+                            <li class="vx-cs-empty">No match for “{{ trim($this->itemCode) }}”.</li>
+                        @endforelse
+                    </ul>
+                @endif
+
+                <div class="vx-cs-actions">
+                    <x-filament::button type="button" color="gray" icon="heroicon-m-plus"
+                        wire:click="startCreate('item')">
+                        New Case Item
                     </x-filament::button>
                 </div>
             </x-filament::section>

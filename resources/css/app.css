@@ -4867,3 +4867,14 @@ html.dark .vx-choice-cards > *:has(input:checked) { background: rgb(124 58 237 /
 @media (max-width: 639px) {
     .vx-choice-cards { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Review step on the new-item wizard. */
+.vx-review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.875rem; margin: 0; }
+.vx-review-grid dt { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.04em; color: #9ca3af; }
+.vx-review-grid dd { margin: 0.125rem 0 0; font-size: 0.9375rem; font-weight: 600; color: #111827; }
+.vx-review-warn {
+    margin: 0 0 0.875rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem;
+    background: rgb(245 158 11 / .12); color: #b45309; font-size: 0.8125rem;
+}
+.vx-review-note { margin: 0.875rem 0 0; font-size: 0.8125rem; color: #6b7280; }
+html.dark .vx-review-grid dd { color: #ffffff; }

@@ -216,261 +216,298 @@ class InventoryItemResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([
-            Section::make('Item Identification')
-                ->icon('heroicon-o-identification')
-                ->description('Name, SKU, and barcode for tracking and scanning')
-                ->columnSpanFull()
-                ->schema([
-                    Grid::make(3)->schema([
-                        TextInput::make('name')
-                            ->required()
-                            ->maxLength(255)
-                            ->label('Item Name')
-                            ->placeholder('e.g., 2024 Topps Chrome Box')
-                            ->columnSpan(2),
-                        Toggle::make('is_active')
-                            ->label('Active')
-                            ->default(true)
-                            ->columnSpan(1)
-                            ->helperText('Inactive items won\'t appear in dropdowns'),
-                        TextInput::make('sku')
-                            ->label('SKU')
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(100)
-                            ->default(fn () => 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4)))
-                            ->helperText('Auto-generated — edit to customize')
-                            ->columnSpan(2)
-                            ->suffixAction(
-                                \Filament\Actions\Action::make('regenerate_sku')
-                                    ->icon('heroicon-o-arrow-path')
-                                    ->tooltip('Generate new SKU')
-                                    ->action(function (\Filament\Forms\Set $set) {
-                                        $set('sku', 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4)));
-                                    })
-                            ),
-                        TextInput::make('barcode')
-                            ->label('Barcode/UPC')
-                            ->unique(ignoreRecord: true)
-                            ->maxLength(100)
-                            ->helperText('Scan with camera, Bluetooth scanner, or type manually')
-                            ->columnSpan(1)
-                            ->suffixAction(
-                                \Filament\Actions\Action::make('scan_barcode')
-                                    ->icon('heroicon-o-video-camera')
-                                    ->tooltip('Open camera scanner')
-                                    ->action(fn () => null) // Handled by inline JS
-                                    ->extraAttributes([
-                                        'onclick' => "window.dispatchEvent(new Event('open-camera-scanner'))",
-                                        'type' => 'button',
-                                    ])
-                            ),
-                    ]),
-                ]),
+        // Flat on edit. Create groups the same sections into wizard steps
+        // via CreateInventoryItem::getSteps(), so there is one definition
+        // of every field rather than two that drift apart.
+        return $schema->components(static::formSections());
+    }
 
-            Section::make('Container / Case Settings')
-                ->icon('heroicon-o-cube')
-                ->description('Define if this item is a container that holds other inventory items.')
-                ->columnSpanFull()
-                ->schema([
-                    // Two labelled choices rather than a toggle: "container or
-                    // not" is a decision about what the thing is, and a bare
-                    // switch gave no hint which way to go.
-                    Radio::make('is_container')
-                        ->label('')
-                        ->options([
-                            1 => 'This is a container (case, box, pack)',
-                            0 => 'This is a single item',
-                        ])
-                        ->descriptions([
-                            1 => 'Holds individual items (SKUs) inside it. Recommended for cases, boxes, or packs.',
-                            0 => 'Sold and tracked on its own.',
-                        ])
-                        ->default(0)
-                        ->inline()
-                        ->extraAttributes(['class' => 'vx-choice-cards'])
-                        ->live(),
-                    Repeater::make('childContents')
-                        ->relationship('childContents', modifyQueryUsing: fn ($query) => $query->with('childItem'))
-                        ->label('Items Inside This Container')
-                        ->visible(fn (Get $get) => $get('is_container'))
-                        ->addActionLabel('Add Item Inside')
-                        ->columnSpanFull()
-                        ->schema([
-                            Grid::make(12)->schema([
-                                Select::make('child_inventory_item_id')
-                                    ->label('Item')
-                                    ->searchable()
-                                    ->getSearchResultsUsing(fn (string $search) => InventoryItem::where('is_active', true)
-                                        ->where(fn ($q) => $q->where('name', 'like', "%{$search}%")
-                                            ->orWhere('sku', 'like', "%{$search}%"))
-                                        ->whereNot('id', fn ($q) => $q->select('id')->from('products')->where('is_container', true)->limit(1))
-                                        ->orderBy('name')
-                                        ->limit(30)
-                                        ->pluck('name', 'id')
-                                        ->toArray())
-                                    ->getOptionLabelUsing(fn ($value) => InventoryItem::find($value)?->name)
-                                    ->required()
-                                    ->columnSpan(6)
-                                    ->createOptionForm([
-                                        TextInput::make('name')->label('Item Name')->required(),
-                                        TextInput::make('sku')->label('SKU')->required(),
-                                        TextInput::make('barcode')->label('Barcode (optional)'),
-                                    ])
-                                    ->createOptionUsing(function (array $data) {
-                                        return InventoryItem::create(array_merge($data, ['is_active' => true, 'is_container' => false]))->getKey();
-                                    }),
-                                TextInput::make('quantity_per_parent')
-                                    ->label('Qty Inside')
-                                    ->numeric()
-                                    ->step(1)
-                                    ->default(1)
-                                    ->minValue(1)
-                                    ->required()
-                                    ->columnSpan(3),
-                                TextInput::make('unit_type')
-                                    ->label('Unit Type')
-                                    ->placeholder('e.g., box, pack, bundle')
-                                    ->helperText('Describes what you\'re counting')
-                                    ->columnSpan(3),
-                            ]),
+    /** @return array<int, Section> */
+    public static function formSections(): array
+    {
+        return [
+            static::itemIdentificationSection(),
+            static::containerSettingsSection(),
+            static::classificationSection(),
+            static::pricingSection(),
+            static::notesSection(),
+            static::initialStockSection(),
+            static::stockByLocationSection(),
+        ];
+    }
+
+    public static function itemIdentificationSection(): Section
+    {
+        return Section::make('Item Identification')
+            ->icon('heroicon-o-identification')
+            ->description('Name, SKU, and barcode for tracking and scanning')
+            ->columnSpanFull()
+            ->schema([
+                Grid::make(3)->schema([
+                    TextInput::make('name')
+                        ->required()
+                        ->maxLength(255)
+                        ->label('Item Name')
+                        ->placeholder('e.g., 2024 Topps Chrome Box')
+                        ->columnSpan(2),
+                    Toggle::make('is_active')
+                        ->label('Active')
+                        ->default(true)
+                        ->columnSpan(1)
+                        ->helperText('Inactive items won\'t appear in dropdowns'),
+                    TextInput::make('sku')
+                        ->label('SKU')
+                        ->unique(ignoreRecord: true)
+                        ->maxLength(100)
+                        ->default(fn () => 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4)))
+                        ->helperText('Auto-generated — edit to customize')
+                        ->columnSpan(2)
+                        ->suffixAction(
+                            \Filament\Actions\Action::make('regenerate_sku')
+                                ->icon('heroicon-o-arrow-path')
+                                ->tooltip('Generate new SKU')
+                                ->action(function (\Filament\Forms\Set $set) {
+                                    $set('sku', 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4)));
+                                })
+                        ),
+                    TextInput::make('barcode')
+                        ->label('Barcode/UPC')
+                        ->unique(ignoreRecord: true)
+                        ->maxLength(100)
+                        ->helperText('Scan with camera, Bluetooth scanner, or type manually')
+                        ->columnSpan(1)
+                        ->suffixAction(
+                            \Filament\Actions\Action::make('scan_barcode')
+                                ->icon('heroicon-o-video-camera')
+                                ->tooltip('Open camera scanner')
+                                ->action(fn () => null) // Handled by inline JS
+                                ->extraAttributes([
+                                    'onclick' => "window.dispatchEvent(new Event('open-camera-scanner'))",
+                                    'type' => 'button',
+                                ])
+                        ),
+                ]),
+            ]);
+    }
+
+    public static function containerSettingsSection(): Section
+    {
+        return Section::make('Container / Case Settings')
+            ->icon('heroicon-o-cube')
+            ->description('Define if this item is a container that holds other inventory items.')
+            ->columnSpanFull()
+            ->schema([
+                // Two labelled choices rather than a toggle: "container or
+                // not" is a decision about what the thing is, and a bare
+                // switch gave no hint which way to go.
+                Radio::make('is_container')
+                    ->label('')
+                    ->options([
+                        1 => 'This is a container (case, box, pack)',
+                        0 => 'This is a single item',
+                    ])
+                    ->descriptions([
+                        1 => 'Holds individual items (SKUs) inside it. Recommended for cases, boxes, or packs.',
+                        0 => 'Sold and tracked on its own.',
+                    ])
+                    ->default(0)
+                    ->inline()
+                    ->extraAttributes(['class' => 'vx-choice-cards'])
+                    ->live(),
+                Repeater::make('childContents')
+                    ->relationship('childContents', modifyQueryUsing: fn ($query) => $query->with('childItem'))
+                    ->label('Items Inside This Container')
+                    ->visible(fn (Get $get) => $get('is_container'))
+                    ->addActionLabel('Add Item Inside')
+                    ->columnSpanFull()
+                    ->schema([
+                        Grid::make(12)->schema([
+                            Select::make('child_inventory_item_id')
+                                ->label('Item')
+                                ->searchable()
+                                ->getSearchResultsUsing(fn (string $search) => InventoryItem::where('is_active', true)
+                                    ->where(fn ($q) => $q->where('name', 'like', "%{$search}%")
+                                        ->orWhere('sku', 'like', "%{$search}%"))
+                                    ->whereNot('id', fn ($q) => $q->select('id')->from('products')->where('is_container', true)->limit(1))
+                                    ->orderBy('name')
+                                    ->limit(30)
+                                    ->pluck('name', 'id')
+                                    ->toArray())
+                                ->getOptionLabelUsing(fn ($value) => InventoryItem::find($value)?->name)
+                                ->required()
+                                ->columnSpan(6)
+                                ->createOptionForm([
+                                    TextInput::make('name')->label('Item Name')->required(),
+                                    TextInput::make('sku')->label('SKU')->required(),
+                                    TextInput::make('barcode')->label('Barcode (optional)'),
+                                ])
+                                ->createOptionUsing(function (array $data) {
+                                    return InventoryItem::create(array_merge($data, ['is_active' => true, 'is_container' => false]))->getKey();
+                                }),
+                            TextInput::make('quantity_per_parent')
+                                ->label('Qty Inside')
+                                ->numeric()
+                                ->step(1)
+                                ->default(1)
+                                ->minValue(1)
+                                ->required()
+                                ->columnSpan(3),
+                            TextInput::make('unit_type')
+                                ->label('Unit Type')
+                                ->placeholder('e.g., box, pack, bundle')
+                                ->helperText('Describes what you\'re counting')
+                                ->columnSpan(3),
                         ]),
-                ]),
-
-            Section::make('Classification & Sourcing')
-                ->icon('heroicon-o-rectangle-stack')
-                ->description('Organize and track inventory by category and vendor')
-                ->columnSpanFull()
-                ->schema([
-                    Grid::make(2)->schema([
-                        Select::make('category')
-                            ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
-                                ->distinct()->orderBy('category')->pluck('category', 'category')->toArray()))
-                            ->getOptionLabelUsing(fn ($value) => $value)
-                            ->searchable()
-                            ->native(false)
-                            ->placeholder('Select or create category...')
-                            ->createOptionForm([
-                                TextInput::make('category')
-                                    ->label('New category')
-                                    ->required()
-                                    ->maxLength(100),
-                            ])
-                            ->createOptionUsing(fn (array $data) => $data['category'])
-                            ->helperText('Group items by type (e.g., Sports Cards, Autographs)'),
-                        Select::make('preferred_vendor_id')
-                            ->label('Preferred Vendor')
-                            ->options(fn () => Vendor::activeOptions())
-                            ->searchable()
-                            ->nullable()
-                            ->placeholder('No preferred vendor'),
                     ]),
-                ]),
+            ]);
+    }
 
-            Section::make('Pricing & Inventory Levels')
-                ->icon('heroicon-o-currency-dollar')
-                ->description('Set costs and reorder points')
-                ->columnSpanFull()
-                ->schema([
-                    Grid::make(2)->schema([
-                        TextInput::make('unit_cost')
-                            ->label('List Unit Cost ($)')
-                            ->numeric()
-                            ->prefix('$')
-                            ->required()
-                            ->default(0)
-                            ->step(0.01)
-                            ->helperText('Fallback cost when no receipts exist'),
-                        TextInput::make('average_cost')
-                            ->label('Avg Cost ($)')
-                            ->numeric()
-                            ->prefix('$')
-                            ->default(0)
-                            ->step(0.0001)
-                            ->helperText('Auto-calculated from receiving history'),
-                        TextInput::make('reorder_level')
-                            ->numeric()
-                            ->minValue(0)
-                            ->label('Reorder Level (units)')
-                            ->placeholder('0')
-                            ->helperText('Alert when stock drops below this'),
-                    ]),
-                ]),
-
-            Section::make('Notes & Description')
-                ->icon('heroicon-o-document-text')
-                ->description('Additional details about this item')
-                ->columnSpanFull()
-                ->schema([
-                    Textarea::make('description')
-                        ->rows(3)
-                        ->placeholder('Brand, set, year, condition, or other details...')
-                        ->columnSpanFull(),
-                    Textarea::make('notes')
-                        ->rows(2)
-                        ->placeholder('Internal notes for your team...')
-                        ->columnSpanFull(),
-                ]),
-
-            Section::make('Initial Stock (Optional)')
-                ->icon('heroicon-o-inbox-arrow-down')
-                ->description('Add stock when creating this item')
-                ->columnSpanFull()
-                ->visible(fn (Get $get) => !$get('id'))
-                ->schema([
-                    Grid::make(2)->schema([
-                        Select::make('initial_stock_location_id')
-                            ->label('Stock Location')
-                            ->options(fn () => InventoryLocation::activeOptions())
-                            ->searchable()
-                            ->dehydrated(false)
-                            ->placeholder('Select location to add stock'),
-                        TextInput::make('initial_stock_quantity')
-                            ->label('Initial Quantity')
-                            ->numeric()
-                            ->minValue(0)
-                            ->step(0.01)
-                            ->dehydrated(false)
-                            ->placeholder('0'),
-                        TextInput::make('initial_stock_cost')
-                            ->label('Stock Unit Cost ($)')
-                            ->numeric()
-                            ->prefix('$')
-                            ->step(0.01)
-                            ->dehydrated(false)
-                            ->placeholder('Leave blank to use List Unit Cost'),
-                    ]),
-                ]),
-
-            Section::make('Stock by Location')
-                ->icon('heroicon-o-map-pin')
-                ->description('Current inventory levels by location')
-                ->columnSpanFull()
-                ->visible(fn (Get $get) => !!$get('id'))
-                ->schema([
-                    Repeater::make('stock')
-                        ->relationship('stock')
-                        ->schema([
-                            Grid::make(3)->schema([
-                                TextInput::make('location.name')
-                                    ->label('Location')
-                                    ->disabled()
-                                    ->columnSpan(2)
-                                    ->dehydrated(false),
-                                TextInput::make('quantity')
-                                    ->label('Qty')
-                                    ->numeric()
-                                    ->step(0.01)
-                                    ->columnSpan(1),
-                            ]),
+    public static function classificationSection(): Section
+    {
+        return Section::make('Classification & Sourcing')
+            ->icon('heroicon-o-rectangle-stack')
+            ->description('Organize and track inventory by category and vendor')
+            ->columnSpanFull()
+            ->schema([
+                Grid::make(2)->schema([
+                    Select::make('category')
+                        ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
+                            ->distinct()->orderBy('category')->pluck('category', 'category')->toArray()))
+                        ->getOptionLabelUsing(fn ($value) => $value)
+                        ->searchable()
+                        ->native(false)
+                        ->placeholder('Select or create category...')
+                        ->createOptionForm([
+                            TextInput::make('category')
+                                ->label('New category')
+                                ->required()
+                                ->maxLength(100),
                         ])
-                        ->columnSpanFull()
-                        ->addable(false)
-                        ->deletable(false)
-                        ->reorderable(false),
+                        ->createOptionUsing(fn (array $data) => $data['category'])
+                        ->helperText('Group items by type (e.g., Sports Cards, Autographs)'),
+                    Select::make('preferred_vendor_id')
+                        ->label('Preferred Vendor')
+                        ->options(fn () => Vendor::activeOptions())
+                        ->searchable()
+                        ->nullable()
+                        ->placeholder('No preferred vendor'),
                 ]),
+            ]);
+    }
 
-        ]);
+    public static function pricingSection(): Section
+    {
+        return Section::make('Pricing & Inventory Levels')
+            ->icon('heroicon-o-currency-dollar')
+            ->description('Set costs and reorder points')
+            ->columnSpanFull()
+            ->schema([
+                Grid::make(2)->schema([
+                    TextInput::make('unit_cost')
+                        ->label('List Unit Cost ($)')
+                        ->numeric()
+                        ->prefix('$')
+                        ->required()
+                        ->default(0)
+                        ->step(0.01)
+                        ->helperText('Fallback cost when no receipts exist'),
+                    TextInput::make('average_cost')
+                        ->label('Avg Cost ($)')
+                        ->numeric()
+                        ->prefix('$')
+                        ->default(0)
+                        ->step(0.0001)
+                        ->helperText('Auto-calculated from receiving history'),
+                    TextInput::make('reorder_level')
+                        ->numeric()
+                        ->minValue(0)
+                        ->label('Reorder Level (units)')
+                        ->placeholder('0')
+                        ->helperText('Alert when stock drops below this'),
+                ]),
+            ]);
+    }
+
+    public static function notesSection(): Section
+    {
+        return Section::make('Notes & Description')
+            ->icon('heroicon-o-document-text')
+            ->description('Additional details about this item')
+            ->columnSpanFull()
+            ->schema([
+                Textarea::make('description')
+                    ->rows(3)
+                    ->placeholder('Brand, set, year, condition, or other details...')
+                    ->columnSpanFull(),
+                Textarea::make('notes')
+                    ->rows(2)
+                    ->placeholder('Internal notes for your team...')
+                    ->columnSpanFull(),
+            ]);
+    }
+
+    public static function initialStockSection(): Section
+    {
+        return Section::make('Initial Stock (Optional)')
+            ->icon('heroicon-o-inbox-arrow-down')
+            ->description('Add stock when creating this item')
+            ->columnSpanFull()
+            ->visible(fn (Get $get) => !$get('id'))
+            ->schema([
+                Grid::make(2)->schema([
+                    Select::make('initial_stock_location_id')
+                        ->label('Stock Location')
+                        ->options(fn () => InventoryLocation::activeOptions())
+                        ->searchable()
+                        ->dehydrated(false)
+                        ->placeholder('Select location to add stock'),
+                    TextInput::make('initial_stock_quantity')
+                        ->label('Initial Quantity')
+                        ->numeric()
+                        ->minValue(0)
+                        ->step(0.01)
+                        ->dehydrated(false)
+                        ->placeholder('0'),
+                    TextInput::make('initial_stock_cost')
+                        ->label('Stock Unit Cost ($)')
+                        ->numeric()
+                        ->prefix('$')
+                        ->step(0.01)
+                        ->dehydrated(false)
+                        ->placeholder('Leave blank to use List Unit Cost'),
+                ]),
+            ]);
+    }
+
+    public static function stockByLocationSection(): Section
+    {
+        return Section::make('Stock by Location')
+            ->icon('heroicon-o-map-pin')
+            ->description('Current inventory levels by location')
+            ->columnSpanFull()
+            ->visible(fn (Get $get) => !!$get('id'))
+            ->schema([
+                Repeater::make('stock')
+                    ->relationship('stock')
+                    ->schema([
+                        Grid::make(3)->schema([
+                            TextInput::make('location.name')
+                                ->label('Location')
+                                ->disabled()
+                                ->columnSpan(2)
+                                ->dehydrated(false),
+                            TextInput::make('quantity')
+                                ->label('Qty')
+                                ->numeric()
+                                ->step(0.01)
+                                ->columnSpan(1),
+                        ]),
+                    ])
+                    ->columnSpanFull()
+                    ->addable(false)
+                    ->deletable(false)
+                    ->reorderable(false),
+            ]);
     }
 
     /**

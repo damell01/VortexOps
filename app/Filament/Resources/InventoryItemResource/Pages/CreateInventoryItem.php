@@ -7,13 +7,80 @@ use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Services\InventoryService;
 use Filament\Notifications\Notification;
+use Filament\Forms\Components\Placeholder;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Resources\Pages\CreateRecord\Concerns\HasWizard;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Wizard\Step;
 use Illuminate\Support\Str;
 use Livewire\Attributes\On;
 
 class CreateInventoryItem extends CreateRecord
 {
+    use HasWizard;
+
     protected static string $resource = InventoryItemResource::class;
+
+    /**
+     * Four steps over the resource's own sections — no second copy of any
+     * field, so create and edit can't drift apart.
+     *
+     * @return array<int, Step>
+     */
+    public function getSteps(): array
+    {
+        return [
+            Step::make('Item Details')
+                ->description('What it is')
+                ->icon('heroicon-o-identification')
+                ->schema([
+                    InventoryItemResource::itemIdentificationSection(),
+                    InventoryItemResource::containerSettingsSection(),
+                    InventoryItemResource::classificationSection(),
+                    InventoryItemResource::pricingSection(),
+                ]),
+
+            Step::make('Stock & Location')
+                ->description('Where it lives')
+                ->icon('heroicon-o-map-pin')
+                ->schema([
+                    InventoryItemResource::initialStockSection(),
+                ]),
+
+            Step::make('Item Settings')
+                ->description('Notes and extras')
+                ->icon('heroicon-o-adjustments-horizontal')
+                ->schema([
+                    InventoryItemResource::notesSection(),
+                ]),
+
+            Step::make('Review & Save')
+                ->description('Check it over')
+                ->icon('heroicon-o-check-circle')
+                ->schema([
+                    Placeholder::make('review')
+                        ->label('')
+                        ->columnSpanFull()
+                        ->content(fn (Get $get) => view('filament.partials.new-item-review', [
+                            'name'      => $get('name'),
+                            'sku'       => $get('sku'),
+                            'barcode'   => $get('barcode'),
+                            'category'  => $get('category'),
+                            'container' => (bool) $get('is_container'),
+                            'unitCost'  => $get('unit_cost'),
+                            'reorder'   => $get('reorder_level'),
+                            'quantity'  => $get('initial_stock_quantity'),
+                            'active'    => (bool) $get('is_active'),
+                        ])),
+                ]),
+        ];
+    }
+
+    /** Steps are clickable so a correction doesn't mean walking back. */
+    protected function hasSkippableSteps(): bool
+    {
+        return true;
+    }
 
     // Container scan mode properties
     public bool $containerScanMode = false;

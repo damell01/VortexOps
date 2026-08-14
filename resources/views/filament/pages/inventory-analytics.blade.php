@@ -1,312 +1,252 @@
+@php
+    $kpis       = $this->getKpis();
+    $trend      = $this->getValueTrend();
+    $categories = $this->getCategoryBreakdown();
+    $lowStock   = $this->getLowStockItems();
+    $locations  = $this->getLocationHealth();
+@endphp
+
 <x-filament-panels::page>
-    @php
-        $summary = $this->getSummary();
-        $lowStock = $this->getLowStockItems();
-        $topVendors = $this->getTopVendors();
-        $locations = $this->getLocationHealth();
-        $fastMovers = $this->getFastMovers();
-        $deadStock = $this->getDeadStock();
-    @endphp
+    <div class="vx-an">
 
-    <div class="space-y-6">
-        <!-- Header with Export -->
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">Inventory Analytics</h2>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Real-time overview of your inventory health and metrics</p>
-            </div>
-            <a href="{{ route('export.inventory-analytics-pdf') }}"
-               class="inline-flex items-center gap-2 rounded-lg bg-red-600 hover:bg-red-700 px-4 py-2 text-sm font-semibold text-white transition-colors">
-                <x-heroicon-o-arrow-down-tray class="h-4 w-4" />
-                Export PDF
-            </a>
+        {{-- ── KPI tiles ─────────────────────────────────────────────── --}}
+        <div class="vx-an-kpis">
+            @foreach ($kpis as $kpi)
+                <div class="vx-an-kpi">
+                    <div class="vx-an-kpi-top">
+                        <span class="vx-an-kpi-label">{{ $kpi['label'] }}</span>
+                        <span class="vx-stat-icon vx-tone-{{ $kpi['tone'] }}">
+                            <x-filament::icon :icon="$kpi['icon']" class="vx-an-kpi-glyph" />
+                        </span>
+                    </div>
+
+                    <p class="vx-an-kpi-value">{{ $kpi['value'] }}</p>
+
+                    @if (! empty($kpi['delta']))
+                        <p class="vx-an-delta is-{{ $kpi['delta']['direction'] }}">
+                            <x-filament::icon
+                                :icon="$kpi['delta']['direction'] === 'up' ? 'heroicon-m-arrow-trending-up' : 'heroicon-m-arrow-trending-down'"
+                                class="vx-an-delta-glyph"
+                            />
+                            {{ $kpi['delta']['pct'] }}%
+                            <span class="vx-an-delta-note">vs 30 days ago</span>
+                        </p>
+                    @elseif (! empty($kpi['sub']))
+                        <p class="vx-an-kpi-sub">{{ $kpi['sub'] }}</p>
+                    @else
+                        <p class="vx-an-kpi-sub">No history to compare yet</p>
+                    @endif
+                </div>
+            @endforeach
         </div>
 
-        <!-- Quick Stats Grid -->
-        <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <!-- Total Inventory Value -->
-            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Inventory Value</p>
-                        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">${{ number_format($summary['total_value'], 0) }}</p>
-                    </div>
-                    <div class="text-purple-600 dark:text-purple-400">
-                        <x-heroicon-o-banknotes class="h-8 w-8" />
-                    </div>
-                </div>
-            </div>
+        {{-- ── Charts ────────────────────────────────────────────────── --}}
+        <div class="vx-an-charts">
 
-            <!-- Total Units -->
-            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
-                <div class="flex items-center justify-between">
+            {{-- Inventory value over time --}}
+            <section class="vx-an-panel">
+                <header class="vx-an-panel-head">
                     <div>
-                        <p class="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Units in Stock</p>
-                        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{{ number_format($summary['total_units']) }}</p>
+                        <h2>Inventory Value Over Time</h2>
+                        <p>Last 30 days{{ ($trend['source'] ?? null) === 'movements' ? ' · reconstructed from stock movements' : '' }}</p>
                     </div>
-                    <div class="text-blue-600 dark:text-blue-400">
-                        <x-heroicon-o-cube class="h-8 w-8" />
-                    </div>
-                </div>
-            </div>
+                    @if (! ($trend['empty'] ?? true))
+                        <div class="vx-an-panel-figure">
+                            <span class="vx-an-panel-value">{{ $trend['latest'] }}</span>
+                            @if (! empty($trend['change']))
+                                <span class="vx-an-delta is-{{ $trend['change']['direction'] }}">
+                                    {{ $trend['change']['direction'] === 'up' ? '▲' : '▼' }}
+                                    {{ $trend['change']['pct'] }}%
+                                </span>
+                            @endif
+                        </div>
+                    @endif
+                </header>
 
-            <!-- Active Items -->
-            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Active Items</p>
-                        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{{ $summary['total_items'] }}</p>
+                @if ($trend['empty'] ?? true)
+                    <div class="vx-an-blank">
+                        <p>No valuation history yet.</p>
+                        <p class="vx-an-blank-note">
+                            A snapshot is captured nightly — the chart fills in once two days have been recorded.
+                        </p>
                     </div>
-                    <div class="text-green-600 dark:text-green-400">
-                        <x-heroicon-o-archive-box class="h-8 w-8" />
-                    </div>
-                </div>
-            </div>
-
-            <!-- Low Stock Alert -->
-            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-semibold uppercase text-gray-600 dark:text-gray-400">Low Stock</p>
-                        <p class="text-2xl font-bold {{ $summary['low_stock_count'] > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400' }} mt-1">{{ $summary['low_stock_count'] }}</p>
-                    </div>
-                    <div class="text-orange-600 dark:text-orange-400">
-                        <x-heroicon-o-exclamation-triangle class="h-8 w-8" />
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Two Column Layout -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Low Stock Items -->
-            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <button type="button" class="collapse-toggle w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors cursor-pointer">
-                    <span>⚠️ Low Stock Items</span>
-                    <span class="text-gray-400">›</span>
-                </button>
-                <div>
-                @if(empty($lowStock))
-                    <p class="text-sm text-gray-500 dark:text-gray-400">All items are well stocked</p>
                 @else
-                    <div class="space-y-3">
-                        @foreach($lowStock as $item)
-                            <div class="flex items-center justify-between p-3 rounded border border-{{ $item['status'] === 'out_of_stock' ? 'red' : 'orange' }}-200 dark:border-{{ $item['status'] === 'out_of_stock' ? 'red' : 'orange' }}-800 bg-{{ $item['status'] === 'out_of_stock' ? 'red' : 'orange' }}-50 dark:bg-{{ $item['status'] === 'out_of_stock' ? 'red' : 'orange' }}-900/20">
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ $item['name'] }}</p>
-                                    <p class="text-xs text-gray-600 dark:text-gray-400">{{ $item['sku'] }}</p>
-                                </div>
-                                <div class="ml-4 text-right">
-                                    <p class="text-sm font-bold {{ $item['status'] === 'out_of_stock' ? 'text-red-600 dark:text-red-400' : 'text-orange-600 dark:text-orange-400' }}">
-                                        {{ $item['current'] }}/{{ $item['reorder'] }}
-                                    </p>
-                                    <p class="text-xs text-gray-600 dark:text-gray-400">units</p>
-                                </div>
-                            </div>
-                        @endforeach
+                    <div class="vx-an-chart">
+                        <svg viewBox="0 0 720 232" role="img"
+                             aria-label="Inventory value over the last 30 days"
+                             preserveAspectRatio="xMidYMid meet">
+                            <defs>
+                                <linearGradient id="vxAnFill" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.22" />
+                                    <stop offset="100%" stop-color="#3b82f6" stop-opacity="0" />
+                                </linearGradient>
+                            </defs>
+
+                            {{-- Gridlines + value axis --}}
+                            @foreach ($trend['yTicks'] as $tick)
+                                <line x1="56" x2="704" y1="{{ $tick['y'] }}" y2="{{ $tick['y'] }}"
+                                      class="vx-an-grid" />
+                                <text x="48" y="{{ $tick['y'] + 4 }}" text-anchor="end"
+                                      class="vx-an-axis">{{ $tick['label'] }}</text>
+                            @endforeach
+
+                            <path d="{{ $trend['area'] }}" fill="url(#vxAnFill)" />
+                            <path d="{{ $trend['line'] }}" class="vx-an-line" />
+
+                            @foreach ($trend['points'] as $point)
+                                <circle cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="8"
+                                        class="vx-an-hit">
+                                    <title>{{ $point['date'] }} — {{ $point['value'] }}</title>
+                                </circle>
+                            @endforeach
+
+                            {{-- Date axis --}}
+                            @foreach ($trend['xLabels'] as $label)
+                                <text x="{{ $label['x'] }}" y="224" text-anchor="{{ $label['anchor'] }}"
+                                      class="vx-an-axis">{{ $label['label'] }}</text>
+                            @endforeach
+                        </svg>
                     </div>
                 @endif
-                </div>
-            </div>
+            </section>
 
-            <!-- Top Vendors -->
-            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <button type="button" class="collapse-toggle w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors cursor-pointer">
-                    <span>🏪 Top Vendors</span>
-                    <span class="text-gray-400">›</span>
-                </button>
-                <div>
-                <div class="space-y-3">
-                    @foreach($topVendors as $vendor)
-                        <div class="flex items-center justify-between p-3 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                            <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $vendor['name'] }}</p>
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
-                                {{ $vendor['items_count'] }} items
-                            </span>
-                        </div>
-                    @endforeach
-                </div>
-                </div>
-            </div>
+            {{-- Value by category --}}
+            <section class="vx-an-panel">
+                <header class="vx-an-panel-head">
+                    <div>
+                        <h2>Inventory by Category</h2>
+                        <p>Share of stock value on hand</p>
+                    </div>
+                </header>
 
-            <!-- Fast Movers -->
-            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <button type="button" class="collapse-toggle w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors cursor-pointer">
-                    <span>🚀 High Value Items</span>
-                    <span class="text-gray-400">›</span>
-                </button>
-                <div>
-                <div class="space-y-3">
-                    @foreach($fastMovers as $item)
-                        <div class="flex items-center justify-between p-3 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                            <div class="flex-1 min-w-0">
-                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ $item['name'] }}</p>
-                                <p class="text-xs text-gray-600 dark:text-gray-400">{{ $item['location'] }}</p>
-                            </div>
-                            <div class="ml-4 text-right">
-                                <p class="text-sm font-bold text-gray-900 dark:text-gray-100">${{ number_format($item['value'], 0) }}</p>
-                                <p class="text-xs text-gray-600 dark:text-gray-400">{{ $item['quantity'] }} units</p>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-                </div>
-            </div>
-
-            <!-- Dead Stock -->
-            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <button type="button" class="collapse-toggle w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors cursor-pointer">
-                    <span>💀 Dead Stock</span>
-                    <span class="text-gray-400">›</span>
-                </button>
-                <div>
-                @if(empty($deadStock))
-                    <p class="text-sm text-gray-500 dark:text-gray-400">No dead stock detected</p>
+                @if ($categories['empty'])
+                    <div class="vx-an-blank">
+                        <p>Nothing in stock to break down.</p>
+                    </div>
                 @else
-                    <div class="space-y-3">
-                        @foreach($deadStock as $item)
-                            <div class="flex items-center justify-between p-3 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ $item['name'] }}</p>
-                                    <p class="text-xs text-gray-600 dark:text-gray-400">{{ $item['sku'] }}</p>
-                                </div>
-                                <div class="ml-4 text-right">
-                                    <p class="text-sm font-bold text-gray-900 dark:text-gray-100">${{ number_format($item['value'], 2) }}</p>
-                                    <p class="text-xs text-gray-600 dark:text-gray-400">{{ $item['quantity'] }} units</p>
-                                </div>
+                    <div class="vx-an-donut-wrap">
+                        <div class="vx-an-donut">
+                            <svg viewBox="0 0 140 140" role="img" aria-label="Inventory value by category">
+                                <g transform="rotate(-90 70 70)">
+                                    <circle cx="70" cy="70" r="54" class="vx-an-donut-track" />
+                                    @foreach ($categories['segments'] as $segment)
+                                        <circle cx="70" cy="70" r="54"
+                                                fill="none"
+                                                stroke="{{ $segment['color'] }}"
+                                                stroke-width="18"
+                                                stroke-dasharray="{{ $segment['dash'] }}"
+                                                stroke-dashoffset="{{ $segment['offset'] }}">
+                                            <title>{{ $segment['name'] }} — {{ $segment['pct'] }}%</title>
+                                        </circle>
+                                    @endforeach
+                                </g>
+                            </svg>
+                            <div class="vx-an-donut-center">
+                                <span class="vx-an-donut-value">{{ $categories['total_label'] }}</span>
+                                <span class="vx-an-donut-label">Total value</span>
                             </div>
-                        @endforeach
+                        </div>
+
+                        <ul class="vx-an-legend">
+                            @foreach ($categories['segments'] as $segment)
+                                <li>
+                                    <span class="vx-an-swatch" style="background: {{ $segment['color'] }}"></span>
+                                    <span class="vx-an-legend-main">
+                                        <span class="vx-an-legend-name">{{ $segment['name'] }}</span>
+                                        <span class="vx-an-legend-units">
+                                            {{ number_format($segment['units']) }} units ·
+                                            {{ $segment['value_label'] }}
+                                        </span>
+                                    </span>
+                                    <span class="vx-an-legend-pct">{{ $segment['pct'] }}%</span>
+                                </li>
+                            @endforeach
+                        </ul>
                     </div>
                 @endif
+            </section>
+        </div>
+
+        {{-- ── Low stock ─────────────────────────────────────────────── --}}
+        <section class="vx-an-panel">
+            <header class="vx-an-panel-head">
+                <div>
+                    <h2>Low Stock Items</h2>
+                    <p>At or below their reorder level</p>
                 </div>
-            </div>
-        </div>
+                <a href="{{ route('filament.admin.resources.inventory-items.index') }}" class="vx-an-link">
+                    View all items
+                </a>
+            </header>
 
-        <!-- Location Health -->
-        <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-            <button type="button" class="collapse-toggle w-full flex items-center justify-between text-lg font-bold text-gray-900 dark:text-gray-100 mb-4 hover:text-primary-600 dark:hover:text-primary-400 transition-colors cursor-pointer">
-                <span>📍 Location Health</span>
-                <span class="text-gray-400">›</span>
-            </button>
-            <div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                @foreach($locations as $location)
-                    <div class="rounded border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
-                        <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $location['name'] }}</p>
-                        <div class="mt-3 space-y-2 text-xs text-gray-600 dark:text-gray-400">
-                            <div class="flex justify-between">
-                                <span>Total Units:</span>
-                                <span class="font-medium text-gray-900 dark:text-gray-100">{{ number_format($location['total_units']) }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>Unique Items:</span>
-                                <span class="font-medium text-gray-900 dark:text-gray-100">{{ $location['unique_items'] }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>Value:</span>
-                                <span class="font-medium text-gray-900 dark:text-gray-100">${{ number_format($location['value'], 0) }}</span>
-                            </div>
-                        </div>
+            @if (empty($lowStock))
+                <div class="vx-an-blank">
+                    <p>Everything is above its reorder level.</p>
+                </div>
+            @else
+                <div class="vx-an-table-wrap">
+                    <table class="vx-an-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>SKU</th>
+                                <th class="is-num">On Hand</th>
+                                <th class="is-num">Reorder At</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($lowStock as $item)
+                                {{-- data-label drives the stacked mobile layout; the same
+                                     markup is a plain table from 640px up. --}}
+                                <tr>
+                                    <td class="vx-an-cell-name" data-label="Item">{{ $item['name'] }}</td>
+                                    <td class="vx-an-cell-muted" data-label="SKU">{{ $item['sku'] ?: '—' }}</td>
+                                    <td class="is-num" data-label="On hand">{{ number_format($item['current']) }}</td>
+                                    <td class="is-num vx-an-cell-muted" data-label="Reorder at">{{ number_format($item['reorder']) }}</td>
+                                    <td data-label="Status">
+                                        <span class="vx-an-pill is-{{ $item['status'] === 'out_of_stock' ? 'danger' : 'warn' }}">
+                                            {{ $item['status'] === 'out_of_stock' ? 'Out of stock' : 'Low stock' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </section>
+
+        {{-- ── Locations ─────────────────────────────────────────────── --}}
+        @if (! empty($locations))
+            <section class="vx-an-panel">
+                <header class="vx-an-panel-head">
+                    <div>
+                        <h2>Value by Location</h2>
+                        <p>Where the stock is sitting</p>
                     </div>
-                @endforeach
-            </div>
-            </div>
-        </div>
+                </header>
 
-        <!-- Quick Actions -->
-        <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6">
-            <h3 class="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">🔧 Quick Actions</h3>
-            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <a href="{{ route('filament.admin.pages.inventory-scanner') }}"
-                   class="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-700 px-4 py-2 text-xs font-semibold text-white transition-colors">
-                    <x-heroicon-o-video-camera class="h-4 w-4" />
-                    <span class="hidden sm:inline">Scanner</span>
-                </a>
-                <a href="{{ route('filament.admin.resources.inventory-items.index') }}"
-                   class="inline-flex items-center justify-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 px-4 py-2 text-xs font-semibold text-white transition-colors">
-                    <x-heroicon-o-archive-box class="h-4 w-4" />
-                    <span class="hidden sm:inline">Items</span>
-                </a>
-                <a href="{{ route('filament.admin.resources.inventory-stocks.index') }}"
-                   class="inline-flex items-center justify-center gap-2 rounded-lg bg-purple-600 hover:bg-purple-700 px-4 py-2 text-xs font-semibold text-white transition-colors">
-                    <x-heroicon-o-chart-bar class="h-4 w-4" />
-                    <span class="hidden sm:inline">Stock</span>
-                </a>
-                <a href="{{ route('filament.admin.pages.inventory-report') }}"
-                   class="inline-flex items-center justify-center gap-2 rounded-lg bg-orange-600 hover:bg-orange-700 px-4 py-2 text-xs font-semibold text-white transition-colors">
-                    <x-heroicon-o-document-text class="h-4 w-4" />
-                    <span class="hidden sm:inline">Report</span>
-                </a>
-            </div>
-        </div>
+                @php ($topValue = max(array_column($locations, 'value') ?: [1]))
+                <ul class="vx-an-bars">
+                    @foreach ($locations as $location)
+                        <li>
+                            <div class="vx-an-bar-head">
+                                <span class="vx-an-bar-name">{{ $location['name'] }}</span>
+                                <span class="vx-an-bar-value">${{ number_format($location['value'], 2) }}</span>
+                            </div>
+                            <div class="vx-an-bar-track">
+                                <div class="vx-an-bar-fill"
+                                     style="width: {{ $topValue > 0 ? round(($location['value'] / $topValue) * 100, 1) : 0 }}%"></div>
+                            </div>
+                            <div class="vx-an-bar-meta">
+                                {{ number_format($location['total_units']) }} units ·
+                                {{ number_format($location['unique_items']) }} items
+                            </div>
+                        </li>
+                    @endforeach
+                </ul>
+            </section>
+        @endif
     </div>
 </x-filament-panels::page>
-
-<style>
-.collapse-content {
-    display: block !important;
-    max-height: 9999px;
-    opacity: 1;
-    overflow: hidden;
-    transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
-}
-
-.collapse-content.collapsed {
-    max-height: 0 !important;
-    opacity: 0 !important;
-    pointer-events: none;
-}
-
-.collapse-toggle span:last-child {
-    display: inline-block;
-    transform: rotate(90deg);
-    transition: transform 0.3s ease-in-out;
-}
-
-.collapse-toggle.collapsed span:last-child {
-    transform: rotate(0deg);
-}
-</style>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const toggleButtons = document.querySelectorAll('.collapse-toggle');
-
-    toggleButtons.forEach((button) => {
-        // Find the content div - it's a sibling but may not be immediate
-        let content = button.nextElementSibling;
-
-        // If not found, look for the first div in the parent after the button
-        if (!content) {
-            const parent = button.parentElement;
-            if (parent) {
-                const allDivs = Array.from(parent.querySelectorAll(':scope > div'));
-                const buttonIndex = Array.from(parent.children).indexOf(button);
-                content = allDivs.find(div => {
-                    return Array.from(parent.children).indexOf(div) > buttonIndex;
-                });
-            }
-        }
-
-        if (!content) return;
-
-        // Add class to make it collapsible
-        content.classList.add('collapse-content');
-
-        button.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-
-            // Toggle the collapsed state
-            content.classList.toggle('collapsed');
-            button.classList.toggle('collapsed');
-
-            // Update arrow rotation
-            const arrow = button.querySelector('span:last-child');
-            if (arrow) {
-                arrow.style.transform = content.classList.contains('collapsed') ? 'rotate(0deg)' : 'rotate(90deg)';
-            }
-        });
-    });
-});
-</script>

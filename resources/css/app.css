@@ -4805,3 +4805,17 @@ html.dark .vx-gs-sku { color: #6b7280; }
     .vx-gs-figure { font-size: 0.8125rem; }
     .vx-gs-tile { width: 2rem; height: 2rem; }
 }
+
+/* Inline "add it to the catalogue" form on the container scan. */
+.vx-cs-createform { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.75rem; }
+.vx-cs-field { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.75rem; color: #6b7280; }
+.vx-cs-field input {
+    padding: 0.5rem 0.625rem; font-size: 0.875rem; color: #111827;
+    border: 1px solid #e5e7eb; border-radius: 0.5rem; background: #fff; width: 100%;
+}
+.vx-cs-req { color: #dc2626; }
+html.dark .vx-cs-field input { background: #131c2e; border-color: var(--vxn-border); color: #fff; }
+
+@media (max-width: 639px) {
+    .vx-cs-createform { grid-template-columns: minmax(0, 1fr); }
+}

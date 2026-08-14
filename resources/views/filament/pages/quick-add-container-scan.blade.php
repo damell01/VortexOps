@@ -35,6 +35,49 @@
             <p class="vx-cs-error">{{ $this->lookupError }}</p>
         @endif
 
+        {{-- Unknown code: create it here rather than sending the user off to
+             the catalogue and losing their place in the case. --}}
+        @if ($this->showCreate)
+            <x-filament::section>
+                <x-slot name="heading">
+                    Add this {{ $this->createFor === 'container' ? 'container' : 'item' }} to the catalogue
+                </x-slot>
+                <x-slot name="description">
+                    It isn't in the catalogue yet. Name it and carry on — this creates the
+                    product record only, it doesn't add any stock.
+                </x-slot>
+
+                <div class="vx-cs-createform">
+                    <label class="vx-cs-field">
+                        <span>Name <span class="vx-cs-req">*</span></span>
+                        <input type="text" wire:model="createName"
+                            placeholder="{{ $this->createFor === 'container' ? 'e.g. 2024 Topps Chrome Hobby Case' : 'e.g. 2024 Topps Chrome Hobby Box' }}"
+                            wire:keydown.enter.prevent="createAndUse" />
+                    </label>
+
+                    <label class="vx-cs-field">
+                        <span>SKU / Barcode</span>
+                        <input type="text" wire:model="createSku" placeholder="Scanned code" />
+                    </label>
+
+                    <label class="vx-cs-field">
+                        <span>Unit Cost</span>
+                        <input type="number" min="0" step="0.01" inputmode="decimal"
+                            wire:model="createCost" placeholder="0.00" />
+                    </label>
+                </div>
+
+                <div class="vx-cs-actions">
+                    <x-filament::button type="button" color="gray" wire:click="cancelCreate">
+                        Cancel
+                    </x-filament::button>
+                    <x-filament::button type="button" icon="heroicon-m-plus" wire:click="createAndUse">
+                        Create &amp; {{ $this->createFor === 'container' ? 'Use' : 'Add' }}
+                    </x-filament::button>
+                </div>
+            </x-filament::section>
+        @endif
+
         {{-- ── Step 1 ──────────────────────────────────────────────── --}}
         @if ($this->step === 1)
             <x-filament::section>

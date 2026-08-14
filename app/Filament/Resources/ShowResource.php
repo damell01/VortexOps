@@ -16,6 +16,7 @@ use App\Support\AdminModules;
 use App\Support\StatusColor;
 use Filament\Actions\Action as TableAction;
 use Filament\Actions\BulkAction;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -654,8 +655,8 @@ class ShowResource extends Resource
                 TextColumn::make('show_date')
                     ->label('Date')
                     ->date('M j, Y')
-                    ->sortable(),
-
+                    ->sortable()
+                    ->extraCellAttributes(['class' => 'vx-nowrap']),
                 TextColumn::make('title')
                     ->label('Show Title')
                     ->default('—')
@@ -663,8 +664,9 @@ class ShowResource extends Resource
                     ->description(fn (Show $record): ?string => $record->financials_revised_after_lock
                         ? '⚠ Financials changed after this show was locked in — review'
                         : null)
-                    ->color(fn (Show $record) => $record->financials_revised_after_lock ? 'danger' : null),
-
+                    ->color(fn (Show $record) => $record->financials_revised_after_lock ? 'danger' : null)
+                    ->extraCellAttributes(['class' => 'vx-col-title'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-title']),
                 TextColumn::make('channel.name')
                     ->label('Channel')
                     ->placeholder('—')
@@ -677,8 +679,9 @@ class ShowResource extends Resource
                 TextColumn::make('streamers.name')
                     ->label('Streamers')
                     ->badge()
-                    ->separator(', '),
-
+                    ->separator(', ')
+                    ->extraCellAttributes(['class' => 'vx-col-tight'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-tight']),
                 TextColumn::make('show_duration')
                     ->label('Duration')
                     ->formatStateUsing(fn (?int $state): string => $state
@@ -696,8 +699,8 @@ class ShowResource extends Resource
                         ? '📈 Unusual vs recent shows — verify'
                         : null)
                     ->color(fn (Show $record) => $record->isRevenueOutlier() ? 'warning' : null)
-                    ->summarize(Sum::make()->money('USD')->label('Total Gross')),
-
+                    ->summarize(Sum::make()->money('USD')->label('Total Gross'))
+                    ->extraCellAttributes(['class' => 'vx-nowrap']),
                 TextColumn::make('net_margin')
                     ->label('Net Margin')
                     ->state(fn (Show $record): float => $record->profitAndLoss()['margin'])
@@ -889,6 +892,11 @@ class ShowResource extends Resource
                         ? DeductionRequestResource::getUrl('index', ['tableFilters[show_id][value]' => $record->id])
                         : ShowResource::getUrl('view', ['record' => $record])),
 
+                // Everything past the one prominent next-step button lives in
+                // an overflow menu. As labelled buttons they made the actions
+                // column 342px wide, which squeezed Show Title down to 104px
+                // and wrapped every row to ~142px tall.
+                ActionGroup::make([
                 TableAction::make('cancel_show')
                     ->label('Cancel')
                     ->icon('heroicon-o-x-circle')
@@ -1015,14 +1023,15 @@ class ShowResource extends Resource
                     ->action(fn (Show $record) => null)
                     ->iconButton(),
 
-                ViewAction::make()->iconButton(),
-                EditAction::make()->iconButton(),
+                EditAction::make(),
                 DeleteAction::make()
-                    ->iconButton()
                     ->visible(fn (Show $record) => static::canDelete($record))
                     ->tooltip(fn (Show $record) => static::canDelete($record)
                         ? null
                         : 'Has orders, deduction requests, payouts, or streamers attached — only an empty draft show can be deleted.'),
+                ]),
+
+                ViewAction::make()->iconButton(),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

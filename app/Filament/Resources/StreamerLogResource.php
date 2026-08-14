@@ -24,6 +24,7 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
@@ -245,14 +246,19 @@ class StreamerLogResource extends Resource
                 TextColumn::make('show.show_date')
                     ->label('Date')
                     ->date()
-                    ->sortable(),
+                    ->sortable()
+                    ->extraCellAttributes(['class' => 'vx-nowrap']),
                 TextColumn::make('show.title')
                     ->label('Show')
                     ->limit(35)
-                    ->searchable(),
+                    ->searchable()
+                    ->extraCellAttributes(['class' => 'vx-col-title'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-title']),
                 TextColumn::make('streamer.name')
                     ->label('Streamer')
-                    ->searchable(),
+                    ->searchable()
+                    ->extraCellAttributes(['class' => 'vx-col-tight'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-tight']),
                 TextColumn::make('show.channel.name')
                     ->label('Channel')
                     ->placeholder('—')
@@ -282,10 +288,12 @@ class StreamerLogResource extends Resource
                     }),
                 TextColumn::make('hours_streamed')
                     ->label('Hours')
-                    ->numeric(),
+                    ->numeric()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('number_of_shipments')
                     ->label('Shipments')
-                    ->numeric(),
+                    ->numeric()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('pwe_count')
                     ->label('PWE')
                     ->numeric()
@@ -312,10 +320,12 @@ class StreamerLogResource extends Resource
                     ->toggleable(),
                 TextColumn::make('total_due')
                     ->label('Total Due')
-                    ->money('USD'),
+                    ->money('USD')
+                    ->extraCellAttributes(['class' => 'vx-nowrap']),
                 TextColumn::make('total_paid')
                     ->label('Total Paid')
-                    ->money('USD'),
+                    ->money('USD')
+                    ->extraCellAttributes(['class' => 'vx-nowrap']),
             ])
             ->filters([
                 SelectFilter::make('status')
@@ -379,6 +389,10 @@ class StreamerLogResource extends Resource
                             ->success()
                             ->send();
                     }),
+                // Approve and Request Changes stay on the row — they're the
+                // whole job of this screen. The rest goes behind the overflow
+                // menu so the actions column stops squeezing Show Title.
+                ActionGroup::make([
                 Action::make('fulfillment_review')
                     ->label('Fulfillment Reviewed')
                     ->icon('heroicon-o-truck')
@@ -403,32 +417,59 @@ class StreamerLogResource extends Resource
                 // Send an already-reviewed/approved entry back to the streamer so
                 // they can edit it again (admins/owner only).
                 Action::make('send_back')
-                    ->label('Send Back')
+                    ->label('Request Changes')
                     ->icon('heroicon-o-arrow-uturn-left')
                     ->color('warning')
                     ->visible(fn (StreamerLogEntry $record) => in_array($record->status, ['streamer_reviewed', 'admin_approved'])
                         && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
-                    ->requiresConfirmation()
-                    ->modalHeading('Send back to streamer')
-                    ->modalDescription('Reopens this entry so the streamer can edit it again. Its status returns to pending.')
-                    ->action(function (StreamerLogEntry $record): void {
+                    ->form([
+                        \Filament\Forms\Components\Textarea::make('notes')
+                            ->label('What needs changing?')
+                            ->rows(3)
+                            ->placeholder('Tell the streamer what to fix before resubmitting.')
+                            ->required(),
+                    ])
+                    ->modalHeading('Request changes from the streamer')
+                    ->modalDescription('Reopens this entry for editing and returns any stock that was deducted when it was submitted.')
+                    ->modalSubmitActionLabel('Request Changes')
+                    ->action(function (StreamerLogEntry $record, array $data): void {
+                        // rejectByAdmin() is what puts the deducted stock back
+                        // and notifies the streamer. The old inline update
+                        // skipped it, so sending an entry back silently left
+                        // its inventory deducted.
+                        $record->rejectByAdmin($data['notes']);
+
                         $record->update([
-                            'status'                  => 'pending',
+                            // 'pending' was indistinguishable from "never
+                            // started", so the Changes Requested tab and tile
+                            // were always empty and the streamer got no signal.
+                            'status'                  => 'changes_requested',
                             'streamer_reviewed_at'    => null,
                             'reviewed_by'             => null,
                             'reviewed_at'             => null,
                             'fulfillment_reviewed_by' => null,
                             'fulfillment_reviewed_at' => null,
+                            // Reopen it for editing.
+                            'submitted_at'            => null,
+                            'locked_at'               => null,
                         ]);
-                        Notification::make()->title('Sent back to streamer')->success()->send();
+
+                        Notification::make()
+                            ->title('Changes requested')
+                            ->body('The streamer has been notified and any deducted stock was returned.')
+                            ->success()
+                            ->send();
                     }),
 
                 // Opens the full edit page (with the Items Sold editor). Read-only
                 // for a streamer once the entry is approved.
+                ]),
+
                 Action::make('open')
                     ->label(fn (StreamerLogEntry $record) => static::isLockedForCurrentUser($record) ? 'View' : 'Open')
                     ->icon('heroicon-o-arrow-top-right-on-square')
                     ->color('gray')
+                    ->iconButton()
                     ->url(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record])),
             ])
             ->recordUrl(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record]))

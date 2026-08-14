@@ -114,12 +114,16 @@ class StreamerLogEditingTest extends TestCase
         $admin->assignRole('admin');
         Livewire::actingAs($admin);
 
+        // Request Changes now asks the admin what needs fixing, and the
+        // entry lands in changes_requested rather than plain pending so the
+        // streamer (and the tab/tile) can tell it was sent back.
         Livewire::test(ListStreamerLogEntries::class)
-            ->callTableAction('send_back', $entry);
+            ->callTableAction('send_back', $entry, ['notes' => 'Costs look wrong']);
 
         $entry->refresh();
-        $this->assertEquals('pending', $entry->status);
+        $this->assertEquals('changes_requested', $entry->status);
         $this->assertNull($entry->reviewed_at);
+        $this->assertNull($entry->locked_at, 'the entry should be editable again');
     }
 
     // ── Streamer can open their own entry's edit page ─────────────────────────
@@ -195,7 +199,7 @@ class StreamerLogEditingTest extends TestCase
         Livewire::actingAs($admin);
 
         Livewire::test(ListStreamerLogEntries::class)
-            ->callTableAction('send_back', $entry);
+            ->callTableAction('send_back', $entry, ['notes' => 'Recount the labels']);
 
         $entry->refresh();
         $this->assertNull($entry->fulfillment_reviewed_at);

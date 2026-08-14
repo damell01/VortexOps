@@ -4051,13 +4051,25 @@ html body .fi-ta-filter-indicators { display: none !important; }
         gap: 0.5rem !important;
     }
 
+    /* A wrapping flex row gave each button a different width depending on
+       its label, so four actions came out as 1 + 1 + 2 at three sizes. A
+       two-column grid keeps them uniform however many there are. */
+    html body .fi-header-actions-ctn .fi-ac {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
     html body .fi-header-actions-ctn .fi-btn,
     html body .fi-header-actions-ctn button,
     html body .fi-header-actions-ctn a {
-        flex: 1 1 auto !important;
-        width: auto !important;
+        width: 100% !important;
         min-width: 0 !important;
         justify-content: center !important;
+    }
+
+    /* An odd trailing button spans rather than sitting half-width alone. */
+    html body .fi-header-actions-ctn .fi-ac > *:last-child:nth-child(odd) {
+        grid-column: 1 / -1 !important;
     }
 
     /* An earlier rule made this row scroll sideways behind a mask fade,
@@ -4317,3 +4329,62 @@ html.dark .vx-contents-stock-value { color: #ffffff; }
 
 /* Long money values still shouldn't split across lines in any tile. */
 .vx-stat-value { white-space: nowrap; }
+
+/* Nothing escapes a tile. The nowrap that stopped money breaking mid-number
+   on desktop pushed long values straight out of the box at 2-up on a phone,
+   so the value scales down there and the tile clips as a hard backstop. */
+
+.vx-stat-tile { overflow: hidden; }
+.vx-stat-body { min-width: 0; }
+.vx-stat-value { overflow-wrap: anywhere; }
+
+@media (max-width: 639px) {
+    .vx-kpis .vx-stat-tile.is-lg { padding: 0.625rem 0.75rem; gap: 0.5rem; }
+    .vx-kpis .vx-stat-tile.is-lg .vx-stat-icon { width: 2rem; height: 2rem; }
+    .vx-kpis .vx-stat-glyph { width: 1rem; height: 1rem; }
+
+    /* Sized so "$15,790.00" clears the ~105px of text width a 2-up tile
+       leaves on a 390px screen. */
+    .vx-kpis .vx-stat-tile.is-lg .vx-stat-value {
+        font-size: 1rem;
+        white-space: nowrap;
+    }
+
+    /* Labels wrap rather than ellipsizing to "Completed S…". */
+    .vx-kpis .vx-stat-label {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        font-size: 0.6875rem;
+        line-height: 1.25;
+    }
+}
+
+/* Dates and money never wrap in a table cell. A global rule sets every cell
+   to white-space: normal, which let "Aug 10, 2026" stack over three lines
+   whenever the auto table layout squeezed its column. */
+
+html body .fi-ta-table td.vx-nowrap,
+html body .fi-ta-table td.vx-nowrap .fi-ta-text-item {
+    white-space: nowrap !important;
+}
+
+@media (max-width: 767px) {
+    /* Cards lay their own way out; nowrap would push a card wider. */
+    html body .fi-ta-table td.vx-nowrap,
+    html body .fi-ta-table td.vx-nowrap .fi-ta-text-item {
+        white-space: normal !important;
+    }
+}
+
+/* Auto table layout was handing 177px to a one-word Streamer column while
+   the show title got 104px and wrapped to four lines. Give the title cell a
+   floor and cap the short columns so the row settles at one or two lines. */
+
+@media (min-width: 768px) {
+    html body .fi-ta-table td.vx-col-title,
+    html body .fi-ta-table th.vx-col-title { min-width: 15rem; }
+
+    html body .fi-ta-table td.vx-col-tight,
+    html body .fi-ta-table th.vx-col-tight { max-width: 9rem; }
+}

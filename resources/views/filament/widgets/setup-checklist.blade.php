@@ -7,7 +7,7 @@
             </span>
         </x-slot>
         <x-slot name="description">Finish setting up your workspace — {{ $doneCount }} of {{ $total }} done.</x-slot>
-        <x-slot name="headerEnd">
+        <x-slot name="afterHeader">
             <x-filament::button
                 size="xs"
                 color="gray"

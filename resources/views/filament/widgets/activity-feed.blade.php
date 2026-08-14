@@ -1,7 +1,7 @@
 <x-filament-widgets::widget>
     <x-filament::section>
         <x-slot name="heading">Recent Activity</x-slot>
-        <x-slot name="headerEnd">
+        <x-slot name="afterHeader">
             <span class="text-xs text-gray-400 dark:text-gray-500">Last 20 events</span>
         </x-slot>
 

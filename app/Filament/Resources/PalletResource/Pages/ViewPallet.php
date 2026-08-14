@@ -24,7 +24,12 @@ class ViewPallet extends ViewRecord
 
     public function getRecord(): \App\Models\Pallet
     {
-        return parent::getRecord()->load(['vendor', 'lines.inventoryItem', 'lines.location', 'lines.cases', 'attachments']);
+        // loadCount as well as load: the view gates its attachments block on
+        // attachments_count, which load() never sets — so the block stayed
+        // hidden even when the pallet had files.
+        return parent::getRecord()
+            ->load(['vendor', 'lines.inventoryItem', 'lines.location', 'lines.cases', 'attachments'])
+            ->loadCount('attachments');
     }
 
     public function getView(): string

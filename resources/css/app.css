@@ -4024,3 +4024,114 @@ html.dark .fi-ta-actions .fi-icon-btn:hover { background: rgb(255 255 255 / .05)
    stylesheet loads after this bundle, so the tie needs the extra
    html body specificity to win on source order. */
 html body .fi-ta-filter-indicators { display: none !important; }
+
+/* ── Page header actions on phones ─────────────────────────────────
+   enterprise-ui-refinements.css sets the buttons to width:100% while
+   Filament lays .fi-ac out as a flex ROW, so each button demanded the
+   full width inside a row and Quick Add / Add Item ran off the right
+   edge. Make the group a wrapping row with intrinsically-sized buttons
+   that share the leftover space. */
+
+@media (max-width: 767px) {
+    html body .fi-header-actions-ctn,
+    html body .fi-header-actions-ctn .fi-ac {
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        width: 100% !important;
+        gap: 0.5rem !important;
+    }
+
+    html body .fi-header-actions-ctn .fi-btn,
+    html body .fi-header-actions-ctn button,
+    html body .fi-header-actions-ctn a {
+        flex: 1 1 auto !important;
+        width: auto !important;
+        min-width: 0 !important;
+        justify-content: center !important;
+    }
+
+    /* An earlier rule made this row scroll sideways behind a mask fade,
+       which left Add Item half-visible with no visible affordance. It
+       wraps now, so the mask has to go with it. */
+    html body .fi-header-actions-ctn {
+        overflow-x: visible !important;
+        mask-image: none !important;
+        -webkit-mask-image: none !important;
+    }
+
+    /* The gap between the subheading and the buttons was a dead band. */
+    html body .fi-page-header-main-ctn .fi-header { gap: 0.75rem !important; }
+
+    /* Table toolbar: search, filters, columns and the bulk-actions menu
+       on one wrapping row. The bulk trigger was dropping onto a line of
+       its own, reading as a stray floating button above the list. */
+    html body .fi-ta-header-toolbar {
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
+        align-items: center !important;
+    }
+    /* The bulk-actions cluster carried its own wrapped block and a rule
+       above it, which is what put the lone dots button on its own line. */
+    html body .fi-ta-header-toolbar .fi-ta-actions {
+        flex: 0 0 auto !important;
+        width: auto !important;
+        border: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    /* Search, Filters and Columns can't share a 280px row — squeezed onto
+       one line the search collapsed to just its magnifier. Give search the
+       full width and let the two buttons sit under it. */
+    html body .fi-ta-header-toolbar > *:not(.fi-ta-actions) {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        min-width: 0 !important;
+        flex-wrap: wrap !important;
+    }
+    html body .fi-ta-header-toolbar .fi-ta-search-field {
+        flex: 1 1 100% !important;
+        min-width: 0 !important;
+    }
+    html body .fi-ta-header-toolbar .fi-ta-search-field .fi-input-wrp {
+        width: 100% !important;
+        max-width: none !important;
+    }
+
+    /* Bulk actions need row checkboxes to do anything, which isn't a flow
+       that works on a card list; on a phone the trigger was just an orphan
+       button sitting above the rows. Still there from a tablet up. */
+    html body .fi-ta-header-toolbar .fi-ta-actions { display: none !important; }
+}
+
+/* ── Mobile card polish ────────────────────────────────────────────
+   The two stat cells were auto-placed, so their top rules landed at
+   different heights and the divider across the card came out stepped.
+   Pin them to the row under the title so the rule is continuous. */
+
+@media (max-width: 767px) {
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-stat {
+        grid-row: 2 !important;
+        align-self: stretch !important;
+        padding-top: 0.625rem !important;
+        padding-bottom: 0.625rem !important;
+    }
+
+    /* The overflow trigger carried a filled chip while view/edit next to
+       it were bare glyphs; level them. */
+    html body .fi-ta-table > tbody > tr.fi-ta-row .fi-ta-actions .fi-icon-btn {
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    /* The title band and the detail rows both ran tall for their content. */
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-title {
+        padding-top: 0.75rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-detail,
+    html body .fi-ta-table > tbody > tr.fi-ta-row > td.vx-mobile-foot {
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+    }
+}

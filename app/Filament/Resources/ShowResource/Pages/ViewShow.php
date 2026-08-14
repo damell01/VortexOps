@@ -33,6 +33,7 @@ class ViewShow extends ViewRecord
     protected function getHeaderWidgets(): array
     {
         return [
+            \App\Filament\Widgets\ShowMetricsWidget::class,
             \App\Filament\Widgets\ShowPipelineStatusWidget::class,
         ];
     }

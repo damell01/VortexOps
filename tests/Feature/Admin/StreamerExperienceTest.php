@@ -89,8 +89,12 @@ class StreamerExperienceTest extends TestCase
 
         $tabs = Livewire::test(ListStreamerLogEntries::class)->instance()->getTabs();
 
-        $this->assertArrayHasKey('to_review', $tabs);
-        $this->assertArrayHasKey('reviewed', $tabs);
+        // Tabs track the entry workflow: started but not sent, sent for
+        // review, sent back for changes, and approved.
+        $this->assertArrayHasKey('in_progress', $tabs);
+        $this->assertArrayHasKey('submitted', $tabs);
+        $this->assertArrayHasKey('changes_requested', $tabs);
+        $this->assertArrayHasKey('approved', $tabs);
     }
 
     // ── Actionable notification deep-link ─────────────────────────────────────
@@ -103,8 +107,10 @@ class StreamerExperienceTest extends TestCase
 
         $url = NotificationLinks::forShow($show->id, $user);
 
-        // Streamer lands on their own log entry's edit form (the enrichment page).
-        $this->assertStringContainsString("/streamer-logs/{$entry->getKey()}/edit", $url);
+        // Streamer lands on their own log entry (the enrichment page). The
+        // resource routes that page at /{record} rather than /{record}/edit,
+        // so match the record, not the suffix.
+        $this->assertStringContainsString("/streamer-logs/{$entry->getKey()}", $url);
     }
 
     public function test_admin_notification_links_to_the_show(): void

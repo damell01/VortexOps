@@ -57,7 +57,8 @@ class FormFullWidthTest extends TestCase
 
         $html = $this->get('/admin/inventory-items/create')->getContent();
 
-        $this->assertSectionSpansFullWidth($html, 'item-details');
+        // Section is "Item Identification"; it was renamed from "Item Details".
+        $this->assertSectionSpansFullWidth($html, 'item-identification');
     }
 
     public function test_create_vendor_form_is_full_width(): void

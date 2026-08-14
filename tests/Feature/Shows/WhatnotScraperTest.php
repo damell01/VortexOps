@@ -163,7 +163,7 @@ class WhatnotScraperTest extends TestCase
 
         $counts = $scraper->importShows($this->channel);
 
-        $this->assertEquals(['created' => 1, 'updated' => 0, 'skipped' => 0, 'ordersCreated' => 0], $counts);
+        $this->assertEquals(['created' => 1, 'updated' => 0, 'skipped' => 0, 'ordersCreated' => 0, 'shipmentsCreated' => 0], $counts);
 
         $show = Show::where('title', 'Test Break Show')->first();
         $this->assertNotNull($show);
@@ -171,7 +171,10 @@ class WhatnotScraperTest extends TestCase
         $this->assertEquals($this->channel->id, $show->whatnot_channel_id);
         $this->assertEquals(1500.00, (float) $show->gross_revenue);
         $this->assertEquals('auto_whatnot', $show->import_source);
-        $this->assertEquals('draft', $show->status);
+        // The fixture sells 40 units, and the importer routes anything with
+        // units sold to 'mapping' — those items still need mapping. Only a
+        // show with no units lands in 'draft'.
+        $this->assertEquals('mapping', $show->status);
     }
 
     public function test_import_persists_start_and_end_time(): void
@@ -184,8 +187,10 @@ class WhatnotScraperTest extends TestCase
         $scraper->importShows($this->channel);
 
         $show = Show::where('title', 'Test Break Show')->first();
-        $this->assertEquals('19:00:00', $show->start_time);
-        $this->assertEquals('20:30:00', $show->end_time);
+        // Show casts these to datetime, so a bare time comes back as a Carbon
+        // on today's date — compare the time component, not the object.
+        $this->assertEquals('19:00:00', $show->start_time->format('H:i:s'));
+        $this->assertEquals('20:30:00', $show->end_time->format('H:i:s'));
     }
 
     public function test_import_updates_financial_fields_on_existing_show(): void
@@ -211,7 +216,7 @@ class WhatnotScraperTest extends TestCase
 
         $counts = $scraper->importShows($this->channel);
 
-        $this->assertEquals(['created' => 0, 'updated' => 1, 'skipped' => 0, 'ordersCreated' => 0], $counts);
+        $this->assertEquals(['created' => 0, 'updated' => 1, 'skipped' => 0, 'ordersCreated' => 0, 'shipmentsCreated' => 0], $counts);
 
         $show = Show::where('title', 'Test Break Show')->first();
         $this->assertEquals(1500.00, (float) $show->gross_revenue);
@@ -377,7 +382,7 @@ class WhatnotScraperTest extends TestCase
 
         $counts = $scraper->importShows($this->channel);
 
-        $this->assertEquals(['created' => 0, 'updated' => 0, 'skipped' => 2, 'ordersCreated' => 0], $counts);
+        $this->assertEquals(['created' => 0, 'updated' => 0, 'skipped' => 2, 'ordersCreated' => 0, 'shipmentsCreated' => 0], $counts);
         $this->assertEquals(0, Show::count());
     }
 
@@ -392,7 +397,7 @@ class WhatnotScraperTest extends TestCase
 
         $counts = $scraper->importShows($this->channel);
 
-        $this->assertEquals(['created' => 3, 'updated' => 0, 'skipped' => 0, 'ordersCreated' => 0], $counts);
+        $this->assertEquals(['created' => 3, 'updated' => 0, 'skipped' => 0, 'ordersCreated' => 0, 'shipmentsCreated' => 0], $counts);
         $this->assertEquals(3, Show::where('import_source', 'auto_whatnot')->count());
     }
 
@@ -410,7 +415,7 @@ class WhatnotScraperTest extends TestCase
 
         $counts = $scraper->importShows($this->channel);
 
-        $this->assertEquals(['created' => 0, 'updated' => 0, 'skipped' => 0, 'ordersCreated' => 0], $counts);
+        $this->assertEquals(['created' => 0, 'updated' => 0, 'skipped' => 0, 'ordersCreated' => 0, 'shipmentsCreated' => 0], $counts);
     }
 
     // ── Live progress output ──────────────────────────────────────────────────

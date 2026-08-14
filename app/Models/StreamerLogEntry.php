@@ -152,6 +152,15 @@ class StreamerLogEntry extends Model
 
     public function canStreamerEdit(): bool
     {
+        // Approval lives in two columns: the workflow `status` and the
+        // `approval_status` set by approveByAdmin(). They can diverge —
+        // EndOfStreamForm writes status directly — and only checking
+        // approval_status below left an approved entry editable whenever the
+        // other path set it. Treat either as final.
+        if ($this->status === 'admin_approved' || $this->approval_status === 'approved') {
+            return false;
+        }
+
         if (!$this->isSubmitted()) {
             return true;
         }

@@ -28,6 +28,18 @@ class InventoryScanner extends Page
     protected static string $moduleSlug  = 'inventory';
     protected static ?string $title = 'Inventory Scanner';
 
+    /**
+     * HasModuleAccess defaults to "any authenticated user", which let anyone
+     * with a login reach a page that receives stock, adjusts quantities and
+     * writes inventory movements. Restrict it to the roles that own stock.
+     */
+    protected static function passesModuleAccessCheck(): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->isAdmin() || $user?->isOwner()) ?? false;
+    }
+
     public static function getNavigationGroup(): string|\UnitEnum|null
     {
         return AdminModules::navigationGroupFor('inventory');

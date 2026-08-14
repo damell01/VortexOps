@@ -458,6 +458,12 @@ class StreamerResource extends Resource
                                 ->required(),
                         ])
                         ->columns(1)
+                        // A repeater starts with one blank row by default, and
+                        // the Location select is required — so an admin who
+                        // never opened this section still failed validation and
+                        // could not create a streamer at all. Locations are
+                        // optional, so start empty.
+                        ->defaultItems(0)
                         ->addActionLabel('Add Location')
                         ->reorderable()
                         ->collapsible()

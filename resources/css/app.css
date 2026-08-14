@@ -832,7 +832,10 @@ textarea.fi-input { padding: 0.5rem 0.75rem !important; line-height: 1.5 !import
     border: 1px solid var(--vx-card-border) !important;
     box-shadow: var(--vx-shadow-lg) !important;
     background-color: var(--vx-card-bg) !important;
-    overflow: hidden !important;
+    /* overflow-y: auto, never hidden — see the note above. Filament makes
+       this element the scroll container, so hidden clips the notifications
+       slide-over and any tall modal with no way to reach the rest. */
+    overflow-y: auto !important;
     display: flex !important;
     flex-direction: column !important;
     max-height: 85vh !important;

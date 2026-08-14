@@ -65,17 +65,16 @@ class FulfillmentResource extends Resource
 
         $user = auth()->user();
 
-        // fulfillment_admin and admin see everything (no channel or user filtering)
-        if ($user && ($user->isAdmin() || $user->isOwner() || $user->isFulfillmentAdmin())) {
-            return $query;
-        }
+        $seesAllRows = $user && ($user->isAdmin() || $user->isOwner() || $user->isFulfillmentAdmin());
 
-        // Regular fulfillment users see only shows they're assigned to, scoped by channel if set
-        if ($user && $user->isFulfillment() && ! $user->isAdmin()) {
+        // Regular fulfillment users see only shows they're assigned to.
+        if (! $seesAllRows && $user && $user->isFulfillment()) {
             $query->whereHas('fulfillmentUsers', fn (Builder $q) => $q->where('users.id', $user->id));
         }
 
-        // Channel context applies only to non-admin users
+        // Channel context applies to everyone. Admins used to return early
+        // above, which skipped this — so picking a channel in the sidebar
+        // switcher did nothing here while every other resource honoured it.
         if (ChannelContext::isScoped()) {
             $query->where('whatnot_channel_id', ChannelContext::currentId());
         }

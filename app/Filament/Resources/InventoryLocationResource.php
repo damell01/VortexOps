@@ -48,11 +48,11 @@ class InventoryLocationResource extends Resource
         return ($user?->isAdmin() || $user?->isOwner() || $user?->isStreamer()) ?? false;
     }
 
-    public static function canAccess(): bool
-    {
-        // Allow admins and owners to access
-        return auth()->user()?->isAdmin() || auth()->user()?->isOwner() ?? false;
-    }
+    // No canAccess() override here on purpose. Overriding it bypasses
+    // HasModuleAccess::canAccess() — and with it the module toggle, the
+    // NavVisibility rules, and passesModuleAccessCheck() above, which is the
+    // thing that admits streamers. The override said admin/owner only, so it
+    // silently undid the fix directly above it. The trait handles this.
 
     public static function shouldRegisterNavigation(): bool
     {

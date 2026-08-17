@@ -75,11 +75,22 @@ class StreamerLogResource extends Resource
         return $user?->isAdmin() || $user?->isStreamer() || $user?->isFulfillmentAdmin();
     }
 
+    /**
+     * Deliberately narrower than canAccess(): streamers can open their own log
+     * but reach it from their own pages, not from a top-level sidebar entry.
+     *
+     * Kept as an override rather than folded into the trait's access-derived
+     * rule because it is a product decision, not a leftover role check — the
+     * two other resources that looked like this turned out to be contradicting
+     * their own access rules. Hiding it on Roles & Permissions still works.
+     */
     public static function shouldRegisterNavigation(): bool
     {
         $user = auth()->user();
-        // Only show nav link for admins, not streamers
-        return ($user?->isAdmin() || $user?->isOwner()) && AdminModules::isEnabled('streams');
+
+        return ($user?->isAdmin() || $user?->isOwner())
+            && AdminModules::isEnabled('streams')
+            && ! NavVisibility::isHiddenForUser(static::class, $user);
     }
 
     /**

@@ -14,6 +14,10 @@ use Livewire\Attributes\Computed;
 
 class Shows extends Page
 {
+    // Without this, Filament registers the link regardless of canAccess() —
+    // fulfillment users saw a Shows link that 403'd.
+    use \App\Filament\Concerns\HasAdminNavVisibility;
+
     protected static string $moduleSlug = 'streams';
     protected static ?string $title = 'Shows';
 

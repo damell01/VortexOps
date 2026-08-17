@@ -71,17 +71,10 @@ class InventoryScanner extends Page
         return 'Complete inventory workflow: Look up items, quick add stock, stage pallets with pending items, and receive shipments by scanning. Supports packing slips or manual entry.';
     }
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        // Nav visibility is configured per role in Settings; without this
-        // check an override here silently ignored that setting and the link
-        // stayed in the sidebar regardless.
-        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
-            return false;
-        }
-
-        return true;
-    }
+    // No shouldRegisterNavigation() override: it checked visibility and then
+    // returned true regardless of access, so streamers saw a Scan Inventory
+    // link that 403'd on click — passesModuleAccessCheck() below is admin and
+    // owner only. The trait derives the link from canAccess() instead.
 
     // ── Mode ──────────────────────────────────────────────────────────────────
 

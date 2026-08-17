@@ -55,11 +55,11 @@ class InventoryLocationResource extends Resource
     // thing that admits streamers. The override said admin/owner only, so it
     // silently undid the fix directly above it. The trait handles this.
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        // Show locations for admins and owners
-        return auth()->user()?->isAdmin() || auth()->user()?->isOwner() ?? false;
-    }
+    // No shouldRegisterNavigation() override either, for the same reason as
+    // canAccess() above. It hardcoded admin/owner, which undid the streamer
+    // admission in passesModuleAccessCheck() one method later — the page was
+    // reachable but had no link, so ticking it Visible on Roles & Permissions
+    // appeared to do nothing. The trait derives the link from canAccess().
 
     public static function canCreate(): bool
     {

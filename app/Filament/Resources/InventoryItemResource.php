@@ -91,25 +91,13 @@ class InventoryItemResource extends Resource
         return parent::canAccess();
     }
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        // Nav visibility is configured per role in Settings; without this
-        // check an override here silently ignored that setting and the link
-        // stayed in the sidebar regardless.
-        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
-            return false;
-        }
-
-        $user = auth()->user();
-
-        // Show navigation for streamers even if inventory module is disabled
-        if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) {
-            return true;
-        }
-
-        // Use default registration for admins/owners (respects module gating)
-        return parent::shouldRegisterNavigation();
-    }
+    // No shouldRegisterNavigation() override. It ended in
+    // parent::shouldRegisterNavigation(), and `parent::` is Filament's base
+    // resource, not the trait — so it skipped the trait's rule and registered
+    // the link without asking whether the page would open, which is how
+    // fulfillment users got a link here that 403'd. Its other branch showed
+    // streamers a link even with the inventory module off, which canAccess()
+    // refuses. The trait derives the link from canAccess() for everyone.
 
     public static function canCreate(): bool
     {

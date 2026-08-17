@@ -125,7 +125,11 @@ return [
 
     'scraper_api_token' => env('SCRAPER_API_TOKEN'),
 
-    'owner_email' => env('APP_OWNER_EMAIL'),
+    // Defaulted here as well as in User::isOwner(). The env key ships blank in
+    // .env.example, and a blank env value is an empty string rather than a
+    // missing key — so config()'s own default never fires and the owner check
+    // compares every email against ''. Nobody was the owner.
+    'owner_email' => env('APP_OWNER_EMAIL') ?: 'dbellcreations@gmail.com',
 
     'developer_email' => env('DEVELOPER_EMAIL'),
 

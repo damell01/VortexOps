@@ -4778,8 +4778,14 @@ html body .fi-global-search-result-link {
 .vx-gs-line .fi-global-search-result-heading {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
-.vx-gs-sku { font-size: 0.75rem; color: #9ca3af; }
+.vx-gs-subtitle {
+    font-size: 0.75rem; color: #9ca3af;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
+/* Keyed to a tone the resource picks, not to the status text. Status strings
+   are per-resource ("Paid", "Reconciled", "On Leave") and slug-matching them
+   meant every new one silently fell back to unstyled. */
 .vx-gs-pill {
     padding: 0.0625rem 0.4375rem;
     border-radius: 9999px;
@@ -4787,9 +4793,17 @@ html body .fi-global-search-result-link {
     font-weight: 600;
     white-space: nowrap;
 }
-.vx-gs-pill.is-in-stock     { background: rgb(16 185 129 / .13); color: #047857; }
-.vx-gs-pill.is-low-stock    { background: rgb(245 158 11 / .16); color: #b45309; }
-.vx-gs-pill.is-out-of-stock { background: rgb(239 68 68 / .12);  color: #dc2626; }
+.vx-gs-pill.is-success { background: rgb(16 185 129 / .13); color: #047857; }
+.vx-gs-pill.is-warning { background: rgb(245 158 11 / .16); color: #b45309; }
+.vx-gs-pill.is-danger  { background: rgb(239 68 68 / .12);  color: #dc2626; }
+.vx-gs-pill.is-info    { background: rgb(59 130 246 / .13); color: #1d4ed8; }
+.vx-gs-pill.is-neutral { background: rgb(107 114 128 / .13); color: #4b5563; }
+
+html.dark .vx-gs-pill.is-success { color: #34d399; }
+html.dark .vx-gs-pill.is-warning { color: #fbbf24; }
+html.dark .vx-gs-pill.is-danger  { color: #f87171; }
+html.dark .vx-gs-pill.is-info    { color: #60a5fa; }
+html.dark .vx-gs-pill.is-neutral { color: #9ca3af; }
 
 .vx-gs-figure {
     flex: 0 0 auto;
@@ -4798,7 +4812,7 @@ html body .fi-global-search-result-link {
 }
 
 html.dark .vx-gs-figure { color: #ffffff; }
-html.dark .vx-gs-sku { color: #6b7280; }
+html.dark .vx-gs-subtitle { color: #6b7280; }
 
 @media (max-width: 639px) {
     html body .fi-global-search-results-ctn { max-width: none; }

@@ -3,10 +3,22 @@
 
     Only the results list differs from the packaged view: each group gains a
     "view all" link into that resource filtered by the same term, and a result
-    renders as an icon tile + title + muted sku + status pill + a right-aligned
-    figure. Resources opt into that shape by returning 'sku', 'status' and
-    'figure' keys from getGlobalSearchResultDetails(); anything else still
-    renders as the packaged label/value pair.
+    renders as an icon tile + title + muted subtitle + status pill + a
+    right-aligned figure.
+
+    Resources opt into that shape from getGlobalSearchResultDetails() using
+    lowercase keys, which are read as slots rather than printed as labels:
+
+        subtitle  muted second line — whatever identifies the record next
+                  (a SKU, an email, a show title)
+        status    pill text
+        tone      pill colour: success | warning | danger | info | neutral.
+                  A tone rather than a status slug, so a resource picks the
+                  meaning instead of every status string needing its own rule.
+        figure    the one number worth pinning right
+
+    Any other key still renders as the packaged label/value pair, so a resource
+    that opts out is unaffected.
 
     Re-check this against the packaged view after a Filament upgrade.
 --}}
@@ -136,12 +148,13 @@
                                                 class="fi-global-search-result-link"
                                             >
                                                 @php
-                                                    $vxIcon   = $vxGroups[$group]['icon'] ?? null;
-                                                    $vxSku    = $result->details['sku'] ?? null;
-                                                    $vxStatus = $result->details['status'] ?? null;
-                                                    $vxFigure = $result->details['figure'] ?? null;
-                                                    $vxRest   = collect($result->details ?? [])
-                                                        ->except(['sku', 'status', 'figure'])
+                                                    $vxIcon     = $vxGroups[$group]['icon'] ?? null;
+                                                    $vxSubtitle = $result->details['subtitle'] ?? null;
+                                                    $vxStatus   = $result->details['status'] ?? null;
+                                                    $vxTone     = $result->details['tone'] ?? 'neutral';
+                                                    $vxFigure   = $result->details['figure'] ?? null;
+                                                    $vxRest     = collect($result->details ?? [])
+                                                        ->except(['subtitle', 'status', 'tone', 'figure'])
                                                         ->all();
                                                 @endphp
 
@@ -158,14 +171,14 @@
                                                         </h4>
 
                                                         @if ($vxStatus)
-                                                            <span class="vx-gs-pill is-{{ \Illuminate\Support\Str::slug($vxStatus) }}">
+                                                            <span class="vx-gs-pill is-{{ \Illuminate\Support\Str::slug($vxTone) }}">
                                                                 {{ $vxStatus }}
                                                             </span>
                                                         @endif
                                                     </span>
 
-                                                    @if ($vxSku)
-                                                        <span class="vx-gs-sku">SKU: {{ $vxSku }}</span>
+                                                    @if ($vxSubtitle)
+                                                        <span class="vx-gs-subtitle">{{ $vxSubtitle }}</span>
                                                     @endif
                                                 </span>
 

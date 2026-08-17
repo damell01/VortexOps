@@ -194,19 +194,24 @@ class InventoryItemResource extends Resource
 
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
     {
-        // Keys drive the layout in the global-search override: 'sku' is the
-        // muted second line, 'status' becomes a pill, 'figure' is pinned
-        // right. Anything else renders as a plain label/value pair.
+        // Lowercase keys are slots in the global-search override, not labels:
+        // subtitle / status / tone / figure. See that view for the contract.
         $onHand = (int) ($record->stock_sum_quantity ?? $record->stock()->sum('quantity'));
+        $state  = static::stockStatus($record);
 
         return array_filter([
-            'sku'    => $record->sku,
-            'status' => match (static::stockStatus($record)) {
+            'subtitle' => filled($record->sku) ? 'SKU: ' . $record->sku : null,
+            'status'   => match ($state) {
                 'out'   => 'Out of Stock',
                 'low'   => 'Low Stock',
                 default => 'In Stock',
             },
-            'figure' => number_format($onHand) . ' units',
+            'tone' => match ($state) {
+                'out'   => 'danger',
+                'low'   => 'warning',
+                default => 'success',
+            },
+            'figure' => number_format($onHand) . ' ' . \Illuminate\Support\Str::plural('unit', $onHand),
         ]);
     }
 

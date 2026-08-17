@@ -97,11 +97,26 @@ class WeeklyPayoutBatchResource extends Resource
 
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
     {
-        return [
-            'Week End' => $record->week_end?->format('M j, Y') ?? '—',
-            'Total'    => '$' . number_format((float) $record->total_payout, 2),
-            'Status'   => WeeklyPayoutBatch::statusLabels()[$record->status] ?? $record->status,
-        ];
+        // Lowercase keys are slots in the global-search override, not labels:
+        // subtitle / status / tone / figure. See that view for the contract.
+        return array_filter([
+            'subtitle' => $record->week_end
+                ? 'Week ending ' . $record->week_end->format('M j, Y')
+                : null,
+            'status' => WeeklyPayoutBatchResource::statusLabelFor($record),
+            'tone'   => match ($record->status) {
+                'paid', 'finalized' => 'success',
+                'approved'          => 'info',
+                'draft'             => 'warning',
+                default             => 'neutral',
+            },
+            'figure' => '$' . number_format((float) $record->total_payout, 2),
+        ]);
+    }
+
+    protected static function statusLabelFor(\Illuminate\Database\Eloquent\Model $record): string
+    {
+        return WeeklyPayoutBatch::statusLabels()[$record->status] ?? $record->status;
     }
 
     public static function getEloquentQuery(): Builder

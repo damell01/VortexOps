@@ -12,9 +12,11 @@ use App\Models\DeductionRequestLine;
 use App\Models\FeedbackTicket;
 use App\Models\InventoryCase;
 use App\Models\InventoryItem;
+use App\Models\InventoryItemContent;
 use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
+use App\Models\InventoryValueSnapshot;
 use App\Models\Payout;
 use App\Models\ReceivingSession;
 use App\Models\Show;
@@ -96,28 +98,95 @@ class DemoDataSeeder extends Seeder
             'status'      => 'active',
         ]);
 
+        // Locations carry the channel, and everything channel-scoped —
+        // including the per-channel valuation snapshots and the value-vs-revenue
+        // widget — joins through them. Left unset, picking a channel showed
+        // real revenue against $0 of inventory.
+        $demoChannel = WhatnotChannel::where('name', 'Vortex Main Channel')->first();
+
+        if ($demoChannel) {
+            foreach ([$mainStorage, $returnedLoc, $damagedLoc, $fulfillment, $jordanLoc, $taylorLoc, $alexLoc] as $loc) {
+                if ($loc && $loc->whatnot_channel_id === null) {
+                    $loc->update(['whatnot_channel_id' => $demoChannel->id]);
+                }
+            }
+        }
+
         // ── Inventory items ──────────────────────────────────────────────────
+        // average_cost is the weighted average the whole app values stock at —
+        // Analytics, Inventory Age, the value KPIs and the snapshot command all
+        // read it, and treat a null as zero. unit_cost is only the last price
+        // paid, so seeding that alone left every figure reading $0. The two
+        // deliberately differ here: WAC drifts as restocks come in at new prices.
         $itemData = [
-            ['sku' => 'BCH-2024-001', 'name' => '2024 Bowman Chrome Hobby Box',    'category' => 'Baseball',   'unit_cost' => 125.00, 'reorder_level' => 5],
-            ['sku' => 'TPS-2024-002', 'name' => '2024 Topps Series 1 Hobby Box',   'category' => 'Baseball',   'unit_cost' => 95.00,  'reorder_level' => 8],
-            ['sku' => 'PRI-2024-003', 'name' => '2024 Prizm Basketball Hobby Box', 'category' => 'Basketball', 'unit_cost' => 185.00, 'reorder_level' => 3],
-            ['sku' => 'OPT-2024-004', 'name' => '2024 Donruss Optic Football Box', 'category' => 'Football',   'unit_cost' => 145.00, 'reorder_level' => 4],
-            ['sku' => 'PKM-2024-005', 'name' => 'Pokémon SV Booster Pack',         'category' => 'TCG',        'unit_cost' => 4.50,   'reorder_level' => 50],
-            ['sku' => 'MTG-2024-006', 'name' => 'MTG Bloomburrow Set Booster Box', 'category' => 'TCG',        'unit_cost' => 110.00, 'reorder_level' => 6],
-            ['sku' => 'SCR-2025-007', 'name' => '2025 Bowman Draft HTA Box',       'category' => 'Baseball',   'unit_cost' => 210.00, 'reorder_level' => 2],
-            ['sku' => 'NBA-2024-008', 'name' => '2024 Hoops Basketball Blaster',   'category' => 'Basketball', 'unit_cost' => 22.00,  'reorder_level' => 20],
-            ['sku' => 'NFL-2025-009', 'name' => '2025 Select Football Hobby Box',  'category' => 'Football',   'unit_cost' => 165.00, 'reorder_level' => 3],
-            ['sku' => 'YGO-2024-010', 'name' => 'Yu-Gi-Oh! Phantom Nightmare Box', 'category' => 'TCG',        'unit_cost' => 65.00,  'reorder_level' => 8],
+            ['sku' => 'BCH-2024-001', 'name' => '2024 Bowman Chrome Hobby Box',    'category' => 'Baseball',   'unit_cost' => 125.00, 'average_cost' => 121.40, 'reorder_level' => 5],
+            ['sku' => 'TPS-2024-002', 'name' => '2024 Topps Series 1 Hobby Box',   'category' => 'Baseball',   'unit_cost' => 95.00,  'average_cost' => 97.25,  'reorder_level' => 8],
+            ['sku' => 'PRI-2024-003', 'name' => '2024 Prizm Basketball Hobby Box', 'category' => 'Basketball', 'unit_cost' => 185.00, 'average_cost' => 178.90, 'reorder_level' => 3],
+            ['sku' => 'OPT-2024-004', 'name' => '2024 Donruss Optic Football Box', 'category' => 'Football',   'unit_cost' => 145.00, 'average_cost' => 145.00, 'reorder_level' => 4],
+            ['sku' => 'PKM-2024-005', 'name' => 'Pokémon SV Booster Pack',         'category' => 'TCG',        'unit_cost' => 4.50,   'average_cost' => 4.28,   'reorder_level' => 50],
+            ['sku' => 'MTG-2024-006', 'name' => 'MTG Bloomburrow Set Booster Box', 'category' => 'TCG',        'unit_cost' => 110.00, 'average_cost' => 112.75, 'reorder_level' => 6],
+            ['sku' => 'SCR-2025-007', 'name' => '2025 Bowman Draft HTA Box',       'category' => 'Baseball',   'unit_cost' => 210.00, 'average_cost' => 203.50, 'reorder_level' => 2],
+            ['sku' => 'NBA-2024-008', 'name' => '2024 Hoops Basketball Blaster',   'category' => 'Basketball', 'unit_cost' => 22.00,  'average_cost' => 21.15,  'reorder_level' => 20],
+            ['sku' => 'NFL-2025-009', 'name' => '2025 Select Football Hobby Box',  'category' => 'Football',   'unit_cost' => 165.00, 'average_cost' => 168.40, 'reorder_level' => 3],
+            ['sku' => 'YGO-2024-010', 'name' => 'Yu-Gi-Oh! Phantom Nightmare Box', 'category' => 'TCG',        'unit_cost' => 65.00,  'average_cost' => 63.80,  'reorder_level' => 8],
         ];
 
         $items = [];
         foreach ($itemData as $d) {
-            $items[] = InventoryItem::firstOrCreate(
-                ['sku' => $d['sku']],
-                array_merge($d, ['is_active' => true])
-            );
+            $items[] = $this->upsertItem($d);
         }
         [$bowman, $topps, $prizm, $optic, $pokemon, $mtg, $bowmanDraft, $hoops, $select, $yugioh] = $items;
+
+        // ── Containers ───────────────────────────────────────────────────────
+        // A case on the shelf is one unit; the catalogue still needs to say what
+        // is inside it and what each of those is worth. These give the Contents
+        // view something to open, and the per-unit maths a case to run on.
+        $containerData = [
+            [
+                'sku' => 'BCH-2024-C01', 'name' => '2024 Bowman Chrome Hobby CASE',
+                'category' => 'Baseball', 'unit_cost' => 1440.00, 'average_cost' => 1428.00,
+                'reorder_level' => 1, 'holds' => [[$bowman, 12, 'case']],
+            ],
+            [
+                'sku' => 'PRI-2024-C02', 'name' => '2024 Prizm Basketball Hobby CASE',
+                'category' => 'Basketball', 'unit_cost' => 2160.00, 'average_cost' => 2124.00,
+                'reorder_level' => 1, 'holds' => [[$prizm, 12, 'case']],
+            ],
+            [
+                'sku' => 'PKM-2024-C03', 'name' => 'Pokémon SV Booster Box (36 packs)',
+                'category' => 'TCG', 'unit_cost' => 149.00, 'average_cost' => 145.60,
+                'reorder_level' => 4, 'holds' => [[$pokemon, 36, 'box']],
+            ],
+            [
+                'sku' => 'MIX-2025-C04', 'name' => 'Football Mixer Case (Optic + Select)',
+                'category' => 'Football', 'unit_cost' => 1780.00, 'average_cost' => 1755.00,
+                'reorder_level' => 1, 'holds' => [[$optic, 8, 'case'], [$select, 4, 'case']],
+            ],
+        ];
+
+        $containers = [];
+        foreach ($containerData as $d) {
+            $holds = $d['holds'];
+            unset($d['holds']);
+
+            $container = $this->upsertItem($d + ['is_container' => true]);
+            $containers[] = $container;
+
+            foreach ($holds as [$child, $qty, $unitType]) {
+                // Soft deletes plus the parent/child unique index mean a
+                // previously removed line still occupies the slot: a plain
+                // firstOrCreate misses it, then collides on insert.
+                $line = InventoryItemContent::withTrashed()->firstOrNew([
+                    'parent_inventory_item_id' => $container->id,
+                    'child_inventory_item_id'  => $child->id,
+                ]);
+                $line->quantity_per_parent = $qty;
+                $line->unit_type           = $unitType;
+                $line->deleted_at          = null;
+                $line->save();
+            }
+        }
+        [$bowmanCase, $prizmCase, $pokemonBox, $mixerCase] = $containers;
 
         // ── Stock ────────────────────────────────────────────────────────────
         $stockData = [
@@ -131,6 +200,10 @@ class DemoDataSeeder extends Seeder
             [$hoops,       $mainStorage, 41], [$hoops,       $returnedLoc, 3],
             [$select,      $mainStorage,  6], [$select,      $alexLoc,    2],
             [$yugioh,      $mainStorage, 18], [$yugioh,      $fulfillment, 5],
+            [$bowmanCase,  $mainStorage,  3],
+            [$prizmCase,   $mainStorage,  2],
+            [$pokemonBox,  $mainStorage, 14], [$pokemonBox,  $fulfillment, 6],
+            [$mixerCase,   $mainStorage,  1],
         ];
 
         foreach ($stockData as [$item, $loc, $qty]) {
@@ -142,35 +215,67 @@ class DemoDataSeeder extends Seeder
         }
 
         // ── Movement history ─────────────────────────────────────────────────
-        if (InventoryMovement::where('reason', 'Initial stock received')
-                ->where('inventory_item_id', $bowman->id)->doesntExist()) {
-            $movements = [
-                [$bowman,  null,        $mainStorage, 12, 'opening',  'Initial stock received'],
-                [$bowman,  $mainStorage, $jordanLoc,   4, 'transfer', 'Transferred to Jordan for stream'],
-                [$topps,   null,        $mainStorage, 25, 'opening',  'Initial stock received'],
-                [$topps,   $mainStorage, $taylorLoc,   3, 'transfer', 'Transferred to Taylor'],
-                [$prizm,   null,        $mainStorage,  7, 'opening',  'Opening inventory'],
-                [$prizm,   $mainStorage, $jordanLoc,   2, 'transfer', 'Jordan stream prep'],
-                [$pokemon, null,        $mainStorage, 140,'opening',  'Bulk Pokémon restock'],
-                [$pokemon, $mainStorage, $fulfillment, 30, 'transfer','Moved to fulfillment'],
-                [$hoops,   $mainStorage, $returnedLoc,  3, 'return',  'Customer returns processed'],
-                [$select,  null,        $mainStorage,  8, 'opening',  'Select Football initial stock'],
-                [$select,  $mainStorage, $alexLoc,      2, 'transfer', 'Alex stream prep'],
-                [$yugioh,  null,        $mainStorage,  23, 'opening', 'Yu-Gi-Oh bulk restock'],
-                [$yugioh,  $mainStorage, $fulfillment,  5, 'transfer','Moved to fulfillment'],
-            ];
-            foreach ($movements as [$item, $from, $to, $qty, $type, $reason]) {
-                if (! $to) continue;
-                InventoryMovement::create([
-                    'inventory_item_id' => $item->id,
-                    'from_location_id'  => $from?->id,
-                    'to_location_id'    => $to->id,
-                    'quantity'          => $qty,
-                    'movement_type'     => $type,
-                    'reason'            => $reason,
-                    'created_by'        => 1,
-                ]);
+        // The trailing number is how many days ago the movement happened.
+        // Inventory Age reads the newest receipt (into a location, from
+        // nowhere) as the arrival date, so leaving these all at "now" put every
+        // item in the 0–30 day bucket and the page read as a single bar.
+        $movements = [
+            [$bowman,     null,        $mainStorage, 12, 'opening',  'Initial stock received',            22],
+            [$bowman,     $mainStorage, $jordanLoc,   4, 'transfer', 'Transferred to Jordan for stream',  18],
+            [$topps,      null,        $mainStorage, 25, 'opening',  'Initial stock received',            47],
+            [$topps,      $mainStorage, $taylorLoc,   3, 'transfer', 'Transferred to Taylor',             41],
+            [$prizm,      null,        $mainStorage,  7, 'opening',  'Opening inventory',                 74],
+            [$prizm,      $mainStorage, $jordanLoc,   2, 'transfer', 'Jordan stream prep',                70],
+            [$pokemon,    null,        $mainStorage, 140,'opening',  'Bulk Pokémon restock',               9],
+            [$pokemon,    $mainStorage, $fulfillment, 30, 'transfer','Moved to fulfillment',               6],
+            [$hoops,      $mainStorage, $returnedLoc,  3, 'return',  'Customer returns processed',         4],
+            [$select,     null,        $mainStorage,  8, 'opening',  'Select Football initial stock',     58],
+            [$select,     $mainStorage, $alexLoc,      2, 'transfer', 'Alex stream prep',                 52],
+            [$yugioh,     null,        $mainStorage,  23, 'opening', 'Yu-Gi-Oh bulk restock',            133],
+            [$yugioh,     $mainStorage, $fulfillment,  5, 'transfer','Moved to fulfillment',             128],
+            [$optic,      null,        $mainStorage,  14, 'opening', 'Optic Football initial stock',      96],
+            [$mtg,        null,        $mainStorage,   7, 'opening', 'Bloomburrow allocation',            35],
+            [$bowmanDraft,null,        $mainStorage,   1, 'opening', 'Single HTA box held back',         181],
+            [$bowmanCase, null,        $mainStorage,   3, 'opening', 'Bowman Chrome case delivery',       16],
+            [$prizmCase,  null,        $mainStorage,   2, 'opening', 'Prizm case delivery',               63],
+            [$pokemonBox, null,        $mainStorage,  20, 'opening', 'Pokémon booster box delivery',      11],
+            [$mixerCase,  null,        $mainStorage,   1, 'opening', 'Football mixer case delivery',     108],
+        ];
+
+        foreach ($movements as [$item, $from, $to, $qty, $type, $reason, $daysAgo]) {
+            if (! $to) continue;
+
+            // Guarded per movement rather than by one probe at the top of the
+            // block. A single global check goes stale the moment a row is added
+            // to this list — it reads as "already seeded" and silently skips
+            // every new movement, which is how the containers ended up with no
+            // receipt history and the age buckets stayed flat.
+            $exists = InventoryMovement::where('inventory_item_id', $item->id)
+                ->where('to_location_id', $to->id)
+                ->where('reason', $reason)
+                ->when($from, fn ($q) => $q->where('from_location_id', $from->id))
+                ->when(! $from, fn ($q) => $q->whereNull('from_location_id'))
+                ->exists();
+
+            if ($exists) {
+                continue;
             }
+
+            $movement = new InventoryMovement([
+                'inventory_item_id' => $item->id,
+                'from_location_id'  => $from?->id,
+                'to_location_id'    => $to->id,
+                'quantity'          => $qty,
+                'unit_cost'         => $item->average_cost,
+                'movement_type'     => $type,
+                'reason'            => $reason,
+                'created_by'        => 1,
+            ]);
+
+            // created_at isn't fillable, so it has to be set on the instance.
+            // Eloquent leaves an already-dirty timestamp alone on save.
+            $movement->created_at = $movement->updated_at = Carbon::now()->subDays($daysAgo);
+            $movement->save();
         }
 
         // ── Whatnot channel ──────────────────────────────────────────────────
@@ -803,5 +908,134 @@ class DemoDataSeeder extends Seeder
             ['title' => 'Confirm tips are in the payout preview'],
             ['description' => 'Double-check tips are included in the weekly preview total.', 'type' => 'bug', 'status' => 'in_progress', 'priority' => 'high', 'submitted_name' => 'Taylor'],
         );
+
+        // Last, so the valuation it anchors on includes the stock the receiving
+        // demo above credits — not just what the Stock block set directly.
+        $this->seedValueSnapshots();
+    }
+
+    /**
+     * Create a demo item, or bring an existing one up to date on the fields
+     * that are safe to correct.
+     *
+     * Plain firstOrCreate would leave installs that were seeded before
+     * average_cost was added still valuing their stock at zero, but a blanket
+     * updateOrCreate would overwrite names and costs someone had edited by
+     * hand. So identity and descriptive fields are create-only, and the
+     * valuation fields are backfilled only while they are still unset.
+     */
+    private function upsertItem(array $data): InventoryItem
+    {
+        $item = InventoryItem::firstOrCreate(
+            ['sku' => $data['sku']],
+            array_merge($data, ['is_active' => true]),
+        );
+
+        if ((float) ($item->average_cost ?? 0) <= 0 && isset($data['average_cost'])) {
+            $item->average_cost = $data['average_cost'];
+        }
+
+        // Marking a container is what makes the Contents view appear at all, so
+        // an item seeded before containers existed needs it applied too.
+        if (! empty($data['is_container']) && ! $item->is_container) {
+            $item->is_container = true;
+        }
+
+        if ($item->isDirty()) {
+            $item->save();
+        }
+
+        return $item;
+    }
+
+    /**
+     * Backfill the daily inventory valuation history.
+     *
+     * Analytics prefers these snapshots and only falls back to unwinding
+     * movement history when there are fewer than two — so without them the
+     * trend chart never exercises the path production actually uses. The
+     * command that writes them (inventory:snapshot-value) runs once a day and
+     * cannot see backwards, hence seeding the history here.
+     */
+    private function seedValueSnapshots(): void
+    {
+        // Long enough to fill the widest consumer: the value-vs-revenue widget
+        // charts six calendar months, and a month with no snapshots averages to
+        // $0 — which plots real revenue against nothing. Analytics' own 30-day
+        // window is comfortably inside this.
+        $days  = 210;
+        $since = Carbon::today()->subDays($days)->toDateString();
+
+        // Today's figures come from the same query the scheduled command uses,
+        // so the seeded history lands on the real current value rather than
+        // drifting away from what the KPI tiles report.
+        $channelIds = WhatnotChannel::pluck('id')->all();
+
+        foreach (array_merge([null], $channelIds) as $channelId) {
+            // Checked per series, not across the table: a combined history that
+            // was already seeded would otherwise satisfy a global guard and
+            // leave every channel series empty.
+            $existing = InventoryValueSnapshot::where('snapshot_date', '>=', $since)
+                ->where('whatnot_channel_id', $channelId)
+                ->count();
+
+            if ($existing >= $days) {
+                continue;
+            }
+
+            $today = $this->currentValuation($channelId);
+
+            if ($today['total_value'] <= 0) {
+                continue;
+            }
+
+            for ($offset = $days; $offset >= 0; $offset--) {
+                // Deterministic so re-seeding redraws the same chart: a gentle
+                // climb toward today with a weekly restock/sell-down wobble.
+                $progress = 1 - ($offset / $days);
+                $factor   = (0.78 + (0.22 * $progress)) * (1 + (0.035 * sin($offset / 4.5)));
+
+                $date = Carbon::today()->subDays($offset);
+
+                InventoryValueSnapshot::updateOrCreate(
+                    ['snapshot_date' => $date->toDateString(), 'whatnot_channel_id' => $channelId],
+                    [
+                        'total_value'    => round($today['total_value'] * $factor, 2),
+                        'total_quantity' => round($today['total_quantity'] * $factor, 2),
+                        'total_items'    => $today['total_items'],
+                    ],
+                );
+            }
+        }
+    }
+
+    /**
+     * Today's stock valuation at weighted average cost, scoped to a channel or
+     * combined across all of them when null. Mirrors SnapshotInventoryValue.
+     *
+     * @return array{total_value: float, total_quantity: float, total_items: int}
+     */
+    private function currentValuation(?int $channelId): array
+    {
+        $query = DB::table('inventory_stock')
+            ->join('products', 'inventory_stock.inventory_item_id', '=', 'products.id')
+            ->where('products.average_cost', '>', 0);
+
+        if ($channelId) {
+            $query->join('inventory_locations', 'inventory_locations.id', '=', 'inventory_stock.inventory_location_id')
+                ->where('inventory_locations.whatnot_channel_id', $channelId);
+        }
+
+        $totals = $query->selectRaw(
+            'SUM(inventory_stock.quantity * products.average_cost) as total_value, ' .
+            'SUM(inventory_stock.quantity) as total_quantity, ' .
+            'COUNT(DISTINCT products.id) as total_items'
+        )->first();
+
+        return [
+            'total_value'    => (float) ($totals->total_value ?? 0),
+            'total_quantity' => (float) ($totals->total_quantity ?? 0),
+            'total_items'    => (int) ($totals->total_items ?? 0),
+        ];
     }
 }

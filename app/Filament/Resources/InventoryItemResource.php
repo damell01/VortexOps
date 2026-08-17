@@ -7,10 +7,12 @@ use App\Filament\Resources\InventoryItemResource\Pages;
 use App\Models\InventoryItem;
 use App\Models\InventoryItemContent;
 use App\Models\InventoryLocation;
+use App\Models\InventoryStock;
 use App\Models\Vendor;
 use App\Services\InventoryService;
 use App\Support\AdminModules;
 use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -721,6 +723,72 @@ class InventoryItemResource extends Resource
                         // production, so the view would fatal otherwise.
                         ['record' => $record->load('childContents.childItem.stock')],
                     )),
+                // Turns a container's recorded contents into real stock: one
+                // case out, twelve boxes in. Only shown when there is
+                // something to break it into.
+                TableAction::make('break_container')
+                    ->label('Break Case')
+                    ->icon('heroicon-o-scissors')
+                    ->color('warning')
+                    ->size('sm')
+                    ->iconButton()
+                    ->tooltip('Break this container into its contents')
+                    ->visible(fn ($record) => (bool) $record->is_container
+                        && $record->childContents()->exists())
+                    ->modalHeading(fn ($record) => 'Break ' . $record->name)
+                    ->modalDescription('Deducts the containers and adds their contents as stock at the same location.')
+                    ->modalSubmitActionLabel('Break')
+                    ->form([
+                        Select::make('location_id')
+                            ->label('Location')
+                            ->options(fn ($record) => InventoryStock::query()
+                                ->where('inventory_item_id', $record->getKey())
+                                ->where('quantity', '>', 0)
+                                ->with('location')
+                                ->get()
+                                ->mapWithKeys(fn ($stock) => [
+                                    $stock->inventory_location_id =>
+                                        ($stock->location?->name ?? 'Location') . ' — ' . (int) $stock->quantity . ' on hand',
+                                ])
+                                ->toArray())
+                            ->required()
+                            ->helperText('Only locations holding this container are listed.'),
+                        TextInput::make('count')
+                            ->label('How many to break')
+                            ->numeric()
+                            ->minValue(1)
+                            ->default(1)
+                            ->required(),
+                        Placeholder::make('contents_preview')
+                            ->label('Each one produces')
+                            ->content(fn ($record) => $record->childContents()->with('childItem')->get()
+                                ->map(fn ($l) => (int) $l->quantity_per_parent . ' × ' . ($l->childItem?->name ?? 'unknown'))
+                                ->implode(', ') ?: '—'),
+                    ])
+                    ->action(function (InventoryItem $record, array $data): void {
+                        try {
+                            $result = app(\App\Services\ContainerBreakdownService::class)->break(
+                                $record,
+                                InventoryLocation::findOrFail($data['location_id']),
+                                (int) $data['count'],
+                            );
+                        } catch (\Throwable $e) {
+                            Notification::make()->title('Could not break this container')
+                                ->body($e->getMessage())->danger()->send();
+
+                            return;
+                        }
+
+                        $summary = collect($result['produced'])
+                            ->map(fn ($p) => $p['quantity'] . ' × ' . $p['name'])
+                            ->implode(', ');
+
+                        Notification::make()
+                            ->title('Broke ' . $result['containers_broken'] . ' × ' . $result['container'])
+                            ->body('Added ' . $summary)
+                            ->success()
+                            ->send();
+                    }),
                 ViewAction::make()
                     ->size('sm')
                     ->iconButton(),

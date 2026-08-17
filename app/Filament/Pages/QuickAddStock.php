@@ -12,6 +12,8 @@ use Livewire\Attributes\On;
 
 class QuickAddStock extends Page
 {
+    use \App\Filament\Concerns\HasAdminNavVisibility;
+
     public ?Product $product = null;
     public float $quantity = 1;
     public ?float $unitCost = null;

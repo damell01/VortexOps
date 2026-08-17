@@ -74,7 +74,7 @@ class RoleResource extends Resource
                     ->maxLength(255),
             ]),
             Section::make('Page Access')
-                ->description('One row per page, grouped by section — Visible controls whether it shows up in this role\'s sidebar at all; Can Edit controls whether create/edit/delete actions work there (uncheck it alone to leave a page visible but view-only). "Can Edit" is currently enforced on the Fulfillment Center, with more pages adopting the same check over time. The owner always sees and can edit everything, and any other role a user holds that grants access wins.')
+                ->description('One row per page, grouped by section. Visible controls whether the role gets the page at all — unchecking it removes the sidebar link and closes the URL, so it cannot be reached by typing the address either. Can Edit controls whether create/edit/delete actions work there (uncheck it alone to leave a page visible but view-only); that one is currently enforced on the Fulfillment Center, with more pages adopting it over time. Rows tagged "code rule" also enforce their own check in code, usually admin or owner — hiding those still works, but showing them may not be enough to grant a custom role access. The owner always sees and can edit everything, and where a user holds several roles, any role that grants access wins.')
                 ->columnSpanFull()
                 ->schema(static::pageAccessSchema()),
             Section::make('Permissions')
@@ -219,6 +219,52 @@ class RoleResource extends Resource
     }
 
     /** @return array<int, Section> */
+    /**
+     * Whether a page enforces its own access rule in code, on top of whatever
+     * is set here.
+     *
+     * Unchecking Visible always works — that is enforced centrally now. But
+     * checking it does not necessarily grant the page: a class with its own
+     * canAccess() typically insists on admin or owner, so a custom role stays
+     * locked out and the checkbox reads as a lie. Surfacing that is the
+     * difference between a setting that does nothing and one that says so.
+     *
+     * Detected by where the method body lives rather than by its declaring
+     * class — a trait's methods report the *using* class as the declarer, so
+     * reflection alone cannot tell an override from an inherited default.
+     */
+    public static function hasOwnAccessRule(string $class): bool
+    {
+        if (! method_exists($class, 'canAccess')) {
+            return false;
+        }
+
+        try {
+            $method    = new \ReflectionMethod($class, 'canAccess');
+            $ownFile   = (new \ReflectionClass($class))->getFileName();
+
+            return $method->getFileName() === $ownFile;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    protected static function pageAccessLabel(string $class, string $label): \Illuminate\Support\HtmlString
+    {
+        if (! static::hasOwnAccessRule($class)) {
+            return new \Illuminate\Support\HtmlString(e($label));
+        }
+
+        return new \Illuminate\Support\HtmlString(
+            e($label)
+            . ' <span title="This page also enforces its own rule in code — usually admin or owner. '
+            . 'Hiding it here always works; showing it may not be enough on its own." '
+            . 'style="margin-left:.375rem;padding:.0625rem .375rem;border-radius:9999px;'
+            . 'background:rgb(245 158 11 / .16);color:#b45309;font-size:.6875rem;font-weight:600;">'
+            . 'code rule</span>'
+        );
+    }
+
     protected static function pageAccessSchema(): array
     {
         $sections = [];
@@ -232,7 +278,7 @@ class RoleResource extends Resource
                 $rows[] = Grid::make(12)->schema([
                     Placeholder::make("page_label_{$key}")
                         ->hiddenLabel()
-                        ->content($label)
+                        ->content(static::pageAccessLabel($class, $label))
                         ->columnSpan(6),
                     Checkbox::make("page_perms.{$key}.visible")
                         ->label('Visible')

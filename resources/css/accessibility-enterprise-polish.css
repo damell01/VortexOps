@@ -184,9 +184,16 @@ button[type="submit"]:disabled {
     transform: none;
 }
 
-/* Secondary buttons */
+/* Secondary buttons.
+   Scoped away from Filament's own components. A bare button[type="button"]
+   selector matched ~160 elements on a single list page — icon buttons,
+   dropdown menu items, badge controls, the theme switcher, the user-menu
+   trigger and the toggle switch — and gave every one of them a grey
+   secondary-button skin with a 40px min-height. The toggle was the visible
+   symptom; the rest were quietly wrong too. This now applies only to plain
+   buttons in hand-written markup, which is what it was for. */
 .fi-btn-secondary,
-button[type="button"] {
+button[type="button"]:not([class*="fi-"]):not([role="switch"]) {
     background-color: #f3f4f6;
     color: #111827;
     border: 1px solid #e5e7eb;
@@ -204,13 +211,13 @@ button[type="button"] {
 }
 
 .fi-btn-secondary:hover,
-button[type="button"]:hover {
+button[type="button"]:not([class*="fi-"]):not([role="switch"]):hover {
     background-color: #e5e7eb;
     border-color: #d1d5db;
 }
 
 html.dark .fi-btn-secondary,
-html.dark button[type="button"] {
+html.dark button[type="button"]:not([class*="fi-"]):not([role="switch"]) {
     background-color: #1f2937;
     color: #f3f4f6;
     border-color: #374151;

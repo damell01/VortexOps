@@ -51,10 +51,10 @@ class ProductIdentityResource extends Resource
             && AdminModules::isEnabled('streams');
     }
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        return static::canAccess();
-    }
+    // No shouldRegisterNavigation() override: it deferred to canAccess(), but
+    // this resource writes its own canAccess() which does not consult
+    // NavVisibility — so the link ignored the hide setting on Roles &
+    // Permissions. The trait checks both.
 
     public static function table(Table $table): Table
     {

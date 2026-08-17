@@ -97,6 +97,20 @@ class RoleResource extends Resource
      *
      * @return array<class-string, string>
      */
+    /**
+     * Panel plumbing rather than product pages. Every account needs these
+     * whatever its role — the dashboard is where login lands, and the other
+     * two are how a user manages their own profile and 2FA. Listing them gave
+     * the owner switches that do nothing, which is the same lie as a setting
+     * that is ignored.
+     */
+    public const NOT_ROLE_CONTROLLED = [
+        \App\Filament\Pages\DashboardImproved::class,
+        \App\Filament\Pages\EditProfile::class,
+        \App\Filament\Pages\TwoFactorAuth::class,
+        \App\Filament\Pages\TwoFactorVerify::class,
+    ];
+
     public static function pageOptions(): array
     {
         $panel = Filament::getCurrentPanel() ?? Filament::getDefaultPanel();
@@ -109,6 +123,9 @@ class RoleResource extends Resource
             try { $opts[$resource] = $resource::getNavigationLabel(); } catch (\Throwable) {}
         }
         foreach ($panel->getPages() as $page) {
+            if (in_array($page, self::NOT_ROLE_CONTROLLED, true)) {
+                continue;
+            }
             try { $opts[$page] = $page::getNavigationLabel(); } catch (\Throwable) {}
         }
 

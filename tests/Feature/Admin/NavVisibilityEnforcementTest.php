@@ -23,12 +23,12 @@ class NavVisibilityEnforcementTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** Panel plumbing rather than product pages — visibility does not apply. */
-    private const EXEMPT = [
-        \App\Filament\Pages\EditProfile::class,
-        \App\Filament\Pages\TwoFactorAuth::class,
-        \App\Filament\Pages\TwoFactorVerify::class,
-    ];
+    /**
+     * Panel plumbing rather than product pages — visibility does not apply.
+     * Taken from the resource so the tests and the UI cannot disagree about
+     * which pages a role controls.
+     */
+    private const EXEMPT = \App\Filament\Resources\RoleResource::NOT_ROLE_CONTROLLED;
 
     private function roleUser(string $role = 'reviewer'): User
     {

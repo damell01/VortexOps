@@ -2958,6 +2958,18 @@ img[src*="ui-avatars.com"] {
     background-color: transparent;
 }
 
+/* The debug bar pins itself to the bottom of the window at z-index 100000000,
+   against the sidebar's 50, and is 225px tall on a phone even when minimised —
+   a quarter of the screen, over exactly where Log out sits at the end of the
+   sidebar. Taps landed on the debug bar and signing out was impossible.
+   Padding around it is not an option at that height, so it yields while the
+   sidebar is open. It only exists with APP_DEBUG on, so this is inert in
+   production. */
+body:has(.fi-sidebar.fi-sidebar-open) .phpdebugbar,
+body:has(.fi-sidebar.fi-sidebar-open) .phpdebugbar-openhandler {
+    display: none !important;
+}
+
 .vx-account-row {
     display: flex;
     align-items: center;

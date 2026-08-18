@@ -19,7 +19,11 @@
     </button>
 
     {{-- Backdrop + modal --}}
+    {{-- x-cloak: this widget is injected on every admin page, and a
+         full-viewport overlay with no fallback covers the whole UI until
+         Alpine initialises. --}}
     <div
+        x-cloak
         x-show="open"
         x-transition:enter="transition ease-out duration-200"
         x-transition:enter-start="opacity-0"

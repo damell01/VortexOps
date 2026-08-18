@@ -101,7 +101,8 @@
                         </button>
 
                         <!-- Modal -->
-                        <div x-show="open" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 rounded-lg">
+                        {{-- x-cloak: full-viewport overlay, inert until Alpine boots. --}}
+                        <div x-cloak x-show="open" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 rounded-lg">
                             <div class="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
                                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Save Search Filter</h3>
                                 <input wire:model="savedFilterName" type="text" placeholder="Filter name (e.g., 'Low Stock Cards')"

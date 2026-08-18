@@ -1195,36 +1195,48 @@
         let lastScanned = null;
         let boundButtons = new Set();
 
-        function getInput(btn) {
-            // Try to find input by ID first (quickadd-barcode)
-            let input = document.getElementById('quickadd-barcode');
-            if (input) return input;
+        // Any wire:model binding of scanInput, whatever modifiers it carries.
+        //
+        // This used to compare the attribute name exactly against "wire:model"
+        // and "wire:model.live", so the Look Up field — bound as
+        // wire:model.live.debounce.300ms — never matched, and pressing Camera
+        // on that tab reported "Input field not found". Modifiers are part of
+        // the attribute name in Livewire, so they have to be matched as a
+        // prefix rather than enumerated.
+        function isScanInput(el) {
+            return Array.from(el.attributes).some(
+                (attr) => attr.name.startsWith('wire:model') && attr.value === 'scanInput'
+            );
+        }
 
-            // Search from the button up through parents
+        // Only fields the user can actually see. Each mode renders its own
+        // scan field, and an offscreen one from another mode is never the
+        // field the button next to you belongs to.
+        function isVisible(el) {
+            return el.offsetParent !== null || el.getClientRects().length > 0;
+        }
+
+        function getInput(btn) {
+            // Nearest first: walk up from the button so the field in the same
+            // card wins. Keying off a hardcoded id instead meant Quick Add's
+            // field was picked even while a different tab was on screen, and
+            // the scan landed in a field nobody could see.
             let parent = btn.parentElement;
             while (parent) {
-                // Try multiple selectors for different wire:model variations
-                input = parent.querySelector('input[wire\\:model="scanInput"]');
-                if (input) return input;
+                const match = Array.from(parent.querySelectorAll('input'))
+                    .find((el) => isScanInput(el) && isVisible(el));
 
-                // Also check for wire:model.live (need to use getAttribute for this)
-                const inputs = parent.querySelectorAll('input');
-                for (let inp of inputs) {
-                    if (inp.getAttribute('wire:model.live') === 'scanInput' ||
-                        inp.getAttribute('wire:model') === 'scanInput') {
-                        return inp;
-                    }
-                }
+                if (match) return match;
+
                 parent = parent.parentElement;
             }
 
-            // Fallback: search entire document
-            const allInputs = Array.from(document.querySelectorAll('input'));
-            return allInputs.find(el =>
-                el.getAttribute('wire:model') === 'scanInput' ||
-                el.getAttribute('wire:model.live') === 'scanInput' ||
-                el.id === 'quickadd-barcode'
-            );
+            const all = Array.from(document.querySelectorAll('input'));
+
+            return all.find((el) => isScanInput(el) && isVisible(el))
+                || all.find(isScanInput)
+                || document.getElementById('quickadd-barcode')
+                || document.getElementById('scanner-input');
         }
 
         async function handleCameraClick(btn) {

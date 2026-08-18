@@ -1,6 +1,15 @@
 <div x-data="cameraScanner()" x-on:open-camera-scanner.window="open()">
     {{-- Overlay --}}
+    {{-- x-cloak, because this is a full-viewport z-50 overlay and x-show does
+         nothing until Alpine has initialised. Until then it renders over the
+         whole page and swallows every click — the sidebar toggle, the mode
+         tabs, everything underneath it. On a slow connection that is a visible
+         window; if Alpine fails to boot on the page at all, it is permanent,
+         which is what "the menu button doesn't work on some pages" was. The
+         other x-show elements in this file already carry a display:none
+         fallback for the same reason. --}}
     <div
+        x-cloak
         x-show="isOpen"
         x-transition:enter="transition ease-out duration-150"
         x-transition:enter-start="opacity-0"
@@ -23,8 +32,15 @@
             </div>
 
             {{-- Camera view --}}
-            <div class="relative bg-black aspect-video overflow-hidden">
-                <div x-ref="readerDiv" id="html5-qr-reader" style="width:100%"></div>
+            <div class="relative bg-black aspect-video overflow-hidden vx-scanner-stage">
+                {{-- Quagga appends its own <video> and processing <canvas> in
+                     here at the camera's native resolution — 1280x720 or
+                     larger. Nothing sized them, so the video laid itself out in
+                     normal flow at full size and spilled out above this box:
+                     the picture appeared as a second, separate viewport while
+                     the framed box below it stayed black. The stylesheet below
+                     pins both to this stage. --}}
+                <div x-ref="readerDiv" id="html5-qr-reader"></div>
 
                 {{-- Status overlay --}}
                 <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
@@ -70,6 +86,32 @@
     </div>
 </div>
 
+<style>
+    /* Contain whatever Quagga injects. It appends a <video> and one or more
+       <canvas> elements sized to the camera's native resolution; unconstrained
+       they overflow the modal and render as a second viewport above it. */
+    .vx-scanner-stage #html5-qr-reader {
+        position: absolute;
+        inset: 0;
+    }
+
+    .vx-scanner-stage #html5-qr-reader video,
+    .vx-scanner-stage #html5-qr-reader canvas {
+        position: absolute;
+        inset: 0;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover;
+    }
+
+    /* Quagga's overlay canvas draws detection boxes over the feed. Keeping it
+       visible is fine; the debug buffer underneath it is not — it paints an
+       opaque duplicate frame on top of the video. */
+    .vx-scanner-stage #html5-qr-reader canvas.drawingBuffer {
+        display: none !important;
+    }
+</style>
+
 <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
 @verbatim
 <script>
@@ -108,6 +150,16 @@ function cameraScanner() {
                 if (!readerDiv) {
                     console.error('[barcode-scanner] readerDiv not found');
                     this.error = '❌ Scanner element not found';
+                    return;
+                }
+
+                // Quagga comes from a CDN, so it may simply not be there —
+                // blocked, offline, or the request failed. Without this check
+                // the call below threw a ReferenceError that surfaced only as a
+                // black box, after the flag had already been set.
+                if (typeof Quagga === 'undefined') {
+                    console.error('[barcode-scanner] Quagga failed to load');
+                    this.failWithManualEntry('❌ Scanner library did not load. Check your connection, or type the barcode below.');
                     return;
                 }
 
@@ -165,18 +217,12 @@ function cameraScanner() {
                     if (err) {
                         console.error('[barcode-scanner]', err);
                         if (err.name === 'NotAllowedError') {
-                            this.error = '❌ Camera permission denied. Type barcode manually below.';
+                            this.failWithManualEntry('❌ Camera permission denied. Type barcode manually below.');
                         } else if (err.name === 'NotFoundError') {
-                            this.error = '❌ No camera found. Type the barcode manually.';
+                            this.failWithManualEntry('❌ No camera found. Type the barcode manually.');
                         } else {
-                            this.error = '❌ Camera error. Type barcode manually.';
+                            this.failWithManualEntry('❌ Camera error. Type barcode manually.');
                         }
-                        this.showManual = true;
-                        this.$nextTick(() => {
-                            if (this.$refs.manualInput) {
-                                setTimeout(() => this.$refs.manualInput.focus(), 100);
-                            }
-                        });
                         return;
                     }
 
@@ -197,14 +243,33 @@ function cameraScanner() {
                 });
             } catch (err) {
                 console.error('[barcode-scanner]', err);
-                this.error = '❌ Scanner initialization failed. Type barcode manually.';
-                this.showManual = true;
-                this.$nextTick(() => {
-                    if (this.$refs.manualInput) {
-                        setTimeout(() => this.$refs.manualInput.focus(), 100);
-                    }
-                });
+                this.failWithManualEntry('❌ Scanner initialization failed. Type barcode manually.');
             }
+        },
+
+        /**
+         * Every failure path funnels through here, and every one of them clears
+         * window.QuaggaInitialized.
+         *
+         * That flag was set immediately before init and reset only when the
+         * scanner closed cleanly, so a failed start left it stuck true — and
+         * the guard above then skipped every later attempt as a "duplicate
+         * init". The result was a black box with no message and no manual
+         * fallback, for the rest of the page's life. Reloading was the only way
+         * out, which is why it read as the scanner simply not working.
+         */
+        failWithManualEntry(message) {
+            window.QuaggaInitialized = false;
+
+            this.error      = message;
+            this.statusText = '';
+            this.showManual = true;
+
+            this.$nextTick(() => {
+                if (this.$refs.manualInput) {
+                    setTimeout(() => this.$refs.manualInput.focus(), 100);
+                }
+            });
         },
 
         onBarcodeDetected(value) {

@@ -202,7 +202,15 @@ class ProductInsights extends Page
             ->whereRaw('p.is_active = 1 and p.deleted_at is null')
             ->selectRaw('
                 p.id, p.name, p.category,
-                COALESCE(p.unit_cost, 0)  as unit_cost,
+                -- Weighted average, not the last price paid. Everywhere else
+                -- values stock at average_cost, and only that one carries the
+                -- shipping and payment fees folded in at receiving — so
+                -- costing here on unit_cost had this page quietly disagreeing
+                -- with Analytics and Inventory Age about the same shelf.
+                -- NULLIF because average_cost defaults to 0 rather than null,
+                -- so a plain COALESCE never reaches the fallback and an item
+                -- that has never been received through a pallet values at zero.
+                COALESCE(NULLIF(p.average_cost, 0), p.unit_cost, 0) as unit_cost,
                 COALESCE(st.on_hand, 0)   as on_hand,
                 COALESCE(o.units_sold, 0) as units_sold,
                 COALESCE(o.revenue, 0)    as revenue,

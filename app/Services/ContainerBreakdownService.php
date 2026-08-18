@@ -59,7 +59,9 @@ class ContainerBreakdownService
             );
         }
 
-        return DB::transaction(function () use ($container, $location, $count, $contents) {
+        $allocation = $this->allocateCost($container, $contents, $count);
+
+        return DB::transaction(function () use ($container, $location, $count, $contents, $allocation) {
             $reason = "Broke {$count} × {$container->name} into its contents";
 
             $this->inventory->deductStock($container, $location, (float) $count, $reason);
@@ -74,25 +76,103 @@ class ContainerBreakdownService
                     continue;
                 }
 
-                // Costed from the child's own average where it has one, so
-                // breaking a case doesn't silently rewrite its valuation.
                 $this->inventory->addStock(
                     $child,
                     $location,
                     (float) $qty,
                     'breakdown',
                     "From breaking {$count} × {$container->name}",
-                    $child->average_cost > 0 ? (float) $child->average_cost : null,
+                    $allocation[$line->getKey()] ?? null,
                 );
 
-                $produced[] = ['name' => $child->name, 'quantity' => $qty];
+                $produced[] = [
+                    'name'      => $child->name,
+                    'quantity'  => $qty,
+                    'unit_cost' => $allocation[$line->getKey()] ?? null,
+                ];
             }
 
             return [
                 'container'         => $container->name,
                 'containers_broken' => $count,
+                'cost_released'     => $this->containerUnitCost($container) * $count,
                 'produced'          => $produced,
             ];
         });
+    }
+
+    /**
+     * What each child should be costed at, keyed by content line.
+     *
+     * Breaking a case does not create or destroy value: the money paid for the
+     * case moves onto the things that came out of it. Costing the children at
+     * their own existing average instead — which is what this used to do —
+     * broke that both ways. A child never bought separately had no average, so
+     * a $1,428 case became twelve boxes worth nothing and the value simply left
+     * the books. A child that did have one got credited at that price
+     * regardless of what the case cost, inventing value out of nothing.
+     *
+     * Where the children have known costs the split follows their relative
+     * value, so a case holding one expensive box and one cheap one does not
+     * price them the same. Where none of them do, it falls back to an equal
+     * share per unit — arbitrary, but it conserves the total, which is the
+     * property that matters.
+     *
+     * @param  \Illuminate\Support\Collection  $contents
+     * @return array<int, float|null> content line id => unit cost
+     */
+    private function allocateCost(InventoryItem $container, $contents, int $count): array
+    {
+        $totalCost = $this->containerUnitCost($container) * $count;
+
+        if ($totalCost <= 0) {
+            // Nothing recorded against the container, so there is nothing
+            // honest to pass on. Leaving the children's costs alone beats
+            // overwriting them with a zero.
+            return [];
+        }
+
+        $weights = [];
+
+        foreach ($contents as $line) {
+            $qty = (int) $line->quantity_per_parent * $count;
+
+            if ($qty < 1) {
+                continue;
+            }
+
+            $childCost = (float) ($line->childItem->average_cost ?: $line->childItem->unit_cost ?: 0);
+
+            $weights[$line->getKey()] = ['qty' => $qty, 'weight' => $qty * $childCost];
+        }
+
+        if ($weights === []) {
+            return [];
+        }
+
+        $totalWeight = array_sum(array_column($weights, 'weight'));
+
+        // No child has a cost on record: weight by quantity alone.
+        if ($totalWeight <= 0) {
+            $totalQty = array_sum(array_column($weights, 'qty'));
+
+            return array_map(
+                fn (array $w): float => round($totalCost / $totalQty, 4),
+                $weights,
+            );
+        }
+
+        return array_map(
+            fn (array $w): float => $w['weight'] > 0
+                ? round(($totalCost * $w['weight'] / $totalWeight) / $w['qty'], 4)
+                : 0.0,
+            $weights,
+        );
+    }
+
+    /** What one container is carried at — its average, or the price paid. */
+    private function containerUnitCost(InventoryItem $container): float
+    {
+        return (float) ($container->average_cost ?: $container->unit_cost ?: 0);
     }
 }

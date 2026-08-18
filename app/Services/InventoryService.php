@@ -14,6 +14,17 @@ use Illuminate\Support\Facades\DB;
 class InventoryService
 {
     public function __construct(private NotificationRouter $notificationRouter) {}
+    /**
+     * Movement types that represent goods arriving at a known cost, and so
+     * should be recorded with that cost and folded into the weighted average.
+     *
+     * An adjustment is a correction and a return comes back at whatever was
+     * already recorded, so neither belongs here. A breakdown does: opening a
+     * case turns one costed thing into several, and the cost has to land on
+     * them or it leaves the books entirely.
+     */
+    private const COSTED_INTAKE = ['opening', 'breakdown'];
+
     public function addStock(
         InventoryItem $item,
         InventoryLocation $location,
@@ -35,17 +46,15 @@ class InventoryService
                 'from_location_id' => null,
                 'to_location_id' => $location->id,
                 'quantity' => $quantity,
-                'unit_cost' => $movementType === 'opening' ? $unitCost : null,
+                'unit_cost' => in_array($movementType, self::COSTED_INTAKE, true) ? $unitCost : null,
                 'movement_type' => $movementType,
                 'reason' => $reason,
                 'created_by' => Auth::id(),
             ]);
 
-            // Only "opening" represents actual goods received at a cost — an
-            // adjustment is a correction and a return typically comes back at
-            // whatever cost was already recorded, so neither should re-average
-            // the item's weighted average cost against a newly-entered figure.
-            if ($movementType === 'opening' && $unitCost !== null && $unitCost > 0) {
+            // See COSTED_INTAKE: only goods actually arriving at a stated
+            // cost re-average the item.
+            if (in_array($movementType, self::COSTED_INTAKE, true) && $unitCost !== null && $unitCost > 0) {
                 app(ReceivingService::class)->recalculateAverageCost($item, $quantity, $unitCost);
             }
 

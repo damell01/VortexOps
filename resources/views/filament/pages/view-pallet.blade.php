@@ -102,6 +102,51 @@
             @endif
         </div>
 
+        {{-- ── Landed cost ──────────────────────────────────────────────────────
+             What the stock on this pallet actually costs. Goods are what the
+             lines add up to; shipping and fees are spread across the units by
+             quantity at receiving, so they belong in the same total rather
+             than sitting somewhere else as a separate expense. --}}
+        @php
+            $vxGoods    = $this->record->lines->sum(fn ($l) => (float) $l->unit_cost * (float) $l->quantity_per_case * (int) $l->case_count);
+            $vxUnits    = $this->record->lines->sum(fn ($l) => (float) $l->quantity_per_case * (int) $l->case_count);
+            $vxExtras   = $this->record->landedCostExtras();
+            $vxLanded   = $vxGoods + $vxExtras;
+        @endphp
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Landed Cost</h2>
+                @if ($vxUnits > 0)
+                    <span class="text-xs text-gray-400">
+                        {{ number_format($vxUnits) }} units · ${{ number_format($vxLanded / $vxUnits, 2) }} each
+                    </span>
+                @endif
+            </div>
+            <dl class="px-4 py-3 space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <dt class="text-gray-500 dark:text-gray-400">Goods</dt>
+                    <dd class="text-gray-900 dark:text-gray-100">${{ number_format($vxGoods, 2) }}</dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-gray-500 dark:text-gray-400">Shipping</dt>
+                    <dd class="text-gray-900 dark:text-gray-100">${{ number_format((float) $this->record->shipping_cost, 2) }}</dd>
+                </div>
+                <div class="flex justify-between">
+                    <dt class="text-gray-500 dark:text-gray-400">Payment fees</dt>
+                    <dd class="text-gray-900 dark:text-gray-100">${{ number_format((float) $this->record->payment_fees, 2) }}</dd>
+                </div>
+                <div class="flex justify-between pt-2 border-t border-gray-100 dark:border-gray-800 font-semibold">
+                    <dt class="text-gray-900 dark:text-gray-100">Total</dt>
+                    <dd class="text-gray-900 dark:text-gray-100">${{ number_format($vxLanded, 2) }}</dd>
+                </div>
+            </dl>
+            @if ($vxExtras > 0 && $this->record->status !== 'received')
+                <p class="px-4 pb-3 text-xs text-gray-400">
+                    Shipping and fees are added to each item's cost when this pallet is received.
+                </p>
+            @endif
+        </div>
+
         {{-- ── Media Attachments Section ───────────────────────────────────────── --}}
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-800">
@@ -152,7 +197,7 @@
             @endif
 
             <div class="px-6 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-500">
-                📝 Use the Edit view to upload new attachments
+                📷 Use <span class="font-medium">Add Photos / Documents</span> at the top of this page — it can open your camera.
             </div>
         </div>
 

@@ -18,48 +18,9 @@ class EditPallet extends EditRecord
 
     protected function afterSave(): void
     {
-        $newAttachments = $this->data['new_attachments'] ?? [];
-
-        if (empty($newAttachments)) {
-            return;
-        }
-
-        $acceptedTypes = [
-            'image/jpeg'      => PalletAttachment::TYPE_PHOTO,
-            'image/png'       => PalletAttachment::TYPE_PHOTO,
-            'image/webp'      => PalletAttachment::TYPE_PHOTO,
-            'image/gif'       => PalletAttachment::TYPE_PHOTO,
-            'application/pdf' => PalletAttachment::TYPE_DOCUMENT,
-        ];
-
-        foreach ($newAttachments as $filePath) {
-            if (! $filePath) {
-                continue;
-            }
-
-            $file = storage_path('app/public/' . $filePath);
-            if (! file_exists($file)) {
-                continue;
-            }
-
-            $mimeType = mime_content_type($file);
-            $type     = $acceptedTypes[$mimeType] ?? PalletAttachment::TYPE_OTHER;
-
-            PalletAttachment::create([
-                'pallet_id'   => $this->record->id,
-                'type'        => $type,
-                'file_path'   => $filePath,
-                'file_name'   => basename($filePath),
-                'file_size'   => filesize($file),
-                'mime_type'   => $mimeType,
-                'uploaded_by' => auth()->id(),
-                'uploaded_at' => now(),
-            ]);
-        }
-
-        // Update the denormalized count
-        $this->record->update([
-            'attachments_count' => $this->record->attachments()->count(),
-        ]);
+        // Persisting lives in PalletAttachmentService so the pallet's own page
+        // can take uploads without duplicating this.
+        app(\App\Services\PalletAttachmentService::class)
+            ->attach($this->record, $this->data['new_attachments'] ?? []);
     }
 }

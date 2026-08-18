@@ -60,7 +60,7 @@ class ViewPallet extends ViewRecord
                             ->title("Pallet received — {$result['cases_received']} cases across {$result['lines_processed']} lines")
                             ->success()
                             ->send();
-                        $this->refreshRecord();
+                        $this->record->refresh();
                     } catch (\RuntimeException $e) {
                         Notification::make()->title($e->getMessage())->danger()->send();
                     }
@@ -118,8 +118,91 @@ class ViewPallet extends ViewRecord
                     $location = InventoryLocation::findOrFail($data['inventory_location_id']);
                     app(ReceivingService::class)->mapLine($line, $item, $location);
                     Notification::make()->title('Line mapped successfully')->success()->send();
-                    $this->refreshRecord();
+                    $this->record->refresh();
                 }),
+
+            // Photos and paperwork are captured while standing at the pallet,
+            // so they are taken here rather than through the edit form. That
+            // round trip — leave the pallet, open Edit, upload, save, navigate
+            // back — is not something anyone does holding a box.
+            Action::make('add_attachments')
+                ->label('Add Photos / Documents')
+                ->icon('heroicon-o-camera')
+                ->color('gray')
+                ->modalHeading('Add to this pallet')
+                ->modalSubmitActionLabel('Upload')
+                ->schema([
+                    \Filament\Forms\Components\FileUpload::make('files')
+                        ->label('Photos or documents')
+                        ->multiple()
+                        ->directory('pallets')
+                        ->visibility('public')
+                        ->maxSize(5120)
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'])
+                        ->helperText('Up to 5MB each. Use Take Photo below to capture one now.'),
+                    \Filament\Schemas\Components\View::make('filament.components.photo-capture-button'),
+                    \Filament\Forms\Components\TextInput::make('description')
+                        ->label('Note (optional)')
+                        ->maxLength(255)
+                        ->placeholder('e.g. crushed corner on case 3'),
+                ])
+                ->action(function (array $data) {
+                    $count = app(\App\Services\PalletAttachmentService::class)
+                        ->attach($this->record, $data['files'] ?? [], $data['description'] ?? null);
+
+                    if ($count === 0) {
+                        Notification::make()->title('Nothing was uploaded')->warning()->send();
+
+                        return;
+                    }
+
+                    Notification::make()
+                        ->title($count . ' ' . \Illuminate\Support\Str::plural('file', $count) . ' added')
+                        ->success()
+                        ->send();
+
+                    $this->record->refresh();
+                }),
+
+            // Shipping and payment fees decide what the stock ends up costing,
+            // and they are usually known at the pallet rather than at the desk
+            // the record was created from.
+            Action::make('edit_costs')
+                ->label('Costs')
+                ->icon('heroicon-o-banknotes')
+                ->color('gray')
+                ->modalHeading('Costs for this pallet')
+                ->modalDescription('Shipping and fees are spread across the items by quantity when the pallet is received.')
+                ->fillForm(fn () => [
+                    'shipping_cost' => $this->record->shipping_cost,
+                    'payment_fees'  => $this->record->payment_fees,
+                ])
+                ->schema([
+                    \Filament\Forms\Components\TextInput::make('shipping_cost')
+                        ->label('Shipping Cost')
+                        ->numeric()->prefix('$')->minValue(0)->default(0),
+                    \Filament\Forms\Components\TextInput::make('payment_fees')
+                        ->label('Payment Fees')
+                        ->numeric()->prefix('$')->minValue(0)->default(0)
+                        ->helperText('Card, PayPal or wire charges.'),
+                ])
+                ->action(function (array $data) {
+                    $this->record->update([
+                        'shipping_cost' => $data['shipping_cost'] ?? 0,
+                        'payment_fees'  => $data['payment_fees'] ?? 0,
+                    ]);
+
+                    Notification::make()
+                        ->title('Costs updated')
+                        ->body($this->record->status === 'received'
+                            ? 'This pallet is already received, so the change does not re-cost the stock that came off it.'
+                            : 'Spread across the items when this pallet is received.')
+                        ->success()
+                        ->send();
+
+                    $this->record->refresh();
+                })
+                ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner()),
 
             EditAction::make(),
         ];

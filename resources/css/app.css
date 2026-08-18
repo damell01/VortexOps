@@ -4110,6 +4110,12 @@ html body .fi-ta-filter-indicators { display: none !important; }
         flex: 1 1 100% !important;
         min-width: 0 !important;
         flex-wrap: wrap !important;
+        /* This wrapper wraps but had no gap of its own, so the Filters and
+           Columns row landed flush against the bottom of the search box —
+           the two overlapped into one ambiguous shape with a notch where the
+           search field's rounded corner showed through. */
+        gap: 0.5rem !important;
+        align-items: stretch !important;
     }
     html body .fi-ta-header-toolbar .fi-ta-search-field {
         flex: 1 1 100% !important;
@@ -4118,6 +4124,68 @@ html body .fi-ta-filter-indicators { display: none !important; }
     html body .fi-ta-header-toolbar .fi-ta-search-field .fi-input-wrp {
         width: 100% !important;
         max-width: none !important;
+    }
+
+    /* Filters and Columns share the row under the search box: equal halves,
+       so they read as a pair rather than two loose chips floating at
+       whatever width their icon happened to need. */
+    html body .fi-ta-header-toolbar .fi-ta-filters-dropdown,
+    html body .fi-ta-header-toolbar .fi-ta-col-manager-dropdown {
+        flex: 1 1 0 !important;
+        width: auto !important;
+        min-width: 0 !important;
+    }
+    html body .fi-ta-header-toolbar .fi-ta-filters-dropdown > .fi-dropdown-trigger,
+    html body .fi-ta-header-toolbar .fi-ta-col-manager-dropdown > .fi-dropdown-trigger {
+        width: 100% !important;
+    }
+    /* The trigger has to be as tall as the button it holds. It was 24px round
+       a 40px button carrying a negative margin for its hit area, so the button
+       hung 8px past every edge of its own container and collided with the
+       search box above — which is what read as two shapes overlapping. */
+    html body .fi-ta-header-toolbar .fi-ta-filters-dropdown > .fi-dropdown-trigger,
+    html body .fi-ta-header-toolbar .fi-ta-col-manager-dropdown > .fi-dropdown-trigger {
+        min-height: 2.5rem !important;
+        align-items: stretch !important;
+    }
+    /* The active-filter count. It was rendering as a 56x41 white slab pinned
+       over the top-right of the Filters button — white text on white, so it
+       read as a blank notch cut out of the control rather than as a number.
+       Sized back down to a chip that sits in the corner. */
+    html body .fi-ta-header-toolbar .fi-icon-btn-badge-ctn {
+        /* Inside the button, not overhanging it. Pinned to the edge it hung
+           over the boundary and read as a nub stuck to the control. */
+        top: 50% !important;
+        right: 0.5rem !important;
+        left: auto !important;
+        bottom: auto !important;
+        transform: translateY(-50%) !important;
+        padding: 0 !important;
+        background: transparent !important;
+        border-radius: 9999px !important;
+    }
+    html body .fi-ta-header-toolbar .fi-icon-btn-badge-ctn .fi-badge {
+        min-width: 1.125rem !important;
+        height: 1.125rem !important;
+        padding: 0 0.25rem !important;
+        font-size: 0.625rem !important;
+        line-height: 1.125rem !important;
+        border-radius: 9999px !important;
+        background: #e5e7eb !important;
+        color: #4b5563 !important;
+        box-shadow: none !important;
+    }
+
+    /* 28px high is under half a touch target; the margin reset keeps the
+       button inside the box that is now sized for it. */
+    html body .fi-ta-header-toolbar .fi-ta-filters-dropdown .fi-icon-btn,
+    html body .fi-ta-header-toolbar .fi-ta-col-manager-dropdown .fi-icon-btn {
+        width: 100% !important;
+        min-height: 2.5rem !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
     }
 
     /* Bulk actions need row checkboxes to do anything, which isn't a flow
@@ -4409,11 +4477,94 @@ html body .fi-ta-table td.vx-nowrap .fi-ta-text-item {
 .vx-age-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.625rem; }
 
 .vx-age-row {
-    padding: 0.875rem 1rem;
     border: 1px solid #e5e7eb;
     border-radius: 0.75rem;
     background: #ffffff;
+    overflow: hidden;
 }
+
+/* The summary is a button now, so the bucket can be opened to show what is
+   in it. Padding moved off the row and onto the control so the whole band is
+   the hit area rather than just the text. The !important and the specificity
+   are to beat the blanket secondary-button styling, which would otherwise
+   give this a grey chip background and a min-height. */
+html body .vx-age-toggle {
+    /* !important because the blanket button styling sets display:flex, which
+       laid the label, the figures and the bar out as one row — the heading and
+       the percentage were both clipped off the edges of the card. */
+    display: block !important;
+    width: 100%;
+    padding: 0.875rem 1rem !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-align: left;
+    cursor: pointer;
+    min-height: 0 !important;
+    font: inherit;
+    color: inherit;
+}
+html body .vx-age-toggle:disabled { cursor: default; opacity: 1; }
+html body .vx-age-toggle:not(:disabled):hover { background: #f9fafb !important; }
+
+.vx-age-chevron {
+    margin-left: auto;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #9ca3af;
+}
+
+/* Contents of an opened bucket. */
+.vx-age-items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid #eef0f3;
+    background: #fafbfc;
+}
+.vx-age-items > li + li { border-top: 1px solid #eef0f3; }
+
+.vx-age-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.625rem 1rem;
+    text-decoration: none;
+    color: inherit;
+}
+.vx-age-item:hover { background: #f3f4f6; }
+
+.vx-age-item-main { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
+.vx-age-item-name {
+    font-size: 0.8125rem; font-weight: 600; color: #111827;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.vx-age-item-meta {
+    font-size: 0.6875rem; color: #9ca3af;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.vx-age-item-figures { display: flex; flex-direction: column; align-items: flex-end; flex: 0 0 auto; }
+.vx-age-item-value { font-size: 0.8125rem; font-weight: 700; color: #111827; white-space: nowrap; }
+.vx-age-item-units { font-size: 0.6875rem; color: #9ca3af; white-space: nowrap; }
+
+.vx-age-more {
+    padding: 0.5rem 1rem;
+    font-size: 0.6875rem;
+    color: #9ca3af;
+    text-align: center;
+}
+
+html.dark .vx-age-items { background: rgb(255 255 255 / .03); border-color: var(--vxn-border); }
+html.dark .vx-age-items > li + li { border-color: var(--vxn-border); }
+html.dark .vx-age-item-name,
+html.dark .vx-age-item-value { color: #ffffff; }
+html.dark .vx-age-item:hover,
+html body.dark .vx-age-toggle:not(:disabled):hover { background: rgb(255 255 255 / .05) !important; }
 
 .vx-age-head { display: flex; align-items: center; gap: 0.625rem; }
 .vx-age-label { font-size: 0.9375rem; font-weight: 600; color: #111827; }
@@ -4469,9 +4620,11 @@ html.dark .vx-age-track { background: rgb(255 255 255 / .07); }
 
 @media (max-width: 639px) {
     .vx-age-filter { max-width: none; }
-    .vx-age-row { padding: 0.75rem 0.875rem; }
+    html body .vx-age-toggle { padding: 0.75rem 0.875rem !important; }
     .vx-age-value { font-size: 1rem; }
     .vx-age-figures { flex-direction: column; align-items: flex-start; gap: 0.125rem; }
+    .vx-age-item { padding: 0.625rem 0.875rem; }
+    .vx-age-more { padding: 0.5rem 0.875rem; }
 }
 
 /* ── Container scan ────────────────────────────────────────────────
@@ -4778,8 +4931,14 @@ html body .fi-global-search-result-link {
 .vx-gs-line .fi-global-search-result-heading {
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
-.vx-gs-sku { font-size: 0.75rem; color: #9ca3af; }
+.vx-gs-subtitle {
+    font-size: 0.75rem; color: #9ca3af;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
+/* Keyed to a tone the resource picks, not to the status text. Status strings
+   are per-resource ("Paid", "Reconciled", "On Leave") and slug-matching them
+   meant every new one silently fell back to unstyled. */
 .vx-gs-pill {
     padding: 0.0625rem 0.4375rem;
     border-radius: 9999px;
@@ -4787,9 +4946,17 @@ html body .fi-global-search-result-link {
     font-weight: 600;
     white-space: nowrap;
 }
-.vx-gs-pill.is-in-stock     { background: rgb(16 185 129 / .13); color: #047857; }
-.vx-gs-pill.is-low-stock    { background: rgb(245 158 11 / .16); color: #b45309; }
-.vx-gs-pill.is-out-of-stock { background: rgb(239 68 68 / .12);  color: #dc2626; }
+.vx-gs-pill.is-success { background: rgb(16 185 129 / .13); color: #047857; }
+.vx-gs-pill.is-warning { background: rgb(245 158 11 / .16); color: #b45309; }
+.vx-gs-pill.is-danger  { background: rgb(239 68 68 / .12);  color: #dc2626; }
+.vx-gs-pill.is-info    { background: rgb(59 130 246 / .13); color: #1d4ed8; }
+.vx-gs-pill.is-neutral { background: rgb(107 114 128 / .13); color: #4b5563; }
+
+html.dark .vx-gs-pill.is-success { color: #34d399; }
+html.dark .vx-gs-pill.is-warning { color: #fbbf24; }
+html.dark .vx-gs-pill.is-danger  { color: #f87171; }
+html.dark .vx-gs-pill.is-info    { color: #60a5fa; }
+html.dark .vx-gs-pill.is-neutral { color: #9ca3af; }
 
 .vx-gs-figure {
     flex: 0 0 auto;
@@ -4798,7 +4965,7 @@ html body .fi-global-search-result-link {
 }
 
 html.dark .vx-gs-figure { color: #ffffff; }
-html.dark .vx-gs-sku { color: #6b7280; }
+html.dark .vx-gs-subtitle { color: #6b7280; }
 
 @media (max-width: 639px) {
     html body .fi-global-search-results-ctn { max-width: none; }

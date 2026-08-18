@@ -1,0 +1,83 @@
+<?php
+
+namespace App\Http\Middleware;
+
+use App\Support\NavVisibility;
+use Closure;
+use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
+
+/**
+ * Enforces the per-role page visibility set on Roles & Permissions.
+ *
+ * That setting used to be advisory. Hiding a page removed its sidebar link but
+ * left the URL reachable, because the block lived in each class's canAccess()
+ * and only the ones using HasModuleAccess actually had it — any class that
+ * wrote its own canAccess() replaced the trait's and dropped the check with it,
+ * and a page with neither was never gated at all. Twenty-one classes overrode
+ * it and thirteen had no gate; every one of them opened for a role the setting
+ * said could not see it.
+ *
+ * Enforcing it here instead of in each class means a page cannot forget: the
+ * check runs for whatever the route resolves to, including pages added later.
+ * Per-class canAccess() rules stay as they are — they express business scoping
+ * ("streamers see their own shows"), which is a different question from whether
+ * a role is allowed the page at all. Both must pass.
+ */
+class EnforceNavVisibility
+{
+    public function handle(Request $request, Closure $next): Response
+    {
+        $user = $request->user();
+
+        // isHiddenForUser() already exempts the owner and role-less users, but
+        // returning early keeps this off the path entirely for guests.
+        if (! $user) {
+            return $next($request);
+        }
+
+        foreach ($this->classesFor($request) as $class) {
+            if (NavVisibility::isHiddenForUser($class, $user)) {
+                abort(403, 'This page is not available for your role.');
+            }
+        }
+
+        return $next($request);
+    }
+
+    /**
+     * The classes a route is governed by: the Filament page itself, plus the
+     * resource that owns it when the page is a resource page.
+     *
+     * Visibility is configured against the resource (that is what the sidebar
+     * lists), while the route resolves to one of its pages — so hiding
+     * "Inventory Items" has to also close List/Create/Edit/View beneath it.
+     *
+     * @return array<int, class-string>
+     */
+    private function classesFor(Request $request): array
+    {
+        $controller = $request->route()?->getAction('controller');
+
+        if (! is_string($controller) || ! class_exists($controller)) {
+            return [];
+        }
+
+        $classes = [$controller];
+
+        if (method_exists($controller, 'getResource')) {
+            try {
+                $resource = $controller::getResource();
+
+                if (is_string($resource) && $resource !== '') {
+                    $classes[] = $resource;
+                }
+            } catch (\Throwable) {
+                // A page that declares getResource() but cannot resolve one is
+                // simply governed by its own class.
+            }
+        }
+
+        return $classes;
+    }
+}

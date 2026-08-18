@@ -5,9 +5,10 @@ namespace App\Providers\Filament;
 use App\Models\Setting;
 use App\Models\WhatnotChannel;
 use App\Support\ChannelContext;
-use Awcodes\QuickCreate\QuickCreatePlugin;
+use App\Filament\Plugins\ScopedQuickCreatePlugin;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use App\Support\AdminModules;
+use App\Http\Middleware\EnforceNavVisibility;
 use App\Http\Middleware\RequireTwoFactorAuthentication;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -451,7 +452,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->plugins([
                 FilamentShieldPlugin::make(),
-                QuickCreatePlugin::make()
+                ScopedQuickCreatePlugin::make()
                     ->excludes([
                         \App\Filament\Resources\PayoutResource::class,
                         \App\Filament\Resources\WeeklyPayoutBatchResource::class,
@@ -469,6 +470,11 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
+                // After Authenticate, so there is a user to read roles from.
+                // Central enforcement of the per-role page visibility set on
+                // Roles & Permissions — see the middleware for why it does not
+                // live in each class's canAccess().
+                EnforceNavVisibility::class,
             ]);
     }
 

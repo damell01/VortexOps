@@ -119,11 +119,19 @@ class PayoutResource extends Resource
 
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
     {
-        return [
-            'Show'   => $record->show?->title ?? '—',
-            'Amount' => '$' . number_format((float) $record->calculated_payout, 2),
-            'Status' => Payout::statusLabels()[$record->status] ?? $record->status,
-        ];
+        // Lowercase keys are slots in the global-search override, not labels:
+        // subtitle / status / tone / figure. See that view for the contract.
+        return array_filter([
+            'subtitle' => $record->show?->title,
+            'status'   => Payout::statusLabels()[$record->status] ?? $record->status,
+            'tone'     => match ($record->status) {
+                'paid'     => 'success',
+                'approved' => 'info',
+                'draft'    => 'warning',
+                default    => 'neutral',
+            },
+            'figure' => '$' . number_format((float) $record->calculated_payout, 2),
+        ]);
     }
 
     public static function form(Schema $schema): Schema
@@ -202,18 +210,37 @@ class PayoutResource extends Resource
             ->emptyStateIcon('heroicon-o-banknotes')
             ->extraAttributes(['data-sticky-header' => 'true'])
             ->columns([
+                // Streamer leads: a payouts list is read by person, and the
+                // phone card takes its heading from the first name-ish column
+                // — with the date first, "Show Date" matched on "show" and
+                // became the card title.
+                TextColumn::make('streamer.name')
+                    ->label('Streamer')
+                    ->sortable()
+                    ->searchable()
+                    ->weight('semibold')
+                    // The show rides along as a second line rather than
+                    // spending a column of its own.
+                    ->description(fn (Payout $record) => $record->show?->title)
+                    ->extraCellAttributes(['class' => 'vx-col-title'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-title']),
+
                 TextColumn::make('show.show_date')
                     ->label('Show Date')
                     ->date('M j, Y')
-                    ->sortable(),
+                    ->sortable()
+                    ->extraCellAttributes(['class' => 'vx-col-tight'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-tight']),
 
-                TextColumn::make('show.title')
-                    ->label('Show')
-                    ->default('—'),
-
-                TextColumn::make('streamer.name')
-                    ->label('Streamer')
-                    ->sortable(),
+                TextColumn::make('calculated_payout')
+                    // "Payout Amount", not "Payout": the card layout promotes a
+                    // column into the stat row by matching its label, and
+                    // "amount" is the term that gets it there.
+                    ->label('Payout Amount')
+                    ->money('USD')
+                    ->weight('bold')
+                    ->sortable()
+                    ->summarize(Sum::make()->money('USD')->label('Total Payouts')),
 
                 TextColumn::make('payout_type')
                     ->badge()
@@ -225,11 +252,13 @@ class PayoutResource extends Resource
                         'flat_rate' => 'gray',
                         'custom_formula' => 'primary',
                         default => 'gray',
-                    }),
+                    })
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('gross_show_revenue')
                     ->label('Gross Revenue')
                     ->money('USD')
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->summarize(Sum::make()->money('USD')->label('Total Gross')),
 
                 TextColumn::make('owner_fee_deducted')
@@ -244,17 +273,13 @@ class PayoutResource extends Resource
 
                 TextColumn::make('tips_included')
                     ->label('Tips')
-                    ->money('USD'),
-
-                TextColumn::make('calculated_payout')
-                    ->label('Payout')
                     ->money('USD')
-                    ->weight('bold')
-                    ->summarize(Sum::make()->money('USD')->label('Total Payouts')),
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('batch.week_start')
                     ->label('Pay Week')
-                    ->formatStateUsing(fn ($state): string => $state ? $state->format('M j') : 'Unbatched'),
+                    ->formatStateUsing(fn ($state): string => $state ? $state->format('M j') : 'Unbatched')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('status')
                     ->formatStateUsing(fn ($state) => view('components.status-badge', [

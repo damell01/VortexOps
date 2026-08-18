@@ -16,6 +16,9 @@ use Livewire\WithFileUploads;
 
 class AppSettings extends Page
 {
+    // Without this, Filament registers the link regardless of canAccess() and
+    // every non-admin got a Settings link that 403'd on click.
+    use \App\Filament\Concerns\HasAdminNavVisibility;
     use WithFileUploads;
 
     protected static ?string $title = 'Settings';

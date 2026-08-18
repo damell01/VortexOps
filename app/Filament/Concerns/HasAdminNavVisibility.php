@@ -14,26 +14,20 @@ trait HasAdminNavVisibility
      *
      * Only shows pages that are explicitly marked visible for the user's role.
      */
+    /**
+     * The sidebar follows access, rather than re-deciding it — see
+     * HasModuleAccess::shouldRegisterNavigation() for why. Registering a link
+     * purely on visibility produced links that 403'd on click, because nothing
+     * here consulted whether the page would actually open.
+     */
     public static function shouldRegisterNavigation(): bool
     {
-        $user = auth()->user();
-
-        // Owner always sees everything (unless NavVisibility explicitly hides it)
-        if ($user?->isOwner()) {
-            // Even owner respects NavVisibility if set
-            if (NavVisibility::isHiddenForUser(static::class, $user)) {
-                return false;
-            }
-            return true;
+        if (! auth()->check()) {
+            return false;
         }
 
-        // For non-owners, check NavVisibility — users with no roles see everything
-        if ($user) {
-            return !NavVisibility::isHiddenForUser(static::class, $user);
-        }
-
-        // If no user, don't show
-        return false;
+        return static::canAccess()
+            && ! NavVisibility::isHiddenForUser(static::class, auth()->user());
     }
 
     public static function getNavigationItems(): array

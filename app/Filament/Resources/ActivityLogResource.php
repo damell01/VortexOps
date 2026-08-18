@@ -55,10 +55,10 @@ class ActivityLogResource extends Resource
     }
 
     // Diagnostic tool — only surface it in the owner's menu (still URL-reachable).
-    public static function shouldRegisterNavigation(): bool
-    {
-        return auth()->user()?->isOwner() ?? false;
-    }
+    // No shouldRegisterNavigation() override: it said owner-only while
+    // canAccess() above admits admins too, so an admin could open the page but
+    // never saw a link to it. The trait derives the link from canAccess(), and
+    // Roles & Permissions can still hide it per role.
 
     public static function getEloquentQuery(): Builder
     {

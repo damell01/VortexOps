@@ -29,6 +29,7 @@ use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Support\Str;
 
 class InventoryLocationResource extends Resource
 {
@@ -54,11 +55,11 @@ class InventoryLocationResource extends Resource
     // thing that admits streamers. The override said admin/owner only, so it
     // silently undid the fix directly above it. The trait handles this.
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        // Show locations for admins and owners
-        return auth()->user()?->isAdmin() || auth()->user()?->isOwner() ?? false;
-    }
+    // No shouldRegisterNavigation() override either, for the same reason as
+    // canAccess() above. It hardcoded admin/owner, which undid the streamer
+    // admission in passesModuleAccessCheck() one method later — the page was
+    // reachable but had no link, so ticking it Visible on Roles & Permissions
+    // appeared to do nothing. The trait derives the link from canAccess().
 
     public static function canCreate(): bool
     {
@@ -118,10 +119,35 @@ class InventoryLocationResource extends Resource
 
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
     {
-        return array_filter([
-            'Type'     => InventoryLocation::typeLabels()[$record->type] ?? $record->type,
-            'Streamer' => $record->streamer?->name,
+        // Lowercase keys are slots in the global-search override, not labels:
+        // subtitle / status / tone / figure. See that view for the contract.
+        $type = InventoryLocation::typeLabels()[$record->type] ?? $record->type;
+
+        $subtitle = array_filter([
+            // "Main Storage" is both a location name and a type, so the
+            // subtitle would otherwise just repeat the title back.
+            $type === $record->name ? null : $type,
+            $record->streamer?->name,
         ]);
+
+        $skus = (int) ($record->stock_count ?? 0);
+
+        return array_filter([
+            'subtitle' => implode(' · ', $subtitle),
+            'status'   => InventoryLocation::statusLabels()[$record->status] ?? $record->status,
+            'tone'     => $record->status === 'active' ? 'success' : 'neutral',
+            'figure'   => $skus > 0 ? number_format($skus) . ' ' . Str::plural('SKU', $skus) : null,
+        ]);
+    }
+
+    /**
+     * getEloquentQuery() already eager-loads the streamer the subtitle reads,
+     * but a count has to be selected explicitly — without it the figure is
+     * always absent rather than wrong, which is the harder kind to notice.
+     */
+    public static function getGlobalSearchEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->withCount('stock');
     }
 
     /**
@@ -200,7 +226,13 @@ class InventoryLocationResource extends Resource
             ->columns([
                 TextColumn::make('name')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->weight('semibold')
+                    // Whose location it is belongs with the name, not in a
+                    // column that is empty for every non-streamer location.
+                    ->description(fn (InventoryLocation $record) => $record->streamer?->name)
+                    ->extraCellAttributes(['class' => 'vx-col-title'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-title']),
                 TextColumn::make('type')
                     ->badge()
                     ->formatStateUsing(fn ($state) => InventoryLocation::typeLabels()[$state] ?? $state)
@@ -212,23 +244,31 @@ class InventoryLocationResource extends Resource
                         'fulfillment' => 'primary',
                         default => 'gray',
                     }),
+                TextColumn::make('stock_count')
+                    // "Item Count", not "SKUs": the phone card omits any column
+                    // whose label looks like a code — "SKUs" matched that rule
+                    // and the number vanished from the card entirely.
+                    ->label('Item Count')
+                    ->counts('stock')
+                    ->extraCellAttributes(['class' => 'vx-col-tight'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-tight']),
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => InventoryLocation::statusLabels()[$state] ?? $state)
+                    ->color(fn ($state) => StatusColor::for($state))
+                    ->extraCellAttributes(['class' => 'vx-col-tight'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-tight']),
                 TextColumn::make('streamer.name')
                     ->label('Streamer')
                     ->placeholder('—')
-                    ->searchable(),
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('channel.name')
                     ->label('Channel')
                     ->badge()
                     ->color('gray')
                     ->placeholder('—')
-                    ->toggleable(),
-                TextColumn::make('stock_count')
-                    ->label('SKUs')
-                    ->counts('stock'),
-                TextColumn::make('status')
-                    ->badge()
-                    ->formatStateUsing(fn ($state) => InventoryLocation::statusLabels()[$state] ?? $state)
-                    ->color(fn ($state) => StatusColor::for($state)),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()

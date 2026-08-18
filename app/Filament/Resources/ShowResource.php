@@ -183,9 +183,28 @@ class ShowResource extends Resource
 
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
     {
+        // Lowercase keys are slots in the global-search override, not labels:
+        // subtitle / status / tone / figure. See that view for the contract.
+        $subtitle = array_filter([
+            $record->show_date?->format('M j, Y'),
+            $record->channel?->name,
+        ]);
+
         return array_filter([
-            'Date' => $record->show_date?->format('M j, Y'),
-            'Status' => Show::statusLabels()[$record->status] ?? $record->status,
+            'subtitle' => implode(' · ', $subtitle),
+            'status'   => Show::statusLabels()[$record->status] ?? $record->status,
+            'tone'     => match ($record->status) {
+                'reconciled', 'closed'               => 'success',
+                'pending_review', 'pending_approval' => 'warning',
+                'cancelled'                          => 'danger',
+                'mapping'                            => 'info',
+                default                              => 'neutral',
+            },
+            // Net is what the business actually keeps, so it beats gross as
+            // the single number worth carrying in a search result.
+            'figure' => $record->whatnot_net > 0
+                ? '$' . number_format((float) $record->whatnot_net, 2)
+                : null,
         ]);
     }
 

@@ -72,10 +72,37 @@ class StreamerResource extends Resource
 
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
     {
+        // Lowercase keys are slots in the global-search override, not labels:
+        // subtitle / status / tone / figure. See that view for the contract.
         return array_filter([
-            'Email'       => $record->email,
-            'Payout Type' => Streamer::payoutTypeLabels()[$record->payout_type] ?? $record->payout_type,
+            'subtitle' => $record->email,
+            'status'   => Streamer::statusLabels()[$record->status] ?? $record->status,
+            'tone'     => match ($record->status) {
+                'active'   => 'success',
+                'on_leave' => 'warning',
+                'inactive' => 'danger',
+                default    => 'neutral',
+            },
+            // The terms, not the type name: "35%" answers what you came to
+            // look up, where "Profit Share" only names the scheme.
+            'figure' => static::termsSummary($record),
         ]);
+    }
+
+    /**
+     * The headline number for a streamer's payout terms, which live in a
+     * different column per type.
+     */
+    protected static function termsSummary(Streamer $record): ?string
+    {
+        return match ($record->payout_type) {
+            'profit_share'   => $record->payout_percentage > 0 ? rtrim(rtrim(number_format((float) $record->payout_percentage, 2), '0'), '.') . '%' : null,
+            'hourly'         => $record->hourly_rate > 0 ? '$' . number_format((float) $record->hourly_rate, 2) . '/hr' : null,
+            'package'        => $record->package_rate > 0 ? '$' . number_format((float) $record->package_rate, 2) . '/pkg' : null,
+            'flat_rate'      => $record->flat_rate > 0 ? '$' . number_format((float) $record->flat_rate, 2) : null,
+            'hybrid'         => $record->hourly_rate > 0 ? '$' . number_format((float) $record->hourly_rate, 2) . '/hr +' : null,
+            default          => Streamer::payoutTypeLabels()[$record->payout_type] ?? null,
+        };
     }
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
@@ -492,11 +519,16 @@ class StreamerResource extends Resource
             ->columns([
                 TextColumn::make('name')
                     ->searchable()
-                    ->sortable(),
-                TextColumn::make('email')
-                    ->searchable()
-                    ->toggleable(),
+                    ->sortable()
+                    ->weight('semibold')
+                    // Email drops out of the column list and rides under the
+                    // name — it identifies the person rather than being data
+                    // you sort or compare across rows.
+                    ->description(fn (Streamer $record) => $record->email)
+                    ->extraCellAttributes(['class' => 'vx-col-title'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-title']),
                 TextColumn::make('payout_type')
+                    ->label('Terms')
                     ->badge()
                     ->formatStateUsing(fn ($state) => Streamer::payoutTypeLabels()[$state] ?? $state)
                     ->color(fn ($state) => match ($state) {
@@ -508,21 +540,10 @@ class StreamerResource extends Resource
                         'hybrid'         => 'primary',
                         'custom_formula' => 'primary',
                         default          => 'gray',
-                    }),
-                TextColumn::make('payout_cadence')
-                    ->label('Cadence')
-                    ->badge()
-                    ->formatStateUsing(fn ($state) => Streamer::payoutCadenceLabels()[$state] ?? $state)
-                    ->color(fn ($state) => $state === 'monthly' ? 'primary' : 'gray')
-                    ->toggleable(),
-                TextColumn::make('total_earnings_due')
-                    ->label('Due')
-                    ->money('USD')
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('total_earnings_paid')
-                    ->label('Paid')
-                    ->money('USD')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    })
+                    // The rate is the part you actually want to see; the type
+                    // alone only names the scheme.
+                    ->description(fn (Streamer $record) => static::termsSummary($record)),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => Streamer::statusLabels()[$state] ?? $state)
@@ -531,19 +552,44 @@ class StreamerResource extends Resource
                         'inactive' => 'danger',
                         'on_leave' => 'warning',
                         default => 'gray',
-                    }),
+                    })
+                    ->extraCellAttributes(['class' => 'vx-col-tight'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-tight']),
+                TextColumn::make('inventoryLocations_count')
+                    ->counts('inventoryLocations')
+                    // "Location Count" rather than "Locations" so the phone
+                    // card promotes it into the stat row — that layout picks
+                    // stats by label, and "count" is the term it looks for.
+                    ->label('Location Count')
+                    ->extraCellAttributes(['class' => 'vx-col-tight'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-tight']),
+                TextColumn::make('email')
+                    ->searchable()
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('payout_cadence')
+                    ->label('Cadence')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => Streamer::payoutCadenceLabels()[$state] ?? $state)
+                    ->color(fn ($state) => $state === 'monthly' ? 'primary' : 'gray')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('total_earnings_due')
+                    ->label('Due')
+                    ->money('USD')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('total_earnings_paid')
+                    ->label('Paid')
+                    ->money('USD')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 IconColumn::make('include_tips')
                     ->boolean()
-                    ->label('Tips'),
+                    ->label('Tips')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('channel.name')
                     ->label('Channel')
                     ->badge()
                     ->color('gray')
                     ->placeholder('—')
-                    ->toggleable(),
-                TextColumn::make('inventoryLocations_count')
-                    ->counts('inventoryLocations')
-                    ->label('Locations'),
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()

@@ -99,8 +99,14 @@ class User extends Authenticatable implements FilamentUser
 
     public function isOwner(): bool
     {
-        $ownerEmail = config('app.owner_email', 'dbellcreations@gmail.com');
-        return $ownerEmail !== null && $this->email === $ownerEmail;
+        // `?:` not `??`, and not config()'s default argument: APP_OWNER_EMAIL
+        // ships blank, so the key exists holding '' and only a falsy check
+        // reaches the fallback. With `??` every email was compared against ''
+        // and isOwner() returned false for everyone — which silently hid the
+        // module toggles, the balances widget, and every owner-only page.
+        $ownerEmail = config('app.owner_email') ?: 'dbellcreations@gmail.com';
+
+        return $this->email === $ownerEmail;
     }
 
     public function managedStreamers(): \Illuminate\Database\Eloquent\Relations\BelongsToMany

@@ -31,6 +31,21 @@ class InventoryAge extends Page
     /** Selected location, or '' for every location the viewer can see. */
     public string $locationId = '';
 
+    /** Bucket key whose contents are expanded, or null for none. */
+    public ?string $openBucket = null;
+
+    /**
+     * How many lines a bucket lists before it stops and says how many are
+     * left. A stale bucket can hold hundreds of lines and the point of the
+     * list is to name the products, not to be a second stock report.
+     */
+    protected const ITEM_LIMIT = 25;
+
+    public function toggleBucket(string $key): void
+    {
+        $this->openBucket = $this->openBucket === $key ? null : $key;
+    }
+
     /** Bucket definitions: label, upper bound in days, risk wording, tone. */
     protected const BUCKETS = [
         ['key' => 'fresh',   'label' => '0 – 30 Days',  'max' => 30,   'risk' => 'Healthy',   'tone' => 'green'],
@@ -123,11 +138,19 @@ class InventoryAge extends Page
 
         $rows = DB::table('inventory_stock')
             ->join('products', 'products.id', '=', 'inventory_stock.inventory_item_id')
+            ->join('inventory_locations', 'inventory_locations.id', '=', 'inventory_stock.inventory_location_id')
             ->leftJoinSub($lastReceipt, 'r', 'r.inventory_item_id', '=', 'inventory_stock.inventory_item_id')
             ->whereIn('inventory_stock.inventory_location_id', $locationIds)
             ->where('inventory_stock.quantity', '>', 0)
             ->selectRaw('inventory_stock.quantity as qty')
             ->selectRaw('COALESCE(products.average_cost, 0) as unit_cost')
+            // Identity, so a bucket can say which products are in it. A total
+            // with no way to see what is behind it tells you there is a problem
+            // without telling you what to do about it.
+            ->selectRaw('products.id as product_id')
+            ->selectRaw('products.name as product_name')
+            ->selectRaw('products.sku as sku')
+            ->selectRaw('inventory_locations.name as location_name')
             // No receipt on record (opening balance, imported stock) falls back
             // to when the product was created rather than dropping out.
             ->selectRaw('COALESCE(r.received_at, products.created_at) as received_at')
@@ -152,6 +175,16 @@ class InventoryAge extends Page
             $buckets[$key]['units'] += $qty;
             $buckets[$key]['value'] += $value;
 
+            $buckets[$key]['items'][] = [
+                'product_id' => (int) $row->product_id,
+                'name'       => (string) $row->product_name,
+                'sku'        => $row->sku,
+                'location'   => (string) $row->location_name,
+                'units'      => $qty,
+                'value'      => $value,
+                'days'       => (int) $days,
+            ];
+
             $totalUnits += $qty;
             $totalValue += $value;
         }
@@ -161,6 +194,13 @@ class InventoryAge extends Page
             $buckets[$key]['pct'] = $totalValue > 0
                 ? round(($bucket['value'] / $totalValue) * 100, 1)
                 : 0.0;
+
+            // Biggest first: in a stale bucket the money is the reason to look.
+            usort($buckets[$key]['items'], fn ($a, $b) => $b['value'] <=> $a['value']);
+
+            $buckets[$key]['item_count'] = count($buckets[$key]['items']);
+            $buckets[$key]['items']      = array_slice($buckets[$key]['items'], 0, self::ITEM_LIMIT);
+            $buckets[$key]['hidden_items'] = max(0, $buckets[$key]['item_count'] - self::ITEM_LIMIT);
         }
 
         return [
@@ -187,7 +227,14 @@ class InventoryAge extends Page
         $out = [];
 
         foreach (self::BUCKETS as $bucket) {
-            $out[$bucket['key']] = $bucket + ['units' => 0.0, 'value' => 0.0, 'pct' => 0.0];
+            $out[$bucket['key']] = $bucket + [
+                'units'        => 0.0,
+                'value'        => 0.0,
+                'pct'          => 0.0,
+                'items'        => [],
+                'item_count'   => 0,
+                'hidden_items' => 0,
+            ];
         }
 
         return $out;

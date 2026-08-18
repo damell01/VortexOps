@@ -91,25 +91,13 @@ class InventoryItemResource extends Resource
         return parent::canAccess();
     }
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        // Nav visibility is configured per role in Settings; without this
-        // check an override here silently ignored that setting and the link
-        // stayed in the sidebar regardless.
-        if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
-            return false;
-        }
-
-        $user = auth()->user();
-
-        // Show navigation for streamers even if inventory module is disabled
-        if ($user?->isStreamer() && !$user->isAdmin() && !$user->isOwner()) {
-            return true;
-        }
-
-        // Use default registration for admins/owners (respects module gating)
-        return parent::shouldRegisterNavigation();
-    }
+    // No shouldRegisterNavigation() override. It ended in
+    // parent::shouldRegisterNavigation(), and `parent::` is Filament's base
+    // resource, not the trait — so it skipped the trait's rule and registered
+    // the link without asking whether the page would open, which is how
+    // fulfillment users got a link here that 403'd. Its other branch showed
+    // streamers a link even with the inventory module off, which canAccess()
+    // refuses. The trait derives the link from canAccess() for everyone.
 
     public static function canCreate(): bool
     {
@@ -194,19 +182,24 @@ class InventoryItemResource extends Resource
 
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
     {
-        // Keys drive the layout in the global-search override: 'sku' is the
-        // muted second line, 'status' becomes a pill, 'figure' is pinned
-        // right. Anything else renders as a plain label/value pair.
+        // Lowercase keys are slots in the global-search override, not labels:
+        // subtitle / status / tone / figure. See that view for the contract.
         $onHand = (int) ($record->stock_sum_quantity ?? $record->stock()->sum('quantity'));
+        $state  = static::stockStatus($record);
 
         return array_filter([
-            'sku'    => $record->sku,
-            'status' => match (static::stockStatus($record)) {
+            'subtitle' => filled($record->sku) ? 'SKU: ' . $record->sku : null,
+            'status'   => match ($state) {
                 'out'   => 'Out of Stock',
                 'low'   => 'Low Stock',
                 default => 'In Stock',
             },
-            'figure' => number_format($onHand) . ' units',
+            'tone' => match ($state) {
+                'out'   => 'danger',
+                'low'   => 'warning',
+                default => 'success',
+            },
+            'figure' => number_format($onHand) . ' ' . \Illuminate\Support\Str::plural('unit', $onHand),
         ]);
     }
 

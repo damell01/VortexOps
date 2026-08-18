@@ -75,6 +75,27 @@ class VendorResource extends Resource
         return $record->name;
     }
 
+    public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
+    {
+        // Lowercase keys are slots in the global-search override, not labels:
+        // subtitle / status / tone / figure. See that view for the contract.
+        $subtitle = array_filter([$record->contact_name, $record->email]);
+        $pallets  = (int) ($record->pallets_count ?? 0);
+
+        return array_filter([
+            'subtitle' => implode(' · ', $subtitle),
+            'figure'   => $pallets > 0
+                ? number_format($pallets) . ' ' . \Illuminate\Support\Str::plural('pallet', $pallets)
+                : null,
+        ]);
+    }
+
+    /** The figure is a count, which has to be selected rather than lazy loaded. */
+    public static function getGlobalSearchEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getGlobalSearchEloquentQuery()->withCount('pallets');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([

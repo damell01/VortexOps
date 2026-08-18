@@ -74,7 +74,7 @@ class RoleResource extends Resource
                     ->maxLength(255),
             ]),
             Section::make('Page Access')
-                ->description('One row per page, grouped by section — Visible controls whether it shows up in this role\'s sidebar at all; Can Edit controls whether create/edit/delete actions work there (uncheck it alone to leave a page visible but view-only). "Can Edit" is currently enforced on the Fulfillment Center, with more pages adopting the same check over time. The owner always sees and can edit everything, and any other role a user holds that grants access wins.')
+                ->description('One row per page, grouped by section. Visible controls whether the role gets the page at all — unchecking it removes the sidebar link and closes the URL, so it cannot be reached by typing the address either. Can Edit controls whether create/edit/delete actions work there (uncheck it alone to leave a page visible but view-only); that one is currently enforced on the Fulfillment Center, with more pages adopting it over time. Two tags explain rows that will not behave like a plain switch: "no sidebar link" means the page is opened from another page rather than the sidebar, so Visible cannot add a link there (unticking it still blocks the page); "code rule" means the page also enforces its own check in code, usually admin or owner, so hiding it works but showing it may not be enough on its own. The owner always sees and can edit everything, and where a user holds several roles, any role that grants access wins.')
                 ->columnSpanFull()
                 ->schema(static::pageAccessSchema()),
             Section::make('Permissions')
@@ -97,6 +97,20 @@ class RoleResource extends Resource
      *
      * @return array<class-string, string>
      */
+    /**
+     * Panel plumbing rather than product pages. Every account needs these
+     * whatever its role — the dashboard is where login lands, and the other
+     * two are how a user manages their own profile and 2FA. Listing them gave
+     * the owner switches that do nothing, which is the same lie as a setting
+     * that is ignored.
+     */
+    public const NOT_ROLE_CONTROLLED = [
+        \App\Filament\Pages\DashboardImproved::class,
+        \App\Filament\Pages\EditProfile::class,
+        \App\Filament\Pages\TwoFactorAuth::class,
+        \App\Filament\Pages\TwoFactorVerify::class,
+    ];
+
     public static function pageOptions(): array
     {
         $panel = Filament::getCurrentPanel() ?? Filament::getDefaultPanel();
@@ -109,6 +123,9 @@ class RoleResource extends Resource
             try { $opts[$resource] = $resource::getNavigationLabel(); } catch (\Throwable) {}
         }
         foreach ($panel->getPages() as $page) {
+            if (in_array($page, self::NOT_ROLE_CONTROLLED, true)) {
+                continue;
+            }
             try { $opts[$page] = $page::getNavigationLabel(); } catch (\Throwable) {}
         }
 
@@ -219,6 +236,93 @@ class RoleResource extends Resource
     }
 
     /** @return array<int, Section> */
+    /**
+     * Whether a page enforces its own access rule in code, on top of whatever
+     * is set here.
+     *
+     * Unchecking Visible always works — that is enforced centrally now. But
+     * checking it does not necessarily grant the page: a class with its own
+     * canAccess() typically insists on admin or owner, so a custom role stays
+     * locked out and the checkbox reads as a lie. Surfacing that is the
+     * difference between a setting that does nothing and one that says so.
+     *
+     * Detected by where the method body lives rather than by its declaring
+     * class — a trait's methods report the *using* class as the declarer, so
+     * reflection alone cannot tell an override from an inherited default.
+     */
+    public static function hasOwnAccessRule(string $class): bool
+    {
+        if (! method_exists($class, 'canAccess')) {
+            return false;
+        }
+
+        try {
+            $method    = new \ReflectionMethod($class, 'canAccess');
+            $ownFile   = (new \ReflectionClass($class))->getFileName();
+
+            return $method->getFileName() === $ownFile;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Whether a page can ever appear in the sidebar.
+     *
+     * Twenty-six pages are sub-pages opened from somewhere else and return
+     * false from shouldRegisterNavigation() unconditionally. They were still
+     * listed here with a Visible checkbox, so ticking one looked like it should
+     * put a link in the sidebar and never did — which is most of why the
+     * settings and the sidebar appeared not to match.
+     *
+     * Asked at runtime rather than parsed out of the source: this page is
+     * owner-only, and the owner is exactly the user for whom every other reason
+     * to hide a link is already false. If it stays false for them, the page is
+     * simply never navigable.
+     */
+    public static function neverAppearsInSidebar(string $class): bool
+    {
+        try {
+            return ! $class::shouldRegisterNavigation();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    protected static function pageAccessLabel(string $class, string $label): \Illuminate\Support\HtmlString
+    {
+        $tags = '';
+
+        if (static::neverAppearsInSidebar($class)) {
+            $tags .= static::tag(
+                'no sidebar link',
+                'This page is opened from another page rather than the sidebar, so Visible '
+                . 'will not add a link. Unticking it still blocks the page.',
+                'rgb(107 114 128 / .15)',
+                '#4b5563',
+            );
+        }
+
+        if (static::hasOwnAccessRule($class)) {
+            $tags .= static::tag(
+                'code rule',
+                'This page also enforces its own rule in code — usually admin or owner. '
+                . 'Hiding it here always works; showing it may not be enough on its own.',
+                'rgb(245 158 11 / .16)',
+                '#b45309',
+            );
+        }
+
+        return new \Illuminate\Support\HtmlString(e($label) . $tags);
+    }
+
+    private static function tag(string $text, string $title, string $background, string $color): string
+    {
+        return ' <span title="' . e($title) . '" style="margin-left:.375rem;padding:.0625rem .375rem;'
+            . 'border-radius:9999px;background:' . $background . ';color:' . $color . ';'
+            . 'font-size:.6875rem;font-weight:600;white-space:nowrap;">' . e($text) . '</span>';
+    }
+
     protected static function pageAccessSchema(): array
     {
         $sections = [];
@@ -232,7 +336,7 @@ class RoleResource extends Resource
                 $rows[] = Grid::make(12)->schema([
                     Placeholder::make("page_label_{$key}")
                         ->hiddenLabel()
-                        ->content($label)
+                        ->content(static::pageAccessLabel($class, $label))
                         ->columnSpan(6),
                     Checkbox::make("page_perms.{$key}.visible")
                         ->label('Visible')

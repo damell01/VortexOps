@@ -1,6 +1,9 @@
 <div x-data="cameraPhotoCapture()" x-on:open-photo-capture.window="open()">
     {{-- Overlay --}}
+    {{-- x-cloak: full-viewport overlay, inert until Alpine boots — see the
+         barcode scanner component for the failure this prevents. --}}
     <div
+        x-cloak
         x-show="isOpen"
         x-transition:enter="transition ease-out duration-150"
         x-transition:enter-start="opacity-0"

@@ -80,6 +80,43 @@ class ViewPallet extends ViewRecord
                     $this->record->refresh();
                 })
                 ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'shipped', 'receiving', 'staged'])),
+            // Staging's own checkpoint. What is being confirmed here is that
+            // the list matches the paperwork — before anything arrives and
+            // before any of it touches stock — so the same review is shown
+            // without the receive buttons.
+            Action::make('review_staging')
+                ->label('Review Manifest')
+                ->icon('heroicon-o-clipboard-document-list')
+                ->color('info')
+                ->modalHeading('Does this match the paperwork?')
+                ->modalDescription('Nothing here has arrived yet. Confirming marks the pallet ready to receive.')
+                ->modalWidth('4xl')
+                ->modalContent(fn () => view('filament.modals.pallet-review', [
+                    'review'  => app(ReceivingService::class)->reviewPallet($this->getRecord()),
+                    'staging' => true,
+                ]))
+                ->modalSubmitAction(fn ($action) => app(ReceivingService::class)
+                    ->reviewPallet($this->getRecord())['can_finish']
+                        ? $action->label('Mark ready to receive')
+                        : false)
+                ->action(function () {
+                    $this->record->update([
+                        'status'     => 'shipped',
+                        'staged_at'  => $this->record->staged_at ?? now(),
+                    ]);
+
+                    Notification::make()
+                        ->title('Manifest confirmed')
+                        ->body('Scan items in as they arrive, then use Review & Receive.')
+                        ->success()
+                        ->send();
+
+                    $this->record->refresh();
+                })
+                // Only while staging: once anything has been scanned the
+                // receiving review is the one that matters.
+                ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'staged'])),
+
             // Receiving is where quantities and money become permanent, so it
             // gets a look first: what turned up against what was expected, what
             // is short, and what each item will be valued at afterwards.
@@ -256,8 +293,12 @@ class ViewPallet extends ViewRecord
             // most used while receiving, was cut off the right edge. The three
             // above are what a pallet is worked with; the rest are occasional.
             \Filament\Actions\ActionGroup::make([
+                // Kept as its own page because it is a scanning station: a live
+                // camera viewfinder and a running tally, meant to be left open
+                // on a phone at the pallet. The Scan Item modal above is the
+                // one-off equivalent, not a replacement.
                 Action::make('receive')
-                    ->label('Go to Receiving')
+                    ->label('Open Scanning Station')
                     ->icon('heroicon-o-inbox-arrow-down')
                     ->color('success')
                     ->url(fn () => PalletResource::getUrl('receive', ['record' => $this->getRecord()]))
@@ -282,11 +323,65 @@ class ViewPallet extends ViewRecord
                     })
                     ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'shipped', 'receiving'])),
                 Action::make('upload_manifest')
-                    ->label('Upload Manifest')
+                    ->label('Scan a Packing Slip')
                     ->icon('heroicon-o-document-arrow-up')
                     ->color('violet')
                     ->url(fn () => PalletResource::getUrl('import-manifest', ['record' => $this->getRecord()]))
                     ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'shipped', 'receiving'])),
+                // The slip reader above takes photos and PDFs. A vendor who
+                // sends a spreadsheet needs no AI to read it, and staging a
+                // hundred lines by hand is not a workflow.
+                Action::make('import_csv')
+                    ->label('Import Manifest CSV')
+                    ->icon('heroicon-o-table-cells')
+                    ->color('violet')
+                    ->modalHeading('Import manifest lines')
+                    ->modalDescription('One row per line. Columns: description, case_count, quantity_per_case, unit_cost.')
+                    ->modalSubmitActionLabel('Import')
+                    ->schema([
+                        \Filament\Forms\Components\FileUpload::make('csv')
+                            ->label('CSV file')
+                            ->required()
+                            ->storeFiles(false)
+                            ->acceptedFileTypes(['text/csv', 'text/plain', 'application/csv', 'application/vnd.ms-excel'])
+                            ->helperText('Lines land unmapped — match them to items afterwards.'),
+                    ])
+                    ->action(function (array $data) {
+                        // storeFiles(false) hands back the uploaded file itself,
+                        // so nothing is written to disk for an import that is
+                        // read once and discarded.
+                        $file = is_array($data['csv']) ? reset($data['csv']) : $data['csv'];
+
+                        if (! $file instanceof \Illuminate\Http\UploadedFile) {
+                            Notification::make()->title('No file was uploaded')->danger()->send();
+
+                            return;
+                        }
+
+                        try {
+                            $result = app(ReceivingService::class)
+                                ->importManifestCsv($this->record, $file->getRealPath());
+                        } catch (\Throwable $e) {
+                            Notification::make()
+                                ->title('Could not read that file')
+                                ->body($e->getMessage())
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        Notification::make()
+                            ->title($result['imported'] . ' ' . \Illuminate\Support\Str::plural('line', $result['imported']) . ' imported')
+                            ->body($result['skipped'] > 0
+                                ? $result['skipped'] . ' ' . \Illuminate\Support\Str::plural('row', $result['skipped']) . ' had no description and ' . ($result['skipped'] === 1 ? 'was' : 'were') . ' skipped.'
+                                : 'Map them to inventory items, then review the manifest.')
+                            ->success()
+                            ->send();
+
+                        $this->record->refresh();
+                    })
+                    ->visible(fn () => ! in_array($this->getRecord()->status, ['received', 'processed'])),
                 Action::make('map_line')
                     ->label('Map Line to Item')
                     ->icon('heroicon-o-link')

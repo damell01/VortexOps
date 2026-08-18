@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
-use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\DashboardImproved as Dashboard;
 use App\Models\User;
 use App\Support\AdminModules;
 use Illuminate\Foundation\Testing\RefreshDatabase;

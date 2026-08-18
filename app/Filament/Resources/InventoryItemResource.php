@@ -525,33 +525,68 @@ class InventoryItemResource extends Resource
     }
 
     /**
-     * SKUs carried by both a case and a loose item.
+     * Product ids whose barcode or UPC is also carried by the other form —
+     * a case sharing a scannable code with the singles inside it.
      *
-     * Vendors reuse one code for the case and for the boxes inside it, so two
-     * rows can be the same SKU and mean different quantities of stock. Knowing
-     * which is which from the row matters — picking the wrong one is a
-     * twelve-fold counting error.
+     * Not SKU: that column is uniquely indexed, so two products cannot share
+     * one and looking there found nothing by construction. Barcodes and UPCs
+     * are not unique, and a vendor reusing one code for the case and for the
+     * boxes inside it is exactly the case worth flagging — scanning it is then
+     * ambiguous, and picking the wrong row is a twelve-fold counting error.
      *
-     * One query, memoised for the request, rather than a lookup per row.
+     * Keyed by product id rather than by code, so a row can be checked without
+     * knowing which of its two codes caused the clash. One query, memoised for
+     * the request.
      *
-     * @return array<int, string>
+     * @return array<int, int>
      */
-    public static function skusInBothForms(): array
+    public static function productsSharingAScanCode(): array
     {
-        static $memo = null;
+        // Memoised on the container rather than in a static: a static survives
+        // the whole PHP process, so it would go stale in a queue worker, under
+        // Octane, and between tests — which is exactly how it first went wrong
+        // here, returning one test's answer to the next.
+        $key = 'vx.products_sharing_scan_code';
 
-        if ($memo !== null) {
-            return $memo;
+        if (app()->bound($key)) {
+            return app()->make($key);
         }
 
-        return $memo = \App\Models\Product::query()
-            ->select('sku')
-            ->whereNotNull('sku')
-            ->where('sku', '!=', '')
-            ->groupBy('sku')
-            ->havingRaw('COUNT(DISTINCT is_container) > 1')
-            ->pluck('sku')
+        // Every scannable code a product answers to, in one column.
+        $codes = \App\Models\Product::query()
+            ->selectRaw('barcode as code, id, is_container')
+            ->whereNotNull('barcode')->where('barcode', '!=', '')
+            ->unionAll(
+                \App\Models\Product::query()
+                    ->selectRaw('upc as code, id, is_container')
+                    ->whereNotNull('upc')->where('upc', '!=', '')
+            )
+            ->unionAll(
+                \Illuminate\Support\Facades\DB::table('product_identities')
+                    ->join('products', 'products.id', '=', 'product_identities.product_id')
+                    ->selectRaw('product_identities.value as code, products.id, products.is_container')
+                    ->whereNotNull('product_identities.value')
+                    ->where('product_identities.value', '!=', '')
+            );
+
+        // Codes answered to by both a container and a non-container.
+        $ambiguous = \Illuminate\Support\Facades\DB::query()
+            ->fromSub($codes, 'c')
+            ->select('code')
+            ->groupBy('code')
+            ->havingRaw('COUNT(DISTINCT is_container) > 1');
+
+        $ids = \Illuminate\Support\Facades\DB::query()
+            ->fromSub($codes, 'c2')
+            ->whereIn('code', $ambiguous)
+            ->distinct()
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
             ->all();
+
+        app()->instance($key, $ids);
+
+        return $ids;
     }
 
     public static function table(Table $table): Table
@@ -592,10 +627,9 @@ class InventoryItemResource extends Resource
                     ->icon(fn ($record) => $record->is_container ? 'heroicon-m-archive-box' : 'heroicon-m-cube')
                     // Only says anything when the same SKU exists in both
                     // forms, which is exactly when the distinction can bite.
-                    ->description(fn ($record) => filled($record->sku)
-                        && in_array($record->sku, static::skusInBothForms(), true)
-                            ? ($record->is_container ? 'Same SKU also sold singly' : 'Same SKU also stocked as a case')
-                            : null),
+                    ->description(fn ($record) => in_array((int) $record->id, static::productsSharingAScanCode(), true)
+                        ? ($record->is_container ? 'Shares a barcode with the singles' : 'Shares a barcode with a case')
+                        : null),
                 // Stock health, not the active flag — this is the status the
                 // tiles above the table count, so the two agree at a glance.
                 TextColumn::make('stock_status')
@@ -710,10 +744,10 @@ class InventoryItemResource extends Resource
                         'single' => $query->where('is_container', false),
                         default  => $query,
                     }),
-                Filter::make('sku_in_both_forms')
-                    ->label('SKU is both a case and a single')
-                    // The rows worth checking by hand: one code, two meanings.
-                    ->query(fn (Builder $query) => $query->whereIn('sku', static::skusInBothForms())),
+                Filter::make('shared_scan_code')
+                    ->label('Barcode used by both a case and a single')
+                    // The rows worth checking by hand: one scan, two meanings.
+                    ->query(fn (Builder $query) => $query->whereIn('id', static::productsSharingAScanCode())),
                 SelectFilter::make('category')
                     ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
                         ->distinct()

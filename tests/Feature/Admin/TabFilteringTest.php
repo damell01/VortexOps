@@ -93,7 +93,11 @@ class TabFilteringTest extends TestCase
         StreamerLogEntry::create(['show_id' => $showA->id, 'streamer_id' => $streamer->id, 'status' => 'pending']);
         StreamerLogEntry::create(['show_id' => $showB->id, 'streamer_id' => $streamer->id, 'status' => 'admin_approved']);
 
-        foreach (['all', 'to_review', 'reviewed', 'approved'] as $tabKey) {
+        // Taken from the page rather than written out: a hardcoded list went
+        // stale when the tabs were renamed, and setting an activeTab that does
+        // not exist still renders fine, so the test kept passing while
+        // covering nothing.
+        foreach (array_keys((new ListStreamerLogEntries())->getTabs()) as $tabKey) {
             Livewire::test(ListStreamerLogEntries::class)->set('activeTab', $tabKey)->assertOk();
         }
     }
@@ -110,7 +114,9 @@ class TabFilteringTest extends TestCase
 
         $tabs = (new ListStreamerLogEntries())->getTabs();
 
-        $this->assertSame(1, $tabs['to_review']->modifyQuery(StreamerLogEntry::query())->count());
+        // 'in_progress' is what 'to_review' was renamed to: started, not yet
+        // submitted for review.
+        $this->assertSame(1, $tabs['in_progress']->modifyQuery(StreamerLogEntry::query())->count());
         $this->assertSame(1, $tabs['approved']->modifyQuery(StreamerLogEntry::query())->count());
         $this->assertSame(2, $tabs['all']->modifyQuery(StreamerLogEntry::query())->count());
     }

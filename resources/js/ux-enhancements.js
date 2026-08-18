@@ -188,8 +188,10 @@ if (window.matchMedia('(pointer: coarse)').matches) {
 
 // ── Prefetch critical pages ────────────────────────────────────────
 function prefetchCriticalPages() {
+    // The dashboard lives at /admin, not /admin/dashboard — the old path
+    // prefetched a 404 on every page load.
     const links = [
-        '/admin/dashboard',
+        '/admin',
         '/admin/shows',
         '/admin/streamers',
     ];

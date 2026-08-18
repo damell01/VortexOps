@@ -28,6 +28,61 @@ class ReceivingService
     }
 
     /**
+     * Add manifest lines to a pallet from a vendor's CSV.
+     *
+     * Only `description` is required — everything else is what the vendor
+     * happened to send, and a missing cost is better staged as zero and
+     * corrected than rejected outright. Nothing is mapped or costed here; the
+     * lines land unmapped and are matched to items afterwards, so a bad import
+     * can be deleted without having touched stock.
+     *
+     * @return array{imported:int, skipped:int}
+     */
+    public function importManifestCsv(Pallet $pallet, string $path): array
+    {
+        $reader = \League\Csv\Reader::createFromPath($path);
+        $reader->setHeaderOffset(0);
+
+        // Vendors title-case and space their headers inconsistently, and one
+        // unmatched header used to import the whole file as blank lines.
+        $normalise = fn (string $key): string => str_replace(' ', '_', strtolower(trim($key)));
+
+        $imported = 0;
+        $skipped   = 0;
+
+        DB::transaction(function () use ($reader, $pallet, $normalise, &$imported, &$skipped) {
+            $lineNumber = $pallet->lines()->max('line_number') ?? 0;
+
+            foreach ($reader->getRecords() as $raw) {
+                $row = [];
+                foreach ($raw as $key => $value) {
+                    $row[$normalise((string) $key)] = $value;
+                }
+
+                $description = trim((string) ($row['description'] ?? $row['item'] ?? $row['product'] ?? ''));
+
+                if ($description === '') {
+                    $skipped++;
+                    continue;
+                }
+
+                PalletLine::create([
+                    'pallet_id'         => $pallet->id,
+                    'line_number'       => ++$lineNumber,
+                    'description'       => $description,
+                    'case_count'        => max(1, (int) ($row['case_count'] ?? $row['cases'] ?? 1)),
+                    'quantity_per_case' => max(1, (float) ($row['quantity_per_case'] ?? $row['quantity'] ?? $row['units'] ?? 1)),
+                    'unit_cost'         => (float) str_replace(['$', ','], '', (string) ($row['unit_cost'] ?? $row['cost'] ?? 0)),
+                ]);
+
+                $imported++;
+            }
+        });
+
+        return ['imported' => $imported, 'skipped' => $skipped];
+    }
+
+    /**
      * Create an InventoryItem on the fly and map it to a pallet line.
      */
     public function createAndMapItem(PalletLine $line, array $itemData, InventoryLocation $location): Product

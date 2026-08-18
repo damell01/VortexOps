@@ -400,8 +400,11 @@
                     </div>
                 @endif
 
-                <a href="{{ PalletResource::getUrl('edit', ['record' => $this->record]) }}" class="inline-flex items-center gap-2 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">
-                    <x-heroicon-o-pencil class="h-3 w-3" /> Add files
+                {{-- Fully qualified: Blade compiles to a file with no imports,
+                     so the short name resolved to the global namespace and
+                     fatalled the whole page. --}}
+                <a href="{{ \App\Filament\Resources\PalletResource::getUrl('view', ['record' => $this->record]) }}" class="inline-flex items-center gap-2 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                    <x-heroicon-o-camera class="h-3 w-3" /> Add photos or documents
                 </a>
             </div>
 

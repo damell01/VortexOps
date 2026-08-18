@@ -355,11 +355,14 @@ class PalletResource extends Resource
                     ->options(fn () => Vendor::activeOptions()),
             ])
             ->actions([
+                // Staging, mapping, scanning and receiving are all worked on the
+                // pallet's own page now, so the row offers the one way in
+                // rather than three doors onto the same manifest.
                 Action::make('stage')
                     ->label('Stage Manifest')
                     ->icon('heroicon-o-clipboard-document-list')
                     ->color('info')
-                    ->url(fn (Pallet $record) => static::getUrl('stage', ['record' => $record]))
+                    ->url(fn (Pallet $record) => static::getUrl('view', ['record' => $record]))
                     ->visible(fn (Pallet $record) => $record->status === 'staged'),
                 Action::make('receive')
                     ->label('Start Receiving')
@@ -367,12 +370,6 @@ class PalletResource extends Resource
                     ->color('success')
                     ->url(fn (Pallet $record) => static::getUrl('receive', ['record' => $record]))
                     ->visible(fn (Pallet $record) => in_array($record->status, ['staged', 'receiving'])),
-                Action::make('import_manifest')
-                    ->label('Import CSV')
-                    ->icon('heroicon-o-document-arrow-up')
-                    ->color('info')
-                    ->url(fn (Pallet $record) => static::getUrl('import-manifest', ['record' => $record]))
-                    ->visible(fn (Pallet $record) => in_array($record->status, ['staged'])),
                 ViewAction::make()->iconButton(),
                 EditAction::make()->iconButton(),
                 DeleteAction::make()

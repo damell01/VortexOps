@@ -1,6 +1,10 @@
 @php
     $totals = $review['totals'];
-    $short  = $totals['short_units'] > 0;
+    // Staging is the same reconciliation read forward rather than back:
+    // nothing has arrived, so "short" is simply everything, and saying so
+    // would be noise rather than a warning.
+    $staging = $staging ?? false;
+    $short   = ! $staging && $totals['short_units'] > 0;
 @endphp
 
 <div class="vx-review-pallet space-y-4">
@@ -10,7 +14,7 @@
     @if ($review['blockers'])
         <div class="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 px-4 py-3">
             <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                Not ready to receive
+                {{ $staging ? 'Not ready yet' : 'Not ready to receive' }}
             </p>
             <ul class="mt-1.5 space-y-1 text-xs text-amber-800 dark:text-amber-200 list-disc list-inside">
                 @foreach ($review['blockers'] as $blocker)
@@ -30,19 +34,29 @@
             <p class="text-xs text-gray-400">units</p>
         </div>
         <div class="rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2">
-            <p class="text-xs text-gray-400 uppercase tracking-wide">Confirmed</p>
+            <p class="text-xs text-gray-400 uppercase tracking-wide">{{ $staging ? 'Lines' : 'Confirmed' }}</p>
             <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                {{ number_format($totals['confirmed_units']) }}
+                {{ $staging ? count($review['lines']) : number_format($totals['confirmed_units']) }}
             </p>
-            <p class="text-xs text-gray-400">units scanned in</p>
+            <p class="text-xs text-gray-400">{{ $staging ? 'items staged' : 'units scanned in' }}</p>
         </div>
-        <div class="rounded-lg border {{ $short ? 'border-amber-300 dark:border-amber-700' : 'border-gray-200 dark:border-gray-700' }} px-3 py-2">
-            <p class="text-xs text-gray-400 uppercase tracking-wide">Short</p>
-            <p class="text-lg font-semibold {{ $short ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-100' }}">
-                {{ number_format($totals['short_units']) }}
-            </p>
-            <p class="text-xs text-gray-400">not accounted for</p>
-        </div>
+        @if ($staging)
+            <div class="rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2">
+                <p class="text-xs text-gray-400 uppercase tracking-wide">Landed cost</p>
+                <p class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                    ${{ number_format($totals['landed'], 2) }}
+                </p>
+                <p class="text-xs text-gray-400">goods, shipping and fees</p>
+            </div>
+        @else
+            <div class="rounded-lg border {{ $short ? 'border-amber-300 dark:border-amber-700' : 'border-gray-200 dark:border-gray-700' }} px-3 py-2">
+                <p class="text-xs text-gray-400 uppercase tracking-wide">Short</p>
+                <p class="text-lg font-semibold {{ $short ? 'text-amber-600 dark:text-amber-400' : 'text-gray-900 dark:text-gray-100' }}">
+                    {{ number_format($totals['short_units']) }}
+                </p>
+                <p class="text-xs text-gray-400">not accounted for</p>
+            </div>
+        @endif
     </div>
 
     {{-- Per line, and what each item ends up valued at. The projected average
@@ -53,9 +67,11 @@
             <thead>
                 <tr class="text-left text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100 dark:border-gray-800">
                     <th class="px-3 py-2 font-medium">Item</th>
-                    <th class="px-3 py-2 font-medium text-right">Cases</th>
+                    <th class="px-3 py-2 font-medium text-right">{{ $staging ? 'Expected' : 'Cases' }}</th>
                     <th class="px-3 py-2 font-medium text-right">Landed / unit</th>
-                    <th class="px-3 py-2 font-medium text-right">New avg cost</th>
+                    @unless ($staging)
+                        <th class="px-3 py-2 font-medium text-right">New avg cost</th>
+                    @endunless
                 </tr>
             </thead>
             <tbody>
@@ -68,6 +84,10 @@
                             </p>
                         </td>
                         <td class="px-3 py-2 text-right whitespace-nowrap">
+                            @if ($staging)
+                                <span class="font-medium text-gray-900 dark:text-gray-100">{{ $line['expected_cases'] }}</span>
+                                <span class="text-gray-400">cases</span>
+                            @else
                             <span class="font-medium text-gray-900 dark:text-gray-100">{{ $line['confirmed_cases'] }}</span>
                             <span class="text-gray-400">/ {{ $line['expected_cases'] }}</span>
                             @if ($line['variance_cases'] < 0)
@@ -79,6 +99,7 @@
                                     {{ $line['variance_cases'] }} over
                                 </span>
                             @endif
+                            @endif
                         </td>
                         <td class="px-3 py-2 text-right whitespace-nowrap text-gray-900 dark:text-gray-100">
                             ${{ number_format($line['landed_unit_cost'], 2) }}
@@ -88,6 +109,7 @@
                                 </span>
                             @endif
                         </td>
+                        @unless ($staging)
                         <td class="px-3 py-2 text-right whitespace-nowrap">
                             @if ($line['projected_average_cost'] !== null)
                                 <span class="font-medium text-gray-900 dark:text-gray-100">
@@ -97,6 +119,7 @@
                                 <span class="text-gray-400">—</span>
                             @endif
                         </td>
+                        @endunless
                     </tr>
                 @endforeach
             </tbody>

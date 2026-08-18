@@ -19,6 +19,7 @@ use App\Models\StreamerLogEntry;
 use App\Models\Show;
 use App\Models\InventoryItem;
 use App\Models\Setting;
+use App\Support\ChannelContext;
 use Filament\Pages\Dashboard;
 
 class DashboardImproved extends Dashboard
@@ -26,6 +27,23 @@ class DashboardImproved extends Dashboard
     public function getView(): string
     {
         return 'filament.pages.dashboard-improved';
+    }
+
+    /**
+     * Which channel's numbers these are.
+     *
+     * The dashboard scopes to the active channel but every figure on it is
+     * unlabelled, so with two channels the same page shows two different sets
+     * of numbers and looks identical. Naming the channel here is the only
+     * thing on the page that says which one is being read.
+     */
+    public function getSubheading(): ?string
+    {
+        $channel = ChannelContext::current();
+
+        $name = $channel?->display_title ?: $channel?->name ?: 'Vortex Breaks';
+
+        return "Overview of {$name} operations";
     }
 
     public function getWidgets(): array

@@ -105,12 +105,13 @@ class RoleResource extends Resource
      * the owner switches that do nothing, which is the same lie as a setting
      * that is ignored.
      */
-    public const NOT_ROLE_CONTROLLED = [
-        \App\Filament\Pages\DashboardImproved::class,
-        \App\Filament\Pages\EditProfile::class,
-        \App\Filament\Pages\TwoFactorAuth::class,
-        \App\Filament\Pages\TwoFactorVerify::class,
-    ];
+    /**
+     * Defined on NavVisibility, which is what enforces it. Kept as one list
+     * because the two have to agree exactly: a page this screen omits but the
+     * gate does not exempt is denied to every role that saves, which is how
+     * the dashboard — where login lands — started returning 403.
+     */
+    public const NOT_ROLE_CONTROLLED = NavVisibility::ALWAYS_AVAILABLE;
 
     /**
      * Every class a role's visibility can govern.

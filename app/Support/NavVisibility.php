@@ -6,6 +6,23 @@ use App\Models\Setting;
 
 class NavVisibility
 {
+    /**
+     * Pages every signed-in user keeps, whatever their roles.
+     *
+     * Panel plumbing rather than product pages: the dashboard is where login
+     * lands, and the other three are how somebody manages their own profile
+     * and two-factor settings. The Roles screen does not offer them, so they
+     * never appear in a saved allow-list — and an allow-list denies whatever
+     * it does not name. Without this they were denied the moment a role was
+     * saved, which 403'd the page every login redirects to.
+     */
+    public const ALWAYS_AVAILABLE = [
+        \App\Filament\Pages\DashboardImproved::class,
+        \App\Filament\Pages\EditProfile::class,
+        \App\Filament\Pages\TwoFactorAuth::class,
+        \App\Filament\Pages\TwoFactorVerify::class,
+    ];
+
     // ── Per-role nav visibility ───────────────────────────────────────────────
     private static ?array $roleMemo = null;
 
@@ -89,6 +106,12 @@ class NavVisibility
     public static function isHiddenForUser(string $class, $user): bool
     {
         if (! $user || (method_exists($user, 'isOwner') && $user->isOwner())) {
+            return false;
+        }
+
+        // Checked before roles: these are not role-controlled, so no allow-list
+        // will ever name them.
+        if (in_array($class, self::ALWAYS_AVAILABLE, true)) {
             return false;
         }
 

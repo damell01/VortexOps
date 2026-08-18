@@ -228,6 +228,8 @@ class PalletResource extends Resource
                     FileUpload::make('new_attachments')
                         ->label('Upload Files')
                         ->multiple()
+                        ->disk(\App\Services\PalletAttachmentService::DISK)
+
                         ->directory('pallets')
                         ->visibility('public')
                         ->maxSize(5120) // 5MB per file

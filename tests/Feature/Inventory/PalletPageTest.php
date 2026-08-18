@@ -152,4 +152,43 @@ class PalletPageTest extends TestCase
         $this->assertSame('crushed corner', $this->pallet->attachments()->first()->description);
         $this->assertSame(1, (int) $this->pallet->attachments_count);
     }
+
+    public function test_attachments_can_also_be_added_from_the_receiving_page(): void
+    {
+        // Where the photographs are actually taken. This page listed
+        // attachments but could not add any — it said to go and edit the
+        // pallet, which is a page change, a form and a walk back, done
+        // one-handed while holding a box.
+        \Illuminate\Support\Facades\Storage::fake('public');
+
+        $path = 'pallets/damage.jpg';
+        \Illuminate\Support\Facades\Storage::disk('public')->put(
+            $path,
+            base64_decode('/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==')
+        );
+
+        Livewire::test(
+            \App\Filament\Resources\PalletResource\Pages\ReceivePallet::class,
+            ['record' => $this->pallet],
+        )->callAction('add_attachments', [
+            'files'       => [$path],
+            'description' => 'seal broken on arrival',
+        ]);
+
+        $this->pallet->refresh();
+
+        $this->assertSame(1, $this->pallet->attachments()->count());
+        $this->assertSame('seal broken on arrival', $this->pallet->attachments()->first()->description);
+    }
+
+    public function test_the_receiving_page_renders(): void
+    {
+        // It fatalled outright for a while: the view called PalletResource
+        // unqualified, and Blade compiles with no imports, so the name
+        // resolved to the global namespace.
+        Livewire::test(
+            \App\Filament\Resources\PalletResource\Pages\ReceivePallet::class,
+            ['record' => $this->pallet],
+        )->assertOk();
+    }
 }

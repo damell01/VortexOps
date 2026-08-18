@@ -16,6 +16,19 @@ use Illuminate\Support\Facades\Storage;
  */
 class PalletAttachmentService
 {
+    /**
+     * The disk pallet files live on — write and read alike.
+     *
+     * Named here and referenced by every upload field rather than left to
+     * each one, because the app's default disk is `local` and a FileUpload
+     * that does not say otherwise uses it. That put the file in
+     * storage/app/private while this looked on the public disk, so exists()
+     * was false and every photo was dropped with "Nothing was uploaded".
+     * getFileUrl() serves from the public symlink too, so anything recorded
+     * against the local disk would 404 even if it had been saved.
+     */
+    public const DISK = 'public';
+
     /** Mime types we recognise, and what kind of attachment each becomes. */
     private const TYPES = [
         'image/jpeg'      => PalletAttachment::TYPE_PHOTO,
@@ -38,7 +51,7 @@ class PalletAttachmentService
         // Through the Storage facade rather than storage_path(): the previous
         // version built an absolute local path by hand, which ties this to the
         // local disk and cannot see a file on any other one.
-        $disk = Storage::disk('public');
+        $disk = Storage::disk(self::DISK);
 
         foreach ($paths as $path) {
             if (! $path) {

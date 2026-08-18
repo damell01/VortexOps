@@ -375,7 +375,7 @@
                         </span>
                     @endif
                 </div>
-                <p class="text-xs text-gray-400">Photos, documents, and receipt images. You can edit the pallet to upload files.</p>
+                <p class="text-xs text-gray-400">Photos, documents, and receipt images — add them here as you unload.</p>
 
                 @if ($this->record->attachments()->count() > 0)
                     <div class="space-y-1.5">
@@ -400,12 +400,45 @@
                     </div>
                 @endif
 
-                {{-- Fully qualified: Blade compiles to a file with no imports,
-                     so the short name resolved to the global namespace and
-                     fatalled the whole page. --}}
-                <a href="{{ \App\Filament\Resources\PalletResource::getUrl('view', ['record' => $this->record]) }}" class="inline-flex items-center gap-2 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">
-                    <x-heroicon-o-camera class="h-3 w-3" /> Add photos or documents
-                </a>
+                {{-- Opens the header action on this page rather than linking
+                     away: the upload belongs where the pallet is being worked.
+                     (This was a link to PalletResource::getUrl written
+                     unqualified, and Blade compiles with no imports, so the
+                     name resolved to the global namespace and fatalled the
+                     whole page.) --}}
+                <div class="flex flex-wrap gap-2 pt-1">
+                    <button
+                        type="button"
+                        wire:click="mountAction('add_attachments')"
+                        class="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700 active:scale-95 transition-transform"
+                    >
+                        <x-heroicon-o-arrow-up-tray class="h-4 w-4" /> Upload
+                    </button>
+                    {{-- Opens the same modal, then trips the camera once the
+                         modal's upload field exists — otherwise the capture
+                         fires into a page with nowhere to put the photo and is
+                         silently dropped. Waits for the field rather than
+                         guessing at a delay. --}}
+                    <button
+                        type="button"
+                        x-data
+                        @click="
+                            $wire.mountAction('add_attachments');
+                            (async () => {
+                                for (let i = 0; i < 40; i++) {
+                                    if (document.querySelector('.fi-modal input[type=&quot;file&quot;]')) {
+                                        window.dispatchEvent(new Event('open-photo-capture'));
+                                        return;
+                                    }
+                                    await new Promise(r => setTimeout(r, 100));
+                                }
+                            })();
+                        "
+                        class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-95 transition-transform"
+                    >
+                        <x-heroicon-o-camera class="h-4 w-4" /> Take Photo
+                    </button>
+                </div>
             </div>
 
             {{-- Receiver Info --}}

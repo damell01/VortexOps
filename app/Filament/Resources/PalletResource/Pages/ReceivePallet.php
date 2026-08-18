@@ -187,6 +187,52 @@ class ReceivePallet extends Page
                 ->color('gray')
                 ->url(fn () => PalletResource::getUrl('view', ['record' => $this->record])),
 
+            // Damage, seal numbers, the paperwork taped to the shrink wrap —
+            // all photographed here, at the pallet, mid-receipt. This page
+            // could list attachments but not add any: it told you to go and
+            // edit the pallet instead, which is a page change, a form, a save
+            // and a walk back, one-handed, holding a box.
+            Action::make('add_attachments')
+                ->label('Add Photos / Documents')
+                ->icon('heroicon-o-camera')
+                ->color('gray')
+                ->modalHeading('Add to this pallet')
+                ->modalSubmitActionLabel('Upload')
+                ->schema([
+                    \Filament\Forms\Components\FileUpload::make('files')
+                        ->label('Photos or documents')
+                        ->multiple()
+                        ->disk(\App\Services\PalletAttachmentService::DISK)
+
+                        ->directory('pallets')
+                        ->visibility('public')
+                        ->maxSize(5120)
+                        ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'])
+                        ->helperText('Up to 5MB each. Use Take Photo below to capture one now.'),
+                    \Filament\Schemas\Components\View::make('filament.components.photo-capture-button'),
+                    \Filament\Forms\Components\TextInput::make('description')
+                        ->label('Note (optional)')
+                        ->maxLength(255)
+                        ->placeholder('e.g. crushed corner on case 3'),
+                ])
+                ->action(function (array $data) {
+                    $count = app(\App\Services\PalletAttachmentService::class)
+                        ->attach($this->record, $data['files'] ?? [], $data['description'] ?? null);
+
+                    if ($count === 0) {
+                        Notification::make()->title('Nothing was uploaded')->warning()->send();
+
+                        return;
+                    }
+
+                    Notification::make()
+                        ->title($count . ' ' . \Illuminate\Support\Str::plural('file', $count) . ' added')
+                        ->success()
+                        ->send();
+
+                    $this->record->refresh();
+                }),
+
             Action::make('map_line')
                 ->label('Map Line to Item')
                 ->icon('heroicon-o-link')

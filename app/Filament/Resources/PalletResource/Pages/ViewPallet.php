@@ -260,6 +260,8 @@ class ViewPallet extends ViewRecord
                     \Filament\Forms\Components\FileUpload::make('files')
                         ->label('Photos or documents')
                         ->multiple()
+                        ->disk(\App\Services\PalletAttachmentService::DISK)
+
                         ->directory('pallets')
                         ->visibility('public')
                         ->maxSize(5120)

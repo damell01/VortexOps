@@ -333,9 +333,47 @@ class RoleResource extends Resource
         }
     }
 
+    /**
+     * The module a page belongs to, when that module is currently switched off.
+     *
+     * A disabled module closes its pages for everyone, whatever this screen
+     * says — and the "code rule" tag never caught these, because the rule
+     * lives in the HasModuleAccess trait rather than the page's own file. So
+     * the row read as fully granted while the page 403'd, which is precisely
+     * the confusion of being refused a page you were told you could see.
+     */
+    public static function disabledModuleFor(string $class): ?string
+    {
+        try {
+            if (! in_array(\App\Filament\Concerns\HasModuleAccess::class, class_uses_recursive($class), true)) {
+                return null;
+            }
+
+            $slug = (new \ReflectionClass($class))->getStaticPropertyValue('moduleSlug', null);
+
+            if (! is_string($slug) || $slug === '') {
+                return null;
+            }
+
+            return \App\Support\AdminModules::isEnabled($slug) ? null : $slug;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     protected static function pageAccessLabel(string $class, string $label): \Illuminate\Support\HtmlString
     {
         $tags = '';
+
+        if ($module = static::disabledModuleFor($class)) {
+            $tags .= static::tag(
+                'module off',
+                'The "' . $module . '" module is switched off, so this page is closed for every role '
+                . 'regardless of what is ticked here. Turn the module on first.',
+                'rgb(239 68 68 / .14)',
+                '#b91c1c',
+            );
+        }
 
         if (static::neverAppearsInSidebar($class)) {
             $tags .= static::tag(

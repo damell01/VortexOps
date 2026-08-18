@@ -14,7 +14,7 @@ class EditRole extends EditRecord
     protected function mutateFormDataBeforeFill(array $data): array
     {
         $data['page_perms'] = RoleResource::pagePermsFormState(
-            NavVisibility::hiddenForRole($this->record->name),
+            $this->record->name,
             NavVisibility::readonlyForRole($this->record->name),
         );
 
@@ -33,8 +33,11 @@ class EditRole extends EditRecord
 
     protected function afterSave(): void
     {
-        [$hidden, $readonly] = RoleResource::pagePermsToLists($this->data['page_perms'] ?? []);
+        [$hidden, $readonly, $visible] = RoleResource::pagePermsToLists($this->data['page_perms'] ?? []);
 
+        // The visible list is what governs; the hidden list is still written so
+        // anything reading it directly keeps working.
+        NavVisibility::setVisibleForRole($this->record->name, $visible);
         NavVisibility::setHiddenForRole($this->record->name, $hidden);
         NavVisibility::setReadonlyForRole($this->record->name, $readonly);
     }

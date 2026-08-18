@@ -24,8 +24,11 @@ class CreateRole extends CreateRecord
 
     protected function afterCreate(): void
     {
-        [$hidden, $readonly] = RoleResource::pagePermsToLists($this->data['page_perms'] ?? []);
+        [$hidden, $readonly, $visible] = RoleResource::pagePermsToLists($this->data['page_perms'] ?? []);
 
+        // The visible list is what governs; the hidden list is still written so
+        // anything reading it directly keeps working.
+        NavVisibility::setVisibleForRole($this->record->name, $visible);
         NavVisibility::setHiddenForRole($this->record->name, $hidden);
         NavVisibility::setReadonlyForRole($this->record->name, $readonly);
     }

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\RoleResource\Pages;
+use App\Support\NavVisibility;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\CheckboxList;
@@ -111,6 +112,21 @@ class RoleResource extends Resource
         \App\Filament\Pages\TwoFactorVerify::class,
     ];
 
+    /**
+     * Every class a role's visibility can govern.
+     *
+     * Shared with the setup command and the allow-list migration so all three
+     * agree on what "everything" means — a visible list built from a different
+     * set than the one the Roles screen shows would grant or deny pages nobody
+     * chose.
+     *
+     * @return array<int, class-string>
+     */
+    public static function roleControlledPages(): array
+    {
+        return array_keys(static::pageOptions());
+    }
+
     public static function pageOptions(): array
     {
         $panel = Filament::getCurrentPanel() ?? Filament::getDefaultPanel();
@@ -193,14 +209,29 @@ class RoleResource extends Resource
      * @param array<int,string> $readonly
      * @return array<string, array{visible: bool, editable: bool}>
      */
-    public static function pagePermsFormState(array $hidden, array $readonly): array
+    /**
+     * Tick state for the Page Access grid.
+     *
+     * Reads the role's visible list where it has one, rather than inferring
+     * "visible" from "not hidden". Inferring it meant a page added since the
+     * role was last saved appeared already ticked — while the role could not
+     * actually see it — so the screen disagreed with itself.
+     */
+    public static function pagePermsFormState(string $role, array $readonly): array
     {
+        $configured = NavVisibility::hasExplicitVisibility($role);
+        $visible    = NavVisibility::visibleForRole($role);
+        $hidden     = NavVisibility::hiddenForRole($role);
+
         $state = [];
 
         foreach (static::pageOptions() as $class => $label) {
             $key = static::pageKey($class);
+
             $state[$key] = [
-                'visible'  => ! in_array($class, $hidden, true),
+                'visible'  => $configured
+                    ? in_array($class, $visible, true)
+                    : ! in_array($class, $hidden, true),
                 'editable' => ! in_array($class, $readonly, true),
             ];
         }
@@ -215,10 +246,15 @@ class RoleResource extends Resource
      * @param array<string, array{visible?: bool, editable?: bool}> $pagePerms
      * @return array{0: array<int,string>, 1: array<int,string>} [$hidden, $readonly]
      */
+    /**
+     * @return array{0: array<int,string>, 1: array<int,string>, 2: array<int,string>}
+     *         [hidden, readonly, visible]
+     */
     public static function pagePermsToLists(array $pagePerms): array
     {
         $hidden   = [];
         $readonly = [];
+        $visible  = [];
 
         foreach (static::pageOptions() as $class => $label) {
             $key   = static::pageKey($class);
@@ -226,13 +262,20 @@ class RoleResource extends Resource
 
             if (empty($entry['visible'] ?? true)) {
                 $hidden[] = $class;
+            } else {
+                // The list that actually governs. Recorded explicitly so a page
+                // added later is not granted to this role by simply not being
+                // in the hidden list — which is how unticked pages kept showing
+                // up after a release.
+                $visible[] = $class;
             }
+
             if (empty($entry['editable'] ?? true)) {
                 $readonly[] = $class;
             }
         }
 
-        return [$hidden, $readonly];
+        return [$hidden, $readonly, $visible];
     }
 
     /** @return array<int, Section> */

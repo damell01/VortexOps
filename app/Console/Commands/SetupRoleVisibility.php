@@ -51,8 +51,7 @@ class SetupRoleVisibility extends Command
             'App\Filament\Pages\HorizonDashboard',
         ];
 
-        NavVisibility::setHiddenForRole($streamerRoleName, $streamerHidden);
-        $this->line('✓ ' . $streamerRoleName . ' role: ' . count($streamerHidden) . ' pages hidden');
+        $this->apply($streamerRoleName, $streamerHidden);
 
         // Fulfillment role — sees fulfillment center and shipments, limited inventory
         $fulfillmentHidden = [
@@ -84,20 +83,16 @@ class SetupRoleVisibility extends Command
             'App\Filament\Pages\HorizonDashboard',
         ];
 
-        NavVisibility::setHiddenForRole($fulfillmentRoleName, $fulfillmentHidden);
-        $this->line('✓ ' . $fulfillmentRoleName . ' role: ' . count($fulfillmentHidden) . ' pages hidden');
+        $this->apply($fulfillmentRoleName, $fulfillmentHidden);
 
         // Admin role — full access to all pages
-        NavVisibility::setHiddenForRole('admin', []);
-        $this->line('✓ admin role: full access (sees all pages)');
+        $this->apply('admin', []);
 
         // Super admin role — full access to all pages
-        NavVisibility::setHiddenForRole('super_admin', []);
-        $this->line('✓ super_admin role: full access (sees all pages)');
+        $this->apply('super_admin', []);
 
         // Fulfillment admin role — like admin, sees everything (no hidden pages)
-        NavVisibility::setHiddenForRole($fulfillmentAdminRoleName, []);
-        $this->line('✓ ' . $fulfillmentAdminRoleName . ' role: full access (like admin)');
+        $this->apply($fulfillmentAdminRoleName, []);
 
         // Clear memo so changes take effect immediately
         NavVisibility::flushMemo();
@@ -106,5 +101,29 @@ class SetupRoleVisibility extends Command
         $this->line('Visit Settings → Roles & Permissions to adjust further.');
 
         return 0;
+    }
+
+    /**
+     * Store a role's access as the allow-list that governs it, derived once
+     * from the pages it should not see.
+     *
+     * Writing only the hide-list would leave the role unconfigured as far as
+     * the allow-list is concerned, and every page added later would be granted
+     * to it — the drift this whole change exists to stop. The hide-list is
+     * still written for anything reading it directly.
+     *
+     * @param array<int, string> $hidden
+     */
+    private function apply(string $role, array $hidden): void
+    {
+        $visible = array_values(array_diff(
+            \App\Filament\Resources\RoleResource::roleControlledPages(),
+            $hidden,
+        ));
+
+        NavVisibility::setHiddenForRole($role, $hidden);
+        NavVisibility::setVisibleForRole($role, $visible);
+
+        $this->line(sprintf('✓ %s role: %d pages visible, %d hidden', $role, count($visible), count($hidden)));
     }
 }

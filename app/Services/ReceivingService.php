@@ -98,6 +98,69 @@ class ReceivingService
     }
 
     /**
+     * Scan an item code and confirm one case of it off a staged pallet.
+     *
+     * The difference from receiveLineByItemCode() is the unit of work: that one
+     * takes the whole line at once, which is right when you already know the
+     * shipment is complete. This takes a single case, so scanning is a running
+     * count against what was expected — three of five cases confirmed, two
+     * still outstanding — which is what makes a part-delivered pallet
+     * describable rather than all-or-nothing.
+     *
+     * @return array{line: PalletLine, item: string, received: int, expected: int, complete: bool}
+     *
+     * @throws RuntimeException if nothing on this pallet matches, the line is
+     *                          unmapped, or every case is already in.
+     */
+    public function receiveOneCaseByItemCode(Pallet $pallet, string $code): array
+    {
+        $pallet->load(['lines.inventoryItem', 'lines.cases']);
+
+        // findByScan() also searches product_identities, so a SKU registered
+        // under several barcodes still resolves to its line.
+        $scanned = Product::findByScan(trim($code));
+
+        $line = $scanned
+            ? $pallet->lines->first(fn (PalletLine $l) => $l->inventory_item_id === $scanned->id)
+            : null;
+
+        if (! $line) {
+            throw new RuntimeException("Nothing on this pallet matches \"{$code}\".");
+        }
+
+        if (! $line->isFullyMapped()) {
+            throw new RuntimeException("\"{$line->description}\" is not mapped to an item and location yet.");
+        }
+
+        if ($line->cases()->count() === 0) {
+            $this->generateExpectedCases($line);
+        }
+
+        $case = $line->cases()->where('status', 'expected')->first();
+
+        if (! $case) {
+            throw new RuntimeException("All {$line->case_count} cases of \"{$line->inventoryItem?->name}\" are already received.");
+        }
+
+        $this->receiveCase($case);
+
+        $received = $line->fresh()->receivedCases();
+        $expected = (int) $line->case_count;
+
+        if ($received >= $expected) {
+            $line->update(['line_status' => 'received']);
+        }
+
+        return [
+            'line'     => $line->fresh(),
+            'item'     => $line->inventoryItem?->name ?? $line->description,
+            'received' => $received,
+            'expected' => $expected,
+            'complete' => $received >= $expected,
+        ];
+    }
+
+    /**
      * Receive a single case by barcode. Looks up the case, marks it received,
      * updates stock, and recalculates average cost.
      *

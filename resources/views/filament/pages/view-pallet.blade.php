@@ -102,6 +102,100 @@
             @endif
         </div>
 
+        {{-- ── Expected items ───────────────────────────────────────────────────
+             What this pallet is meant to contain, and how much of it has been
+             confirmed. Staging builds the list before the pallet lands; each
+             scan on arrival ticks one case off it, so a part delivery reads as
+             "three of five" rather than as either done or not started. --}}
+        @php
+            $vxLines = $this->record->lines;
+            $vxCasesExpected = $vxLines->sum(fn ($l) => (int) $l->case_count);
+            $vxCasesIn       = $vxLines->sum(fn ($l) => $l->cases->where('status', '!=', 'expected')->count());
+        @endphp
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3">
+                <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                    Expected Items ({{ $vxLines->count() }})
+                </h2>
+                @if ($vxCasesExpected > 0)
+                    <span class="text-xs {{ $vxCasesIn >= $vxCasesExpected ? 'text-green-600 dark:text-green-400 font-medium' : 'text-gray-400' }}">
+                        {{ $vxCasesIn }} of {{ $vxCasesExpected }} cases confirmed
+                    </span>
+                @endif
+            </div>
+
+            @if ($vxLines->isEmpty())
+                <div class="px-4 py-8 text-center">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">Nothing staged on this pallet yet.</p>
+                    <p class="text-xs text-gray-400 mt-1">
+                        Use <span class="font-medium">Add Expected Item</span> to build the list, or upload a manifest.
+                    </p>
+                </div>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm vx-cardify">
+                        <thead>
+                            <tr class="text-left text-xs uppercase tracking-wide text-gray-400 border-b border-gray-100 dark:border-gray-800">
+                                <th class="px-4 py-2 font-medium">Item</th>
+                                <th class="px-4 py-2 font-medium">Location</th>
+                                <th class="px-4 py-2 font-medium">Progress</th>
+                                <th class="px-4 py-2 font-medium">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($vxLines as $vxLine)
+                                @php
+                                    $vxIn       = $vxLine->cases->where('status', '!=', 'expected')->count();
+                                    $vxTotal    = (int) $vxLine->case_count;
+                                    $vxMapped   = $vxLine->isFullyMapped();
+                                    $vxComplete = $vxTotal > 0 && $vxIn >= $vxTotal;
+                                @endphp
+                                <tr class="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
+                                    <td class="px-4 py-2.5">
+                                        <p class="font-medium text-gray-900 dark:text-gray-100">
+                                            {{ $vxLine->inventoryItem?->name ?? $vxLine->description }}
+                                        </p>
+                                        <p class="text-xs text-gray-400">
+                                            {{ $vxLine->inventoryItem?->sku ?: 'No SKU' }}
+                                            · {{ number_format($vxLine->quantity_per_case) }}/case
+                                            · ${{ number_format((float) $vxLine->unit_cost, 2) }} each
+                                        </p>
+                                    </td>
+                                    <td class="px-4 py-2.5 text-gray-600 dark:text-gray-300">
+                                        {{ $vxLine->location?->name ?? '—' }}
+                                    </td>
+                                    <td class="px-4 py-2.5">
+                                        <span class="text-gray-900 dark:text-gray-100 font-medium">{{ $vxIn }}</span>
+                                        <span class="text-gray-400">/ {{ $vxTotal }} cases</span>
+                                    </td>
+                                    <td class="px-4 py-2.5">
+                                        @if (! $vxMapped)
+                                            {{-- Unmapped cannot be scanned in: there is nowhere to put it. --}}
+                                            <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">
+                                                Needs mapping
+                                            </span>
+                                        @elseif ($vxComplete)
+                                            <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
+                                                Complete
+                                            </span>
+                                        @elseif ($vxIn > 0)
+                                            <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                                                Partial
+                                            </span>
+                                        @else
+                                            <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                                                Awaiting
+                                            </span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+
         {{-- ── Landed cost ──────────────────────────────────────────────────────
              What the stock on this pallet actually costs. Goods are what the
              lines add up to; shipping and fees are spread across the units by

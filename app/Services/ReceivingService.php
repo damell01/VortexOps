@@ -98,6 +98,163 @@ class ReceivingService
     }
 
     /**
+     * What finishing this pallet would mean, without doing any of it.
+     *
+     * Receiving is the point where money and quantities become permanent — it
+     * moves stock and rewrites what every unit of that product is valued at —
+     * so it is worth being able to look at first. This answers the questions
+     * you would otherwise only find out afterwards: what actually turned up
+     * against what was expected, what is still outstanding, what cannot be
+     * received at all, and what each item will cost once the shipping and fees
+     * are spread over it.
+     *
+     * @return array{
+     *     lines: array<int, array<string, mixed>>,
+     *     blockers: array<int, string>,
+     *     totals: array<string, float|int>,
+     *     can_finish: bool
+     * }
+     */
+    public function reviewPallet(Pallet $pallet): array
+    {
+        $pallet->loadMissing(['lines.inventoryItem', 'lines.location', 'lines.cases']);
+
+        $extras = $pallet->landedCostExtras();
+
+        // The same basis receivePallet() allocates on, so the projection below
+        // matches what actually happens rather than approximating it.
+        $totalExpectedUnits = (float) $pallet->lines->sum(
+            fn (PalletLine $l) => (float) $l->quantity_per_case * (int) $l->case_count
+        );
+
+        $lines    = [];
+        $blockers = [];
+
+        $confirmedUnits = 0.0;
+        $expectedUnits  = 0.0;
+        $goods          = 0.0;
+
+        foreach ($pallet->lines as $line) {
+            $expectedCases  = (int) $line->case_count;
+            $confirmedCases = $line->cases->where('status', '!=', 'expected')->count();
+            $perCase        = (float) $line->quantity_per_case;
+
+            $lineExpectedUnits  = $perCase * $expectedCases;
+            $lineConfirmedUnits = $perCase * $confirmedCases;
+
+            $expectedUnits  += $lineExpectedUnits;
+            $confirmedUnits += $lineConfirmedUnits;
+            $goods          += $lineExpectedUnits * (float) $line->unit_cost;
+
+            if (! $line->isFullyMapped()) {
+                $blockers[] = "\"{$line->description}\" is not mapped to an item and location.";
+            }
+
+            $lines[] = [
+                'id'              => $line->getKey(),
+                'name'            => $line->inventoryItem?->name ?? $line->description,
+                'sku'             => $line->inventoryItem?->sku,
+                'location'        => $line->location?->name,
+                'expected_cases'  => $expectedCases,
+                'confirmed_cases' => $confirmedCases,
+                'variance_cases'  => $confirmedCases - $expectedCases,
+                'units'           => $lineConfirmedUnits,
+                'unit_cost'       => (float) $line->unit_cost,
+                'mapped'          => $line->isFullyMapped(),
+                // What this line's units will actually be valued at: the
+                // invoice price plus its share of shipping and fees.
+                'landed_unit_cost' => (float) $line->unit_cost + ($totalExpectedUnits > 0
+                    ? $extras / $totalExpectedUnits
+                    : 0),
+                'projected_average_cost' => $this->projectAverageCost(
+                    $line->inventoryItem,
+                    $lineConfirmedUnits,
+                    (float) $line->unit_cost + ($totalExpectedUnits > 0 ? $extras / $totalExpectedUnits : 0),
+                ),
+            ];
+        }
+
+        if ($pallet->lines->isEmpty()) {
+            $blockers[] = 'Nothing has been staged on this pallet yet.';
+        }
+
+        return [
+            'lines'    => $lines,
+            'blockers' => $blockers,
+            'totals'   => [
+                'expected_units'  => $expectedUnits,
+                'confirmed_units' => $confirmedUnits,
+                'short_units'     => max(0, $expectedUnits - $confirmedUnits),
+                'goods'           => round($goods, 2),
+                'extras'          => round($extras, 2),
+                'landed'          => round($goods + $extras, 2),
+            ],
+            'can_finish' => $blockers === [],
+        ];
+    }
+
+    /**
+     * Close a pallet with only what was actually scanned in.
+     *
+     * The counterpart to receivePallet(), which takes in every expected case
+     * whether or not it turned up. When a delivery is short, that would credit
+     * stock that does not exist — so this closes the pallet and leaves the
+     * outstanding cases expected, which is the honest record of a part
+     * delivery.
+     *
+     * @return array{received_cases: int, outstanding_cases: int}
+     */
+    public function closePalletShort(Pallet $pallet): array
+    {
+        $pallet->loadMissing('lines.cases');
+
+        $received    = 0;
+        $outstanding = 0;
+
+        foreach ($pallet->lines as $line) {
+            $in  = $line->cases->where('status', '!=', 'expected')->count();
+            $out = $line->cases->where('status', 'expected')->count();
+
+            $received    += $in;
+            $outstanding += $out;
+
+            // A line that fully arrived is done; one that did not stays
+            // pending, so what is missing is still visible afterwards.
+            $line->update(['line_status' => $out === 0 && $in > 0 ? 'received' : 'pending']);
+        }
+
+        $pallet->update(['status' => 'received']);
+
+        return ['received_cases' => $received, 'outstanding_cases' => $outstanding];
+    }
+
+    /**
+     * The weighted average an item would carry after taking this much in.
+     *
+     * Mirrors recalculateAverageCost() rather than calling it, because the
+     * whole point here is to show the number without writing it.
+     */
+    private function projectAverageCost(?Product $item, float $incomingQty, float $incomingUnitCost): ?float
+    {
+        if (! $item || $incomingQty <= 0 || $incomingUnitCost <= 0) {
+            return null;
+        }
+
+        $existingQty = (float) $item->total_units_received;
+        $existingAvg = (float) $item->average_cost;
+        $totalQty    = $existingQty + $incomingQty;
+
+        if ($totalQty <= 0) {
+            return null;
+        }
+
+        return round(
+            (($existingQty * $existingAvg) + ($incomingQty * $incomingUnitCost)) / $totalQty,
+            4,
+        );
+    }
+
+    /**
      * Scan an item code and confirm one case of it off a staged pallet.
      *
      * The difference from receiveLineByItemCode() is the unit of work: that one

@@ -80,6 +80,72 @@ class ViewPallet extends ViewRecord
                     $this->record->refresh();
                 })
                 ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'shipped', 'receiving', 'staged'])),
+            // Receiving is where quantities and money become permanent, so it
+            // gets a look first: what turned up against what was expected, what
+            // is short, and what each item will be valued at afterwards.
+            Action::make('review_and_receive')
+                ->label('Review & Receive')
+                ->icon('heroicon-o-clipboard-document-check')
+                ->color('success')
+                ->modalHeading('Review this pallet')
+                ->modalDescription('Nothing is committed until you confirm.')
+                ->modalWidth('4xl')
+                ->modalContent(fn () => view('filament.modals.pallet-review', [
+                    'review' => app(ReceivingService::class)->reviewPallet($this->getRecord()),
+                ]))
+                ->modalSubmitAction(function ($action) {
+                    $review = app(ReceivingService::class)->reviewPallet($this->getRecord());
+
+                    // An action that cannot work is removed rather than offered
+                    // and then refused.
+                    return $review['can_finish']
+                        ? $action->label('Receive all ' . number_format($review['totals']['expected_units']) . ' units')
+                        : false;
+                })
+                // Only when something is missing: with a complete delivery the
+                // two buttons would do the same thing and the choice is noise.
+                ->extraModalFooterActions(fn () => app(ReceivingService::class)
+                    ->reviewPallet($this->getRecord())['totals']['short_units'] > 0
+                        ? [
+                            Action::make('close_short')
+                                ->label('Close short')
+                                ->color('warning')
+                                ->requiresConfirmation()
+                                ->modalHeading('Close this pallet short?')
+                                ->modalDescription('Only what was scanned is kept. The rest stays outstanding and is not credited to stock.')
+                                ->action(function () {
+                                    $result = app(ReceivingService::class)->closePalletShort($this->getRecord());
+
+                                    Notification::make()
+                                        ->title("Closed with {$result['received_cases']} cases received")
+                                        ->body("{$result['outstanding_cases']} cases were never scanned and have not been credited.")
+                                        ->warning()
+                                        ->send();
+
+                                    $this->record->refresh();
+                                })
+                                ->cancelParentActions(),
+                        ]
+                        : [])
+                ->action(function () {
+                    try {
+                        // Takes in every expected case, scanned or not — the
+                        // "delivery was complete, scanning was a spot check"
+                        // path. Close short is the other one.
+                        $result = app(ReceivingService::class)->receivePallet($this->getRecord());
+
+                        Notification::make()
+                            ->title("Received {$result['cases_received']} cases across {$result['lines_processed']} lines")
+                            ->success()
+                            ->send();
+                    } catch (\RuntimeException $e) {
+                        Notification::make()->title($e->getMessage())->danger()->send();
+                    }
+
+                    $this->record->refresh();
+                })
+                ->visible(fn () => ! in_array($this->getRecord()->status, ['received', 'processed'])),
+
             // The other half: build the list before the pallet lands, by name
             // rather than by barcode, since a staged item has not arrived to be
             // scanned yet.

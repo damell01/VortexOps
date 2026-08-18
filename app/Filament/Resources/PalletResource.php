@@ -134,7 +134,14 @@ class PalletResource extends Resource
                         ->numeric()
                         ->prefix('$')
                         ->minValue(0)
-                        ->helperText('Automatically allocated to items based on quantity received'),
+                        ->helperText('Spread across the items by quantity when the pallet is received'),
+                    TextInput::make('payment_fees')
+                        ->label('Payment Fees ($)')
+                        ->numeric()
+                        ->prefix('$')
+                        ->minValue(0)
+                        ->default(0)
+                        ->helperText('Card, PayPal or wire charges — spread across the items the same way'),
                     Select::make('status')
                         ->options(Pallet::statusLabels())
                         ->default('staged')

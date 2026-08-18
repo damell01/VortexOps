@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Filament\Resources\RoleResource;
 use App\Support\NavVisibility;
 use Closure;
 use Illuminate\Http\Request;
@@ -36,48 +37,70 @@ class EnforceNavVisibility
             return $next($request);
         }
 
-        foreach ($this->classesFor($request) as $class) {
-            if (NavVisibility::isHiddenForUser($class, $user)) {
-                abort(403, 'This page is not available for your role.');
-            }
+        $class = $this->governingClass($request);
+
+        // Only pages the Roles screen can actually grant are subject to this.
+        // Checking anything else denies it: an allow-list refuses whatever it
+        // does not name, and it never names the logout route, Livewire's
+        // update endpoint, or a resource's List/Edit page — only the resource
+        // itself. Enforcing on those 403'd logout and every resource page.
+        if ($class === null || ! $this->isRoleControlled($class)) {
+            return $next($request);
+        }
+
+        if (NavVisibility::isHiddenForUser($class, $user)) {
+            abort(403, 'This page is not available for your role.');
         }
 
         return $next($request);
     }
 
     /**
-     * The classes a route is governed by: the Filament page itself, plus the
-     * resource that owns it when the page is a resource page.
+     * The one class a route's access is decided by.
      *
-     * Visibility is configured against the resource (that is what the sidebar
-     * lists), while the route resolves to one of its pages — so hiding
-     * "Inventory Items" has to also close List/Create/Edit/View beneath it.
-     *
-     * @return array<int, class-string>
+     * Visibility is configured against the resource — that is what the sidebar
+     * lists — while the route resolves to one of its pages, so a resource page
+     * defers to its parent. Hiding "Inventory Items" therefore closes
+     * List/Create/Edit/View beneath it, and granting it opens all four.
      */
-    private function classesFor(Request $request): array
+    private function governingClass(Request $request): ?string
     {
         $controller = $request->route()?->getAction('controller');
 
         if (! is_string($controller) || ! class_exists($controller)) {
-            return [];
+            return null;
         }
-
-        $classes = [$controller];
 
         if (method_exists($controller, 'getResource')) {
             try {
                 $resource = $controller::getResource();
 
                 if (is_string($resource) && $resource !== '') {
-                    $classes[] = $resource;
+                    return $resource;
                 }
             } catch (\Throwable) {
                 // A page that declares getResource() but cannot resolve one is
-                // simply governed by its own class.
+                // governed by its own class.
             }
         }
 
-        return $classes;
+        return $controller;
+    }
+
+    /**
+     * Whether this class is one the Roles screen offers as a toggle.
+     *
+     * Anything else is infrastructure — logout, profile, Livewire's endpoints —
+     * and is not the owner's to grant or withhold. Failing open here is
+     * deliberate: the alternative when the page list cannot be resolved is
+     * denying every request, which locks the application shut.
+     */
+    private function isRoleControlled(string $class): bool
+    {
+        try {
+            return in_array($class, RoleResource::roleControlledPages(), true);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 }

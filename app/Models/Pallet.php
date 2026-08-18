@@ -32,6 +32,7 @@ class Pallet extends Model
         'shipped_at',
         'total_cost',
         'shipping_cost',
+        'payment_fees',
         'notes',
         'created_by',
         'stage',
@@ -54,6 +55,7 @@ class Pallet extends Model
         'receiving_started_at'    => 'datetime',
         'total_cost'              => 'decimal:2',
         'shipping_cost'           => 'decimal:2',
+        'payment_fees'            => 'decimal:2',
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -104,6 +106,20 @@ class Pallet extends Model
     public function missingItems(): HasMany
     {
         return $this->hasMany(MissingItemReport::class);
+    }
+
+    /**
+     * Costs of acquiring this pallet that are not on any invoice line, and so
+     * have to be spread across the units received: carrier charges and payment
+     * processing fees.
+     *
+     * Defined once here rather than summed at each call site, so adding a third
+     * kind of fee later cannot end up counted in receiving but missed in the
+     * figures shown on screen.
+     */
+    public function landedCostExtras(): float
+    {
+        return (float) ($this->shipping_cost ?? 0) + (float) ($this->payment_fees ?? 0);
     }
 
     public function totalCasesCount(): int

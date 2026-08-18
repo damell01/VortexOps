@@ -524,6 +524,36 @@ class InventoryItemResource extends Resource
             : 'ok';
     }
 
+    /**
+     * SKUs carried by both a case and a loose item.
+     *
+     * Vendors reuse one code for the case and for the boxes inside it, so two
+     * rows can be the same SKU and mean different quantities of stock. Knowing
+     * which is which from the row matters — picking the wrong one is a
+     * twelve-fold counting error.
+     *
+     * One query, memoised for the request, rather than a lookup per row.
+     *
+     * @return array<int, string>
+     */
+    public static function skusInBothForms(): array
+    {
+        static $memo = null;
+
+        if ($memo !== null) {
+            return $memo;
+        }
+
+        return $memo = \App\Models\Product::query()
+            ->select('sku')
+            ->whereNotNull('sku')
+            ->where('sku', '!=', '')
+            ->groupBy('sku')
+            ->havingRaw('COUNT(DISTINCT is_container) > 1')
+            ->pluck('sku')
+            ->all();
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -551,6 +581,21 @@ class InventoryItemResource extends Resource
                     ->description(fn ($record) => filled($record->description)
                         ? \Illuminate\Support\Str::limit($record->description, 70)
                         : null),
+                // Case or single. A vendor may use one SKU for both, so the
+                // row has to say which of the two it is rather than leaving it
+                // to be inferred from the name.
+                TextColumn::make('item_type')
+                    ->label('Type')
+                    ->badge()
+                    ->getStateUsing(fn ($record) => $record->is_container ? 'Case' : 'Item')
+                    ->color(fn ($record) => $record->is_container ? 'warning' : 'gray')
+                    ->icon(fn ($record) => $record->is_container ? 'heroicon-m-archive-box' : 'heroicon-m-cube')
+                    // Only says anything when the same SKU exists in both
+                    // forms, which is exactly when the distinction can bite.
+                    ->description(fn ($record) => filled($record->sku)
+                        && in_array($record->sku, static::skusInBothForms(), true)
+                            ? ($record->is_container ? 'Same SKU also sold singly' : 'Same SKU also stocked as a case')
+                            : null),
                 // Stock health, not the active flag — this is the status the
                 // tiles above the table count, so the two agree at a glance.
                 TextColumn::make('stock_status')
@@ -657,6 +702,18 @@ class InventoryItemResource extends Resource
                 ->button()
                 ->color('gray'))
             ->filters([
+                SelectFilter::make('item_type')
+                    ->label('Type')
+                    ->options(['case' => 'Cases / containers', 'single' => 'Single items'])
+                    ->query(fn (Builder $query, array $data) => match ($data['value'] ?? null) {
+                        'case'   => $query->where('is_container', true),
+                        'single' => $query->where('is_container', false),
+                        default  => $query,
+                    }),
+                Filter::make('sku_in_both_forms')
+                    ->label('SKU is both a case and a single')
+                    // The rows worth checking by hand: one code, two meanings.
+                    ->query(fn (Builder $query) => $query->whereIn('sku', static::skusInBothForms())),
                 SelectFilter::make('category')
                     ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
                         ->distinct()

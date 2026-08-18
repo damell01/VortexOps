@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Filament\Resources\RoleResource;
 use App\Models\User;
 use App\Support\NavVisibility;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -46,10 +47,11 @@ class NavVisibilityEnforcementTest extends TestCase
         $panel = filament()->getPanel('admin');
         filament()->setCurrentPanel($panel);
 
-        return array_values(array_diff(
-            [...$panel->getResources(), ...$panel->getPages()],
-            self::EXEMPT,
-        ));
+        // Only what the Roles screen actually offers. It withholds the roles
+        // manager itself so no role can lock the owner out of it, and the gate
+        // matches that — a page nobody can untick cannot be closed by
+        // unticking it.
+        return RoleResource::roleControlledPages();
     }
 
     public function test_hiding_a_page_closes_its_route_for_that_role(): void

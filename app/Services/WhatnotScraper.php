@@ -16,6 +16,14 @@ use Symfony\Component\Process\Process;
 
 class WhatnotScraper
 {
+    /**
+     * What the scraper's exit code means, and therefore what to do about it.
+     * Mirrors the EXIT map in scripts/whatnot-scraper.cjs.
+     */
+    public const EXIT_SELECTOR_MISS  = 2;
+    public const EXIT_AUTH_REQUIRED  = 3;
+    public const EXIT_RATE_LIMITED   = 4;
+
     private string $scriptPath;
     private string $nodeBin;
 
@@ -110,14 +118,7 @@ class WhatnotScraper
             }
         }
 
-        if ($process->getExitCode() === 2) {
-            // Pass all non-empty stderr lines through so diagnostics are visible in artisan/UI.
-            $diagLines = array_filter(explode("\n", $stderr), fn ($l) => trim($l) !== '');
-            $diag      = implode("\n", array_slice(array_values($diagLines), 0, 80));
-            throw new \RuntimeException(
-                "Whatnot scraper: page selectors didn't match.\n" . $diag
-            );
-        }
+        $this->throwForExitCode((int) $process->getExitCode(), $stderr);
 
         if (! $process->isSuccessful()) {
             $message = $stderr ?: "Scraper exited with code {$process->getExitCode()}";
@@ -159,12 +160,7 @@ class WhatnotScraper
             Log::channel('stack')->warning('WhatnotScraper seller-shows stderr', ['output' => $stderr]);
         }
 
-        if ($process->getExitCode() === 2) {
-            throw new \RuntimeException(
-                "Could not find show links on /seller/shows. " .
-                "Run with WHATNOT_DEBUG=1 to capture screenshots and update the selector in scripts/whatnot-scraper.cjs."
-            );
-        }
+        $this->throwForExitCode((int) $process->getExitCode(), $stderr);
 
         if (! $process->isSuccessful()) {
             throw new \RuntimeException("Seller-shows scraper failed: " . ($stderr ?: "exit code {$process->getExitCode()}"));
@@ -244,12 +240,7 @@ class WhatnotScraper
             Log::channel('stack')->warning('WhatnotScraper show-orders stderr', ['output' => $stderr]);
         }
 
-        if ($process->getExitCode() === 2) {
-            throw new \RuntimeException(
-                "Whatnot scraper: order row selectors didn't match the show page. " .
-                "Set WHATNOT_DEBUG=1 and re-run, then update the order SELECTORS in scripts/whatnot-scraper.cjs."
-            );
-        }
+        $this->throwForExitCode((int) $process->getExitCode(), $stderr);
 
         if (! $process->isSuccessful()) {
             $message = $stderr ?: "Scraper exited with code {$process->getExitCode()}";
@@ -1595,6 +1586,51 @@ class WhatnotScraper
      * Build the base env array for the scraper process.
      * Credentials are included when available; cookie-only modes don't need them.
      */
+    /**
+     * Stop with the right explanation when the scraper reports a blocked page.
+     *
+     * Exit 3 means Whatnot answered with a bot challenge or a signed-out page
+     * rather than the one asked for. That is a session problem, not a markup
+     * one — and reporting it as "selectors didn't match", which is what
+     * happened before this existed, sends whoever reads the log hunting for a
+     * form that was never served.
+     *
+     * @throws \RuntimeException always, when the code is one this handles
+     */
+    protected function throwForExitCode(int $exitCode, string $stderr): void
+    {
+        $diagnostics = implode("\n", array_slice(
+            array_values(array_filter(explode("\n", $stderr), fn ($l) => trim($l) !== '')),
+            0,
+            80,
+        ));
+
+        if ($exitCode === self::EXIT_AUTH_REQUIRED) {
+            throw new \RuntimeException(
+                "Whatnot session expired — sign in again.\n"
+                . "The scraper was served a bot-protection challenge instead of the page, which is what "
+                . "happens once the saved session lapses and it falls back to the login form.\n"
+                . "Refresh it with: php artisan whatnot:login\n\n"
+                . $diagnostics
+            );
+        }
+
+        if ($exitCode === self::EXIT_RATE_LIMITED) {
+            throw new \RuntimeException(
+                "Whatnot is rate limiting this account. Wait and retry — running more often will not help.\n\n"
+                . $diagnostics
+            );
+        }
+
+        if ($exitCode === self::EXIT_SELECTOR_MISS) {
+            throw new \RuntimeException(
+                "Whatnot scraper: page selectors didn't match.\n"
+                . "Whatnot changed their markup — update the SELECTORS object in scripts/whatnot-scraper.cjs.\n\n"
+                . $diagnostics
+            );
+        }
+    }
+
     private function baseEnv(bool $debug = false): array
     {
         $env = ['WHATNOT_DEBUG' => $debug ? '1' : '0'];

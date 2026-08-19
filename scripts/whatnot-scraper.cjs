@@ -312,6 +312,86 @@ function parseInteger(str) {
 
 // ── Login helper (shared by all modes) ───────────────────────────────────────
 
+/**
+ * Exit codes, by what the caller should actually do about it.
+ *
+ *   0  success
+ *   1  navigation or general failure — retry, then investigate
+ *   2  selector miss — Whatnot changed their markup, update SELECTORS
+ *   3  authentication expired or a bot challenge is in the way — a human has
+ *      to sign in once (see `php artisan whatnot:session`)
+ *   4  rate limited or temporarily refused — back off and retry later
+ *
+ * Kept distinct because the fix is different for each, and the log that
+ * prompted this said "selectors didn't match" when the real page was a
+ * Cloudflare interstitial. That sends you reading markup that never rendered.
+ */
+const EXIT = { OK: 0, GENERAL: 1, SELECTOR_MISS: 2, AUTH_REQUIRED: 3, RATE_LIMITED: 4 };
+
+/**
+ * What a page is really showing, when it is not what we asked for.
+ *
+ * Whatnot sits behind Cloudflare, which answers automated traffic with a short
+ * interstitial instead of the page. It is recognisable by its own wording and
+ * by being tiny — a few hundred characters where a real page is tens of
+ * thousands.
+ */
+function classifyBlockingPage(url, bodyText) {
+  const text = (bodyText || '').toLowerCase();
+
+  const challenge = [
+    'performing security verification',
+    'checking your browser',
+    'verify you are human',
+    'you are not a bot',
+    'cf-browser-verification',
+    'ray id',
+    'attention required',
+  ].some((marker) => text.includes(marker));
+
+  if (challenge) {
+    return {
+      code: EXIT.AUTH_REQUIRED,
+      error: 'BOT_CHALLENGE',
+      message:
+        'Whatnot served a bot-protection challenge instead of the page. The saved session has ' +
+        'expired or was never established, so the scraper was sent to /login and blocked there. ' +
+        'Sign in once with `php artisan whatnot:session` — the scraper reuses that session and ' +
+        'never needs to see the login page again.',
+    };
+  }
+
+  if (text.includes('too many requests') || text.includes('rate limit')) {
+    return {
+      code: EXIT.RATE_LIMITED,
+      error: 'RATE_LIMITED',
+      message: 'Whatnot is rate limiting this account. Back off and retry later.',
+    };
+  }
+
+  // A near-empty body is the other shape bot protection takes: the challenge
+  // renders through script we never execute, leaving nothing behind.
+  if ((bodyText || '').trim().length < 100) {
+    return {
+      code: EXIT.AUTH_REQUIRED,
+      error: 'EMPTY_PAGE',
+      message:
+        'Whatnot returned an effectively empty page (' + (bodyText || '').trim().length +
+        ' characters), which is what its bot protection looks like when the challenge script ' +
+        'does not run. Sign in once with `php artisan whatnot:session`.',
+    };
+  }
+
+  return null;
+}
+
+/** Report a blocked page and stop, with the code that says what to do next. */
+function exitBlocked(blocked, url) {
+  process.stderr.write(blocked.error + ': ' + blocked.message + '\n');
+  process.stderr.write('CURRENT_URL: ' + url + '\n');
+  process.exit(blocked.code);
+}
+
 async function performLogin(page, email, password) {
   log('navigating to login page');
   await page.goto(URLS.login, { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -338,14 +418,17 @@ async function performLogin(page, email, password) {
   if (!emailInput) {
     const bodyText = await page.evaluate(() => (document.body.innerText || '').trim()).catch(() => '');
     info('performLogin: login form not found — URL:', currentUrl, '| body chars:', bodyText.length);
-    if (bodyText.length < 100) {
-      info('performLogin: body nearly empty — bot-detection is likely blocking the login page');
-      throw new Error(
-        'Whatnot login page rendered empty (bot detection active). ' +
-        'Body length: ' + bodyText.length + '. ' +
-        'Run with WHATNOT_DEBUG=1 (php artisan whatnot:import --debug) to capture screenshots for inspection.'
-      );
+
+    // Almost always a challenge rather than a markup change. Saying "selectors
+    // didn't match" here sent the last investigation looking for a form that
+    // was never served.
+    const blocked = classifyBlockingPage(currentUrl, bodyText);
+
+    if (blocked) {
+      info('performLogin:', blocked.error, '—', blocked.message);
+      exitBlocked(blocked, currentUrl);
     }
+
     info('performLogin: body preview:', bodyText.substring(0, 300));
     throw new Error('Login form not found on ' + currentUrl + '. Page may have changed. Body: ' + bodyText.substring(0, 200));
   }

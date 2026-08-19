@@ -10,6 +10,8 @@ class WhatnotLogin extends Command
     protected $signature = 'whatnot:login
                             {--test     : Just test whether existing cookies are still valid}
                             {--save     : After testing credentials, dump the session cookies to storage/whatnot-cookies.json}
+                            {--paste    : Paste the cookie JSON in directly instead of saving it to a file first}
+                            {--no-verify : Save the cookies without testing them against Seller Hub}
                             {--cookie-file= : Path to a cookie JSON file exported from Chrome to import}';
 
     protected $description = 'Set up and verify Whatnot authentication via session cookies';
@@ -17,6 +19,11 @@ class WhatnotLogin extends Command
     public function handle(WhatnotScraper $scraper): int
     {
         $cookiesFile = $scraper->cookiesFilePath();
+
+        // ── Import cookies pasted straight into the terminal ──────────────────
+        if ($this->option('paste')) {
+            return $this->importCookieJson($scraper, (string) $this->ask('Paste the cookie JSON'), $cookiesFile);
+        }
 
         // ── Import cookies from a Chrome export ───────────────────────────────
         if ($importFile = $this->option('cookie-file')) {
@@ -34,21 +41,41 @@ class WhatnotLogin extends Command
 
     private function importCookieFile(WhatnotScraper $scraper, string $importFile, string $cookiesFile): int
     {
+        // The setup guide below tells people to type --cookie-file=~/Downloads/…,
+        // and bash does not expand a tilde that follows an "=". Expanding it here
+        // means the documented command actually works.
+        if (str_starts_with($importFile, '~/')) {
+            $importFile = rtrim((string) (getenv('HOME') ?: ''), '/') . substr($importFile, 1);
+        }
+
         if (! file_exists($importFile)) {
             $this->error("File not found: {$importFile}");
             return self::FAILURE;
         }
 
-        $raw = json_decode(file_get_contents($importFile), true);
-        if (! is_array($raw)) {
-            $this->error('File does not contain valid JSON. Export cookies as JSON from Cookie-Editor.');
+        return $this->importCookieJson($scraper, (string) file_get_contents($importFile), $cookiesFile);
+    }
+
+    private function importCookieJson(WhatnotScraper $scraper, string $json, string $cookiesFile): int
+    {
+        $raw = json_decode(trim($json), true);
+
+        // Cookie-Editor emits a bare array; Playwright's storageState wraps one
+        // in an object alongside localStorage. Accepting both means not having
+        // to care which tool the session came out of.
+        if (is_array($raw) && isset($raw['cookies']) && is_array($raw['cookies'])) {
+            $raw = $raw['cookies'];
+        }
+
+        if (! is_array($raw) || $raw === []) {
+            $this->error('That is not a valid cookie JSON export. Export cookies as JSON from Cookie-Editor.');
             return self::FAILURE;
         }
 
         // Normalize various cookie export formats
         $sameSiteMap = ['no_restriction' => 'None', 'strict' => 'Strict', 'lax' => 'Lax', 'unspecified' => 'Lax'];
-        $cookies = array_filter(array_map(function (array $c) use ($sameSiteMap) {
-            if (! isset($c['name'], $c['value'])) return null;
+        $cookies = array_filter(array_map(function ($c) use ($sameSiteMap) {
+            if (! is_array($c) || ! isset($c['name'], $c['value'])) return null;
             // Keep only whatnot.com cookies
             $domain = $c['domain'] ?? '.whatnot.com';
             if (! str_contains($domain, 'whatnot.com')) return null;
@@ -71,6 +98,22 @@ class WhatnotLogin extends Command
 
         file_put_contents($cookiesFile, json_encode(array_values($cookies), JSON_PRETTY_PRINT));
         $this->info('Imported ' . count($cookies) . ' cookies → ' . $cookiesFile);
+
+        // A session cookie is the whole point of the export. Saying so here beats
+        // a cookie test that fails for reasons nobody can read.
+        $looksSignedIn = (bool) array_filter(
+            $cookies,
+            fn ($c) => (bool) preg_match('/session|token|auth/i', $c['name']),
+        );
+
+        if (! $looksSignedIn) {
+            $this->warn('None of these look like a session cookie — document.cookie cannot see HttpOnly ones.');
+            $this->line('If the check below fails, export with the Cookie-Editor extension instead.');
+        }
+
+        if ($this->option('no-verify')) {
+            return self::SUCCESS;
+        }
 
         return $this->testExistingCookies($scraper, $cookiesFile);
     }
@@ -130,6 +173,14 @@ class WhatnotLogin extends Command
         $this->line('');
         $this->line('<options=bold>Step 4 — Import into VortexOps</>');
         $this->line('  <comment>php artisan whatnot:login --cookie-file=~/Downloads/whatnot-cookies.json</comment>');
+        $this->line('');
+        $this->line('<fg=gray>  No extension handy? On the Seller Hub tab, open DevTools and run:</>');
+        $this->line('  <fg=cyan>copy(document.cookie.split("; ").map(c => {</>');
+        $this->line('  <fg=cyan>  const [name, ...v] = c.split("=");</>');
+        $this->line('  <fg=cyan>  return { name, value: v.join("="), domain: ".whatnot.com", path: "/" };</>');
+        $this->line('  <fg=cyan>}))</>');
+        $this->line('<fg=gray>  then run</> <comment>php artisan whatnot:login --paste</comment> <fg=gray>and paste it in.</>');
+        $this->line('<fg=gray>  This route cannot see HttpOnly cookies, so prefer the extension if it fails.</>');
         $this->line('');
         $this->line('<options=bold>Step 5 — Run discover mode to map all API endpoints</>');
         $this->line('  <comment>php artisan whatnot:import --discover</comment>');

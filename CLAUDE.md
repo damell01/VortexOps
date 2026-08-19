@@ -133,10 +133,37 @@ php artisan whatnot:import --debug      # saves screenshots to /tmp/whatnot-debu
 php artisan whatnot:import --channel=1
 ```
 
-Exit codes: `0` = success JSON on stdout, `1` = auth/nav error, `2` = selector miss.  
-When exit code 2, update the `SELECTORS` object at the top of `scripts/whatnot-scraper.cjs`.
+| Exit | Meaning | What to do |
+|------|---------|-----------|
+| `0` | Success — JSON on stdout | — |
+| `1` | General/nav error | Read stderr |
+| `2` | Selector miss | Update `SELECTORS` at the top of `scripts/whatnot-scraper.cjs` |
+| `3` | Bot challenge or signed-out page | `php artisan whatnot:login` — the session lapsed |
+| `4` | Rate limited | Wait; running more often makes it worse |
 
-Required env vars: `WHATNOT_EMAIL`, `WHATNOT_PASSWORD`.
+Exit 3 matters most: Whatnot sits behind Cloudflare, which answers an automated
+browser with a challenge rather than the login form, so **the scraper cannot sign
+itself in**. It reuses a session a human established. Before this code existed a
+challenge surfaced as exit 2, sending you hunting for a form that was never served.
+
+### Authentication
+
+Cookie-based, never credential-based in practice:
+
+```bash
+php artisan whatnot:login                  # setup guide + status
+php artisan whatnot:login --test           # is the stored session still good?
+php artisan whatnot:login --cookie-file=…  # import a Cookie-Editor / storageState export
+php artisan whatnot:login --paste          # paste the JSON straight in
+```
+
+Cookies land in `storage/whatnot-cookies.json` (override with `WHATNOT_COOKIES_FILE`)
+and typically last 30–90 days. The persistent browser profile refreshes its own
+session, so the bootstrap file is only re-read when the profile has no cookies or
+the file's mtime is newer than the last load.
+
+`WHATNOT_EMAIL` / `WHATNOT_PASSWORD` are optional and only used by the form-login
+fallback, which Cloudflare generally blocks.
 
 ---
 

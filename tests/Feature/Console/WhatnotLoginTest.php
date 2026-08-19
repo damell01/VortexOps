@@ -110,6 +110,23 @@ class WhatnotLoginTest extends TestCase
         $this->assertSame(1893456000, $saved['expires']);
     }
 
+    public function test_it_imports_a_pretty_printed_multi_line_export(): void
+    {
+        // What Cookie-Editor actually puts on the clipboard is indented across
+        // many lines, which is what broke the paste route when it read one line.
+        $path = tempnam(sys_get_temp_dir(), 'wn-cookies-');
+        file_put_contents($path, json_encode(
+            [['name' => 'sessionid', 'value' => 'abc', 'domain' => '.whatnot.com']],
+            JSON_PRETTY_PRINT,
+        ));
+
+        $exit = $this->artisan('whatnot:login', ['--cookie-file' => $path, '--no-verify' => true])->run();
+        @unlink($path);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame('sessionid', $this->savedCookies()[0]['name']);
+    }
+
     public function test_it_rejects_an_export_with_no_whatnot_cookies(): void
     {
         $exit = $this->importFile([['name' => '_ga', 'value' => 'xyz', 'domain' => '.google.com']]);

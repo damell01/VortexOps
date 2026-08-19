@@ -12,7 +12,7 @@ class WhatnotLogin extends Command
                             {--save     : After testing credentials, dump the session cookies to storage/whatnot-cookies.json}
                             {--paste    : Paste the cookie JSON in directly instead of saving it to a file first}
                             {--no-verify : Save the cookies without testing them against Seller Hub}
-                            {--cookie-file= : Path to a cookie JSON file exported from Chrome to import}';
+                            {--cookie-file= : Path to a cookie JSON file exported from Chrome to import; "-" reads stdin}';
 
     protected $description = 'Set up and verify Whatnot authentication via session cookies';
 
@@ -22,12 +22,14 @@ class WhatnotLogin extends Command
 
         // ── Import cookies pasted straight into the terminal ──────────────────
         if ($this->option('paste')) {
-            return $this->importCookieJson($scraper, (string) $this->ask('Paste the cookie JSON'), $cookiesFile);
+            return $this->importCookieJson($scraper, $this->readStdin(), $cookiesFile);
         }
 
         // ── Import cookies from a Chrome export ───────────────────────────────
         if ($importFile = $this->option('cookie-file')) {
-            return $this->importCookieFile($scraper, $importFile, $cookiesFile);
+            return $importFile === '-'
+                ? $this->importCookieJson($scraper, $this->readStdin(), $cookiesFile)
+                : $this->importCookieFile($scraper, $importFile, $cookiesFile);
         }
 
         // ── Test existing cookies ─────────────────────────────────────────────
@@ -37,6 +39,23 @@ class WhatnotLogin extends Command
 
         // ── No cookies yet — show the full setup guide ────────────────────────
         return $this->showSetupGuide($scraper, $cookiesFile);
+    }
+
+    /**
+     * Read the whole of stdin, not one line of it.
+     *
+     * Cookie-Editor exports pretty-printed JSON spanning hundreds of lines, so
+     * the obvious ask() here truncated the paste to its first line — "[" — and
+     * reported invalid JSON. Reading to EOF takes the paste whole, and equally
+     * takes a pipe or a heredoc, which is what --cookie-file=- is for.
+     */
+    private function readStdin(): string
+    {
+        if (defined('STDIN') && @stream_isatty(STDIN)) {
+            $this->line('Paste the cookie JSON, then press <options=bold>Ctrl-D</> on a new line:');
+        }
+
+        return (string) file_get_contents('php://stdin');
     }
 
     private function importCookieFile(WhatnotScraper $scraper, string $importFile, string $cookiesFile): int

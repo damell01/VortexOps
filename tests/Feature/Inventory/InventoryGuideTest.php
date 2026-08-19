@@ -114,6 +114,50 @@ class InventoryGuideTest extends TestCase
         }
     }
 
+    public function test_it_only_offers_tabs_for_screens_the_viewer_can_reach(): void
+    {
+        // Hiding a section's screens should hide the section. Walking someone
+        // through Locations, from a page that can see their sidebar and knows
+        // the link is not in it, is worse than saying nothing.
+        // Roles are not seeded between tests, so this one is created rather
+        // than assumed — see the note in CLAUDE.md.
+        \Spatie\Permission\Models\Role::findOrCreate('admin', 'web');
+
+        \App\Support\NavVisibility::setHiddenForRole('admin', [
+            \App\Filament\Pages\StockTransfer::class,
+            \App\Filament\Pages\InventoryReconciliation::class,
+        ]);
+        \App\Support\NavVisibility::flushMemo();
+
+        $admin = User::factory()->create(['email' => 'restricted-admin@example.test']);
+        $admin->assignRole('admin');
+
+        $tabs = $this->actingAs($admin->fresh())
+            ->get(\App\Filament\Pages\InventoryGuide::getUrl())
+            ->getContent();
+
+        $this->assertStringNotContainsString('Fixing Mistakes', $tabs);
+        $this->assertStringContainsString('Troubleshooting', $tabs);
+    }
+
+    public function test_troubleshooting_is_never_hidden(): void
+    {
+        // It answers questions about screens someone is already looking at, so
+        // gating it removes help exactly when it is wanted.
+        $this->assertSame([], InventoryGuide::tabDefinitions()['trouble'][2]);
+    }
+
+    public function test_every_tab_names_the_screens_it_documents(): void
+    {
+        // A tab wired to a class that no longer exists would filter itself out
+        // silently, and read as the guide simply not having that section.
+        foreach (InventoryGuide::tabDefinitions() as $key => [, , $pages]) {
+            foreach ($pages as $page) {
+                $this->assertTrue(class_exists($page), "tab '{$key}' references missing class {$page}");
+            }
+        }
+    }
+
     public function test_the_troubleshooting_tab_answers_the_warehouse_question(): void
     {
         Livewire::test(InventoryGuide::class)

@@ -43,15 +43,7 @@ document.getElementById('vx-replay-tours')?.addEventListener('click', async func
 
 {{-- ── Tab strip ────────────────────────────────────────────────────────────── --}}
 <div class="flex rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-1 gap-1 overflow-x-auto">
-    @foreach([
-        'start'   => ['📍', 'Start Here'],
-        'items'   => ['➕', 'Add & Edit Items'],
-        'restock' => ['📷', 'Restock & Scan'],
-        'pallets' => ['🚚', 'Stage & Receive'],
-        'costs'   => ['💵', 'Costs & Reports'],
-        'fix'     => ['🔀', 'Fixing Mistakes'],
-        'trouble' => ['🩺', 'Troubleshooting'],
-    ] as $key => [$icon, $label])
+    @foreach($this->visibleTabs as $key => [$icon, $label])
     <button wire:click="setTab('{{ $key }}')" type="button"
         class="flex-shrink-0 flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap
             {{ $tab === $key ? 'bg-violet-600 text-white shadow' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800' }}">
@@ -96,12 +88,15 @@ document.getElementById('vx-replay-tours')?.addEventListener('click', async func
         </x-guide.panel>
     @endif
 
+    @if($this->canSee(\App\Filament\Resources\InventoryLocationResource::class))
     <x-guide.steps title="Locations — Inventory → Locations" :steps="[
         ['Open it', 'Admin only. If it is missing from your sidebar that is a role, not a bug.'],
         ['New → name it Main Storage → type Main Storage', 'There is no type called warehouse. Main Storage is the general-purpose one.'],
         ['Leave the status Active', 'Inactive locations vanish from every dropdown in the app — the second reason a list looks empty, and it looks identical to the first.'],
         ['Add your other real places', 'One row per physical place. Resist inventing locations that are really statuses; Damaged and Returned exist as types already.'],
     ]" />
+
+    @endif
 
     <x-guide.table title="The six location types" :rows="[
         ['Main Storage', 'General stock. Where receiving lands unless told otherwise.'],
@@ -112,11 +107,13 @@ document.getElementById('vx-replay-tours')?.addEventListener('click', async func
         ['Other', 'Genuinely none of the above. Reaching for it often means a type is missing.'],
     ]" />
 
-    <x-guide.table title="Also under setup" :rows="[
-        ['Vendors', 'Who you buy from. A vendor is required to create a pallet, so set these up before your first delivery.'],
-        ['Barcode Printer', 'Generates printable barcode labels for items. Useful for anything that arrives without a scannable code.'],
+    <x-guide.table title="Also under setup" :rows="array_values(array_filter([
+        $this->canSee(\App\Filament\Resources\VendorResource::class)
+            ? ['Vendors', 'Who you buy from. A vendor is required to create a pallet, so set these up before your first delivery.'] : null,
+        $this->canSee(\App\Filament\Pages\BarcodePrinter::class)
+            ? ['Barcode Printer', 'Generates printable barcode labels for items. Useful for anything that arrives without a scannable code.'] : null,
         ['Default receiving location', 'Under Settings. Stops receiving asking where stock goes on every line. With one active location, that one is used automatically.'],
-    ]" />
+]))" />
 
 </div>
 @endif

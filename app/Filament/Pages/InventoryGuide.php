@@ -43,9 +43,112 @@ class InventoryGuide extends Page
         return 'Which screen does which job — and what to do when one argues with you.';
     }
 
+    /**
+     * Which screens each tab documents.
+     *
+     * The guide is filtered by them, so nobody is walked through a page their
+     * role cannot open. Being told to "go to Inventory → Locations" by a screen
+     * that can see the sidebar you are looking at — and knows the link is not in
+     * it — is worse than saying nothing.
+     *
+     * @return array<string, array{0: string, 1: string, 2: array<int, class-string>}>
+     */
+    public static function tabDefinitions(): array
+    {
+        return [
+            'start'   => ['📍', 'Start Here', [
+                \App\Filament\Resources\InventoryLocationResource::class,
+                \App\Filament\Resources\VendorResource::class,
+            ]],
+            'items'   => ['➕', 'Add & Edit Items', [
+                \App\Filament\Resources\InventoryItemResource::class,
+            ]],
+            'restock' => ['📷', 'Restock & Scan', [
+                InventoryScanner::class,
+                QuickAddContainerScan::class,
+                MobileScannerApp::class,
+            ]],
+            'pallets' => ['🚚', 'Stage & Receive', [
+                \App\Filament\Resources\PalletResource::class,
+                \App\Filament\Resources\ReceivingSessionResource::class,
+                PalletStatusDashboard::class,
+                PalletReceivingHistory::class,
+            ]],
+            'costs'   => ['💵', 'Costs & Reports', [
+                InventoryValueDashboard::class,
+                InventoryReport::class,
+                InventoryAnalytics::class,
+                InventoryAge::class,
+                \App\Filament\Resources\InventoryStockResource::class,
+            ]],
+            'fix'     => ['🔀', 'Fixing Mistakes', [
+                StockTransfer::class,
+                InventoryReconciliation::class,
+            ]],
+            // Always shown: it answers questions about screens you are already
+            // looking at, so gating it hides help exactly when it is needed.
+            'trouble' => ['🩺', 'Troubleshooting', []],
+        ];
+    }
+
+    /**
+     * Tabs this viewer can actually use.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public function getVisibleTabsProperty(): array
+    {
+        $visible = [];
+
+        foreach (static::tabDefinitions() as $key => [$icon, $label, $pages]) {
+            if ($pages === [] || $this->canSee(...$pages)) {
+                $visible[$key] = [$icon, $label];
+            }
+        }
+
+        return $visible;
+    }
+
+    /**
+     * Whether this viewer can reach any of these screens.
+     *
+     * canAccess() is the same check the sidebar uses, so the guide cannot drift
+     * from what is actually in front of someone. A page that has been removed or
+     * renamed counts as not visible rather than taking the guide down with it.
+     *
+     * @param  class-string  ...$pages
+     */
+    public function canSee(string ...$pages): bool
+    {
+        foreach ($pages as $page) {
+            try {
+                if (class_exists($page) && $page::canAccess()) {
+                    return true;
+                }
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return false;
+    }
+
+    public function mount(): void
+    {
+        // Landing on a tab you cannot see would show a selected button with
+        // nothing under it.
+        $visible = $this->visibleTabs;
+
+        if (! isset($visible[$this->tab])) {
+            $this->tab = (string) array_key_first($visible);
+        }
+    }
+
     public function setTab(string $tab): void
     {
-        $this->tab = $tab;
+        if (isset($this->visibleTabs[$tab])) {
+            $this->tab = $tab;
+        }
     }
 
     /**

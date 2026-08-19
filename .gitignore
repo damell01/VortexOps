@@ -28,3 +28,16 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 tests/Browser/output/
+
+# Chromium's profile for the Whatnot scraper: runtime state, rebuilt on demand,
+# and holding a live session. Default/Cookies plus Local State together are
+# enough to recover the signed-in session, so this must never be committed —
+# 142 of these files were, once, by an over-broad `git add -A`.
+/storage/whatnot-browser-profile/
+/storage/whatnot-browser-profile.broken/
+
+# The saved session itself, in every shape it takes.
+/storage/whatnot-cookies.json
+/storage/whatnot-cookies.json.loaded-mtime
+/storage/whatnot-live-cookies.json
+/storage/whatnot-localstorage.json

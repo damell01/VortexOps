@@ -380,28 +380,36 @@ class PalletResource extends Resource
                     ->label('Vendor')
                     ->options(fn () => Vendor::activeOptions()),
             ])
+            // One labelled action and a menu. Five controls side by side —
+            // two of them with labels — overran the column: the label read
+            // "fest" where "Stage Manifest" had been cut in half, and the
+            // delete button was clipped off the right edge entirely.
             ->actions([
-                // Staging, mapping, scanning and receiving are all worked on the
-                // pallet's own page now, so the row offers the one way in
-                // rather than three doors onto the same manifest.
-                Action::make('stage')
-                    ->label('Stage Manifest')
-                    ->icon('heroicon-o-clipboard-document-list')
-                    ->color('info')
+                // Whichever step this pallet is actually at. Staging, mapping,
+                // scanning and receiving are all worked on the pallet's own
+                // page, so this is one door rather than three onto the same
+                // manifest.
+                Action::make('open')
+                    ->label(fn (Pallet $record) => $record->status === 'staged' ? 'Stage' : 'Receive')
+                    ->icon(fn (Pallet $record) => $record->status === 'staged'
+                        ? 'heroicon-o-clipboard-document-list'
+                        : 'heroicon-o-inbox-arrow-down')
+                    ->color(fn (Pallet $record) => $record->status === 'staged' ? 'info' : 'success')
+                    ->button()
                     ->url(fn (Pallet $record) => static::getUrl('view', ['record' => $record]))
-                    ->visible(fn (Pallet $record) => $record->status === 'staged'),
-                Action::make('receive')
-                    ->label('Start Receiving')
-                    ->icon('heroicon-o-inbox-arrow-down')
-                    ->color('success')
-                    ->url(fn (Pallet $record) => static::getUrl('receive', ['record' => $record]))
-                    ->visible(fn (Pallet $record) => in_array($record->status, ['staged', 'receiving'])),
-                ViewAction::make()->iconButton(),
-                EditAction::make()->iconButton(),
-                DeleteAction::make()
-                    ->iconButton()
-                    ->visible(fn (Pallet $record) => static::canDelete($record))
-                    ->tooltip(fn (Pallet $record) => static::canDelete($record) ? null : 'Cases have already been received on this pallet.'),
+                    ->visible(fn (Pallet $record) => in_array($record->status, ['pending', 'staged', 'shipped', 'receiving'])),
+                \Filament\Actions\ActionGroup::make([
+                    ViewAction::make(),
+                    Action::make('scanning_station')
+                        ->label('Scanning Station')
+                        ->icon('heroicon-o-qr-code')
+                        ->url(fn (Pallet $record) => static::getUrl('receive', ['record' => $record]))
+                        ->visible(fn (Pallet $record) => in_array($record->status, ['staged', 'receiving'])),
+                    EditAction::make(),
+                    DeleteAction::make()
+                        ->visible(fn (Pallet $record) => static::canDelete($record))
+                        ->tooltip(fn (Pallet $record) => static::canDelete($record) ? null : 'Cases have already been received on this pallet.'),
+                ]),
             ])
             ->bulkActions([
                 BulkActionGroup::make([

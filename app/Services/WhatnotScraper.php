@@ -1729,14 +1729,29 @@ class WhatnotScraper
         ));
 
         if ($exitCode === self::EXIT_AUTH_REQUIRED) {
+            // Advice that names a step already taken reads as the tool not
+            // knowing what it just did, and costs a round trip to discover the
+            // run was already configured that way.
+            $headed = config('vortex.whatnot.headless') === false;
+            $proxy  = config('vortex.whatnot.proxy');
+
+            $remaining = match (true) {
+                ! $headed => "Headless Chromium is the loudest bot signal there is. Try headed:\n"
+                    . "      WHATNOT_HEADLESS=false php artisan whatnot:import --limit=1 --debug",
+                ! $proxy  => "The browser is already headed, so the remaining variable is this server's IP —\n"
+                    . "    Cloudflare judges datacenter ranges harshly. Route Whatnot traffic elsewhere with\n"
+                    . "    WHATNOT_PROXY, or ask your host for a fresh IP.",
+                default   => "Already headed and already routed through {$proxy}, so neither the browser nor\n"
+                    . "    this egress is acceptable to Cloudflare. What is left is a different egress —\n"
+                    . "    a residential connection — rather than anything tunable in the scraper.",
+            };
+
             throw new \RuntimeException(
                 "Cloudflare blocked the scraper with a bot-protection challenge.\n"
                 . "Read CURRENT_URL below — it separates the two causes:\n"
                 . "  • /login  — the saved session lapsed. Renew it: php artisan whatnot:login\n"
-                . "  • any other page — the session is fine and the browser itself was challenged, "
-                . "which is what headless Chromium on a datacenter IP looks like to bot protection.\n"
-                . "    Retry headless-off under a virtual display:\n"
-                . "      WHATNOT_HEADLESS=false xvfb-run -a php artisan whatnot:import --limit=1 --debug\n\n"
+                . "  • any other page — the session is fine and the browser itself was challenged.\n"
+                . "    {$remaining}\n\n"
                 . $diagnostics
             );
         }

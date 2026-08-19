@@ -36,6 +36,8 @@ class WhatnotExitCodeTest extends TestCase
 
     public function test_a_bot_challenge_names_both_causes_and_neither_is_selectors(): void
     {
+        config(['vortex.whatnot.headless' => null, 'vortex.whatnot.proxy' => null]);
+
         $e = $this->throwFor(WhatnotScraper::EXIT_AUTH_REQUIRED);
 
         $this->assertNotNull($e);
@@ -46,6 +48,31 @@ class WhatnotExitCodeTest extends TestCase
         // Naming only the first sent us renewing a session that already worked.
         $this->assertStringContainsString('whatnot:login', $e->getMessage());
         $this->assertStringContainsString('WHATNOT_HEADLESS=false', $e->getMessage());
+    }
+
+    public function test_it_does_not_suggest_the_step_already_taken(): void
+    {
+        // Being told to "retry headless-off" on a run that was already headless-off
+        // reads as the tool not knowing what it just did, and costs a round trip
+        // to find out the run was configured that way all along.
+        config(['vortex.whatnot.headless' => false, 'vortex.whatnot.proxy' => null]);
+
+        $e = $this->throwFor(WhatnotScraper::EXIT_AUTH_REQUIRED);
+
+        $this->assertNotNull($e);
+        $this->assertStringNotContainsString('WHATNOT_HEADLESS=false php artisan', $e->getMessage());
+        $this->assertStringContainsString("server's IP", $e->getMessage());
+    }
+
+    public function test_with_both_already_tried_it_says_so_rather_than_looping(): void
+    {
+        config(['vortex.whatnot.headless' => false, 'vortex.whatnot.proxy' => 'socks5://127.0.0.1:40000']);
+
+        $e = $this->throwFor(WhatnotScraper::EXIT_AUTH_REQUIRED);
+
+        $this->assertNotNull($e);
+        $this->assertStringContainsString('socks5://127.0.0.1:40000', $e->getMessage());
+        $this->assertStringContainsString('residential', $e->getMessage());
     }
 
     public function test_rate_limiting_says_to_wait_rather_than_retry(): void

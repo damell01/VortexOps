@@ -1542,6 +1542,43 @@ function clearStaleSingletonLock(userDataDir) {
 // that same environment, so here we spawn Chromium ourselves with a dynamic
 // debugging port and attach via connectOverCDP() instead — everything
 // downstream still gets a normal Playwright BrowserContext.
+/**
+ * Launch, and rebuild the profile if it turns out to be the thing that is broken.
+ *
+ * The persistent profile is the scraper's most valuable state — it holds the
+ * refreshed session and any clearance cookie — and also its most fragile. Every
+ * `pkill -9` that ends a wedged run risks killing Chromium mid-write, and a
+ * half-written profile makes Chromium die on startup with SIGTRAP. That reads
+ * as a browser or network fault and looks identical in every configuration, so
+ * it masqueraded as headless, headed and proxied runs all failing the same way.
+ *
+ * The profile is moved aside rather than deleted: if it was not the problem,
+ * it is still there. The session is re-bootstrapped from the cookie file on the
+ * next launch, so a rebuild costs a re-login at worst, never data.
+ */
+async function launchWithProfileRecovery(userDataDir, opts = {}) {
+  try {
+    return await launchPersistentContextViaCdp(userDataDir, opts);
+  } catch (e) {
+    if (!/died during startup/.test(e.message || '')) throw e;
+
+    const fs = require('fs');
+    const quarantine = userDataDir + '.broken';
+
+    try {
+      fs.rmSync(quarantine, { recursive: true, force: true });   // keep only the latest
+      fs.renameSync(userDataDir, quarantine);
+      info('chromium would not start on this profile — moved it to', quarantine);
+      info('starting a clean profile; the session re-loads from the cookie file');
+    } catch (moveError) {
+      info('could not move the profile aside:', moveError.message);
+      throw e;
+    }
+
+    return await launchPersistentContextViaCdp(userDataDir, opts);
+  }
+}
+
 async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
   const { spawn } = require('child_process');
   const {
@@ -2587,7 +2624,7 @@ async function extractLedgerFromPage(page) {
   require('fs').mkdirSync(USER_DATA_DIR, { recursive: true });
   info('browser profile dir:', USER_DATA_DIR);
 
-  const context = await launchPersistentContextViaCdp(USER_DATA_DIR, {
+  const context = await launchWithProfileRecovery(USER_DATA_DIR, {
     args: [
       '--no-sandbox',
       '--no-zygote',

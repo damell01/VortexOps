@@ -21,6 +21,16 @@ class Product extends Model
         $bust = fn () => Cache::forget('filter:item_categories');
         static::saved($bust);
         static::deleted($bust);
+
+        // is_container is NOT NULL, and "container or not" has no third state
+        // — an item is one or the other. A form that submits neither is saying
+        // "not a container", which is the safe reading: treating an unanswered
+        // question as a case would put contents on something that holds none.
+        static::saving(function (self $product) {
+            if ($product->is_container === null) {
+                $product->is_container = false;
+            }
+        });
     }
 
     protected $fillable = [

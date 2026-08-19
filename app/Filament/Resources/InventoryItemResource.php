@@ -257,6 +257,21 @@ class InventoryItemResource extends Resource
                     ->maxSize(5120)
                     ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
                     ->helperText('Optional. Up to 5MB — or use Take Photo to capture one now.')
+                    // Shrunk once it is safely stored. A phone writes several
+                    // megabytes at 4000px and nothing here renders a product
+                    // above a few hundred, so the rest is paid for on every
+                    // backup and every page load for pixels no one sees.
+                    ->saveUploadedFileUsing(function ($file, $component) {
+                        $path = $file->store($component->getDirectory(), [
+                            'disk'       => $component->getDiskName(),
+                            'visibility' => 'public',
+                        ]);
+
+                        app(\App\Services\ImageCompressor::class)
+                            ->compress($component->getDiskName(), $path);
+
+                        return $path;
+                    })
                     ->columnSpanFull(),
                 \Filament\Schemas\Components\View::make('filament.components.photo-capture-button')
                     ->columnSpanFull(),
@@ -328,6 +343,13 @@ class InventoryItemResource extends Resource
                         0 => 'Sold and tracked on its own.',
                     ])
                     ->default(0)
+                    // The model casts this to a boolean, and the options above
+                    // are keyed 1/0 — so an existing item loaded as false
+                    // matched no option, rendered with neither choice selected,
+                    // and submitted null. The column is NOT NULL, so saving any
+                    // existing item then died on a constraint violation.
+                    ->formatStateUsing(fn ($state) => $state === null ? null : (int) (bool) $state)
+                    ->dehydrateStateUsing(fn ($state) => (bool) $state)
                     ->inline()
                     ->extraAttributes(['class' => 'vx-choice-cards'])
                     ->live(),
@@ -627,31 +649,36 @@ class InventoryItemResource extends Resource
                 // Leading the row rather than buried: scanning a list of
                 // near-identical names is exactly the job a thumbnail does
                 // better than text. Toggleable for anyone who wants it gone.
+                // Picture first, then what the thing is, then its code — the
+                // order the row is actually read in. SKU led the row before,
+                // which is the one column nobody scans a list by.
+                //
+                // Sizing is set as an inline style rather than through
+                // ->width()/->height(): extraImgAttributes replaces Filament's
+                // own class list, which is where its width came from, so the
+                // thumbnails rendered 36px tall and 0px wide — present in the
+                // DOM and invisible on screen.
                 \Filament\Tables\Columns\ImageColumn::make('image_path')
                     ->label('')
                     ->disk(\App\Models\Product::IMAGE_DISK)
-                    ->height(36)
-                    ->width(36)
                     // The brand mark rather than a gap: a missing image in a
                     // list is a hole in the layout, not information.
                     ->defaultImageUrl(fn () => \App\Models\Product::placeholderImageUrl())
-                    ->extraImgAttributes(['class' => 'rounded-md object-cover'])
+                    ->extraImgAttributes(fn ($record) => [
+                        'class' => 'rounded-md border border-gray-200 dark:border-gray-700 '
+                            . ($record->hasImage() ? 'object-cover' : 'object-contain p-1 opacity-50'),
+                        // flex:none because .fi-ta-image is a flex container:
+                        // the img carried width:40px and still computed to 14px,
+                        // shrunk to fit, which is why the thumbnails were in the
+                        // DOM but invisible.
+                        'style' => 'width:40px;height:40px;min-width:40px;flex:none;',
+                    ])
                     ->toggleable(),
-                TextColumn::make('sku')
-                    ->label('SKU')
-                    ->searchable()
-                    ->sortable()
-                    ->copyable()
-                    ->placeholder('—')
-                    ->weight('semibold')
-                    // Null rather than an em dash: Filament skips the second
-                    // line entirely, so rows without a barcode stay one line
-                    // tall instead of carrying an empty placeholder.
-                    ->description(fn ($record) => filled($record->barcode) ? $record->barcode : null),
                 TextColumn::make('name')
-                    ->label('Item Name')
+                    ->label('Item')
                     ->searchable()
                     ->sortable()
+                    ->weight('semibold')
                     // Containers get a marker so it's obvious which rows have
                     // something to open; the Contents action does the rest.
                     ->icon(fn ($record) => $record->is_container ? 'heroicon-m-archive-box' : null)
@@ -660,6 +687,17 @@ class InventoryItemResource extends Resource
                     ->description(fn ($record) => filled($record->description)
                         ? \Illuminate\Support\Str::limit($record->description, 70)
                         : null),
+                TextColumn::make('sku')
+                    ->label('SKU')
+                    ->searchable()
+                    ->sortable()
+                    ->copyable()
+                    ->placeholder('—')
+                    ->color('gray')
+                    // Null rather than an em dash: Filament skips the second
+                    // line entirely, so rows without a barcode stay one line
+                    // tall instead of carrying an empty placeholder.
+                    ->description(fn ($record) => filled($record->barcode) ? $record->barcode : null),
                 // Case or single. A vendor may use one SKU for both, so the
                 // row has to say which of the two it is rather than leaving it
                 // to be inferred from the name.

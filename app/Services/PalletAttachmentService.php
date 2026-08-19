@@ -64,6 +64,10 @@ class PalletAttachmentService
                 continue;
             }
 
+            // Photographed at the pallet on a phone, so the same several
+            // megabytes of unseen pixels. Documents are left untouched.
+            app(ImageCompressor::class)->compress(self::DISK, $path);
+
             $mimeType = $disk->mimeType($path) ?: 'application/octet-stream';
 
             PalletAttachment::create([

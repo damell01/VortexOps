@@ -41,13 +41,20 @@ $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
 // Frequent "catch the stream that just ended" import: the analytics walk starts
 // at the newest show, so a larger limit grabs more shows for comprehensive updates.
 // Imports each show's orders in the same browser session.
+//
 // withoutOverlapping keeps runs from stacking / colliding on the shared browser
-// profile — critical since every whatnot:* command drives the same Chromium profile.
+// profile — critical since every whatnot:* command drives the same Chromium
+// profile. Its argument is the mutex's expiry in minutes, and it MUST exceed the
+// job's real worst-case runtime: once it lapses the next tick starts a duplicate
+// on top of a run that never finished. At 30 minutes against runs that queue for
+// the browser lock, that is exactly what happened — an import from 14:00, an
+// import-orders from 14:22 and a second import from 16:00 were all alive at once,
+// each waiting on a lock the others held.
 Schedule::command('whatnot:import --limit=200')
     ->skip($whatnotPaused)
     ->cron('*/30 * * * *')
     ->name('whatnot-import-recent')
-    ->withoutOverlapping(30)
+    ->withoutOverlapping(240)
     // Track import health: stamp a success timestamp so the dashboard and the
     // health check can tell when the scrape pipeline last worked, and record
     // failures so a broken scraper doesn't fail silently.
@@ -61,7 +68,7 @@ Schedule::command('whatnot:import-orders --new-only')
     ->skip($whatnotPaused)
     ->cron('22 * * * *')
     ->name('whatnot-import-orders-backfill')
-    ->withoutOverlapping(30);
+    ->withoutOverlapping(240);
 
 // Daily Whatnot ledger pull — grabs the last 30 days for comprehensive financial data
 // (dedup keeps re-scraped rows from duplicating). Runs at :52, clear of the imports above,
@@ -70,7 +77,7 @@ Schedule::command('whatnot:import-ledger --days=30')
     ->skip($whatnotPaused)
     ->cron('52 4 * * *')
     ->name('whatnot-ledger-daily')
-    ->withoutOverlapping(30);
+    ->withoutOverlapping(240);
 
 // Weekly historical backfill: Deep pull of past 365 days for ledger + comprehensive show/order data
 // Runs Sunday at 01:00 AM to avoid peak hours. This ensures you have a full year of financial
@@ -79,7 +86,7 @@ Schedule::command('whatnot:import-ledger --days=1825')
     ->skip($whatnotPaused)
     ->cron('0 1 * * 0')
     ->name('whatnot-ledger-backfill-annual')
-    ->withoutOverlapping(120);
+    ->withoutOverlapping(480);
 
 // Full comprehensive sync: shows + orders + shipments + ledger in one go
 // Run every 2 hours to pull everything at once (high limit to capture all recent activity)
@@ -87,7 +94,7 @@ Schedule::command('whatnot:sync-all --limit=0')
     ->skip($whatnotPaused)
     ->cron('0 */2 * * *')
     ->name('whatnot-sync-all')
-    ->withoutOverlapping(90)
+    ->withoutOverlapping(240)
     ->onSuccess(fn () => Setting::set('whatnot_sync_all_last_success', now()->toISOString()))
     ->onFailure(fn () => Setting::set('whatnot_sync_all_last_failure', now()->toISOString()));
 
@@ -102,7 +109,7 @@ Schedule::command('whatnot:sync-shipments')
     ->skip($whatnotPaused)
     ->cron('37 * * * *')
     ->name('whatnot-sync-shipments')
-    ->withoutOverlapping(20);
+    ->withoutOverlapping(120);
 
 // Mid-week revenue snapshot (Wednesday) and a Friday nudge for anything still
 // sitting in Pending Review/Approval — so a slow week or a review backlog

@@ -5116,3 +5116,18 @@ html body button[role="switch"][aria-checked="true"]::after {
 
 html.dark button.fi-toggle,
 html.dark button[role="switch"] { background-color: #374151 !important; }
+
+/* ── Clearance for the floating feedback button ──────────────────────────────
+   The feedback widget is fixed at bottom-6 right-6, so it floats above whatever
+   happens to be the last thing on the page. On the inventory wizard that was
+   the Next button — completely covered, and there is no way to scroll a fixed
+   element out of the way, so the step simply could not be completed.
+
+   Reserving the button's height plus its offset at the end of the page content
+   keeps the last row of controls clear of it everywhere, rather than patching
+   the one page where it was noticed. */
+.fi-page-content { padding-bottom: 6rem !important; }
+
+/* The widget itself sits below Filament's modals (z-50) so it can never cover a
+   dialog's buttons the same way. */
+.vx-feedback-launcher { z-index: 40; }

@@ -6,14 +6,9 @@ use App\Filament\Resources\InventoryItemResource;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Services\InventoryService;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Section;
-use Filament\Schemas\Components\Grid;
-use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
-use Filament\Actions\Action;
+use Illuminate\Validation\Rule;
 
 class QuickAddInventoryItem extends Page
 {
@@ -47,119 +42,6 @@ class QuickAddInventoryItem extends Page
         }
     }
 
-    public function getFormSchema(): array
-    {
-        return [
-                Section::make('Step 1: Item Details')
-                    ->description('Quickly add a new inventory item')
-                    ->columnSpanFull()
-                    ->visible(fn () => $this->currentStep === 1)
-                    ->schema([
-                        Grid::make(2)->schema([
-                            TextInput::make('name')
-                                ->label('Item Name')
-                                ->required()
-                                ->placeholder('e.g., 2024 Topps Chrome Box')
-                                ->autofocus()
-                                ->columnSpan(2)
-                                ->live(onBlur: true),
-                            TextInput::make('sku')
-                                ->label('SKU')
-                                ->helperText('Auto-generated — edit to customize')
-                                ->columnSpan(1)
-                                ->default(fn () => 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4)))
-                                ->live(onBlur: true),
-                            TextInput::make('category')
-                                ->label('Category')
-                                ->placeholder('Sports Cards, Autographs, etc.')
-                                ->columnSpan(1),
-                            TextInput::make('unit_cost')
-                                ->label('Unit Cost ($)')
-                                ->numeric()
-                                ->default(0)
-                                ->step(0.01)
-                                ->prefix('$')
-                                ->columnSpan(1),
-                            Select::make('preferred_vendor_id')
-                                ->label('Vendor (optional)')
-                                ->options(fn () => \App\Models\Vendor::activeOptions())
-                                ->searchable()
-                                ->nullable()
-                                ->columnSpan(1),
-                        ]),
-                    ]),
-
-                Section::make('Step 2: Add Stock')
-                    ->description('How much stock to add immediately (optional)')
-                    ->columnSpanFull()
-                    ->visible(fn () => $this->currentStep === 2)
-                    ->schema([
-                        Grid::make(2)->schema([
-                            Select::make('location_id')
-                                ->label('Stock Location')
-                                ->options(fn () => InventoryLocation::activeOptions())
-                                ->searchable()
-                                ->columnSpan(2),
-                            TextInput::make('quantity')
-                                ->label('Quantity')
-                                ->numeric()
-                                ->minValue(0)
-                                ->step(0.01)
-                                ->placeholder('0')
-                                ->columnSpan(1),
-                            TextInput::make('cost')
-                                ->label('Cost for Stock ($)')
-                                ->numeric()
-                                ->step(0.01)
-                                ->prefix('$')
-                                ->placeholder('Leave blank to use unit cost')
-                                ->columnSpan(1)
-                                ->helperText('Optional override'),
-                        ]),
-                    ]),
-
-                Section::make('Step 3: Review & Add')
-                    ->description('Review your new inventory item')
-                    ->columnSpanFull()
-                    ->visible(fn () => $this->currentStep === 3)
-                    ->schema([
-                        Grid::make(2)->schema([
-                            TextInput::make('name')
-                                ->label('Item Name')
-                                ->disabled()
-                                ->columnSpan(2),
-                            TextInput::make('sku')
-                                ->label('SKU')
-                                ->disabled()
-                                ->columnSpan(1),
-                            TextInput::make('category')
-                                ->label('Category')
-                                ->disabled()
-                                ->columnSpan(1),
-                            TextInput::make('unit_cost')
-                                ->label('Unit Cost ($)')
-                                ->disabled()
-                                ->prefix('$')
-                                ->columnSpan(1),
-                            Select::make('location_id')
-                                ->label('Stock Location')
-                                ->options(fn () => InventoryLocation::activeOptions())
-                                ->disabled()
-                                ->columnSpan(1),
-                            TextInput::make('quantity')
-                                ->label('Quantity')
-                                ->disabled()
-                                ->columnSpan(1),
-                            TextInput::make('cost')
-                                ->label('Stock Cost ($)')
-                                ->disabled()
-                                ->prefix('$')
-                                ->columnSpan(1),
-                        ]),
-                    ]),
-        ];
-    }
-
     public function scanBarcode(): void
     {
         Notification::make()
@@ -185,16 +67,78 @@ class QuickAddInventoryItem extends Page
         }
     }
 
+    /**
+     * Validate what the wizard actually collected.
+     *
+     * This page renders plain inputs bound to $data rather than Filament
+     * components, so there is no form object to ask for state — reaching for
+     * one is what threw PropertyNotFoundException on every submit. The rules
+     * live here instead, which also means the page validates at all: before
+     * this, a blank name reached InventoryItem::create() unchecked.
+     *
+     * @return array<string, mixed>
+     */
+    protected function validated(): array
+    {
+        $data = validator($this->data ?? [], [
+            'name'                => ['required', 'string', 'max:255'],
+            // Resolved from the model, not spelled as a table name: InventoryItem
+            // is a back-compat alias for Product and its table is `products`, so
+            // "unique:inventory_items,sku" queries a table that does not exist.
+            'sku'                 => ['nullable', 'string', 'max:100', Rule::unique(InventoryItem::class, 'sku')],
+            'barcode'             => ['nullable', 'string', 'max:100', Rule::unique(InventoryItem::class, 'barcode')],
+            'category'            => ['nullable', 'string', 'max:255'],
+            'unit_cost'           => ['nullable', 'numeric', 'min:0'],
+            'preferred_vendor_id' => ['nullable', 'integer', 'exists:vendors,id'],
+            'location_id'         => ['nullable', 'integer', 'exists:inventory_locations,id'],
+            'quantity'            => ['nullable', 'numeric', 'min:0'],
+            'cost'                => ['nullable', 'numeric', 'min:0'],
+        ], [
+            'sku.unique'     => 'That SKU is already used by another item.',
+            'barcode.unique' => 'That barcode is already on another item — scan it from All Inventory to find it.',
+        ])->validate();
+
+        // An untouched input posts "" rather than null, and "" survives
+        // `?? $fallback` while behaving as 0 once cast — so a blank Stock Unit
+        // Cost silently became $0.00 instead of falling back to the item's
+        // cost. For sku and barcode it is worse: both are unique, so the second
+        // item saved without either one collides with the first.
+        foreach (['sku', 'barcode', 'category', 'unit_cost', 'cost', 'quantity', 'preferred_vendor_id', 'location_id'] as $blankable) {
+            if (($data[$blankable] ?? null) === '') {
+                $data[$blankable] = null;
+            }
+        }
+
+        return $data;
+    }
+
     #[\Livewire\Attributes\On('submit-wizard')]
     public function submit(): void
     {
-        $validatedData = $this->form->getState();
+        try {
+            $validatedData = $this->validated();
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            // Land the user back on the step that holds the offending field
+            // instead of on Review, where the message has nothing to point at.
+            $this->currentStep = array_intersect_key(
+                $e->validator->failed(),
+                array_flip(['location_id', 'quantity', 'cost']),
+            ) !== [] ? 2 : 1;
+
+            Notification::make()
+                ->title('Check the highlighted fields')
+                ->body(collect($e->errors())->flatten()->join(' '))
+                ->danger()
+                ->send();
+
+            return;
+        }
 
         try {
             // Create the inventory item
             $item = InventoryItem::create([
                 'name' => $validatedData['name'],
-                'sku' => $validatedData['sku'],
+                'sku' => $validatedData['sku'] ?? null,
                 'barcode' => $validatedData['barcode'] ?? null,
                 'category' => $validatedData['category'] ?? null,
                 'unit_cost' => (float) ($validatedData['unit_cost'] ?? 0),
@@ -206,11 +150,12 @@ class QuickAddInventoryItem extends Page
             $this->createdItem = $item;
 
             // Add initial stock if provided
-            if ($validatedData['location_id'] && $validatedData['quantity']) {
+            if (($validatedData['location_id'] ?? null) && ($validatedData['quantity'] ?? null)) {
                 $location = InventoryLocation::findOrFail($validatedData['location_id']);
                 $inventory = app(InventoryService::class);
 
                 $unitCost = (float) ($validatedData['cost'] ?? $item->unit_cost);
+
 
                 $inventory->addStock(
                     $item,
@@ -226,7 +171,7 @@ class QuickAddInventoryItem extends Page
 
             Notification::make()
                 ->title('Item added successfully!')
-                ->body($validatedData['quantity'] ? 'Item and stock created' : 'Item created (no stock)')
+                ->body(($validatedData['quantity'] ?? null) ? 'Item and stock created' : 'Item created (no stock)')
                 ->success()
                 ->send();
 

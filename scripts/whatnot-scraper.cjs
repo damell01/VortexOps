@@ -343,6 +343,11 @@ function classifyBlockingPage(url, bodyText) {
     'performing security verification',
     'checking your browser',
     'verify you are human',
+    // Cloudflare's interactive (Turnstile) wording, as distinct from the static
+    // interstitial above. "verifying" does not contain "verify", so the marker
+    // above never matched it — only the Ray ID line did, by luck.
+    'verifying you are human',
+    'this may take a few seconds',
     'you are not a bot',
     'cf-browser-verification',
     'ray id',
@@ -1518,6 +1523,13 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
     );
     process.exit(EXIT.GENERAL);
   }
+
+  // Say which mode we launched in. Without this a headed run and a headless one
+  // produce identical logs, so "I tried headless-off and got the same result"
+  // could equally mean the setting never reached the browser.
+  info('launching chromium:', headless
+    ? 'headless (set WHATNOT_HEADLESS=false under xvfb-run to run headed)'
+    : 'headed, DISPLAY=' + process.env.DISPLAY);
 
   const chromeArgs = [
     ...args,

@@ -82,6 +82,24 @@ class WhatnotLoginTest extends TestCase
         $this->assertSame('sessionid', $this->savedCookies()[0]['name']);
     }
 
+    public function test_it_drops_cloudflares_own_cookies(): void
+    {
+        // None of these travel between machines. cf_clearance and __cf_bm are
+        // bound to the IP and User-Agent that earned them, so replaying one from
+        // a laptop is exactly what a stolen token looks like; the cf_chl_* pair
+        // record a challenge in progress somewhere this browser is not.
+        $exit = $this->importFile([
+            ['name' => 'sessionid',    'value' => 'keep', 'domain' => '.whatnot.com'],
+            ['name' => 'cf_clearance', 'value' => 'drop', 'domain' => '.whatnot.com'],
+            ['name' => '__cf_bm',      'value' => 'drop', 'domain' => '.whatnot.com'],
+            ['name' => 'cf_chl_2',     'value' => 'drop', 'domain' => '.whatnot.com'],
+            ['name' => 'cf_chl_prog',  'value' => 'drop', 'domain' => '.whatnot.com'],
+        ]);
+
+        $this->assertSame(0, $exit);
+        $this->assertSame(['sessionid'], array_column($this->savedCookies(), 'name'));
+    }
+
     public function test_it_drops_cookies_from_other_domains(): void
     {
         $exit = $this->importFile([

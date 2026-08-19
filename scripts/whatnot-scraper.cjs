@@ -418,6 +418,24 @@ function exitBlocked(blocked, url) {
 // page. The scraper navigated with waitUntil:'domcontentloaded' and read the DOM
 // immediately, so it caught that interstitial mid-flight every time and called
 // it a missing page. Waiting is the whole fix.
+// Cloudflare's own cookies, none of which travel between machines.
+//
+// cf_clearance and __cf_bm are bound to the IP and User-Agent that earned them,
+// so one exported from a laptop cannot be honoured from a server — and offering
+// a clearance token that does not match the connection is what a replayed token
+// looks like. The cf_chl_* pair record a challenge already in progress
+// elsewhere, which is a state this browser is not in.
+const CLOUDFLARE_EDGE_COOKIES = [
+  'cf_clearance',
+  '__cf_bm',
+  '__cfwaitingroom',
+  'cf_chl_2',
+  'cf_chl_prog',
+  'cf_chl_rc_i',
+  'cf_chl_rc_ni',
+  'cf_chl_rc_m',
+];
+
 const CHALLENGE_WAIT_MS = Number(process.env.WHATNOT_CHALLENGE_WAIT_MS || 45000);
 
 /**
@@ -533,6 +551,51 @@ function resolveCookiesFile() {
   const mtime = (f) => (fs.existsSync(f) ? fs.statSync(f).mtimeMs : 0);
 
   return mtime(live) > mtime(bootstrap) ? live : bootstrap;
+}
+
+/**
+ * Put the saved localStorage back after a profile is bootstrapped from file.
+ *
+ * Whatnot keeps session state in localStorage as well as in cookies, and a
+ * persistent profile normally carries its own across runs — so this only
+ * matters when the profile is new or was rebuilt. In that case cookies were
+ * restored from file and localStorage was not, leaving the browser
+ * half-authenticated in a way that looks like an expired session.
+ *
+ * localStorage is per-origin, so the page has to be on whatnot.com before any
+ * of it can be written.
+ */
+async function restoreLocalStorage(page) {
+  const fs = require('fs');
+  const file = require('path').join(__dirname, '../storage/whatnot-localstorage.json');
+
+  if (!fs.existsSync(file)) return 0;
+
+  let saved;
+  try {
+    saved = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch (e) {
+    info('localStorage file could not be read:', e.message);
+    return 0;
+  }
+
+  const keys = Object.keys(saved || {});
+  if (keys.length === 0) return 0;
+
+  try {
+    await page.evaluate((entries) => {
+      for (const [k, v] of Object.entries(entries)) {
+        try { localStorage.setItem(k, v); } catch { /* quota or blocked key */ }
+      }
+    }, saved);
+
+    info('restored', keys.length, 'localStorage keys into the new profile');
+
+    return keys.length;
+  } catch (e) {
+    info('localStorage could not be restored:', e.message);
+    return 0;
+  }
 }
 
 /**
@@ -2757,6 +2820,10 @@ async function extractLedgerFromPage(page) {
   // after the profile's own session eventually does go stale.
   const _fs = require('fs');
 
+  // Cookies alone leave a rebuilt profile half-authenticated — see the note on
+  // restoreLocalStorage().
+  let _bootstrappedFromFile = false;
+
   // Prefer whichever session is newest, not whichever file was typed by hand.
   //
   // The profile is rebuilt whenever Chromium will not start on it, and that
@@ -2797,6 +2864,7 @@ async function extractLedgerFromPage(page) {
           }));
         if (_cookies.length > 0) {
           await context.addCookies(_cookies);
+          _bootstrappedFromFile = true;
           _fs.writeFileSync(_cookiesLoadedMarker, String(_fileMtimeMs));
 
           // Drop Cloudflare's edge tokens whenever a bootstrap file is loaded.
@@ -2809,7 +2877,7 @@ async function extractLedgerFromPage(page) {
           //
           // Only on the bootstrap path: a clearance this profile earned for
           // itself is the thing we most want to keep.
-          for (const _edgeCookie of ['cf_clearance', '__cf_bm', '__cfwaitingroom']) {
+          for (const _edgeCookie of CLOUDFLARE_EDGE_COOKIES) {
             await context.clearCookies({ name: _edgeCookie }).catch(() => {});
           }
           info('loaded', _cookies.length, 'session cookies from', _cookiesFile, _existingCookies.length === 0 ? '(first run)' : '(file re-exported since last load)');
@@ -2823,6 +2891,15 @@ async function extractLedgerFromPage(page) {
   const page = await context.newPage();
   installChallengeHandling(page);
   await reportClearance(context);
+
+  // Only after a bootstrap: an established profile already has its own, and
+  // overwriting that with an older export would undo the session refresh the
+  // profile exists to preserve. localStorage is per-origin, so a visit to
+  // whatnot.com has to come first.
+  if (_bootstrappedFromFile) {
+    await page.goto(URLS.home, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => {});
+    await restoreLocalStorage(page);
+  }
 
   // Capture every JSON response from whatnot.com during this session.
   // Analytics and GraphQL endpoints will appear here; extractShowsFromCapture()

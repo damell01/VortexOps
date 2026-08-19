@@ -107,7 +107,12 @@ class WhatnotLogin extends Command
             // and presenting a clearance token that does not match the
             // connection is worse than presenting none: it is exactly what a
             // replayed token looks like. The server has to earn its own.
-            if (in_array(strtolower($c['name']), ['cf_clearance', '__cf_bm', '__cfwaitingroom'], true)) {
+            // The cf_chl_* pair record a challenge already in progress on
+            // another machine, which is a state this browser is not in.
+            if (in_array(strtolower($c['name']), [
+                'cf_clearance', '__cf_bm', '__cfwaitingroom',
+                'cf_chl_2', 'cf_chl_prog', 'cf_chl_rc_i', 'cf_chl_rc_ni', 'cf_chl_rc_m',
+            ], true)) {
                 return null;
             }
             return [

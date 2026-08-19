@@ -122,14 +122,23 @@ class Pallet extends Model
         return (float) ($this->shipping_cost ?? 0) + (float) ($this->payment_fees ?? 0);
     }
 
+    /**
+     * Cases expected across every line.
+     *
+     * Prefers an aggregate the query already selected. A table listing pallets
+     * asks each row for this, and answering with a fresh SUM every time is one
+     * query per row per column — which is how the list page reached 490
+     * queries for four pallets.
+     */
     public function totalCasesCount(): int
     {
-        return $this->lines()->sum('case_count');
+        return (int) ($this->expected_cases_sum ?? $this->lines()->sum('case_count'));
     }
 
+    /** Cases actually confirmed. Same aggregate-first rule as above. */
     public function receivedCasesCount(): int
     {
-        return $this->cases()->where('status', '!=', 'expected')->count();
+        return (int) ($this->received_cases_count ?? $this->cases()->where('status', '!=', 'expected')->count());
     }
 
     public function isFullyReceived(): bool

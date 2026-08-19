@@ -251,6 +251,10 @@
                     scanning = true;
 
                     // Initialize barcode reader
+                    // Loaded on demand: the decoder is not shipped to pages that never
+                    // scan, so it is fetched the first time one is opened.
+                    await window.ensureBarcodeScanner?.();
+
                     if (!window.barcodeScanner?.BrowserMultiFormatReader) {
                         alert('Barcode scanner library not loaded');
                         scanning = false;

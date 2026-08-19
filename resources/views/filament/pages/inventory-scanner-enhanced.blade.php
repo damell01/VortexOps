@@ -1267,7 +1267,11 @@
                     return;
                 }
 
-                if (!window.barcodeScanner?.BrowserMultiFormatReader) {
+                // Loaded on demand: the decoder is not shipped to pages that never
+                    // scan, so it is fetched the first time one is opened.
+                    await window.ensureBarcodeScanner?.();
+
+                    if (!window.barcodeScanner?.BrowserMultiFormatReader) {
                     console.error('[Camera] ERROR: Barcode scanner library not loaded');
                     alert('Barcode scanner library not loaded. Please refresh the page.');
                     return;

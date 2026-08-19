@@ -22,14 +22,41 @@ class ViewPallet extends ViewRecord
 
     public ?array $newAttachments = null;
 
+    /** Set once the relations have been pulled in, so they are pulled once. */
+    private bool $relationsLoaded = false;
+
     public function getRecord(): \App\Models\Pallet
     {
+        $record = parent::getRecord();
+
+        // Filament asks for the record constantly — every action's visible(),
+        // label() and modal callback, plus the view itself. Loading on each
+        // call re-ran all six relationship queries every time, which is how
+        // one pallet page issued nearly five hundred of them.
+        //
         // loadCount as well as load: the view gates its attachments block on
         // attachments_count, which load() never sets — so the block stayed
         // hidden even when the pallet had files.
-        return parent::getRecord()
-            ->load(['vendor', 'lines.inventoryItem', 'lines.location', 'lines.cases', 'attachments'])
-            ->loadCount('attachments');
+        if (! $this->relationsLoaded) {
+            $record->load(['vendor', 'lines.inventoryItem', 'lines.location', 'lines.cases', 'attachments'])
+                ->loadCount('attachments');
+
+            $this->relationsLoaded = true;
+        }
+
+        return $record;
+    }
+
+    /**
+     * Pull the relations again after something has changed them.
+     *
+     * Every action that writes calls $this->record->refresh(), which empties
+     * the loaded relations — so the flag has to drop with them or the page
+     * renders against a stale object.
+     */
+    public function refreshLoadedRelations(): void
+    {
+        $this->relationsLoaded = false;
     }
 
     public function getView(): string
@@ -119,6 +146,7 @@ class ViewPallet extends ViewRecord
                     }
 
                     $this->record->refresh();
+                    $this->refreshLoadedRelations();
                 });
     }
 
@@ -173,6 +201,7 @@ class ViewPallet extends ViewRecord
         }
 
         $this->record->refresh();
+                    $this->refreshLoadedRelations();
     }
 
     /** Already linked, and another one of it just came off the pallet. */
@@ -205,6 +234,7 @@ class ViewPallet extends ViewRecord
                     }
 
                     $this->record->refresh();
+                    $this->refreshLoadedRelations();
                 });
     }
 
@@ -291,6 +321,7 @@ class ViewPallet extends ViewRecord
                     }
 
                     $this->record->refresh();
+                    $this->refreshLoadedRelations();
                 })
                 ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'shipped', 'receiving', 'staged'])),
             // Staging's own checkpoint. What is being confirmed here is that
@@ -325,6 +356,7 @@ class ViewPallet extends ViewRecord
                         ->send();
 
                     $this->record->refresh();
+                    $this->refreshLoadedRelations();
                 })
                 // Only while staging: once anything has been scanned the
                 // receiving review is the one that matters.
@@ -373,6 +405,7 @@ class ViewPallet extends ViewRecord
                                         ->send();
 
                                     $this->record->refresh();
+                    $this->refreshLoadedRelations();
                                 })
                                 ->cancelParentActions(),
                         ]
@@ -393,6 +426,7 @@ class ViewPallet extends ViewRecord
                     }
 
                     $this->record->refresh();
+                    $this->refreshLoadedRelations();
                 })
                 ->visible(fn () => ! in_array($this->getRecord()->status, ['received', 'processed'])),
 
@@ -506,6 +540,7 @@ class ViewPallet extends ViewRecord
                         ->send();
 
                     $this->record->refresh();
+                    $this->refreshLoadedRelations();
                 })
                 ->visible(fn () => ! in_array($this->getRecord()->status, ['received', 'processed'])),
             // Photos and paperwork are captured while standing at the pallet,
@@ -551,6 +586,7 @@ class ViewPallet extends ViewRecord
                         ->send();
 
                     $this->record->refresh();
+                    $this->refreshLoadedRelations();
                 }),
 
             // Nine buttons did not fit the header — the scan action, the one
@@ -581,6 +617,7 @@ class ViewPallet extends ViewRecord
                                 ->success()
                                 ->send();
                             $this->record->refresh();
+                    $this->refreshLoadedRelations();
                         } catch (\RuntimeException $e) {
                             Notification::make()->title($e->getMessage())->danger()->send();
                         }
@@ -631,6 +668,7 @@ class ViewPallet extends ViewRecord
                         app(ReceivingService::class)->mapLine($line, $item, $location);
                         Notification::make()->title('Line mapped successfully')->success()->send();
                         $this->record->refresh();
+                    $this->refreshLoadedRelations();
                     }),
                 // Shipping and payment fees decide what the stock ends up costing,
                 // and they are usually known at the pallet rather than at the desk
@@ -669,6 +707,7 @@ class ViewPallet extends ViewRecord
                             ->send();
 
                         $this->record->refresh();
+                    $this->refreshLoadedRelations();
                     })
                     ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner()),
                 EditAction::make(),

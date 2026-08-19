@@ -1,22 +1,41 @@
-console.log('[app.js] Starting');
+// The barcode scanner and its decoding library are 469KB — more than a fifth
+// of everything the panel ships — and were imported here at the top level, so
+// every page paid for them: the dashboard, the payouts table, the settings
+// screen. Three pages actually scan.
+//
+// They load on first use instead, behind ensureBarcodeScanner(). The import is
+// cached by the browser and by this promise, so opening the camera twice costs
+// one download and the pages that never scan cost none.
+let scannerPromise = null;
 
-// Import barcode scanner first - critical for camera functionality
-import { initScanner, stopScanner, toggleFlashlight } from './barcode-scanner.js';
-import { BrowserMultiFormatReader } from '@zxing/browser';
+window.ensureBarcodeScanner = function () {
+    if (! scannerPromise) {
+        scannerPromise = Promise.all([
+            import('./barcode-scanner.js'),
+            import('@zxing/browser'),
+        ]).then(([scanner, zxing]) => {
+            window.barcodeScanner = {
+                init: scanner.initScanner,
+                stop: scanner.stopScanner,
+                toggleFlashlight: scanner.toggleFlashlight,
+                BrowserMultiFormatReader: zxing.BrowserMultiFormatReader,
+            };
 
-console.log('[app.js] Critical imports complete');
+            return window.barcodeScanner;
+        }).catch((e) => {
+            // Cleared so a failed download — a dropped connection mid-scan —
+            // can be retried rather than poisoning every later attempt.
+            scannerPromise = null;
+            console.warn('[app.js] barcode scanner failed to load:', e.message);
 
-// Make barcode scanner globally available FIRST - before loading other modules
-window.barcodeScanner = {
-    init: initScanner,
-    stop: stopScanner,
-    toggleFlashlight: toggleFlashlight,
-    BrowserMultiFormatReader: BrowserMultiFormatReader
+            return null;
+        });
+    }
+
+    return scannerPromise;
 };
 
-console.log('[app.js] window.barcodeScanner set:', window.barcodeScanner);
-
-// Load optional modules asynchronously so they don't block barcode scanner
+// Load optional modules asynchronously so they never block first paint.
 Promise.all([
     import('./feedback-annotation.js').catch(e => console.warn('[app.js] feedback-annotation failed:', e.message)),
     import('./animations.js').catch(e => console.warn('[app.js] animations failed:', e.message)),
@@ -25,5 +44,4 @@ Promise.all([
     import('./mobile-enhancements.js').catch(e => console.warn('[app.js] mobile-enhancements failed:', e.message)),
     import('./ui-improvements.js').catch(e => console.warn('[app.js] ui-improvements failed:', e.message)),
     import('./responsive-data-tables.js').catch(e => console.warn('[app.js] responsive-data-tables failed:', e.message)),
-]).then(() => console.log('[app.js] All optional modules loaded'))
-  .catch(e => console.warn('[app.js] Error loading optional modules:', e.message));
+]).catch(e => console.warn('[app.js] Error loading optional modules:', e.message));

@@ -54,6 +54,10 @@ class PalletResource extends Resource
      */
     public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
     {
+        // receivedCasesCount() reads the query's aggregate where the table
+        // selected one, so this costs nothing per row. Checking the cheap
+        // permission first also short-circuits it for everyone who cannot
+        // delete anyway.
         return (auth()->user()?->isAdmin() ?? false) && $record->receivedCasesCount() === 0;
     }
 
@@ -102,9 +106,17 @@ class PalletResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
+        // Aggregates rather than collections. Eager-loading `cases` pulled
+        // every case on every pallet in as a model — 603 of them to render
+        // four rows — and each row then asked for its own counts and sums on
+        // top, which the list page paid for 490 queries deep.
         return parent::getEloquentQuery()
-            ->with(['vendor', 'lines', 'cases'])
-            ->withCount('lines');
+            ->with('vendor')
+            ->withCount('lines')
+            ->withCount(['cases as received_cases_count' => fn ($query) => $query->where('inventory_cases.status', '!=', 'expected')])
+            ->withCount('missingItems as missing_items_count')
+            ->withSum('lines as expected_cases_sum', 'case_count')
+            ->withSum('missingItems as missing_items_value', 'total_value');
     }
 
     public static function form(Schema $schema): Schema
@@ -313,19 +325,23 @@ class PalletResource extends Resource
                         return "{$received}/{$total} cases ({$percent}%)";
                     })
                     ->visible(fn (?Pallet $record) => $record && in_array($record->status, ['receiving', 'received', 'processed'])),
+                // Read off the query's own aggregates. Filament calls state()
+                // and visible() separately, so counting here meant three
+                // queries a row for one column.
                 TextColumn::make('missing_items')
                     ->label('Missing Items')
                     ->state(function (Pallet $record): string {
-                        $missing = $record->missingItems()->count();
+                        $missing = (int) ($record->missing_items_count ?? 0);
+
                         if ($missing === 0) {
                             return '—';
                         }
-                        $cost = $record->missingItems()->sum('total_value');
-                        return "{$missing} item(s) · ${$cost}";
+
+                        return $missing . ' item(s) · $' . number_format((float) ($record->missing_items_value ?? 0), 2);
                     })
                     ->badge()
                     ->color('warning')
-                    ->visible(fn (?Pallet $record) => $record && $record->missingItems()->count() > 0),
+                    ->visible(fn (?Pallet $record) => $record && (int) ($record->missing_items_count ?? 0) > 0),
                 TextColumn::make('next_action')
                     ->label('Next Action')
                     ->state(fn (Pallet $record): string => match ($record->status) {

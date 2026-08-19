@@ -75,12 +75,12 @@ class InventoryGuideTest extends TestCase
     public static function tabs(): array
     {
         return [
-            'Start Here'        => ['start',   'Creating a location'],
-            'Add & Edit Items'  => ['items',   'Editing an item'],
-            'Restock & Scan'    => ['restock', 'Quick Add Stock'],
-            'Receive a Pallet'  => ['pallets', 'Create the pallet'],
+            'Start Here'        => ['start',   'The six location types'],
+            'Add & Edit Items'  => ['items',   'What each field is for'],
+            'Restock & Scan'    => ['restock', 'Quick Add Stock, start to finish'],
+            'Receive a Pallet'  => ['pallets', 'Fields worth getting right'],
             'Costs & Value'     => ['costs',   'Where cost comes from'],
-            'Fixing Mistakes'   => ['fix',     'Use the tool that matches the reason'],
+            'Fixing Mistakes'   => ['fix',     'Pick the tool that matches the reason'],
             'Troubleshooting'   => ['trouble', 'cannot find a main warehouse'],
         ];
     }

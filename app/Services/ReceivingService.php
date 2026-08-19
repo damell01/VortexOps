@@ -379,6 +379,49 @@ class ReceivingService
     }
 
     /**
+     * Confirm one case of a line that is already mapped.
+     *
+     * The by-code version has to find the line first; here the line is already
+     * known because it was clicked, so there is nothing to look up and nothing
+     * to get wrong. Same effect otherwise: one case in, stock credited, the
+     * line closed when the last one lands.
+     *
+     * @return array{line: PalletLine, received: int, expected: int, complete: bool}
+     */
+    public function confirmOneCase(PalletLine $line): array
+    {
+        if (! $line->isFullyMapped()) {
+            throw new RuntimeException("\"{$line->description}\" is not linked to an item and location yet.");
+        }
+
+        if ($line->cases()->count() === 0) {
+            $this->generateExpectedCases($line);
+        }
+
+        $case = $line->cases()->where('status', 'expected')->first();
+
+        if (! $case) {
+            throw new RuntimeException("All {$line->case_count} cases of \"{$line->description}\" are already in.");
+        }
+
+        $this->receiveCase($case);
+
+        $received = $line->fresh()->receivedCases();
+        $expected = (int) $line->case_count;
+
+        if ($received >= $expected) {
+            $line->update(['line_status' => 'received']);
+        }
+
+        return [
+            'line'     => $line->fresh(),
+            'received' => $received,
+            'expected' => $expected,
+            'complete' => $received >= $expected,
+        ];
+    }
+
+    /**
      * Receive a single case by barcode. Looks up the case, marks it received,
      * updates stock, and recalculates average cost.
      *

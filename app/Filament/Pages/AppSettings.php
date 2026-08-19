@@ -73,6 +73,13 @@ class AppSettings extends Page
     public string $whatnotImportStatus = ''; // 'success' | 'error' | ''
     public string $whatnotLastImport   = '';
 
+    // ── Receiving ────────────────────────────────────────────────────────────
+    // Where a scanned pallet line lands when nothing more specific is known.
+    // A pallet is unloaded into one place and sorted afterwards, so being asked
+    // per line while holding a box is the same answer typed over and over.
+
+    public ?string $default_receiving_location_id = null;
+
     // ── Shipping Surcharge ───────────────────────────────────────────────────
 
     public string $shipping_surcharge_rate      = '4.00';
@@ -148,6 +155,8 @@ class AppSettings extends Page
         $this->enabled_modules  = AdminModules::enabledSlugs();
 
         $this->demo_mode = (bool) Setting::get('demo_mode', false);
+
+        $this->default_receiving_location_id = Setting::get('default_receiving_location_id') ?: null;
 
         $this->shipping_surcharge_rate      = Setting::get('shipping_surcharge_rate', '4.00');
         $this->shipping_surcharge_threshold = Setting::get('shipping_surcharge_threshold', '500.00');
@@ -255,6 +264,7 @@ class AppSettings extends Page
             'notify_show_reconciled_mode'      => 'required|in:all,admins,custom',
             'notify_show_reconciled_users'     => 'nullable|array',
             'notify_show_reconciled_users.*'   => 'integer|exists:users,id',
+            'default_receiving_location_id'    => 'nullable|integer|exists:inventory_locations,id',
             'shipping_surcharge_rate'          => 'required|numeric|min:0',
             'shipping_surcharge_threshold'     => 'required|numeric|min:0',
             'default_owner_fee_type'           => 'nullable|in:percentage,flat',
@@ -291,6 +301,8 @@ class AppSettings extends Page
         Setting::set('notify_show_ready_users',       json_encode($this->notify_show_ready_users));
         Setting::set('notify_show_reconciled_mode',   $this->notify_show_reconciled_mode);
         Setting::set('notify_show_reconciled_users',  json_encode($this->notify_show_reconciled_users));
+
+        Setting::set('default_receiving_location_id', $this->default_receiving_location_id ?: '');
 
         Setting::set('shipping_surcharge_rate',      $this->shipping_surcharge_rate);
         Setting::set('shipping_surcharge_threshold', $this->shipping_surcharge_threshold);

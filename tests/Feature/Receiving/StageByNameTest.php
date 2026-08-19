@@ -65,8 +65,13 @@ class StageByNameTest extends TestCase
 
         $this->assertSame('2026 Topps Chrome Hobby', $line->description);
         $this->assertNull($line->inventory_item_id, 'It should stage without inventing a product.');
-        $this->assertNull($line->inventory_location_id);
         $this->assertSame(1, (int) $line->case_count);
+
+        // The location is allowed to be filled in — this suite has a single
+        // location, which is the case where the question has no content. What
+        // must stay unanswered is the product, because that is the fact the
+        // barcode settles later.
+        $this->assertFalse($line->isFullyMapped(), 'It is not receivable until an item is linked.');
     }
 
     public function test_case_or_single_is_recorded_when_known_and_left_open_when_not(): void
@@ -188,6 +193,128 @@ class StageByNameTest extends TestCase
         app(ReceivingService::class)->linkLineByScan($line, '111222', $this->location);
     }
 
+    public function test_a_row_can_be_scanned_and_counted_in_one_go(): void
+    {
+        // The flow as it is actually worked: the line is clicked, so nothing
+        // has to be looked up, and the box being scanned is the box in hand —
+        // so the same action links it and counts it.
+        $this->page()->callAction('add_expected_item', ['name' => 'Row Box', 'case_count' => 2]);
+        $line = $this->pallet->lines()->firstOrFail();
+
+        $this->page()->callAction(
+            'linkLine',
+            ['code' => '6060606060', 'inventory_location_id' => $this->location->id, 'confirm_case' => true],
+            arguments: ['line' => $line->id],
+        );
+
+        $line->refresh();
+
+        $this->assertNotNull($line->inventory_item_id, 'Scanning should have linked it.');
+        $this->assertSame(1, $line->receivedCases(), 'and counted the one being held.');
+    }
+
+    public function test_linking_without_counting_leaves_the_case_open(): void
+    {
+        // Prepping ahead of the delivery: link it now, count it when it lands.
+        $this->page()->callAction('add_expected_item', ['name' => 'Later Box']);
+        $line = $this->pallet->lines()->firstOrFail();
+
+        $this->page()->callAction(
+            'linkLine',
+            ['code' => '7070707070', 'inventory_location_id' => $this->location->id, 'confirm_case' => false],
+            arguments: ['line' => $line->id],
+        );
+
+        $line->refresh();
+
+        $this->assertNotNull($line->inventory_item_id);
+        $this->assertSame(0, $line->receivedCases());
+    }
+
+    public function test_a_mapped_row_counts_a_case_per_click(): void
+    {
+        $item = InventoryItem::create(['name' => 'Clicky', 'sku' => 'CL-1', 'is_active' => true]);
+
+        $line = PalletLine::create([
+            'pallet_id'             => $this->pallet->id,
+            'line_number'           => 1,
+            'description'           => 'Clicky',
+            'inventory_item_id'     => $item->id,
+            'inventory_location_id' => $this->location->id,
+            'case_count'            => 2,
+        ]);
+
+        $this->page()->callAction('confirmCase', arguments: ['line' => $line->id]);
+        $this->assertSame(1, $line->fresh()->receivedCases());
+
+        $this->page()->callAction('confirmCase', arguments: ['line' => $line->id]);
+        $this->assertSame(2, $line->fresh()->receivedCases());
+        $this->assertSame('received', $line->fresh()->line_status);
+    }
+
+    public function test_a_row_action_cannot_reach_another_pallets_line(): void
+    {
+        // Resolved through this pallet's own lines, so a stale page cannot
+        // credit stock against a pallet it is not looking at.
+        $other = Pallet::create([
+            'vendor_id' => $this->pallet->vendor_id,
+            'reference' => 'PO-OTHER',
+            'status'    => 'staged',
+        ]);
+
+        $foreign = PalletLine::create([
+            'pallet_id'             => $other->id,
+            'line_number'           => 1,
+            'description'           => 'Not yours',
+            'inventory_item_id'     => InventoryItem::create(['name' => 'X', 'sku' => 'X-1', 'is_active' => true])->id,
+            'inventory_location_id' => $this->location->id,
+            'case_count'            => 1,
+        ]);
+
+        $this->page()->callAction('confirmCase', arguments: ['line' => $foreign->id]);
+
+        $this->assertSame(0, $foreign->fresh()->receivedCases());
+    }
+
+    public function test_the_configured_receiving_location_is_used_without_asking(): void
+    {
+        // Set once in Settings and the question stops being asked. A pallet
+        // goes into one place and is sorted afterwards, so answering per line
+        // while holding a box is the same answer typed over and over.
+        \App\Models\Setting::set('default_receiving_location_id', (string) $this->location->id);
+
+        $this->assertSame($this->location->id, \App\Models\InventoryLocation::defaultReceivingId());
+
+        $this->page()->callAction('add_expected_item', ['name' => 'Defaulted']);
+
+        $this->assertSame(
+            $this->location->id,
+            $this->pallet->lines()->firstOrFail()->inventory_location_id,
+            'A staged line should already know where it is going.'
+        );
+    }
+
+    public function test_an_inactive_configured_location_is_ignored(): void
+    {
+        // Pointing at somewhere retired would map lines into a location that
+        // no longer accepts stock, which is worse than asking.
+        $retired = InventoryLocation::create(['name' => 'Old Bay', 'type' => 'main_storage', 'status' => 'inactive']);
+        \App\Models\Setting::set('default_receiving_location_id', (string) $retired->id);
+
+        $this->assertNotSame($retired->id, \App\Models\InventoryLocation::defaultReceivingId());
+    }
+
+    public function test_with_one_location_it_does_not_ask_at_all(): void
+    {
+        // Nothing configured, and only one place stock can go — the question
+        // has no content.
+        \App\Models\Setting::set('default_receiving_location_id', '');
+        InventoryLocation::where('id', '!=', $this->location->id)->delete();
+        cache()->forget('inv_loc:active');
+
+        $this->assertSame($this->location->id, \App\Models\InventoryLocation::defaultReceivingId());
+    }
+
     public function test_the_create_form_stages_a_line_from_a_name_alone(): void
     {
         // The other place lines get typed. This repeater demanded cases and
@@ -258,11 +385,11 @@ class StageByNameTest extends TestCase
 
         $line = $this->pallet->lines()->firstOrFail();
 
-        $this->page()->callAction('link_by_scan', [
-            'pallet_line_id'        => $line->id,
-            'code'                  => '7778889990',
-            'inventory_location_id' => $this->location->id,
-        ]);
+        $this->page()->callAction(
+            'linkLine',
+            ['code' => '7778889990', 'inventory_location_id' => $this->location->id, 'confirm_case' => false],
+            arguments: ['line' => $line->id],
+        );
 
         $line->refresh();
         $this->assertNotNull($line->inventory_item_id);

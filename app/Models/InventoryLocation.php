@@ -76,6 +76,30 @@ class InventoryLocation extends Model
         );
     }
 
+    /**
+     * Where received stock lands when nothing more specific has been said.
+     *
+     * A pallet is unloaded into one place and sorted afterwards, so answering
+     * "which location?" for every line while holding a box is the same answer
+     * typed repeatedly. Set once under Settings — call it Staging, Receiving,
+     * Back Room, whatever the place is actually called.
+     *
+     * Falls through to the only active location when there is just one, which
+     * is the case where the question has no content at all.
+     */
+    public static function defaultReceivingId(): ?int
+    {
+        $configured = Setting::get('default_receiving_location_id');
+
+        if ($configured && static::where('id', $configured)->where('status', 'active')->exists()) {
+            return (int) $configured;
+        }
+
+        $options = static::activeOptions();
+
+        return count($options) === 1 ? (int) array_key_first($options) : null;
+    }
+
     /** Active locations filtered by type, cached 5 min. */
     public static function activeOptionsByType(string $type): array
     {

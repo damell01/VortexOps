@@ -37,6 +37,157 @@ class ViewPallet extends ViewRecord
         return 'filament.pages.view-pallet';
     }
 
+    /**
+     * Scan a staged line into inventory, fired from its own row.
+     *
+     * Its own method rather than a header action: returned from
+     * getHeaderActions() it rendered as a header button too — a control with
+     * no line to act on, sitting beside the ones that have one. Filament
+     * resolves mountAction('linkLine') to this, so the row can reach it and
+     * the header cannot.
+     *
+     * Standing at the pallet you already know which box you are holding, so
+     * picking it out of a dropdown a second time is the step worth removing.
+     */
+    public function linkLineAction(): Action
+    {
+        return Action::make('linkLine')
+                ->modalHeading(fn (array $arguments) => 'Scan ' . ($this->lineFor($arguments)?->description ?? 'this item'))
+                ->modalDescription('An unknown code becomes a new inventory item, named as staged.')
+                ->modalSubmitActionLabel('Link')
+                ->schema(fn (array $arguments) => [
+                    \Filament\Forms\Components\TextInput::make('code')
+                        ->label('Barcode / UPC')
+                        ->required()
+                        ->autofocus()
+                        ->placeholder('Scan or type…'),
+                    Select::make('inventory_location_id')
+                        ->label('Receive Into')
+                        ->required()
+                        ->searchable()
+                        ->options(fn () => InventoryLocation::activeOptions())
+                        // Whatever the line already carries, else wherever the
+                        // rest of this pallet is going, else the only location
+                        // there is. Asking per line is the same answer typed
+                        // over and over while holding a box.
+                        ->default(fn () => $this->defaultReceivingLocationId($arguments)),
+                    \Filament\Forms\Components\Checkbox::make('confirm_case')
+                        ->label('Count one case as received')
+                        ->helperText('You are holding it, so this is normally right.')
+                        ->default(true),
+                ])
+                ->action(function (array $arguments, array $data) {
+                    $line = $this->lineFor($arguments);
+
+                    if (! $line) {
+                        Notification::make()->title('That line is no longer on this pallet')->danger()->send();
+
+                        return;
+                    }
+
+                    try {
+                        $result = app(ReceivingService::class)->linkLineByScan(
+                            $line,
+                            $data['code'],
+                            InventoryLocation::findOrFail($data['inventory_location_id']),
+                        );
+
+                        $body = $result['created']
+                            ? 'Added to inventory with that barcode.'
+                            : 'Matched an item already in inventory.';
+
+                        if ($data['confirm_case'] ?? false) {
+                            $count  = app(ReceivingService::class)->confirmOneCase($result['line']);
+                            $body  .= " {$count['received']} of {$count['expected']} cases in.";
+                        }
+
+                        Notification::make()
+                            ->title($result['item']->name . ($result['created'] ? ' created and linked' : ' linked'))
+                            ->body($body)
+                            ->success()
+                            ->send();
+                    } catch (\RuntimeException $e) {
+                        Notification::make()->title($e->getMessage())->danger()->send();
+                    }
+
+                    $this->record->refresh();
+                });
+    }
+
+    /** Already linked, and another one of it just came off the pallet. */
+    public function confirmCaseAction(): Action
+    {
+        return Action::make('confirmCase')
+                ->requiresConfirmation()
+                ->modalHeading(fn (array $arguments) => 'Count one case of ' . ($this->lineFor($arguments)?->description ?? 'this item'))
+                ->modalDescription('Credits one case to stock. Nothing else changes.')
+                ->modalSubmitActionLabel('Count it')
+                ->action(function (array $arguments) {
+                    $line = $this->lineFor($arguments);
+
+                    if (! $line) {
+                        Notification::make()->title('That line is no longer on this pallet')->danger()->send();
+
+                        return;
+                    }
+
+                    try {
+                        $result = app(ReceivingService::class)->confirmOneCase($line);
+
+                        Notification::make()
+                            ->title($line->description . ' — ' . $result['received'] . ' of ' . $result['expected'])
+                            ->body($result['complete'] ? 'That line is complete.' : 'Click again for the next case.')
+                            ->success()
+                            ->send();
+                    } catch (\RuntimeException $e) {
+                        Notification::make()->title($e->getMessage())->danger()->send();
+                    }
+
+                    $this->record->refresh();
+                });
+    }
+
+    /**
+     * The line a row-level action was fired for.
+     *
+     * Resolved through this pallet's own lines rather than by id alone, so a
+     * stale page cannot act on a line belonging to a different pallet.
+     */
+    private function lineFor(array $arguments): ?PalletLine
+    {
+        $id = $arguments['line'] ?? null;
+
+        return $id ? $this->getRecord()->lines->firstWhere('id', (int) $id) : null;
+    }
+
+    /**
+     * Where a scanned line should land, guessed well enough not to be asked.
+     *
+     * In order: what the line already says, where the rest of the pallet is
+     * going, and — when the site only has one place to put things — that one.
+     * A pallet is usually unloaded into a single location, so the honest
+     * default is the answer already given a moment ago.
+     */
+    private function defaultReceivingLocationId(array $arguments): ?int
+    {
+        $onLine = $this->lineFor($arguments)?->inventory_location_id;
+
+        if ($onLine) {
+            return (int) $onLine;
+        }
+
+        $elsewhereOnPallet = $this->getRecord()->lines
+            ->pluck('inventory_location_id')
+            ->filter()
+            ->first();
+
+        if ($elsewhereOnPallet) {
+            return (int) $elsewhereOnPallet;
+        }
+
+        return InventoryLocation::defaultReceivingId();
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -183,63 +334,6 @@ class ViewPallet extends ViewRecord
                 })
                 ->visible(fn () => ! in_array($this->getRecord()->status, ['received', 'processed'])),
 
-            // The other end of staging by name: the box is here, its barcode
-            // settles what it is. Picking the line first means an unrecognised
-            // code is not an error — it is a new product, named from what was
-            // staged, created and mapped in one step.
-            Action::make('link_by_scan')
-                ->label('Link by Scan')
-                ->icon('heroicon-o-link')
-                ->color('warning')
-                ->modalHeading('Link a staged item to inventory')
-                ->modalDescription('Pick the line, then scan it. An unknown code becomes a new item.')
-                ->modalSubmitActionLabel('Link')
-                ->schema([
-                    Select::make('pallet_line_id')
-                        ->label('Staged item')
-                        ->required()
-                        ->options(fn () => $this->getRecord()->lines
-                            ->whereNull('inventory_item_id')
-                            ->mapWithKeys(fn (PalletLine $l) => [$l->id => $l->description])
-                            ->toArray())
-                        ->helperText('Only items not yet linked to inventory appear here.'),
-                    \Filament\Forms\Components\TextInput::make('code')
-                        ->label('Barcode / UPC')
-                        ->required()
-                        ->placeholder('Scan or type…'),
-                    Select::make('inventory_location_id')
-                        ->label('Receive Into')
-                        ->required()
-                        ->searchable()
-                        ->options(fn () => InventoryLocation::activeOptions()),
-                ])
-                ->action(function (array $data) {
-                    try {
-                        $line = $this->getRecord()->lines()->findOrFail($data['pallet_line_id']);
-
-                        $result = app(ReceivingService::class)->linkLineByScan(
-                            $line,
-                            $data['code'],
-                            InventoryLocation::findOrFail($data['inventory_location_id']),
-                        );
-
-                        Notification::make()
-                            ->title($result['item']->name . ($result['created'] ? ' created and linked' : ' linked'))
-                            ->body($result['created']
-                                ? 'A new inventory item was added with that barcode.'
-                                : 'Matched an item already in inventory.')
-                            ->success()
-                            ->send();
-                    } catch (\RuntimeException $e) {
-                        Notification::make()->title($e->getMessage())->danger()->send();
-                    }
-
-                    $this->record->refresh();
-                })
-                // Only worth offering while something is still unlinked.
-                ->visible(fn () => ! in_array($this->getRecord()->status, ['received', 'processed'])
-                    && $this->getRecord()->lines->whereNull('inventory_item_id')->isNotEmpty()),
-
             // The other half: build the list before the pallet lands, by name
             // rather than by barcode, since a staged item has not arrived to be
             // scanned yet.
@@ -298,7 +392,11 @@ class ViewPallet extends ViewRecord
                         ->label('Receive Into')
                         ->searchable()
                         ->options(fn () => InventoryLocation::activeOptions())
-                        ->helperText('Optional at this stage.'),
+                        // Pre-filled from the staging location set in Settings,
+                        // so a line staged by name is one scan away from being
+                        // receivable rather than two.
+                        ->default(fn () => InventoryLocation::defaultReceivingId())
+                        ->helperText('Optional — defaults to your receiving location.'),
                     \Filament\Forms\Components\TextInput::make('case_count')
                         ->label('Cases Expected')
                         ->numeric()->minValue(1)->default(1),

@@ -141,6 +141,7 @@
                                 <th class="px-4 py-2 font-medium">Location</th>
                                 <th class="px-4 py-2 font-medium">Progress</th>
                                 <th class="px-4 py-2 font-medium">Status</th>
+                                <th class="px-4 py-2 font-medium text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -187,6 +188,30 @@
                                             <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                                                 Awaiting
                                             </span>
+                                        @endif
+                                    </td>
+                                    {{-- The row is the click target. Standing at the pallet you
+                                         already know which box you are holding, so choosing it
+                                         again from a dropdown is the step worth removing. --}}
+                                    <td class="px-4 py-2.5 text-right whitespace-nowrap">
+                                        @if (! $vxMapped)
+                                            <button
+                                                type="button"
+                                                wire:click="mountAction('linkLine', { line: {{ $vxLine->id }} })"
+                                                class="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 active:scale-95 transition-transform"
+                                            >
+                                                <x-heroicon-o-qr-code class="h-4 w-4" /> Scan to link
+                                            </button>
+                                        @elseif (! $vxComplete)
+                                            <button
+                                                type="button"
+                                                wire:click="mountAction('confirmCase', { line: {{ $vxLine->id }} })"
+                                                class="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-95 transition-transform"
+                                            >
+                                                <x-heroicon-o-plus class="h-4 w-4" /> Count a case
+                                            </button>
+                                        @else
+                                            <span class="text-xs text-gray-400">—</span>
                                         @endif
                                     </td>
                                 </tr>

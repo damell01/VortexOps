@@ -991,18 +991,31 @@ class WhatnotScraper
     {
         $lock = Cache::lock('whatnot:browser', 13800);
 
-        try {
-            // block() waits up to $waitSeconds for the lock, throwing on timeout.
-            $lock->block($waitSeconds);
-        } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
-            throw new \RuntimeException(
-                'Timed out waiting for the shared Whatnot browser lock — another import/orders/ledger task is still ' .
-                'running, OR a previous run was killed (pkill -9, Ctrl+C, OOM) before it could release the lock ' .
-                'cleanly, leaving it stuck for up to its TTL. Check `ps aux | grep whatnot-scraper` first — if ' .
-                'nothing real is running, clear it with `php artisan whatnot:unlock`.',
-                0,
-                $e
-            );
+        // Take it without blocking first, purely so we can say something when we
+        // can't. block() is silent, so a run queued behind a lock left held by a
+        // Ctrl+C'd predecessor looked exactly like one that had started and was
+        // working — for up to twenty minutes, sitting on "Importing channel: …"
+        // with no way to tell the two apart.
+        //
+        // Locks are not reentrant, so acquire exactly once: get() when it is
+        // free, block() when it is not. block() after a successful get() would
+        // spin against our own lock until the timeout.
+        if (! $lock->get()) {
+            $this->announceLockWait();
+
+            try {
+                // block() waits up to $waitSeconds for the lock, throwing on timeout.
+                $lock->block($waitSeconds);
+            } catch (\Illuminate\Contracts\Cache\LockTimeoutException $e) {
+                throw new \RuntimeException(
+                    'Timed out waiting for the shared Whatnot browser lock — another import/orders/ledger task is still ' .
+                    'running, OR a previous run was killed (pkill -9, Ctrl+C, OOM) before it could release the lock ' .
+                    'cleanly, leaving it stuck for up to its TTL. Check `ps aux | grep whatnot-scraper` first — if ' .
+                    'nothing real is running, clear it with `php artisan whatnot:unlock`.',
+                    0,
+                    $e
+                );
+            }
         }
 
         // A process killed with SIGKILL never reaches the finally block below,
@@ -1016,6 +1029,36 @@ class WhatnotScraper
         } finally {
             Cache::forget('whatnot:browser:holder_pid');
             $lock->release();
+        }
+    }
+
+    /**
+     * Say who we are waiting on, and whether waiting is even worth it.
+     *
+     * A stale lock and a busy one are the same silence from the outside, but
+     * opposite situations: one clears on its own in a minute, the other never
+     * does and needs whatnot:unlock. Guessing wrong costs twenty minutes.
+     */
+    private function announceLockWait(): void
+    {
+        $holder = Cache::get('whatnot:browser:holder_pid');
+        $alive  = $holder && is_dir("/proc/{$holder}");
+
+        $message = match (true) {
+            $alive  => "Waiting for the shared browser lock — PID {$holder} is still scraping. This one will start when that finishes.",
+            (bool) $holder => "The browser lock is held by PID {$holder}, which is no longer running — it is stale, and waiting will not clear it. "
+                . 'Stop this and run `php artisan whatnot:unlock`.',
+            default => 'The browser lock is held but no holder PID was recorded, which is what an interrupted run leaves behind. '
+                . 'Waiting will not clear it — stop this and run `php artisan whatnot:unlock`.',
+        };
+
+        Log::channel('stack')->warning('WhatnotScraper ' . $message);
+
+        // Reaches the terminal of whoever ran the artisan command. Without it
+        // this notice only lands in a log nobody is tailing while they watch a
+        // command appear to hang.
+        if (PHP_SAPI === 'cli' && defined('STDERR')) {
+            fwrite(STDERR, "\n  " . $message . "\n\n");
         }
     }
 

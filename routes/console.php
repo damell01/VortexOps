@@ -28,12 +28,23 @@ Schedule::command('activitylog:clean')
     ->weeklyOn(7, '03:30')
     ->name('clean-activity-log')
     ->withoutOverlapping();
+// Every whatnot:* job below drives the same Chromium profile behind the same
+// lock, so they pause as a group rather than one at a time: while any one of
+// them is running, a manual run simply queues behind it, which makes the
+// scraper the one thing you cannot debug by hand exactly when you need to.
+// Stopping the scheduler outright would also stop backups and health checks.
+//
+// Evaluated per run, so flipping WHATNOT_SCHEDULE_ENABLED takes effect on the
+// next tick without restarting anything.
+$whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
+
 // Frequent "catch the stream that just ended" import: the analytics walk starts
 // at the newest show, so a larger limit grabs more shows for comprehensive updates.
 // Imports each show's orders in the same browser session.
 // withoutOverlapping keeps runs from stacking / colliding on the shared browser
 // profile — critical since every whatnot:* command drives the same Chromium profile.
 Schedule::command('whatnot:import --limit=200')
+    ->skip($whatnotPaused)
     ->cron('*/30 * * * *')
     ->name('whatnot-import-recent')
     ->withoutOverlapping(30)
@@ -47,6 +58,7 @@ Schedule::command('whatnot:import --limit=200')
 // detail_url but no orders yet. Once an hour at :22 — a quiet minute between the
 // :15 and :30 imports — so it can't fight the import for the browser profile.
 Schedule::command('whatnot:import-orders --new-only')
+    ->skip($whatnotPaused)
     ->cron('22 * * * *')
     ->name('whatnot-import-orders-backfill')
     ->withoutOverlapping(30);
@@ -55,6 +67,7 @@ Schedule::command('whatnot:import-orders --new-only')
 // (dedup keeps re-scraped rows from duplicating). Runs at :52, clear of the imports above,
 // so it never contends for the browser profile.
 Schedule::command('whatnot:import-ledger --days=30')
+    ->skip($whatnotPaused)
     ->cron('52 4 * * *')
     ->name('whatnot-ledger-daily')
     ->withoutOverlapping(30);
@@ -63,6 +76,7 @@ Schedule::command('whatnot:import-ledger --days=30')
 // Runs Sunday at 01:00 AM to avoid peak hours. This ensures you have a full year of financial
 // and operational history. Use --limit=0 for unlimited shows to backfill complete historical data.
 Schedule::command('whatnot:import-ledger --days=1825')
+    ->skip($whatnotPaused)
     ->cron('0 1 * * 0')
     ->name('whatnot-ledger-backfill-annual')
     ->withoutOverlapping(120);
@@ -70,6 +84,7 @@ Schedule::command('whatnot:import-ledger --days=1825')
 // Full comprehensive sync: shows + orders + shipments + ledger in one go
 // Run every 2 hours to pull everything at once (high limit to capture all recent activity)
 Schedule::command('whatnot:sync-all --limit=0')
+    ->skip($whatnotPaused)
     ->cron('0 */2 * * *')
     ->name('whatnot-sync-all')
     ->withoutOverlapping(90)
@@ -84,6 +99,7 @@ Schedule::command('whatnot:sync-all --limit=0')
 // fulfillment status is the one thing worth polling fast. :07/:37 keeps it clear
 // of the :00/:15/:22/:30/:45/:52 Whatnot cron slots elsewhere in this file.
 Schedule::command('whatnot:sync-shipments')
+    ->skip($whatnotPaused)
     ->cron('37 * * * *')
     ->name('whatnot-sync-shipments')
     ->withoutOverlapping(20);

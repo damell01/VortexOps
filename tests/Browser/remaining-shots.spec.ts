@@ -126,17 +126,17 @@ test('VortexOps — remaining gallery shots (debug-off)', async ({ page }, info)
         await snap(page, info, '63-duplicate-detector-results-full', true);
     }
 
-    // Receiving Guide + tabs
-    await goto(page, '/admin/receiving-guide'); await snap(page, info, '64-receiving-guide-workflow');
+    // Inventory Guide + tabs
+    await goto(page, '/admin/inventory-guide'); await snap(page, info, '64-inventory-guide-workflow');
     for (const label of ['AI Matching', 'Scanner Modes', 'Product Catalog']) {
         const guideTab = page.locator(`button:has-text("${label}")`).first();
         if (await guideTab.isVisible().catch(() => false)) {
             await guideTab.click();
             await page.waitForTimeout(400);
-            await snap(page, info, `65-receiving-guide-${label.toLowerCase().replace(/\s+/g, '-')}`);
+            await snap(page, info, `65-inventory-guide-${label.toLowerCase().replace(/\s+/g, '-')}`);
         }
     }
-    await snap(page, info, '66-receiving-guide-full', true);
+    await snap(page, info, '66-inventory-guide-full', true);
 
     // Final dashboard scroll
     await goto(page, '/admin'); await page.waitForTimeout(600);

@@ -522,9 +522,9 @@ test('VortexOps UI tour — pages and interactions', async ({ page }, testInfo) 
         await scrollSnap(page, testInfo, '63-duplicate-detector-results-full');
     }
 
-    // ── 28. Receiving Guide ───────────────────────────────────────────────────
-    await goto(page, '/admin/receiving-guide', 'Receiving Guide', errLog);
-    await snap(page, testInfo, '64-receiving-guide-workflow');
+    // ── 28. Inventory Guide ───────────────────────────────────────────────────
+    await goto(page, '/admin/inventory-guide', 'Inventory Guide', errLog);
+    await snap(page, testInfo, '64-inventory-guide-workflow');
     // Click through guide tabs
     const guideTabLabels = ['AI Matching', 'Scanner Modes', 'Product Catalog'];
     for (const label of guideTabLabels) {
@@ -533,10 +533,10 @@ test('VortexOps UI tour — pages and interactions', async ({ page }, testInfo) 
             await guideTab.click();
             await page.waitForTimeout(400);
             const slug = label.toLowerCase().replace(/\s+/g, '-');
-            await snap(page, testInfo, `65-receiving-guide-${slug}`);
+            await snap(page, testInfo, `65-inventory-guide-${slug}`);
         }
     }
-    await scrollSnap(page, testInfo, '66-receiving-guide-full');
+    await scrollSnap(page, testInfo, '66-inventory-guide-full');
 
     // ── 22. Final dashboard ────────────────────────────────────────────────────
     await goto(page, '/admin', 'Dashboard final', errLog);

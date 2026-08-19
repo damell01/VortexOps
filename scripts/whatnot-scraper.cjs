@@ -2798,6 +2798,20 @@ async function extractLedgerFromPage(page) {
         if (_cookies.length > 0) {
           await context.addCookies(_cookies);
           _fs.writeFileSync(_cookiesLoadedMarker, String(_fileMtimeMs));
+
+          // Drop Cloudflare's edge tokens whenever a bootstrap file is loaded.
+          //
+          // cf_clearance proves a particular browser on a particular IP passed
+          // a challenge, and Cloudflare binds it to both. One exported from a
+          // laptop cannot be honoured here, and offering a clearance token that
+          // does not match the connection is worse than offering none — it is
+          // what a replayed token looks like. This browser must earn its own.
+          //
+          // Only on the bootstrap path: a clearance this profile earned for
+          // itself is the thing we most want to keep.
+          for (const _edgeCookie of ['cf_clearance', '__cf_bm', '__cfwaitingroom']) {
+            await context.clearCookies({ name: _edgeCookie }).catch(() => {});
+          }
           info('loaded', _cookies.length, 'session cookies from', _cookiesFile, _existingCookies.length === 0 ? '(first run)' : '(file re-exported since last load)');
         }
       } catch (e) {

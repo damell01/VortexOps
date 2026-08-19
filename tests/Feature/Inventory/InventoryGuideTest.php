@@ -71,12 +71,46 @@ class InventoryGuideTest extends TestCase
             ->assertSee('You have no active locations');
     }
 
-    public function test_every_tab_opens(): void
+    /** Tab key => a phrase only that tab's content contains. */
+    public static function tabs(): array
     {
-        $page = Livewire::test(InventoryGuide::class);
+        return [
+            'Start Here'        => ['start',   'Creating a location'],
+            'Add & Edit Items'  => ['items',   'Editing an item'],
+            'Restock & Scan'    => ['restock', 'Quick Add Stock'],
+            'Receive a Pallet'  => ['pallets', 'Create the pallet'],
+            'Costs & Value'     => ['costs',   'Where cost comes from'],
+            'Fixing Mistakes'   => ['fix',     'Use the tool that matches the reason'],
+            'Troubleshooting'   => ['trouble', 'cannot find a main warehouse'],
+        ];
+    }
 
-        foreach (['start', 'add', 'restock', 'pallets', 'fix', 'trouble'] as $tab) {
-            $page->call('setTab', $tab)->assertSet('tab', $tab)->assertOk();
+    /**
+     * Every tab shows its own content.
+     *
+     * setTab() accepts any string, so asserting the property alone passes for a
+     * tab whose section was renamed or removed — the page then renders a strip
+     * of buttons and nothing underneath.
+     *
+     */
+    #[\PHPUnit\Framework\Attributes\DataProvider('tabs')]
+    public function test_each_tab_renders_its_content(string $tab, string $phrase): void
+    {
+        Livewire::test(InventoryGuide::class)
+            ->call('setTab', $tab)
+            ->assertSet('tab', $tab)
+            ->assertSee($phrase);
+    }
+
+    public function test_the_guide_is_about_using_the_module_not_its_internals(): void
+    {
+        // This guide is read by people receiving pallets, not by whoever
+        // maintains the matching pipeline. Model names and inference backends
+        // are not part of anyone's job on the packing bench.
+        $html = Livewire::test(InventoryGuide::class)->html();
+
+        foreach (['Ollama', 'embedding', 'nomic-embed', 'AI Matching'] as $jargon) {
+            $this->assertStringNotContainsStringIgnoringCase($jargon, $html);
         }
     }
 

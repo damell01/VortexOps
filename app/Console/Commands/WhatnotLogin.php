@@ -98,6 +98,18 @@ class WhatnotLogin extends Command
             // Keep only whatnot.com cookies
             $domain = $c['domain'] ?? '.whatnot.com';
             if (! str_contains($domain, 'whatnot.com')) return null;
+
+            // Cloudflare's edge tokens are deliberately not carried across.
+            //
+            // cf_clearance is proof that a particular browser, on a particular
+            // IP, passed a challenge — Cloudflare binds it to both. Exported
+            // from a laptop and replayed from a server it cannot be honoured,
+            // and presenting a clearance token that does not match the
+            // connection is worse than presenting none: it is exactly what a
+            // replayed token looks like. The server has to earn its own.
+            if (in_array(strtolower($c['name']), ['cf_clearance', '__cf_bm', '__cfwaitingroom'], true)) {
+                return null;
+            }
             return [
                 'name'     => $c['name'],
                 'value'    => $c['value'],

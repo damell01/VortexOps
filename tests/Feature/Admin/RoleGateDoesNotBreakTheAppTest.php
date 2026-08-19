@@ -42,7 +42,9 @@ class RoleGateDoesNotBreakTheAppTest extends TestCase
         // What saving the admin role on the Roles screen writes: all ticked.
         NavVisibility::setVisibleForRole('admin', RoleResource::roleControlledPages());
         NavVisibility::flushMemo();
+        $this->enableAdminModules();
     }
+
 
     public static function grantedPages(): array
     {

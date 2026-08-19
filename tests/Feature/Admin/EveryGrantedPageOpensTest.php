@@ -38,7 +38,9 @@ class EveryGrantedPageOpensTest extends TestCase
 
         $this->actingAs($user->fresh());
         filament()->setCurrentPanel(filament()->getPanel('admin'));
+        $this->enableAdminModules();
     }
+
 
     /** The URL a class is reached at, or null if it takes a record. */
     private function urlFor(string $class): ?string

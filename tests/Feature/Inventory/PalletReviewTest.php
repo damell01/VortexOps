@@ -37,6 +37,10 @@ class PalletReviewTest extends TestCase
     {
         parent::setUp();
 
+        // Receiving lives in the purchasing module, which the shell-phase
+        // migration leaves switched off.
+        $this->enableAdminModules();
+
         $this->service = app(ReceivingService::class);
 
         $this->actingAs(

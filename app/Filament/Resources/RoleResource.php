@@ -161,30 +161,25 @@ class RoleResource extends Resource
      */
     public static function pagesByGroup(): array
     {
-        $panel  = Filament::getCurrentPanel() ?? Filament::getDefaultPanel();
+        // Grouped from pageOptions() rather than by walking the panel again.
+        //
+        // These were two separate walks that each swallowed their own errors:
+        // this one called getNavigationGroup() before getNavigationLabel(),
+        // pageOptions() called only the latter. A class whose group threw was
+        // dropped here but kept there, and vice versa — so the grid and the
+        // list that is actually saved and enforced could disagree about which
+        // pages exist.
+        //
+        // That disagreement is not cosmetic. pagePermsToLists() builds the
+        // allow-list by iterating pageOptions(), so a page the grid rendered
+        // ticked but pageOptions() had dropped was never written to it — and
+        // the gate, reading a list that does not name the page, answers 403.
+        // A page shown as Visible that refuses to open is exactly that gap.
+        // One source now, so the two cannot drift.
         $groups = [];
 
-        $add = function (string $class) use (&$groups) {
-            if ($class === static::class) {
-                return; // never let a role hide the roles manager itself
-            }
-
-            try {
-                $group = $class::getNavigationGroup();
-                $groupLabel = match (true) {
-                    is_string($group) && $group !== '' => $group,
-                    $group instanceof \UnitEnum => method_exists($group, 'getLabel') ? ($group->getLabel() ?? $group->name) : $group->name,
-                    default => 'General',
-                };
-                $groups[$groupLabel][$class] = $class::getNavigationLabel();
-            } catch (\Throwable) {}
-        };
-
-        foreach ($panel->getResources() as $resource) {
-            $add($resource);
-        }
-        foreach ($panel->getPages() as $page) {
-            $add($page);
+        foreach (static::pageOptions() as $class => $label) {
+            $groups[static::navigationGroupLabel($class)][$class] = $label;
         }
 
         foreach ($groups as &$pages) {
@@ -194,6 +189,26 @@ class RoleResource extends Resource
         ksort($groups);
 
         return $groups;
+    }
+
+    /** A page's navigation group as a plain string, defaulting to General. */
+    private static function navigationGroupLabel(string $class): string
+    {
+        try {
+            $group = $class::getNavigationGroup();
+        } catch (\Throwable) {
+            // A group that cannot be resolved must not lose the row: being
+            // ungrouped is a display problem, being absent is a 403.
+            return 'General';
+        }
+
+        return match (true) {
+            is_string($group) && $group !== '' => $group,
+            $group instanceof \UnitEnum => method_exists($group, 'getLabel')
+                ? ($group->getLabel() ?? $group->name)
+                : $group->name,
+            default => 'General',
+        };
     }
 
     /** A page's fully-qualified class name, sanitized into a safe Livewire form-array key. */

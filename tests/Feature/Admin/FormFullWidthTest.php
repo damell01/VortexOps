@@ -38,6 +38,11 @@ class FormFullWidthTest extends TestCase
     {
         parent::setUp();
         \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+
+        // Vendors live in the purchasing module, which the shell-phase
+        // migration leaves off — the page renders the 403 screen otherwise,
+        // and the assertion fails on markup rather than on layout.
+        $this->enableAdminModules();
     }
 
     private function assertSectionSpansFullWidth(string $html, string $sectionKeyFragment): void

@@ -33,6 +33,10 @@ class PalletPageTest extends TestCase
     {
         parent::setUp();
 
+        // Receiving lives in the purchasing module, which the shell-phase
+        // migration leaves switched off.
+        $this->enableAdminModules();
+
         $this->actingAs(
             (User::firstWhere('email', config('app.owner_email'))
                 ?? User::factory()->create(['email' => config('app.owner_email')]))->fresh()

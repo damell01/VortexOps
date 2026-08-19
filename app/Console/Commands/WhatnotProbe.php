@@ -51,6 +51,7 @@ class WhatnotProbe extends Command
             ? '<fg=gray>Egress: via proxy ' . $this->proxy() . '</>'
             : '<fg=gray>Egress: direct from this server (set WHATNOT_PROXY to route elsewhere)</>');
 
+        $this->reportEgressIdentity();
         $this->newLine();
 
         $anyOk = false;
@@ -152,6 +153,66 @@ class WhatnotProbe extends Command
     private function proxy(): ?string
     {
         return config('vortex.whatnot.proxy') ?: null;
+    }
+
+    /**
+     * Report the IP the world actually sees, before probing anything.
+     *
+     * A misconfigured proxy fails silently in the worst possible way: requests
+     * go out the server's own address, Whatnot blocks them exactly as before,
+     * and the result reads as "the proxy didn't help" when the truth is the
+     * proxy was never used. Cloudflare's trace endpoint answers both halves —
+     * which IP, and whether WARP is carrying it.
+     */
+    private function reportEgressIdentity(): void
+    {
+        try {
+            $options = ['allow_redirects' => false];
+
+            if ($proxy = $this->proxy()) {
+                $options['proxy'] = $proxy;
+            }
+
+            $body = Http::withOptions($options)
+                ->timeout(15)
+                ->get('https://www.cloudflare.com/cdn-cgi/trace')
+                ->body();
+        } catch (\Throwable $e) {
+            $this->warn('  Could not confirm the egress IP: ' . $e->getMessage());
+
+            if ($this->proxy()) {
+                $this->line('  <fg=gray>If WARP is the proxy, check it is up: warp-cli status</>');
+            }
+
+            return;
+        }
+
+        $fields = [];
+        foreach (explode("\n", $body) as $line) {
+            [$k, $v] = array_pad(explode('=', trim($line), 2), 2, '');
+            if ($k !== '') $fields[$k] = $v;
+        }
+
+        if (! isset($fields['ip'])) {
+            $this->warn('  Could not read the egress IP (unexpected response).');
+
+            return;
+        }
+
+        $warp = $fields['warp'] ?? 'off';
+
+        $this->line(sprintf(
+            '  <fg=gray>Seen by the world as %s%s</>',
+            $fields['ip'],
+            $warp === 'off' ? '' : "  (WARP: {$warp})",
+        ));
+
+        // The combination that wastes an afternoon: a proxy is configured, so
+        // the run looks routed, but WARP is off and the address is the server's
+        // own — meaning nothing moved and the result proves nothing.
+        if ($this->proxy() && $warp === 'off') {
+            $this->warn('  A proxy is set but WARP reports off — traffic may not be going through it.');
+        }
     }
 
     /** @return array<string, string> */

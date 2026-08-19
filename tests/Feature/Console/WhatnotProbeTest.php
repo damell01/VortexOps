@@ -87,6 +87,53 @@ class WhatnotProbeTest extends TestCase
         $this->artisan('whatnot:probe')->expectsOutputToContain('direct from this server')->assertExitCode(1);
     }
 
+    public function test_it_reports_the_egress_ip_and_warp_state(): void
+    {
+        Http::fake([
+            'cloudflare.com/cdn-cgi/trace' => Http::response("fl=1a\nip=104.28.1.9\nwarp=on\n"),
+            '*' => Http::response('<html>__NEXT_DATA__</html>'),
+        ]);
+
+        config(['vortex.whatnot.proxy' => 'socks5://127.0.0.1:40000']);
+
+        // One assertion covering both halves — the runner matches a single
+        // expected fragment per run, and the IP and WARP state share a line.
+        $this->artisan('whatnot:probe')
+            ->expectsOutputToContain('Seen by the world as 104.28.1.9  (WARP: on)')
+            ->assertExitCode(0);
+    }
+
+    public function test_it_warns_when_a_proxy_is_set_but_warp_is_off(): void
+    {
+        // The silent-failure case: a proxy is configured so the run looks
+        // routed, but traffic is still leaving the server's own address — the
+        // result would prove nothing and read as "the proxy didn't help".
+        Http::fake([
+            'cloudflare.com/cdn-cgi/trace' => Http::response("ip=203.0.113.7\nwarp=off\n"),
+            '*' => Http::response('blocked', 403),
+        ]);
+
+        config(['vortex.whatnot.proxy' => 'socks5://127.0.0.1:40000']);
+
+        $this->artisan('whatnot:probe')
+            ->expectsOutputToContain('WARP reports off')
+            ->assertExitCode(1);
+    }
+
+    public function test_an_unreachable_proxy_is_reported_rather_than_crashing(): void
+    {
+        Http::fake([
+            'cloudflare.com/cdn-cgi/trace' => fn () => throw new \RuntimeException('Connection refused'),
+            '*' => Http::response('blocked', 403),
+        ]);
+
+        config(['vortex.whatnot.proxy' => 'socks5://127.0.0.1:40000']);
+
+        $this->artisan('whatnot:probe')
+            ->expectsOutputToContain('warp-cli status')
+            ->assertExitCode(1);
+    }
+
     public function test_a_refusal_is_reported_as_such(): void
     {
         Http::fake(['*' => Http::response('nope', 403)]);

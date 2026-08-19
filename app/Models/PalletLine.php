@@ -50,6 +50,24 @@ class PalletLine extends Model
                 $line->line_number = (static::where('pallet_id', $line->pallet_id)->max('line_number') ?? 0) + 1;
             }
         });
+
+        // A line staged from a name alone has no counts yet, and both columns
+        // are NOT NULL — so leaving them blank threw a constraint violation
+        // rather than staging anything. One case of one unit is the only
+        // sensible reading of "a thing on this pallet", and it stays editable.
+        static::saving(function (self $line) {
+            if ($line->case_count === null || $line->case_count === '') {
+                $line->case_count = 1;
+            }
+
+            if ($line->quantity_per_case === null || $line->quantity_per_case === '') {
+                $line->quantity_per_case = 1;
+            }
+
+            if ($line->unit_cost === null || $line->unit_cost === '') {
+                $line->unit_cost = 0;
+            }
+        });
     }
 
     public function pallet(): BelongsTo

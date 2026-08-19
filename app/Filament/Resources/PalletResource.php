@@ -160,65 +160,82 @@ class PalletResource extends Resource
             ]),
 
             Section::make('Manifest Lines')
-                ->description('Enter each product line from the pallet manifest. Map each to an inventory item after saving.')
+                ->description('One line per thing on the pallet. A name is all that is needed — link it to inventory here if you already know, or scan it in when the pallet lands.')
                 ->columnSpanFull()
                 ->schema([
                     Repeater::make('lines')
                         ->relationship('lines')
                         ->schema([
+                            // One row per line, name first and wide. Cases,
+                            // units and cost were required, which turned a list
+                            // of names into four decisions per line — most of
+                            // them unknowable from a slip, and all of them
+                            // still editable later.
                             Grid::make(12)->schema([
                                 TextInput::make('description')
-                                    ->label('Description / Product Name')
+                                    ->label('Item')
                                     ->required()
                                     ->maxLength(255)
-                                    ->columnSpan(6),
+                                    ->placeholder('e.g. 2026 Topps Chrome Hobby')
+                                    ->columnSpan(5),
+                                Select::make('is_container')
+                                    ->label('Case or single?')
+                                    ->options([
+                                        1 => 'Case / box',
+                                        0 => 'Single item',
+                                    ])
+                                    ->placeholder('Not sure yet')
+                                    ->native(false)
+                                    ->columnSpan(3),
                                 TextInput::make('case_count')
                                     ->label('Cases')
                                     ->numeric()
                                     ->default(1)
                                     ->minValue(1)
-                                    ->required()
                                     ->columnSpan(2),
                                 TextInput::make('quantity_per_case')
                                     ->label('Units / Box')
                                     ->numeric()
                                     ->default(1)
                                     ->minValue(0.01)
-                                    ->required()
-                                    ->helperText('1 if selling sealed boxes')
-                                    ->columnSpan(2),
-                                TextInput::make('unit_cost')
-                                    ->label('Unit Cost')
-                                    ->numeric()
-                                    ->prefix('$')
-                                    ->default(0)
-                                    ->minValue(0)
                                     ->columnSpan(2),
                                 Select::make('inventory_item_id')
-                                    ->label('Map to Inventory Item')
+                                    ->label('More stock of an item you already have?')
                                     ->searchable()
                                     ->getSearchResultsUsing(fn (string $search) => InventoryItem::where('is_active', true)
-                                        ->where(fn ($q) => $q->where('name', 'like', "%{$search}%")->orWhere('sku', 'like', "%{$search}%"))
+                                        ->where(fn ($q) => $q->where('name', 'like', "%{$search}%")
+                                            ->orWhere('sku', 'like', "%{$search}%")
+                                            ->orWhere('barcode', $search))
                                         ->orderBy('name')
                                         ->limit(30)
                                         ->pluck('name', 'id')
                                         ->toArray())
                                     ->getOptionLabelUsing(fn ($value) => InventoryItem::find($value)?->name ?? $value)
-                                    ->placeholder('Search by name or SKU…')
-                                    ->columnSpan(8),
+                                    ->placeholder('Leave blank for something new')
+                                    ->helperText('Pick the existing item and this pallet tops it up. Leave it and scanning will link or create it.')
+                                    ->columnSpan(6),
                                 Select::make('inventory_location_id')
-                                    ->label('Receive Into Location')
+                                    ->label('Receive Into')
                                     ->options(fn () => InventoryLocation::activeOptions())
                                     ->searchable()
-                                    ->placeholder('Select destination…')
-                                    ->columnSpan(4),
+                                    ->placeholder('Decide later')
+                                    ->columnSpan(3),
+                                TextInput::make('unit_cost')
+                                    ->label('Unit Cost')
+                                    ->numeric()
+                                    ->prefix('$')
+                                    ->minValue(0)
+                                    ->columnSpan(3),
                             ]),
                         ])
                         ->orderColumn('line_number')
-                        ->addActionLabel('Add Line')
+                        ->addActionLabel('Add another line')
                         ->reorderable('line_number')
                         ->collapsible()
-                        ->defaultItems(0),
+                        // Named by what was typed, so a long manifest stays
+                        // readable once the rows are collapsed.
+                        ->itemLabel(fn (array $state): ?string => $state['description'] ?? null)
+                        ->defaultItems(1),
                 ]),
 
             Section::make('Media & Attachments')

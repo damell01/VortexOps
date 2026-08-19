@@ -188,6 +188,63 @@ class StageByNameTest extends TestCase
         app(ReceivingService::class)->linkLineByScan($line, '111222', $this->location);
     }
 
+    public function test_the_create_form_stages_a_line_from_a_name_alone(): void
+    {
+        // The other place lines get typed. This repeater demanded cases and
+        // units per box on every row, so writing a pallet down was four
+        // decisions a line rather than one — most of them unknowable from a
+        // slip, and all of them editable afterwards.
+        Livewire::test(\App\Filament\Resources\PalletResource\Pages\CreatePallet::class)
+            ->fillForm([
+                'vendor_id' => $this->pallet->vendor_id,
+                'reference' => 'PO-FROM-FORM',
+                'status'    => 'staged',
+                'lines'     => [
+                    ['description' => 'Just a name'],
+                    ['description' => 'A case of something', 'is_container' => 1],
+                ],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $pallet = Pallet::firstWhere('reference', 'PO-FROM-FORM');
+
+        $this->assertNotNull($pallet);
+        $this->assertSame(2, $pallet->lines()->count());
+
+        $lines = $pallet->lines()->orderBy('line_number')->get();
+        $this->assertSame('Just a name', $lines[0]->description);
+        $this->assertNull($lines[0]->inventory_item_id);
+        $this->assertTrue((bool) $lines[1]->is_container);
+    }
+
+    public function test_the_create_form_can_point_a_line_at_an_existing_item(): void
+    {
+        // "More stock of something I already have" — the case where the
+        // product exists and this pallet is topping it up.
+        $item = InventoryItem::create(['name' => 'Restock Me', 'sku' => 'RM-1', 'is_active' => true]);
+
+        Livewire::test(\App\Filament\Resources\PalletResource\Pages\CreatePallet::class)
+            ->fillForm([
+                'vendor_id' => $this->pallet->vendor_id,
+                'reference' => 'PO-RESTOCK',
+                'status'    => 'staged',
+                'lines'     => [[
+                    'description'           => 'Restock Me',
+                    'inventory_item_id'     => $item->id,
+                    'inventory_location_id' => $this->location->id,
+                    'case_count'            => 4,
+                ]],
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $line = Pallet::firstWhere('reference', 'PO-RESTOCK')->lines()->firstOrFail();
+
+        $this->assertSame($item->id, $line->inventory_item_id);
+        $this->assertTrue($line->isFullyMapped(), 'A line pointed at a known item is ready to receive.');
+    }
+
     public function test_a_staged_item_can_be_linked_and_then_received_through_the_page(): void
     {
         // The whole point of staging by name: the round trip has to end with

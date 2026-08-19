@@ -44,4 +44,5 @@ Promise.all([
     import('./mobile-enhancements.js').catch(e => console.warn('[app.js] mobile-enhancements failed:', e.message)),
     import('./ui-improvements.js').catch(e => console.warn('[app.js] ui-improvements failed:', e.message)),
     import('./responsive-data-tables.js').catch(e => console.warn('[app.js] responsive-data-tables failed:', e.message)),
+    import('./modal-visibility.js').catch(e => console.warn('[app.js] modal-visibility failed:', e.message)),
 ]).catch(e => console.warn('[app.js] Error loading optional modules:', e.message));

@@ -827,12 +827,34 @@
                         <x-heroicon-o-x-mark class="h-5 w-5 mx-auto" />
                     </button>
                     @endif
+                    {{-- Receiving happens on a phone at the pallet more often than at a
+                         desk with a scanner gun, so the camera belongs here too, not only
+                         on the item screens. --}}
+                    <button type="button" id="rcv-camera-btn"
+                        class="flex-1 sm:flex-none px-3 py-3 sm:py-2.5 rounded-lg bg-violet-600 text-white hover:bg-violet-700 active:bg-violet-800 transition text-sm whitespace-nowrap"
+                        title="Scan with the camera">
+                        <x-heroicon-o-camera class="h-5 w-5 inline -mt-0.5" />
+                        <span class="ml-1 sm:hidden">Camera</span>
+                    </button>
                     <button wire:click="submitScan" type="button"
                         class="flex-1 sm:flex-none px-4 py-3 sm:py-2.5 rounded-lg bg-blue-600 text-base sm:text-sm font-medium text-white hover:bg-blue-700 active:bg-blue-800 transition whitespace-nowrap">
                         <x-heroicon-o-check-circle class="h-5 w-5 inline -mt-0.5 mr-1" />
                         Receive
                     </button>
                 </div>
+            </div>
+        </div>
+
+        {{-- Camera scanner. Hidden until asked for: the decoder is a lazy import,
+             so pages that never scan pay nothing for it. --}}
+        <div id="rcv-camera-panel" class="hidden rounded-lg border border-violet-300 dark:border-violet-700 overflow-hidden">
+            <div id="zxing-scanner" class="relative bg-black aspect-[4/3] w-full"></div>
+            <div class="flex items-center justify-between gap-3 bg-violet-50 dark:bg-violet-950 px-4 py-2">
+                <p id="rcv-camera-status" class="text-xs text-violet-800 dark:text-violet-300">Starting camera…</p>
+                <button type="button" id="rcv-camera-stop"
+                    class="rounded-lg bg-gray-200 dark:bg-gray-700 px-3 py-1.5 text-xs font-medium text-gray-900 dark:text-gray-100">
+                    Stop camera
+                </button>
             </div>
         </div>
 
@@ -1614,3 +1636,52 @@
     @endif
 
 </x-filament-panels::page>
+
+<script>
+(function () {
+    const btn   = document.getElementById('rcv-camera-btn');
+    const panel = document.getElementById('rcv-camera-panel');
+    const stop  = document.getElementById('rcv-camera-stop');
+    const status = document.getElementById('rcv-camera-status');
+
+    if (! btn || ! panel || btn.dataset.bound) return;
+    btn.dataset.bound = '1';
+
+    let running = false;
+
+    async function start() {
+        const scanner = await window.ensureBarcodeScanner?.();
+
+        if (! scanner) {
+            status.textContent = 'Scanner could not load — type the barcode instead.';
+            return;
+        }
+
+        panel.classList.remove('hidden');
+        panel.scrollIntoView({ block: 'center', behavior: 'smooth' });
+
+        try {
+            await scanner.init();
+            running = true;
+            status.textContent = 'Point the camera at a barcode.';
+        } catch (e) {
+            // Overwhelmingly this is a denied camera permission, and saying so
+            // beats a dead button with no explanation.
+            status.textContent = 'Camera unavailable — allow it in the padlock menu, or use a scanner gun.';
+        }
+    }
+
+    function halt() {
+        window.barcodeScanner?.stop?.();
+        panel.classList.add('hidden');
+        running = false;
+    }
+
+    btn.addEventListener('click', () => (running ? halt() : start()));
+    stop?.addEventListener('click', halt);
+
+    // A successful scan submits and the list re-renders; leaving the camera
+    // running would re-read the same box still sitting under the lens.
+    window.addEventListener('barcode-received', halt);
+})();
+</script>

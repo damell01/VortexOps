@@ -208,6 +208,28 @@ class InventoryScanner extends Page
         $this->submitScan();
     }
 
+    /**
+     * A code read by the camera, which arrives as a Livewire event rather than
+     * as typing.
+     *
+     * Receiving is done at the pallet with a phone far more often than at a desk
+     * with a scanner gun, so the camera has to reach the same place the keyboard
+     * does — and submit on its own, because nobody is holding the phone and a
+     * box and also tapping "Receive".
+     */
+    #[On('barcodeScanned')]
+    public function barcodeScanned(string $barcode): void
+    {
+        $barcode = trim($barcode);
+
+        if ($barcode === '') {
+            return;
+        }
+
+        $this->scanInput = $barcode;
+        $this->submitScan();
+    }
+
     public function submitScan(): void
     {
         match ($this->mode) {

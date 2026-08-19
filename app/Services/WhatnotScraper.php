@@ -1526,12 +1526,30 @@ class WhatnotScraper
      */
     public function testCookieAuth(): array
     {
+        // The node side alone budgets 20s for the Seller Hub nav plus 8s settling
+        // for network idle, so a 30s process budget left about two seconds for
+        // Chromium to cold-start a persistent profile. On anything slower than a
+        // warm dev box that expires mid-navigation, and the timeout surfaces as
+        // "cookie test failed" — indistinguishable from cookies that are actually
+        // bad, which is the one thing this command exists to tell you.
         $process = $this->makeProcess([
             'WHATNOT_MODE'  => 'cookie-test',
             'WHATNOT_DEBUG' => '0',
-        ], timeout: 30);
+        ], timeout: 120);
 
-        $this->withBrowserLock(fn () => $process->run());
+        try {
+            $this->withBrowserLock(fn () => $process->run());
+        } catch (\Symfony\Component\Process\Exception\ProcessTimedOutException $e) {
+            // Saying "cookie test failed" here would send you re-exporting a
+            // session that was never shown to be bad. The browser simply never
+            // finished starting.
+            throw new \RuntimeException(
+                'The browser did not finish starting within 120s, so the session was never actually tested. '
+                . "This is a machine problem, not a cookie problem — check Chromium is installed (php artisan whatnot:setup-chromium) "
+                . 'and that the box is not out of memory.'
+            );
+        }
+
         $stdout = trim($process->getOutput());
         $stderr = trim($process->getErrorOutput());
 

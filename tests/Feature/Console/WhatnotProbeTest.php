@@ -74,6 +74,19 @@ class WhatnotProbeTest extends TestCase
             ->assertExitCode(1);
     }
 
+    public function test_it_names_the_egress_so_a_result_can_be_interpreted(): void
+    {
+        // "Still blocked" means opposite things depending on whether the proxy
+        // was actually carrying the request, so the run has to say which.
+        Http::fake(['*' => Http::response('nope', 403)]);
+
+        config(['vortex.whatnot.proxy' => 'socks5://127.0.0.1:40000']);
+        $this->artisan('whatnot:probe')->expectsOutputToContain('via proxy socks5://127.0.0.1:40000')->assertExitCode(1);
+
+        config(['vortex.whatnot.proxy' => null]);
+        $this->artisan('whatnot:probe')->expectsOutputToContain('direct from this server')->assertExitCode(1);
+    }
+
     public function test_a_refusal_is_reported_as_such(): void
     {
         Http::fake(['*' => Http::response('nope', 403)]);

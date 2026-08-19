@@ -1531,9 +1531,16 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
     ? 'headless (set WHATNOT_HEADLESS=false under xvfb-run to run headed)'
     : 'headed, DISPLAY=' + process.env.DISPLAY);
 
+  // Cloudflare blocks this server by IP, so the browser's own egress has to
+  // move. Chromium resolves DNS through the proxy for socks5://, which matters:
+  // resolving locally would leak the real network path and defeat the point.
+  const proxy = process.env.WHATNOT_PROXY || '';
+  if (proxy) info('routing browser traffic through proxy:', proxy);
+
   const chromeArgs = [
     ...args,
     ...(headless ? ['--headless'] : []),
+    ...(proxy ? [`--proxy-server=${proxy}`] : []),
     '--remote-debugging-port=0',
     // Chrome ≥111 enforces an Origin/Host allowlist on the DevTools WebSocket
     // and silently drops connections that fail it — surfaces as a bare "socket

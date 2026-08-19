@@ -929,6 +929,17 @@ class WhatnotScraper
             }
         }
 
+        // Forwarded explicitly rather than relied on being inherited: Laravel
+        // reads .env into config without putenv(), so a value set there is
+        // invisible to getenv() and would never reach the Node process.
+        if (! isset($env['WHATNOT_PROXY']) && $proxy = config('vortex.whatnot.proxy')) {
+            $env['WHATNOT_PROXY'] = $proxy;
+        }
+
+        if (! isset($env['WHATNOT_HEADLESS']) && ($headless = config('vortex.whatnot.headless')) !== null) {
+            $env['WHATNOT_HEADLESS'] = $headless ? 'true' : 'false';
+        }
+
         $process = new Process([$this->nodeBin, $this->scriptPath], null, $env);
         $process->setTimeout($timeout);
         return $process;

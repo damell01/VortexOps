@@ -44,6 +44,13 @@ class WhatnotProbe extends Command
         }
 
         $this->line(count($cookies) . ' cookies loaded. Probing without a browser…');
+
+        // Naming the egress matters as much as the result: "still blocked" means
+        // opposite things depending on whether the tunnel was actually in use.
+        $this->line($this->proxy()
+            ? '<fg=gray>Egress: via proxy ' . $this->proxy() . '</>'
+            : '<fg=gray>Egress: direct from this server (set WHATNOT_PROXY to route elsewhere)</>');
+
         $this->newLine();
 
         $anyOk = false;
@@ -71,9 +78,15 @@ class WhatnotProbe extends Command
     private function probe(string $url, array $cookies): bool
     {
         try {
+            $options = ['allow_redirects' => true];
+
+            if ($proxy = $this->proxy()) {
+                $options['proxy'] = $proxy;
+            }
+
             $response = Http::withHeaders($this->browserHeaders())
                 ->withCookies($cookies, 'www.whatnot.com')
-                ->withOptions(['allow_redirects' => true])
+                ->withOptions($options)
                 ->timeout(30)
                 ->get($url);
         } catch (\Throwable $e) {
@@ -134,6 +147,11 @@ class WhatnotProbe extends Command
         return $hasData
             ? ['ok' => true,  'note' => 'real page, Next.js data present']
             : ['ok' => false, 'note' => 'HTTP 200 but no Next.js payload'];
+    }
+
+    private function proxy(): ?string
+    {
+        return config('vortex.whatnot.proxy') ?: null;
     }
 
     /** @return array<string, string> */

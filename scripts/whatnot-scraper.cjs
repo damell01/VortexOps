@@ -354,10 +354,11 @@ function classifyBlockingPage(url, bodyText) {
       code: EXIT.AUTH_REQUIRED,
       error: 'BOT_CHALLENGE',
       message:
-        'Whatnot served a bot-protection challenge instead of the page. The saved session has ' +
-        'expired or was never established, so the scraper was sent to /login and blocked there. ' +
-        'Sign in once with `php artisan whatnot:login` — the scraper reuses that session and ' +
-        'never needs to see the login page again.',
+        'Cloudflare served a bot-protection challenge instead of the page. Two different things ' +
+        'cause that, and CURRENT_URL below tells them apart. On /login the session has lapsed — ' +
+        'renew it with `php artisan whatnot:login`. Anywhere else the session is fine and the ' +
+        'browser is what got challenged, which is what headless Chromium on a datacenter IP looks ' +
+        'like to bot protection: retry with WHATNOT_HEADLESS=false under xvfb-run.',
     };
   }
 
@@ -1503,9 +1504,24 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
   killStaleProcessesForProfile(userDataDir);
   clearStaleSingletonLock(userDataDir);
 
+  // Headless Chromium is the single loudest bot signal there is, and on a
+  // datacenter IP it is the difference between a challenge that clears itself
+  // and one that never does. Set WHATNOT_HEADLESS=false and run the command
+  // under xvfb-run to present as an ordinary windowed browser instead.
+  const headless = String(process.env.WHATNOT_HEADLESS ?? 'true').toLowerCase() !== 'false';
+
+  if (!headless && !process.env.DISPLAY) {
+    process.stderr.write(
+      'WHATNOT_HEADLESS=false needs an X display, and DISPLAY is not set.\n' +
+      'Run the artisan command under xvfb: xvfb-run -a php artisan whatnot:import …\n' +
+      '(install with: apt-get install -y xvfb)\n'
+    );
+    process.exit(EXIT.GENERAL);
+  }
+
   const chromeArgs = [
     ...args,
-    '--headless',
+    ...(headless ? ['--headless'] : []),
     '--remote-debugging-port=0',
     // Chrome ≥111 enforces an Origin/Host allowlist on the DevTools WebSocket
     // and silently drops connections that fail it — surfaces as a bare "socket

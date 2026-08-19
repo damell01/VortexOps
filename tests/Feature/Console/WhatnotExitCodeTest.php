@@ -34,14 +34,18 @@ class WhatnotExitCodeTest extends TestCase
         return null;
     }
 
-    public function test_a_bot_challenge_is_reported_as_a_session_problem(): void
+    public function test_a_bot_challenge_names_both_causes_and_neither_is_selectors(): void
     {
         $e = $this->throwFor(WhatnotScraper::EXIT_AUTH_REQUIRED);
 
         $this->assertNotNull($e);
-        $this->assertStringContainsString('session expired', $e->getMessage());
-        $this->assertStringContainsString('whatnot:login', $e->getMessage());
         $this->assertStringNotContainsString('selectors', $e->getMessage());
+
+        // A challenge at /login means the session lapsed; a challenge anywhere
+        // else means the session is fine and the browser was what got refused.
+        // Naming only the first sent us renewing a session that already worked.
+        $this->assertStringContainsString('whatnot:login', $e->getMessage());
+        $this->assertStringContainsString('WHATNOT_HEADLESS=false', $e->getMessage());
     }
 
     public function test_rate_limiting_says_to_wait_rather_than_retry(): void

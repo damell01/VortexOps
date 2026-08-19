@@ -1668,10 +1668,13 @@ class WhatnotScraper
 
         if ($exitCode === self::EXIT_AUTH_REQUIRED) {
             throw new \RuntimeException(
-                "Whatnot session expired — sign in again.\n"
-                . "The scraper was served a bot-protection challenge instead of the page, which is what "
-                . "happens once the saved session lapses and it falls back to the login form.\n"
-                . "Refresh it with: php artisan whatnot:login\n\n"
+                "Cloudflare blocked the scraper with a bot-protection challenge.\n"
+                . "Read CURRENT_URL below — it separates the two causes:\n"
+                . "  • /login  — the saved session lapsed. Renew it: php artisan whatnot:login\n"
+                . "  • any other page — the session is fine and the browser itself was challenged, "
+                . "which is what headless Chromium on a datacenter IP looks like to bot protection.\n"
+                . "    Retry headless-off under a virtual display:\n"
+                . "      WHATNOT_HEADLESS=false xvfb-run -a php artisan whatnot:import --limit=1 --debug\n\n"
                 . $diagnostics
             );
         }

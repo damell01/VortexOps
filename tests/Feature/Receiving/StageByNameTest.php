@@ -213,6 +213,69 @@ class StageByNameTest extends TestCase
         $this->assertSame(1, $line->receivedCases(), 'and counted the one being held.');
     }
 
+    public function test_a_camera_scan_links_and_counts_with_no_form_at_all(): void
+    {
+        // The whole interaction: press the row's button, point the camera,
+        // done. Every question the form asked already has an answer by then —
+        // the line from the button, the code from the scan, the location from
+        // the pallet.
+        \App\Models\Setting::set('default_receiving_location_id', (string) $this->location->id);
+
+        $this->page()->callAction('add_expected_item', ['name' => 'Camera Box', 'case_count' => 2]);
+        $line = $this->pallet->lines()->firstOrFail();
+
+        $this->page()->call('scanLineIntoInventory', $line->id, '8080808080');
+
+        $line->refresh();
+
+        $this->assertNotNull($line->inventory_item_id);
+        $this->assertSame('8080808080', $line->inventoryItem->barcode);
+        $this->assertSame(1, $line->receivedCases(), 'The box in front of the camera is a case received.');
+    }
+
+    public function test_a_camera_scan_with_nowhere_to_put_it_falls_back_to_the_form(): void
+    {
+        // The location is the one thing a scan cannot supply. Rather than fail
+        // on the last step of a scan that worked, it hands over to the form
+        // with the code already filled in.
+        \App\Models\Setting::set('default_receiving_location_id', '');
+        InventoryLocation::query()->update(['status' => 'inactive']);
+        cache()->forget('inv_loc:active');
+
+        $line = PalletLine::create([
+            'pallet_id'   => $this->pallet->id,
+            'line_number' => 1,
+            'description' => 'Nowhere To Go',
+            'case_count'  => 1,
+        ]);
+
+        $this->page()
+            ->call('scanLineIntoInventory', $line->id, '9090909090')
+            ->assertActionMounted('linkLine');
+
+        $this->assertNull($line->fresh()->inventory_item_id, 'Nothing should have been linked yet.');
+    }
+
+    public function test_a_camera_scan_cannot_reach_another_pallets_line(): void
+    {
+        $other = Pallet::create([
+            'vendor_id' => $this->pallet->vendor_id,
+            'reference' => 'PO-ELSEWHERE',
+            'status'    => 'staged',
+        ]);
+
+        $foreign = PalletLine::create([
+            'pallet_id'   => $other->id,
+            'line_number' => 1,
+            'description' => 'Not yours',
+            'case_count'  => 1,
+        ]);
+
+        $this->page()->call('scanLineIntoInventory', $foreign->id, '1010101010');
+
+        $this->assertNull($foreign->fresh()->inventory_item_id);
+    }
+
     public function test_linking_without_counting_leaves_the_case_open(): void
     {
         // Prepping ahead of the delivery: link it now, count it when it lands.

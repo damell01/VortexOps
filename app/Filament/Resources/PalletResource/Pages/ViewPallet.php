@@ -60,7 +60,15 @@ class ViewPallet extends ViewRecord
                         ->label('Barcode / UPC')
                         ->required()
                         ->autofocus()
-                        ->placeholder('Scan or type…'),
+                        ->placeholder('Scan or type…')
+                        // Carried over when a camera scan could not finish on
+                        // its own — the code is already known, so it is not
+                        // asked for twice.
+                        ->default($arguments['code'] ?? null),
+                    // A handheld scanner types into the field above; a phone
+                    // needs the camera, and this is the screen being used on
+                    // a phone at the pallet.
+                    \Filament\Schemas\Components\View::make('filament.components.scan-capture-button'),
                     Select::make('inventory_location_id')
                         ->label('Receive Into')
                         ->required()
@@ -112,6 +120,59 @@ class ViewPallet extends ViewRecord
 
                     $this->record->refresh();
                 });
+    }
+
+    /**
+     * A camera scan, tied straight to the line it was fired from.
+     *
+     * The whole interaction is: press the button on the row, point the camera,
+     * done. No form, because by the time the code is read every question the
+     * form was asking has an answer — the line came from the button, the code
+     * came from the scan, and the location is the one this pallet is being
+     * unloaded into.
+     *
+     * The location is the only one that can genuinely be unknown, and when it
+     * is, this hands over to the modal with the code already filled in rather
+     * than failing on the last step of a scan that worked.
+     */
+    public function scanLineIntoInventory(int $lineId, string $code): void
+    {
+        $line = $this->lineFor(['line' => $lineId]);
+
+        if (! $line) {
+            Notification::make()->title('That line is no longer on this pallet')->danger()->send();
+
+            return;
+        }
+
+        $locationId = $this->defaultReceivingLocationId(['line' => $lineId]);
+
+        if (! $locationId) {
+            $this->mountAction('linkLine', ['line' => $lineId, 'code' => $code]);
+
+            return;
+        }
+
+        try {
+            $result = app(ReceivingService::class)->linkLineByScan(
+                $line,
+                $code,
+                InventoryLocation::findOrFail($locationId),
+            );
+
+            $count = app(ReceivingService::class)->confirmOneCase($result['line']);
+
+            Notification::make()
+                ->title($result['item']->name . ($result['created'] ? ' created and linked' : ' linked'))
+                ->body(($result['created'] ? 'Added to inventory with that barcode. ' : '')
+                    . "{$count['received']} of {$count['expected']} cases in.")
+                ->success()
+                ->send();
+        } catch (\RuntimeException $e) {
+            Notification::make()->title($e->getMessage())->danger()->send();
+        }
+
+        $this->record->refresh();
     }
 
     /** Already linked, and another one of it just came off the pallet. */
@@ -206,6 +267,7 @@ class ViewPallet extends ViewRecord
                         ->required()
                         ->autofocus()
                         ->placeholder('Scan or type…'),
+                    \Filament\Schemas\Components\View::make('filament.components.scan-capture-button'),
                 ])
                 ->action(function (array $data) {
                     try {

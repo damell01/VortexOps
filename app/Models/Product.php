@@ -40,6 +40,7 @@ class Product extends Model
         // General
         'category',
         'description',
+        'image_path',
         'unit_cost',
         'average_cost',
         'total_units_received',
@@ -49,6 +50,24 @@ class Product extends Model
         'preferred_vendor_id',
         'notes',
     ];
+
+    /**
+     * The disk product images live on.
+     *
+     * Named here for the same reason pallet attachments name theirs: the app's
+     * default filesystem disk is `local`, an upload field that does not say
+     * otherwise uses it, and a file written there is invisible to the public
+     * symlink these are served through — the image uploads fine and then 404s.
+     */
+    public const IMAGE_DISK = 'public';
+
+    /** A URL for this product's photo, or null when it has none. */
+    public function imageUrl(): ?string
+    {
+        return $this->image_path
+            ? \Illuminate\Support\Facades\Storage::disk(self::IMAGE_DISK)->url($this->image_path)
+            : null;
+    }
 
     protected $casts = [
         'unit_cost'            => 'decimal:2',

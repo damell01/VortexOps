@@ -238,6 +238,23 @@ class InventoryItemResource extends Resource
             ->description('Name, SKU, and barcode for tracking and scanning')
             ->columnSpanFull()
             ->schema([
+                // A photo settles "is this the right box" faster than any of
+                // the text below it, and card product names are near-identical
+                // by design. Disk named explicitly: the app default is `local`,
+                // which the public symlink these are served through cannot see.
+                \Filament\Forms\Components\FileUpload::make('image_path')
+                    ->label('Photo')
+                    ->image()
+                    ->imageEditor()
+                    ->disk(\App\Models\Product::IMAGE_DISK)
+                    ->directory('products')
+                    ->visibility('public')
+                    ->maxSize(5120)
+                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+                    ->helperText('Optional. Up to 5MB — or use Take Photo to capture one now.')
+                    ->columnSpanFull(),
+                \Filament\Schemas\Components\View::make('filament.components.photo-capture-button')
+                    ->columnSpanFull(),
                 Grid::make(3)->schema([
                     TextInput::make('name')
                         ->required()
@@ -593,6 +610,16 @@ class InventoryItemResource extends Resource
     {
         return $table
             ->columns([
+                // Leading the row rather than buried: scanning a list of
+                // near-identical names is exactly the job a thumbnail does
+                // better than text. Toggleable for anyone who wants it gone.
+                \Filament\Tables\Columns\ImageColumn::make('image_path')
+                    ->label('')
+                    ->disk(\App\Models\Product::IMAGE_DISK)
+                    ->height(36)
+                    ->width(36)
+                    ->extraImgAttributes(['class' => 'rounded-md object-cover'])
+                    ->toggleable(),
                 TextColumn::make('sku')
                     ->label('SKU')
                     ->searchable()

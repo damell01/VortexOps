@@ -1,4 +1,21 @@
 <x-filament-panels::page>
+    {{-- Routes a camera scan back to the row it was started from.
+
+         The scanner overlay is shared by the whole panel and only announces
+         the code it read, so the line has to be remembered between pressing
+         the button and the scan completing. Cleared either way, so a later
+         scan from somewhere else on the page cannot land on a stale line. --}}
+    <div
+        x-data
+        @barcode-scanned.window="
+            const line = window.vxPendingScanLine;
+            window.vxPendingScanLine = null;
+            if (line && $event.detail?.value) {
+                $wire.scanLineIntoInventory(line, $event.detail.value);
+            }
+        "
+    ></div>
+
     <div class="space-y-6">
 
         {{-- ── Workflow Progress ────────────────────────────────────────── --}}
@@ -195,13 +212,32 @@
                                          again from a dropdown is the step worth removing. --}}
                                     <td class="px-4 py-2.5 text-right whitespace-nowrap">
                                         @if (! $vxMapped)
-                                            <button
-                                                type="button"
-                                                wire:click="mountAction('linkLine', { line: {{ $vxLine->id }} })"
-                                                class="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 active:scale-95 transition-transform"
-                                            >
-                                                <x-heroicon-o-qr-code class="h-4 w-4" /> Scan to link
-                                            </button>
+                                            {{-- Straight to the camera. By the time the code is
+                                                 read there is nothing left to ask: the line came
+                                                 from this button, the code from the scan, and the
+                                                 location from the pallet. The chevron opens the
+                                                 form for the times a code has to be typed. --}}
+                                            <div class="inline-flex items-center gap-1">
+                                                <button
+                                                    type="button"
+                                                    x-data
+                                                    @click="
+                                                        window.vxPendingScanLine = {{ $vxLine->id }};
+                                                        window.dispatchEvent(new Event('open-camera-scanner'));
+                                                    "
+                                                    class="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 active:scale-95 transition-transform"
+                                                >
+                                                    <x-heroicon-o-qr-code class="h-4 w-4" /> Scan to link
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    title="Type the code instead"
+                                                    wire:click="mountAction('linkLine', { line: {{ $vxLine->id }} })"
+                                                    class="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-600 px-2 py-1.5 text-xs text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                                >
+                                                    <x-heroicon-o-pencil class="h-3.5 w-3.5" />
+                                                </button>
+                                            </div>
                                         @elseif (! $vxComplete)
                                             <button
                                                 type="button"

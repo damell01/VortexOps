@@ -455,7 +455,17 @@ async function settleChallenge(page, { timeoutMs = CHALLENGE_WAIT_MS, fatal = tr
 
     if (body === null) continue;          // reloading — that is the challenge working
     if (!isChallengePage(body)) {
-      if (announced) info('challenge cleared after', Math.round((Date.now() - started) / 1000) + 's');
+      if (announced) {
+        info('challenge cleared after', Math.round((Date.now() - started) / 1000) + 's');
+
+        // Passing once only helps later runs if it left a clearance cookie
+        // behind. If it did not, the next navigation starts the fight again.
+        // Guarded because a page closed underneath us must not turn a win into
+        // a crash on the way to reporting it.
+        const context = page.context?.();
+        if (context) await reportClearance(context);
+      }
+
       return true;
     }
 
@@ -481,6 +491,38 @@ async function settleChallenge(page, { timeoutMs = CHALLENGE_WAIT_MS, fatal = tr
   }
 
   return false;
+}
+
+/**
+ * Report whether this profile holds a Cloudflare clearance cookie.
+ *
+ * cf_clearance is what a browser receives for passing a challenge, and it is
+ * bound to the IP and User-Agent that earned it — which is why one exported
+ * from a laptop is worthless on a server. Its presence is the only direct
+ * measure of whether the browser has ever actually got through: without it,
+ * every run starts the fight from scratch. With it, the fight is already won
+ * and stays won until it expires.
+ */
+async function reportClearance(context) {
+  try {
+    const cookies = await context.cookies('https://www.whatnot.com');
+    const clearance = cookies.find((c) => c.name === 'cf_clearance');
+
+    if (!clearance) {
+      info('cf_clearance: absent — this profile has never passed a Cloudflare challenge');
+      return false;
+    }
+
+    const expiresIn = clearance.expires > 0
+      ? Math.round((clearance.expires * 1000 - Date.now()) / 60000) + ' min'
+      : 'session';
+    info('cf_clearance: present, expires in', expiresIn);
+
+    return true;
+  } catch (e) {
+    info('cf_clearance: could not be read —', e.message);
+    return false;
+  }
 }
 
 /**
@@ -2663,6 +2705,7 @@ async function extractLedgerFromPage(page) {
 
   const page = await context.newPage();
   installChallengeHandling(page);
+  await reportClearance(context);
 
   // Capture every JSON response from whatnot.com during this session.
   // Analytics and GraphQL endpoints will appear here; extractShowsFromCapture()

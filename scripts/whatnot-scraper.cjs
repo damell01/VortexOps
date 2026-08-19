@@ -191,12 +191,9 @@ const CHROMIUM_PATH = (() => {
     if (fs.existsSync(bin)) return bin;
   }
 
-  process.stderr.write(
-    '[whatnot-scraper] ERROR: Chromium not found.\n' +
+  exitAfterStderr('[whatnot-scraper] ERROR: Chromium not found.\n' +
     '  VPS:    php artisan whatnot:setup-chromium\n' +
-    '  Manual: PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/path/to/chrome node scripts/whatnot-scraper.cjs\n'
-  );
-  process.exit(2);
+    '  Manual: PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/path/to/chrome node scripts/whatnot-scraper.cjs\n', 2);
 })();
 const DEBUG          = process.env.WHATNOT_DEBUG === '1';
 const LIMIT          = parseInt(process.env.WHATNOT_LIMIT || '50', 10);
@@ -225,6 +222,23 @@ function writeJsonAndExit(value) {
   let exited = false;
   const done = () => { if (!exited) { exited = true; process.exit(0); } };
   process.stdout.write(out, done);
+  setTimeout(done, 5000);
+}
+
+// The same hazard as writeJsonAndExit, on the other stream — and the reason
+// every failure looked causeless from the PHP side.
+//
+// stderr is a pipe under Symfony Process, where writes are asynchronous, so
+// process.exit() immediately after one drops whatever has not drained. Run in a
+// terminal, stderr is synchronous and everything prints, which is why the same
+// failure was fully explained by hand and arrived at the app as an empty
+// diagnostics section. Exiting only once the write has landed makes the two
+// agree.
+function exitAfterStderr(text, code) {
+  let exited = false;
+  const done = () => { if (!exited) { exited = true; process.exit(code); } };
+
+  process.stderr.write(text, done);
   setTimeout(done, 5000);
 }
 
@@ -393,9 +407,10 @@ function classifyBlockingPage(url, bodyText) {
 
 /** Report a blocked page and stop, with the code that says what to do next. */
 function exitBlocked(blocked, url) {
-  process.stderr.write(blocked.error + ': ' + blocked.message + '\n');
-  process.stderr.write('CURRENT_URL: ' + url + '\n');
-  process.exit(blocked.code);
+  exitAfterStderr(
+    blocked.error + ': ' + blocked.message + '\n' + 'CURRENT_URL: ' + url + '\n',
+    blocked.code,
+  );
 }
 
 // Cloudflare's managed challenge is not a wall — it is an interstitial that
@@ -1622,12 +1637,12 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
   const headless = String(process.env.WHATNOT_HEADLESS ?? 'true').toLowerCase() !== 'false';
 
   if (!headless && !process.env.DISPLAY) {
-    process.stderr.write(
+    exitAfterStderr(
       'WHATNOT_HEADLESS=false needs an X display, and DISPLAY is not set.\n' +
       'Run the artisan command under xvfb: xvfb-run -a php artisan whatnot:import …\n' +
-      '(install with: apt-get install -y xvfb)\n'
+      '(install with: apt-get install -y xvfb)\n',
+      EXIT.GENERAL,
     );
-    process.exit(EXIT.GENERAL);
   }
 
   // Say which mode we launched in. Without this a headed run and a headless one
@@ -1809,16 +1824,13 @@ async function runWsExploreStandalone(cookiesFilePath) {
 
   // Load cookies from file
   if (!fs.existsSync(cookiesFilePath)) {
-    process.stderr.write('ws-explore: no cookie file found at ' + cookiesFilePath + '\n');
-    process.stderr.write('Run: php artisan whatnot:login\n');
-    process.exit(1);
+    exitAfterStderr('ws-explore: no cookie file found at ' + cookiesFilePath + '\n' + 'Run: php artisan whatnot:login\n', 1);
   }
   let rawCookies;
   try {
     rawCookies = JSON.parse(fs.readFileSync(cookiesFilePath, 'utf8'));
   } catch (e) {
-    process.stderr.write('ws-explore: failed to parse cookie file: ' + e.message + '\n');
-    process.exit(1);
+    exitAfterStderr('ws-explore: failed to parse cookie file: ' + e.message + '\n', 1);
   }
 
   info('ws-explore: loaded', rawCookies.length, 'cookies from file');
@@ -2617,11 +2629,8 @@ async function extractLedgerFromPage(page) {
   // Credentials are only required when we don't have a session cookie file
   // and we're not in a mode that only tests cookies.
   if (!hasCookieFile && !email && MODE !== 'cookie-test' && MODE !== 'dump-cookies') {
-    process.stderr.write(
-      'Error: WHATNOT_EMAIL and WHATNOT_PASSWORD are required (or provide storage/whatnot-cookies.json).\n' +
-      'Run: php artisan whatnot:login\n'
-    );
-    process.exit(1);
+    exitAfterStderr('Error: WHATNOT_EMAIL and WHATNOT_PASSWORD are required (or provide storage/whatnot-cookies.json).\n' +
+      'Run: php artisan whatnot:login\n', 1);
   }
 
   // ── Mode: ws-explore (browser-free fast path) ──────────────────────────────
@@ -2908,23 +2917,27 @@ async function extractLedgerFromPage(page) {
 
       if (/\/(login|signin|auth)(\/|\?|$)/i.test(url)) {
         const bodyText = await page.evaluate(() => (document.body.innerText || '').substring(0, 200)).catch(() => '');
-        process.stderr.write('COOKIE_TEST_FAILED: redirected to login page — cookies are missing, expired, or invalid.\n');
-        process.stderr.write('URL: ' + url + '\n');
-        process.stderr.write('PAGE: ' + bodyText + '\n');
         // Close (not exit) so the persistent profile's on-disk cookie store gets
         // whatever the bootstrap load actually set, flushed properly — an abrupt
         // process.exit() can kill Chromium before it writes newly-set cookies to
         // disk, so the NEXT launch silently sees stale pre-import state.
         await context.close().catch(() => {});
-        process.exit(1);
+        exitAfterStderr(
+            'COOKIE_TEST_FAILED: redirected to login page — cookies are missing, expired, or invalid.\n'
+            + 'URL: ' + url + '\n'
+            + 'PAGE: ' + bodyText + '\n',
+            1,
+        );
       }
 
       const pageText = await page.evaluate(() => (document.body.innerText || '').substring(0, 300)).catch(() => '');
       if (pageText.trim().length < 50) {
-        process.stderr.write('COOKIE_TEST_FAILED: seller hub loaded but page appears empty — bot detection may still be active.\n');
-        process.stderr.write('URL: ' + url + '\n');
         await context.close().catch(() => {});
-        process.exit(1);
+        exitAfterStderr(
+            'COOKIE_TEST_FAILED: seller hub loaded but page appears empty — bot detection may still be active.\n'
+            + 'URL: ' + url + '\n',
+            1,
+        );
       }
 
       // Save localStorage + live cookies so ws-explore can inject them into its temp browser.
@@ -2996,8 +3009,7 @@ async function extractLedgerFromPage(page) {
     if (MODE === 'show-orders') {
       const showUrl = process.env.WHATNOT_SHOW_URL;
       if (!showUrl) {
-        process.stderr.write('Error: WHATNOT_SHOW_URL is required for show-orders mode\n');
-        process.exit(1);
+        exitAfterStderr('Error: WHATNOT_SHOW_URL is required for show-orders mode\n', 1);
       }
 
       log(`navigating to show detail: ${showUrl}`);
@@ -3043,17 +3055,18 @@ async function extractLedgerFromPage(page) {
       const orders = await extractOrdersFromPage(page);
 
       if (orders && orders.fallback) {
-        process.stderr.write('SELECTOR_MISS: Could not find order/lot rows on the show page.\n');
-        process.stderr.write('PAGE_TEXT_SAMPLE: ' + (orders.text || '') + '\n');
-        if (DEBUG) process.stderr.write('PAGE_HTML: ' + (orders.html || '') + '\n');
-        process.exit(2);
+        exitAfterStderr(
+            'SELECTOR_MISS: Could not find order/lot rows on the show page.\n'
+            + 'PAGE_TEXT_SAMPLE: ' + (orders.text || '') + '\n'
+            + (DEBUG ? 'PAGE_HTML: ' + (orders.html || '') + '\n' : ''),
+            2,
+        );
       }
 
       const normalized = normalizeOrders(orders);
 
       if (normalized.length === 0) {
-        process.stderr.write('SELECTOR_MISS: Orders array was empty after normalization.\n');
-        process.exit(2);
+        exitAfterStderr('SELECTOR_MISS: Orders array was empty after normalization.\n', 2);
       }
 
       log(`show-orders: returned ${normalized.length} orders`);
@@ -3070,15 +3083,13 @@ async function extractLedgerFromPage(page) {
     if (MODE === 'orders-batch') {
       const srcFile = process.env.WHATNOT_ORDER_SOURCES_FILE;
       if (!srcFile || !require('fs').existsSync(srcFile)) {
-        process.stderr.write('Error: WHATNOT_ORDER_SOURCES_FILE (existing JSON) is required for orders-batch mode\n');
-        process.exit(1);
+        exitAfterStderr('Error: WHATNOT_ORDER_SOURCES_FILE (existing JSON) is required for orders-batch mode\n', 1);
       }
       let sources;
       try {
         sources = JSON.parse(require('fs').readFileSync(srcFile, 'utf8'));
       } catch (e) {
-        process.stderr.write('orders-batch: failed to parse sources file: ' + e.message + '\n');
-        process.exit(1);
+        exitAfterStderr('orders-batch: failed to parse sources file: ' + e.message + '\n', 1);
       }
       if (!Array.isArray(sources)) sources = [];
       info(`orders-batch: ${sources.length} show(s) to scrape orders for`);
@@ -3165,15 +3176,13 @@ async function extractLedgerFromPage(page) {
     if (MODE === 'shipments-batch') {
       const srcFile = process.env.WHATNOT_ORDER_SOURCES_FILE;
       if (!srcFile || !require('fs').existsSync(srcFile)) {
-        process.stderr.write('Error: WHATNOT_ORDER_SOURCES_FILE (existing JSON) is required for shipments-batch mode\n');
-        process.exit(1);
+        exitAfterStderr('Error: WHATNOT_ORDER_SOURCES_FILE (existing JSON) is required for shipments-batch mode\n', 1);
       }
       let sources;
       try {
         sources = JSON.parse(require('fs').readFileSync(srcFile, 'utf8'));
       } catch (e) {
-        process.stderr.write('shipments-batch: failed to parse sources file: ' + e.message + '\n');
-        process.exit(1);
+        exitAfterStderr('shipments-batch: failed to parse sources file: ' + e.message + '\n', 1);
       }
       if (!Array.isArray(sources)) sources = [];
       info(`shipments-batch: ${sources.length} show(s) to refresh shipment data for`);
@@ -3532,9 +3541,7 @@ async function extractLedgerFromPage(page) {
       });
 
       if (shows && shows.fallback) {
-        process.stderr.write('SELECTOR_MISS: No show links found on /seller/shows.\n');
-        process.stderr.write('PAGE_TEXT: ' + (shows.text || '') + '\n');
-        process.exit(2);
+        exitAfterStderr('SELECTOR_MISS: No show links found on /seller/shows.\n' + 'PAGE_TEXT: ' + (shows.text || '') + '\n', 2);
       }
 
       log(`seller-shows: returned ${shows.length} show URLs`);
@@ -4145,8 +4152,7 @@ async function extractLedgerFromPage(page) {
       }
 
       if (!landed) {
-        process.stderr.write('ERROR: All analytics URLs redirect to login — credentials may be invalid or account lacks analytics access.\n');
-        process.exit(1);
+        exitAfterStderr('ERROR: All analytics URLs redirect to login — credentials may be invalid or account lacks analytics access.\n', 1);
       }
 
       // If we landed on the seller dashboard home (/dashboard/home or /dashboard),
@@ -4535,16 +4541,18 @@ async function extractLedgerFromPage(page) {
         const blocked = classifyBlockingPage(diag.url, diag.bodyText);
 
         if (blocked) {
-          process.stderr.write('SHOW_LINKS_FOUND: ' + JSON.stringify(diag.links) + '\n');
-          process.stderr.write('PAGE_TEXT:\n' + diag.bodyText + '\n');
-          exitBlocked(blocked, diag.url);
+          // Folded into the one flushed write rather than written separately —
+          // an unflushed write before an exiting one is dropped on a pipe.
+          exitAfterStderr(
+              blocked.error + ': ' + blocked.message + '\n'
+              + 'CURRENT_URL: ' + diag.url + '\n'
+              + 'SHOW_LINKS_FOUND: ' + JSON.stringify(diag.links) + '\n'
+              + 'PAGE_TEXT:\n' + diag.bodyText + '\n',
+              blocked.code,
+          );
         }
 
-        process.stderr.write('SELECTOR_MISS: No shows found on list page.\n');
-        process.stderr.write('CURRENT_URL: ' + diag.url + '\n');
-        process.stderr.write('SHOW_LINKS_FOUND: ' + JSON.stringify(diag.links) + '\n');
-        process.stderr.write('PAGE_TEXT:\n' + diag.bodyText + '\n');
-        process.exit(2);
+        exitAfterStderr('SELECTOR_MISS: No shows found on list page.\n' + 'CURRENT_URL: ' + diag.url + '\n' + 'SHOW_LINKS_FOUND: ' + JSON.stringify(diag.links) + '\n' + 'PAGE_TEXT:\n' + diag.bodyText + '\n', 2);
       }
 
       // ── Metric-card DOM scraping (for analytics detail pages) ────────────────
@@ -4613,9 +4621,7 @@ async function extractLedgerFromPage(page) {
 
       if (results.length === 0) {
         const html = await page.evaluate(() => document.body.innerHTML.substring(0, 5000));
-        process.stderr.write('SELECTOR_MISS: No show data extracted from analytics page.\n');
-        process.stderr.write('PAGE_SNAPSHOT: ' + html + '\n');
-        process.exit(2);
+        exitAfterStderr('SELECTOR_MISS: No show data extracted from analytics page.\n' + 'PAGE_SNAPSHOT: ' + html + '\n', 2);
       }
 
       log(`done — returned ${results.length} shows`);
@@ -4623,13 +4629,11 @@ async function extractLedgerFromPage(page) {
       return;
     }
 
-    process.stderr.write(`Unknown WHATNOT_MODE: ${MODE}\n`);
-    process.exit(1);
+    exitAfterStderr(`Unknown WHATNOT_MODE: ${MODE}\n`, 1);
 
   } catch (err) {
     await debugShot(page, 'error');
-    process.stderr.write('Error: ' + err.message + '\n');
-    process.exit(1);
+    exitAfterStderr('Error: ' + err.message + '\n', 1);
   } finally {
     await context.close();
   }

@@ -1645,7 +1645,9 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
   // so without this, Chromium dying later (mid-connect-retry, or mid-scrape)
   // shows up only as an opaque ECONNREFUSED/socket-hang-up with no indication
   // of why the process actually went away. Always log it, not just under DEBUG.
+  let browserDeath = null;
   child.on('exit', (code, signal) => {
+    browserDeath = { code, signal };
     info(`WARNING: chromium process exited unexpectedly (pid=${child.pid} code=${code} signal=${signal})`);
   });
 
@@ -1669,6 +1671,24 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
   }
   if (!browser) {
     await killAndWait(child, 'SIGKILL');
+
+    // "connect ECONNREFUSED 127.0.0.1:38549" describes the symptom of a browser
+    // that died before it could listen, and reads like a networking fault in
+    // the scraper. When we watched it die, say that instead — and name the
+    // flags most likely to have killed it, since a crash on launch is nearly
+    // always an argument Chromium would not accept in this configuration.
+    if (browserDeath) {
+      const { code, signal } = browserDeath;
+      const proxyNote = proxy
+        ? `\nIt was launched with --proxy-server=${proxy}. Retry without WHATNOT_PROXY to confirm whether the proxy is what it rejected.`
+        : '';
+
+      throw new Error(
+        `Chromium died during startup (code=${code} signal=${signal}), so there was no DevTools port to connect to.`
+        + `\nThis is a browser launch failure, not a Whatnot or network problem.${proxyNote}`
+      );
+    }
+
     throw lastConnectError;
   }
 

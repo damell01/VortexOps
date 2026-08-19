@@ -36,6 +36,9 @@ class User extends Authenticatable implements FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            // Guided tours this person has finished or dismissed, so a tour
+            // introduces itself once rather than on every visit.
+            'completed_tours' => 'array',
         ];
     }
 

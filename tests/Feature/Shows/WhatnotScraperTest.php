@@ -45,6 +45,11 @@ class WhatnotScraperTest extends TestCase
         $process->allows('getErrorOutput')->andReturn($stderr);
         $process->allows('isSuccessful')->andReturn($exitCode === 0);
 
+        // Asked for when a failing run produced no output at all, so the error
+        // can name the command that produced the silence instead of describing
+        // a page nothing proves was ever loaded.
+        $process->allows('getCommandLine')->andReturn("'node' '/app/scripts/whatnot-scraper.cjs'");
+
         // Streaming path (used whenever an onProgress callback is passed) drives
         // the process via start()/isRunning() instead of the blocking run().
         $process->allows('start')->andReturnNull();

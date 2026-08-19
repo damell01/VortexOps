@@ -2,6 +2,45 @@
 @php($status = $this->locationStatus)
 <div class="space-y-6">
 
+{{-- Guided tours run once per person. This is how someone gets them back —
+     either because they skipped them or because they are new to this account. --}}
+<div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950/40 px-5 py-4">
+    <div>
+        <h3 class="text-sm font-semibold text-violet-900 dark:text-violet-200">Guided tours</h3>
+        <p class="text-sm text-violet-800 dark:text-violet-300">
+            Several screens introduce themselves the first time you open them. Each one can be replayed
+            from the <strong>“? How this page works”</strong> button next to its title.
+        </p>
+    </div>
+    <button type="button" id="vx-replay-tours"
+        class="flex-shrink-0 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-violet-700 transition">
+        Show all tours again
+    </button>
+</div>
+
+<script>
+document.getElementById('vx-replay-tours')?.addEventListener('click', async function () {
+    this.disabled = true;
+    const original = this.textContent;
+
+    try {
+        const res = await fetch(@js(route('tours.reset')), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+            },
+        });
+
+        this.textContent = res.ok ? 'Tours reset — open any screen' : 'Could not reset';
+    } catch {
+        this.textContent = 'Could not reset';
+    }
+
+    setTimeout(() => { this.textContent = original; this.disabled = false; }, 4000);
+});
+</script>
+
 {{-- ── Tab strip ────────────────────────────────────────────────────────────── --}}
 <div class="flex rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-1 gap-1 overflow-x-auto">
     @foreach([

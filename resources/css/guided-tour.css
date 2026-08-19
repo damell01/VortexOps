@@ -1,0 +1,138 @@
+/* Guided tour: a spotlight over one element, with a tooltip beside it.
+   The dimming is done with an enormous box-shadow on the spotlight rather than
+   four positioned panels — one element to move, and no seams between panes. */
+
+.vx-tour-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;          /* above Filament modals (z-50) and the feedback button */
+    pointer-events: none;
+}
+
+.vx-tour-spotlight {
+    position: fixed;
+    border-radius: 10px;
+    box-shadow: 0 0 0 9999px rgba(15, 12, 24, .62);
+    outline: 2px solid rgb(139 92 246);
+    outline-offset: 2px;
+    transition: top .18s ease, left .18s ease, width .18s ease, height .18s ease;
+    pointer-events: none;
+}
+
+.vx-tour-tip {
+    position: fixed;
+    width: min(23rem, calc(100vw - 1.5rem));
+    background: #fff;
+    color: #17151d;
+    border-radius: 12px;
+    padding: 1rem 1.15rem 1rem;
+    box-shadow: 0 12px 40px -12px rgba(15, 12, 24, .55), 0 2px 6px rgba(15, 12, 24, .18);
+    pointer-events: auto;
+}
+
+.vx-tour-count {
+    margin: 0 0 .35rem;
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: rgb(124 58 237);
+    font-variant-numeric: tabular-nums;
+}
+
+.vx-tour-title {
+    margin: 0 0 .35rem;
+    font-size: 1.02rem;
+    font-weight: 600;
+    line-height: 1.25;
+    text-wrap: balance;
+}
+
+.vx-tour-body {
+    margin: 0 0 1rem;
+    font-size: .89rem;
+    line-height: 1.55;
+    color: #4b4557;
+}
+
+.vx-tour-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+}
+
+.vx-tour-nav { display: flex; gap: .5rem; }
+
+.vx-tour-tip button {
+    font: inherit;
+    font-size: .85rem;
+    font-weight: 600;
+    border-radius: 7px;
+    padding: .42rem .85rem;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background-color .12s ease;
+}
+
+.vx-tour-next {
+    background: rgb(124 58 237);
+    color: #fff;
+}
+.vx-tour-next:hover { background: rgb(109 40 217); }
+
+.vx-tour-back {
+    background: transparent;
+    border-color: #d9d4e2;
+    color: #4b4557;
+}
+.vx-tour-back:hover { background: #f4f1f9; }
+
+.vx-tour-skip {
+    background: transparent;
+    color: #7b7389;
+    padding-left: 0;
+}
+.vx-tour-skip:hover { color: #17151d; }
+
+.vx-tour-tip button:focus-visible {
+    outline: 2px solid rgb(139 92 246);
+    outline-offset: 2px;
+}
+
+/* The launcher lives in the page header next to the title. */
+.vx-tour-launch {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .8rem;
+    font-weight: 600;
+    color: rgb(124 58 237);
+    background: rgb(237 233 254);
+    border: 1px solid rgb(221 214 254);
+    border-radius: 999px;
+    padding: .25rem .7rem;
+    cursor: pointer;
+}
+.vx-tour-launch:hover { background: rgb(221 214 254); }
+
+.dark .vx-tour-tip {
+    background: #1d1926;
+    color: #ece9f2;
+    box-shadow: 0 12px 40px -12px rgba(0, 0, 0, .8), 0 2px 6px rgba(0, 0, 0, .5);
+}
+.dark .vx-tour-body { color: #a49cb5; }
+.dark .vx-tour-count { color: rgb(183 148 246); }
+.dark .vx-tour-back { border-color: #3a3348; color: #cfc9db; }
+.dark .vx-tour-back:hover { background: #2a2435; }
+.dark .vx-tour-skip { color: #948ca6; }
+.dark .vx-tour-skip:hover { color: #ece9f2; }
+.dark .vx-tour-launch {
+    background: rgba(124, 58, 237, .16);
+    border-color: rgba(139, 92, 246, .35);
+    color: rgb(183 148 246);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vx-tour-spotlight { transition: none; }
+}

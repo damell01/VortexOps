@@ -118,7 +118,7 @@ class WhatnotScraper
             }
         }
 
-        $this->throwForExitCode((int) $process->getExitCode(), $stderr);
+        $this->throwForExitCode((int) $process->getExitCode(), $stderr, $process->getCommandLine());
 
         if (! $process->isSuccessful()) {
             $message = $stderr ?: "Scraper exited with code {$process->getExitCode()}";
@@ -160,7 +160,7 @@ class WhatnotScraper
             Log::channel('stack')->warning('WhatnotScraper seller-shows stderr', ['output' => $stderr]);
         }
 
-        $this->throwForExitCode((int) $process->getExitCode(), $stderr);
+        $this->throwForExitCode((int) $process->getExitCode(), $stderr, $process->getCommandLine());
 
         if (! $process->isSuccessful()) {
             throw new \RuntimeException("Seller-shows scraper failed: " . ($stderr ?: "exit code {$process->getExitCode()}"));
@@ -240,7 +240,7 @@ class WhatnotScraper
             Log::channel('stack')->warning('WhatnotScraper show-orders stderr', ['output' => $stderr]);
         }
 
-        $this->throwForExitCode((int) $process->getExitCode(), $stderr);
+        $this->throwForExitCode((int) $process->getExitCode(), $stderr, $process->getCommandLine());
 
         if (! $process->isSuccessful()) {
             $message = $stderr ?: "Scraper exited with code {$process->getExitCode()}";
@@ -1720,13 +1720,26 @@ class WhatnotScraper
      *
      * @throws \RuntimeException always, when the code is one this handles
      */
-    protected function throwForExitCode(int $exitCode, string $stderr): void
+    protected function throwForExitCode(int $exitCode, string $stderr, ?string $commandLine = null): void
     {
         $diagnostics = implode("\n", array_slice(
             array_values(array_filter(explode("\n", $stderr), fn ($l) => trim($l) !== '')),
             0,
             80,
         ));
+
+        // An exit code with no output at all is its own finding, and a confusing
+        // one: the codes below are only ever set right after the scraper writes
+        // an explanation, so silence means the explanation was lost or the
+        // process that exited was not the one we think. Saying so — with the
+        // command actually run — beats printing advice about a page nobody has
+        // evidence was ever loaded.
+        if ($diagnostics === '') {
+            $diagnostics = "The scraper exited {$exitCode} without writing anything, which should not happen — "
+                . "every exit with this code is preceded by an explanation.\n"
+                . 'Command: ' . ($commandLine ?? '(not recorded)') . "\n"
+                . 'Run that command directly to see what it prints.';
+        }
 
         if ($exitCode === self::EXIT_AUTH_REQUIRED) {
             // Advice that names a step already taken reads as the tool not

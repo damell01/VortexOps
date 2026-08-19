@@ -37,3 +37,14 @@ Route::middleware(['auth', 'web', 'throttle:6,1'])->prefix('admin/export')->name
 });
 
 Route::middleware(['auth', 'web'])->get('/admin/manifest-template', [ExportController::class, 'manifestTemplate'])->name('manifest.template');
+
+// Marks a guided tour as seen for the signed-in user, so it stops opening
+// itself. Throttled because it is a fire-and-forget POST from the browser.
+Route::middleware(['auth', 'web', 'throttle:30,1'])->group(function () {
+    Route::post('/admin/tours/complete', [\App\Http\Controllers\TourController::class, 'complete'])
+        ->name('tours.complete');
+
+    // Clears the "already seen" marks so every tour introduces itself again.
+    Route::post('/admin/tours/reset', [\App\Http\Controllers\TourController::class, 'reset'])
+        ->name('tours.reset');
+});

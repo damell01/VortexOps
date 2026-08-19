@@ -244,8 +244,13 @@ class InventoryItemResource extends Resource
                 // which the public symlink these are served through cannot see.
                 \Filament\Forms\Components\FileUpload::make('image_path')
                     ->label('Photo')
-                    ->image()
-                    ->imageEditor()
+                    // Deliberately not ->image() or ->imageEditor(). Both make
+                    // Laravel re-read the Livewire temp file when the form is
+                    // saved — validateImage() stats it for dimensions — and by
+                    // then the upload has been consumed, which threw
+                    // UnableToRetrieveMetadata and blocked the save entirely.
+                    // acceptedFileTypes already restricts this to images, and
+                    // this mirrors the pallet attachment upload that works.
                     ->disk(\App\Models\Product::IMAGE_DISK)
                     ->directory('products')
                     ->visibility('public')
@@ -503,8 +508,17 @@ class InventoryItemResource extends Resource
                     ->relationship('stock')
                     ->schema([
                         Grid::make(3)->schema([
-                            TextInput::make('location.name')
+                            // Was TextInput::make('location.name'), which
+                            // rendered empty for every row: the repeater fills
+                            // from the stock row's own attributes, and a dotted
+                            // path there is read as a nested array key rather
+                            // than as a relationship. inventory_location_id is
+                            // a real column, so this resolves — and it reads
+                            // every location, not just active ones, so stock
+                            // sitting in a retired location still says where.
+                            Select::make('inventory_location_id')
                                 ->label('Location')
+                                ->options(fn () => \App\Models\InventoryLocation::orderBy('name')->pluck('name', 'id')->toArray())
                                 ->disabled()
                                 ->columnSpan(2)
                                 ->dehydrated(false),
@@ -618,6 +632,9 @@ class InventoryItemResource extends Resource
                     ->disk(\App\Models\Product::IMAGE_DISK)
                     ->height(36)
                     ->width(36)
+                    // The brand mark rather than a gap: a missing image in a
+                    // list is a hole in the layout, not information.
+                    ->defaultImageUrl(fn () => \App\Models\Product::placeholderImageUrl())
                     ->extraImgAttributes(['class' => 'rounded-md object-cover'])
                     ->toggleable(),
                 TextColumn::make('sku')

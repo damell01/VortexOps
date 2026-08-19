@@ -17,7 +17,18 @@
 {{-- ── Product Hero ──────────────────────────────────────────────────────────── --}}
 <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-6 py-5">
     <div class="flex items-start justify-between gap-4 flex-wrap">
-        <div>
+        <div class="flex items-start gap-4 min-w-0">
+            {{-- The photo, or the brand mark standing in for one. Dimmed and
+                 contained when it is the fallback, so a page showing the logo
+                 does not read as a product that looks like the logo. --}}
+            @php $vxHasPhoto = $record->hasImage(); @endphp
+            <img
+                src="{{ $record->imageUrl() }}"
+                alt="{{ $vxHasPhoto ? $record->name : 'No photo yet' }}"
+                class="h-20 w-20 shrink-0 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800
+                       {{ $vxHasPhoto ? 'object-cover' : 'object-contain p-2 opacity-60' }}"
+            />
+        <div class="min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-gray-100">{{ $record->name }}</h2>
                 <span class="{{ $record->is_active ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-500' }} inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium">
@@ -33,6 +44,7 @@
                 @if($record->year)<span>Year: {{ $record->year }}</span>@endif
                 @if($record->product_type)<span>Type: {{ $record->product_type }}</span>@endif
             </div>
+        </div>
         </div>
         <div class="flex-shrink-0 text-right space-y-1">
             @php $totalQty = collect($this->stockByLocation)->sum('qty'); @endphp

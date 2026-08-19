@@ -61,12 +61,61 @@ class Product extends Model
      */
     public const IMAGE_DISK = 'public';
 
-    /** A URL for this product's photo, or null when it has none. */
+    /** Whether a real photo has been uploaded, as opposed to falling back. */
+    public function hasImage(): bool
+    {
+        return filled($this->image_path);
+    }
+
+    /**
+     * A URL for this product's photo, falling back to the site logo.
+     *
+     * Every surface that shows one of these is a grid or a list, and a missing
+     * image there is a hole in the layout rather than information. The brand
+     * mark fills it and reads as "no photo yet" without anyone having to say
+     * so — which is also why callers wanting to know the difference should ask
+     * hasImage() rather than compare against this.
+     */
     public function imageUrl(): ?string
     {
-        return $this->image_path
-            ? \Illuminate\Support\Facades\Storage::disk(self::IMAGE_DISK)->url($this->image_path)
-            : null;
+        if ($this->hasImage()) {
+            return \Illuminate\Support\Facades\Storage::disk(self::IMAGE_DISK)->url($this->image_path);
+        }
+
+        return self::placeholderImageUrl();
+    }
+
+    /**
+     * The stand-in for a product with no photo.
+     *
+     * An uploaded logo wins, following the same precedence as the sidebar —
+     * the active channel's, then the global one — so the placeholder is
+     * whatever this install already brands itself with.
+     *
+     * Falling back, it takes the square mark rather than the sidebar wordmark
+     * the panel would hand back. Every slot showing one of these is a square
+     * thumbnail, and a 220x48 wordmark letterboxed into 80x80 reads as an
+     * empty box, which is the thing the placeholder exists to avoid.
+     */
+    public static function placeholderImageUrl(): ?string
+    {
+        $channel = \App\Support\ChannelContext::current();
+
+        if ($channel?->logo_path && file_exists(storage_path('app/public/' . $channel->logo_path))) {
+            return asset('storage/' . $channel->logo_path);
+        }
+
+        $configured = Setting::get('logo_path');
+
+        if ($configured && file_exists(storage_path('app/public/' . $configured))) {
+            return asset('storage/' . $configured);
+        }
+
+        if (file_exists(public_path('images/vb-logo.svg'))) {
+            return asset('images/vb-logo.svg');
+        }
+
+        return \App\Providers\Filament\AdminPanelProvider::resolveBrandLogo($channel, $configured);
     }
 
     protected $casts = [

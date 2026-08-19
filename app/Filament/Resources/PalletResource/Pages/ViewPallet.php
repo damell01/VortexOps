@@ -183,6 +183,63 @@ class ViewPallet extends ViewRecord
                 })
                 ->visible(fn () => ! in_array($this->getRecord()->status, ['received', 'processed'])),
 
+            // The other end of staging by name: the box is here, its barcode
+            // settles what it is. Picking the line first means an unrecognised
+            // code is not an error — it is a new product, named from what was
+            // staged, created and mapped in one step.
+            Action::make('link_by_scan')
+                ->label('Link by Scan')
+                ->icon('heroicon-o-link')
+                ->color('warning')
+                ->modalHeading('Link a staged item to inventory')
+                ->modalDescription('Pick the line, then scan it. An unknown code becomes a new item.')
+                ->modalSubmitActionLabel('Link')
+                ->schema([
+                    Select::make('pallet_line_id')
+                        ->label('Staged item')
+                        ->required()
+                        ->options(fn () => $this->getRecord()->lines
+                            ->whereNull('inventory_item_id')
+                            ->mapWithKeys(fn (PalletLine $l) => [$l->id => $l->description])
+                            ->toArray())
+                        ->helperText('Only items not yet linked to inventory appear here.'),
+                    \Filament\Forms\Components\TextInput::make('code')
+                        ->label('Barcode / UPC')
+                        ->required()
+                        ->placeholder('Scan or type…'),
+                    Select::make('inventory_location_id')
+                        ->label('Receive Into')
+                        ->required()
+                        ->searchable()
+                        ->options(fn () => InventoryLocation::activeOptions()),
+                ])
+                ->action(function (array $data) {
+                    try {
+                        $line = $this->getRecord()->lines()->findOrFail($data['pallet_line_id']);
+
+                        $result = app(ReceivingService::class)->linkLineByScan(
+                            $line,
+                            $data['code'],
+                            InventoryLocation::findOrFail($data['inventory_location_id']),
+                        );
+
+                        Notification::make()
+                            ->title($result['item']->name . ($result['created'] ? ' created and linked' : ' linked'))
+                            ->body($result['created']
+                                ? 'A new inventory item was added with that barcode.'
+                                : 'Matched an item already in inventory.')
+                            ->success()
+                            ->send();
+                    } catch (\RuntimeException $e) {
+                        Notification::make()->title($e->getMessage())->danger()->send();
+                    }
+
+                    $this->record->refresh();
+                })
+                // Only worth offering while something is still unlinked.
+                ->visible(fn () => ! in_array($this->getRecord()->status, ['received', 'processed'])
+                    && $this->getRecord()->lines->whereNull('inventory_item_id')->isNotEmpty()),
+
             // The other half: build the list before the pallet lands, by name
             // rather than by barcode, since a staged item has not arrived to be
             // scanned yet.
@@ -191,11 +248,33 @@ class ViewPallet extends ViewRecord
                 ->icon('heroicon-o-plus')
                 ->color('gray')
                 ->modalHeading('Add an item to this pallet')
+                ->modalDescription('Only the name is needed. Everything else can wait until it arrives.')
                 ->modalSubmitActionLabel('Add')
                 ->schema([
-                    Select::make('inventory_item_id')
+                    // Staging happens off the paperwork, for things that often
+                    // do not exist in inventory yet, so a free-text name is the
+                    // whole requirement. Demanding an existing product here
+                    // meant creating the product first, which is the opposite
+                    // order to how a pallet is actually written down.
+                    \Filament\Forms\Components\TextInput::make('name')
                         ->label('Item')
                         ->required()
+                        ->autofocus()
+                        ->maxLength(255)
+                        ->placeholder('e.g. 2026 Topps Chrome Hobby')
+                        ->helperText('Type what it is. It does not have to exist in inventory.'),
+                    \Filament\Forms\Components\Radio::make('form_factor')
+                        ->label('Case or single?')
+                        ->options([
+                            'unknown'   => 'Not sure yet',
+                            'container' => 'Case / box holding several',
+                            'single'    => 'A single item',
+                        ])
+                        ->default('unknown')
+                        ->inline()
+                        ->inlineLabel(false),
+                    Select::make('inventory_item_id')
+                        ->label('Link to an existing item')
                         ->searchable()
                         ->getSearchResultsUsing(fn (string $search) => InventoryItem::where('is_active', true)
                             ->where(fn ($q) => $q->where('name', 'like', "%{$search}%")
@@ -206,34 +285,51 @@ class ViewPallet extends ViewRecord
                             ->pluck('name', 'id')
                             ->toArray())
                         ->getOptionLabelUsing(fn ($value) => InventoryItem::find($value)?->name)
-                        ->helperText('Type a name, SKU or barcode.'),
+                        ->helperText('Optional — or leave it and scan the barcode when the pallet lands.')
+                        // Typing the name and then picking the same item from
+                        // the list is the same fact entered twice.
+                        ->live()
+                        ->afterStateUpdated(function ($state, callable $get, callable $set) {
+                            if ($state && blank($get('name'))) {
+                                $set('name', InventoryItem::find($state)?->name);
+                            }
+                        }),
                     Select::make('inventory_location_id')
                         ->label('Receive Into')
-                        ->required()
                         ->searchable()
-                        ->options(fn () => InventoryLocation::activeOptions()),
+                        ->options(fn () => InventoryLocation::activeOptions())
+                        ->helperText('Optional at this stage.'),
                     \Filament\Forms\Components\TextInput::make('case_count')
                         ->label('Cases Expected')
-                        ->numeric()->minValue(1)->default(1)->required(),
+                        ->numeric()->minValue(1)->default(1),
                     \Filament\Forms\Components\TextInput::make('quantity_per_case')
                         ->label('Units per Case')
-                        ->numeric()->minValue(1)->default(1)->required(),
+                        ->numeric()->minValue(1)->default(1),
                     \Filament\Forms\Components\TextInput::make('unit_cost')
                         ->label('Unit Cost')
-                        ->numeric()->minValue(0)->prefix('$')->default(0),
+                        ->numeric()->minValue(0)->prefix('$'),
                 ])
                 ->action(function (array $data) {
-                    $item = InventoryItem::findOrFail($data['inventory_item_id']);
+                    $item = ! empty($data['inventory_item_id'])
+                        ? InventoryItem::find($data['inventory_item_id'])
+                        : null;
+
+                    $name = trim((string) ($data['name'] ?? '')) ?: $item?->name;
 
                     $line = PalletLine::create([
                         'pallet_id'             => $this->record->id,
                         'line_number'           => ((int) $this->record->lines()->max('line_number')) + 1,
-                        'description'           => $item->name,
-                        'inventory_item_id'     => $item->id,
-                        'inventory_location_id' => $data['inventory_location_id'],
-                        'case_count'            => $data['case_count'],
-                        'quantity_per_case'     => $data['quantity_per_case'],
-                        'unit_cost'             => $data['unit_cost'] ?? 0,
+                        'description'           => $name,
+                        'is_container'          => match ($data['form_factor'] ?? 'unknown') {
+                            'container' => true,
+                            'single'    => false,
+                            default     => null,
+                        },
+                        'inventory_item_id'     => $item?->id,
+                        'inventory_location_id' => $data['inventory_location_id'] ?: null,
+                        'case_count'            => (int) ($data['case_count'] ?: 1),
+                        'quantity_per_case'     => (float) ($data['quantity_per_case'] ?: 1),
+                        'unit_cost'             => (float) ($data['unit_cost'] ?: 0),
                         'line_status'           => 'pending',
                     ]);
 
@@ -241,7 +337,13 @@ class ViewPallet extends ViewRecord
                     // immediately rather than only at bulk receive.
                     app(ReceivingService::class)->generateExpectedCases($line);
 
-                    Notification::make()->title($item->name . ' added to this pallet')->success()->send();
+                    Notification::make()
+                        ->title($name . ' added')
+                        ->body($item
+                            ? 'Ready to scan when it arrives.'
+                            : 'Not linked to inventory yet — scan its barcode on arrival to link or create it.')
+                        ->success()
+                        ->send();
 
                     $this->record->refresh();
                 })
@@ -324,15 +426,10 @@ class ViewPallet extends ViewRecord
                         }
                     })
                     ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'shipped', 'receiving'])),
-                Action::make('upload_manifest')
-                    ->label('Scan a Packing Slip')
-                    ->icon('heroicon-o-document-arrow-up')
-                    ->color('violet')
-                    ->url(fn () => PalletResource::getUrl('import-manifest', ['record' => $this->getRecord()]))
-                    ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'shipped', 'receiving'])),
-                // The slip reader above takes photos and PDFs. A vendor who
-                // sends a spreadsheet needs no AI to read it, and staging a
-                // hundred lines by hand is not a workflow.
+                // A vendor who sends a spreadsheet needs no AI to read it, and
+                // staging a hundred lines by hand is not a workflow. (The
+                // packing-slip reader that used to sit here is parked — the
+                // page still exists, nothing links to it.)
                 Action::make('import_csv')
                     ->label('Import Manifest CSV')
                     ->icon('heroicon-o-table-cells')

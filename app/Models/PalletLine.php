@@ -14,6 +14,7 @@ class PalletLine extends Model
         'receiving_session_id',
         'line_number',
         'description',
+        'is_container',
         'vendor_description',
         'inventory_item_id',
         'match_confidence',
@@ -31,6 +32,7 @@ class PalletLine extends Model
     ];
 
     protected $casts = [
+        'is_container'      => 'boolean',
         'quantity_per_case' => 'decimal:2',
         'unit_cost'         => 'decimal:4',
         'preflight_cost'    => 'decimal:4',

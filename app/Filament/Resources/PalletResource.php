@@ -249,12 +249,12 @@ class PalletResource extends Resource
                     TextInput::make('received_by_name')
                         ->label('Received By (Name)')
                         ->maxLength(255)
-                        ->columnSpan(1),
-                    TextInput::make('signature_path')
-                        ->label('Signature File Path')
-                        ->maxLength(255)
-                        ->disabled()
-                        ->columnSpan(1),
+                        ->columnSpan(2),
+                    // The signature file path was shown as a disabled text box:
+                    // a storage path is not something anyone reads or edits,
+                    // and it took half the section to say nothing. The column
+                    // and the signature itself are untouched — the timestamp
+                    // still shows on the pallet page where it means something.
                 ]),
         ]);
     }

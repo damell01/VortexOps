@@ -57,7 +57,12 @@ class PalletStagingFlowTest extends TestCase
 
     public function test_an_item_can_be_staged_by_name_before_the_pallet_lands(): void
     {
+        // The name is the one required field now — staging happens for items
+        // that do not exist in inventory yet, so the product is optional and
+        // the name is not. Picking an item from the list fills this in for you
+        // in the browser; callAction bypasses that, so it is passed here.
         $this->page()->callAction('add_expected_item', [
+            'name'                  => $this->item->name,
             'inventory_item_id'     => $this->item->id,
             'inventory_location_id' => $this->location->id,
             'case_count'            => 3,

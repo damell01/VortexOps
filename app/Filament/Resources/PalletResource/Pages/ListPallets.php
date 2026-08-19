@@ -24,13 +24,16 @@ class ListPallets extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            // One way in. The other button opened the packing-slip reader,
+            // which put a second half-built pallet flow beside this one and is
+            // parked for now — a pallet is staged by hand on its own page.
             Action::make('quick_create')
-                ->label('New Pallet + Import Slip')
-                ->icon('heroicon-o-document-arrow-up')
-                ->color('info')
-                ->modalHeading('Create Pallet & Upload Packing Slip')
-                ->modalDescription('Fill in the basics — you\'ll upload the vendor slip on the next screen.')
-                ->modalSubmitActionLabel('Create & Upload Slip')
+                ->label('Add Pallet')
+                ->icon('heroicon-o-plus')
+                ->color('primary')
+                ->modalHeading('Add a pallet')
+                ->modalDescription('Just the basics — you build the item list on the pallet itself.')
+                ->modalSubmitActionLabel('Create')
                 ->form([
                     Select::make('vendor_id')
                         ->label('Vendor')
@@ -50,14 +53,12 @@ class ListPallets extends ListRecords
                         'vendor_id'     => $data['vendor_id'],
                         'reference'     => $data['reference'] ?: null,
                         'received_date' => $data['received_date'] ?: null,
-                        'status'        => 'pending',
+                        'status'        => 'staged',
                         'created_by'    => auth()->id(),
                     ]);
 
-                    return redirect(PalletResource::getUrl('import-manifest', ['record' => $pallet]));
+                    return redirect(PalletResource::getUrl('view', ['record' => $pallet]));
                 }),
-
-            CreateAction::make()->label('New Pallet (Manual)'),
         ];
     }
 }

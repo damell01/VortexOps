@@ -128,7 +128,8 @@
                 <div class="px-4 py-8 text-center">
                     <p class="text-sm text-gray-500 dark:text-gray-400">Nothing staged on this pallet yet.</p>
                     <p class="text-xs text-gray-400 mt-1">
-                        Use <span class="font-medium">Add Expected Item</span> to build the list, or upload a manifest.
+                        Use <span class="font-medium">Add Expected Item</span> to build the list — a name is enough.
+                        Link each one to inventory now, or scan it when the pallet lands.
                     </p>
                 </div>
             @else

@@ -373,6 +373,67 @@ class ReceivingService
     }
 
     /**
+     * Point a staged line at real inventory by scanning it.
+     *
+     * Staging is done off the paperwork, so a line is usually just a name —
+     * the product may not exist yet, and typing one up before the pallet has
+     * even arrived is work done twice. When the box is in hand its barcode
+     * settles it: an existing product claims the line, and an unrecognised
+     * code becomes a new product carrying that code, named from what was
+     * staged. Either way the line is mapped and ready to receive.
+     *
+     * The location has to be supplied because nothing on a staged line implies
+     * one, and receiving without it would credit stock nowhere.
+     *
+     * @return array{line: PalletLine, item: Product, created: bool}
+     */
+    public function linkLineByScan(PalletLine $line, string $code, InventoryLocation $location): array
+    {
+        $code = trim($code);
+
+        if ($code === '') {
+            throw new RuntimeException('Scan or type a code first.');
+        }
+
+        if ($line->inventory_item_id) {
+            throw new RuntimeException("\"{$line->description}\" is already linked to " . ($line->inventoryItem?->name ?? 'an item') . '.');
+        }
+
+        $existing = Product::findByScan($code);
+
+        if ($existing) {
+            // A code already on the pallet under another line would make every
+            // later scan ambiguous, so it is refused rather than silently
+            // pointing two lines at one product.
+            $clash = $line->pallet->lines()
+                ->where('id', '!=', $line->id)
+                ->where('inventory_item_id', $existing->id)
+                ->exists();
+
+            if ($clash) {
+                throw new RuntimeException("{$existing->name} is already on another line of this pallet.");
+            }
+
+            $this->mapLine($line, $existing, $location);
+
+            return ['line' => $line->fresh(), 'item' => $existing, 'created' => false];
+        }
+
+        $product = Product::create([
+            'name'         => $line->description,
+            'barcode'      => $code,
+            // What was recorded at staging, when somebody was looking at it.
+            'is_container' => (bool) $line->is_container,
+            'unit_cost'    => (float) ($line->unit_cost ?? 0),
+            'is_active'    => true,
+        ]);
+
+        $this->mapLine($line, $product, $location);
+
+        return ['line' => $line->fresh(), 'item' => $product, 'created' => true];
+    }
+
+    /**
      * Receive a single case by barcode. Looks up the case, marks it received,
      * updates stock, and recalculates average cost.
      *

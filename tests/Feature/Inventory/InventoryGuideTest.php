@@ -76,11 +76,11 @@ class InventoryGuideTest extends TestCase
     {
         return [
             'Start Here'        => ['start',   'The six location types'],
-            'Add & Edit Items'  => ['items',   'What each field is for'],
-            'Restock & Scan'    => ['restock', 'Quick Add Stock, start to finish'],
-            'Receive a Pallet'  => ['pallets', 'Fields worth getting right'],
-            'Costs & Value'     => ['costs',   'Where cost comes from'],
-            'Fixing Mistakes'   => ['fix',     'Pick the tool that matches the reason'],
+            'Add & Edit Items'  => ['items',   'Create Inventory Item'],
+            'Restock & Scan'    => ['restock', 'The scanning screens'],
+            'Stage & Receive'   => ['pallets', 'Staging a pallet'],
+            'Costs & Reports'   => ['costs',   'The reporting screens'],
+            'Fixing Mistakes'   => ['fix',     'Reconciling a location'],
             'Troubleshooting'   => ['trouble', 'cannot find a main warehouse'],
         ];
     }

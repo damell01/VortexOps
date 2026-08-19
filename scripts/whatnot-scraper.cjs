@@ -494,6 +494,33 @@ async function settleChallenge(page, { timeoutMs = CHALLENGE_WAIT_MS, fatal = tr
 }
 
 /**
+ * Which saved session to bootstrap a fresh profile from.
+ *
+ * Two files can hold one: whatnot-cookies.json is what a human imported, and
+ * whatnot-live-cookies.json is written from a live browser context on every
+ * successful cookie-test. The live one is usually fresher, because Whatnot
+ * rotates the session as you use it.
+ *
+ * That matters because the profile gets rebuilt whenever Chromium will not
+ * start on it, which discards the refreshed session it had accumulated. Falling
+ * back to a hand-imported export from hours earlier is a redirect to /login and
+ * a re-export by hand — for cookies the scraper already had a newer copy of.
+ *
+ * An explicit WHATNOT_COOKIES_FILE always wins: naming a file means meaning it.
+ */
+function resolveCookiesFile() {
+  if (process.env.WHATNOT_COOKIES_FILE) return process.env.WHATNOT_COOKIES_FILE;
+
+  const fs = require('fs');
+  const path = require('path');
+  const bootstrap = path.join(__dirname, '../storage/whatnot-cookies.json');
+  const live = path.join(__dirname, '../storage/whatnot-live-cookies.json');
+  const mtime = (f) => (fs.existsSync(f) ? fs.statSync(f).mtimeMs : 0);
+
+  return mtime(live) > mtime(bootstrap) ? live : bootstrap;
+}
+
+/**
  * Report whether this profile holds a Cloudflare clearance cookie.
  *
  * cf_clearance is what a browser receives for passing a challenge, and it is
@@ -2720,8 +2747,18 @@ async function extractLedgerFromPage(page) {
   // case is what makes `whatnot:login --cookie-file=...` recovery still work
   // after the profile's own session eventually does go stale.
   const _fs = require('fs');
-  const _cookiesFile = process.env.WHATNOT_COOKIES_FILE ||
-    require('path').join(__dirname, '../storage/whatnot-cookies.json');
+
+  // Prefer whichever session is newest, not whichever file was typed by hand.
+  //
+  // The profile is rebuilt whenever Chromium will not start on it, and that
+  // throws away the refreshed session it had accumulated — dropping the scraper
+  // back to a bootstrap export that may be hours old and already rotated, which
+  // is a redirect to /login and a re-export by hand. whatnot-live-cookies.json
+  // is written from a live context on every successful cookie-test, so it is
+  // usually the fresher of the two and costs nothing to prefer.
+  //
+  // An explicit WHATNOT_COOKIES_FILE still wins: someone naming a file means it.
+  const _cookiesFile = resolveCookiesFile();
   const _cookiesLoadedMarker = _cookiesFile + '.loaded-mtime';
   if (_fs.existsSync(_cookiesFile)) {
     const _fileMtimeMs = _fs.statSync(_cookiesFile).mtimeMs;

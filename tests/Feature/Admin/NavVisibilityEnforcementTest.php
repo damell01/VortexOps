@@ -128,9 +128,16 @@ class NavVisibilityEnforcementTest extends TestCase
             \App\Filament\Resources\RoleResource::hasOwnAccessRule(\App\Filament\Pages\InventoryAnalytics::class),
             'InventoryAnalytics writes its own canAccess() and should be flagged.',
         );
+        // InventoryAge used to stand for "no rule of its own" here, on the
+        // grounds that its canAccess() comes from HasModuleAccess. It does —
+        // but it overrides passesModuleAccessCheck() to demand admin, owner or
+        // streamer, so a custom role ticking Visible still gets 403. Treating
+        // a trait-reached rule as no rule is precisely the blind spot that let
+        // dozens of pages read as plain switches. BarcodePrinter is the real
+        // article: module gating and nothing else.
         $this->assertFalse(
-            \App\Filament\Resources\RoleResource::hasOwnAccessRule(\App\Filament\Pages\InventoryAge::class),
-            'InventoryAge takes canAccess() from the trait and should not be flagged.',
+            \App\Filament\Resources\RoleResource::hasOwnAccessRule(\App\Filament\Pages\BarcodePrinter::class),
+            'BarcodePrinter adds nothing beyond its module and the visibility list, so it should not be flagged.',
         );
     }
 

@@ -315,14 +315,43 @@ class RoleResource extends Resource
             return false;
         }
 
-        try {
-            $method    = new \ReflectionMethod($class, 'canAccess');
-            $ownFile   = (new \ReflectionClass($class))->getFileName();
+        $definedIn = function (string $method) use ($class): ?string {
+            try {
+                return (new \ReflectionMethod($class, $method))->getFileName() ?: null;
+            } catch (\Throwable) {
+                return null;
+            }
+        };
 
-            return $method->getFileName() === $ownFile;
-        } catch (\Throwable) {
+        $isVendor = fn (?string $file): bool => $file === null
+            || str_contains($file, DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR);
+
+        $canAccess = $definedIn('canAccess');
+
+        // Filament's own default restricts nothing.
+        if ($isVendor($canAccess)) {
             return false;
         }
+
+        // Reached through HasModuleAccess, whose canAccess() is module state
+        // plus the visibility list plus passesModuleAccessCheck(). The first
+        // two already have their own tags and their own rows, so the only
+        // thing left that this screen cannot account for is an overridden
+        // passesModuleAccessCheck(). Tagging the trait itself would put a
+        // warning on 67 of 76 rows, which is the same as no warning at all.
+        if ($canAccess === (new \ReflectionClass(\App\Filament\Concerns\HasModuleAccess::class))->getFileName()) {
+            $check = $definedIn('passesModuleAccessCheck');
+
+            return $check !== null
+                && $check !== $canAccess
+                && ! $isVendor($check);
+        }
+
+        // Its own canAccess(), written in this codebase — usually admin or
+        // owner, and invisible on this screen until now. Comparing the
+        // method's file against the class's own file, as this did, missed
+        // every rule reached through a trait.
+        return true;
     }
 
     /**

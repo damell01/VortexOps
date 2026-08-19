@@ -940,9 +940,60 @@ class WhatnotScraper
             $env['WHATNOT_HEADLESS'] = $headless ? 'true' : 'false';
         }
 
-        $process = new Process([$this->nodeBin, $this->scriptPath], null, $env);
+        $process = new Process($this->commandLine($env), null, $env);
         $process->setTimeout($timeout);
         return $process;
+    }
+
+    /**
+     * Bring a display with us when the browser needs one.
+     *
+     * Headed mode is the answer to Cloudflare challenging the browser, but it
+     * needs an X server — and cron and the queue have none. So a headed run
+     * that a human verified by hand under `xvfb-run` would fail the moment the
+     * scheduler ran the same thing, for a reason ("needs an X display") that
+     * looks nothing like the problem it was meant to solve.
+     *
+     * Wrapping the process ourselves means headed mode is a setting rather than
+     * a thing you must remember to type.
+     *
+     * @param  array<string, string>  $env
+     * @return array<int, string>
+     */
+    private function commandLine(array $env): array
+    {
+        $command = [$this->nodeBin, $this->scriptPath];
+
+        $headed     = ($env['WHATNOT_HEADLESS'] ?? 'true') === 'false';
+        $hasDisplay = ($env['DISPLAY'] ?? getenv('DISPLAY')) !== false
+            && ($env['DISPLAY'] ?? getenv('DISPLAY')) !== '';
+
+        if (! $headed || $hasDisplay) {
+            return $command;
+        }
+
+        $xvfb = $this->xvfbRunPath();
+
+        if ($xvfb === null) {
+            // Left to fail in Node, which already explains what to install —
+            // one message about a missing display beats two.
+            return $command;
+        }
+
+        // -a picks a free display number, so concurrent runs cannot collide on
+        // one. The browser lock should prevent that anyway; this makes it moot.
+        return [$xvfb, '-a', ...$command];
+    }
+
+    private function xvfbRunPath(): ?string
+    {
+        foreach (['/usr/bin/xvfb-run', '/usr/local/bin/xvfb-run'] as $path) {
+            if (is_executable($path)) {
+                return $path;
+            }
+        }
+
+        return null;
     }
 
     /**

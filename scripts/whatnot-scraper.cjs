@@ -319,7 +319,7 @@ function parseInteger(str) {
  *   1  navigation or general failure — retry, then investigate
  *   2  selector miss — Whatnot changed their markup, update SELECTORS
  *   3  authentication expired or a bot challenge is in the way — a human has
- *      to sign in once (see `php artisan whatnot:session`)
+ *      to sign in once (see `php artisan whatnot:login`)
  *   4  rate limited or temporarily refused — back off and retry later
  *
  * Kept distinct because the fix is different for each, and the log that
@@ -356,7 +356,7 @@ function classifyBlockingPage(url, bodyText) {
       message:
         'Whatnot served a bot-protection challenge instead of the page. The saved session has ' +
         'expired or was never established, so the scraper was sent to /login and blocked there. ' +
-        'Sign in once with `php artisan whatnot:session` — the scraper reuses that session and ' +
+        'Sign in once with `php artisan whatnot:login` — the scraper reuses that session and ' +
         'never needs to see the login page again.',
     };
   }
@@ -378,7 +378,7 @@ function classifyBlockingPage(url, bodyText) {
       message:
         'Whatnot returned an effectively empty page (' + (bodyText || '').trim().length +
         ' characters), which is what its bot protection looks like when the challenge script ' +
-        'does not run. Sign in once with `php artisan whatnot:session`.',
+        'does not run. Sign in once with `php artisan whatnot:login`.',
     };
   }
 
@@ -390,6 +390,108 @@ function exitBlocked(blocked, url) {
   process.stderr.write(blocked.error + ': ' + blocked.message + '\n');
   process.stderr.write('CURRENT_URL: ' + url + '\n');
   process.exit(blocked.code);
+}
+
+// Cloudflare's managed challenge is not a wall — it is an interstitial that
+// runs a few seconds of JS, sets cf_clearance, and reloads itself into the real
+// page. The scraper navigated with waitUntil:'domcontentloaded' and read the DOM
+// immediately, so it caught that interstitial mid-flight every time and called
+// it a missing page. Waiting is the whole fix.
+const CHALLENGE_WAIT_MS = Number(process.env.WHATNOT_CHALLENGE_WAIT_MS || 45000);
+
+/**
+ * Body text, or null when the page is mid-navigation.
+ *
+ * The distinction matters: the challenge reloads itself, so evaluate() throws
+ * "execution context was destroyed" exactly when it is working. Returning ''
+ * there would read as an empty page and stop the wait one poll before it
+ * succeeded.
+ */
+async function readBodyText(page, max = 2000) {
+  try {
+    return await page.evaluate(
+      (m) => (document.body ? (document.body.innerText || '') : '').substring(0, m),
+      max,
+    );
+  } catch {
+    return null;
+  }
+}
+
+function isChallengePage(bodyText) {
+  const blocked = classifyBlockingPage('', bodyText);
+
+  // Only a positively identified challenge counts. A near-empty body is also
+  // what a React root looks like for the first moment after domcontentloaded,
+  // and treating that as a block would fail every healthy navigation.
+  return blocked !== null && blocked.error === 'BOT_CHALLENGE';
+}
+
+/**
+ * Wait out a Cloudflare interstitial, if one is up.
+ *
+ * Returns true when the page is real. When the challenge outlasts the wait it
+ * stops the run: continuing means scrolling, tab-hunting and DOM-probing a
+ * verification page for another quarter of an hour before reporting the wrong
+ * cause, which is exactly what a full sync used to do four times over.
+ */
+async function settleChallenge(page, { timeoutMs = CHALLENGE_WAIT_MS, fatal = true } = {}) {
+  let body = await readBodyText(page);
+
+  if (body !== null && !isChallengePage(body)) return true;
+
+  const started = Date.now();
+  let announced = false;
+
+  while (Date.now() - started < timeoutMs) {
+    await page.waitForTimeout(2000);
+    body = await readBodyText(page);
+
+    if (body === null) continue;          // reloading — that is the challenge working
+    if (!isChallengePage(body)) {
+      if (announced) info('challenge cleared after', Math.round((Date.now() - started) / 1000) + 's');
+      return true;
+    }
+
+    if (!announced) {
+      info('cloudflare interstitial — waiting up to', Math.round(timeoutMs / 1000) + 's for it to clear');
+      announced = true;
+    }
+  }
+
+  if (!announced) return true;            // never actually saw a challenge
+
+  info('challenge did not clear within', Math.round(timeoutMs / 1000) + 's');
+
+  if (fatal) {
+    exitBlocked(
+      classifyBlockingPage(page.url(), body) || {
+        code: EXIT.AUTH_REQUIRED,
+        error: 'BOT_CHALLENGE',
+        message: 'Cloudflare held the browser on a verification page.',
+      },
+      page.url(),
+    );
+  }
+
+  return false;
+}
+
+/**
+ * Make every navigation on this page wait out a challenge before returning.
+ *
+ * Wrapping goto() beats editing twenty-five call sites and, more to the point,
+ * covers the twenty-sixth.
+ */
+function installChallengeHandling(page) {
+  const goto = page.goto.bind(page);
+
+  page.goto = async (url, opts) => {
+    const response = await goto(url, opts);
+    await settleChallenge(page);
+
+    return response;
+  };
 }
 
 async function performLogin(page, email, password) {
@@ -641,6 +743,12 @@ async function switchToChannel(page, channelName) {
 
   await debugShot(page, 'role-switch-01-pre');
   info('switchToChannel: current URL before switch:', page.url());
+
+  // The role switcher is reached by clicking, not by goto(), so the wrapper on
+  // page.goto() never sees it. Without this the drawer hunt runs against a
+  // verification page and reports the switcher as missing — which is what the
+  // "controls: [Cloudflare, Privacy]" dump in the logs actually was.
+  await settleChallenge(page);
 
   // Confirmed July 2026 (real markup): no id at all — it's an h4 with class ogVNN
   // reading "Switch Role", inside a div.eCoev[role="presentation"] menu row.
@@ -2519,6 +2627,7 @@ async function extractLedgerFromPage(page) {
   }
 
   const page = await context.newPage();
+  installChallengeHandling(page);
 
   // Capture every JSON response from whatnot.com during this session.
   // Analytics and GraphQL endpoints will appear here; extractShowsFromCapture()
@@ -4247,6 +4356,18 @@ async function extractLedgerFromPage(page) {
                       .slice(0, 10)
                       .map(a => a.getAttribute('href')),
         }));
+        // "No shows found" is only a selector problem when the page we searched
+        // was actually the shows page. Reporting a verification screen as a
+        // markup change sends whoever reads this hunting through SELECTORS for
+        // a list that was never served.
+        const blocked = classifyBlockingPage(diag.url, diag.bodyText);
+
+        if (blocked) {
+          process.stderr.write('SHOW_LINKS_FOUND: ' + JSON.stringify(diag.links) + '\n');
+          process.stderr.write('PAGE_TEXT:\n' + diag.bodyText + '\n');
+          exitBlocked(blocked, diag.url);
+        }
+
         process.stderr.write('SELECTOR_MISS: No shows found on list page.\n');
         process.stderr.write('CURRENT_URL: ' + diag.url + '\n');
         process.stderr.write('SHOW_LINKS_FOUND: ' + JSON.stringify(diag.links) + '\n');

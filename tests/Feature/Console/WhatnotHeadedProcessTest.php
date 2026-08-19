@@ -41,26 +41,28 @@ class WhatnotHeadedProcessTest extends TestCase
     {
         $command = $this->commandFor(['WHATNOT_HEADLESS' => 'true']);
 
-        $this->assertStringNotContainsString('xvfb-run', $command);
+        $this->assertStringNotContainsString('with-xvfb.sh', $command);
     }
 
     public function test_the_default_is_headless(): void
     {
-        $this->assertStringNotContainsString('xvfb-run', $this->commandFor([]));
+        $this->assertStringNotContainsString('with-xvfb.sh', $this->commandFor([]));
     }
 
     public function test_headed_with_no_display_brings_its_own(): void
     {
         $command = $this->commandFor(['WHATNOT_HEADLESS' => 'false']);
 
-        if ($this->scraperCanFindXvfb()) {
-            $this->assertStringContainsString('xvfb-run', $command);
-            $this->assertStringContainsString('-a', $command);
-        } else {
-            // Without xvfb installed there is nothing to wrap with; Node's own
-            // message names the package to install, and two errors about one
-            // missing display is worse than one.
-            $this->assertStringNotContainsString('xvfb-run', $command);
+        $this->assertStringContainsString('with-xvfb.sh', $command);
+    }
+
+    public function test_it_never_wraps_with_xvfb_run(): void
+    {
+        // xvfb-run executes its command as `"$@" 2>&1`, folding the child's
+        // stderr into stdout. Here that destroys the JSON payload and hides
+        // every diagnostic at once, so failures came back as a bare exit code.
+        foreach ([['WHATNOT_HEADLESS' => 'false'], ['WHATNOT_HEADLESS' => 'true']] as $env) {
+            $this->assertStringNotContainsString('xvfb-run', $this->commandFor($env));
         }
     }
 
@@ -70,7 +72,7 @@ class WhatnotHeadedProcessTest extends TestCase
         // wrapping again would nest two X servers for no reason.
         $command = $this->commandFor(['WHATNOT_HEADLESS' => 'false', 'DISPLAY' => ':99']);
 
-        $this->assertStringNotContainsString('xvfb-run', $command);
+        $this->assertStringNotContainsString('with-xvfb.sh', $command);
     }
 
     public function test_the_scraper_script_is_always_the_thing_being_run(): void
@@ -78,10 +80,5 @@ class WhatnotHeadedProcessTest extends TestCase
         foreach ([['WHATNOT_HEADLESS' => 'true'], ['WHATNOT_HEADLESS' => 'false']] as $env) {
             $this->assertStringContainsString('whatnot-scraper.cjs', $this->commandFor($env));
         }
-    }
-
-    private function scraperCanFindXvfb(): bool
-    {
-        return is_executable('/usr/bin/xvfb-run') || is_executable('/usr/local/bin/xvfb-run');
     }
 }

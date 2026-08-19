@@ -972,28 +972,21 @@ class WhatnotScraper
             return $command;
         }
 
-        $xvfb = $this->xvfbRunPath();
+        $wrapper = base_path('scripts/with-xvfb.sh');
 
-        if ($xvfb === null) {
+        if (! is_readable($wrapper)) {
             // Left to fail in Node, which already explains what to install —
             // one message about a missing display beats two.
             return $command;
         }
 
-        // -a picks a free display number, so concurrent runs cannot collide on
-        // one. The browser lock should prevent that anyway; this makes it moot.
-        return [$xvfb, '-a', ...$command];
-    }
-
-    private function xvfbRunPath(): ?string
-    {
-        foreach (['/usr/bin/xvfb-run', '/usr/local/bin/xvfb-run'] as $path) {
-            if (is_executable($path)) {
-                return $path;
-            }
-        }
-
-        return null;
+        // Deliberately not xvfb-run, which runs the command as `"$@" 2>&1` and
+        // folds the child's stderr into its stdout. This scraper writes its JSON
+        // result to stdout and everything else to stderr, so that wrapper
+        // destroyed the payload and hid every diagnostic at once: failures came
+        // back as an exit code with no explanation, which read as the scraper
+        // having nothing to say. The wrapper here leaves both streams alone.
+        return ['/bin/sh', $wrapper, ...$command];
     }
 
     /**

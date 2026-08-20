@@ -2123,8 +2123,12 @@ a.fi-link:hover {
 
     /* Modal/slide-over full-width on mobile */
     .fi-modal-content {
-        width: 100% !important;
-        max-width: 100% !important;
+        /* Viewport units, not 100%: Filament renders the modal inside whatever
+           component opened it — a table's positioning context, for instance —
+           so a percentage resolves against that element and leaves a strip of
+           page down each side of a dialog that is supposed to be the screen. */
+        width: 100dvw !important;
+        max-width: 100dvw !important;
         border-radius: var(--vx-radius) var(--vx-radius) 0 0 !important;
     }
 
@@ -5164,4 +5168,206 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
 .fi-fo-select-panel,
 .fi-dropdown-list-ctn {
     z-index: 30;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MODAL STANDARD — big workflows get the screen, confirmations stay small
+   ══════════════════════════════════════════════════════════════════════════
+
+   Filament sizes a modal to its content and caps the width at 4xl (56rem).
+   On a 1080p screen that is a form occupying under half the width and perhaps
+   a third of the height, floating in a field of grey — which is what made
+   receiving a pallet feel like filling in a popup rather than doing a job.
+   Height was the worse half: nothing set one, so a four-field step and a
+   forty-field step drew completely different boxes and the buttons moved
+   every time.
+
+   Keyed off the width class Filament already prints, so the rule reaches all
+   fifty-seven modal actions without editing any of them, and so the small
+   sizes are excluded by construction rather than by a list somebody has to
+   maintain. A confirmation is `md` and never matches. */
+
+@media (min-width: 1024px) {
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl {
+        /* Wide, but not edge-to-edge: the margin is what keeps the dialog
+           reading as a dialog rather than as a new page. The rem cap only
+           binds on very wide monitors — at 1920 this lands at 80% of the
+           viewport, and 90vw takes over below about 1700px. */
+        width: min(90vw, 96rem);
+        max-width: min(90vw, 96rem);
+
+        /* The floor is the point. A short step still fills a workspace, so the
+           footer sits where it sat on the last step instead of jumping up the
+           screen between them. */
+        min-height: 72vh !important;
+        max-height: 90vh !important;
+        /* The base .fi-modal-window rule makes the window the scroll container.
+           For a workspace the body has to be the scroller instead, or the
+           header and footer scroll away with it. */
+        overflow: hidden !important;
+
+        /* Header, body, footer as rows: the body is the only part that scrolls,
+           which is what keeps the other two pinned. */
+        display: flex;
+        flex-direction: column;
+    }
+
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-content,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-content,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-content,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-content {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        /* min-height:0 or a flex child refuses to shrink below its content and
+           scrolls the whole dialog instead of its own body — which is how the
+           footer ends up below the fold. */
+        min-height: 0;
+    }
+
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-header,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-header,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-header,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-header,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-footer,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-footer,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-footer,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-footer {
+        flex: 0 0 auto;
+    }
+
+    /* Save and Cancel stay on screen however long the form is. Without this a
+       long form scrolls its buttons away and the only way to submit is to
+       scroll back — which on a receiving screen is every single time. */
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-footer,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-footer,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-footer,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 1;
+        background: var(--fi-modal-bg, inherit);
+        border-top: 1px solid rgb(from currentColor r g b / 0.1);
+    }
+}
+
+/* ── Phones: a workflow is the screen, not a box on it ────────────────────
+   Squeezing a desktop dialog into a small rounded rectangle leaves a form
+   scrolling inside a scrolling page, which on a phone at a pallet is
+   unusable. Below the desktop breakpoint the large sizes take the viewport:
+   header at the top, actions at the bottom, content between them. */
+@media (max-width: 1023px) {
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl {
+        /* !important throughout this block: Filament ships its own responsive
+           rules for the modal window and they land later in the cascade at the
+           same specificity, so without it the desktop rules above apply and
+           these silently do not — which is how a "full-screen" phone dialog
+           measured 92% wide with rounded corners. */
+        /* Viewport units, not percentages: Filament renders the modal inside
+           whichever component opened it, so a percentage resolves against that
+           element's box and leaves a strip of page down each side of a dialog
+           meant to be the whole screen. */
+        width: 100dvw !important;
+        max-width: 100dvw !important;
+        /* dvh, not vh: the mobile URL bar collapses and expands, and vh keeps
+           measuring the taller state — so the footer sits under the browser
+           chrome exactly when somebody reaches for it. */
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        min-height: 100dvh !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-content,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-content,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-content,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-content {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        min-height: 0;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-header,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-header,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-header,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-header,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-footer,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-footer,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-footer,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-footer {
+        flex: 0 0 auto;
+    }
+
+    /* Thumb-sized, and clear of the home indicator on an iPhone. */
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-footer,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-footer,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-footer,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-footer {
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl .fi-modal-footer-actions .fi-btn,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl .fi-modal-footer-actions .fi-btn,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl .fi-modal-footer-actions .fi-btn,
+    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl .fi-modal-footer-actions .fi-btn {
+        min-height: 2.75rem;
+    }
+
+    /* The container centres and pads its child, which on a full-screen dialog
+       shows as a strip of backdrop down each side. */
+    .fi-modal-window-ctn:has(> .fi-width-4xl),
+    .fi-modal-window-ctn:has(> .fi-width-5xl),
+    .fi-modal-window-ctn:has(> .fi-width-6xl),
+    .fi-modal-window-ctn:has(> .fi-width-7xl) {
+        padding: 0 !important;
+        max-width: none !important;
+        width: 100dvw !important;
+    }
+
+    /* The overlay itself, not just the dialog inside it. Filament renders a
+       modal inside whichever component opened it, so on a table page the whole
+       stack inherits that column's width — the dialog was sized correctly and
+       then clipped by an ancestor 16px narrower on each side. */
+    .fi-modal:has(.fi-width-4xl),
+    .fi-modal:has(.fi-width-5xl),
+    .fi-modal:has(.fi-width-6xl),
+    .fi-modal:has(.fi-width-7xl) {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100dvw !important;
+        max-width: none !important;
+        padding: 0 !important;
+    }
+}
+
+/* ── Page-visit dimming ────────────────────────────────────────────────────
+   The class ux-enhancements.js adds while a Livewire page visit is in flight.
+
+   It replaces an inline `pointer-events: none` on <body> that was only ever
+   removed by the matching completion event — so any visit that did not finish
+   (cancelled, superseded by a second click, failed, or a redirect the server
+   never answered) left the entire page unclickable until a reload. Dimming was
+   all that was wanted; blocking input was collateral, and it is not something a
+   feedback effect should be able to do.
+
+   Deliberately no pointer-events here: if this class is ever left behind, the
+   worst outcome is a slightly grey page somebody can still use. */
+body.vx-navigating {
+    opacity: 0.6;
+    transition: opacity 120ms var(--vx-ease, ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.vx-navigating {
+        transition: none;
+    }
 }

@@ -112,15 +112,58 @@ function showKeyboardShortcuts() {
 }
 
 // ── Loading State Feedback ─────────────────────────────────────────
+//
+// This used to set `pointer-events: none` on <body> when a page visit started
+// and only put it back when the visit finished. Every navigation that did not
+// finish — cancelled, superseded by another click, failed, or a redirect the
+// server never answered — left the whole page permanently unclickable. That is
+// the "click an action, cancel it, and now nothing works" freeze: nothing was
+// wrong with the modal, the page underneath had simply been switched off and
+// the only cure was a reload.
+//
+// Dimming is enough on its own. Blocking input was never the point, and a
+// feedback effect must not be able to take the application down when its
+// counterpart event goes missing — so the class is removed by four separate
+// paths, any one of which is sufficient.
+
+const NAVIGATING_CLASS = 'vx-navigating';
+
+// Nothing legitimate holds the page this long, so a visit still marked as
+// in-flight after this has lost its completion event.
+const NAVIGATION_GIVE_UP_MS = 5000;
+
+let navigationWatchdog = null;
+
+function endNavigatingState() {
+    document.body.classList.remove(NAVIGATING_CLASS);
+
+    // Belt and braces: clears anything an older build of this file left behind
+    // in a tab that has not been reloaded since.
+    document.body.style.removeProperty('pointer-events');
+    document.body.style.removeProperty('opacity');
+
+    if (navigationWatchdog) {
+        clearTimeout(navigationWatchdog);
+        navigationWatchdog = null;
+    }
+}
+
 document.addEventListener('livewire:navigating', () => {
-    document.body.style.opacity = '0.6';
-    document.body.style.pointerEvents = 'none';
+    document.body.classList.add(NAVIGATING_CLASS);
+
+    if (navigationWatchdog) clearTimeout(navigationWatchdog);
+    navigationWatchdog = setTimeout(endNavigatingState, NAVIGATION_GIVE_UP_MS);
 });
 
-document.addEventListener('livewire:navigated', () => {
-    document.body.style.opacity = '1';
-    document.body.style.pointerEvents = 'auto';
-});
+document.addEventListener('livewire:navigated', endNavigatingState);
+
+// Back/forward out of the bfcache restores the DOM as it was, mid-navigation
+// and all, so the state has to be cleared on the way in as well as the way out.
+window.addEventListener('pageshow', endNavigatingState);
+window.addEventListener('popstate', endNavigatingState);
+
+// And once on load, so a tab that is already stuck recovers by itself.
+endNavigatingState();
 
 // ── Scroll-to-top on navigation ────────────────────────────────────
 document.addEventListener('livewire:navigated', () => {

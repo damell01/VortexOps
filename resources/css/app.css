@@ -5198,16 +5198,20 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
    forty-field step drew completely different boxes and the buttons moved
    every time.
 
-   Keyed off the width class Filament already prints, so the rule reaches all
-   fifty-seven modal actions without editing any of them, and so the small
-   sizes are excluded by construction rather than by a list somebody has to
-   maintain. A confirmation is `md` and never matches. */
+   Written as "every modal that is not a small one" rather than as a list of
+   the large sizes. The first attempt enumerated 4xl through 7xl, which is
+   Filament's default and above — and so reached none of the actions that ask
+   for something narrower. Adjust Inventory is one of those, and it went on
+   drawing a short box in the middle of the screen while the rule it was
+   supposed to match sat one size above it.
+
+   Confirmations are excluded by construction: Filament gives them `md`, and
+   the sizes below that belong to things that are deliberately small. Slide-overs
+   are excluded because they are a different shape on purpose. No list to keep
+   up to date, and a new action inherits the standard without being told. */
 
 @media (min-width: 1024px) {
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl {
+    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) {
         /* Wide, but not edge-to-edge: the margin is what keeps the dialog
            reading as a dialog rather than as a new page. The rem cap only
            binds on very wide monitors — at 1920 this lands at 80% of the
@@ -5231,10 +5235,7 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
         flex-direction: column;
     }
 
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-content,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-content,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-content,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-content {
+    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-content {
         flex: 1 1 auto;
         overflow-y: auto;
         /* min-height:0 or a flex child refuses to shrink below its content and
@@ -5243,24 +5244,15 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
         min-height: 0;
     }
 
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-header,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-header,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-header,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-header,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-footer,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-footer,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-footer,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-footer {
+    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-header,
+    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-footer {
         flex: 0 0 auto;
     }
 
     /* Save and Cancel stay on screen however long the form is. Without this a
        long form scrolls its buttons away and the only way to submit is to
        scroll back — which on a receiving screen is every single time. */
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-footer,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-footer,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-footer,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-footer {
+    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-footer {
         position: sticky;
         bottom: 0;
         z-index: 1;
@@ -5275,10 +5267,7 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
    unusable. Below the desktop breakpoint the large sizes take the viewport:
    header at the top, actions at the bottom, content between them. */
 @media (max-width: 1023px) {
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl {
+    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) {
         /* !important throughout this block: Filament ships its own responsive
            rules for the modal window and they land later in the cascade at the
            same specificity, so without it the desktop rules above apply and
@@ -5302,48 +5291,30 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
         flex-direction: column !important;
     }
 
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-content,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-content,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-content,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-content {
+    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-content {
         flex: 1 1 auto;
         overflow-y: auto;
         min-height: 0;
         -webkit-overflow-scrolling: touch;
     }
 
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-header,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-header,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-header,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-header,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-footer,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-footer,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-footer,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-footer {
+    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-header,
+    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-footer {
         flex: 0 0 auto;
     }
 
     /* Thumb-sized, and clear of the home indicator on an iPhone. */
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl > .fi-modal-footer,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl > .fi-modal-footer,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl > .fi-modal-footer,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl > .fi-modal-footer {
+    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-footer {
         padding-bottom: max(1rem, env(safe-area-inset-bottom));
     }
 
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-4xl .fi-modal-footer-actions .fi-btn,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-5xl .fi-modal-footer-actions .fi-btn,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-6xl .fi-modal-footer-actions .fi-btn,
-    .fi-modal-window-ctn > .fi-modal-window.fi-width-7xl .fi-modal-footer-actions .fi-btn {
+    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) .fi-modal-footer-actions .fi-btn {
         min-height: 2.75rem;
     }
 
     /* The container centres and pads its child, which on a full-screen dialog
        shows as a strip of backdrop down each side. */
-    .fi-modal-window-ctn:has(> .fi-width-4xl),
-    .fi-modal-window-ctn:has(> .fi-width-5xl),
-    .fi-modal-window-ctn:has(> .fi-width-6xl),
-    .fi-modal-window-ctn:has(> .fi-width-7xl) {
+    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn {
         padding: 0 !important;
         max-width: none !important;
         width: 100dvw !important;
@@ -5353,10 +5324,7 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
        modal inside whichever component opened it, so on a table page the whole
        stack inherits that column's width — the dialog was sized correctly and
        then clipped by an ancestor 16px narrower on each side. */
-    .fi-modal:has(.fi-width-4xl),
-    .fi-modal:has(.fi-width-5xl),
-    .fi-modal:has(.fi-width-6xl),
-    .fi-modal:has(.fi-width-7xl) {
+    .fi-modal:not(.fi-modal-slide-over) {
         position: fixed !important;
         inset: 0 !important;
         width: 100dvw !important;

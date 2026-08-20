@@ -103,19 +103,47 @@ class ViewInventoryItem extends Page
     public function getMovementsProperty(): array
     {
         return $this->record->movements()
-            ->with(['toLocation', 'lot'])
+            ->with(['toLocation', 'fromLocation', 'lot'])
             ->orderByDesc('created_at')
             ->limit(50)
             ->get()
             ->map(fn ($m) => [
                 'id'         => $m->id,
                 'type'       => $m->movement_type,
-                'qty'        => (float) $m->quantity,
-                'location'   => $m->toLocation?->name ?? '—',
+                // Signed. `quantity` is stored as an absolute value, so reading
+                // it here reported every reduction as a gain — an adjustment
+                // taking twelve units off showed as "+12".
+                'qty'        => $m->signedChange(),
+                'label'      => $m->changeLabel(),
+                // Where the stock actually went or came from. This read
+                // toLocation alone, so anything leaving showed no location at
+                // all: the one row where you most want to know which shelf lost
+                // twelve units was the row displaying a dash.
+                'location'   => $this->movementLocation($m),
+                'before'     => $m->quantity_before,
+                'after'      => $m->quantity_after,
                 'reason'     => $m->reason ?? '—',
                 'date'       => $m->created_at->diffForHumans(),
                 'lot_id'     => $m->lot_id,
             ])->toArray();
+    }
+
+    /**
+     * The place a movement is about, written the way it happened.
+     *
+     * A transfer has two ends and both matter; everything else has one, and
+     * which column it lives in is what encodes the direction.
+     */
+    private function movementLocation(\App\Models\InventoryMovement $movement): string
+    {
+        $from = $movement->fromLocation?->name;
+        $to   = $movement->toLocation?->name;
+
+        if ($from && $to) {
+            return "{$from} → {$to}";
+        }
+
+        return $to ?? $from ?? '—';
     }
 
     public function getAliasesProperty(): array

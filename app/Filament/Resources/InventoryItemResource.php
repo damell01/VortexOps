@@ -12,6 +12,7 @@ use App\Models\Vendor;
 use App\Services\InventoryService;
 use App\Support\AdminModules;
 use Filament\Forms\Components\Radio;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -1046,21 +1047,74 @@ class InventoryItemResource extends Resource
                         ->label('Adjust Inventory')
                         ->icon('heroicon-o-pencil-square')
                         ->color('warning')
+                        // Setting an exact quantity without being shown the
+                        // current one is asking somebody to do the arithmetic in
+                        // their head against a number they cannot see. The stock
+                        // at the chosen location appears as soon as it is
+                        // picked, and the effect of what has been typed is
+                        // spelled out before it is saved — so "did I just remove
+                        // five or set it to five?" is answered on the screen
+                        // rather than afterwards in the log.
                         ->form([
                             Select::make('location_id')
                                 ->label('Location')
                                 ->options(fn () => InventoryLocation::activeOptions())
                                 ->required()
-                                ->searchable(),
+                                ->searchable()
+                                // .live so the current stock below can react to
+                                // it; without it the figure stays blank until
+                                // something else forces a round trip.
+                                ->live()
+                                ->afterStateUpdated(fn (\Filament\Schemas\Components\Utilities\Set $set, $state, InventoryItem $record) =>
+                                    $set('current_quantity', $state
+                                        ? (float) \App\Models\InventoryStock::where('inventory_item_id', $record->id)
+                                            ->where('inventory_location_id', $state)
+                                            ->value('quantity')
+                                        : null)),
+                            Placeholder::make('current_stock')
+                                ->label('Current stock here')
+                                ->content(fn (Get $get) => $get('location_id') === null
+                                    ? 'Pick a location first.'
+                                    : number_format((float) $get('current_quantity'), 0) . ' units'),
                             TextInput::make('new_quantity')
                                 ->numeric()
                                 ->required()
                                 ->minValue(0)
-                                ->label('New Quantity (set to exact amount)'),
+                                ->live(onBlur: true)
+                                ->label('Set quantity to')
+                                ->helperText('The exact amount that should be there after this, not the amount to add or remove.'),
+                            Placeholder::make('effect')
+                                ->label('This will')
+                                ->content(function (Get $get): string {
+                                    $new = $get('new_quantity');
+
+                                    if ($get('location_id') === null || $new === null || $new === '') {
+                                        return '—';
+                                    }
+
+                                    $change = (float) $new - (float) $get('current_quantity');
+
+                                    if ($change == 0.0) {
+                                        return 'Leave it unchanged.';
+                                    }
+
+                                    return sprintf(
+                                        '%s %s units — %s becomes %s.',
+                                        $change > 0 ? 'Add' : 'Remove',
+                                        number_format(abs($change), 0),
+                                        number_format((float) $get('current_quantity'), 0),
+                                        number_format((float) $new, 0),
+                                    );
+                                }),
                             Textarea::make('reason')
                                 ->rows(2)
                                 ->required()
                                 ->label('Reason for adjustment'),
+                            // Carries the figure the placeholders read. Not
+                            // dehydrated: the service recomputes the difference
+                            // from the live stock, so this can never be the
+                            // number the write is based on.
+                            Hidden::make('current_quantity')->dehydrated(false),
                         ])
                         ->action(function (InventoryItem $record, array $data): void {
                             $location = InventoryLocation::findOrFail($data['location_id']);

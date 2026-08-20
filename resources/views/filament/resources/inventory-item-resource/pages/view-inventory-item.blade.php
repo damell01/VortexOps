@@ -349,7 +349,7 @@
                     </span>
                 </td>
                 <td class="px-4 py-3 text-right font-bold tabular-nums {{ $m['qty'] < 0 ? 'text-red-500 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
-                    {{ $m['qty'] > 0 ? '+' : '' }}{{ number_format($m['qty']) }}
+                    {{ $m['label'] }}
                 </td>
                 <td class="px-4 py-3 text-gray-700 dark:text-gray-300">{{ $m['location'] }}</td>
                 <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs max-w-xs truncate">{{ $m['reason'] }}</td>

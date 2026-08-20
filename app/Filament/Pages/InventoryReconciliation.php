@@ -143,26 +143,19 @@ class InventoryReconciliation extends Page implements HasForms
         $variancePct = $systemQty > 0 ? ($variance / $systemQty) * 100 : 0;
 
         if ($variance != 0) {
-            // Create movement record for variance
-            InventoryMovement::create([
-                'inventory_item_id' => $this->selectedItemId,
-                'movement_type' => 'reconciliation',
-                'quantity' => $variance,
-                'to_location_id' => $this->selectedLocationId,
-                'reason' => $this->reconciliationReason ?: 'Inventory reconciliation',
-                'created_by' => auth()->id(),
-            ]);
-
-            // Update stock
-            if ($stock) {
-                $stock->update(['quantity' => $physicalQty]);
-            } else {
-                InventoryStock::create([
-                    'inventory_item_id' => $this->selectedItemId,
-                    'inventory_location_id' => $this->selectedLocationId,
-                    'quantity' => $physicalQty,
-                ]);
-            }
+            // A stocktake is an adjustment to an exact figure, which is what
+            // adjustStock does — so it goes through there rather than writing
+            // the movement and the stock row as two separate statements. The
+            // hand-written pair had no transaction between them, no
+            // before/after, and to_location_id set even when the count came
+            // down, which recorded a shortfall as stock arriving.
+            app(\App\Services\InventoryService::class)->adjustStock(
+                \App\Models\InventoryItem::findOrFail($this->selectedItemId),
+                \App\Models\InventoryLocation::findOrFail($this->selectedLocationId),
+                (float) $physicalQty,
+                $this->reconciliationReason ?: 'Inventory reconciliation',
+                'reconciliation',
+            );
 
             Notification::make()
                 ->title('Item Reconciled')

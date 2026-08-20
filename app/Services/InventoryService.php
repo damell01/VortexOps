@@ -120,13 +120,23 @@ class InventoryService
         });
     }
 
+    /**
+     * Set stock at a location to an exact quantity.
+     *
+     * $movementType exists so a stocktake can still call itself a stocktake.
+     * The arithmetic, the locking, the before/after and the direction are the
+     * same whatever prompted it — and those are exactly the parts that were
+     * being re-implemented, slightly differently and slightly wrong, wherever a
+     * screen wrote stock for itself.
+     */
     public function adjustStock(
         InventoryItem $item,
         InventoryLocation $location,
         float $newQuantity,
-        ?string $reason = null
+        ?string $reason = null,
+        string $movementType = 'adjustment'
     ): InventoryMovement {
-        return DB::transaction(function () use ($item, $location, $newQuantity, $reason) {
+        return DB::transaction(function () use ($item, $location, $newQuantity, $reason, $movementType) {
             $stock = InventoryStock::firstOrCreate(
                 ['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id],
                 ['quantity' => 0]
@@ -138,7 +148,7 @@ class InventoryService
                 return new InventoryMovement([
                     'inventory_item_id' => $item->id,
                     'quantity' => 0,
-                    'movement_type' => 'adjustment',
+                    'movement_type' => $movementType,
                     'reason' => 'No change — quantity already at ' . $newQuantity,
                     'created_by' => Auth::id(),
                 ]);
@@ -155,7 +165,7 @@ class InventoryService
                 'quantity' => abs($diff),
                 'quantity_before' => $before,
                 'quantity_after' => $newQuantity,
-                'movement_type' => 'adjustment',
+                'movement_type' => $movementType,
                 'reason' => $reason ?? 'Manual adjustment',
                 'created_by' => Auth::id(),
             ]);

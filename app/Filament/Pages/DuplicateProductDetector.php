@@ -140,6 +140,14 @@ class DuplicateProductDetector extends Page
 
                 // Consolidate stock rows: add drop quantities into keep rows at matching locations,
                 // then delete the drop rows to avoid violating the UNIQUE(inventory_item_id, location) constraint.
+                //
+                // Deliberately not through InventoryService, unlike every other
+                // place that writes a quantity. Nothing physically moved here —
+                // two records for one thing became one record — so a movement
+                // would claim an arrival that never happened. The units stay
+                // explained because the line above reassigns drop's movement
+                // history to keep, so keep inherits the events that produced
+                // them; writing another would count the same stock twice.
                 foreach (InventoryStock::where('inventory_item_id', $drop->id)->get() as $dropStock) {
                     $keepStock = InventoryStock::where('inventory_item_id', $keep->id)
                         ->where('inventory_location_id', $dropStock->inventory_location_id)

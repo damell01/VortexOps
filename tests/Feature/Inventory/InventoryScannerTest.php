@@ -261,10 +261,22 @@ class InventoryScannerTest extends TestCase
             (float) InventoryStock::where('inventory_item_id', $this->item->id)->value('quantity')
         );
 
-        $this->assertDatabaseHas('inventory_movements', [
-            'movement_type' => 'adjustment',
-            'quantity'      => -5,
-        ]);
+        // Absolute quantity plus a direction, which is the convention every
+        // other movement in the app uses and the one signedChange() reads.
+        // This screen used to store a negative quantity instead — two
+        // conventions for one column is how the log ended up reporting a
+        // reduction of twelve as "+12".
+        $movement = \App\Models\InventoryMovement::latest('id')->first();
+
+        $this->assertSame('adjustment', $movement->movement_type);
+        $this->assertEqualsWithDelta(5.0, (float) $movement->quantity, 0.01);
+        $this->assertEqualsWithDelta(-5.0, $movement->signedChange(), 0.01);
+        $this->assertSame($this->location->id, $movement->from_location_id);
+        $this->assertNull($movement->to_location_id);
+
+        // The levels either side, which the hand-written version never wrote.
+        $this->assertEqualsWithDelta(20.0, (float) $movement->quantity_before, 0.01);
+        $this->assertEqualsWithDelta(15.0, (float) $movement->quantity_after, 0.01);
     }
 
     public function test_apply_adjust_refreshes_result_after_adjustment(): void

@@ -13,6 +13,7 @@ use App\Models\PalletPackingSlip;
 use App\Models\ScannerReceivingSession;
 use App\Services\InventoryCostService;
 use App\Services\PackingSlipAnalyzerService;
+use App\Services\InventoryService;
 use App\Services\ReceivingService;
 use App\Support\AdminModules;
 use Filament\Notifications\Notification;
@@ -312,20 +313,28 @@ class InventoryScanner extends Page
         $item     = InventoryItem::findOrFail($this->result['id']);
         $location = InventoryLocation::findOrFail($this->adjustLocationId);
 
-        $stock = InventoryStock::firstOrCreate(
-            ['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id],
-            ['quantity' => 0]
-        );
-        $stock->increment('quantity', $qty);
+        // Through the service, not by hand. This wrote the stock row and then
+        // its own movement, which meant no before/after, no transaction around
+        // the pair, no low-stock check — and to_location_id set even when the
+        // quantity went down, so a reduction was recorded as stock arriving.
+        // That is the same fault that made the log read "+12" for an
+        // adjustment that removed twelve.
+        $current = (float) (InventoryStock::where('inventory_item_id', $item->id)
+            ->where('inventory_location_id', $location->id)
+            ->value('quantity') ?? 0);
 
-        InventoryMovement::create([
-            'inventory_item_id' => $item->id,
-            'movement_type'     => 'adjustment',
-            'quantity'          => $qty,
-            'to_location_id'    => $location->id,
-            'reason'            => $this->adjustReason ?: 'Manual scanner adjustment',
-            'created_by'        => auth()->id(),
-        ]);
+        try {
+            app(InventoryService::class)->adjustStock(
+                $item,
+                $location,
+                $current + $qty,
+                $this->adjustReason ?: 'Manual scanner adjustment',
+            );
+        } catch (\RuntimeException $e) {
+            $this->errorMessage = $e->getMessage();
+
+            return;
+        }
 
         $this->adjustMode = false;
         $item->refresh();
@@ -387,20 +396,16 @@ class InventoryScanner extends Page
             return;
         }
 
-        $stock = InventoryStock::firstOrCreate(
-            ['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id],
-            ['quantity' => 0]
+        // Quick Add books real stock in, so it goes through the same path a
+        // receipt does — with the before/after and the weighted-average update
+        // that the hand-written version never did.
+        app(InventoryService::class)->addStock(
+            $item,
+            $location,
+            $qty,
+            'adjustment',
+            $createdItem ? 'Quick Add via scanner (new item)' : 'Quick Add via scanner',
         );
-        $stock->increment('quantity', $qty);
-
-        InventoryMovement::create([
-            'inventory_item_id' => $item->id,
-            'movement_type'     => 'adjustment',
-            'quantity'          => $qty,
-            'to_location_id'    => $location->id,
-            'reason'            => $createdItem ? 'Quick Add via scanner (new item)' : 'Quick Add via scanner',
-            'created_by'        => auth()->id(),
-        ]);
 
         $this->qaFlash = [
             'name'     => $item->name,

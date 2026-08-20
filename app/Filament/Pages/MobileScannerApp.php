@@ -215,13 +215,22 @@ class MobileScannerApp extends Page
             ->where('inventory_location_id', $this->qaLocationId)
             ->first();
 
-        if ($stock) {
-            $stock->increment('quantity', $qty);
-        } else {
-            $item->stock()->create([
-                'inventory_location_id' => $this->qaLocationId,
-                'quantity' => $qty,
-            ]);
+        // This wrote the stock row and nothing else — no movement at all, so
+        // every unit added from a phone appeared in the totals and in no
+        // history. Stock that changes without a record is the one thing an
+        // inventory system cannot do.
+        try {
+            app(\App\Services\InventoryService::class)->addStock(
+                $item,
+                \App\Models\InventoryLocation::findOrFail($this->qaLocationId),
+                $qty,
+                'adjustment',
+                'Quick Add via mobile scanner',
+            );
+        } catch (\Throwable $e) {
+            Notification::make()->title($e->getMessage())->danger()->send();
+
+            return;
         }
 
         Notification::make()

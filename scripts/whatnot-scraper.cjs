@@ -2776,8 +2776,8 @@ async function extractLedgerFromPage(page) {
 
     // Screen dimensions matching the viewport (headless can leave these at 0)
     try {
-      Object.defineProperty(screen, 'availWidth',  { get: () => 1280 });
-      Object.defineProperty(screen, 'availHeight', { get: () => 900 });
+      Object.defineProperty(screen, 'availWidth',  { get: () => 1920 });
+      Object.defineProperty(screen, 'availHeight', { get: () => 1040 });
     } catch (_) {}
 
     // Permissions API — headless denies notifications, real browsers default to "default"
@@ -2791,14 +2791,46 @@ async function extractLedgerFromPage(page) {
       };
     } catch (_) {}
 
-    // WebGL — headless reports "SwiftShader" which is detectable
+    // WebGL — headless reports "SwiftShader", which is detectable.
+    //
+    // The replacement has to agree with the User-Agent. These strings used to
+    // say "Intel Iris OpenGL Engine", which is what macOS Chrome reports, on a
+    // browser whose UA and Client Hints both claim Windows. A real Windows
+    // Chrome reports an ANGLE/Direct3D string, so the old pair described a
+    // machine that cannot exist.
     try {
       const getParam = WebGLRenderingContext.prototype.getParameter;
       WebGLRenderingContext.prototype.getParameter = function (parameter) {
-        if (parameter === 37446) return 'Intel Inc.';   // UNMASKED_VENDOR_WEBGL
-        if (parameter === 37445) return 'Intel Iris OpenGL Engine'; // UNMASKED_RENDERER_WEBGL
+        if (parameter === 37446) return 'Google Inc. (Intel)';   // UNMASKED_VENDOR_WEBGL
+        if (parameter === 37445) {                               // UNMASKED_RENDERER_WEBGL
+          return 'ANGLE (Intel, Intel(R) UHD Graphics 620 (0x00003E9B) Direct3D11 vs_5_0 ps_5_0, D3D11)';
+        }
         return getParam.call(this, parameter);
       };
+    } catch (_) {}
+
+    // navigator.platform and userAgentData were left alone, so they reported
+    // the truth — Linux — while the UA, the Client Hints headers and the WebGL
+    // strings all claimed something else. Three operating systems in one
+    // fingerprint is a stronger signal than any single unusual value, because
+    // no real machine produces it.
+    try {
+      Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
+    } catch (_) {}
+
+    try {
+      if (navigator.userAgentData) {
+        Object.defineProperty(navigator.userAgentData, 'platform', { get: () => 'Windows' });
+      }
+    } catch (_) {}
+
+    // A screen exactly the size of the viewport is not a shape real windows
+    // take — there is always browser chrome and usually a taskbar.
+    try {
+      Object.defineProperty(screen, 'width',  { get: () => 1920 });
+      Object.defineProperty(screen, 'height', { get: () => 1080 });
+      Object.defineProperty(screen, 'colorDepth', { get: () => 24 });
+      Object.defineProperty(screen, 'pixelDepth', { get: () => 24 });
     } catch (_) {}
   });
 

@@ -282,6 +282,15 @@ class ViewPallet extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            // Typing a slip is a columnar job — the same field down every line —
+            // so it gets a table rather than the edit form's stack of cards,
+            // where a twelve-line pallet is a screen of scrolling per line.
+            Action::make('add_lines')
+                ->label('Add Lines')
+                ->icon('heroicon-o-table-cells')
+                ->color('gray')
+                ->url(fn () => PalletResource::getUrl('add-lines', ['record' => $this->record])),
+
             // Scanning confirms one case at a time against what was staged, so
             // a part-delivered pallet is describable rather than all-or-nothing.
             Action::make('scan_item')

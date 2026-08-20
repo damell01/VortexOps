@@ -39,6 +39,7 @@ class InventoryService
                 ['quantity' => 0]
             );
 
+            $before = (float) $stock->quantity;
             $stock->increment('quantity', $quantity);
 
             $movement = InventoryMovement::create([
@@ -46,6 +47,13 @@ class InventoryService
                 'from_location_id' => null,
                 'to_location_id' => $location->id,
                 'quantity' => $quantity,
+                // The level at this location either side of the write. Stored
+                // rather than derived so the history is a record of what the
+                // stock was, not only of what moved — and so nothing has to
+                // work the sign out from which location column happens to be
+                // filled in.
+                'quantity_before' => $before,
+                'quantity_after' => $before + $quantity,
                 'unit_cost' => in_array($movementType, self::COSTED_INTAKE, true) ? $unitCost : null,
                 'movement_type' => $movementType,
                 'reason' => $reason,
@@ -81,6 +89,8 @@ class InventoryService
                 throw new \RuntimeException("Insufficient stock at {$from->name}. Available: " . ($fromStock?->quantity ?? 0));
             }
 
+            $before = (float) $fromStock->quantity;
+
             $fromStock->decrement('quantity', $quantity);
 
             $toStock = InventoryStock::firstOrCreate(
@@ -94,6 +104,11 @@ class InventoryService
                 'from_location_id' => $from->id,
                 'to_location_id' => $to->id,
                 'quantity' => $quantity,
+                // The source side. A transfer nets to zero across the item, so
+                // the levels that mean anything are the ones at the place the
+                // stock left — which is also the side that can go wrong.
+                'quantity_before' => $before,
+                'quantity_after' => $before - $quantity,
                 'movement_type' => 'transfer',
                 'reason' => $reason,
                 'created_by' => Auth::id(),
@@ -129,6 +144,8 @@ class InventoryService
                 ]);
             }
 
+            $before = (float) $stock->quantity;
+
             $stock->update(['quantity' => $newQuantity]);
 
             $movement = InventoryMovement::create([
@@ -136,6 +153,8 @@ class InventoryService
                 'from_location_id' => $diff < 0 ? $location->id : null,
                 'to_location_id' => $diff > 0 ? $location->id : null,
                 'quantity' => abs($diff),
+                'quantity_before' => $before,
+                'quantity_after' => $newQuantity,
                 'movement_type' => 'adjustment',
                 'reason' => $reason ?? 'Manual adjustment',
                 'created_by' => Auth::id(),

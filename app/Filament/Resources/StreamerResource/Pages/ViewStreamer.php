@@ -90,33 +90,20 @@ class ViewStreamer extends ViewRecord
                     }
 
                     try {
-                        DB::transaction(function () use ($item, $fromLoc, $poolLocation, $qty, $data, $streamer): void {
-                            $locked = InventoryStock::where('inventory_item_id', $item->id)
-                                ->where('inventory_location_id', $fromLoc->id)
-                                ->lockForUpdate()
-                                ->first();
-
-                            if (! $locked || (float) $locked->quantity < $qty) {
-                                throw new \RuntimeException('Insufficient stock (concurrent modification detected).');
-                            }
-
-                            $locked->decrement('quantity', $qty);
-
-                            InventoryStock::firstOrCreate(
-                                ['inventory_item_id' => $item->id, 'inventory_location_id' => $poolLocation->id],
-                                ['quantity' => 0]
-                            )->increment('quantity', $qty);
-
-                            InventoryMovement::create([
-                                'inventory_item_id' => $item->id,
-                                'from_location_id'  => $fromLoc->id,
-                                'to_location_id'    => $poolLocation->id,
-                                'quantity'          => $qty,
-                                'movement_type'     => 'transfer',
-                                'reason'            => $data['reason'] ?: "Allocated to {$streamer->name} pool",
-                                'created_by'        => Auth::id(),
-                            ]);
-                        });
+                        // Through the service rather than beside it. This block
+                        // used to re-implement transferStock() — the same lock,
+                        // the same two writes, the same movement row — which is
+                        // how it came to be the one transfer in the app that
+                        // does not record the levels either side of itself.
+                        // Two copies of an inventory mutation is two places for
+                        // it to drift.
+                        app(\App\Services\InventoryService::class)->transferStock(
+                            item: $item,
+                            from: $fromLoc,
+                            to: $poolLocation,
+                            quantity: $qty,
+                            reason: $data['reason'] ?: "Allocated to {$streamer->name} pool",
+                        );
                     } catch (\RuntimeException $e) {
                         Notification::make()->title($e->getMessage())->danger()->send();
                         return;

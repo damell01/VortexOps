@@ -1226,7 +1226,11 @@ class InventoryScanner extends Page
 
         $recentMovements = $item->movements->map(fn (InventoryMovement $m) => [
             'type'     => $m->movement_type,
-            'qty'      => (float) $m->quantity,
+            // Signed. `quantity` is stored as an absolute value, so the list
+            // used to print "+" against every row including the reductions —
+            // it was testing `qty > 0` on a column that is never negative.
+            'qty'      => $m->signedChange(),
+            'label'    => $m->changeLabel(),
             'location' => $m->toLocation?->name ?? '—',
             'date'     => $m->created_at?->diffForHumans(),
             'reason'   => $m->reason,

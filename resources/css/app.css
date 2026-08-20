@@ -5154,12 +5154,28 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
 }
 
 /* Ancestors that clip for rounded corners would cut the panel off at their
-   edge — which is why the last option was sliced in half rather than hidden. */
+   edge — which is why the last option was sliced in half rather than hidden.
+   The list is the ancestors measured to actually clip an open panel, not the
+   ones that look like they might: .fi-section-content was here but the element
+   that clips is .fi-section itself, and a wizard step clips at its own height,
+   which on the Create Item form is 48px — so the location list opened, drew
+   eleven options, and showed two. */
 .fi-fo-repeater-item:has([aria-expanded="true"]),
 .fi-fo-repeater-item-content:has([aria-expanded="true"]),
+.fi-section:has([aria-expanded="true"]),
 .fi-section-content:has([aria-expanded="true"]),
+.fi-sc-wizard-step:has([aria-expanded="true"]),
+.fi-sc-wizard:has([aria-expanded="true"]),
 .fi-fo-component-ctn:has([aria-expanded="true"]) {
     overflow: visible !important;
+}
+
+/* Four options out of eleven is a list you have to scroll to learn what is in
+   it. Tall enough to answer "which locations are there?" at a glance, capped
+   against the viewport so it still fits on a laptop. */
+.fi-fo-select-options-ctn,
+.fi-fo-select [role="listbox"] {
+    max-height: min(50vh, 24rem) !important;
 }
 
 /* Below Filament's modals (z-50) and the feedback launcher (z-40): a dropdown

@@ -483,7 +483,7 @@
                 <div class="space-y-2">
                     @forelse($result['movements'] as $m)
                     <div class="text-xs p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                        <p class="font-medium text-gray-900 dark:text-white">{{ ucfirst(str_replace('_', ' ', $m['type'])) }} • {{ $m['qty'] }} units</p>
+                        <p class="font-medium text-gray-900 dark:text-white">{{ ucfirst(str_replace('_', ' ', $m['type'])) }} • {{ $m['label'] }} units</p>
                         <p class="text-gray-600 dark:text-gray-400">{{ $m['location'] }} • {{ $m['date'] }}</p>
                         @if($m['reason'])
                         <p class="text-gray-500 dark:text-gray-500 italic">{{ $m['reason'] }}</p>

@@ -195,7 +195,7 @@
                                 <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium {{ str_contains($m['type'], 'in') || str_contains($m['type'], 'receipt') ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300' }}">
                                     {{ ucwords(str_replace('_', ' ', $m['type'])) }}
                                 </span>
-                                <span class="font-semibold text-gray-900 dark:text-gray-100">{{ $m['qty'] > 0 ? '+' : '' }}{{ number_format($m['qty'], 0) }}</span>
+                                <span class="font-semibold text-gray-900 dark:text-gray-100">{{ $m['label'] }}</span>
                                 @if ($m['location'] !== '—')
                                     <span class="text-gray-500">→ {{ $m['location'] }}</span>
                                 @endif

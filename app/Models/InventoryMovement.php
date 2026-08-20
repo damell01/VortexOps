@@ -17,6 +17,8 @@ class InventoryMovement extends Model
         'from_location_id',
         'to_location_id',
         'quantity',
+        'quantity_before',
+        'quantity_after',
         'unit_cost',
         'movement_type',
         'reason',
@@ -27,8 +29,62 @@ class InventoryMovement extends Model
 
     protected $casts = [
         'quantity' => 'decimal:2',
+        'quantity_before' => 'decimal:2',
+        'quantity_after' => 'decimal:2',
         'unit_cost' => 'decimal:2',
     ];
+
+    /**
+     * How this movement changed the stock, with its sign.
+     *
+     * `quantity` is stored as an absolute value, so reading it alone shows a
+     * reduction as a positive number — which is what made the history claim a
+     * removal was an addition. The before and after are recorded now, so for
+     * anything written since this became the arithmetic it looks like:
+     * new minus previous, and nothing has to be inferred.
+     *
+     * Rows written before that fall back to the direction encoded in the
+     * location columns, which is the best available answer for them: stock
+     * arriving somewhere is positive, stock leaving is negative. A transfer has
+     * both, and nets to zero across the item — the per-location view is the one
+     * that has a sign, so this reports the movement's own quantity for it and
+     * leaves the reading to the caller that knows which location it is showing.
+     */
+    public function signedChange(): float
+    {
+        if ($this->quantity_before !== null && $this->quantity_after !== null) {
+            return (float) $this->quantity_after - (float) $this->quantity_before;
+        }
+
+        $quantity = abs((float) $this->quantity);
+
+        // Both set: a transfer. It removes from one place and adds to another,
+        // so it has no single sign at item level.
+        if ($this->from_location_id && $this->to_location_id) {
+            return $quantity;
+        }
+
+        return $this->from_location_id ? -$quantity : $quantity;
+    }
+
+    /** Whether the change is a real reduction, for anything that colours a row. */
+    public function isDecrease(): bool
+    {
+        return $this->signedChange() < 0;
+    }
+
+    /** "+5" / "-3" / "0", formatted once so no view has to decide the sign. */
+    public function changeLabel(int $decimals = 0): string
+    {
+        $change = $this->signedChange();
+
+        if ($this->from_location_id && $this->to_location_id && $this->quantity_before === null) {
+            return number_format(abs($change), $decimals);
+        }
+
+        return ($change > 0 ? '+' : ($change < 0 ? '-' : ''))
+            . number_format(abs($change), $decimals);
+    }
 
     public function getActivitylogOptions(): LogOptions
     {

@@ -156,16 +156,17 @@ class InventoryItemResource extends Resource
     {
         $query = parent::getEloquentQuery()->withSum('stock', 'quantity');
 
-        // Streamers only see their own inventory locations
-        $user = auth()->user();
-        if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
-            $streamer = $user->streamer;
-            if ($streamer) {
-                $locationIds = $streamer->inventoryLocations()->pluck('id');
-                return $query->whereHas('stock', fn ($q) =>
-                    $q->whereIn('inventory_location_id', $locationIds)
-                )->distinct();
-            }
+        // This used to limit streamers to their own shelves, which meant they
+        // could not see that a case existed anywhere else — and so could not
+        // ask for one. What they can see is now a decision made in Settings
+        // (Inventory → what streamers can see), with their own location always
+        // included because it is theirs.
+        $visible = \App\Support\InventoryVisibility::locationIdsFor(auth()->user());
+
+        if ($visible !== null) {
+            return $query
+                ->whereHas('stock', fn ($q) => $q->whereIn('inventory_location_id', $visible))
+                ->distinct();
         }
 
         return $query;
@@ -831,6 +832,29 @@ class InventoryItemResource extends Resource
                     ->label('Barcode used by both a case and a single')
                     // The rows worth checking by hand: one scan, two meanings.
                     ->query(fn (Builder $query) => $query->whereIn('id', static::productsSharingAScanCode())),
+                // "Where is it?" is the first question anyone asks of a stock
+                // list and there was no way to ask it. Scoped to what the
+                // viewer is allowed to see, so the filter can never become a
+                // way to look somewhere they cannot.
+                SelectFilter::make('location')
+                    ->label('Location')
+                    ->options(fn () => \App\Support\InventoryVisibility::isLimited(auth()->user())
+                        ? InventoryLocation::whereIn('id', \App\Support\InventoryVisibility::locationIdsFor(auth()->user()))
+                            ->orderBy('name')->pluck('name', 'id')->all()
+                        : InventoryLocation::activeOptions())
+                    ->multiple()
+                    ->query(function (Builder $query, array $data) {
+                        $ids = array_filter((array) ($data['values'] ?? []));
+
+                        return $ids === []
+                            ? $query
+                            // Stock rows of zero are still rows, and an item
+                            // that sat at a location and ran out is not at that
+                            // location any more.
+                            : $query->whereHas('stock', fn ($q) => $q
+                                ->whereIn('inventory_location_id', $ids)
+                                ->where('quantity', '>', 0));
+                    }),
                 SelectFilter::make('category')
                     ->options(fn () => Cache::remember('filter:item_categories', 300, fn () => InventoryItem::whereNotNull('category')
                         ->distinct()
@@ -1042,6 +1066,100 @@ class InventoryItemResource extends Resource
                             $to = InventoryLocation::findOrFail($data['to_location_id']);
                             app(InventoryService::class)->transferStock($record, $from, $to, (float) $data['quantity'], $data['reason'] ?? null);
                             Notification::make()->title('Stock transferred successfully')->success()->send();
+                        }),
+                    // A streamer's whole job here: see that a case exists in
+                    // the main store and pull it onto their own shelf. Without
+                    // this the screen is read-only for them and the move has to
+                    // be asked for in a message and done by somebody else.
+                    //
+                    // Deliberately not offered to admins — they have Transfer
+                    // Stock, which can send anywhere. This one has a fixed
+                    // destination and that is what makes it a single decision
+                    // rather than a form.
+                    Action::make('send_to_my_inventory')
+                        ->label('Send to my inventory')
+                        ->icon('heroicon-o-inbox-arrow-down')
+                        ->color('success')
+                        ->visible(fn () => \App\Support\InventoryVisibility::destinationFor(auth()->user()) !== null)
+                        ->modalHeading(fn (InventoryItem $record) => "Send {$record->name} to your inventory")
+                        ->modalSubmitActionLabel('Send it')
+                        ->form([
+                            Select::make('from_location_id')
+                                ->label('Take it from')
+                                ->options(fn () => \App\Support\InventoryVisibility::sourceOptionsFor(auth()->user()))
+                                ->required()
+                                ->searchable()
+                                ->live()
+                                ->afterStateUpdated(fn (\Filament\Schemas\Components\Utilities\Set $set, $state, InventoryItem $record) =>
+                                    $set('available', $state
+                                        ? (float) \App\Models\InventoryStock::where('inventory_item_id', $record->id)
+                                            ->where('inventory_location_id', $state)
+                                            ->value('quantity')
+                                        : null)),
+                            Placeholder::make('available_there')
+                                ->label('Available there')
+                                ->content(fn (Get $get) => $get('from_location_id') === null
+                                    ? 'Pick where it is coming from.'
+                                    : number_format((float) $get('available'), 0) . ' units'),
+                            TextInput::make('quantity')
+                                ->label('How many')
+                                ->numeric()
+                                ->required()
+                                ->minValue(0.01)
+                                // Capped at what is actually there, so the
+                                // refusal happens while it can still be
+                                // corrected rather than on submit.
+                                ->maxValue(fn (Get $get) => $get('available') ?: null),
+                            Placeholder::make('destination')
+                                ->label('Going to')
+                                ->content(fn () => \App\Support\InventoryVisibility::destinationFor(auth()->user())?->name ?? '—'),
+                            Textarea::make('reason')
+                                ->rows(2)
+                                ->label('Note (optional)')
+                                ->placeholder('e.g. for Friday night break'),
+                            Hidden::make('available')->dehydrated(false),
+                        ])
+                        ->action(function (InventoryItem $record, array $data): void {
+                            $to = \App\Support\InventoryVisibility::destinationFor(auth()->user());
+
+                            if (! $to) {
+                                Notification::make()
+                                    ->title('You have no inventory location yet')
+                                    ->body('An admin needs to create one for you before stock can be sent.')
+                                    ->danger()
+                                    ->send();
+
+                                return;
+                            }
+
+                            // Re-checked here rather than trusted from the form:
+                            // the source list is rebuilt on every open, but a
+                            // page left sitting is a page whose options are old.
+                            $allowed = \App\Support\InventoryVisibility::sourceOptionsFor(auth()->user());
+
+                            if (! array_key_exists((int) $data['from_location_id'], $allowed)) {
+                                Notification::make()->title('You cannot take stock from there')->danger()->send();
+
+                                return;
+                            }
+
+                            try {
+                                app(InventoryService::class)->transferStock(
+                                    $record,
+                                    InventoryLocation::findOrFail($data['from_location_id']),
+                                    $to,
+                                    (float) $data['quantity'],
+                                    $data['reason'] ?: 'Sent to streamer inventory',
+                                );
+
+                                Notification::make()
+                                    ->title('Sent to your inventory')
+                                    ->body(number_format((float) $data['quantity'], 0) . " x {$record->name} moved to {$to->name}.")
+                                    ->success()
+                                    ->send();
+                            } catch (\RuntimeException $e) {
+                                Notification::make()->title($e->getMessage())->danger()->send();
+                            }
                         }),
                     Action::make('adjust_inventory')
                         ->label('Adjust Inventory')

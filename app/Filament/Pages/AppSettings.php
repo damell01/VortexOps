@@ -80,6 +80,13 @@ class AppSettings extends Page
 
     public ?string $default_receiving_location_id = null;
 
+    /**
+     * Locations a streamer may see stock in, beyond their own.
+     *
+     * @var array<int, int|string>
+     */
+    public array $streamer_visible_location_ids = [];
+
     // ── Shipping Surcharge ───────────────────────────────────────────────────
 
     public string $shipping_surcharge_rate      = '4.00';
@@ -157,6 +164,7 @@ class AppSettings extends Page
         $this->demo_mode = (bool) Setting::get('demo_mode', false);
 
         $this->default_receiving_location_id = Setting::get('default_receiving_location_id') ?: null;
+        $this->streamer_visible_location_ids = \App\Support\InventoryVisibility::configuredForStreamers();
 
         $this->shipping_surcharge_rate      = Setting::get('shipping_surcharge_rate', '4.00');
         $this->shipping_surcharge_threshold = Setting::get('shipping_surcharge_threshold', '500.00');
@@ -265,6 +273,8 @@ class AppSettings extends Page
             'notify_show_reconciled_users'     => 'nullable|array',
             'notify_show_reconciled_users.*'   => 'integer|exists:users,id',
             'default_receiving_location_id'    => 'nullable|integer|exists:inventory_locations,id',
+            'streamer_visible_location_ids'    => 'array',
+            'streamer_visible_location_ids.*'  => 'integer|exists:inventory_locations,id',
             'shipping_surcharge_rate'          => 'required|numeric|min:0',
             'shipping_surcharge_threshold'     => 'required|numeric|min:0',
             'default_owner_fee_type'           => 'nullable|in:percentage,flat',
@@ -303,6 +313,13 @@ class AppSettings extends Page
         Setting::set('notify_show_reconciled_users',  json_encode($this->notify_show_reconciled_users));
 
         Setting::set('default_receiving_location_id', $this->default_receiving_location_id ?: '');
+        // Encoded even when empty. An empty array is a decision — "their own
+        // shelf and nothing else" — and storing '' instead would read back as
+        // "nobody has chosen yet" and silently reopen the main store.
+        Setting::set(
+            \App\Support\InventoryVisibility::SETTING_KEY,
+            json_encode(array_values(array_map('intval', $this->streamer_visible_location_ids))),
+        );
 
         Setting::set('shipping_surcharge_rate',      $this->shipping_surcharge_rate);
         Setting::set('shipping_surcharge_threshold', $this->shipping_surcharge_threshold);

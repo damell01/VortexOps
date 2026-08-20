@@ -839,6 +839,46 @@
             </div>
         </div>
 
+        {{-- ── What streamers can see ──────────────────────────────────────── --}}
+        <div wire:key="section-streamer-visibility" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+
+            <button type="button" @click="open = !open"
+                class="w-full flex items-center gap-3 px-6 py-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors">
+                <x-heroicon-o-eye class="h-5 w-5 text-violet-500 shrink-0" />
+                <div class="flex-1 min-w-0">
+                    <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Streamer Inventory Access</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Which locations streamers can see and pull stock from</p>
+                </div>
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
+            </button>
+
+            <div x-show="open" class="px-6 py-4 border-t border-gray-100 dark:border-gray-700">
+                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Locations streamers can see</label>
+
+                <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 max-w-4xl">
+                    @foreach (\App\Support\InventoryVisibility::selectableLocations() as $vxVisId => $vxVisName)
+                        <label class="flex items-center gap-2.5 rounded-lg border border-gray-200 dark:border-gray-600 px-3 py-2 text-sm text-gray-800 dark:text-gray-100 hover:border-violet-400 cursor-pointer">
+                            <input type="checkbox" value="{{ $vxVisId }}" wire:model="streamer_visible_location_ids"
+                                class="rounded border-gray-300 dark:border-gray-500 text-violet-600 focus:ring-violet-500" />
+                            <span class="truncate">{{ $vxVisName }}</span>
+                        </label>
+                    @endforeach
+                </div>
+
+                <p class="mt-3 text-xs text-gray-400 dark:text-gray-500">
+                    A streamer cannot ask for a case they cannot see exists, so this is what makes the main
+                    store readable to them — and what keeps another streamer's shelf, the damaged bin and the
+                    returns pile out of their list. They can pull stock from anything ticked here straight
+                    into their own inventory, which is recorded as a transfer either way.
+                </p>
+                <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    Their own location is always visible whether or not it is ticked — it is theirs, and
+                    hiding it would leave them unable to see what they were sent. Tick nothing and that is
+                    all they see.
+                </p>
+            </div>
+        </div>
+
         {{-- ── Shipping Surcharge ──────────────────────────────────────────── --}}
         <div wire:key="section-shipping" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
 

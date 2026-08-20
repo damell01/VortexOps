@@ -1741,22 +1741,32 @@ class WhatnotScraper
             $headed = config('vortex.whatnot.headless') === false;
             $proxy  = config('vortex.whatnot.proxy');
 
+            // What is left to try, not what the cause is. A challenge does not
+            // identify itself, and an earlier version of this message read the
+            // list of things already ruled out as proof that the last unruled
+            // thing — the server's IP — was to blame. It is a candidate, and
+            // the message says so rather than announcing a verdict the evidence
+            // does not support.
             $remaining = match (true) {
-                ! $headed => "Headless Chromium is the loudest bot signal there is. Try headed:\n"
+                ! $headed => "Headless Chromium is the loudest bot signal there is, so rule it out first:\n"
                     . "      WHATNOT_HEADLESS=false php artisan whatnot:import --limit=1 --debug",
-                ! $proxy  => "The browser is already headed, so the remaining variable is this server's IP —\n"
-                    . "    Cloudflare judges datacenter ranges harshly. Route Whatnot traffic elsewhere with\n"
-                    . "    WHATNOT_PROXY, or ask your host for a fresh IP.",
-                default   => "Already headed and already routed through {$proxy}, so neither the browser nor\n"
-                    . "    this egress is acceptable to Cloudflare. What is left is a different egress —\n"
-                    . "    a residential connection — rather than anything tunable in the scraper.",
+                ! $proxy  => "The browser is already headed. The untried candidate is this server's network —\n"
+                    . "    Cloudflare judges datacenter ranges harshly — so route Whatnot traffic elsewhere\n"
+                    . "    with WHATNOT_PROXY and see whether the challenge follows it. If it does, the\n"
+                    . "    trigger is in the browser environment rather than the egress.",
+                default   => "Already headed and already routed through {$proxy}, so neither the browser being\n"
+                    . "    headless nor this egress is the whole story. What is left is a different egress\n"
+                    . "    — a residential connection — or a client-side signal this browser still gets\n"
+                    . "    wrong; the [nav] lines below say which page was challenged and when.",
             };
 
             throw new \RuntimeException(
                 "Cloudflare blocked the scraper with a bot-protection challenge.\n"
                 . "Read CURRENT_URL below — it separates the two causes:\n"
                 . "  • /login  — the saved session lapsed. Renew it: php artisan whatnot:login\n"
-                . "  • any other page — the session is fine and the browser itself was challenged.\n"
+                . "  • any other page — the session was accepted and the browser itself was challenged.\n"
+                . "    That does not by itself say whether the trigger is this server's network, the\n"
+                . "    browser environment, or another client-side verification signal.\n"
                 . "    {$remaining}\n\n"
                 . $diagnostics
             );

@@ -61,7 +61,27 @@ class WhatnotExitCodeTest extends TestCase
 
         $this->assertNotNull($e);
         $this->assertStringNotContainsString('WHATNOT_HEADLESS=false php artisan', $e->getMessage());
-        $this->assertStringContainsString("server's IP", $e->getMessage());
+        $this->assertStringContainsString('WHATNOT_PROXY', $e->getMessage());
+    }
+
+    public function test_it_offers_the_network_as_the_next_thing_to_try_not_as_the_answer(): void
+    {
+        // This message used to say the remaining variable *was* the server's IP,
+        // reading its own list of ruled-out options as proof of the one left
+        // over. A challenge does not identify itself: the page looks the same
+        // whether the network, the browser environment or some other client-side
+        // signal produced it. Naming a cause here is how an investigation stops
+        // at the first plausible story.
+        config(['vortex.whatnot.headless' => false, 'vortex.whatnot.proxy' => null]);
+
+        $message = $this->throwFor(WhatnotScraper::EXIT_AUTH_REQUIRED)?->getMessage() ?? '';
+
+        $this->assertStringNotContainsString('the remaining variable is', $message);
+
+        // It should still say what to do next, and what trying it would prove.
+        $this->assertStringContainsString('candidate', $message);
+        $this->assertStringContainsString('browser environment', $message);
+        $this->assertStringContainsString('client-side', $message);
     }
 
     public function test_with_both_already_tried_it_says_so_rather_than_looping(): void

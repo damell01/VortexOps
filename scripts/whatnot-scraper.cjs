@@ -383,11 +383,13 @@ function classifyBlockingPage(url, bodyText) {
       code: EXIT.AUTH_REQUIRED,
       error: 'BOT_CHALLENGE',
       message:
-        'Cloudflare served a bot-protection challenge instead of the page. Two different things ' +
-        'cause that, and CURRENT_URL below tells them apart. On /login the session has lapsed — ' +
-        'renew it with `php artisan whatnot:login`. Anywhere else the session is fine and the ' +
-        'browser is what got challenged, which is what headless Chromium on a datacenter IP looks ' +
-        'like to bot protection: retry with WHATNOT_HEADLESS=false under xvfb-run.',
+        'Cloudflare served a bot-protection challenge instead of the page. CURRENT_URL below ' +
+        'separates the two causes. On /login the session has lapsed — renew it with ' +
+        '`php artisan whatnot:login`. Anywhere else the session was accepted and the browser ' +
+        'itself was challenged; what that does not say is why, since the network, the browser ' +
+        'environment and some other client-side signal all produce the same page. The [nav] ' +
+        'lines above narrow it: a challenge answering the document request directly is a ' +
+        'different failure from one that replaced a page which had already loaded.',
     };
   }
 
@@ -655,6 +657,132 @@ function installChallengeHandling(page) {
 
     return response;
   };
+}
+
+/** A whatnot.com URL with the origin stripped, for logging. */
+function navPath(url) {
+  return String(url || '').replace('https://www.whatnot.com', '').substring(0, 140) || '/';
+}
+
+/**
+ * Log every main-frame navigation, and what answered it.
+ *
+ * Without this the log shows a page being asked for and, some time later, a
+ * challenge — with nothing in between to say which of the two shapes happened:
+ *
+ *   • the page loaded and was replaced afterwards, once the app started
+ *     fetching for itself, or
+ *   • the request for it was answered with the challenge directly.
+ *
+ * They point at different causes, so guessing between them is how a diagnosis
+ * ends up naming whichever one was already suspected. Navigation responses
+ * carry the status — a 403 on the document is the second shape — and the
+ * commit line shows where the frame actually ended up, redirects included.
+ */
+function installNavigationLogging(page) {
+  page.on('response', (response) => {
+    try {
+      const request = response.request();
+
+      if (!request.isNavigationRequest()) return;
+      if (request.frame() !== page.mainFrame()) return;
+
+      info(`[nav] ${response.status()} ${request.method()} ${navPath(response.url())}`);
+    } catch { /* the frame can go away mid-report; the log is not worth a crash */ }
+  });
+
+  page.on('framenavigated', (frame) => {
+    try {
+      if (frame !== page.mainFrame()) return;
+
+      info(`[nav] committed → ${navPath(frame.url())}`);
+    } catch {}
+  });
+}
+
+const LOGIN_URL_RE = /\/(login|signin|auth)(\/|\?|$)/i;
+
+// Text the Seller Hub renders for itself. Matching on what the hub says beats a
+// structural selector here: the markup is generated class names that change
+// between deploys, and these strings are the same ones the channel switch
+// already waits on.
+const SELLER_HUB_MARKERS = ['Seller Hub', 'Manage Shows', 'Seller Dashboard'];
+
+// How long to keep watching after the hub first renders. A challenge that
+// arrives once the app starts fetching for itself lands a beat after the
+// document is done, so a check that stops at "rendered" reports success and
+// hands a challenged page to the next step.
+const SELLER_HUB_SETTLE_MS = Number(process.env.WHATNOT_HUB_SETTLE_MS || 5000);
+
+/**
+ * Decide whether the Seller Hub is really up — after it has had a moment to
+ * prove otherwise.
+ *
+ * `page.goto()` resolving means the document arrived. It does not mean the app
+ * mounted, that the redirect chain has finished, or that the page will still be
+ * there a second later. Reading the URL at that instant and announcing "seller
+ * hub reached" was therefore a claim about the document, reported as a claim
+ * about the session — and when the challenge landed during the step after this
+ * one, that step got the blame.
+ *
+ * Returns why it failed rather than a bare false, because "the session lapsed"
+ * and "the browser was challenged" need opposite responses.
+ *
+ * @returns {Promise<{ok: boolean, reason: string, url: string, body?: string}>}
+ */
+async function confirmSellerHub(page, { settleMs = SELLER_HUB_SETTLE_MS } = {}) {
+  // Decisive on its own, and nothing is gained by waiting for a login page to
+  // turn into something else.
+  if (LOGIN_URL_RE.test(page.url())) {
+    return { ok: false, reason: 'login', url: page.url() };
+  }
+
+  const seesHub = () => page.evaluate(
+    (markers) => {
+      const text = document.body ? (document.body.innerText || '') : '';
+      return markers.some((marker) => text.includes(marker));
+    },
+    SELLER_HUB_MARKERS,
+  ).catch(() => false);
+
+  await page.waitForFunction(
+    (markers) => {
+      const text = document.body ? (document.body.innerText || '') : '';
+      return markers.some((marker) => text.includes(marker));
+    },
+    SELLER_HUB_MARKERS,
+    { timeout: 15000 },
+  ).catch(() => {});
+
+  // Then stand still and look again. This is the whole point of the function:
+  // anything that replaces the hub does it here.
+  await page.waitForTimeout(settleMs);
+
+  let body = await readBodyText(page);
+
+  if (body !== null && isChallengePage(body)) {
+    // An interstitial that clears itself is not a failure, so give it the same
+    // wait every navigation gets before calling it one.
+    info('seller hub check: challenge appeared after the page loaded — waiting for it');
+
+    if (await settleChallenge(page, { fatal: false })) {
+      body = await readBodyText(page);
+    } else {
+      return { ok: false, reason: 'challenge', url: page.url(), body };
+    }
+  }
+
+  if (LOGIN_URL_RE.test(page.url())) {
+    return { ok: false, reason: 'login', url: page.url() };
+  }
+
+  if (body !== null && isChallengePage(body)) {
+    return { ok: false, reason: 'challenge', url: page.url(), body };
+  }
+
+  return await seesHub()
+    ? { ok: true, reason: 'hub', url: page.url() }
+    : { ok: false, reason: 'unrecognised', url: page.url(), body };
 }
 
 async function performLogin(page, email, password) {
@@ -2953,6 +3081,7 @@ async function extractLedgerFromPage(page) {
 
   const page = await context.newPage();
   installChallengeHandling(page);
+  installNavigationLogging(page);
   await reportClearance(context);
 
   // Only after a bootstrap: an established profile already has its own, and
@@ -2999,8 +3128,14 @@ async function extractLedgerFromPage(page) {
     if (hasCookieFile && MODE !== 'cookie-test' && MODE !== 'dump-cookies') {
       await page.goto(URLS.sellerHub, { waitUntil: 'domcontentloaded', timeout: 20000 });
       await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
-      const checkUrl = page.url();
-      if (/\/(login|signin|auth)(\/|\?|$)/i.test(checkUrl)) {
+
+      // Not just "did goto resolve" — see confirmSellerHub. The answer this
+      // gives is the one the rest of the run is built on, so it is worth the
+      // few seconds it costs to be sure of it.
+      const hub      = await confirmSellerHub(page);
+      const checkUrl = hub.url;
+
+      if (hub.reason === 'login') {
         info('cookie auth check: cookies expired, falling back to credential login');
         if (!email || !password) {
           throw new Error(
@@ -3009,8 +3144,31 @@ async function extractLedgerFromPage(page) {
           );
         }
         await performLogin(page, email, password);
+      } else if (hub.reason === 'challenge') {
+        // Stopping here is the point of the stabilised check: the alternative
+        // is another quarter of an hour of clicking around a verification page
+        // before failing somewhere that had nothing to do with it.
+        info('cookie auth check: the session restored, but the hub was challenged before it settled');
+        exitBlocked(
+          classifyBlockingPage(checkUrl, hub.body) || {
+            code: EXIT.AUTH_REQUIRED,
+            error: 'BOT_CHALLENGE',
+            message: 'Cloudflare replaced the Seller Hub with a verification page.',
+          },
+          checkUrl,
+        );
       } else {
-        info('cookie auth check: seller hub reached without login (', checkUrl, ')');
+        if (hub.reason === 'unrecognised') {
+          // Not fatal: this used to pass on the URL alone, and a marker that
+          // went stale is a worse reason to stop a working scrape than it is
+          // to press on and let the next step say what it found.
+          info(
+            'cookie auth check: no Seller Hub marker on', checkUrl,
+            '— continuing, but the session or the page markup may have moved',
+          );
+        } else {
+          info('cookie auth check: seller hub reached and settled (', checkUrl, ')');
+        }
         // Activate seller mode if the session landed in buyer mode.
         // Must be done before saving localStorage so the stored tokens reflect
         // the seller-mode session, not the buyer-mode one.

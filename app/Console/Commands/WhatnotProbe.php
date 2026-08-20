@@ -69,8 +69,14 @@ class WhatnotProbe extends Command
             return self::SUCCESS;
         }
 
-        $this->warn('Every URL was challenged or refused. Cloudflare is judging this machine, not the browser —');
-        $this->line('which points at the datacenter IP rather than anything fixable in the scraper.');
+        // No Chromium was involved, so this does rule the browser environment
+        // out — but not everything else. A plain client differs from a real one
+        // in its TLS handshake as well as its address, and both are judged.
+        $this->warn('Every URL was challenged or refused, with no browser involved at all.');
+        $this->line('So the trigger is this request rather than the browser: either where it came from');
+        $this->line('(a datacenter range, which Cloudflare judges harshly) or what it looks like on the');
+        $this->line('wire. Route it through WHATNOT_PROXY to tell those apart — if a residential proxy');
+        $this->line('gets through unchanged, it was the address.');
 
         return self::FAILURE;
     }

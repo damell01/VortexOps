@@ -204,6 +204,27 @@ class ViewPallet extends ViewRecord
                     $this->refreshLoadedRelations();
     }
 
+    /**
+     * Use the code that was already scanned onto this line while staging.
+     *
+     * A line staged with the box in hand already carries its barcode, so
+     * pointing the camera at the same box again on arrival asks a question that
+     * has been answered. This runs the identical path with the stored code —
+     * the product is still only created now, not at staging.
+     */
+    public function useStagedScan(int $lineId): void
+    {
+        $line = $this->lineFor(['line' => $lineId]);
+
+        if (! $line || blank($line->barcode)) {
+            Notification::make()->title('Nothing was scanned onto that line')->danger()->send();
+
+            return;
+        }
+
+        $this->scanLineIntoInventory($lineId, $line->barcode);
+    }
+
     /** Already linked, and another one of it just came off the pallet. */
     public function confirmCaseAction(): Action
     {

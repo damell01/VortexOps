@@ -371,6 +371,12 @@ class ReceivingService
             'is_container' => (bool) $line->is_container,
             'unit_cost'    => (float) ($line->unit_cost ?? 0),
             'is_active'    => true,
+            // The photo was taken of this box, at staging, so it is a better
+            // picture of the product than anything added later from a catalogue
+            // — and it is the only one that exists at the moment the product is
+            // created. Copied rather than moved: the manifest keeps its own
+            // record of what arrived.
+            'image_path'   => $line->photo_path,
         ]);
 
         $this->mapLine($line, $product, $location);

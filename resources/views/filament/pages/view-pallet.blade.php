@@ -132,7 +132,7 @@
         <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm overflow-hidden">
             <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3">
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    Expected Items ({{ $vxLines->count() }})
+                    What should be on this pallet ({{ $vxLines->count() }})
                 </h2>
                 @if ($vxCasesExpected > 0)
                     <span class="text-xs {{ $vxCasesIn >= $vxCasesExpected ? 'text-green-600 dark:text-green-400 font-medium' : 'text-gray-400' }}">
@@ -171,14 +171,36 @@
                                 @endphp
                                 <tr class="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
                                     <td class="px-4 py-2.5">
-                                        <p class="font-medium text-gray-900 dark:text-gray-100">
-                                            {{ $vxLine->inventoryItem?->name ?? $vxLine->description }}
-                                        </p>
-                                        <p class="text-xs text-gray-400">
-                                            {{ $vxLine->inventoryItem?->sku ?: 'No SKU' }}
-                                            · {{ number_format($vxLine->quantity_per_case) }}/case
-                                            · ${{ number_format((float) $vxLine->unit_cost, 2) }} each
-                                        </p>
+                                        <div class="flex items-start gap-2.5">
+                                            {{-- The photo taken while staging. It is here because
+                                                 the name off a packing slip is often not enough to
+                                                 recognise a box by, and this is the one picture
+                                                 that was taken of the actual thing. --}}
+                                            @if ($vxLine->hasPhoto())
+                                                <a href="{{ $vxLine->photoUrl() }}" target="_blank" rel="noopener"
+                                                   title="Photo taken while staging">
+                                                    <img src="{{ $vxLine->photoUrl() }}" alt=""
+                                                         class="h-10 w-10 shrink-0 rounded-md object-cover ring-1 ring-gray-200 dark:ring-gray-700" />
+                                                </a>
+                                            @endif
+                                            <div class="min-w-0">
+                                                <p class="font-medium text-gray-900 dark:text-gray-100">
+                                                    {{ $vxLine->inventoryItem?->name ?? $vxLine->description }}
+                                                </p>
+                                                <p class="text-xs text-gray-400">
+                                                    {{ $vxLine->inventoryItem?->sku ?: 'No SKU' }}
+                                                    · {{ number_format($vxLine->quantity_per_case) }}/case
+                                                    · ${{ number_format((float) $vxLine->unit_cost, 2) }} each
+                                                </p>
+                                                @if (! $vxMapped && filled($vxLine->barcode))
+                                                    <p class="mt-0.5 inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                                                        <x-heroicon-o-qr-code class="h-3.5 w-3.5" />
+                                                        <span class="tabular-nums">{{ $vxLine->barcode }}</span>
+                                                        <span class="text-gray-400">scanned at staging</span>
+                                                    </p>
+                                                @endif
+                                            </div>
+                                        </div>
                                     </td>
                                     <td class="px-4 py-2.5 text-gray-600 dark:text-gray-300">
                                         {{ $vxLine->location?->name ?? '—' }}
@@ -189,9 +211,12 @@
                                     </td>
                                     <td class="px-4 py-2.5">
                                         @if (! $vxMapped)
-                                            {{-- Unmapped cannot be scanned in: there is nowhere to put it. --}}
+                                            {{-- "Needs mapping" named the database operation, not
+                                                 the situation: the line is a thing that is not in
+                                                 inventory yet, and saying so is both truer and
+                                                 something anyone can act on. --}}
                                             <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300">
-                                                Needs mapping
+                                                Not in inventory yet
                                             </span>
                                         @elseif ($vxComplete)
                                             <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300">
@@ -203,7 +228,7 @@
                                             </span>
                                         @else
                                             <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                                                Awaiting
+                                                Not arrived
                                             </span>
                                         @endif
                                     </td>
@@ -218,6 +243,19 @@
                                                  location from the pallet. The chevron opens the
                                                  form for the times a code has to be typed. --}}
                                             <div class="inline-flex items-center gap-1">
+                                                @if (filled($vxLine->barcode))
+                                                    {{-- Already scanned while staging, with the box
+                                                         in hand. Pointing the camera at the same box
+                                                         again asks a question that has an answer. --}}
+                                                    <button
+                                                        type="button"
+                                                        wire:click="useStagedScan({{ $vxLine->id }})"
+                                                        title="Use the code scanned at staging: {{ $vxLine->barcode }}"
+                                                        class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 active:scale-95 transition-transform"
+                                                    >
+                                                        <x-heroicon-o-check class="h-4 w-4" /> Add to inventory
+                                                    </button>
+                                                @else
                                                 <button
                                                     type="button"
                                                     x-data
@@ -227,8 +265,9 @@
                                                     "
                                                     class="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 active:scale-95 transition-transform"
                                                 >
-                                                    <x-heroicon-o-qr-code class="h-4 w-4" /> Scan to link
+                                                    <x-heroicon-o-qr-code class="h-4 w-4" /> Scan to add
                                                 </button>
+                                                @endif
                                                 <button
                                                     type="button"
                                                     title="Type the code instead"

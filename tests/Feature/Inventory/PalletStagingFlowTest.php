@@ -219,7 +219,7 @@ class PalletStagingFlowTest extends TestCase
 
         $this->page()
             ->assertOk()
-            ->assertSee('Expected Items')
+            ->assertSee('What should be on this pallet')
             ->assertSee('1 of 3 cases confirmed')
             ->assertSee('Partial');
     }

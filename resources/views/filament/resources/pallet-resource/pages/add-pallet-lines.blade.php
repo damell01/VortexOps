@@ -1,6 +1,22 @@
 <x-filament-panels::page>
 @php($totals = $this->totals)
 
+{{-- Routes a camera scan back to the row it was started from. The scanner
+     overlay is shared by the whole panel and only announces the code it read,
+     so the row has to be remembered between pressing the button and the scan
+     completing. Cleared either way, so a later scan cannot land on a stale
+     row. --}}
+<div
+    x-data
+    @barcode-scanned.window="
+        const row = window.vxPendingLineRow;
+        window.vxPendingLineRow = null;
+        if (row !== null && row !== undefined && $event.detail?.value) {
+            $wire.scanIntoRow(row, $event.detail.value);
+        }
+    "
+></div>
+
 <div class="space-y-4">
 
     {{-- Batch settings + running totals. Asked once for the delivery rather
@@ -39,11 +55,12 @@
     {{-- The table. Wide content scrolls inside its own container so the page
          body never scrolls sideways on a phone. --}}
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-x-auto">
-        <table class="w-full min-w-[66rem] text-sm">
+        <table class="w-full min-w-[72rem] text-sm">
             <thead>
                 <tr class="border-b border-gray-200 dark:border-gray-700 text-left">
                     <th class="w-10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">#</th>
                     <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Item <span class="text-danger-600">*</span></th>
+                    <th class="w-24 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400" title="Scan the code and photograph the box while it is in front of you">Scan / photo</th>
                     <th class="w-52 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Already stock this?</th>
                     <th class="w-36 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Case or single</th>
                     <th class="w-24 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Cases / qty</th>
@@ -65,6 +82,57 @@
                                 data-vx-line-input
                                 placeholder="e.g. 2026 Topps Chrome Hobby"
                                 class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2.5 py-1.5 text-sm text-gray-900 dark:text-gray-100" />
+                        </td>
+
+                        {{-- Both facts worth capturing while the box is in front
+                             of you: what its code is, and what it looks like.
+                             Neither creates anything in inventory — they ride
+                             on the line until the pallet lands, which is what
+                             staging is for. --}}
+                        <td class="px-3 py-1.5">
+                            <div class="flex items-center gap-1">
+                                <button type="button"
+                                    x-data
+                                    @click="
+                                        window.vxPendingLineRow = {{ $i }};
+                                        window.dispatchEvent(new Event('open-camera-scanner'));
+                                    "
+                                    title="{{ ($row['barcode'] ?? '') !== '' ? 'Scanned: ' . $row['barcode'] . ' — scan again to replace' : 'Scan this box' }}"
+                                    class="rounded-md border p-1.5 transition {{ ($row['barcode'] ?? '') !== ''
+                                        ? 'border-green-300 bg-green-50 text-green-600 dark:border-green-800 dark:bg-green-950 dark:text-green-400'
+                                        : 'border-gray-300 text-gray-400 hover:text-violet-600 dark:border-gray-600' }}">
+                                    <x-heroicon-o-qr-code class="h-4 w-4" />
+                                </button>
+
+                                {{-- capture="environment" opens the rear camera
+                                     straight away on a phone, which is the only
+                                     place this gets used at a pallet. --}}
+                                <label
+                                    title="{{ ($row['photo_url'] ?? $row['photo'] ?? null) ? 'Photo attached — choose another to replace' : 'Photograph this box' }}"
+                                    class="cursor-pointer rounded-md border p-1.5 transition {{ ($row['photo_url'] ?? $row['photo'] ?? null)
+                                        ? 'border-green-300 bg-green-50 text-green-600 dark:border-green-800 dark:bg-green-950 dark:text-green-400'
+                                        : 'border-gray-300 text-gray-400 hover:text-violet-600 dark:border-gray-600' }}">
+                                    <input type="file" accept="image/*" capture="environment" class="hidden"
+                                        wire:model="rows.{{ $i }}.photo" />
+                                    <span wire:loading.remove wire:target="rows.{{ $i }}.photo">
+                                        <x-heroicon-o-camera class="h-4 w-4" />
+                                    </span>
+                                    <span wire:loading wire:target="rows.{{ $i }}.photo" class="block h-4 w-4 animate-pulse rounded-sm bg-violet-400"></span>
+                                </label>
+
+                                @if(($row['photo_url'] ?? $row['photo'] ?? null))
+                                    <button type="button" wire:click="clearPhoto({{ $i }})" title="Remove photo"
+                                        class="rounded-md p-1 text-gray-300 hover:text-danger-600">
+                                        <x-heroicon-o-x-mark class="h-3.5 w-3.5" />
+                                    </button>
+                                @endif
+                            </div>
+
+                            @if(($row['barcode'] ?? '') !== '')
+                                <p class="mt-0.5 truncate text-[10px] tabular-nums text-gray-400" title="{{ $row['barcode'] }}">
+                                    {{ $row['barcode'] }}
+                                </p>
+                            @endif
                         </td>
 
                         <td class="px-3 py-1.5">

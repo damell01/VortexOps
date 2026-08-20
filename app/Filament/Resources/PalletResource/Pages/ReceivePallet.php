@@ -44,7 +44,8 @@ class ReceivePallet extends Page
 
     public function mount(Pallet $record): void
     {
-        $this->record = $record->load(['vendor', 'lines.cases', 'lines.inventoryItem', 'lines.location']);
+        $this->record = $record;
+        $this->loadRelations();
 
         // Opening the station is the moment receiving starts, so the pallet
         // says so without anybody pressing a separate button first. Idempotent:
@@ -53,6 +54,28 @@ class ReceivePallet extends Page
         $this->record->markReceivingStarted();
 
         $this->refreshProgress();
+    }
+
+    /**
+     * Re-apply the eager loads on every request, not just the first.
+     *
+     * mount() runs once; every scan after it is a Livewire round trip that
+     * re-hydrates this pallet from the database with no relations loaded. With
+     * lazy loading disabled that is a 500 rather than an extra query — the same
+     * fault that made every tab on the item page fail while looking merely
+     * slow. This page is worse to get wrong: it fails while somebody is
+     * standing at a pallet with a scanner.
+     */
+    public function booted(): void
+    {
+        if ($this->record ?? null) {
+            $this->loadRelations();
+        }
+    }
+
+    private function loadRelations(): void
+    {
+        $this->record->load(['vendor', 'lines.cases', 'lines.inventoryItem', 'lines.location']);
     }
 
     public function refreshProgress(): void

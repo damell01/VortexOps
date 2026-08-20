@@ -26,7 +26,34 @@ class ViewInventoryItem extends Page
 
     public function mount(InventoryItem $record): void
     {
-        $this->record = $record->load([
+        $this->record = $record;
+
+        $this->loadRelations();
+    }
+
+    /**
+     * Re-apply the eager loads on every request, not just the first.
+     *
+     * mount() runs once. Every Livewire round trip after it — which is every
+     * tab switch — re-hydrates the record straight from the database with no
+     * relations loaded, and lazy loading is disabled outside production. So
+     * the first thing that touched $stock->location threw, and switching tabs
+     * returned a 500 every time: it looked like the page was slow, because a
+     * megabyte of Laravel error page takes a moment to arrive.
+     *
+     * booted() is Livewire's per-request hook, which is the lifecycle stage
+     * this actually belongs to.
+     */
+    public function booted(): void
+    {
+        if ($this->record ?? null) {
+            $this->loadRelations();
+        }
+    }
+
+    private function loadRelations(): void
+    {
+        $this->record->load([
             'stock.location',
             'lots' => fn ($q) => $q->latest('received_at')->limit(20),
             'identities',
@@ -122,68 +149,67 @@ class ViewInventoryItem extends Page
             ->orderByDesc('created_at')
             ->limit(200)
             ->get()
-            // One receipt, one row. Receiving counts a case at a time, which is
-            // right — it is what lets a part delivery read as "three of five" —
-            // but it means a five-box line writes five identical movements, and
-            // a log of "+1, +1, +1, +1, +1" is harder to read than "+5" and
-            // buries everything else that happened that day. Grouped by what
-            // actually distinguishes them: the same kind of movement, for the
-            // same reason, between the same places, on the same day.
-            ->groupBy(fn ($m) => implode('|', [
-                $m->movement_type,
-                $m->reason,
-                $m->from_location_id,
-                $m->to_location_id,
-                $m->created_at?->toDateString(),
-            ]))
-            ->map(function ($group) {
-                $first = $group->first();
-
-                if ($group->count() === 1) {
-                    return $first;
-                }
-
-                // A stand-in carrying the totals. Not saved — this exists for
-                // the length of one render.
-                $merged = $first->replicate();
-                $merged->id             = $first->id;
-                $merged->quantity       = $group->sum('quantity');
-                $merged->quantity_before = $group->last()->quantity_before;
-                $merged->quantity_after  = $first->quantity_after;
-                $merged->setRelation('toLocation', $first->toLocation);
-                $merged->setRelation('fromLocation', $first->fromLocation);
-                $merged->setRelation('lot', $first->lot);
-                $merged->createdAt = $first->created_at;
-                $merged->groupedCount = $group->count();
-
-                return $merged;
-            })
-            ->sortByDesc('created_at')
-            ->take(50)
-            ->values()
+            // Mapped to plain rows before grouping. An earlier version cloned
+            // the model to carry the summed total, which meant the clone had to
+            // be handed back every relation the mapping would go on to read —
+            // and the one that was missed threw, because lazy loading is off.
+            // Nothing downstream needs a model, so nothing downstream gets one.
             ->map(fn ($m) => [
                 'id'         => $m->id,
                 'type'       => $m->movement_type,
-                // Signed. `quantity` is stored as an absolute value, so reading
-                // it here reported every reduction as a gain — an adjustment
-                // taking twelve units off showed as "+12".
                 'qty'        => $m->signedChange(),
-                'label'      => $m->changeLabel(),
-                // "5 boxes" rather than a silently merged number: a row that
-                // stands for several should say so, or the log looks like it
-                // lost rows.
-                'grouped'    => $m->groupedCount ?? 1,
-                // Where the stock actually went or came from. This read
-                // toLocation alone, so anything leaving showed no location at
-                // all: the one row where you most want to know which shelf lost
-                // twelve units was the row displaying a dash.
                 'location'   => $this->movementLocation($m),
                 'before'     => $m->quantity_before,
                 'after'      => $m->quantity_after,
                 'reason'     => $m->reason ?? '—',
-                'date'       => $m->created_at->diffForHumans(),
+                'sort'       => $m->created_at,
+                'date'       => $m->created_at?->diffForHumans(),
                 'lot_id'     => $m->lot_id,
-            ])->toArray();
+                'group_key'  => implode('|', [
+                    $m->movement_type,
+                    $m->reason,
+                    $m->from_location_id,
+                    $m->to_location_id,
+                    $m->created_at?->toDateString(),
+                ]),
+            ])
+            // One receipt, one row. Receiving counts a case at a time, which is
+            // right — it is what lets a part delivery read as "three of five" —
+            // but a five-box line writes five identical movements, and a log of
+            // "+1, +1, +1, +1, +1" is harder to read than "+5" and buries
+            // everything else that happened that day.
+            ->groupBy('group_key')
+            ->map(function ($rows) {
+                $first = $rows->first();
+
+                if ($rows->count() === 1) {
+                    return $first + ['grouped' => 1, 'label' => $this->changeLabelFor($first['qty'])];
+                }
+
+                $total = $rows->sum('qty');
+
+                return $first + [
+                    'qty'     => $total,
+                    'before'  => $rows->last()['before'],
+                    'after'   => $first['after'],
+                    'grouped' => $rows->count(),
+                    'label'   => $this->changeLabelFor($total),
+                ];
+            })
+            ->sortByDesc('sort')
+            ->take(50)
+            ->values()
+            ->all();
+    }
+
+    /** "+5" / "-3" / "0", the way the log reads it. */
+    private function changeLabelFor(float $change): string
+    {
+        if ($change > 0) {
+            return '+' . number_format($change);
+        }
+
+        return $change < 0 ? '-' . number_format(abs($change)) : '0';
     }
 
     /**
@@ -238,7 +264,10 @@ class ViewInventoryItem extends Page
         }
 
         // Add stock movements
-        foreach ($this->record->movements()->with('toLocation')->get() as $movement) {
+        // 'lot' as well as the location: the loop below reads $movement->lot,
+        // and with lazy loading disabled an unloaded relation is a 500 rather
+        // than an extra query — which is what made this tab look slow.
+        foreach ($this->record->movements()->with(['toLocation', 'lot'])->get() as $movement) {
             if ($movement->movement_type === 'opening' || $movement->movement_type === 'adjustment') {
                 $lot = $movement->lot;
                 $events[] = [

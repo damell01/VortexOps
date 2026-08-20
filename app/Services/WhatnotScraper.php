@@ -1619,6 +1619,52 @@ class WhatnotScraper
     }
 
     /**
+     * Ask the real browser which pages it is actually served.
+     *
+     * Cloudflare rules are scoped to paths, and here they are not uniform: the
+     * same profile is served /seller with a 200 and refused / with a 403 in the
+     * same session, seconds apart. That is worth measuring rather than reasoning
+     * about, because it decides which route through the site is worth writing —
+     * and a route built on a path that is always refused cannot be fixed by any
+     * amount of work on the browser.
+     *
+     * Distinct from whatnot:probe's plain HTTP: that answers a different
+     * question, and the two disagreeing is itself a finding.
+     *
+     * @param  array<int, string>  $urls
+     * @return array<int, array<string, mixed>>
+     */
+    public function probePathsInBrowser(array $urls, bool $debug = false): array
+    {
+        $env = $this->baseEnv($debug);
+        $env['WHATNOT_MODE']       = 'path-probe';
+        $env['WHATNOT_PROBE_URLS'] = implode(',', $urls);
+
+        // Each page gets up to 25s to answer plus a 4s settle, and the browser
+        // has to cold-start before the first one.
+        $process = $this->makeProcess($env, timeout: 90 + count($urls) * 35);
+
+        $this->withBrowserLock(fn () => $process->run());
+
+        $stdout = trim($process->getOutput());
+        $stderr = trim($process->getErrorOutput());
+
+        if (! $process->isSuccessful()) {
+            $this->throwForExitCode($process->getExitCode(), $stderr, $process->getCommandLine());
+
+            throw new \RuntimeException('Path probe failed: ' . ($stderr ?: "exit {$process->getExitCode()}"));
+        }
+
+        $data = json_decode($stdout, true);
+
+        if (! is_array($data) || ! isset($data['results'])) {
+            throw new \RuntimeException('Path probe returned unexpected response: ' . $stdout);
+        }
+
+        return $data['results'];
+    }
+
+    /**
      * Test whether saved session cookies still grant seller hub access.
      * Returns ['ok' => true, 'url' => ...] or throws RuntimeException.
      */

@@ -2902,7 +2902,7 @@ async function extractLedgerFromPage(page) {
 
   // Credentials are only required when we don't have a session cookie file
   // and we're not in a mode that only tests cookies.
-  if (!hasCookieFile && !email && MODE !== 'cookie-test' && MODE !== 'dump-cookies') {
+  if (!hasCookieFile && !email && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe') {
     exitAfterStderr('Error: WHATNOT_EMAIL and WHATNOT_PASSWORD are required (or provide storage/whatnot-cookies.json).\n' +
       'Run: php artisan whatnot:login\n', 1);
   }
@@ -3203,7 +3203,7 @@ async function extractLedgerFromPage(page) {
   try {
     // If we have a cookie file, attempt a fast cookie-auth check before trying form login.
     // This skips the Kasada-blocked login page entirely on subsequent runs.
-    if (hasCookieFile && MODE !== 'cookie-test' && MODE !== 'dump-cookies') {
+    if (hasCookieFile && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe') {
       await page.goto(URLS.sellerHub, { waitUntil: 'domcontentloaded', timeout: 20000 });
       await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
 
@@ -3250,7 +3250,7 @@ async function extractLedgerFromPage(page) {
         // Activate seller mode if the session landed in buyer mode.
         // Must be done before saving localStorage so the stored tokens reflect
         // the seller-mode session, not the buyer-mode one.
-        if (MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies') {
+        if (MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe') {
           await ensureSellerMode(page);
         }
         // Persist localStorage so ws-explore can inject it into its temp browser.
@@ -3272,7 +3272,7 @@ async function extractLedgerFromPage(page) {
           info('localStorage save skipped:', _lsErr.message);
         }
       }
-    } else if (MODE !== 'cookie-test' && MODE !== 'dump-cookies') {
+    } else if (MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe') {
       await performLogin(page, email, password);
       // After credential login, also ensure seller mode is active.
       if (MODE !== 'test') {
@@ -3285,7 +3285,7 @@ async function extractLedgerFromPage(page) {
     // switch when the requested channel differs — checking the active @username
     // instead of blindly skipping whenever seller mode is active (which would
     // scrape the primary channel for every channel).
-    if (MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && CHANNEL_NAME) {
+    if (MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe' && CHANNEL_NAME) {
       const active = await getActiveChannelUsername(page);
       if (active && normalizeChannelKey(active) === normalizeChannelKey(CHANNEL_NAME)) {
         info(`switchToChannel: already on target channel @${active} — no switch needed`);
@@ -3293,6 +3293,56 @@ async function extractLedgerFromPage(page) {
         info(`switchToChannel: active=@${active || '?'} target=@${CHANNEL_NAME} — switching`);
         await switchToChannel(page, CHANNEL_NAME);
       }
+    }
+
+    // ── Mode: path-probe ─────────────────────────────────────────────────────
+    // Which pages will this browser actually be served?
+    //
+    // Cloudflare rules are scoped to paths, and this account's are not uniform:
+    // /seller answers 200 while / answers 403, from the same profile, seconds
+    // apart. That is not something to reason about — it is something to measure,
+    // because it decides which route through the site is worth writing.
+    //
+    // Deliberately not using the wrapped goto: waiting out a challenge is what
+    // the rest of the scraper wants, and exactly what a survey must not do.
+    if (MODE === 'path-probe') {
+      const targets = (process.env.WHATNOT_PROBE_URLS || '')
+        .split(',')
+        .map((u) => u.trim())
+        .filter(Boolean);
+
+      const rawGoto = Object.getPrototypeOf(page).goto.bind(page);
+      const results = [];
+
+      for (const target of targets) {
+        let status = null;
+
+        try {
+          const response = await rawGoto(target, { waitUntil: 'domcontentloaded', timeout: 25000 });
+          status = response ? response.status() : null;
+        } catch (e) {
+          results.push({ url: target, status: null, challenged: null, note: e.message.substring(0, 120) });
+          continue;
+        }
+
+        // Give a challenge that resolves on its own the few seconds it needs,
+        // so a page that is merely slow is not recorded as blocked.
+        await page.waitForTimeout(4000);
+
+        const body = await readBodyText(page);
+
+        results.push({
+          url:        target,
+          status,
+          challenged: body === null ? null : isChallengePage(body),
+          landedOn:   page.url(),
+        });
+
+        info(`[probe] ${status} ${isChallengePage(body || '') ? 'CHALLENGED' : 'ok'} ${navPath(target)}`);
+      }
+
+      await context.close().catch(() => {});
+      writeJsonAndExit({ ok: true, results });
     }
 
     // ── Mode: cookie-test ────────────────────────────────────────────────────

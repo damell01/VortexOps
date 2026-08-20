@@ -23,6 +23,7 @@ class WhatnotProbe extends Command
 {
     protected $signature = 'whatnot:probe
                             {--url=* : Extra URLs to probe alongside the defaults}
+                            {--browser : Probe through the real browser instead of plain HTTP}
                             {--save= : Write the first successful response body here}';
 
     protected $description = 'Test whether Whatnot serves plain HTTP requests (no browser) with the saved session';
@@ -33,8 +34,27 @@ class WhatnotProbe extends Command
         'https://www.whatnot.com/dashboard/lives?status=completed',
     ];
 
+    /**
+     * Pages worth knowing about, beyond the three the HTTP probe uses.
+     *
+     * The homepage is on the list because the scraper navigates to it to reach
+     * the nav drawer, and it is the page that gets refused — so whether that is
+     * the homepage specifically or the whole site is the question this answers.
+     */
+    private const BROWSER_URLS = [
+        'https://www.whatnot.com/seller',
+        'https://www.whatnot.com/',
+        'https://www.whatnot.com/dashboard/lives',
+        'https://www.whatnot.com/dashboard/analytics/overview',
+        'https://www.whatnot.com/seller/shows',
+    ];
+
     public function handle(WhatnotScraper $scraper): int
     {
+        if ($this->option('browser')) {
+            return $this->probeThroughBrowser($scraper);
+        }
+
         $cookies = $this->cookies($scraper);
 
         if ($cookies === []) {
@@ -79,6 +99,76 @@ class WhatnotProbe extends Command
         $this->line('gets through unchanged, it was the address.');
 
         return self::FAILURE;
+    }
+
+    /**
+     * The same question, asked by the browser that actually does the work.
+     *
+     * The plain-HTTP probe and this one can disagree, and when they do the
+     * disagreement is the finding: a page refused to curl but served to
+     * Chromium means the address is acceptable and the earlier refusal was
+     * about how the request looked, not where it came from.
+     */
+    private function probeThroughBrowser(WhatnotScraper $scraper): int
+    {
+        $urls = [...self::BROWSER_URLS, ...$this->option('url')];
+
+        $this->line('Probing ' . count($urls) . ' page(s) through the real browser…');
+        $this->line('<fg=gray>This uses the persistent profile, so it sees exactly what the scraper sees.</>');
+        $this->newLine();
+
+        try {
+            $results = $scraper->probePathsInBrowser($urls);
+        } catch (\RuntimeException $e) {
+            $this->error($e->getMessage());
+
+            return self::FAILURE;
+        }
+
+        $served  = [];
+        $refused = [];
+
+        foreach ($results as $result) {
+            $blocked = ($result['challenged'] ?? false) || (($result['status'] ?? 0) >= 400);
+            $path    = str_replace('https://www.whatnot.com', '', $result['url']) ?: '/';
+
+            $this->line(sprintf(
+                '  %s  %-42s [%s]%s',
+                $blocked ? '<fg=red>NO </>' : '<fg=green>YES</>',
+                $path,
+                $result['status'] ?? 'no response',
+                ($result['challenged'] ?? false) ? ' Cloudflare challenge' : '',
+            ));
+
+            $blocked ? $refused[] = $path : $served[] = $path;
+        }
+
+        $this->newLine();
+
+        if ($refused === []) {
+            $this->info('Every page was served. The block is not about which page is asked for.');
+
+            return self::SUCCESS;
+        }
+
+        if ($served === []) {
+            $this->warn('Every page was refused, so this is not path-scoped — the whole site is being');
+            $this->line('withheld from this browser. Route it elsewhere with WHATNOT_PROXY to find out');
+            $this->line('whether the address is what is being judged.');
+
+            return self::FAILURE;
+        }
+
+        // The interesting case, and the one actually observed.
+        $this->info('The rules here are path-scoped — some pages are served and some are not:');
+        $this->line('  served:  ' . implode(', ', $served));
+        $this->line('  refused: ' . implode(', ', $refused));
+        $this->newLine();
+        $this->line('That means the address and the browser are both acceptable, or nothing would be');
+        $this->line('served at all. A route through the served pages is worth building; one that has');
+        $this->line('to pass through a refused page is not, however the browser is configured.');
+
+        return self::SUCCESS;
     }
 
     /** @param array<string, string> $cookies */

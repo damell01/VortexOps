@@ -361,6 +361,30 @@ class ViewPallet extends ViewRecord
             // Typing a slip is a columnar job — the same field down every line —
             // so it gets a table rather than the edit form's stack of cards,
             // where a twelve-line pallet is a screen of scrolling per line.
+            // The one button this page exists for, and it used to be three
+            // levels down a "..." menu called "Open Scanning Station" while
+            // "Add Lines" got a header button. Receiving is the job; the label
+            // says which part of it you are in, because "Start" on a pallet you
+            // half-received on Tuesday is a lie about what is about to happen.
+            Action::make('receive_now')
+                ->label(function () {
+                    $progress = $this->getRecord()->receivingProgress();
+
+                    if (! $progress['started']) {
+                        return 'Start receiving';
+                    }
+
+                    return "Continue receiving ({$progress['received']} of {$progress['expected']})";
+                })
+                ->icon('heroicon-o-inbox-arrow-down')
+                ->color('success')
+                ->size(\Filament\Support\Enums\Size::Large)
+                ->url(fn () => PalletResource::getUrl('receive', ['record' => $this->getRecord()]))
+                // Nothing to receive against until the manifest exists, and a
+                // finished pallet is finished.
+                ->visible(fn () => $this->getRecord()->lines()->exists()
+                    && ! in_array($this->getRecord()->status, ['received', 'processed'], true)),
+
             Action::make('add_lines')
                 ->label('Add Lines')
                 ->icon('heroicon-o-table-cells')
@@ -565,16 +589,6 @@ class ViewPallet extends ViewRecord
             // most used while receiving, was cut off the right edge. The three
             // above are what a pallet is worked with; the rest are occasional.
             \Filament\Actions\ActionGroup::make([
-                // Kept as its own page because it is a scanning station: a live
-                // camera viewfinder and a running tally, meant to be left open
-                // on a phone at the pallet. The Scan Item modal above is the
-                // one-off equivalent, not a replacement.
-                Action::make('receive')
-                    ->label('Open Scanning Station')
-                    ->icon('heroicon-o-inbox-arrow-down')
-                    ->color('success')
-                    ->url(fn () => PalletResource::getUrl('receive', ['record' => $this->getRecord()]))
-                    ->visible(fn () => in_array($this->getRecord()->status, ['pending', 'shipped', 'receiving'])),
                 Action::make('receive_all')
                     ->label('Bulk Receive All')
                     ->icon('heroicon-o-check-circle')

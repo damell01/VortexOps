@@ -86,7 +86,7 @@
                 @if ($unmappedCount > 0)
                     <span class="ml-auto inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
                         <x-heroicon-o-exclamation-circle class="h-3 w-3 mr-1" />
-                        {{ $unmappedCount }} line{{ $unmappedCount !== 1 ? 's' : '' }} need mapping
+                        {{ $unmappedCount }} not in inventory yet
                     </span>
                 @endif
             </div>
@@ -182,10 +182,10 @@
                     <x-heroicon-o-exclamation-triangle class="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                     <div class="flex-1 min-w-0">
                         <h3 class="text-sm font-semibold text-amber-900 dark:text-amber-100">
-                            {{ $unmappedLines->count() }} line{{ $unmappedLines->count() !== 1 ? 's' : '' }} need mapping
+                            {{ $unmappedLines->count() }} not in inventory yet
                         </h3>
                         <p class="text-xs text-amber-800 dark:text-amber-200 mt-0.5">
-                            These lines must be mapped to an inventory item and location before you can receive their cases.
+                            Nothing to do here — these were staged from the packing slip and do not exist in inventory yet. Tap Scan on the line when you have the box: the code you scan is what creates them.
                         </p>
                         <div class="mt-2 space-y-1">
                             @foreach ($unmappedLines as $line)

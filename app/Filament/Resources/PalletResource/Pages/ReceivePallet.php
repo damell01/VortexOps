@@ -45,6 +45,13 @@ class ReceivePallet extends Page
     public function mount(Pallet $record): void
     {
         $this->record = $record->load(['vendor', 'lines.cases', 'lines.inventoryItem', 'lines.location']);
+
+        // Opening the station is the moment receiving starts, so the pallet
+        // says so without anybody pressing a separate button first. Idempotent:
+        // a pallet worked over three days keeps the date the first box was
+        // opened rather than the date of the latest visit.
+        $this->record->markReceivingStarted();
+
         $this->refreshProgress();
     }
 
@@ -62,6 +69,81 @@ class ReceivePallet extends Page
         ])->toArray();
     }
 
+    /**
+     * The staged line the next scan belongs to, if one was tapped.
+     *
+     * Tapping the row first is the honest version of "which box is this?" —
+     * standing at the pallet you already know, and the code on the box is the
+     * one thing the app does not.
+     */
+    public ?int $targetLineId = null;
+
+    /** Aim the next scan at a line. Tapping the same row again clears it. */
+    public function targetLine(?int $lineId): void
+    {
+        $this->targetLineId = ($this->targetLineId === $lineId) ? null : $lineId;
+        $this->lastScannedResult = null;
+        $this->lastScanDetails = null;
+    }
+
+    /**
+     * Link a staged line to a product by scanning it, then count the box.
+     *
+     * This is what staging is for. A line is written down from the packing
+     * slip before anything arrives, so it names a thing that may not exist in
+     * inventory yet — and requiring it to be "mapped" first turned the arrival
+     * of a pallet into a data-entry job standing in front of it. The scan is
+     * the mapping: a known code links, an unknown one creates the product
+     * under the name that was staged, and either way the box in your hand
+     * counts as received.
+     */
+    private function linkAndCount(PalletLine $line, string $barcode): bool
+    {
+        $locationId = $line->inventory_location_id ?: InventoryLocation::defaultReceivingId();
+
+        if (! $locationId) {
+            $this->lastScannedResult = '✗ No receiving location is set. Choose one on the line, or set a default under Settings → Receiving.';
+            $this->lastScanSuccess = false;
+
+            return false;
+        }
+
+        try {
+            $result = app(ReceivingService::class)->linkLineByScan(
+                $line,
+                $barcode,
+                InventoryLocation::findOrFail($locationId),
+            );
+
+            $count = app(ReceivingService::class)->confirmOneCase($result['line']);
+
+            $this->lastScannedResult = sprintf(
+                '✓ %s %s — %d of %d boxes in',
+                $result['item']->name,
+                $result['created'] ? 'added to inventory' : 'matched in inventory',
+                $count['received'],
+                $count['expected'],
+            );
+            $this->lastScanDetails = null;
+            $this->lastScanSuccess = true;
+            $this->targetLineId = null;
+
+            return true;
+        } catch (\RuntimeException $e) {
+            $this->lastScannedResult = "✗ {$e->getMessage()}";
+            $this->lastScanDetails = null;
+            $this->lastScanSuccess = false;
+
+            return false;
+        }
+    }
+
+    /** Staged lines that are not linked to a product yet. */
+    private function unmappedLines(): \Illuminate\Support\Collection
+    {
+        return $this->record->lines->reject(fn (PalletLine $line) => $line->isFullyMapped())->values();
+    }
+
     public function submitBarcode(): void
     {
         $barcode = trim($this->barcodeInput);
@@ -73,6 +155,20 @@ class ReceivePallet extends Page
 
         // Normalize barcode (remove common prefixes/checksums if needed)
         $barcode = preg_replace('/^[^0-9]*/', '', $barcode); // Remove leading non-digits
+
+        // A row was tapped, so there is no question about which line this is.
+        if ($this->targetLineId) {
+            $line = $this->record->lines->firstWhere('id', $this->targetLineId);
+
+            if ($line && ! $line->isFullyMapped()) {
+                if ($this->linkAndCount($line, $barcode)) {
+                    $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+                    $this->refreshProgress();
+                }
+
+                return;
+            }
+        }
 
         try {
             $scanner = app(PalletScanningService::class);
@@ -98,6 +194,30 @@ class ReceivePallet extends Page
                 $this->refreshProgress();
             }
         } catch (\RuntimeException $e) {
+            // Nothing already in inventory answers to this code. Before
+            // assuming that is a mistake, check whether it is simply a staged
+            // line arriving for the first time — which is the ordinary case on
+            // a pallet, not an error. With exactly one line still unlinked
+            // there is no ambiguity about which it is.
+            $unmapped = $this->unmappedLines();
+
+            if ($unmapped->count() === 1) {
+                if ($this->linkAndCount($unmapped->first(), $barcode)) {
+                    $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+                    $this->refreshProgress();
+                }
+
+                return;
+            }
+
+            if ($unmapped->count() > 1) {
+                $this->lastScannedResult = '✗ Not in inventory yet — tap the line this box belongs to, then scan again.';
+                $this->lastScanDetails = null;
+                $this->lastScanSuccess = false;
+
+                return;
+            }
+
             $this->lastScannedResult = "✗ {$e->getMessage()}";
             $this->lastScanDetails = null;
             $this->lastScanSuccess = false;
@@ -181,11 +301,28 @@ class ReceivePallet extends Page
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('back_to_pallet')
-                ->label('Back to Pallet')
-                ->icon('heroicon-o-arrow-left')
+            // Leaving is not abandoning. A shipment turns up over days — half a
+            // pallet on Tuesday, the rest on Friday — and every case scanned is
+            // already committed to stock, so stopping partway needs no save and
+            // loses nothing. Saying that on the button is the point: "Back"
+            // reads like cancelling, which is why people asked whether they had
+            // to finish in one go.
+            Action::make('pause')
+                ->label('Pause — keep it open')
+                ->icon('heroicon-o-pause-circle')
                 ->color('gray')
-                ->url(fn () => PalletResource::getUrl('view', ['record' => $this->record])),
+                ->action(function () {
+                    $progress = $this->record->receivingProgress();
+
+                    Notification::make()
+                        ->title('Paused — nothing lost')
+                        ->body("{$progress['received']} of {$progress['expected']} cases are in and counted. "
+                            . 'Pick it up from the pallet whenever the rest turns up.')
+                        ->success()
+                        ->send();
+
+                    $this->redirect(PalletResource::getUrl('view', ['record' => $this->record]));
+                }),
 
             // Damage, seal numbers, the paperwork taped to the shrink wrap —
             // all photographed here, at the pallet, mid-receipt. This page

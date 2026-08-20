@@ -174,6 +174,73 @@ class Pallet extends Model
      * one place and "#17" in another — which is how two people end up certain
      * they are talking about different shipments.
      */
+    /**
+     * Where this pallet has got to, as one answer.
+     *
+     * Receiving is not a switch. A shipment turns up over days — half a pallet
+     * on Tuesday, the rest on Friday, sometimes a line that never comes — so
+     * the only honest state is a count, with the dates that produced it.
+     * Every screen that asks "is this done?" reads this, rather than each one
+     * working it out from cases and disagreeing at the edges.
+     *
+     * @return array{expected: int, received: int, outstanding: int, complete: bool,
+     *               started: bool, started_at: ?\Illuminate\Support\Carbon,
+     *               first_received_at: ?\Illuminate\Support\Carbon,
+     *               last_received_at: ?\Illuminate\Support\Carbon,
+     *               lines_outstanding: int}
+     */
+    public function receivingProgress(): array
+    {
+        $this->loadMissing('lines.cases');
+
+        $expected = (int) $this->lines->sum(fn (PalletLine $line) => (int) $line->case_count);
+
+        $received = $this->lines->sum(
+            fn (PalletLine $line) => $line->cases->where('status', '!=', 'expected')->count(),
+        );
+
+        $receivedCases = $this->lines
+            ->flatMap(fn (PalletLine $line) => $line->cases->where('status', '!=', 'expected'))
+            ->filter(fn ($case) => $case->received_at !== null);
+
+        $linesOutstanding = $this->lines->filter(
+            fn (PalletLine $line) => $line->cases->where('status', '!=', 'expected')->count() < (int) $line->case_count,
+        )->count();
+
+        return [
+            'expected'          => $expected,
+            'received'          => (int) $received,
+            'outstanding'       => max(0, $expected - (int) $received),
+            'complete'          => $expected > 0 && $received >= $expected,
+            'started'           => $received > 0 || $this->receiving_started_at !== null,
+            'started_at'        => $this->receiving_started_at,
+            'first_received_at' => $receivedCases->min('received_at'),
+            'last_received_at'  => $receivedCases->max('received_at'),
+            'lines_outstanding' => $linesOutstanding,
+        ];
+    }
+
+    /**
+     * Mark receiving as under way, once.
+     *
+     * Idempotent because it is called from every entry into the scanning
+     * station, and a pallet worked over three days should keep the date the
+     * first box was opened rather than the date of the last visit.
+     */
+    public function markReceivingStarted(): void
+    {
+        if ($this->receiving_started_at !== null && $this->status === 'receiving') {
+            return;
+        }
+
+        $this->forceFill([
+            'receiving_started_at' => $this->receiving_started_at ?? now(),
+            'status'               => in_array($this->status, ['received', 'processed'], true)
+                ? $this->status
+                : 'receiving',
+        ])->save();
+    }
+
     public function displayName(): string
     {
         return $this->name

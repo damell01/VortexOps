@@ -1039,210 +1039,18 @@ class InventoryItemResource extends Resource
                             );
                             Notification::make()->title('Stock added successfully')->success()->send();
                         }),
-                    Action::make('transfer_stock')
-                        ->label('Transfer Stock')
+                    // One page, three operations. These were three modals
+                    // that each asked you to decide a number against figures
+                    // the dialog itself was covering — what is here now, where,
+                    // and what it will be afterwards. On a page those stay on
+                    // screen while the decision is made, and the three stop
+                    // being three places for the same mistake to be made
+                    // differently.
+                    Action::make('manage_stock')
+                        ->label('Move or correct stock')
                         ->icon('heroicon-o-arrows-right-left')
-                        ->color('info')
-                        ->form([
-                            Select::make('from_location_id')
-                                ->label('From Location')
-                                ->options(fn () => InventoryLocation::activeOptions())
-                                ->required()
-                                ->searchable(),
-                            Select::make('to_location_id')
-                                ->label('To Location')
-                                ->options(fn () => InventoryLocation::activeOptions())
-                                ->required()
-                                ->searchable(),
-                            TextInput::make('quantity')
-                                ->numeric()
-                                ->required()
-                                ->minValue(0.01)
-                                ->label('Quantity to Transfer'),
-                            Textarea::make('reason')->rows(2),
-                        ])
-                        ->action(function (InventoryItem $record, array $data): void {
-                            $from = InventoryLocation::findOrFail($data['from_location_id']);
-                            $to = InventoryLocation::findOrFail($data['to_location_id']);
-                            app(InventoryService::class)->transferStock($record, $from, $to, (float) $data['quantity'], $data['reason'] ?? null);
-                            Notification::make()->title('Stock transferred successfully')->success()->send();
-                        }),
-                    // A streamer's whole job here: see that a case exists in
-                    // the main store and pull it onto their own shelf. Without
-                    // this the screen is read-only for them and the move has to
-                    // be asked for in a message and done by somebody else.
-                    //
-                    // Deliberately not offered to admins — they have Transfer
-                    // Stock, which can send anywhere. This one has a fixed
-                    // destination and that is what makes it a single decision
-                    // rather than a form.
-                    Action::make('send_to_my_inventory')
-                        ->label('Send to my inventory')
-                        ->icon('heroicon-o-inbox-arrow-down')
-                        ->color('success')
-                        ->visible(fn () => \App\Support\InventoryVisibility::destinationFor(auth()->user()) !== null)
-                        ->modalHeading(fn (InventoryItem $record) => "Send {$record->name} to your inventory")
-                        ->modalSubmitActionLabel('Send it')
-                        ->form([
-                            \Filament\Schemas\Components\Grid::make(['default' => 1, 'md' => 2])->schema([
-                            Select::make('from_location_id')
-                                ->label('Take it from')
-                                ->options(fn () => \App\Support\InventoryVisibility::sourceOptionsFor(auth()->user()))
-                                ->required()
-                                ->searchable()
-                                ->live()
-                                ->afterStateUpdated(fn (\Filament\Schemas\Components\Utilities\Set $set, $state, InventoryItem $record) =>
-                                    $set('available', $state
-                                        ? (float) \App\Models\InventoryStock::where('inventory_item_id', $record->id)
-                                            ->where('inventory_location_id', $state)
-                                            ->value('quantity')
-                                        : null)),
-                            Placeholder::make('available_there')
-                                ->label('Available there')
-                                ->content(fn (Get $get) => $get('from_location_id') === null
-                                    ? 'Pick where it is coming from.'
-                                    : number_format((float) $get('available'), 0) . ' units'),
-                            TextInput::make('quantity')
-                                ->label('How many')
-                                ->numeric()
-                                ->required()
-                                ->minValue(0.01)
-                                // Capped at what is actually there, so the
-                                // refusal happens while it can still be
-                                // corrected rather than on submit.
-                                ->maxValue(fn (Get $get) => $get('available') ?: null),
-                            Placeholder::make('destination')
-                                ->label('Going to')
-                                ->content(fn () => \App\Support\InventoryVisibility::destinationFor(auth()->user())?->name ?? '—'),
-                            ]),
-                            Textarea::make('reason')
-                                ->rows(2)
-                                ->label('Note (optional)')
-                                ->placeholder('e.g. for Friday night break'),
-                            Hidden::make('available')->dehydrated(false),
-                        ])
-                        ->action(function (InventoryItem $record, array $data): void {
-                            $to = \App\Support\InventoryVisibility::destinationFor(auth()->user());
-
-                            if (! $to) {
-                                Notification::make()
-                                    ->title('You have no inventory location yet')
-                                    ->body('An admin needs to create one for you before stock can be sent.')
-                                    ->danger()
-                                    ->send();
-
-                                return;
-                            }
-
-                            // Re-checked here rather than trusted from the form:
-                            // the source list is rebuilt on every open, but a
-                            // page left sitting is a page whose options are old.
-                            $allowed = \App\Support\InventoryVisibility::sourceOptionsFor(auth()->user());
-
-                            if (! array_key_exists((int) $data['from_location_id'], $allowed)) {
-                                Notification::make()->title('You cannot take stock from there')->danger()->send();
-
-                                return;
-                            }
-
-                            try {
-                                app(InventoryService::class)->transferStock(
-                                    $record,
-                                    InventoryLocation::findOrFail($data['from_location_id']),
-                                    $to,
-                                    (float) $data['quantity'],
-                                    $data['reason'] ?: 'Sent to streamer inventory',
-                                );
-
-                                Notification::make()
-                                    ->title('Sent to your inventory')
-                                    ->body(number_format((float) $data['quantity'], 0) . " x {$record->name} moved to {$to->name}.")
-                                    ->success()
-                                    ->send();
-                            } catch (\RuntimeException $e) {
-                                Notification::make()->title($e->getMessage())->danger()->send();
-                            }
-                        }),
-                    Action::make('adjust_inventory')
-                        ->label('Adjust Inventory')
-                        ->icon('heroicon-o-pencil-square')
                         ->color('warning')
-                        // Setting an exact quantity without being shown the
-                        // current one is asking somebody to do the arithmetic in
-                        // their head against a number they cannot see. The stock
-                        // at the chosen location appears as soon as it is
-                        // picked, and the effect of what has been typed is
-                        // spelled out before it is saved — so "did I just remove
-                        // five or set it to five?" is answered on the screen
-                        // rather than afterwards in the log.
-                        ->form([
-                            \Filament\Schemas\Components\Grid::make(['default' => 1, 'md' => 2])->schema([
-                            Select::make('location_id')
-                                ->label('Location')
-                                ->options(fn () => InventoryLocation::activeOptions())
-                                ->required()
-                                ->searchable()
-                                // .live so the current stock below can react to
-                                // it; without it the figure stays blank until
-                                // something else forces a round trip.
-                                ->live()
-                                ->afterStateUpdated(fn (\Filament\Schemas\Components\Utilities\Set $set, $state, InventoryItem $record) =>
-                                    $set('current_quantity', $state
-                                        ? (float) \App\Models\InventoryStock::where('inventory_item_id', $record->id)
-                                            ->where('inventory_location_id', $state)
-                                            ->value('quantity')
-                                        : null)),
-                            Placeholder::make('current_stock')
-                                ->label('Current stock here')
-                                ->content(fn (Get $get) => $get('location_id') === null
-                                    ? 'Pick a location first.'
-                                    : number_format((float) $get('current_quantity'), 0) . ' units'),
-                            TextInput::make('new_quantity')
-                                ->numeric()
-                                ->required()
-                                ->minValue(0)
-                                ->live(onBlur: true)
-                                ->label('Set quantity to')
-                                ->helperText('The exact amount that should be there after this, not the amount to add or remove.'),
-                            Placeholder::make('effect')
-                                ->label('This will')
-                                ->content(function (Get $get): string {
-                                    $new = $get('new_quantity');
-
-                                    if ($get('location_id') === null || $new === null || $new === '') {
-                                        return '—';
-                                    }
-
-                                    $change = (float) $new - (float) $get('current_quantity');
-
-                                    if ($change == 0.0) {
-                                        return 'Leave it unchanged.';
-                                    }
-
-                                    return sprintf(
-                                        '%s %s units — %s becomes %s.',
-                                        $change > 0 ? 'Add' : 'Remove',
-                                        number_format(abs($change), 0),
-                                        number_format((float) $get('current_quantity'), 0),
-                                        number_format((float) $new, 0),
-                                    );
-                                }),
-                            ]),
-                            Textarea::make('reason')
-                                ->rows(2)
-                                ->required()
-                                ->label('Reason for adjustment'),
-                            // Carries the figure the placeholders read. Not
-                            // dehydrated: the service recomputes the difference
-                            // from the live stock, so this can never be the
-                            // number the write is based on.
-                            Hidden::make('current_quantity')->dehydrated(false),
-                        ])
-                        ->action(function (InventoryItem $record, array $data): void {
-                            $location = InventoryLocation::findOrFail($data['location_id']);
-                            app(InventoryService::class)->adjustStock($record, $location, (float) $data['new_quantity'], $data['reason']);
-                            Notification::make()->title('Inventory adjusted')->success()->send();
-                        }),
+                        ->url(fn (InventoryItem $record) => static::getUrl('stock', ['record' => $record])),
                     Action::make('mark_damaged')
                         ->label('Mark Damaged')
                         ->icon('heroicon-o-exclamation-triangle')
@@ -1357,6 +1165,7 @@ class InventoryItemResource extends Resource
             'create' => Pages\CreateInventoryItem::route('/create'),
             'view' => Pages\ViewInventoryItem::route('/{record}'),
             'edit' => Pages\EditInventoryItem::route('/{record}/edit'),
+            'stock' => Pages\ManageStock::route('/{record}/stock'),
         ];
     }
 }

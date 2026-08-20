@@ -64,6 +64,26 @@ class StreamerInventoryAccessTest extends TestCase
         cache()->forget('inv_loc:type:main_storage');
     }
 
+    /**
+     * Send stock to the streamer's own inventory, through the page that does it.
+     *
+     * This was a table action driven with a form array. The capability did not
+     * change when it became a page; only the screen did, so the tests follow
+     * the capability.
+     */
+    private function send(InventoryItem $item, InventoryLocation $from, float $quantity, ?string $reason = null): void
+    {
+        \Livewire\Livewire::test(
+            \App\Filament\Resources\InventoryItemResource\Pages\ManageStock::class,
+            ['record' => $item->id],
+        )
+            ->call('setOperation', \App\Filament\Resources\InventoryItemResource\Pages\ManageStock::SEND)
+            ->set('fromLocationId', $from->id)
+            ->set('moveQuantity', (string) $quantity)
+            ->set('reason', $reason ?? '')
+            ->call('submit');
+    }
+
     private function stocked(string $name, InventoryLocation $at, float $qty = 10): InventoryItem
     {
         $item = InventoryItem::create(['name' => $name, 'unit_cost' => 5, 'average_cost' => 5, 'is_active' => true]);
@@ -209,12 +229,7 @@ class StreamerInventoryAccessTest extends TestCase
 
         $this->actingAs($this->streamerUser);
 
-        \Livewire\Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ListInventoryItems::class)
-            ->callTableAction('send_to_my_inventory', $item, [
-                'from_location_id' => $this->main->id,
-                'quantity'         => 4,
-                'reason'           => 'Friday break',
-            ]);
+        $this->send($item, $this->main, 4, 'Friday break');
 
         $this->assertEqualsWithDelta(6.0, (float) InventoryStock::where('inventory_item_id', $item->id)
             ->where('inventory_location_id', $this->main->id)->value('quantity'), 0.01);
@@ -232,12 +247,7 @@ class StreamerInventoryAccessTest extends TestCase
 
         $this->actingAs($this->streamerUser);
 
-        \Livewire\Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ListInventoryItems::class)
-            ->callTableAction('send_to_my_inventory', $item, [
-                'from_location_id' => $this->main->id,
-                'quantity'         => 4,
-                'reason'           => null,
-            ]);
+        $this->send($item, $this->main, 4);
 
         $movement = \App\Models\InventoryMovement::where('inventory_item_id', $item->id)->latest('id')->first();
 
@@ -258,23 +268,20 @@ class StreamerInventoryAccessTest extends TestCase
 
         $this->actingAs($this->streamerUser);
 
+        // The page resolves its record through the resource's own query, which
+        // is already scoped — so it cannot even be opened for an item they are
+        // not allowed to see. That is a better failure than a guard inside the
+        // form, because it happens before anything is typed.
+        $this->expectException(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+
         try {
-            \Livewire\Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ListInventoryItems::class)
-                ->callTableAction('send_to_my_inventory', $item, [
-                    'from_location_id' => $this->theirs->id,
-                    'quantity'         => 4,
-                    'reason'           => null,
-                ]);
+            $this->send($item, $this->theirs, 4);
+        } finally {
+            $this->assertEqualsWithDelta(10.0, (float) InventoryStock::where('inventory_item_id', $item->id)
+                ->where('inventory_location_id', $this->theirs->id)->value('quantity'), 0.01);
 
-            $this->fail('The record should not have been resolvable.');
-        } catch (\Throwable $e) {
-            $this->assertStringContainsString('no longer exists', $e->getMessage());
+            $this->assertSame(0, \App\Models\InventoryMovement::where('movement_type', 'transfer')->count());
         }
-
-        $this->assertEqualsWithDelta(10.0, (float) InventoryStock::where('inventory_item_id', $item->id)
-            ->where('inventory_location_id', $this->theirs->id)->value('quantity'), 0.01);
-
-        $this->assertSame(0, \App\Models\InventoryMovement::where('movement_type', 'transfer')->count());
     }
 
     public function test_a_source_outside_their_reach_is_refused_by_the_action(): void
@@ -292,12 +299,7 @@ class StreamerInventoryAccessTest extends TestCase
 
         $this->actingAs($this->streamerUser);
 
-        \Livewire\Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ListInventoryItems::class)
-            ->callTableAction('send_to_my_inventory', $item, [
-                'from_location_id' => $this->theirs->id,
-                'quantity'         => 4,
-                'reason'           => null,
-            ]);
+        $this->send($item, $this->theirs, 4);
 
         $this->assertEqualsWithDelta(10.0, (float) InventoryStock::where('inventory_item_id', $item->id)
             ->where('inventory_location_id', $this->theirs->id)->value('quantity'), 0.01);
@@ -311,12 +313,7 @@ class StreamerInventoryAccessTest extends TestCase
 
         $this->actingAs($this->streamerUser);
 
-        \Livewire\Livewire::test(\App\Filament\Resources\InventoryItemResource\Pages\ListInventoryItems::class)
-            ->callTableAction('send_to_my_inventory', $item, [
-                'from_location_id' => $this->main->id,
-                'quantity'         => 99,
-                'reason'           => null,
-            ]);
+        $this->send($item, $this->main, 99);
 
         $this->assertEqualsWithDelta(3.0, (float) InventoryStock::where('inventory_item_id', $item->id)
             ->where('inventory_location_id', $this->main->id)->value('quantity'), 0.01);

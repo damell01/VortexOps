@@ -1181,8 +1181,8 @@ class InventoryScanner extends Page
                     if ($variance > 20) {
                         $pricingAnomaly = [
                             'variance_pct' => round($variance, 1),
-                            'min_cost' => number_format($minCost, 2),
-                            'max_cost' => number_format($maxCost, 2),
+                            'min_cost' => (float) $minCost,
+                            'max_cost' => (float) $maxCost,
                         ];
                     }
                 }
@@ -1192,7 +1192,7 @@ class InventoryScanner extends Page
             foreach ($costBreakdown as $key => $data) {
                 $vendorCosts[] = [
                     'vendor_name' => $data['vendor_name'],
-                    'avg_cost' => number_format((float) $data['average_cost'], 2),
+                    'avg_cost' => (float) $data['average_cost'],
                     'qty' => (int) $data['total_qty'],
                 ];
             }
@@ -1212,7 +1212,7 @@ class InventoryScanner extends Page
             return [
                 'date' => $dateStr,
                 'vendor' => $ct['vendor'],
-                'cost' => number_format((float) $ct['unit_cost'], 2),
+                'cost' => (float) $ct['unit_cost'],
                 'qty' => (int) $ct['quantity'],
             ];
         }, $costTrend);
@@ -1238,11 +1238,18 @@ class InventoryScanner extends Page
             'sku'              => $item->sku,
             'barcode'          => $item->barcode,
             'category'         => $item->category,
-            'avg_cost'         => number_format((float) $item->average_cost, 2),
-            'total_qty'        => number_format($totalQty, 0),
-            'inventory_value'  => number_format($inventoryValue, 2),
+            // Numbers, not display strings. These used to arrive pre-formatted,
+            // which every consumer then had to know about: two views ran
+            // number_format() over them a second time and blew up the moment a
+            // value crossed a thousand and picked up a comma, and the stock
+            // badge compared "1,234" against a number as a string. A value that
+            // sometimes formats itself is a value nobody can use safely, so the
+            // formatting belongs in the view that prints it.
+            'avg_cost'         => (float) $item->average_cost,
+            'total_qty'        => (float) $totalQty,
+            'inventory_value'  => (float) $inventoryValue,
             'is_low'           => $item->isLowStock(),
-            'reorder'          => $item->reorder_level,
+            'reorder'          => (float) $item->reorder_level,
             'pricing_anomaly'  => $pricingAnomaly,
             'vendor_costs'     => $vendorCosts,
             'cost_trend'       => $formattedCostTrend,

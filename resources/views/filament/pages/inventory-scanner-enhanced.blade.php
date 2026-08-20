@@ -370,7 +370,7 @@
                     </div>
                     <div class="bg-green-50 dark:bg-green-950 rounded-lg p-4 border {{ $result['is_low'] ? 'border-red-300 dark:border-red-800' : 'border-green-200 dark:border-green-800' }}">
                         <p class="text-xs font-medium {{ $result['is_low'] ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400' }} mb-1">Total Stock</p>
-                        <p class="text-lg font-bold {{ $result['is_low'] ? 'text-red-900 dark:text-red-100' : 'text-green-900 dark:text-green-100' }}">{{ $result['total_qty'] }} units</p>
+                        <p class="text-lg font-bold {{ $result['is_low'] ? 'text-red-900 dark:text-red-100' : 'text-green-900 dark:text-green-100' }}">{{ number_format($result['total_qty'], 0) }} units</p>
                     </div>
                     <div class="bg-purple-50 dark:bg-purple-950 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
                         <p class="text-xs font-medium text-purple-600 dark:text-purple-400 mb-1">Inventory Value</p>
@@ -399,11 +399,11 @@
                         </div>
                         <div class="bg-green-50 dark:bg-green-950 rounded-lg p-3">
                             <p class="text-xs font-medium text-green-600 dark:text-green-400">Total Stock</p>
-                            <p class="text-xl font-bold text-green-900 dark:text-green-100">{{ $result['total_qty'] }} units</p>
+                            <p class="text-xl font-bold text-green-900 dark:text-green-100">{{ number_format($result['total_qty'], 0) }} units</p>
                         </div>
                         <div class="bg-purple-50 dark:bg-purple-950 rounded-lg p-3">
                             <p class="text-xs font-medium text-purple-600 dark:text-purple-400">Inventory Value</p>
-                            <p class="text-lg font-bold text-purple-900 dark:text-purple-100">${{ $result['inventory_value'] }}</p>
+                            <p class="text-lg font-bold text-purple-900 dark:text-purple-100">${{ number_format($result['inventory_value'], 2) }}</p>
                         </div>
                         @if($result['is_low'])
                         <div class="bg-red-50 dark:bg-red-950 rounded-lg p-3">
@@ -418,7 +418,7 @@
                                 {{ $result['pricing_anomaly']['variance_pct'] }}% variation detected
                             </p>
                             <p class="text-xs text-orange-700 dark:text-orange-300 mt-1">
-                                Range: ${{ $result['pricing_anomaly']['min_cost'] }} – ${{ $result['pricing_anomaly']['max_cost'] }}
+                                Range: ${{ number_format($result['pricing_anomaly']['min_cost'], 2) }} – ${{ number_format($result['pricing_anomaly']['max_cost'], 2) }}
                             </p>
                         </div>
                         @endif
@@ -452,7 +452,7 @@
                             <p class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $vc['vendor_name'] }}</p>
                             <p class="text-xs text-gray-500 dark:text-gray-400">{{ $vc['qty'] }} units received</p>
                         </div>
-                        <span class="text-sm font-bold text-gray-900 dark:text-white">${{ $vc['avg_cost'] }}</span>
+                        <span class="text-sm font-bold text-gray-900 dark:text-white">${{ number_format($vc['avg_cost'], 2) }}</span>
                     </div>
                     @endforeach
                 </div>
@@ -470,7 +470,7 @@
                             <p class="font-medium text-gray-700 dark:text-gray-300">{{ $trend['date'] }}</p>
                             <p class="text-gray-500 dark:text-gray-400">{{ $trend['vendor'] }} • {{ $trend['qty'] }} units</p>
                         </div>
-                        <span class="font-semibold text-gray-900 dark:text-white">${{ $trend['cost'] }}</span>
+                        <span class="font-semibold text-gray-900 dark:text-white">${{ number_format($trend['cost'], 2) }}</span>
                     </div>
                     @endforeach
                 </div>

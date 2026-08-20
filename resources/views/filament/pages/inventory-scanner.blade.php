@@ -100,14 +100,14 @@
                                 </div>
                         </div>
                         <div class="text-right flex-shrink-0">
-                            <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ $result['total_qty'] }}</p>
+                            <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ number_format($result['total_qty'], 0) }}</p>
                             <p class="text-xs text-gray-400">total units</p>
                         </div>
                     </div>
                     <div class="mt-4 flex items-center gap-3 flex-wrap">
                         <div class="rounded-lg bg-gray-50 dark:bg-gray-800 px-4 py-2 text-center">
                             <p class="text-xs text-gray-400">Avg Cost</p>
-                            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">${{ $result['avg_cost'] }}</p>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">${{ number_format($result['avg_cost'], 2) }}</p>
                         </div>
                         @if ($result['reorder'])
                             <div class="rounded-lg bg-gray-50 dark:bg-gray-800 px-4 py-2 text-center">

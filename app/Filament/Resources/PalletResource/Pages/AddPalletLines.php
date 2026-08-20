@@ -90,9 +90,8 @@ class AddPalletLines extends Page
 
     public function getSubheading(): ?string
     {
-        $ref = $this->record->reference ?: ('#' . $this->record->id);
-
-        return "Pallet {$ref} — type a line per item. Tab across, Enter for a new row.";
+        return $this->record->displayName()
+            . ' — type a line per item. Tab across, Enter for a new row.';
     }
 
     /** @return array<string, mixed> */

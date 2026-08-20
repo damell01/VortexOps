@@ -160,6 +160,15 @@ class AdminPanelProvider extends PanelProvider
                     ? ''
                     : Blade::render('@include(\'filament.components.sidebar-account\')'),
             )
+            // Feedback as a navigation item rather than a button floating over
+            // every page. SIDEBAR_NAV_END so it sits under the real links
+            // instead of competing with them for the top of the list.
+            ->renderHook(
+                PanelsRenderHook::SIDEBAR_NAV_END,
+                fn (): string => ! $isAuthenticatedAdminView()
+                    ? ''
+                    : Blade::render('@include(\'filament.components.sidebar-feedback\')'),
+            )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
                 fn (): string => ! $isAuthenticatedAdminView()

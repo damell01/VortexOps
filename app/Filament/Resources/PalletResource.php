@@ -126,6 +126,14 @@ class PalletResource extends Resource
                 ->description('Vendor, purchase order, and shipment information')
                 ->columnSpanFull()->schema([
                 Grid::make(3)->schema([
+                    // What people call it, which is not what the vendor calls
+                    // it. Leading the form because it is the first thing anyone
+                    // types and the thing they will look for afterwards.
+                    TextInput::make('name')
+                        ->label('Pallet Name')
+                        ->placeholder('e.g. Topps Chrome — August')
+                        ->helperText('What you would call it out loud. Optional.')
+                        ->maxLength(255),
                     Select::make('vendor_id')
                         ->label('Vendor')
                         ->options(fn () => Vendor::activeOptions())
@@ -133,6 +141,7 @@ class PalletResource extends Resource
                         ->required(),
                     TextInput::make('reference')
                         ->label('PO / Reference #')
+                        ->helperText("The vendor's number, so it keeps matching their paperwork.")
                         ->maxLength(255),
                     DatePicker::make('received_date')
                         ->label('Received Date'),
@@ -231,10 +240,20 @@ class PalletResource extends Resource
                     ->label('Vendor')
                     ->searchable()
                     ->sortable(),
+                // The name leads, with the reference underneath it: the name is
+                // what you scan the list for, the PO is what you check once you
+                // have found it.
+                TextColumn::make('name')
+                    ->label('Pallet')
+                    ->searchable()
+                    ->weight('medium')
+                    ->description(fn (\App\Models\Pallet $record) => $record->reference)
+                    ->state(fn (\App\Models\Pallet $record) => $record->displayName()),
                 TextColumn::make('reference')
                     ->label('Reference')
                     ->searchable()
                     ->copyable()
+                    ->toggleable(isToggledHiddenByDefault: true)
                     ->placeholder('—'),
                 TextColumn::make('received_date')
                     ->label('Received')

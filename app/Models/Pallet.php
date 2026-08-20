@@ -22,6 +22,7 @@ class Pallet extends Model
 
     protected $fillable = [
         'vendor_id',
+        'name',
         'receiving_session_id',
         'reference',
         'received_date',
@@ -165,4 +166,18 @@ class Pallet extends Model
             'processed'  => ['number' => 4, 'label' => 'Complete'],
         ];
     }
+    /**
+     * What to call this pallet on screen.
+     *
+     * The name if it has one, else the vendor's reference, else its id. Every
+     * list and heading goes through here so a pallet is not "Topps Chrome" in
+     * one place and "#17" in another — which is how two people end up certain
+     * they are talking about different shipments.
+     */
+    public function displayName(): string
+    {
+        return $this->name
+            ?: ($this->reference ?: ('Pallet #' . $this->getKey()));
+    }
+
 }

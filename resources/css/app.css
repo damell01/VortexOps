@@ -5134,7 +5134,18 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
 
 /* The widget itself sits below Filament's modals (z-50) so it can never cover a
    dialog's buttons the same way. */
-.vx-feedback-launcher { z-index: 40; }
+/* The launcher is a sidebar item now, so nothing floats. Kept as a guard: any
+   page still rendering its own copy should not put a button back over the
+   bottom-right corner of the screen. */
+.vx-feedback-launcher { display: none !important; }
+
+/* Match the real nav links exactly — the button is styled from the sidebar's
+   own classes, and this is only what a <button> does not inherit from an <a>. */
+.vx-sidebar-feedback .fi-sidebar-item-btn {
+    width: 100%;
+    text-align: start;
+    cursor: pointer;
+}
 
 /* ── An open select must sit above the rows below it ─────────────────────────
    A select's option panel is positioned inside its own field wrapper, so in a
@@ -5210,20 +5221,51 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
    are excluded because they are a different shape on purpose. No list to keep
    up to date, and a new action inherits the standard without being told. */
 
-@media (min-width: 1024px) {
-    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) {
-        /* Wide, but not edge-to-edge: the margin is what keeps the dialog
-           reading as a dialog rather than as a new page. The rem cap only
-           binds on very wide monitors — at 1920 this lands at 80% of the
-           viewport, and 90vw takes over below about 1700px. */
-        width: min(90vw, 96rem);
-        max-width: min(90vw, 96rem);
+/* Lift the overlay out of whatever opened it.
+   Filament renders a modal inside the component that owns the action — a
+   table, a section — and that element is a positioning and stacking context.
+   So the "overlay" is really a box nested inside the page, which is why a
+   dialog can look embedded in the column it came from, get clipped by an
+   ancestor's rounded corners, and sit under things that come after it in the
+   document. Pinning it to the viewport is what makes it float over the whole
+   screen rather than inside part of it. */
+.fi-modal:has(> .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-sm):not(.fi-width-md)),
+.fi-modal:has(.fi-modal-window:not(.fi-width-sm):not(.fi-width-md)) {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100dvw !important;
+    height: 100dvh !important;
+    max-width: none !important;
+    padding: 0 !important;
+    /* Above the sidebar and the feedback launcher, below nothing else. */
+    z-index: 60 !important;
+}
 
-        /* The floor is the point. A short step still fills a workspace, so the
-           footer sits where it sat on the last step instead of jumping up the
-           screen between them. */
-        min-height: 72vh !important;
-        max-height: 90vh !important;
+.fi-modal:has(.fi-modal-window:not(.fi-width-sm):not(.fi-width-md)) > .fi-modal-window-ctn {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100dvw !important;
+    max-width: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+@media (min-width: 1024px) {
+    .fi-modal-window:not(.fi-modal-slide-over):not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md):not(.fi-width-lg) {
+        /* A workflow gets the screen. The earlier caps kept a "dialog" shape
+           at the cost of the thing the dialog is for — receiving a pallet in a
+           1150px strip with the rest of the monitor grey. The remaining margin
+           is only enough to show that something is open behind it. */
+        width: 95vw !important;
+        max-width: 95vw !important;
+
+        /* Allow the height, do not force it. An earlier version set a floor,
+           which turned a three-field form into a 950px box that was mostly
+           empty — the same "huge unused area inside an overlay" complaint as
+           the tiny modal, just inverted. Content decides; the cap is what stops
+           a long form running off the screen. */
+        max-height: 92vh !important;
         /* The base .fi-modal-window rule makes the window the scroll container.
            For a workspace the body has to be the scroller instead, or the
            header and footer scroll away with it. */
@@ -5235,7 +5277,7 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
         flex-direction: column;
     }
 
-    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-content {
+    .fi-modal-window:not(.fi-modal-slide-over):not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md):not(.fi-width-lg) > .fi-modal-content {
         flex: 1 1 auto;
         overflow-y: auto;
         /* min-height:0 or a flex child refuses to shrink below its content and
@@ -5244,15 +5286,15 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
         min-height: 0;
     }
 
-    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-header,
-    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-footer {
+    .fi-modal-window:not(.fi-modal-slide-over):not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md):not(.fi-width-lg) > .fi-modal-header,
+    .fi-modal-window:not(.fi-modal-slide-over):not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md):not(.fi-width-lg) > .fi-modal-footer {
         flex: 0 0 auto;
     }
 
     /* Save and Cancel stay on screen however long the form is. Without this a
        long form scrolls its buttons away and the only way to submit is to
        scroll back — which on a receiving screen is every single time. */
-    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-footer {
+    .fi-modal-window:not(.fi-modal-slide-over):not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md):not(.fi-width-lg) > .fi-modal-footer {
         position: sticky;
         bottom: 0;
         z-index: 1;
@@ -5267,7 +5309,7 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
    unusable. Below the desktop breakpoint the large sizes take the viewport:
    header at the top, actions at the bottom, content between them. */
 @media (max-width: 1023px) {
-    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) {
+    .fi-modal-window:not(.fi-modal-slide-over):not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md):not(.fi-width-lg) {
         /* !important throughout this block: Filament ships its own responsive
            rules for the modal window and they land later in the cascade at the
            same specificity, so without it the desktop rules above apply and
@@ -5284,37 +5326,36 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
            chrome exactly when somebody reaches for it. */
         height: 100dvh !important;
         max-height: 100dvh !important;
-        min-height: 100dvh !important;
         margin: 0 !important;
         border-radius: 0 !important;
         display: flex !important;
         flex-direction: column !important;
     }
 
-    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-content {
+    .fi-modal-window:not(.fi-modal-slide-over):not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md):not(.fi-width-lg) > .fi-modal-content {
         flex: 1 1 auto;
         overflow-y: auto;
         min-height: 0;
         -webkit-overflow-scrolling: touch;
     }
 
-    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-header,
-    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-footer {
+    .fi-modal-window:not(.fi-modal-slide-over):not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md):not(.fi-width-lg) > .fi-modal-header,
+    .fi-modal-window:not(.fi-modal-slide-over):not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md):not(.fi-width-lg) > .fi-modal-footer {
         flex: 0 0 auto;
     }
 
     /* Thumb-sized, and clear of the home indicator on an iPhone. */
-    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) > .fi-modal-footer {
+    .fi-modal-window:not(.fi-modal-slide-over):not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md):not(.fi-width-lg) > .fi-modal-footer {
         padding-bottom: max(1rem, env(safe-area-inset-bottom));
     }
 
-    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn > .fi-modal-window:not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md) .fi-modal-footer-actions .fi-btn {
+    .fi-modal-window:not(.fi-modal-slide-over):not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md):not(.fi-width-lg) .fi-modal-footer-actions .fi-btn {
         min-height: 2.75rem;
     }
 
     /* The container centres and pads its child, which on a full-screen dialog
        shows as a strip of backdrop down each side. */
-    .fi-modal:not(.fi-modal-slide-over) .fi-modal-window-ctn {
+    .fi-modal-window-ctn:has(> .fi-modal-window:not(.fi-width-sm):not(.fi-width-md)) {
         padding: 0 !important;
         max-width: none !important;
         width: 100dvw !important;
@@ -5324,7 +5365,7 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
        modal inside whichever component opened it, so on a table page the whole
        stack inherits that column's width — the dialog was sized correctly and
        then clipped by an ancestor 16px narrower on each side. */
-    .fi-modal:not(.fi-modal-slide-over) {
+    .fi-modal:has(.fi-modal-window:not(.fi-width-sm):not(.fi-width-md)) {
         position: fixed !important;
         inset: 0 !important;
         width: 100dvw !important;

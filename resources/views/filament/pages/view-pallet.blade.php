@@ -62,8 +62,11 @@
                     <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->vendor?->name ?? '—' }}</p>
                 </div>
                 <div>
-                    <p class="text-xs text-gray-400 uppercase tracking-wide">Reference</p>
-                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->reference ?? '—' }}</p>
+                    <p class="text-xs text-gray-400 uppercase tracking-wide">Pallet</p>
+                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $this->record->displayName() }}</p>
+                    @if ($this->record->name && $this->record->reference)
+                        <p class="text-xs text-gray-400">{{ $this->record->reference }}</p>
+                    @endif
                 </div>
                 <div>
                     <p class="text-xs text-gray-400 uppercase tracking-wide">Status</p>

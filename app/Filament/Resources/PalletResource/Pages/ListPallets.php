@@ -27,38 +27,16 @@ class ListPallets extends ListRecords
             // One way in. The other button opened the packing-slip reader,
             // which put a second half-built pallet flow beside this one and is
             // parked for now — a pallet is staged by hand on its own page.
-            Action::make('quick_create')
+            // A page, not a modal. Creating a pallet is the front of a
+            // workflow — details, then lines, then receiving — and a workflow
+            // squeezed into a dialog is what made this feel like filling in a
+            // popup. The create page already lays these fields out three to a
+            // row and has the whole screen to do it in.
+            Action::make('create')
                 ->label('Add Pallet')
                 ->icon('heroicon-o-plus')
                 ->color('primary')
-                ->modalHeading('Add a pallet')
-                ->modalDescription('Just the basics — you build the item list on the pallet itself.')
-                ->modalSubmitActionLabel('Create')
-                ->form([
-                    Select::make('vendor_id')
-                        ->label('Vendor')
-                        ->options(fn () => Vendor::activeOptions())
-                        ->searchable()
-                        ->required(),
-                    TextInput::make('reference')
-                        ->label('PO / Reference #')
-                        ->placeholder('e.g. PO-100')
-                        ->maxLength(255),
-                    DatePicker::make('received_date')
-                        ->label('Expected / Received Date')
-                        ->default(now()->toDateString()),
-                ])
-                ->action(function (array $data) {
-                    $pallet = Pallet::create([
-                        'vendor_id'     => $data['vendor_id'],
-                        'reference'     => $data['reference'] ?: null,
-                        'received_date' => $data['received_date'] ?: null,
-                        'status'        => 'staged',
-                        'created_by'    => auth()->id(),
-                    ]);
-
-                    return redirect(PalletResource::getUrl('view', ['record' => $pallet]));
-                }),
+                ->url(fn () => PalletResource::getUrl('create')),
         ];
     }
 }

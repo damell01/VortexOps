@@ -173,8 +173,27 @@ class InventoryScanner extends Page
 
     // ── Mode switching ────────────────────────────────────────────────────────
 
+    /**
+     * Modes this page still offers.
+     *
+     * Receiving and staging left here for the pallet workflow, where the pallet
+     * is the thing being worked on rather than one code at a time. Their code
+     * stays — the receive-by-scan path is still what a pallet uses — but this
+     * page is for fast lookup and quick add, and four tabs made it look like
+     * four different jobs done in the same box.
+     *
+     * Guarded rather than only untabbed: the mode is public state, so a stale
+     * page or a saved session could still ask for one that is no longer here
+     * and land on a screen with no way back to it.
+     */
+    public const MODES = ['lookup', 'quickadd'];
+
     public function switchMode(string $mode): void
     {
+        if (! in_array($mode, self::MODES, true)) {
+            $mode = 'lookup';
+        }
+
         $this->mode        = $mode;
         $this->scanInput   = '';
         $this->errorMessage = null;

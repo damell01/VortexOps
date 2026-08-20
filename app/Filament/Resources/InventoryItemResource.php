@@ -1084,6 +1084,7 @@ class InventoryItemResource extends Resource
                         ->modalHeading(fn (InventoryItem $record) => "Send {$record->name} to your inventory")
                         ->modalSubmitActionLabel('Send it')
                         ->form([
+                            \Filament\Schemas\Components\Grid::make(['default' => 1, 'md' => 2])->schema([
                             Select::make('from_location_id')
                                 ->label('Take it from')
                                 ->options(fn () => \App\Support\InventoryVisibility::sourceOptionsFor(auth()->user()))
@@ -1113,6 +1114,7 @@ class InventoryItemResource extends Resource
                             Placeholder::make('destination')
                                 ->label('Going to')
                                 ->content(fn () => \App\Support\InventoryVisibility::destinationFor(auth()->user())?->name ?? '—'),
+                            ]),
                             Textarea::make('reason')
                                 ->rows(2)
                                 ->label('Note (optional)')
@@ -1174,6 +1176,7 @@ class InventoryItemResource extends Resource
                         // five or set it to five?" is answered on the screen
                         // rather than afterwards in the log.
                         ->form([
+                            \Filament\Schemas\Components\Grid::make(['default' => 1, 'md' => 2])->schema([
                             Select::make('location_id')
                                 ->label('Location')
                                 ->options(fn () => InventoryLocation::activeOptions())
@@ -1224,6 +1227,7 @@ class InventoryItemResource extends Resource
                                         number_format((float) $new, 0),
                                     );
                                 }),
+                            ]),
                             Textarea::make('reason')
                                 ->rows(2)
                                 ->required()

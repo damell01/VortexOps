@@ -120,17 +120,88 @@ class AddPalletLinesTest extends TestCase
         }
     }
 
-    public function test_it_continues_the_pallets_existing_numbering(): void
+    public function test_existing_lines_are_loaded_for_editing(): void
     {
-        // This page is usually reached to add to a pallet, not to start one.
+        // Without this the page could only append, so a correction meant going
+        // back to the stack-of-cards form this page exists to replace.
         PalletLine::create([
-            'pallet_id' => $this->pallet->id, 'line_number' => 7, 'description' => 'Already here',
+            'pallet_id' => $this->pallet->id, 'line_number' => 1, 'description' => 'Already here',
+            'case_count' => 3, 'quantity_per_case' => 6, 'unit_cost' => 12,
+        ]);
+
+        $rows = $this->page()->instance()->rows;
+
+        $this->assertSame('Already here', $rows[0]['description']);
+        $this->assertEqualsWithDelta(3, $rows[0]['case_count'], 0.001);
+        $this->assertNotNull($rows[0]['id'], 'an existing line loaded without its id would be saved as a duplicate');
+    }
+
+    public function test_editing_a_loaded_line_updates_it_rather_than_duplicating(): void
+    {
+        $line = PalletLine::create([
+            'pallet_id' => $this->pallet->id, 'line_number' => 1, 'description' => 'Typo Here',
             'case_count' => 1, 'quantity_per_case' => 1,
         ]);
 
-        $this->page()->set('rows.0.description', 'Added later')->call('save');
+        $this->page()
+            ->set('rows.0.description', 'Fixed Name')
+            ->set('rows.0.case_count', 5)
+            ->call('save');
 
-        $this->assertSame(8, PalletLine::firstWhere('description', 'Added later')->line_number);
+        $this->assertSame(1, $this->pallet->lines()->count());
+        $this->assertSame('Fixed Name', $line->fresh()->description);
+        $this->assertEqualsWithDelta(5, $line->fresh()->case_count, 0.001);
+    }
+
+    public function test_removing_a_loaded_line_deletes_it_on_save(): void
+    {
+        PalletLine::create([
+            'pallet_id' => $this->pallet->id, 'line_number' => 1, 'description' => 'Remove Me',
+            'case_count' => 1, 'quantity_per_case' => 1,
+        ]);
+
+        $page = $this->page()->call('removeRow', 0);
+
+        // Not gone yet: deleting on click would destroy a line before anyone
+        // pressed save, and leaving the page is the recovery people reach for.
+        $this->assertSame(1, $this->pallet->lines()->count());
+
+        $page->set('rows.0.description', 'Kept')->call('save');
+
+        $this->assertNull(PalletLine::firstWhere('description', 'Remove Me'));
+        $this->assertNotNull(PalletLine::firstWhere('description', 'Kept'));
+    }
+
+    public function test_lines_are_renumbered_to_match_the_table(): void
+    {
+        foreach ([['A', 4], ['B', 9]] as [$name, $number]) {
+            PalletLine::create([
+                'pallet_id' => $this->pallet->id, 'line_number' => $number, 'description' => $name,
+                'case_count' => 1, 'quantity_per_case' => 1,
+            ]);
+        }
+
+        $this->page()->call('save');
+
+        // Gaps nobody can explain are worse than numbering that follows what is
+        // on screen.
+        $this->assertSame([1, 2], $this->pallet->lines()->orderBy('line_number')->pluck('line_number')->all());
+    }
+
+    public function test_the_batch_location_does_not_overwrite_an_existing_line(): void
+    {
+        $other = InventoryLocation::create(['name' => 'Back Room', 'type' => 'other', 'status' => 'active']);
+
+        $line = PalletLine::create([
+            'pallet_id' => $this->pallet->id, 'line_number' => 1, 'description' => 'Routed Already',
+            'case_count' => 1, 'quantity_per_case' => 1, 'inventory_location_id' => $other->id,
+        ]);
+
+        $this->page()->set('locationId', $this->location->id)->call('save');
+
+        // A line routed somewhere deliberately should not be swept along by a
+        // batch default chosen for the rest.
+        $this->assertSame($other->id, $line->fresh()->inventory_location_id);
     }
 
     public function test_totals_only_count_rows_with_a_name(): void

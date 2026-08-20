@@ -172,89 +172,17 @@ class PalletResource extends Resource
             ]),
 
             Section::make('Manifest Lines')
-                ->description('One line per thing on the pallet. A name is all that is needed — link it to inventory here if you already know, or scan it in when the pallet lands.')
+                ->description('One line per thing on the pallet.')
                 ->columnSpanFull()
                 ->schema([
-                    Repeater::make('lines')
-                        ->relationship('lines')
-                        // Columns on the repeater itself rather than a nested
-                        // 12-wide Grid. Nested, the searchable selects rendered
-                        // outside their columns and sat on top of each other —
-                        // the item picker and the location overlapping, with
-                        // the open dropdown covering both.
-                        ->columns([
-                            'default' => 1,
-                            'sm'      => 2,
-                            'xl'      => 6,
-                        ])
-                        ->schema([
-                            // Name first and widest: it is the only required
-                            // field, and on a narrow screen it is the one that
-                            // should be reachable without scrolling.
-                            TextInput::make('description')
-                                ->label('Item')
-                                ->required()
-                                ->maxLength(255)
-                                ->placeholder('e.g. 2026 Topps Chrome Hobby')
-                                ->columnSpan(['default' => 1, 'sm' => 2, 'xl' => 3]),
-                            Select::make('is_container')
-                                ->label('Case or single?')
-                                ->options([
-                                    1 => 'Case / box',
-                                    0 => 'Single item',
-                                ])
-                                ->placeholder('Not sure')
-                                ->native(false)
-                                ->columnSpan(['default' => 1, 'sm' => 1, 'xl' => 1]),
-                            TextInput::make('case_count')
-                                ->label('Cases')
-                                ->numeric()
-                                ->default(1)
-                                ->minValue(1)
-                                ->columnSpan(1),
-                            TextInput::make('quantity_per_case')
-                                ->label('Units / Box')
-                                ->numeric()
-                                ->default(1)
-                                ->minValue(0.01)
-                                ->columnSpan(1),
-                            Select::make('inventory_item_id')
-                                ->label('More stock of an item you already have?')
-                                ->searchable()
-                                ->getSearchResultsUsing(fn (string $search) => InventoryItem::where('is_active', true)
-                                    ->where(fn ($q) => $q->where('name', 'like', "%{$search}%")
-                                        ->orWhere('sku', 'like', "%{$search}%")
-                                        ->orWhere('barcode', $search))
-                                    ->orderBy('name')
-                                    ->limit(30)
-                                    ->pluck('name', 'id')
-                                    ->toArray())
-                                ->getOptionLabelUsing(fn ($value) => InventoryItem::find($value)?->name ?? $value)
-                                ->placeholder('Leave blank for something new')
-                                ->helperText('Leave it and scanning will link or create it when the pallet lands.')
-                                ->columnSpan(['default' => 1, 'sm' => 2, 'xl' => 3]),
-                            Select::make('inventory_location_id')
-                                ->label('Receive Into')
-                                ->options(fn () => InventoryLocation::activeOptions())
-                                ->searchable()
-                                ->placeholder('Decide later')
-                                ->default(fn () => InventoryLocation::defaultReceivingId())
-                                ->columnSpan(['default' => 1, 'sm' => 1, 'xl' => 2]),
-                            TextInput::make('unit_cost')
-                                ->label('Unit Cost')
-                                ->numeric()
-                                ->prefix('$')
-                                ->minValue(0)
-                                ->columnSpan(1),
-                        ])
-                        ->orderColumn('line_number')
-                        ->addActionLabel('Add another line')
-                        ->reorderable('line_number')
-                        ->collapsible()
-                        // Named by what was typed, so a long manifest stays
-                        // readable once the rows are collapsed.
-                        ->itemLabel(fn (array $state): ?string => $state['description'] ?? null)
-                        ->defaultItems(1),
+                    // Edited as a table on its own page rather than as a
+                    // repeater here. Each repeater card was roughly a screen
+                    // tall, so a twelve-line pallet was a great deal of
+                    // scrolling and the shape of the delivery — the thing you
+                    // check against the packing slip — was never visible at
+                    // once. Two editors for one thing is also how they drift.
+                    \Filament\Schemas\Components\View::make('filament.components.manifest-lines-link')
+                        ->columnSpanFull(),
                 ]),
 
             Section::make('Media & Attachments')

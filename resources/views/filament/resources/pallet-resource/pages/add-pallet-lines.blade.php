@@ -39,11 +39,12 @@
     {{-- The table. Wide content scrolls inside its own container so the page
          body never scrolls sideways on a phone. --}}
     <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-x-auto">
-        <table class="w-full min-w-[54rem] text-sm">
+        <table class="w-full min-w-[66rem] text-sm">
             <thead>
                 <tr class="border-b border-gray-200 dark:border-gray-700 text-left">
                     <th class="w-10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">#</th>
                     <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Item <span class="text-danger-600">*</span></th>
+                    <th class="w-52 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Already stock this?</th>
                     <th class="w-36 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Case or single</th>
                     <th class="w-24 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Cases</th>
                     <th class="w-28 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Units / case</th>
@@ -63,6 +64,16 @@
                                 data-vx-line-input
                                 placeholder="e.g. 2026 Topps Chrome Hobby"
                                 class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2.5 py-1.5 text-sm text-gray-900 dark:text-gray-100" />
+                        </td>
+
+                        <td class="px-3 py-1.5">
+                            <select wire:model="rows.{{ $i }}.inventory_item_id"
+                                class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100">
+                                <option value="">Something new</option>
+                                @foreach($this->itemOptions as $itemId => $itemName)
+                                    <option value="{{ $itemId }}">{{ $itemName }}</option>
+                                @endforeach
+                            </select>
                         </td>
 
                         <td class="px-3 py-1.5">

@@ -18,9 +18,13 @@ class CreatePallet extends CreateRecord
 
     protected function getRedirectUrl(): string
     {
-        // Always the pallet itself. An empty pallet used to divert to the
-        // packing-slip reader, which is the one screen you cannot stage from —
-        // the list is built here, by name, with Add Expected Item.
-        return $this->getResource()::getUrl('view', ['record' => $this->getRecord()]);
+        // Straight into the manifest table. A pallet exists to hold lines, so
+        // the next thing anyone does after creating one is type them — and the
+        // create form no longer carries a line editor of its own, because two
+        // editors for one thing is how they drift apart.
+        //
+        // It used to divert to the packing-slip reader, which is the one screen
+        // you cannot stage from.
+        return $this->getResource()::getUrl('add-lines', ['record' => $this->getRecord()]);
     }
 }

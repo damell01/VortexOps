@@ -2889,7 +2889,23 @@ async function extractLedgerFromPage(page) {
       ? Number(_fs.readFileSync(_cookiesLoadedMarker, 'utf8')) || 0
       : 0;
     const _existingCookies = await context.cookies('https://www.whatnot.com');
-    const _shouldLoad = _existingCookies.length === 0 || _fileMtimeMs > _lastLoadedMtimeMs;
+
+    // Only a human re-import counts as "newer, so load it".
+    //
+    // whatnot-live-cookies.json is written by this script at the end of every
+    // successful run, which made it permanently the newest file — so the next
+    // run read its own output back as a fresh import, re-bootstrapped, and
+    // cleared the Cloudflare state the successful run had just earned. A run
+    // that worked destroyed the conditions that made it work.
+    //
+    // Someone running whatnot:login means "use this now", so the bootstrap file
+    // keeps that power. A machine-written dump of state we already have does
+    // not, and is only reached for when the profile has nothing at all.
+    const _isHumanImport = Boolean(process.env.WHATNOT_COOKIES_FILE)
+      || _cookiesFile.endsWith('whatnot-cookies.json');
+
+    const _shouldLoad = _existingCookies.length === 0
+      || (_isHumanImport && _fileMtimeMs > _lastLoadedMtimeMs);
 
     if (!_shouldLoad) {
       info('persistent profile already has', _existingCookies.length, 'whatnot.com cookies and bootstrap file is unchanged — skipping to preserve session refresh');

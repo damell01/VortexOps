@@ -53,7 +53,30 @@ class InventoryLocation extends Model
             : $query;
     }
 
+    /**
+     * Stock at this location, for items that still exist.
+     *
+     * Products are soft-deleted, so their stock rows survive them — deliberately,
+     * because the movement history behind those rows is the record of what
+     * happened and deleting it would be worse. But the rows kept counting: an
+     * item deleted from inventory went on being listed here and included in this
+     * location's totals, which reads as the deletion having silently failed.
+     *
+     * whereHas applies the product's own soft-delete scope, so a restored item
+     * comes back into the count without anything else being written.
+     */
     public function stock(): HasMany
+    {
+        return $this->hasMany(InventoryStock::class)->whereHas('item');
+    }
+
+    /**
+     * Every stock row, including those belonging to deleted items.
+     *
+     * For the places that genuinely need the raw rows — reconciling history, or
+     * working out what a restore would bring back.
+     */
+    public function allStock(): HasMany
     {
         return $this->hasMany(InventoryStock::class);
     }

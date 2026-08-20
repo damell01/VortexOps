@@ -161,18 +161,33 @@ class AddPalletLines extends Page
             ->all();
     }
 
+    /**
+     * How many things a row describes.
+     *
+     * Only a case line multiplies. A single item has a quantity, so treating
+     * its units-per-case as a multiplier would silently scale it by whatever
+     * was last left in a field the row no longer shows.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function unitsFor(array $row): float
+    {
+        $count = (float) ($row['case_count'] ?: 0);
+
+        return ($row['is_container'] ?? '') === '1'
+            ? $count * (float) ($row['quantity_per_case'] ?: 0)
+            : $count;
+    }
+
     /** @return array{lines: int, units: float, cost: float} */
     public function getTotalsProperty(): array
     {
         $lines = $this->filledRows();
 
-        $units = array_sum(array_map(
-            fn ($r) => (float) ($r['case_count'] ?: 0) * (float) ($r['quantity_per_case'] ?: 0),
-            $lines,
-        ));
+        $units = array_sum(array_map(fn ($r) => $this->unitsFor($r), $lines));
 
         $cost = array_sum(array_map(
-            fn ($r) => (float) ($r['case_count'] ?: 0) * (float) ($r['quantity_per_case'] ?: 0) * (float) ($r['unit_cost'] ?: 0),
+            fn ($r) => $this->unitsFor($r) * (float) ($r['unit_cost'] ?: 0),
             $lines,
         ));
 
@@ -219,7 +234,12 @@ class AddPalletLines extends Page
                         ? null
                         : (int) $row['inventory_item_id'],
                     'case_count'        => (float) ($row['case_count'] ?: 1),
-                    'quantity_per_case' => (float) ($row['quantity_per_case'] ?: 1),
+                    // Forced to 1 for anything that is not a case, so the stored
+                    // line means what the screen said rather than carrying a
+                    // multiplier from a field it stopped showing.
+                    'quantity_per_case' => $row['is_container'] === '1'
+                        ? (float) ($row['quantity_per_case'] ?: 1)
+                        : 1,
                     'unit_cost'         => $row['unit_cost'] === null || $row['unit_cost'] === ''
                         ? null
                         : (float) $row['unit_cost'],
@@ -236,13 +256,17 @@ class AddPalletLines extends Page
                     $existing->update($attributes);
                     $updated++;
 
+                    $this->stubCases($existing);
+
                     continue;
                 }
 
-                $this->record->lines()->create($attributes + [
+                $line = $this->record->lines()->create($attributes + [
                     'inventory_location_id' => $this->locationId ?: null,
                 ]);
                 $created++;
+
+                $this->stubCases($line);
             }
         });
 
@@ -258,6 +282,22 @@ class AddPalletLines extends Page
             ->send();
 
         $this->redirect(PalletResource::getUrl('view', ['record' => $this->record]));
+    }
+
+    /**
+     * Give a saved line the case stubs a scanner confirms against.
+     *
+     * A staged line is only useful if it can be scanned the moment the pallet
+     * lands, and a scan confirms one case at a time — which needs the cases to
+     * exist. Without this a line typed here could only be received in bulk,
+     * which loses the part-delivery count the receiving screen is built around.
+     *
+     * The generator only creates the shortfall, so raising a line's case count
+     * later tops it up and saving an unchanged line does nothing.
+     */
+    private function stubCases(PalletLine $line): void
+    {
+        app(\App\Services\ReceivingService::class)->generateExpectedCases($line->refresh());
     }
 
     protected function getHeaderActions(): array

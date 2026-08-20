@@ -62,6 +62,7 @@ class AddPalletLinesTest extends TestCase
     {
         $this->page()
             ->set('rows.0.description', 'Topps Chrome Hobby')
+            ->set('rows.0.is_container', '1')
             ->set('rows.0.case_count', 4)
             ->set('rows.0.quantity_per_case', 12)
             ->set('rows.0.unit_cost', 90)
@@ -208,6 +209,7 @@ class AddPalletLinesTest extends TestCase
     {
         $page = $this->page()
             ->set('rows.0.description', 'Counted')
+            ->set('rows.0.is_container', '1')
             ->set('rows.0.case_count', 2)
             ->set('rows.0.quantity_per_case', 10)
             ->set('rows.0.unit_cost', 5)
@@ -218,6 +220,38 @@ class AddPalletLinesTest extends TestCase
         $this->assertSame(1, $totals['lines']);
         $this->assertEqualsWithDelta(20, $totals['units'], 0.001);
         $this->assertEqualsWithDelta(100, $totals['cost'], 0.001);
+    }
+
+    public function test_a_single_item_is_a_quantity_not_cases_times_units(): void
+    {
+        // The row hides units-per-case once it is a single item, so a value
+        // left there from before must not quietly multiply the line.
+        $this->page()
+            ->set('rows.0.description', 'One Loose Box')
+            ->set('rows.0.is_container', '0')
+            ->set('rows.0.case_count', 7)
+            ->set('rows.0.quantity_per_case', 12)   // stale, and no longer shown
+            ->call('save');
+
+        $line = PalletLine::firstWhere('description', 'One Loose Box');
+
+        $this->assertEqualsWithDelta(7, $line->case_count, 0.001);
+        $this->assertEqualsWithDelta(1, $line->quantity_per_case, 0.001, 'a single item was stored with a multiplier');
+    }
+
+    public function test_totals_do_not_multiply_a_single_item(): void
+    {
+        $page = $this->page()
+            ->set('rows.0.description', 'Loose')
+            ->set('rows.0.is_container', '0')
+            ->set('rows.0.case_count', 3)
+            ->set('rows.0.quantity_per_case', 99)
+            ->set('rows.0.unit_cost', 10);
+
+        $totals = $page->instance()->totals;
+
+        $this->assertEqualsWithDelta(3, $totals['units'], 0.001);
+        $this->assertEqualsWithDelta(30, $totals['cost'], 0.001);
     }
 
     public function test_removing_the_last_row_leaves_one_to_type_into(): void

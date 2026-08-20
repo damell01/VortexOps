@@ -46,7 +46,7 @@
                     <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Item <span class="text-danger-600">*</span></th>
                     <th class="w-52 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Already stock this?</th>
                     <th class="w-36 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Case or single</th>
-                    <th class="w-24 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Cases</th>
+                    <th class="w-24 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Cases / qty</th>
                     <th class="w-28 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Units / case</th>
                     <th class="w-28 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Unit cost</th>
                     <th class="w-28 px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Line total</th>
@@ -55,7 +55,8 @@
             </thead>
             <tbody id="vx-lines">
                 @foreach($rows as $i => $row)
-                    @php($lineTotal = (float) ($row['case_count'] ?: 0) * (float) ($row['quantity_per_case'] ?: 0) * (float) ($row['unit_cost'] ?: 0))
+                    @php($units = (float) ($row['case_count'] ?: 0) * ($row['is_container'] === '1' ? (float) ($row['quantity_per_case'] ?: 0) : 1))
+                    @php($lineTotal = $units * (float) ($row['unit_cost'] ?: 0))
                     <tr wire:key="line-{{ $i }}" class="border-b border-gray-100 dark:border-gray-800 last:border-0">
                         <td class="px-3 py-1.5 text-gray-400 tabular-nums">{{ $i + 1 }}</td>
 
@@ -77,7 +78,7 @@
                         </td>
 
                         <td class="px-3 py-1.5">
-                            <select wire:model="rows.{{ $i }}.is_container"
+                            <select wire:model.live="rows.{{ $i }}.is_container"
                                 class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100">
                                 <option value="">Not sure</option>
                                 <option value="1">Case / box</option>
@@ -85,15 +86,21 @@
                             </select>
                         </td>
 
-                        <td class="px-3 py-1.5">
+                        {{-- A single item has a quantity, not cases times units per
+                             case. Showing both invites "1 case of 1", which is a
+                             number nobody meant and everybody has to interpret. --}}
+                        <td class="px-3 py-1.5" @if($row['is_container'] !== '1') colspan="2" @endif>
                             <input type="number" min="1" step="1" wire:model.blur="rows.{{ $i }}.case_count"
+                                title="{{ $row['is_container'] === '1' ? 'How many cases' : 'How many of them' }}"
                                 class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm tabular-nums text-gray-900 dark:text-gray-100" />
                         </td>
 
+                        @if($row['is_container'] === '1')
                         <td class="px-3 py-1.5">
                             <input type="number" min="0.01" step="any" wire:model.blur="rows.{{ $i }}.quantity_per_case"
                                 class="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm tabular-nums text-gray-900 dark:text-gray-100" />
                         </td>
+                        @endif
 
                         <td class="px-3 py-1.5">
                             <input type="number" min="0" step="0.01" placeholder="—" wire:model.blur="rows.{{ $i }}.unit_cost"

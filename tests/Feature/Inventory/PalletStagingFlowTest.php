@@ -55,20 +55,82 @@ class PalletStagingFlowTest extends TestCase
         return Livewire::test(ViewPallet::class, ['record' => $this->pallet->id]);
     }
 
+    /**
+     * Stage a line the way the app now does it — through the manifest table.
+     *
+     * These tests used to drive an "Add Expected Item" modal on the pallet page.
+     * That did the same job as the table and was removed rather than kept
+     * alongside it, so the tests follow the capability instead of the button.
+     *
+     * @param  array<int, array<string, mixed>>  $lines
+     */
+    private function stage(array $lines): void
+    {
+        $page = Livewire::test(
+            \App\Filament\Resources\PalletResource\Pages\AddPalletLines::class,
+            ['record' => $this->pallet->id],
+        );
+
+        // The page opens on the manifest as it stands, so a second call has to
+        // type into the blank rows underneath rather than over the lines the
+        // first one added. The modal always appended; this keeps that.
+        $existing = $page->get('rows');
+        $offset   = count(array_filter(
+            $existing,
+            fn ($row) => trim((string) ($row['description'] ?? '')) !== '',
+        ));
+        $available = count($existing);
+
+        foreach (array_values($lines) as $n => $line) {
+            $i = $offset + $n;
+
+            while ($available <= $i) {
+                $page->call('addRow');
+                $available++;
+            }
+
+            // The modal's vocabulary, translated to the table's. Keeping the
+            // callers unchanged keeps these tests about staging rather than
+            // about which screen happens to do it this month.
+            $row = [
+                'description'       => $line['name'] ?? $line['description'] ?? '',
+                'is_container'      => match ($line['form_factor'] ?? null) {
+                    'container' => '1',
+                    'single'    => '0',
+                    'unknown'   => '',
+                    default     => $line['is_container'] ?? '',
+                },
+                'case_count'        => $line['case_count'] ?? 1,
+                'quantity_per_case' => $line['quantity_per_case'] ?? 1,
+                'inventory_item_id' => isset($line['inventory_item_id']) ? (string) $line['inventory_item_id'] : '',
+            ];
+
+            foreach ($row as $field => $value) {
+                $page->set("rows.{$i}.{$field}", $value);
+            }
+
+            if (isset($line['inventory_location_id'])) {
+                $page->set('locationId', $line['inventory_location_id']);
+            }
+        }
+
+        $page->call('save');
+    }
+
     public function test_an_item_can_be_staged_by_name_before_the_pallet_lands(): void
     {
         // The name is the one required field now — staging happens for items
         // that do not exist in inventory yet, so the product is optional and
         // the name is not. Picking an item from the list fills this in for you
         // in the browser; callAction bypasses that, so it is passed here.
-        $this->page()->callAction('add_expected_item', [
+        $this->stage([[
             'name'                  => $this->item->name,
             'inventory_item_id'     => $this->item->id,
             'inventory_location_id' => $this->location->id,
             'case_count'            => 3,
             'quantity_per_case'     => 10,
             'unit_cost'             => 100,
-        ]);
+        ]]);
 
         $line = $this->pallet->lines()->firstOrFail();
 

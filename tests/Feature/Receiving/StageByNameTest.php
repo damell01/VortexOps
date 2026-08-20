@@ -55,11 +55,73 @@ class StageByNameTest extends TestCase
         return Livewire::test(ViewPallet::class, ['record' => $this->pallet->id]);
     }
 
+    /**
+     * Stage a line the way the app now does it — through the manifest table.
+     *
+     * These tests used to drive an "Add Expected Item" modal on the pallet page.
+     * That did the same job as the table and was removed rather than kept
+     * alongside it, so the tests follow the capability instead of the button.
+     *
+     * @param  array<int, array<string, mixed>>  $lines
+     */
+    private function stage(array $lines): void
+    {
+        $page = Livewire::test(
+            \App\Filament\Resources\PalletResource\Pages\AddPalletLines::class,
+            ['record' => $this->pallet->id],
+        );
+
+        // The page opens on the manifest as it stands, so a second call has to
+        // type into the blank rows underneath rather than over the lines the
+        // first one added. The modal always appended; this keeps that.
+        $existing = $page->get('rows');
+        $offset   = count(array_filter(
+            $existing,
+            fn ($row) => trim((string) ($row['description'] ?? '')) !== '',
+        ));
+        $available = count($existing);
+
+        foreach (array_values($lines) as $n => $line) {
+            $i = $offset + $n;
+
+            while ($available <= $i) {
+                $page->call('addRow');
+                $available++;
+            }
+
+            // The modal's vocabulary, translated to the table's. Keeping the
+            // callers unchanged keeps these tests about staging rather than
+            // about which screen happens to do it this month.
+            $row = [
+                'description'       => $line['name'] ?? $line['description'] ?? '',
+                'is_container'      => match ($line['form_factor'] ?? null) {
+                    'container' => '1',
+                    'single'    => '0',
+                    'unknown'   => '',
+                    default     => $line['is_container'] ?? '',
+                },
+                'case_count'        => $line['case_count'] ?? 1,
+                'quantity_per_case' => $line['quantity_per_case'] ?? 1,
+                'inventory_item_id' => isset($line['inventory_item_id']) ? (string) $line['inventory_item_id'] : '',
+            ];
+
+            foreach ($row as $field => $value) {
+                $page->set("rows.{$i}.{$field}", $value);
+            }
+
+            if (isset($line['inventory_location_id'])) {
+                $page->set('locationId', $line['inventory_location_id']);
+            }
+        }
+
+        $page->call('save');
+    }
+
     public function test_a_name_alone_is_enough_to_stage_an_item(): void
     {
-        $this->page()->callAction('add_expected_item', [
+        $this->stage([[
             'name' => '2026 Topps Chrome Hobby',
-        ]);
+        ]]);
 
         $line = $this->pallet->lines()->firstOrFail();
 
@@ -79,9 +141,9 @@ class StageByNameTest extends TestCase
         // Worth capturing at staging because it is the moment somebody is
         // actually looking at the thing, and it decides what the product
         // becomes later.
-        $this->page()->callAction('add_expected_item', ['name' => 'A case', 'form_factor' => 'container']);
-        $this->page()->callAction('add_expected_item', ['name' => 'A single', 'form_factor' => 'single']);
-        $this->page()->callAction('add_expected_item', ['name' => 'No idea', 'form_factor' => 'unknown']);
+        $this->stage([['name' => 'A case', 'form_factor' => 'container']]);
+        $this->stage([['name' => 'A single', 'form_factor' => 'single']]);
+        $this->stage([['name' => 'No idea', 'form_factor' => 'unknown']]);
 
         $lines = $this->pallet->lines()->orderBy('line_number')->get();
 
@@ -94,12 +156,12 @@ class StageByNameTest extends TestCase
     {
         $item = InventoryItem::create(['name' => 'Known Box', 'sku' => 'KB-1', 'is_active' => true]);
 
-        $this->page()->callAction('add_expected_item', [
+        $this->stage([[
             'name'                  => 'Known Box',
             'inventory_item_id'     => $item->id,
             'inventory_location_id' => $this->location->id,
             'case_count'            => 3,
-        ]);
+        ]]);
 
         $line = $this->pallet->lines()->firstOrFail();
 
@@ -198,7 +260,7 @@ class StageByNameTest extends TestCase
         // The flow as it is actually worked: the line is clicked, so nothing
         // has to be looked up, and the box being scanned is the box in hand —
         // so the same action links it and counts it.
-        $this->page()->callAction('add_expected_item', ['name' => 'Row Box', 'case_count' => 2]);
+        $this->stage([['name' => 'Row Box', 'case_count' => 2]]);
         $line = $this->pallet->lines()->firstOrFail();
 
         $this->page()->callAction(
@@ -221,7 +283,7 @@ class StageByNameTest extends TestCase
         // the pallet.
         \App\Models\Setting::set('default_receiving_location_id', (string) $this->location->id);
 
-        $this->page()->callAction('add_expected_item', ['name' => 'Camera Box', 'case_count' => 2]);
+        $this->stage([['name' => 'Camera Box', 'case_count' => 2]]);
         $line = $this->pallet->lines()->firstOrFail();
 
         $this->page()->call('scanLineIntoInventory', $line->id, '8080808080');
@@ -279,7 +341,7 @@ class StageByNameTest extends TestCase
     public function test_linking_without_counting_leaves_the_case_open(): void
     {
         // Prepping ahead of the delivery: link it now, count it when it lands.
-        $this->page()->callAction('add_expected_item', ['name' => 'Later Box']);
+        $this->stage([['name' => 'Later Box']]);
         $line = $this->pallet->lines()->firstOrFail();
 
         $this->page()->callAction(
@@ -348,7 +410,7 @@ class StageByNameTest extends TestCase
 
         $this->assertSame($this->location->id, \App\Models\InventoryLocation::defaultReceivingId());
 
-        $this->page()->callAction('add_expected_item', ['name' => 'Defaulted']);
+        $this->stage([['name' => 'Defaulted']]);
 
         $this->assertSame(
             $this->location->id,

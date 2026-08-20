@@ -261,7 +261,7 @@
                                 @if ($line['item_name'])
                                     <span class="text-violet-600 dark:text-violet-400">✓ {{ $line['item_name'] }}</span>
                                 @else
-                                    <span class="text-amber-600 dark:text-amber-400 font-medium">⚠ Needs mapping</span>
+                                    <span class="text-gray-500 dark:text-gray-400">New — scan to add</span>
                                 @endif
                                 @if ($line['location'])
                                     <span class="text-gray-500 dark:text-gray-400">@ {{ $line['location'] }}</span>
@@ -304,8 +304,8 @@
                         @if ($line['item_name'])
                             <p class="text-xs text-violet-700 dark:text-violet-400 truncate font-medium">✓ {{ $line['item_name'] }}</p>
                         @else
-                            <span class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                                <x-heroicon-o-exclamation-circle class="h-3 w-3 mr-1" /> Needs mapping
+                            <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-800 px-2 py-0.5 text-[11px] font-medium text-gray-600 dark:text-gray-400">
+                                New — scan to add
                             </span>
                         @endif
                         @if ($line['location'])
@@ -321,7 +321,7 @@
                             <span class="text-[11px] text-gray-400 tabular-nums shrink-0">{{ $pct }}%</span>
                         </div>
                     </div>
-                    <div class="col-span-1 text-center text-sm {{ $mapped ? 'text-gray-500' : 'text-amber-600 dark:text-amber-400' }} tabular-nums font-medium">{{ $line['case_count'] }}</div>
+                    <div class="col-span-1 text-center text-sm text-gray-500 tabular-nums font-medium">{{ $line['case_count'] }}</div>
                     <div class="col-span-1 text-center">
                         <span class="text-sm font-bold {{ $done ? 'text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-200' }} tabular-nums">
                             {{ $line['received'] }}
@@ -336,7 +336,18 @@
                                 Receive All
                             </button>
                         @else
-                            <span class="text-xs text-amber-600 dark:text-amber-400 font-medium">⚠ Map first</span>
+                            {{-- "Map first" was a dead end on the one screen
+                                 where you are holding the box. Tapping this
+                                 aims the scanner at this line: the code you
+                                 scan creates the item and counts the box, which
+                                 is the whole point of having staged it. --}}
+                            <button wire:click="targetLine({{ $line['id'] }})" type="button"
+                                class="rounded-lg px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors
+                                    {{ $targetLineId === $line['id']
+                                        ? 'bg-violet-600 text-white'
+                                        : 'border border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950' }}">
+                                {{ $targetLineId === $line['id'] ? 'Scan now →' : 'Scan' }}
+                            </button>
                         @endif
                     </div>
                 </div>

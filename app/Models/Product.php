@@ -31,6 +31,38 @@ class Product extends Model
                 $product->is_container = false;
             }
         });
+
+        // Every product gets a SKU, however it was created.
+        //
+        // The create form had a default, so anything typed in by hand had one —
+        // and nothing else did. A product created by scanning an unknown
+        // barcode at a pallet, or through quick add, arrived with the column
+        // blank and stayed that way, because a form default only fires on the
+        // form. Putting it here covers every path there is, including the ones
+        // written next year.
+        static::creating(function (self $product) {
+            if (blank($product->sku)) {
+                $product->sku = static::generateSku();
+            }
+        });
+    }
+
+    /**
+     * A SKU nothing else is using.
+     *
+     * Random rather than sequential: sequential needs the highest existing
+     * number, which is a read that two concurrent receipts can both win. The
+     * loop is what makes it safe rather than merely unlikely — and the column
+     * is uniquely indexed, so a collision that slipped through would be a
+     * constraint violation rather than two products sharing a code.
+     */
+    public static function generateSku(): string
+    {
+        do {
+            $sku = 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4));
+        } while (static::withTrashed()->where('sku', $sku)->exists());
+
+        return $sku;
     }
 
     protected $fillable = [

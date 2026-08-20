@@ -311,6 +311,81 @@ class PalletCorrectionTest extends TestCase
         )->assertSet('receivedByName', auth()->user()->name);
     }
 
+    // ── Scanning a code that could be several lines ───────────────────────
+
+    private function receivePage(): \Livewire\Features\SupportTesting\Testable
+    {
+        return \Livewire\Livewire::test(
+            \App\Filament\Resources\PalletResource\Pages\ReceivePallet::class,
+            ['record' => $this->pallet],
+        );
+    }
+
+    public function test_an_unknown_code_with_several_staged_lines_is_kept_and_asked_about(): void
+    {
+        // The box has been scanned. Throwing the code away and telling somebody
+        // to scan it again asks them to redo the one part that already worked.
+        $this->pallet->lines()->create(['line_number' => 1, 'description' => 'Chrome', 'case_count' => 1]);
+        $this->pallet->lines()->create(['line_number' => 2, 'description' => 'Prizm', 'case_count' => 1]);
+
+        $page = $this->receivePage()
+            ->set('barcodeInput', '5551234')
+            ->call('submitBarcode');
+
+        $page->assertSet('pendingCode', '5551234');
+
+        $this->assertCount(2, $page->instance()->pendingChoices());
+    }
+
+    public function test_picking_a_line_uses_the_code_already_scanned(): void
+    {
+        \App\Models\Setting::set('default_receiving_location_id', (string) $this->main->id);
+
+        $chrome = $this->pallet->lines()->create(['line_number' => 1, 'description' => 'Chrome', 'case_count' => 1]);
+        $this->pallet->lines()->create(['line_number' => 2, 'description' => 'Prizm', 'case_count' => 1]);
+
+        $this->receivePage()
+            ->set('barcodeInput', '5551234')
+            ->call('submitBarcode')
+            ->call('assignPendingTo', $chrome->id)
+            ->assertSet('pendingCode', null);
+
+        $chrome->refresh();
+
+        $this->assertNotNull($chrome->inventory_item_id, 'The scan should have created the item.');
+        $this->assertSame('5551234', $chrome->inventoryItem->barcode);
+        $this->assertSame(1, $chrome->receivedCases(), 'The box in hand is a case received.');
+    }
+
+    public function test_one_staged_line_needs_no_question_at_all(): void
+    {
+        // With nothing to choose between, asking would be the app making work.
+        \App\Models\Setting::set('default_receiving_location_id', (string) $this->main->id);
+
+        $only = $this->pallet->lines()->create(['line_number' => 1, 'description' => 'Chrome', 'case_count' => 1]);
+
+        $this->receivePage()
+            ->set('barcodeInput', '777888')
+            ->call('submitBarcode')
+            ->assertSet('pendingCode', null);
+
+        $this->assertNotNull($only->fresh()->inventory_item_id);
+    }
+
+    public function test_none_of_these_throws_the_code_away_and_changes_nothing(): void
+    {
+        $this->pallet->lines()->create(['line_number' => 1, 'description' => 'Chrome', 'case_count' => 1]);
+        $this->pallet->lines()->create(['line_number' => 2, 'description' => 'Prizm', 'case_count' => 1]);
+
+        $this->receivePage()
+            ->set('barcodeInput', '5551234')
+            ->call('submitBarcode')
+            ->call('discardPending')
+            ->assertSet('pendingCode', null);
+
+        $this->assertSame(0, InventoryItem::where('barcode', '5551234')->count());
+    }
+
     private function stockAt(PalletLine $line, InventoryLocation $location): float
     {
         return (float) (InventoryStock::where('inventory_item_id', $line->inventory_item_id)

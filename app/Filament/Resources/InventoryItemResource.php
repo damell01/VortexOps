@@ -293,15 +293,19 @@ class InventoryItemResource extends Resource
                         ->label('SKU')
                         ->unique(ignoreRecord: true)
                         ->maxLength(100)
-                        ->default(fn () => 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4)))
+                        ->default(fn () => \App\Models\Product::generateSku())
                         ->helperText('Auto-generated — edit to customize')
                         ->columnSpan(2)
                         ->suffixAction(
                             \Filament\Actions\Action::make('regenerate_sku')
                                 ->icon('heroicon-o-arrow-path')
                                 ->tooltip('Generate new SKU')
-                                ->action(function (\Filament\Forms\Set $set) {
-                                    $set('sku', 'VB' . date('ymd') . strtoupper(\Illuminate\Support\Str::random(4)));
+                                // Schemas\Components\Utilities\Set, not Forms\Set.
+                                // Filament v5 moved it, and the old name still
+                                // exists — so the type hint resolved, did not
+                                // match what was passed, and 500'd on click.
+                                ->action(function (\Filament\Schemas\Components\Utilities\Set $set) {
+                                    $set('sku', \App\Models\Product::generateSku());
                                 })
                         ),
                     TextInput::make('barcode')

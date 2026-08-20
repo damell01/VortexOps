@@ -108,6 +108,46 @@ class ReceivePallet extends Page
      */
     public ?int $targetLineId = null;
 
+    /**
+     * A scanned code with nowhere obvious to go.
+     *
+     * Held rather than discarded: the box has been scanned, so throwing the
+     * code away and asking for it again is asking somebody to do the one part
+     * that already worked.
+     */
+    public ?string $pendingCode = null;
+
+    /** The staged lines a held code could belong to. */
+    public function pendingChoices(): \Illuminate\Support\Collection
+    {
+        return $this->pendingCode === null
+            ? collect()
+            : $this->unmappedLines();
+    }
+
+    /** Put the held code on the line somebody picked, and count the box. */
+    public function assignPendingTo(int $lineId): void
+    {
+        $line = $this->record->lines->firstWhere('id', $lineId);
+        $code = $this->pendingCode;
+
+        $this->pendingCode = null;
+
+        if (! $line || $code === null) {
+            return;
+        }
+
+        if ($this->linkAndCount($line, $code)) {
+            $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+            $this->refreshProgress();
+        }
+    }
+
+    public function discardPending(): void
+    {
+        $this->pendingCode = null;
+    }
+
     /** Aim the next scan at a line. Tapping the same row again clears it. */
     public function targetLine(?int $lineId): void
     {
@@ -248,7 +288,12 @@ class ReceivePallet extends Page
             }
 
             if ($unmapped->count() > 1) {
-                $this->lastScannedResult = '✗ Not in inventory yet — tap the line this box belongs to, then scan again.';
+                // Keep the code and ask which line it is, rather than sending
+                // somebody back to scan the same box twice. The scan already
+                // happened; the only thing missing is which of the staged lines
+                // it belongs to, and that is one tap.
+                $this->pendingCode = $barcode;
+                $this->lastScannedResult = null;
                 $this->lastScanDetails = null;
                 $this->lastScanSuccess = false;
 

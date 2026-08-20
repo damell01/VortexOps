@@ -149,6 +149,33 @@
                 </div>
             </div>
 
+            {{-- A scanned code that could belong to more than one staged line.
+                 The box is already scanned; the only thing missing is which
+                 line, and that is one tap — not a reason to scan it again. --}}
+            @if ($pendingCode)
+                <div class="mt-3 rounded-lg border border-violet-300 dark:border-violet-700 bg-violet-50 dark:bg-violet-950/40 px-4 py-3">
+                    <p class="text-sm font-semibold text-violet-900 dark:text-violet-100">
+                        Which line is <span class="font-mono">{{ $pendingCode }}</span>?
+                    </p>
+                    <p class="mt-0.5 text-xs text-violet-700 dark:text-violet-300">
+                        None of these are in inventory yet, so the code becomes whichever one you pick.
+                    </p>
+
+                    <div class="mt-2.5 flex flex-wrap gap-2">
+                        @foreach ($this->pendingChoices() as $choice)
+                            <button type="button" wire:click="assignPendingTo({{ $choice->id }})"
+                                class="rounded-lg bg-violet-600 px-3 py-2 text-sm font-medium text-white hover:bg-violet-700">
+                                L{{ $choice->line_number }} · {{ $choice->description }}
+                            </button>
+                        @endforeach
+                        <button type="button" wire:click="discardPending"
+                            class="rounded-lg border border-gray-300 dark:border-gray-600 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+                            None of these
+                        </button>
+                    </div>
+                </div>
+            @endif
+
             {{-- Desktop layout (inline) --}}
             <div class="hidden md:flex gap-2 items-center">
                 <input
@@ -609,11 +636,25 @@
     {{-- ── Camera Scanner Script ───────────────────────────────────────── --}}
     <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const cameraButtons = document.querySelectorAll('#camera-scan-btn, #camera-scan-btn-mobile');
-            const container = document.getElementById('camera-container');
-            const video = document.getElementById('camera-video');
-            const stopBtn = document.getElementById('camera-stop-btn');
+        // Wired once, on whichever signal actually arrives.
+        //
+        // This whole block used to hang off DOMContentLoaded alone, and Filament
+        // navigates with wire:navigate — so arriving here from the pallet page
+        // never fired it and the camera script simply did not exist. The button
+        // worked on a hard refresh and did nothing the rest of the time, which
+        // is exactly the shape of "it doesn't open the camera or anything".
+        (function () {
+            let wired = false;
+
+            function wireCameraScanner() {
+                if (wired) return;
+                wired = true;
+
+                // The elements are looked up when they are used, not here: a
+                // Livewire morph replaces them, and a reference captured once
+                // goes stale on the first scan.
+                const container = () => document.getElementById('camera-container');
+                const video     = () => document.getElementById('camera-video');
             // Resolved when it is needed, not at load. Which of the two
             // layouts is on screen depends on the viewport now, and both exist
             // in the DOM at all times — so a reference taken once can be to the
@@ -666,13 +707,13 @@
                 isScanning = true;
 
                 try {
-                    container.classList.remove('hidden');
+                    container()?.classList.remove('hidden');
                     const stream = await navigator.mediaDevices.getUserMedia({
                         video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } }
                     });
                     cameraStream = stream;
-                    video.srcObject = stream;
-                    video.play();
+                    video().srcObject = stream;
+                    video().play();
 
                     // Vibrate when camera starts
                     if (navigator.vibrate) navigator.vibrate(100);
@@ -687,7 +728,7 @@
                         message = 'No camera found on this device. Use manual scanning instead.';
                     }
                     alert(message);
-                    container.classList.add('hidden');
+                    container()?.classList.add('hidden');
                     isScanning = false;
                 }
             }
@@ -699,8 +740,8 @@
                     cameraStream = null;
                 }
                 if (Quagga) Quagga.stop();
-                video.srcObject = null;
-                container.classList.add('hidden');
+                if (video()) video().srcObject = null;
+                container()?.classList.add('hidden');
             }
 
             function startBarcodeDetection(videoElement) {
@@ -747,8 +788,26 @@
                 });
             }
 
-            // Stop camera on page unload
-            window.addEventListener('beforeunload', stopCamera);
-        });
+                // Stop the camera on the way out, whichever way that is.
+                // wire:navigate does not fire beforeunload, so a camera left
+                // running would keep the light on after leaving the page.
+                window.addEventListener('beforeunload', stopCamera);
+                document.addEventListener('livewire:navigating', stopCamera);
+            }
+
+            // Both signals, because only one of them fires depending on how you
+            // arrived: DOMContentLoaded on a fresh load or refresh,
+            // livewire:navigated when Filament brings you here from another
+            // page. The guard at the top makes the second one a no-op.
+            document.addEventListener('DOMContentLoaded', wireCameraScanner);
+            document.addEventListener('livewire:navigated', wireCameraScanner);
+
+            // And immediately, for the case where this script is parsed after
+            // the document is already interactive — which is what a deferred
+            // bundle on a warm cache does.
+            if (document.readyState !== 'loading') {
+                wireCameraScanner();
+            }
+        })();
     </script>
 </x-filament-panels::page>

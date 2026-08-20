@@ -5131,3 +5131,37 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
 /* The widget itself sits below Filament's modals (z-50) so it can never cover a
    dialog's buttons the same way. */
 .vx-feedback-launcher { z-index: 40; }
+
+/* ── An open select must sit above the rows below it ─────────────────────────
+   A select's option panel is positioned inside its own field wrapper, so in a
+   grid — a repeater line, say — the fields that come after it paint over the
+   panel. On the pallet line editor that left "Case or single?" showing its
+   options behind the next row: visible, and unclickable.
+
+   Keyed off aria-expanded rather than a Filament panel class, so it survives a
+   markup change and needs no knowledge of which widget rendered the list. The
+   lift and the relaxed clipping apply only while a list is actually open, so
+   nothing else on the page changes stacking or starts overflowing. */
+.fi-fo-field-wrp:has([aria-expanded="true"]),
+.fi-fo-select:has([aria-expanded="true"]),
+.fi-input-wrp:has([aria-expanded="true"]) {
+    position: relative;
+    z-index: 30;
+}
+
+/* Ancestors that clip for rounded corners would cut the panel off at their
+   edge — which is why the last option was sliced in half rather than hidden. */
+.fi-fo-repeater-item:has([aria-expanded="true"]),
+.fi-fo-repeater-item-content:has([aria-expanded="true"]),
+.fi-section-content:has([aria-expanded="true"]),
+.fi-fo-component-ctn:has([aria-expanded="true"]) {
+    overflow: visible !important;
+}
+
+/* Below Filament's modals (z-50) and the feedback launcher (z-40): a dropdown
+   inside a modal should not escape it. */
+[role="listbox"],
+.fi-fo-select-panel,
+.fi-dropdown-list-ctn {
+    z-index: 30;
+}

@@ -105,8 +105,47 @@ class ViewInventoryItem extends Page
         return $this->record->movements()
             ->with(['toLocation', 'fromLocation', 'lot'])
             ->orderByDesc('created_at')
-            ->limit(50)
+            ->limit(200)
             ->get()
+            // One receipt, one row. Receiving counts a case at a time, which is
+            // right — it is what lets a part delivery read as "three of five" —
+            // but it means a five-box line writes five identical movements, and
+            // a log of "+1, +1, +1, +1, +1" is harder to read than "+5" and
+            // buries everything else that happened that day. Grouped by what
+            // actually distinguishes them: the same kind of movement, for the
+            // same reason, between the same places, on the same day.
+            ->groupBy(fn ($m) => implode('|', [
+                $m->movement_type,
+                $m->reason,
+                $m->from_location_id,
+                $m->to_location_id,
+                $m->created_at?->toDateString(),
+            ]))
+            ->map(function ($group) {
+                $first = $group->first();
+
+                if ($group->count() === 1) {
+                    return $first;
+                }
+
+                // A stand-in carrying the totals. Not saved — this exists for
+                // the length of one render.
+                $merged = $first->replicate();
+                $merged->id             = $first->id;
+                $merged->quantity       = $group->sum('quantity');
+                $merged->quantity_before = $group->last()->quantity_before;
+                $merged->quantity_after  = $first->quantity_after;
+                $merged->setRelation('toLocation', $first->toLocation);
+                $merged->setRelation('fromLocation', $first->fromLocation);
+                $merged->setRelation('lot', $first->lot);
+                $merged->createdAt = $first->created_at;
+                $merged->groupedCount = $group->count();
+
+                return $merged;
+            })
+            ->sortByDesc('created_at')
+            ->take(50)
+            ->values()
             ->map(fn ($m) => [
                 'id'         => $m->id,
                 'type'       => $m->movement_type,
@@ -115,6 +154,10 @@ class ViewInventoryItem extends Page
                 // taking twelve units off showed as "+12".
                 'qty'        => $m->signedChange(),
                 'label'      => $m->changeLabel(),
+                // "5 boxes" rather than a silently merged number: a row that
+                // stands for several should say so, or the log looks like it
+                // lost rows.
+                'grouped'    => $m->groupedCount ?? 1,
                 // Where the stock actually went or came from. This read
                 // toLocation alone, so anything leaving showed no location at
                 // all: the one row where you most want to know which shelf lost
@@ -187,9 +230,12 @@ class ViewInventoryItem extends Page
                     'date'      => $movement->created_at,
                     'display'   => $movement->created_at->format('M d, Y g:i A'),
                     'type'      => 'movement',
-                    'unit_cost' => $movement->unit_cost
-                        ? (float) $movement->unit_cost
-                        : ($lot?->unit_cost ? (float) $lot->unit_cost : 0),
+                    // null, not 0, when nothing recorded it. Zero is a price;
+                    // an unknown cost is not, and printing "$0.00" against an
+                    // item averaging $100 reads as a receipt that was free.
+                    // Historic rows predate receiving storing this, so the
+                    // pallet line behind the case is asked before giving up.
+                    'unit_cost' => $this->costForMovement($movement, $lot),
                     'qty'       => (float) $movement->quantity,
                     'source'    => $movement->movement_type,
                     'note'      => $movement->reason ?? 'Stock ' . str_replace('_', ' ', $movement->movement_type),
@@ -201,6 +247,36 @@ class ViewInventoryItem extends Page
         usort($events, fn ($a, $b) => $b['date'] <=> $a['date']);
 
         return $events;
+    }
+
+    /**
+     * What a receipt cost, from whichever record still knows.
+     *
+     * The movement first, since receiving records it now. Then the lot. Then
+     * the pallet line the case came off, which is where the number was typed
+     * in the first place and is the only source for anything received before
+     * the movement started carrying it. Null when none of them know.
+     */
+    private function costForMovement(\App\Models\InventoryMovement $movement, $lot): ?float
+    {
+        if ($movement->unit_cost !== null) {
+            return (float) $movement->unit_cost;
+        }
+
+        if ($lot?->unit_cost) {
+            return (float) $lot->unit_cost;
+        }
+
+        if ($movement->reference_type === 'inventory_case' && $movement->reference_id) {
+            $lineCost = \App\Models\InventoryCase::with('palletLine')
+                ->find($movement->reference_id)?->palletLine?->unit_cost;
+
+            if ($lineCost !== null) {
+                return (float) $lineCost;
+            }
+        }
+
+        return null;
     }
 
     public function getCostBreakdownProperty(): array

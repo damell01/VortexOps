@@ -662,6 +662,12 @@ class ReceivingService
             'from_location_id'  => null,
             'to_location_id'    => $location->id,
             'quantity'          => $qty,
+            // What this receipt actually cost. The column has existed since
+            // the cost history was built and nothing wrote it, so every
+            // receipt showed "$0.00" on the Cost History tab — reading as
+            // "this was free" rather than "nobody recorded it", against an
+            // item whose average cost said otherwise.
+            'unit_cost'         => $unitCost,
             'movement_type'     => 'opening',
             'reason'            => "Received via pallet #{$line->pallet_id}, line #{$line->line_number}",
             'reference_type'    => 'inventory_case',

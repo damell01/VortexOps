@@ -321,7 +321,11 @@
         <div class="px-5 py-12 text-center text-gray-400 text-sm">No movement history.</div>
     @else
     <div class="overflow-x-auto">
-    <table class="w-full text-sm">
+    <table class="table-fixed w-full text-sm">
+        <colgroup>
+            <col class="w-[14%]" /><col class="w-[14%]" /><col class="w-[10%]" />
+            <col class="w-[24%]" /><col class="w-[38%]" />
+        </colgroup>
         <thead class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <tr class="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                 <th class="px-4 py-3 text-left">When</th>
@@ -350,6 +354,9 @@
                 </td>
                 <td class="px-4 py-3 text-right font-bold tabular-nums {{ $m['qty'] < 0 ? 'text-red-500 dark:text-red-400' : 'text-green-600 dark:text-green-400' }}">
                     {{ $m['label'] }}
+                    @if (($m['grouped'] ?? 1) > 1)
+                        <span class="block text-[10px] font-normal text-gray-400">{{ $m['grouped'] }} scans</span>
+                    @endif
                 </td>
                 <td class="px-4 py-3 text-gray-700 dark:text-gray-300">{{ $m['location'] }}</td>
                 <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs max-w-xs truncate">{{ $m['reason'] }}</td>
@@ -370,7 +377,18 @@
     @if(count($this->costHistory) === 0)
         <div class="px-5 py-12 text-center text-gray-400 text-sm">No cost history yet.</div>
     @else
-    <table class="w-full text-sm">
+    {{-- table-fixed with declared widths. On auto layout the browser hands the
+         slack to whichever column it likes, and a header can end up sitting
+         over a different span than the cells beneath it — which is why the
+         numbers did not line up under their titles. Fixed widths make that
+         impossible rather than unlikely. --}}
+    <table class="w-full text-sm table-fixed">
+        <colgroup>
+            <col class="w-[38%]" />
+            <col class="w-[20%]" />
+            <col class="w-[17%]" />
+            <col class="w-[25%]" />
+        </colgroup>
         <thead class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <tr class="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                 <th class="px-5 py-3 text-left">Period</th>
@@ -383,7 +401,7 @@
             @foreach($this->costHistory as $i => $row)
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $i % 2 === 1 ? 'bg-gray-50/50 dark:bg-gray-800/20' : '' }}">
                 <td class="px-5 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ $row['date'] }}</td>
-                <td class="px-5 py-3 text-right font-semibold text-gray-900 dark:text-gray-100 tabular-nums">${{ number_format($row['unit_cost'], 2) }}</td>
+                <td class="px-5 py-3 text-right font-semibold text-gray-900 dark:text-gray-100 tabular-nums">{{ $row['unit_cost'] === null ? '—' : '$' . number_format($row['unit_cost'], 2) }}</td>
                 <td class="px-5 py-3 text-right text-gray-600 dark:text-gray-400 tabular-nums">{{ number_format($row['qty']) }}</td>
                 <td class="px-5 py-3 text-xs">
                     <span class="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700 px-2 py-0.5 text-gray-600 dark:text-gray-300 font-medium">

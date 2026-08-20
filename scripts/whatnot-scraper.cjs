@@ -235,11 +235,21 @@ function writeJsonAndExit(value) {
 // diagnostics section. Exiting only once the write has landed makes the two
 // agree.
 function exitAfterStderr(text, code) {
-  let exited = false;
-  const done = () => { if (!exited) { exited = true; process.exit(code); } };
+  // fs.writeSync on fd 2 is synchronous even when stderr is a pipe, so the
+  // bytes are gone before exit rather than sitting in a buffer nobody flushes.
+  //
+  // The first version of this waited for process.stderr.write's drain callback
+  // and exited from there, which delivered the text but did not stop anything:
+  // the function returned immediately and execution carried on past a fatal
+  // error — "needs an X display" was followed by the browser launching anyway.
+  // A function named for exiting has to actually exit.
+  try {
+    require('fs').writeSync(2, text);
+  } catch {
+    try { process.stderr.write(text); } catch { /* nothing left to try */ }
+  }
 
-  process.stderr.write(text, done);
-  setTimeout(done, 5000);
+  process.exit(code);
 }
 
 async function debugShot(page, name) {
@@ -1700,10 +1710,15 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
   const headless = String(process.env.WHATNOT_HEADLESS ?? 'true').toLowerCase() !== 'false';
 
   if (!headless && !process.env.DISPLAY) {
+    // Deliberately not xvfb-run: it runs its command as `"$@" 2>&1`, which
+    // folds this script's stderr into the stdout carrying its JSON result.
+    // scripts/with-xvfb.sh provides a display and leaves both streams alone.
     exitAfterStderr(
       'WHATNOT_HEADLESS=false needs an X display, and DISPLAY is not set.\n' +
-      'Run the artisan command under xvfb: xvfb-run -a php artisan whatnot:import …\n' +
-      '(install with: apt-get install -y xvfb)\n',
+      'Run it through the wrapper instead:\n' +
+      '  ./scripts/with-xvfb.sh node scripts/whatnot-scraper.cjs\n' +
+      'Artisan commands do this for you — no wrapper needed there.\n' +
+      '(needs xvfb: apt-get install -y xvfb)\n',
       EXIT.GENERAL,
     );
   }

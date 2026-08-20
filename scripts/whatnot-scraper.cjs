@@ -420,9 +420,52 @@ function classifyBlockingPage(url, bodyText) {
 /** Report a blocked page and stop, with the code that says what to do next. */
 function exitBlocked(blocked, url) {
   exitAfterStderr(
-    blocked.error + ': ' + blocked.message + '\n' + 'CURRENT_URL: ' + url + '\n',
+    blocked.error + ': ' + blocked.message + '\n'
+    + describeChallengeShape()
+    + 'CURRENT_URL: ' + url + '\n',
     blocked.code,
   );
+}
+
+/**
+ * What the main-frame navigations said about where the block was decided.
+ *
+ * Filled in by installNavigationLogging. Counting is enough — the individual
+ * lines are already in the log, and what matters here is which of two shapes
+ * they add up to.
+ */
+const navFindings = { documentRefusals: 0, challengeRoundTrips: 0, documentOk: 0 };
+
+/**
+ * The one sentence the [nav] lines are worth, written out.
+ *
+ * A refusal on the document request is decided before a line of page script
+ * runs, so nothing about how this browser presents itself once loaded — its
+ * WebGL strings, its platform, whether it is headless — took part in it. Only
+ * the connection did: the address it came from, and what the handshake and
+ * headers looked like. A page that loaded and was replaced afterwards is the
+ * opposite, and would point back at the browser.
+ *
+ * Saying which one happened is the difference between a next step and a guess.
+ */
+function describeChallengeShape() {
+  if (navFindings.documentRefusals === 0) return '';
+
+  const rt = navFindings.challengeRoundTrips
+    ? `, looping through ${navFindings.challengeRoundTrips} __cf_chl_rt_tk round-trip(s) without settling`
+    : '';
+
+  return 'CHALLENGE_SHAPE: the request for the page was itself refused — '
+    + `${navFindings.documentRefusals} navigation response(s) came back 403/503${rt}. `
+    + (navFindings.documentOk === 0
+      ? 'No page ever loaded, so nothing this browser does after loading — its fingerprint, its '
+        + 'scripts, whether it is headless — was involved in the decision. That happens at the '
+        + 'connection: the address it came from, and what the TLS handshake and headers looked '
+        + 'like. Test the address first: `php artisan whatnot:probe` makes the same request with '
+        + 'no browser at all, and WHATNOT_PROXY routes it elsewhere.'
+      : 'Some pages did load, so this is not a flat refusal of the connection — the edge changed '
+        + 'its mind partway through the session.')
+    + '\n';
 }
 
 // Cloudflare's managed challenge is not a wall — it is an interstitial that
@@ -630,10 +673,24 @@ async function reportClearance(context) {
       return false;
     }
 
-    const expiresIn = clearance.expires > 0
-      ? Math.round((clearance.expires * 1000 - Date.now()) / 60000) + ' min'
-      : 'session';
-    info('cf_clearance: present, expires in', expiresIn);
+    const minutes = clearance.expires > 0
+      ? Math.round((clearance.expires * 1000 - Date.now()) / 60000)
+      : null;
+
+    info('cf_clearance: present, expires in', minutes === null ? 'session' : minutes + ' min');
+
+    // Cloudflare issues clearance for the order of an hour. A token good for
+    // months did not come from a challenge this profile passed — it came in
+    // with an imported session, and it is bound to the address and user agent
+    // that earned it, so from here it is at best ignored. Reported because
+    // "cf_clearance: present" otherwise reads as reassurance.
+    if (minutes !== null && minutes > 24 * 60) {
+      info(
+        'cf_clearance: that expiry is far longer than Cloudflare issues, so this token was almost',
+        'certainly imported rather than earned here. It is bound to the address that earned it.',
+        'Drop it with WHATNOT_DROP_CLEARANCE=1 to make this profile face the challenge on its own.',
+      );
+    }
 
     return true;
   } catch (e) {
@@ -687,13 +744,24 @@ function installNavigationLogging(page) {
       if (!request.isNavigationRequest()) return;
       if (request.frame() !== page.mainFrame()) return;
 
-      info(`[nav] ${response.status()} ${request.method()} ${navPath(response.url())}`);
+      const status = response.status();
+
+      // 403 and 503 are what Cloudflare answers a refused document with; the
+      // challenge page is the body of that response, not a later redirect.
+      if (status === 403 || status === 503) navFindings.documentRefusals++;
+      else if (status < 400) navFindings.documentOk++;
+
+      info(`[nav] ${status} ${request.method()} ${navPath(response.url())}`);
     } catch { /* the frame can go away mid-report; the log is not worth a crash */ }
   });
 
   page.on('framenavigated', (frame) => {
     try {
       if (frame !== page.mainFrame()) return;
+
+      // Cloudflare's own retry token. Seeing it come round more than once or
+      // twice means the challenge is being re-issued rather than passed.
+      if (frame.url().includes('__cf_chl_rt_tk')) navFindings.challengeRoundTrips++;
 
       info(`[nav] committed → ${navPath(frame.url())}`);
     } catch {}
@@ -3077,6 +3145,16 @@ async function extractLedgerFromPage(page) {
         info('cookie file found but failed to load:', e.message);
       }
     }
+  }
+
+  // An escape hatch for the case reportClearance warns about: an imported
+  // clearance token sits in the profile forever, because edge cookies are only
+  // stripped on the bootstrap path and an established profile never takes it.
+  if (process.env.WHATNOT_DROP_CLEARANCE === '1') {
+    for (const _edgeCookie of CLOUDFLARE_EDGE_COOKIES) {
+      await context.clearCookies({ name: _edgeCookie }).catch(() => {});
+    }
+    info('dropped Cloudflare edge cookies on request (WHATNOT_DROP_CLEARANCE=1)');
   }
 
   const page = await context.newPage();

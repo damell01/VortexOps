@@ -261,6 +261,30 @@ class ImportWhatnotShows extends Command
                     $totals['skipped'] += $result['skipped'];
                     $totals['orders']  += $orders;
                     $rows[] = [$channel->name, $result['created'], $result['updated'], $result['skipped'], $orders];
+                } catch (\App\Exceptions\WhatnotBlockedException $e) {
+                    // Every channel goes through the same browser to the same
+                    // edge, so a refusal aimed at this machine will refuse the
+                    // rest identically. Trying anyway spent four times as long
+                    // to learn nothing and printed the diagnosis four times,
+                    // burying the first and only useful copy.
+                    $this->error("  Channel \"{$channel->name}\" failed: " . $e->getMessage());
+                    $this->printTroubleshootingHints($e->getMessage());
+                    $rows[] = [$channel->name, 'ERROR', 'ERROR', 'ERROR', $e->getMessage()];
+
+                    $remaining = $channels->count() - count($rows);
+
+                    if ($remaining > 0) {
+                        $this->newLine();
+                        $this->warn("Stopping here — the block is aimed at this machine, not at this channel,");
+                        $this->line("so the remaining {$remaining} would be refused the same way. Fix the cause above");
+                        $this->line('and run again.');
+
+                        foreach ($channels->slice(count($rows)) as $skipped) {
+                            $rows[] = [$skipped->name, '—', '—', '—', 'not attempted'];
+                        }
+                    }
+
+                    break;
                 } catch (\RuntimeException $e) {
                     $this->error("  Channel \"{$channel->name}\" failed: " . $e->getMessage());
                     $this->printTroubleshootingHints($e->getMessage());

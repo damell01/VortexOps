@@ -1760,7 +1760,7 @@ class WhatnotScraper
                     . "    wrong; the [nav] lines below say which page was challenged and when.",
             };
 
-            throw new \RuntimeException(
+            throw new \App\Exceptions\WhatnotBlockedException(
                 "Cloudflare blocked the scraper with a bot-protection challenge.\n"
                 . "Read CURRENT_URL below — it separates the two causes:\n"
                 . "  • /login  — the saved session lapsed. Renew it: php artisan whatnot:login\n"
@@ -1773,7 +1773,7 @@ class WhatnotScraper
         }
 
         if ($exitCode === self::EXIT_RATE_LIMITED) {
-            throw new \RuntimeException(
+            throw new \App\Exceptions\WhatnotBlockedException(
                 "Whatnot is rate limiting this account. Wait and retry — running more often will not help.\n\n"
                 . $diagnostics
             );

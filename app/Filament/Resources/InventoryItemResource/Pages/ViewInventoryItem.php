@@ -84,17 +84,32 @@ class ViewInventoryItem extends Page
     public function getReceivingHistoryProperty(): array
     {
         return $this->record->palletLines()
-            ->with(['receivingSession.vendor', 'receivingSession', 'lot'])
+            // The pallet, not the receiving session. A pallet carries the
+            // vendor directly and is the thing anyone actually asks about —
+            // "which shipment did this come off" — while the session was
+            // usually null here, so the vendor column read "—" for stock that
+            // plainly came from somebody.
+            ->with(['pallet.vendor', 'lot', 'cases'])
             ->orderByDesc('created_at')
             ->limit(50)
             ->get()
             ->map(fn ($line) => [
                 'id'          => $line->id,
-                'session_id'  => $line->receiving_session_id,
-                'vendor'      => $line->receivingSession?->vendor?->name ?? '—',
-                'date'        => $line->created_at->format('M d, Y'),
-                'cases'       => $line->case_count,
-                'unit_cost'   => number_format((float) ($line->lot?->unit_cost ?? $line->unit_cost), 2),
+                'pallet_id'   => $line->pallet_id,
+                'pallet'      => $line->pallet?->displayName() ?? '—',
+                'pallet_url'  => $line->pallet
+                    ? \App\Filament\Resources\PalletResource::getUrl('items', ['record' => $line->pallet_id])
+                    : null,
+                'vendor'      => $line->pallet?->vendor?->name ?? '—',
+                // The date it was received, not the date the line was typed —
+                // a pallet is staged days before it lands.
+                'date'        => ($line->cases->where('status', '!=', 'expected')->max('received_at')
+                    ?? $line->created_at)->format('M d, Y'),
+                'cases'       => (int) $line->case_count,
+                'received'    => $line->cases->where('status', '!=', 'expected')->count(),
+                // Numeric, formatted by whatever prints it — see the scanner,
+                // where pre-formatting these took the page down.
+                'unit_cost'   => (float) ($line->lot?->unit_cost ?? $line->unit_cost),
                 'confidence'  => round((float) $line->match_confidence * 100),
                 'stage'       => $line->match_stage ?? '—',
             ])->toArray();

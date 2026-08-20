@@ -273,8 +273,8 @@
     <table class="w-full text-sm">
         <thead class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
             <tr class="text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                <th class="px-4 py-3 text-left">Session</th>
-                <th class="px-4 py-3 text-left">Date</th>
+                <th class="px-4 py-3 text-left">Pallet</th>
+                <th class="px-4 py-3 text-left">Received</th>
                 <th class="px-4 py-3 text-left">Vendor</th>
                 <th class="px-4 py-3 text-right">Cases</th>
                 <th class="px-4 py-3 text-right">Unit Cost</th>
@@ -285,11 +285,25 @@
         <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
             @foreach($this->receivingHistory as $i => $row)
             <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $i % 2 === 1 ? 'bg-gray-50/50 dark:bg-gray-800/20' : '' }}">
-                <td class="px-4 py-3 text-gray-400 font-mono text-xs">#{{ $row['session_id'] ?? '—' }}</td>
+                {{-- The other half of traceability: from an item, back to the
+                     shipment it came off — and straight into the table where
+                     its cost and name can be fixed. --}}
+                <td class="px-4 py-3">
+                    @if ($row['pallet_url'])
+                        <a href="{{ $row['pallet_url'] }}"
+                           class="font-medium text-primary-600 dark:text-primary-400 hover:underline">
+                            {{ $row['pallet'] }}
+                        </a>
+                    @else
+                        <span class="text-gray-400">—</span>
+                    @endif
+                </td>
                 <td class="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">{{ $row['date'] }}</td>
                 <td class="px-4 py-3 text-gray-700 dark:text-gray-300">{{ $row['vendor'] }}</td>
-                <td class="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100 tabular-nums">{{ $row['cases'] }}</td>
-                <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300 tabular-nums">${{ $row['unit_cost'] }}</td>
+                <td class="px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100 tabular-nums">
+                    {{ $row['received'] }}<span class="text-gray-400"> / {{ $row['cases'] }}</span>
+                </td>
+                <td class="px-4 py-3 text-right text-gray-700 dark:text-gray-300 tabular-nums">${{ number_format($row['unit_cost'], 2) }}</td>
                 <td class="px-4 py-3 text-center">
                     @if($row['confidence'] > 0)
                     <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold

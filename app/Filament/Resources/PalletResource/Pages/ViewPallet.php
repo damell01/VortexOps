@@ -385,6 +385,17 @@ class ViewPallet extends ViewRecord
                 ->visible(fn () => $this->getRecord()->lines()->exists()
                     && ! in_array($this->getRecord()->status, ['received', 'processed'], true)),
 
+            // The other direction of the same question. From an item you ask
+            // "where did this come from"; from a pallet, "what did this bring
+            // in" — and the answer is a table you can correct in place rather
+            // than a list of links out to product pages.
+            Action::make('pallet_items')
+                ->label('Items from this pallet')
+                ->icon('heroicon-o-squares-2x2')
+                ->color('gray')
+                ->url(fn () => PalletResource::getUrl('items', ['record' => $this->record]))
+                ->visible(fn () => $this->getRecord()->lines()->exists()),
+
             Action::make('add_lines')
                 ->label('Add Lines')
                 ->icon('heroicon-o-table-cells')

@@ -413,6 +413,7 @@ class PalletResource extends Resource
             'edit'            => Pages\EditPallet::route('/{record}/edit'),
             'stage'           => Pages\StagePallet::route('/{record}/stage'),
             'add-lines'       => Pages\AddPalletLines::route('/{record}/add-lines'),
+            'items'           => Pages\PalletItems::route('/{record}/items'),
             'receive'         => Pages\ReceivePallet::route('/{record}/receive'),
             'import-manifest' => Pages\ImportManifest::route('/{record}/import-manifest'),
         ];

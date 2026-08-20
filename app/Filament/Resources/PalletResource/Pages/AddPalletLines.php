@@ -6,12 +6,10 @@ use App\Filament\Resources\PalletResource;
 use App\Models\InventoryLocation;
 use App\Models\Pallet;
 use App\Models\PalletLine;
-use App\Models\Product;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Illuminate\Support\Facades\DB;
-use Livewire\WithFileUploads;
 
 /**
  * Type a pallet's contents as a table, one row per line.
@@ -32,10 +30,6 @@ class AddPalletLines extends Page
     // Supplies $record, resolveRecord() and getRecord() — a plain resource Page
     // has no record of its own, and this one is meaningless without a pallet.
     use InteractsWithRecord;
-
-    // Staging photos: the box is usually in front of you while the manifest is
-    // being typed, and that is the only moment a picture of it costs nothing.
-    use WithFileUploads;
 
     protected static string $resource = PalletResource::class;
 
@@ -79,10 +73,6 @@ class AddPalletLines extends Page
             ->map(fn (PalletLine $line) => [
                 'id'                => $line->id,
                 'description'       => (string) $line->description,
-                'barcode'           => (string) ($line->barcode ?? ''),
-                'photo'             => null,
-                'photo_path'        => $line->photo_path,
-                'photo_url'         => $line->photoUrl(),
                 'inventory_item_id' => (string) ($line->inventory_item_id ?? ''),
                 'is_container'      => $line->is_container === null ? '' : (string) (int) $line->is_container,
                 'case_count'        => $line->case_count,
@@ -111,77 +101,12 @@ class AddPalletLines extends Page
         return [
             'id'                => null,
             'description'       => '',
-            'barcode'           => '',
-            'photo'             => null,
-            'photo_path'        => null,
-            'photo_url'         => null,
             'inventory_item_id' => '',
             'is_container'      => '',
             'case_count'        => 1,
             'quantity_per_case' => 1,
             'unit_cost'         => null,
         ];
-    }
-
-    /**
-     * Record a scanned code against one row.
-     *
-     * Scanning at staging rather than at arrival is the difference between
-     * reading a code off the box in front of you and matching a name off a
-     * packing slip to a box days later. Nothing is created in inventory by
-     * this — the code sits on the line until the pallet lands, which is the
-     * whole point of staging.
-     */
-    public function scanIntoRow(int $index, string $code): void
-    {
-        $code = trim($code);
-
-        if ($code === '' || ! isset($this->rows[$index])) {
-            return;
-        }
-
-        $this->rows[$index]['barcode'] = $code;
-
-        // If it is something already stocked, say so and link it: the answer to
-        // "is this new?" is in the scan, and asking the person holding the box
-        // to also find it in a dropdown is the step worth removing.
-        $known = Product::findByScan($code);
-
-        if ($known) {
-            $this->rows[$index]['inventory_item_id'] = (string) $known->id;
-
-            if (trim((string) $this->rows[$index]['description']) === '') {
-                $this->rows[$index]['description'] = $known->name;
-            }
-
-            Notification::make()
-                ->title('Already in inventory')
-                ->body("{$known->name} — line linked to it.")
-                ->success()
-                ->send();
-
-            return;
-        }
-
-        if (trim((string) $this->rows[$index]['description']) === '') {
-            Notification::make()
-                ->title('New item scanned')
-                ->body('Give it a name — the code is saved against this line.')
-                ->info()
-                ->send();
-        }
-    }
-
-    /** Forget a row's photo without having to save and come back. */
-    public function clearPhoto(int $index): void
-    {
-        if (! isset($this->rows[$index])) {
-            return;
-        }
-
-        $this->rows[$index]['photo']      = null;
-        $this->rows[$index]['photo_path'] = null;
-        $this->rows[$index]['photo_url']  = null;
     }
 
     public function addRow(): void
@@ -300,8 +225,6 @@ class AddPalletLines extends Page
                 $attributes = [
                     'line_number'       => $number++,
                     'description'       => trim($row['description']),
-                    'barcode'           => trim((string) ($row['barcode'] ?? '')) ?: null,
-                    'photo_path'        => $this->storePhoto($row),
                     // '' means "not sure yet", which is a real answer while
                     // reading a slip and must not become false.
                     'is_container'      => $row['is_container'] === '' ? null : (bool) $row['is_container'],
@@ -359,28 +282,6 @@ class AddPalletLines extends Page
             ->send();
 
         $this->redirect(PalletResource::getUrl('view', ['record' => $this->record]));
-    }
-
-    /**
-     * Where a row's photo ends up, if it has one.
-     *
-     * On the same disk as product images, because that is where it is going:
-     * when the line becomes a product the path is handed straight over rather
-     * than the file being copied about. Returns the existing path untouched
-     * when nothing new was attached, so saving a row twice does not lose the
-     * picture taken the first time.
-     *
-     * @param  array<string, mixed>  $row
-     */
-    private function storePhoto(array $row): ?string
-    {
-        $upload = $row['photo'] ?? null;
-
-        if (! $upload instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile) {
-            return $row['photo_path'] ?? null;
-        }
-
-        return $upload->store('product-images', Product::IMAGE_DISK) ?: null;
     }
 
     /**

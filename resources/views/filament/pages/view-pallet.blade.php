@@ -172,16 +172,35 @@
                                 <tr class="border-b border-gray-50 dark:border-gray-800/60 last:border-0">
                                     <td class="px-4 py-2.5">
                                         <div class="flex items-start gap-2.5">
-                                            {{-- The photo taken while staging. It is here because
-                                                 the name off a packing slip is often not enough to
-                                                 recognise a box by, and this is the one picture
-                                                 that was taken of the actual thing. --}}
-                                            @if ($vxLine->hasPhoto())
-                                                <a href="{{ $vxLine->photoUrl() }}" target="_blank" rel="noopener"
-                                                   title="Photo taken while staging">
-                                                    <img src="{{ $vxLine->photoUrl() }}" alt=""
-                                                         class="h-10 w-10 shrink-0 rounded-md object-cover ring-1 ring-gray-200 dark:ring-gray-700" />
-                                                </a>
+                                            {{-- Photographing a box needs the box, so this only
+                                                 appears once the line is linked — which is the
+                                                 moment it has been scanned off the pallet and is
+                                                 in somebody's hands. Products otherwise get their
+                                                 picture from a catalogue, and single-source break
+                                                 product often has no catalogue to get one from.
+
+                                                 capture="environment" opens the rear camera
+                                                 straight away on a phone, which is what this
+                                                 screen is used on at a pallet. --}}
+                                            @if ($vxLine->inventoryItem)
+                                                <label
+                                                    title="{{ $vxLine->inventoryItem->hasImage() ? 'Replace the photo' : 'Photograph this item' }}"
+                                                    class="group relative h-10 w-10 shrink-0 cursor-pointer overflow-hidden rounded-md ring-1 ring-gray-200 dark:ring-gray-700">
+                                                    <input type="file" accept="image/*" capture="environment" class="hidden"
+                                                           wire:model="linePhotos.{{ $vxLine->id }}" />
+
+                                                    @if ($vxLine->inventoryItem->hasImage())
+                                                        <img src="{{ $vxLine->inventoryItem->imageUrl() }}" alt=""
+                                                             class="h-full w-full object-cover" />
+                                                    @else
+                                                        <span class="flex h-full w-full items-center justify-center bg-gray-50 dark:bg-gray-800 text-gray-400">
+                                                            <x-heroicon-o-camera class="h-4 w-4" />
+                                                        </span>
+                                                    @endif
+
+                                                    <span wire:loading wire:target="linePhotos.{{ $vxLine->id }}"
+                                                          class="absolute inset-0 animate-pulse bg-violet-500/60"></span>
+                                                </label>
                                             @endif
                                             <div class="min-w-0">
                                                 <p class="font-medium text-gray-900 dark:text-gray-100">
@@ -192,13 +211,6 @@
                                                     · {{ number_format($vxLine->quantity_per_case) }}/case
                                                     · ${{ number_format((float) $vxLine->unit_cost, 2) }} each
                                                 </p>
-                                                @if (! $vxMapped && filled($vxLine->barcode))
-                                                    <p class="mt-0.5 inline-flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-                                                        <x-heroicon-o-qr-code class="h-3.5 w-3.5" />
-                                                        <span class="tabular-nums">{{ $vxLine->barcode }}</span>
-                                                        <span class="text-gray-400">scanned at staging</span>
-                                                    </p>
-                                                @endif
                                             </div>
                                         </div>
                                     </td>
@@ -243,31 +255,6 @@
                                                  location from the pallet. The chevron opens the
                                                  form for the times a code has to be typed. --}}
                                             <div class="inline-flex items-center gap-1">
-                                                @if (filled($vxLine->barcode))
-                                                    {{-- Already scanned while staging, with the box
-                                                         in hand. Pointing the camera at the same box
-                                                         again asks a question that has an answer. --}}
-                                                    <button
-                                                        type="button"
-                                                        wire:click="useStagedScan({{ $vxLine->id }})"
-                                                        title="Use the code scanned at staging: {{ $vxLine->barcode }}"
-                                                        class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 active:scale-95 transition-transform"
-                                                    >
-                                                        <x-heroicon-o-check class="h-4 w-4" /> Add to inventory
-                                                    </button>
-                                                @else
-                                                <button
-                                                    type="button"
-                                                    x-data
-                                                    @click="
-                                                        window.vxPendingScanLine = {{ $vxLine->id }};
-                                                        window.dispatchEvent(new Event('open-camera-scanner'));
-                                                    "
-                                                    class="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 active:scale-95 transition-transform"
-                                                >
-                                                    <x-heroicon-o-qr-code class="h-4 w-4" /> Scan to add
-                                                </button>
-                                                @endif
                                                 <button
                                                     type="button"
                                                     title="Type the code instead"

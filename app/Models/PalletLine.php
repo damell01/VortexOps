@@ -14,8 +14,6 @@ class PalletLine extends Model
         'receiving_session_id',
         'line_number',
         'description',
-        'barcode',
-        'photo_path',
         'is_container',
         'vendor_description',
         'inventory_item_id',
@@ -125,27 +123,6 @@ class PalletLine extends Model
     public function receivedCases(): int
     {
         return $this->cases()->where('status', '!=', 'expected')->count();
-    }
-
-    /** Whether a photo of the actual thing was taken while staging. */
-    public function hasPhoto(): bool
-    {
-        return filled($this->photo_path);
-    }
-
-    /**
-     * A URL for the staging photo, or null.
-     *
-     * Deliberately not falling back to the brand mark the way a product does:
-     * on a manifest a photo is evidence that somebody looked in the box, so
-     * "no photo" has to be distinguishable from "photo of nothing in
-     * particular".
-     */
-    public function photoUrl(): ?string
-    {
-        return $this->hasPhoto()
-            ? \Illuminate\Support\Facades\Storage::disk(Product::IMAGE_DISK)->url($this->photo_path)
-            : null;
     }
 
     public function isFullyMapped(): bool

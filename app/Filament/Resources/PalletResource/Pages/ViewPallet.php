@@ -20,7 +20,22 @@ class ViewPallet extends ViewRecord
 {
     protected static string $resource = PalletResource::class;
 
+    // Photographing a box only makes sense with the box in hand, which is here:
+    // the pallet has landed and its lines are being scanned in.
+    use \Livewire\WithFileUploads;
+
     public ?array $newAttachments = null;
+
+    /**
+     * Photos being attached to products, keyed by pallet line id.
+     *
+     * Keyed rather than a single property because the rows each have their own
+     * button and someone working down a pallet will not wait for one upload to
+     * finish before starting the next.
+     *
+     * @var array<int|string, mixed>
+     */
+    public array $linePhotos = [];
 
     /** Set once the relations have been pulled in, so they are pulled once. */
     private bool $relationsLoaded = false;
@@ -205,24 +220,64 @@ class ViewPallet extends ViewRecord
     }
 
     /**
-     * Use the code that was already scanned onto this line while staging.
+     * Photograph the item a line points at, with the box in front of you.
      *
-     * A line staged with the box in hand already carries its barcode, so
-     * pointing the camera at the same box again on arrival asks a question that
-     * has been answered. This runs the identical path with the stored code —
-     * the product is still only created now, not at staging.
+     * Products get their picture from a catalogue or from nothing at all, and
+     * for single-source break product there is often no catalogue to get one
+     * from. The one moment a real photo is free is while the pallet is being
+     * unloaded — so the button lives on the row, next to counting the case.
+     *
+     * Only once the line is linked, because until then there is no product for
+     * the picture to belong to.
+     *
+     * Fires from wire:model="linePhotos.{id}" — Livewire calls this with the
+     * upload and the array key as soon as the file lands.
      */
-    public function useStagedScan(int $lineId): void
+    public function updatedLinePhotos($value, $key): void
     {
-        $line = $this->lineFor(['line' => $lineId]);
+        $line = $this->lineFor(['line' => (int) $key]);
 
-        if (! $line || blank($line->barcode)) {
-            Notification::make()->title('Nothing was scanned onto that line')->danger()->send();
+        // Never left holding an upload for a row that has gone away, or one
+        // already written to a product — the next photo would otherwise be
+        // rejected as a duplicate key.
+        unset($this->linePhotos[$key]);
+
+        if (! $line?->inventoryItem) {
+            Notification::make()->title('Link the line to an item first')->danger()->send();
 
             return;
         }
 
-        $this->scanLineIntoInventory($lineId, $line->barcode);
+        if (! $value instanceof \Livewire\Features\SupportFileUploads\TemporaryUploadedFile) {
+            return;
+        }
+
+        $path = $value->store('product-images', InventoryItem::IMAGE_DISK);
+
+        if (! $path) {
+            Notification::make()->title('That photo could not be saved')->danger()->send();
+
+            return;
+        }
+
+        $previous = $line->inventoryItem->image_path;
+
+        $line->inventoryItem->update(['image_path' => $path]);
+
+        // The old file is nothing's picture now, and leaving it behind fills the
+        // disk with images no page will ever ask for.
+        if ($previous && $previous !== $path) {
+            Storage::disk(InventoryItem::IMAGE_DISK)->delete($previous);
+        }
+
+        Notification::make()
+            ->title('Photo saved')
+            ->body($line->inventoryItem->name . ' now has a picture of the real thing.')
+            ->success()
+            ->send();
+
+        $this->record->refresh();
+        $this->refreshLoadedRelations();
     }
 
     /** Already linked, and another one of it just came off the pallet. */

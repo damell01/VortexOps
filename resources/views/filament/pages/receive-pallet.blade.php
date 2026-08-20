@@ -1,12 +1,26 @@
 <x-filament-panels::page>
-{{-- Tapping Scan on a line aims the scanner at it. The scanner lives at the top
-     of a long page and the line is somewhere down it, so aiming without moving
-     the page there looked like the button did nothing. --}}
+{{-- Tapping Scan on a line opens the camera on it.
+
+     Pressing "Scan" and then having to find the scanner yourself is the button
+     not doing what it says — the whole point is that you are holding the box.
+     This presses the page's own camera button, so the flow is identical to
+     having pressed it directly, with the line already aimed at.
+
+     Falls back to focusing the input when there is no camera button on screen:
+     a desktop with a handheld scanner still wants the cursor in the box, and
+     landing on nothing would be worse than the old behaviour. --}}
 <div
     x-data
     @scan-line-targeted.window="
-        const box = [...document.querySelectorAll('#barcode-input, #barcode-input-desktop')]
-            .find(el => el.offsetParent !== null);
+        const visible = (sel) => [...document.querySelectorAll(sel)].find(el => el.offsetParent !== null);
+        const camera = visible('#camera-scan-btn, #camera-scan-btn-mobile');
+
+        if (camera) {
+            camera.click();
+            return;
+        }
+
+        const box = visible('#barcode-input, #barcode-input-desktop');
         if (box) {
             box.scrollIntoView({ behavior: 'smooth', block: 'center' });
             setTimeout(() => box.focus(), 250);
@@ -600,8 +614,14 @@
             const container = document.getElementById('camera-container');
             const video = document.getElementById('camera-video');
             const stopBtn = document.getElementById('camera-stop-btn');
-            // Get the visible barcode input (mobile or desktop)
-            const input = document.getElementById('barcode-input') || document.getElementById('barcode-input-desktop');
+            // Resolved when it is needed, not at load. Which of the two
+            // layouts is on screen depends on the viewport now, and both exist
+            // in the DOM at all times — so a reference taken once can be to the
+            // hidden one.
+            const currentInput = () => [...document.querySelectorAll('#barcode-input, #barcode-input-desktop')]
+                .find(el => el.offsetParent !== null)
+                ?? document.getElementById('barcode-input-desktop')
+                ?? document.getElementById('barcode-input');
             let isScanning = false;
             let cameraStream = null;
 
@@ -619,15 +639,27 @@
                 // Alt+M = Focus manual input
                 if (e.altKey && e.key === 'm') {
                     e.preventDefault();
-                    input?.focus();
+                    currentInput()?.focus();
                 }
             });
 
-            cameraButtons.forEach(btn => {
-                btn.addEventListener('click', startCamera);
+            // Delegated, not bound to the elements captured at load. Every
+            // Livewire round trip on this page — a scan, a line targeted, a
+            // count going up — morphs the DOM, and a listener attached to a
+            // replaced button dies with it. That is a camera button that works
+            // until the first scan and silently stops afterwards, which is the
+            // hardest kind of failure to report.
+            document.addEventListener('click', function (e) {
+                if (e.target.closest('#camera-scan-btn, #camera-scan-btn-mobile')) {
+                    startCamera();
+                }
             });
 
-            stopBtn?.addEventListener('click', stopCamera);
+            document.addEventListener('click', function (e) {
+                if (e.target.closest('#camera-stop-btn')) {
+                    stopCamera();
+                }
+            });
 
             async function startCamera() {
                 if (isScanning || cameraStream) return;
@@ -703,12 +735,13 @@
                             oscillator.stop(audioContext.currentTime + 0.1);
                         } catch (e) { /* Audio not available */ }
 
-                        input.value = barcode;
-                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                        const box = currentInput();
+                        box.value = barcode;
+                        box.dispatchEvent(new Event('input', { bubbles: true }));
                         stopCamera();
 
                         // Trigger submit
-                        const submitBtn = input.parentElement?.querySelector('button[type="button"]:not(#camera-scan-btn):not(#camera-scan-btn-mobile)');
+                        const submitBtn = box.parentElement?.querySelector('button[type="button"]:not(#camera-scan-btn):not(#camera-scan-btn-mobile)');
                         if (submitBtn) submitBtn.click();
                     }
                 });

@@ -12,6 +12,8 @@ class MissingItemReport extends Model
 
     protected $fillable = [
         'pallet_id',
+        'pallet_line_id',
+        'description',
         'inventory_item_id',
         'expected_quantity',
         'unit_cost',
@@ -71,5 +73,23 @@ class MissingItemReport extends Model
         }
 
         return $missing;
+    }
+
+    public function palletLine(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(PalletLine::class);
+    }
+
+    /**
+     * What to call the thing that did not turn up.
+     *
+     * The product if it was ever linked, else what the packing slip called it.
+     * A line that never arrived was never scanned, so the slip's wording is
+     * often the only name it has.
+     */
+    public function displayName(): string
+    {
+        return $this->inventoryItem?->name
+            ?: ($this->description ?: ($this->palletLine?->description ?: 'Unnamed line'));
     }
 }

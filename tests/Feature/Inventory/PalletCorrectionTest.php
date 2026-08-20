@@ -254,6 +254,63 @@ class PalletCorrectionTest extends TestCase
         $this->assertFalse($rows[0]['complete']);
     }
 
+    // ── Reporting what never turned up ────────────────────────────────────
+
+    public function test_a_line_that_never_arrived_can_be_marked_short(): void
+    {
+        // The case the report exists for, and the one that used to throw. A
+        // line staged from the packing slip whose box never came was never
+        // scanned, so it has no product — and inventory_item_id was NOT NULL.
+        $line = $this->pallet->lines()->create([
+            'line_number' => 1, 'description' => 'Never Arrived', 'case_count' => 4, 'unit_cost' => 25,
+        ]);
+
+        \Livewire\Livewire::test(
+            \App\Filament\Resources\PalletResource\Pages\ReceivePallet::class,
+            ['record' => $this->pallet],
+        )->call('markLineAsShort', $line->id);
+
+        $report = \App\Models\MissingItemReport::latest('id')->first();
+
+        $this->assertNotNull($report, 'Nothing was recorded.');
+        $this->assertNull($report->inventory_item_id);
+        $this->assertSame($line->id, $report->pallet_line_id);
+        $this->assertSame(4, (int) $report->expected_quantity);
+
+        // Still says which line, because "four short" on its own is not a
+        // report anyone can act on.
+        $this->assertSame('Never Arrived', $report->displayName());
+    }
+
+    public function test_a_partly_received_line_reports_only_the_shortfall(): void
+    {
+        $line = $this->receivedLine(unitCost: 100, cases: 3, perCase: 1);
+
+        // Two of the three arrived; put one back to outstanding.
+        $line->cases()->latest('id')->first()->update(['status' => 'expected', 'received_at' => null]);
+
+        \Livewire\Livewire::test(
+            \App\Filament\Resources\PalletResource\Pages\ReceivePallet::class,
+            ['record' => $this->pallet],
+        )->call('markLineAsShort', $line->id);
+
+        $this->assertSame(1, (int) \App\Models\MissingItemReport::latest('id')->first()->expected_quantity);
+    }
+
+    public function test_the_receiver_defaults_to_whoever_is_signed_in(): void
+    {
+        // A question the app already knows the answer to is one that gets
+        // skipped and left blank.
+        $this->pallet->lines()->create([
+            'line_number' => 1, 'description' => 'Something', 'case_count' => 1,
+        ]);
+
+        \Livewire\Livewire::test(
+            \App\Filament\Resources\PalletResource\Pages\ReceivePallet::class,
+            ['record' => $this->pallet],
+        )->assertSet('receivedByName', auth()->user()->name);
+    }
+
     private function stockAt(PalletLine $line, InventoryLocation $location): float
     {
         return (float) (InventoryStock::where('inventory_item_id', $line->inventory_item_id)

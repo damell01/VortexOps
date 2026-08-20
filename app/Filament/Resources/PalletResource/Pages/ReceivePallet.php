@@ -53,6 +53,13 @@ class ReceivePallet extends Page
         // opened rather than the date of the latest visit.
         $this->record->markReceivingStarted();
 
+        // Whoever is signed in is doing the receiving. Asking them to type
+        // their own name is a question the app already knows the answer to,
+        // and one that gets skipped and left blank. Still editable, because
+        // somebody signing in on the warehouse tablet may be receiving on
+        // behalf of the person actually holding the scanner.
+        $this->receivedByName ??= auth()->user()?->name;
+
         $this->refreshProgress();
     }
 
@@ -107,6 +114,13 @@ class ReceivePallet extends Page
         $this->targetLineId = ($this->targetLineId === $lineId) ? null : $lineId;
         $this->lastScannedResult = null;
         $this->lastScanDetails = null;
+
+        // Setting a flag is not what pressing "Scan" means. The scanner is at
+        // the top of a long page and the line you tapped is somewhere down it,
+        // so aiming without moving looked like the button did nothing.
+        if ($this->targetLineId !== null) {
+            $this->dispatch('scan-line-targeted');
+        }
     }
 
     /**
@@ -279,6 +293,12 @@ class ReceivePallet extends Page
                 // Create missing item report
                 \App\Models\MissingItemReport::create([
                     'pallet_id'          => $this->record->id,
+                    // The line, and what the slip called it. A line that never
+                    // arrived was never scanned, so it has no product — which
+                    // is the case this report exists for, and the one that used
+                    // to fail on a not-null constraint.
+                    'pallet_line_id'     => $line->id,
+                    'description'        => $line->description,
                     'inventory_item_id'  => $line->inventory_item_id,
                     'expected_quantity'  => $shortCount,
                     'unit_cost'          => $line->unit_cost,

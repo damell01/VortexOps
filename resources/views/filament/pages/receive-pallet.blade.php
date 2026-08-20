@@ -1,4 +1,19 @@
 <x-filament-panels::page>
+{{-- Tapping Scan on a line aims the scanner at it. The scanner lives at the top
+     of a long page and the line is somewhere down it, so aiming without moving
+     the page there looked like the button did nothing. --}}
+<div
+    x-data
+    @scan-line-targeted.window="
+        const box = [...document.querySelectorAll('#barcode-input, #barcode-input-desktop')]
+            .find(el => el.offsetParent !== null);
+        if (box) {
+            box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => box.focus(), 250);
+        }
+    "
+></div>
+
     <div class="space-y-6">
 
         {{-- ── Workflow Progress ────────────────────────────────────────── --}}

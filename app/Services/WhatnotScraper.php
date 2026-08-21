@@ -1674,10 +1674,14 @@ class WhatnotScraper
      *
      * @return array{operations: array<int, array<string, mixed>>, liveCalls: array<int, array<string, mixed>>}
      */
-    public function discoverApi(bool $debug = false): array
+    public function discoverApi(bool $debug = false, ?string $find = null): array
     {
         $env = $this->baseEnv($debug);
         $env['WHATNOT_MODE'] = 'api-discover';
+
+        if (filled($find)) {
+            $env['WHATNOT_FIND'] = $find;
+        }
 
         // The page is given twelve seconds to finish its own start-up calls,
         // and the bundles are fetched after that.
@@ -1705,6 +1709,8 @@ class WhatnotScraper
             'liveCalls'     => $data['liveCalls'] ?? [],
             'introspection' => $data['introspection'] ?? null,
             'scriptCount'   => $data['scriptCount'] ?? 0,
+            'needle'        => $data['needle'] ?? null,
+            'needleHits'    => $data['needleHits'] ?? [],
         ];
     }
 

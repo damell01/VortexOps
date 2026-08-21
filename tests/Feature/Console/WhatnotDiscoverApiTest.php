@@ -23,6 +23,8 @@ class WhatnotDiscoverApiTest extends TestCase
         array $liveCalls = [],
         ?array $introspection = null,
         int $scriptCount = 12,
+        ?string $needle = null,
+        array $needleHits = [],
     ): \Illuminate\Testing\PendingCommand {
         $scraper = Mockery::mock(WhatnotScraper::class);
         $scraper->shouldReceive('discoverApi')->andReturn([
@@ -30,6 +32,8 @@ class WhatnotDiscoverApiTest extends TestCase
             'liveCalls'     => $liveCalls,
             'introspection' => $introspection,
             'scriptCount'   => $scriptCount,
+            'needle'        => $needle,
+            'needleHits'    => $needleHits,
         ]);
 
         $this->app->instance(WhatnotScraper::class, $scraper);
@@ -130,5 +134,37 @@ class WhatnotDiscoverApiTest extends TestCase
         // names. Only the first means the discovery itself did not run.
         $this->finding([], [['method' => 'GET', 'url' => '/x']], null, 0)
             ->expectsOutputToContain('no bundles to read');
+    }
+
+    // ── Are we even reading the right files? ──────────────────────────────
+
+    public function test_a_needle_that_is_found_shows_what_surrounds_it(): void
+    {
+        // The context is the point, not the hit: it is the syntax the patterns
+        // have to match, and reading it is faster than guessing at what a
+        // bundler emitted.
+        $this->finding(
+            [], [], null, 12,
+            'CurrentUserFollowedLivestreamTags',
+            [['from' => 'main-abc.js', 'context' => 'kind:"Name",value:"CurrentUserFollowedLivestreamTags"']],
+        )
+            ->expectsOutputToContain('found in 1 bundle')
+            ->expectsOutputToContain('kind:"Name"');
+    }
+
+    public function test_a_needle_that_is_missing_says_we_are_looking_in_the_wrong_place(): void
+    {
+        // The distinction three rounds were lost to. An empty result means
+        // either the operations are not there or these are not the files —
+        // and a name known to exist tells the two apart.
+        $this->finding([], [], null, 12, 'CurrentUserFollowedLivestreamTags', [])
+            ->expectsOutputToContain('is in none of the bundles')
+            ->expectsOutputToContain('looking in the wrong place');
+    }
+
+    public function test_no_needle_means_no_extra_output(): void
+    {
+        $this->finding([$this->op('SellerShowsList')])
+            ->doesntExpectOutputToContain('is in none of the bundles');
     }
 }

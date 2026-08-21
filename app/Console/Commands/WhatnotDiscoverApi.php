@@ -20,7 +20,8 @@ class WhatnotDiscoverApi extends Command
 {
     protected $signature = 'whatnot:discover-api
                             {--save= : Write the full findings to this file}
-                            {--filter=* : Only show operations whose name contains one of these}';
+                            {--filter=* : Only show operations whose name contains one of these}
+                            {--find= : Search the bundles for this literal and show what surrounds it}';
 
     protected $description = 'List the API operations the Seller Hub uses, for building calls against';
 
@@ -34,7 +35,7 @@ class WhatnotDiscoverApi extends Command
         $this->newLine();
 
         try {
-            $found = $scraper->discoverApi();
+            $found = $scraper->discoverApi(find: $this->option('find'));
         } catch (\RuntimeException $e) {
             $this->error($e->getMessage());
 
@@ -44,7 +45,13 @@ class WhatnotDiscoverApi extends Command
         $operations = $found['operations'] ?? [];
         $liveCalls  = $found['liveCalls'] ?? [];
 
-        if ($operations === [] && $liveCalls === [] && empty($found['introspection'])) {
+        // The needle result counts as a finding, and a decisive one: it is the
+        // answer to "are we reading the right files at all". Returning early on
+        // an empty operation list would swallow the very output the run was
+        // asked for.
+        if ($operations === [] && $liveCalls === []
+            && empty($found['introspection'])
+            && blank($found['needle'] ?? null)) {
             $this->warn('Nothing found. Either the page did not finish loading, or the bundles');
             $this->line('are served from a host the fetch could not reach.');
 
@@ -86,6 +93,32 @@ class WhatnotDiscoverApi extends Command
 
         if (($found['scriptCount'] ?? 0) === 0 && $operations === []) {
             $this->line('<fg=gray>No scripts were referenced by the page, so there were no bundles to read.</>');
+            $this->newLine();
+        }
+
+        // Whether we are reading the right files at all.
+        //
+        // "Found nothing" and "read the wrong files" produce the same empty
+        // list, and three rounds were spent on the second while assuming the
+        // first. Given a name known to exist, this settles which it is — and
+        // shows the syntax the patterns have to match.
+        if (filled($found['needle'] ?? null)) {
+            $hits = $found['needleHits'] ?? [];
+
+            if ($hits === []) {
+                $this->warn("\"{$found['needle']}\" is in none of the bundles that were read.");
+                $this->line('So the operation text lives somewhere these files are not — the discovery');
+                $this->line('is looking in the wrong place rather than finding nothing.');
+            } else {
+                $this->info("\"{$found['needle']}\" found in " . count($hits) . ' bundle(s):');
+
+                foreach (array_slice($hits, 0, 3) as $hit) {
+                    $this->newLine();
+                    $this->line("  <fg=gray>{$hit['from']}</>");
+                    $this->line('  ' . str_replace("\n", ' ', $hit['context']));
+                }
+            }
+
             $this->newLine();
         }
 

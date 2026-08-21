@@ -3632,6 +3632,9 @@ async function extractLedgerFromPage(page) {
 
       info(`[bundles] ${scriptUrls.length} script(s) referenced by the page`);
 
+      const needle     = (process.env.WHATNOT_FIND || '').trim();
+      const needleHits = [];
+
       for (const url of scriptUrls.slice(0, 60)) {
         const fetched = await context.request.get(url).catch(() => null);
 
@@ -3646,6 +3649,31 @@ async function extractLedgerFromPage(page) {
         for (const m of text.matchAll(/operationName["'\s:=]+([A-Z][A-Za-z0-9_]{3,})/g)) {
           if (! bundleOps.has(m[1])) bundleOps.set(m[1], { name: m[1], kind: 'operationName', from: url.split('/').pop().substring(0, 60) });
         }
+
+        // The shape a compiled GraphQL document takes. graphql-tag and friends
+        // turn `query Foo { … }` into an AST at build time, so the source text
+        // the two patterns above look for is gone by the time it ships — which
+        // is why bundles that certainly contain operations matched nothing.
+        for (const m of text.matchAll(/kind:\s*["']Name["']\s*,\s*value:\s*["']([A-Z][A-Za-z0-9_]{3,})["']/g)) {
+          if (! bundleOps.has(m[1])) bundleOps.set(m[1], { name: m[1], kind: 'document', from: url.split('/').pop().substring(0, 60) });
+        }
+
+        for (const m of text.matchAll(/["']([A-Z][A-Za-z0-9_]{3,})["']\s*,\s*(?:kind|operation)\s*:\s*["'](?:query|mutation)["']/g)) {
+          if (! bundleOps.has(m[1])) bundleOps.set(m[1], { name: m[1], kind: 'document', from: url.split('/').pop().substring(0, 60) });
+        }
+
+        // A literal to hunt for, so "found nothing" can be told apart from
+        // "read the wrong files". Given a name known to exist, this reports
+        // which bundle holds it and what surrounds it — which is the syntax the
+        // patterns above have to match.
+        if (needle && text.includes(needle)) {
+          const at = text.indexOf(needle);
+
+          needleHits.push({
+            from:    url.split('/').pop().substring(0, 60),
+            context: text.substring(Math.max(0, at - 220), at + 220),
+          });
+        }
       }
 
       // Whichever source saw it.
@@ -3659,6 +3687,8 @@ async function extractLedgerFromPage(page) {
 
       writeJsonAndExit({
         ok: true,
+        needle,
+        needleHits,
         introspection,
         scriptCount: scriptUrls.length,
         operations,

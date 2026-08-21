@@ -9,7 +9,7 @@ use Symfony\Component\Console\Formatter\OutputFormatter;
 class TestWhatnotPastShow extends Command
 {
     protected $signature = 'whatnot:test-past-show
-                            {live-id=a0a97cbb-097e-4c1f-9174-98ad66937e14 : Known completed Whatnot livestream UUID}
+                            {live-id=183498e1-fc7d-436b-a4a0-c042efba09b8 : Known completed Whatnot livestream UUID}
                             {--debug : Stream scraper diagnostics}';
 
     protected $description = 'Test one known completed Whatnot show independently for analytics, orders, and shipments';
@@ -34,7 +34,6 @@ class TestWhatnotPastShow extends Command
         $ordersOk = false;
         $shipmentsOk = false;
 
-        // 1) Analytics
         $this->info('1) Analytics');
         try {
             $rows = $scraper->fetchShows(
@@ -82,8 +81,6 @@ class TestWhatnotPastShow extends Command
         }
 
         $this->newLine();
-
-        // 2) Orders
         $this->info('2) Orders');
         try {
             $map = $scraper->fetchOrdersForShows(
@@ -106,8 +103,6 @@ class TestWhatnotPastShow extends Command
         }
 
         $this->newLine();
-
-        // 3) Shipments
         $this->info('3) Shipments');
         try {
             $map = $scraper->fetchShipmentsForShows(

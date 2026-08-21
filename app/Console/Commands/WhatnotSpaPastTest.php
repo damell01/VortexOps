@@ -11,7 +11,7 @@ class WhatnotSpaPastTest extends Command
                             {live-id=183498e1-fc7d-436b-a4a0-c042efba09b8 : Known past Whatnot livestream UUID}
                             {--debug : Save screenshots under /tmp}';
 
-    protected $description = 'Test past show analytics and shipments by clicking through the Seller Hub SPA instead of direct protected URL navigation';
+    protected $description = 'Test past show analytics and shipments through the Seller Hub SPA using the production-like browser bootstrap';
 
     public function handle(): int
     {
@@ -33,16 +33,16 @@ class WhatnotSpaPastTest extends Command
         }
         $env['WHATNOT_DEBUG'] = $this->option('debug') ? '1' : '0';
 
-        $this->info('Testing SPA navigation for past show: ' . $liveId);
-        $this->line('Path: /dashboard/home → click Shows → click Past → row actions');
+        $this->info('Testing production-like SPA navigation for past show: ' . $liveId);
+        $this->line('Path: authenticated Seller Hub → Shows → Past → exact show row → Analytics / Shipments');
         $this->newLine();
 
         $process = new Process([
             config('vortex.whatnot.node_bin', 'node'),
-            base_path('scripts/whatnot-spa-past-test.cjs'),
+            base_path('scripts/whatnot-spa-past-test-v2.cjs'),
             $liveId,
         ], base_path(), $env);
-        $process->setTimeout(180);
+        $process->setTimeout(210);
         $process->run(function (string $type, string $buffer): void {
             if ($type === Process::ERR) {
                 $this->output->write($buffer);
@@ -62,23 +62,38 @@ class WhatnotSpaPastTest extends Command
             return self::FAILURE;
         }
 
-        foreach (['home','shows','past','analytics','shipments'] as $stage) {
-            if (! isset($data['stages'][$stage])) continue;
+        foreach (['home', 'shows', 'past', 'analytics', 'shipments'] as $stage) {
+            if (! isset($data['stages'][$stage])) {
+                continue;
+            }
             $row = $data['stages'][$stage];
             $this->line(sprintf(
                 '%-10s  %-5s  %s',
                 strtoupper($stage),
-                !empty($row['challenged']) ? 'BLOCK' : 'OK',
+                ! empty($row['challenged']) ? 'BLOCK' : 'OK',
                 $row['url'] ?? ''
             ));
         }
 
+        $pastRows = $data['stages']['past']['rows'] ?? [];
         $this->newLine();
-        if (! empty($data['stages']['show_row'])) {
-            $this->info('Past show row found.');
-            $this->line(json_encode($data['stages']['show_row'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        $this->info('Past rows found: ' . count($pastRows));
+        foreach (array_slice($pastRows, 0, 10) as $row) {
+            $this->line(sprintf(
+                '  %s | %s | shipments=%s | analytics=%s',
+                $row['id'] ?? 'no-id',
+                $row['title'] ?? 'Untitled',
+                $row['shipments_href'] ?? '—',
+                $row['analytics_href'] ?? '—'
+            ));
+        }
+
+        if (! empty($data['stages']['target_row'])) {
+            $this->newLine();
+            $this->info('Target past show row found:');
+            $this->line(json_encode($data['stages']['target_row'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         } else {
-            $this->warn('Past show row was not found on the Past tab.');
+            $this->warn('Target past show row was not found on the currently rendered Past list.');
         }
 
         if (! empty($data['stages']['analytics'])) {
@@ -99,7 +114,7 @@ class WhatnotSpaPastTest extends Command
             $this->line('  ' . $op);
         }
 
-        $ok = !empty($data['stages']['show_row'])
+        $ok = ! empty($data['stages']['target_row'])
             && empty($data['stages']['past']['challenged']);
 
         return $ok ? self::SUCCESS : self::FAILURE;

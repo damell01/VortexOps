@@ -39,12 +39,12 @@ async function clickTab(page,name){
   const loc=testId?page.locator(`[data-testid="${testId}"]`).first():page.locator('ul[role="tablist"] button[role="tab"]',{hasText:/^Past$/}).first();
   if(!(await loc.count().catch(()=>0)))return false;
   if((await loc.getAttribute('aria-selected').catch(()=>null))!=='true')await loc.click({timeout:8000}).catch(()=>null);
-  await page.waitForFunction(({testId,name})=>{
+  await page.waitForFunction(({testId})=>{
     let el=null;
     if(testId)el=document.querySelector(`[data-testid="${testId}"]`);
     else el=[...document.querySelectorAll('ul[role="tablist"] button[role="tab"]')].find(x=>(x.textContent||'').trim()==='Past');
     return !!el&&el.getAttribute('aria-selected')==='true';
-  },{testId,name},{timeout:10000}).catch(()=>{});
+  },{testId},{timeout:10000}).catch(()=>{});
   await page.waitForTimeout(2500);
   return (await loc.getAttribute('aria-selected').catch(()=>null))==='true';
 }
@@ -140,7 +140,10 @@ async function restorePast(page,targetId){
   try{
     const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});await page.waitForTimeout(2200);out.stages.home={status:resp?resp.status():null,...await state(page)};if(out.stages.home.challenged)throw new Error('Seller Hub home challenged');
     if(!await clickShows(page))throw new Error('Could not reach Shows'); out.stages.shows=await state(page);
-    if(!await clickTab(page,'current'))throw new Error('Could not select Currently Live tab'); out.current=await loadTabAll(page,'current',8);
+    // The Shows page already renders one tab by default. Capture that rendered
+    // snapshot as Current without forcing a tab transition; Whatnot has been
+    // inconsistent about re-selecting the already-active Currently Live button.
+    out.current=await loadTabAll(page,'current',8);
     if(!await clickTab(page,'upcoming'))throw new Error('Could not select Upcoming tab'); out.upcoming=await loadTabAll(page,'upcoming',16);
     if(!await clickTab(page,'past'))throw new Error('Could not select Past tab'); out.past=await loadTabAll(page,'past',30); await shot(page,'past');
 

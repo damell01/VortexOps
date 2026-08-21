@@ -20,6 +20,13 @@ class RecentMovementsWidget extends BaseWidget
             ->query(
                 InventoryMovement::query()
                     ->with(['item', 'fromLocation', 'toLocation', 'createdByUser'])
+                    // The movement rows survive a deleted product on purpose —
+                    // they are the record of what happened — but a dashboard
+                    // listing a deleted item by name reads as the deletion not
+                    // having worked. The history is kept and simply not shown
+                    // here; whereHas applies the product's own soft-delete
+                    // scope, so restoring one brings its movements back.
+                    ->whereHas('item')
                     ->inChannelContext()
                     ->latest()
                     ->limit(15)

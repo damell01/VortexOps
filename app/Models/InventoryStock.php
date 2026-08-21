@@ -11,6 +11,9 @@ class InventoryStock extends Model
 {
     use LogsActivity;
 
+    /** Name of the scope that hides stock belonging to deleted products. */
+    public const LIVE_PRODUCT_SCOPE = 'liveProduct';
+
     protected $table = 'inventory_stock';
 
     protected $fillable = [
@@ -30,6 +33,35 @@ class InventoryStock extends Model
     public function getQuantityOnHandAttribute()
     {
         return $this->quantity;
+    }
+
+    /**
+     * Stock belonging to a deleted product is not stock.
+     *
+     * Products are soft-deleted so their movement history survives them, and
+     * their stock rows survive with them — which meant a deleted item went on
+     * being counted in stock levels, location totals, analytics, transfer
+     * pickers and reconciliation. Deleting something and then finding it in
+     * eight other places reads as the deletion not having worked.
+     *
+     * Applied as a global scope rather than as a filter on each of those
+     * screens. There are two dozen places querying this table and the next one
+     * written would have had to remember; a scope is the only version of this
+     * rule that stays true. whereHas runs the product's own soft-delete scope,
+     * so a restored item comes back everywhere at once with nothing else
+     * written.
+     *
+     * The places that genuinely need every row — reconciling history, merging
+     * duplicates, working out what a restore would bring back — ask for it by
+     * name with withoutGlobalScope(InventoryStock::LIVE_PRODUCT_SCOPE), which
+     * is deliberately harder to type than to leave alone.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope(
+            self::LIVE_PRODUCT_SCOPE,
+            fn (\Illuminate\Database\Eloquent\Builder $query) => $query->whereHas('item'),
+        );
     }
 
     public function getActivitylogOptions(): LogOptions

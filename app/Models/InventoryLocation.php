@@ -67,7 +67,9 @@ class InventoryLocation extends Model
      */
     public function stock(): HasMany
     {
-        return $this->hasMany(InventoryStock::class)->whereHas('item');
+        // The whereHas that used to be here is a global scope on InventoryStock
+        // now, so this is every screen's behaviour rather than only this one's.
+        return $this->hasMany(InventoryStock::class);
     }
 
     /**
@@ -78,7 +80,8 @@ class InventoryLocation extends Model
      */
     public function allStock(): HasMany
     {
-        return $this->hasMany(InventoryStock::class);
+        return $this->hasMany(InventoryStock::class)
+            ->withoutGlobalScope(InventoryStock::LIVE_PRODUCT_SCOPE);
     }
 
     public function movementsFrom(): HasMany

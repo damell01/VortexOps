@@ -148,7 +148,12 @@ class DuplicateProductDetector extends Page
                 // explained because the line above reassigns drop's movement
                 // history to keep, so keep inherits the events that produced
                 // them; writing another would count the same stock twice.
-                foreach (InventoryStock::where('inventory_item_id', $drop->id)->get() as $dropStock) {
+                // Without the scope: this consolidates the stock of a product
+                // that is about to be deleted, and reading it through a filter
+                // that hides deleted products would leave rows orphaned the
+                // moment anyone reorders these two steps.
+                foreach (InventoryStock::withoutGlobalScope(InventoryStock::LIVE_PRODUCT_SCOPE)
+                    ->where('inventory_item_id', $drop->id)->get() as $dropStock) {
                     $keepStock = InventoryStock::where('inventory_item_id', $keep->id)
                         ->where('inventory_location_id', $dropStock->inventory_location_id)
                         ->first();

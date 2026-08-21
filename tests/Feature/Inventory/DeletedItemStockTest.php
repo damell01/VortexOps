@@ -99,4 +99,86 @@ class DeletedItemStockTest extends TestCase
             (int) InventoryLocation::withCount('stock')->find($this->location->id)->stock_count,
         );
     }
+
+    // ── Everywhere else it used to keep showing up ────────────────────────
+
+    public function test_it_disappears_from_every_stock_query_at_once(): void
+    {
+        // The scope is on the model rather than on each screen, so this is one
+        // assertion standing in for two dozen call sites — including the ones
+        // written after this test.
+        $item = $this->stockedItem('Gone');
+        $this->stockedItem('Still Here');
+
+        $this->assertSame(2, InventoryStock::count());
+
+        $item->delete();
+
+        $this->assertSame(1, InventoryStock::count(), 'A deleted product still had a stock row in scope.');
+        $this->assertSame(0, InventoryStock::where('inventory_item_id', $item->id)->count());
+    }
+
+    public function test_the_row_is_still_there_for_anything_that_asks_for_it(): void
+    {
+        // Hidden, not destroyed. A restore has to have something to bring back.
+        $item = $this->stockedItem('Gone');
+        $item->delete();
+
+        $this->assertSame(
+            1,
+            InventoryStock::withoutGlobalScope(InventoryStock::LIVE_PRODUCT_SCOPE)
+                ->where('inventory_item_id', $item->id)
+                ->count(),
+        );
+    }
+
+    public function test_totals_do_not_count_it(): void
+    {
+        // The complaint that started this: a location's totals still included
+        // items that had been deleted, so the numbers on the locations screen
+        // disagreed with the list underneath them.
+        $this->stockedItem('Kept', 5);
+        $gone = $this->stockedItem('Gone', 100);
+
+        $gone->delete();
+
+        $this->assertEqualsWithDelta(5.0, (float) InventoryStock::sum('quantity'), 0.001);
+    }
+
+    public function test_a_restore_brings_it_back_everywhere(): void
+    {
+        // whereHas runs the product's own soft-delete scope, so nothing has to
+        // be written to undo this — which is what makes one scope safe to trust
+        // in two dozen places.
+        $item = $this->stockedItem('Back');
+        $item->delete();
+
+        $this->assertSame(0, InventoryStock::count());
+
+        $item->restore();
+
+        $this->assertSame(1, InventoryStock::count());
+    }
+
+    public function test_the_movements_widget_does_not_name_a_deleted_item(): void
+    {
+        // Its rows survive on purpose — they are the record of what happened —
+        // but a dashboard listing a deleted item by name reads as the deletion
+        // having failed.
+        $item = $this->stockedItem('Deleted Later');
+
+        \App\Models\InventoryMovement::create([
+            'inventory_item_id' => $item->id,
+            'to_location_id'    => $this->location->id,
+            'quantity'          => 5,
+            'movement_type'     => 'opening',
+        ]);
+
+        $this->assertSame(1, \App\Models\InventoryMovement::whereHas('item')->count());
+
+        $item->delete();
+
+        $this->assertSame(0, \App\Models\InventoryMovement::whereHas('item')->count());
+        $this->assertSame(1, \App\Models\InventoryMovement::count(), 'The history itself must survive.');
+    }
 }

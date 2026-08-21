@@ -2928,7 +2928,7 @@ async function extractLedgerFromPage(page) {
 
   // Credentials are only required when we don't have a session cookie file
   // and we're not in a mode that only tests cookies.
-  if (!hasCookieFile && !email && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe') {
+  if (!hasCookieFile && !email && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe' && MODE !== 'api-discover') {
     exitAfterStderr('Error: WHATNOT_EMAIL and WHATNOT_PASSWORD are required (or provide storage/whatnot-cookies.json).\n' +
       'Run: php artisan whatnot:login\n', 1);
   }
@@ -3246,7 +3246,7 @@ async function extractLedgerFromPage(page) {
   try {
     // If we have a cookie file, attempt a fast cookie-auth check before trying form login.
     // This skips the Kasada-blocked login page entirely on subsequent runs.
-    if (hasCookieFile && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe') {
+    if (hasCookieFile && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe' && MODE !== 'api-discover') {
       await page.goto(URLS.sellerHub, { waitUntil: 'domcontentloaded', timeout: 20000 });
       await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
 
@@ -3293,7 +3293,7 @@ async function extractLedgerFromPage(page) {
         // Activate seller mode if the session landed in buyer mode.
         // Must be done before saving localStorage so the stored tokens reflect
         // the seller-mode session, not the buyer-mode one.
-        if (MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe') {
+        if (MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe' && MODE !== 'api-discover') {
           await ensureSellerMode(page);
         }
         // Persist localStorage so ws-explore can inject it into its temp browser.
@@ -3315,7 +3315,7 @@ async function extractLedgerFromPage(page) {
           info('localStorage save skipped:', _lsErr.message);
         }
       }
-    } else if (MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe') {
+    } else if (MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe' && MODE !== 'api-discover') {
       await performLogin(page, email, password);
       // After credential login, also ensure seller mode is active.
       if (MODE !== 'test') {
@@ -3328,7 +3328,7 @@ async function extractLedgerFromPage(page) {
     // switch when the requested channel differs — checking the active @username
     // instead of blindly skipping whenever seller mode is active (which would
     // scrape the primary channel for every channel).
-    if (MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe' && CHANNEL_NAME) {
+    if (MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe' && MODE !== 'api-discover' && CHANNEL_NAME) {
       const active = await getActiveChannelUsername(page);
       if (active && normalizeChannelKey(active) === normalizeChannelKey(CHANNEL_NAME)) {
         info(`switchToChannel: already on target channel @${active} — no switch needed`);
@@ -3468,6 +3468,88 @@ async function extractLedgerFromPage(page) {
       // writeJsonAndExit defers process.exit to the write callback, so the
       // synchronous code after it keeps running — which is how a probe that had
       // already finished went on to report "Unknown WHATNOT_MODE: path-probe".
+      return;
+    }
+
+    // ── Mode: api-discover ───────────────────────────────────────────────────
+    //
+    // The pages are refused and the API is not, so the route is to call the API
+    // directly — which means knowing what to call. The operations are in the
+    // bundles /seller already loads, and those are same-origin static assets on
+    // the surface that answers.
+    //
+    // Two sources, because they fail differently. The bundles give every
+    // operation the app knows about, including ones only reached from pages we
+    // cannot open; the live network shows which are actually in use and what
+    // their variables look like. Neither alone is enough to write a call with.
+    if (MODE === 'api-discover') {
+      const rawGoto = Object.getPrototypeOf(page).goto.bind(page);
+
+      const seen = [];
+      page.on('request', (request) => {
+        const url = request.url();
+
+        if (! /\/services\/|\/api\//.test(url)) return;
+
+        seen.push({
+          url:    url.substring(0, 300),
+          method: request.method(),
+          // The body is where a GraphQL call keeps its query and variables.
+          body:   (request.postData() || '').substring(0, 2000),
+        });
+      });
+
+      await rawGoto('https://www.whatnot.com/seller', { waitUntil: 'domcontentloaded', timeout: 30000 })
+        .catch(() => null);
+
+      // Long enough for the hub to finish its own start-up calls.
+      await page.waitForTimeout(12000);
+
+      const operations = await page.evaluate(async () => {
+        const scripts = [...new Set([
+          ...performance.getEntriesByType('resource')
+            .map((e) => e.name)
+            .filter((n) => n.endsWith('.js') && n.startsWith(location.origin)),
+          ...[...document.querySelectorAll('script[src]')]
+            .map((el) => el.src)
+            .filter((src) => src.startsWith(location.origin)),
+        ])];
+
+        const found = new Map();
+
+        for (const src of scripts.slice(0, 40)) {
+          let text = '';
+
+          try {
+            const response = await fetch(src, { credentials: 'include' });
+            if (! response.ok) continue;
+            text = await response.text();
+          } catch { continue; }
+
+          // Two shapes: a named document (`query ShowsList(`) and an explicit
+          // operationName on a request the bundle builds.
+          for (const m of text.matchAll(/\b(query|mutation)\s+([A-Z][A-Za-z0-9_]{3,})\s*[({]/g)) {
+            found.set(m[2], { name: m[2], kind: m[1], from: src.split('/').pop() });
+          }
+
+          for (const m of text.matchAll(/operationName["'\s:=]+([A-Z][A-Za-z0-9_]{3,})/g)) {
+            if (! found.has(m[1])) found.set(m[1], { name: m[1], kind: 'operationName', from: src.split('/').pop() });
+          }
+        }
+
+        return [...found.values()];
+      }).catch(() => []);
+
+      await flushProfile();
+
+      writeJsonAndExit({
+        ok: true,
+        operations,
+        // Deduped by URL and method: the hub polls, and forty copies of one
+        // call is not more information than one.
+        liveCalls: [...new Map(seen.map((c) => [c.method + ' ' + c.url.split('&')[0], c])).values()],
+      });
+
       return;
     }
 

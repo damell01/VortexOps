@@ -1666,6 +1666,47 @@ class WhatnotScraper
     }
 
     /**
+     * What the Seller Hub asks for, so the scraper can ask for it too.
+     *
+     * The pages are refused and the API is not, so the route is to call the API
+     * rather than to load pages and read them — which means knowing what to
+     * call. One page load, no navigation, nothing written.
+     *
+     * @return array{operations: array<int, array<string, mixed>>, liveCalls: array<int, array<string, mixed>>}
+     */
+    public function discoverApi(bool $debug = false): array
+    {
+        $env = $this->baseEnv($debug);
+        $env['WHATNOT_MODE'] = 'api-discover';
+
+        // The page is given twelve seconds to finish its own start-up calls,
+        // and the bundles are fetched after that.
+        $process = $this->makeProcess($env, timeout: 240);
+
+        $this->withBrowserLock(fn () => $process->run());
+
+        $stdout = trim($process->getOutput());
+        $stderr = trim($process->getErrorOutput());
+
+        if (! $process->isSuccessful()) {
+            $this->throwForExitCode($process->getExitCode(), $stderr, $process->getCommandLine());
+
+            throw new \RuntimeException('API discovery failed: ' . ($stderr ?: "exit {$process->getExitCode()}"));
+        }
+
+        $data = json_decode($stdout, true);
+
+        if (! is_array($data)) {
+            throw new \RuntimeException('API discovery returned unexpected response: ' . $stdout);
+        }
+
+        return [
+            'operations' => $data['operations'] ?? [],
+            'liveCalls'  => $data['liveCalls'] ?? [],
+        ];
+    }
+
+    /**
      * Test whether saved session cookies still grant seller hub access.
      * Returns ['ok' => true, 'url' => ...] or throws RuntimeException.
      */

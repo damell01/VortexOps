@@ -205,6 +205,19 @@ const LIMIT          = parseInt(process.env.WHATNOT_LIMIT || '50', 10);
 const MODE           = process.env.WHATNOT_MODE || 'analytics';
 const CHANNEL_NAME   = (process.env.WHATNOT_CHANNEL_NAME || '').trim();
 
+// A livestream UUID to start the analytics walk from, supplied by the caller.
+//
+// The walk itself — /account/analytics, one show at a time via "See older
+// show" — is the path that produced the revenue figures, and it is not under
+// /dashboard, so the rule that refuses those pages does not touch it. All it
+// ever needed was one UUID to begin at, and it was scraping that seed off a
+// shows list that is now a challenge screen: a working scrape held up entirely
+// by the one page it no longer needs.
+//
+// PHP passes the newest UUID it already knows for the channel, so once a show
+// has been seen once the walk can always be started again.
+const START_UUID     = (process.env.WHATNOT_START_UUID || '').trim();
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function log(...args) {
@@ -5062,6 +5075,37 @@ async function extractLedgerFromPage(page) {
     if (MODE === 'analytics' || MODE === 'shows') {
       const isAnalytics = MODE === 'analytics';
 
+      // Given a seed, go straight to the walk that works.
+      //
+      // Everything below this — the URL candidates, the sidebar click, the
+      // scroll loop, the API intercept — exists to find one livestream UUID to
+      // start the analytics walk from. All of it runs against /dashboard
+      // pages, which is the surface currently being refused, and none of it is
+      // needed when the caller already knows a UUID.
+      //
+      // Going first also means the run no longer depends on those pages coming
+      // back. If the walk returns shows, the refused list page never mattered.
+      if (isAnalytics && START_UUID) {
+        info(`analytics-nav: starting from the seed supplied by the caller (live_id=${START_UUID})`);
+        const seeded = await scrapeViaAnalyticsPage(page, START_UUID, LIMIT)
+          .catch((e) => { info('analytics-nav: seeded walk threw —', e.message); return []; });
+
+        const usable = seeded
+          .slice(0, LIMIT)
+          .filter(s => s.title || s.show_date || s.gross_revenue !== null);
+
+        if (usable.length > 0) {
+          info(`analytics-nav: seeded walk returned ${usable.length} show(s)`);
+          writeJsonAndExit(usable);
+          return;
+        }
+
+        // Not fatal. The seed can be stale — a UUID for a show that has since
+        // been deleted still resolves to a page with nothing on it — so fall
+        // through and let the discovery below try to find a fresher one.
+        info('analytics-nav: seeded walk produced nothing — falling back to page discovery');
+      }
+
       // URL priority for show data.  When ensureSellerMode already landed us on
       // /dashboard, start there so we stay in seller-mode SPA context.
       //   1. /dashboard        — seller dashboard (we're already here after Switch to Selling)
@@ -5468,6 +5512,8 @@ async function extractLedgerFromPage(page) {
           }).catch(() => null);
         }
 
+        // START_UUID is not repeated here — if it was set, the walk already ran
+        // from it above and only got this far by producing nothing.
         const startUuid = anchorSeed || apiSeed || htmlSeed;
         if (startUuid) {
           info(`shows-list: seeding analytics-nav with live_id=${startUuid}`);

@@ -14,6 +14,7 @@ class ImportWhatnotShows extends Command
                             {--limit=50    : Max number of shows to fetch per channel per run}
                             {--debug       : Save Playwright screenshots to /tmp for debugging selectors}
                             {--no-orders   : Skip scraping per-show orders (faster; imports show summaries only)}
+                            {--live-id=    : Start the analytics walk from this livestream UUID instead of finding one on the shows list}
                             {--discover    : 3-phase browser crawl — logs all Phoenix WS frames so you can read topic/event names}
                             {--ws-explore  : Direct Phoenix Channels probe — no DOM scraping, joins seller_hub:* topics for 20 s}';
 
@@ -24,6 +25,11 @@ class ImportWhatnotShows extends Command
         $limit      = (int) $this->option('limit');
         $debug      = (bool) $this->option('debug');
         $withOrders = ! (bool) $this->option('no-orders');
+
+        // Given explicitly, this skips the shows list entirely — useful when
+        // that page is the part that is failing. Left empty, the service looks
+        // one up from shows already imported.
+        $seedLiveId = $this->option('live-id') ?: null;
 
         // Discover mode: dump all API endpoints Whatnot calls when loading /seller/shows.
         // Run once to find the internal REST paths, then use those for direct API calls.
@@ -217,6 +223,7 @@ class ImportWhatnotShows extends Command
                     debug: $debug,
                     withOrders: $withOrders,
                     onProgress: fn (string $line) => $this->line("  <fg=gray>" . OutputFormatter::escape($line) . "</>"),
+                    seedLiveId: $seedLiveId,
                 );
             } catch (\RuntimeException $e) {
                 $this->error($e->getMessage());
@@ -254,6 +261,7 @@ class ImportWhatnotShows extends Command
                         debug: $debug,
                         withOrders: $withOrders,
                         onProgress: fn (string $line) => $this->line("    <fg=gray>" . OutputFormatter::escape($line) . "</>"),
+                        seedLiveId: $seedLiveId,
                     );
                     $orders = $result['ordersCreated'] ?? 0;
                     $totals['created'] += $result['created'];

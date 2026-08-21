@@ -73,7 +73,7 @@ class WhatnotScraper
      *
      * @throws \RuntimeException on login/nav failures
      */
-    public function fetchShows(int $limit = 50, bool $debug = false, ?string $channelUsername = null, ?callable $onProgress = null): array
+    public function fetchShows(int $limit = 50, bool $debug = false, ?string $channelUsername = null, ?callable $onProgress = null, ?string $seedLiveId = null): array
     {
         $env = $this->baseEnv($debug);
         $env['WHATNOT_MODE']  = 'analytics';
@@ -81,6 +81,17 @@ class WhatnotScraper
 
         if ($channelUsername) {
             $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
+        }
+
+        // One livestream UUID is all the analytics walk needs to begin.
+        //
+        // That walk — /account/analytics, stepping back through "See older
+        // show" — is what produced the revenue figures, and /account is not
+        // the surface being refused. The scraper was only failing because it
+        // read its starting UUID off the shows list first, so a page it does
+        // not otherwise need was holding up the whole import.
+        if ($seedLiveId) {
+            $env['WHATNOT_START_UUID'] = $seedLiveId;
         }
 
         // Analytics-nav walks the full channel history one show at a time, so a
@@ -1144,10 +1155,84 @@ class WhatnotScraper
         return Carbon::parse($raw);
     }
 
-    public function importShows(?WhatnotChannel $channel = null, int $limit = 50, bool $debug = false, bool $withOrders = true, ?callable $onProgress = null): array
+    /**
+     * The newest livestream UUID already on record for a channel.
+     *
+     * Shows carry it in detail_url, and rows that failed to import carry it in
+     * the payload that was logged when they were refused — which is where the
+     * four shows lost to an unparsed date left theirs. Either is enough to
+     * start the analytics walk, so the scrape only has to reach the shows list
+     * once and never again.
+     */
+    public function seedLiveIdFor(?WhatnotChannel $channel): ?string
     {
+        $uuid = '/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i';
+
+        $fromShows = Show::query()
+            ->when($channel, fn ($q) => $q->where('whatnot_channel_id', $channel->id))
+            ->whereNotNull('detail_url')
+            ->orderByDesc('show_date')
+            ->limit(20)
+            ->pluck('detail_url');
+
+        foreach ($fromShows as $url) {
+            if (preg_match($uuid, (string) $url, $m)) {
+                return $m[1];
+            }
+        }
+
+        // Nothing imported yet for this channel — fall back to whatever the
+        // last run saw and could not keep.
+        //
+        // These have to be matched to a channel by hand: the log table has no
+        // channel column, so the import stamps one into the payload. Seeding
+        // the walk with another channel's show would not fail loudly, it would
+        // quietly import that channel's history under this one, so a payload
+        // that cannot be attributed is not used. Rows written before the stamp
+        // existed are only trusted when there is a single channel for them to
+        // have come from.
+        $onlyChannel = WhatnotChannel::count() === 1;
+
+        $fromLogs = ShowIngestionLog::query()
+            ->where('source', 'whatnot')
+            ->whereNotNull('raw_payload')
+            ->latest('id')
+            ->limit(50)
+            ->pluck('raw_payload');
+
+        foreach ($fromLogs as $payload) {
+            if (! is_array($payload)) {
+                continue;
+            }
+
+            $stamped = $payload['_channel_id'] ?? null;
+
+            $belongsHere = $stamped !== null
+                ? ((int) $stamped === (int) $channel?->id)
+                : ($onlyChannel || $channel === null);
+
+            if (! $belongsHere) {
+                continue;
+            }
+
+            if (preg_match($uuid, (string) ($payload['detail_url'] ?? ''), $m)) {
+                return $m[1];
+            }
+        }
+
+        return null;
+    }
+
+    public function importShows(?WhatnotChannel $channel = null, int $limit = 50, bool $debug = false, bool $withOrders = true, ?callable $onProgress = null, ?string $seedLiveId = null): array
+    {
+        $seedLiveId ??= $this->seedLiveIdFor($channel);
+
+        if ($seedLiveId && $onProgress) {
+            $onProgress("Starting the analytics walk from a known show ({$seedLiveId})");
+        }
+
         try {
-            $rows = $this->fetchShows($limit, $debug, $channel?->whatnot_username, $onProgress);
+            $rows = $this->fetchShows($limit, $debug, $channel?->whatnot_username, $onProgress, $seedLiveId);
         } catch (\Throwable $e) {
             ShowIngestionLog::create([
                 'source'        => 'whatnot',
@@ -1171,6 +1256,11 @@ class WhatnotScraper
         $orderTargets = [];
 
         foreach ($rows as $row) {
+            // Stamped so a row that fails to import can still be attributed to
+            // a channel later — the log table has no column for it, and an
+            // unattributable row cannot safely seed the next run's walk.
+            $row['_channel_id'] = $channel?->id;
+
             if (empty($row['title']) && empty($row['show_date'])) {
                 $skipped++;
                 ShowIngestionLog::create([

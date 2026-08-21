@@ -3,15 +3,12 @@
 namespace App\Filament\Widgets;
 
 use App\Models\Show;
+use Carbon\Carbon;
 use Filament\Widgets\Widget;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Headline numbers for a single show, above the pipeline on its detail page.
- *
- * A widget rather than a page-template override: ViewShow renders Filament's
- * default view-record template plus two widgets, so overriding the template
- * would mean reproducing the infolist and widget slots by hand.
  */
 class ShowMetricsWidget extends Widget
 {
@@ -33,10 +30,17 @@ class ShowMetricsWidget extends Widget
             return [];
         }
 
-        $entry     = $show->streamerLogEntry;
-        $itemCount = $show->orders()->count();
-        $revenue   = (float) ($show->gross_revenue ?? 0);
-        $cost      = (float) ($entry?->product_cost ?? 0);
+        $entry         = $show->streamerLogEntry;
+        $itemCount     = $show->orders()->count();
+        $shipmentCount = $show->shipments()->count();
+        $pendingCount  = $show->shipments()
+            ->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'")
+            ->count();
+        $revenue       = (float) ($show->gross_revenue ?? 0);
+        $cost          = (float) ($entry?->product_cost ?? 0);
+
+        $analyticsSynced = $this->humanTime($show->getAttribute('last_analytics_synced_at'));
+        $shipmentsSynced = $this->humanTime($show->getAttribute('last_shipments_synced_at'));
 
         return [
             [
@@ -65,10 +69,39 @@ class ShowMetricsWidget extends Widget
             [
                 'label' => 'Items Sold',
                 'value' => number_format($itemCount),
-                'sub'   => 'Orders on this show',
+                'sub'   => 'Imported order rows',
                 'icon'  => 'heroicon-o-cube',
                 'tone'  => 'amber',
             ],
+            [
+                'label' => 'Shipments',
+                'value' => number_format($shipmentCount),
+                'sub'   => $pendingCount > 0
+                    ? number_format($pendingCount) . ' not delivered'
+                    : ($shipmentCount > 0 ? 'All delivered' : 'No shipment rows yet'),
+                'icon'  => 'heroicon-o-truck',
+                'tone'  => $pendingCount > 0 ? 'amber' : 'green',
+            ],
+            [
+                'label' => 'Whatnot Sync',
+                'value' => $analyticsSynced,
+                'sub'   => 'Analytics · Shipments ' . $shipmentsSynced,
+                'icon'  => 'heroicon-o-arrow-path',
+                'tone'  => 'blue',
+            ],
         ];
+    }
+
+    private function humanTime(mixed $value): string
+    {
+        if (! $value) {
+            return 'Never';
+        }
+
+        try {
+            return Carbon::parse($value)->diffForHumans(short: true);
+        } catch (\Throwable) {
+            return 'Unknown';
+        }
     }
 }

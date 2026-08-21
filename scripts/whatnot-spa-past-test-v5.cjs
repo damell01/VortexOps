@@ -74,7 +74,7 @@ async function extractRows(page) {
   })).catch(()=>[]);
 }
 
-async function loadPastRows(page) {
+async function loadPastRows(page, desiredLiveId = LIVE_ID) {
   const all = new Map();
   let stable = 0;
   let previous = 0;
@@ -85,7 +85,7 @@ async function loadPastRows(page) {
     passes = pass + 1;
     const rows = await extractRows(page);
     for (const row of rows) if (row.live_id) all.set(row.live_id,row);
-    if (LIVE_ID && all.has(LIVE_ID)) { requested = all.get(LIVE_ID); break; }
+    if (desiredLiveId && all.has(desiredLiveId)) { requested = all.get(desiredLiveId); break; }
 
     if (all.size === previous) stable++; else stable = 0;
     previous = all.size;
@@ -100,10 +100,6 @@ async function loadPastRows(page) {
   }
 
   const rows = [...all.values()];
-  // If the supplied show belongs to another channel/account, choose a real row
-  // from this authenticated seller that exposes BOTH links. Prefer a row loaded
-  // near the bottom so it is most likely still rendered even if Whatnot ever
-  // virtualizes the list.
   const fallback = rows.slice().reverse().find(r => r.analytics_url && r.shipments_url) || null;
   return {
     rows,
@@ -118,7 +114,6 @@ async function ensureTargetRendered(page, target) {
   if (!target) return false;
   const selector = `a[href="${target.open_url}"]`;
   if (await page.locator(selector).count().catch(()=>0)) return true;
-  // Walk back up through the infinite list from the bottom if virtualization hid it.
   for (let i=0; i<12; i++) {
     await page.evaluate(() => window.scrollBy(0, -Math.max(window.innerHeight * 2, 1200))).catch(()=>{});
     await page.waitForTimeout(600);
@@ -172,7 +167,7 @@ async function extractAnalytics(page) {
     if(!out.stages.shows_click.clicked) throw new Error('could not reach shows');
 
     out.stages.past_click={clicked:await clickPast(page)}; out.stages.past=await state(page);
-    const loaded=await loadPastRows(page);
+    const loaded=await loadPastRows(page, LIVE_ID);
     out.past_rows=loaded.rows;
     out.requested_target=loaded.requested;
     out.target=loaded.target;
@@ -196,10 +191,17 @@ async function extractAnalytics(page) {
       await page.goBack({waitUntil:'domcontentloaded',timeout:15000}).catch(()=>null); await page.waitForTimeout(3000);
       if(!/\/dashboard\/lives(?:[/?#]|$)/.test(page.url())) await clickShows(page);
       await clickPast(page);
-      // The selected fallback is normally near the bottom. Reload the list until
-      // the exact row is present, then click the exact encoded shipment link.
-      const reload = await loadPastRows(page);
-      const target = reload.rows.find(r=>r.live_id===out.target.live_id) || out.target;
+      // Important: reload specifically until the SELECTED fallback/requested row
+      // is present. The old code searched for LIVE_ID again, which could belong
+      // to another channel and leave the real selected row unloaded.
+      const reload = await loadPastRows(page, out.target.live_id);
+      const target = reload.requested || reload.rows.find(r=>r.live_id===out.target.live_id) || out.target;
+      out.stages.shipments_reload = {
+        desired_live_id: out.target.live_id,
+        loaded_count: reload.rows.length,
+        scroll_passes: reload.passes,
+        found: !!reload.requested,
+      };
       if(await ensureTargetRendered(page,target)){
         const row=page.locator('[data-testid="show-list-item"]').filter({has:page.locator(`a[href="${target.open_url}"]`)}).first();
         const link=row.locator('a',{hasText:/^View Shipments$/}).first();
@@ -207,7 +209,11 @@ async function extractAnalytics(page) {
           await link.click({timeout:8000}).catch(()=>null); await page.waitForTimeout(6000);
           out.stages.shipments={...await state(page),tbody_rows:await page.locator('tbody tr').count().catch(()=>0),expected_href:target.shipments_url};
           await shot(page,'05-shipments');
+        } else {
+          out.stages.shipments_click = { clicked:false, reason:'View Shipments link missing from selected row' };
         }
+      } else {
+        out.stages.shipments_click = { clicked:false, reason:'selected show row could not be rendered after returning to Past' };
       }
     }
 

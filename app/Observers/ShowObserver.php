@@ -10,7 +10,7 @@ class ShowObserver
 {
     public function created(Show $show): void
     {
-        $this->detectImportedShowStreamer($show);
+        $this->detectImportedShowStreamer($show, true);
     }
 
     public function updated(Show $show): void
@@ -19,11 +19,11 @@ class ShowObserver
             NotifyShowPendingReview::dispatch($show->id);
         }
 
-        // Upcoming Whatnot shows can be renamed before they go live. Re-run the
-        // title matcher when an imported show's title changes, but never replace a
-        // streamer that has already been deliberately attached.
-        if ($show->wasChanged('title')) {
-            $this->detectImportedShowStreamer($show);
+        // Whatnot upcoming shows can be renamed before they go live. Re-run when
+        // the title changes. Also give older auto-imported shows one detection pass
+        // if they pre-date automatic streamer detection.
+        if ($show->wasChanged('title') || $show->ai_streamer_suggestion === null) {
+            $this->detectImportedShowStreamer($show, $show->wasChanged('title'));
         }
 
         // When a show transitions to 'reconciled', auto-create a blank StreamerLogEntry
@@ -45,17 +45,31 @@ class ShowObserver
         }
     }
 
-    private function detectImportedShowStreamer(Show $show): void
+    private function detectImportedShowStreamer(Show $show, bool $forceAttempt = false): void
     {
         if ($show->import_source !== 'auto_whatnot' || blank($show->title)) {
             return;
         }
 
-        // Respect manual/admin assignments and any prior confident match.
+        // Respect manual/admin assignments and prior confident automatic matches.
         if ($show->streamers()->exists()) {
             return;
         }
 
-        $show->detectStreamers();
+        // [] means detection already ran and found no title match. Retry only when
+        // the title itself changed, since a renamed Upcoming show may now include
+        // the streamer's name.
+        if (! $forceAttempt && is_array($show->ai_streamer_suggestion)) {
+            return;
+        }
+
+        $suggestions = $show->detectStreamers();
+
+        // detectStreamers() only writes ai_streamer_suggestion when it has a
+        // candidate. Persist an empty array quietly as a one-time-attempt marker so
+        // unmatched historical shows are not re-scanned every ten minutes.
+        if ($suggestions === []) {
+            $show->updateQuietly(['ai_streamer_suggestion' => []]);
+        }
     }
 }

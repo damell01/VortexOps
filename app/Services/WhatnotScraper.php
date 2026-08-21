@@ -1165,6 +1165,27 @@ class WhatnotScraper
             $lookupTitle = $row['title'] ? trim($row['title']) : null;
             $lookupDate  = $row['show_date'] ?? null;
 
+            // Second chance at the date before the row is thrown away.
+            //
+            // The scraper carries the unparsed value alongside the parsed one,
+            // and a whole import can be lost to a timestamp shape its parser
+            // did not recognise while the raw field sat right there readable.
+            // Losing the show is much worse than accepting a date PHP could
+            // read and the scraper could not.
+            if (! $lookupDate && filled($row['show_date_raw'] ?? null)) {
+                try {
+                    $parsed = Carbon::parse($row['show_date_raw']);
+                    $lookupDate = $parsed->toDateString();
+                    $row['show_date'] = $lookupDate;
+                    // Same value, same reason: if the scraper could not read
+                    // the date it did not read the time out of it either.
+                    $row['start_time'] ??= $parsed->format('H:i:s');
+                } catch (\Throwable) {
+                    // Genuinely unreadable — fall through to the skip below,
+                    // which records the raw payload for inspection.
+                }
+            }
+
             $query = Show::query()->where('import_source', 'auto_whatnot');
 
             if ($lookupTitle && $lookupDate) {

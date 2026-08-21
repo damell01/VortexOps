@@ -1756,6 +1756,44 @@ function extractShowsFromCapture(captured) {
   return merged.length > 0 ? merged : null;
 }
 
+// Turn whatever a JSON API called a timestamp into an ISO string.
+//
+// The old code did String(value) and looked for a "T". That is right for
+// "2026-08-21T23:00:00Z" and wrong for every other shape a GraphQL server
+// hands back a time in: epoch seconds, epoch milliseconds, or a wrapper
+// object. Each of those stringifies into something with no "T" in it, so it
+// fell through to parseDateString, which does not read numbers — and the
+// record arrived on the PHP side with a title and a null show_date.
+function coerceDateish(value) {
+  if (value === null || value === undefined || value === '') return '';
+
+  if (typeof value === 'object') {
+    // { iso: … } / { value: … } / { seconds: … } wrappers.
+    for (const k of ['iso', 'isoString', 'value', 'datetime', 'dateTime', 'date', 'timestamp', 'seconds']) {
+      if (value[k] !== undefined && value[k] !== null && value[k] !== '') return coerceDateish(value[k]);
+    }
+    return '';
+  }
+
+  if (typeof value === 'number' || /^\d{9,14}$/.test(String(value))) {
+    const n = Number(value);
+    // Seconds vs milliseconds: anything below ~1e11 is seconds, because as
+    // milliseconds it would be 1973 and no show predates the platform.
+    const ms = n < 1e11 ? n * 1000 : n;
+    const d  = new Date(ms);
+    return Number.isNaN(d.getTime()) ? '' : d.toISOString();
+  }
+
+  const str = String(value);
+  if (str.includes('T')) return str;
+
+  // "2026-08-21 23:00:00" — an ISO date with a space where the T belongs,
+  // which is what a lot of servers emit and what Date happily parses.
+  if (/^\d{4}-\d{2}-\d{2}[ ]\d{2}:\d{2}/.test(str)) return str.replace(' ', 'T');
+
+  return str;
+}
+
 function normalizeApiShow(s) {
   const find = (...names) => {
     for (const n of names) {
@@ -1766,9 +1804,22 @@ function normalizeApiShow(s) {
     return null;
   };
 
-  const rawDate = String(find('date', 'show_date', 'started_at', 'startTime', 'start_time', 'created_at', 'scheduled_at', 'scheduledAt') || '');
+  const rawDate = coerceDateish(
+    find('date', 'show_date', 'started_at', 'startTime', 'start_time', 'created_at', 'scheduled_at', 'scheduledAt')
+  );
   const showDate = rawDate.includes('T') ? rawDate.substring(0, 10) : parseDateString(rawDate);
   const startTime = rawDate.includes('T') ? parseTimeFromIso(rawDate) : parseTimeString(rawDate);
+
+  // A record with a title and no date is the shape that gets thrown away on
+  // the PHP side ("has no show_date — cannot create"), and from the log alone
+  // there is no way to tell whether the field was missing, empty, or in a
+  // format nothing here parses. Say which.
+  if (!showDate && find('title', 'show_title', 'name', 'show_name')) {
+    const seen = Object.entries(s)
+      .filter(([k]) => /date|time|start|created|scheduled/i.test(k))
+      .map(([k, v]) => `${k}=${JSON.stringify(v)}`.substring(0, 80));
+    info('API intercept: no date parsed from record —', seen.length ? seen.join(' ') : 'no date-like field present');
+  }
   const durationMin = parseDurationToMinutes(String(find('duration', 'show_duration', 'duration_minutes') || ''));
 
   return {
@@ -5037,7 +5088,36 @@ async function extractLedgerFromPage(page) {
       let targetUrl = analyticsUrlCandidates[0];
       let landed    = false;
 
-      for (const candidate of analyticsUrlCandidates) {
+      // Do not throw away a hub we are already standing on.
+      //
+      // The auth check leaves the browser on /dashboard/home with a rendered
+      // Seller Hub. The first thing this loop used to do was goto() somewhere
+      // else — and a goto() is a *document* request, which is the one shape
+      // Cloudflare refuses here. Every run since the routing fix went:
+      //
+      //   [nav] 200 GET /dashboard/home          ← the page we wanted
+      //   [nav] 403 GET /dashboard/lives         ← thrown away for this
+      //   [nav] 403 GET /dashboard/home?toast=…  ← and now the hub is gone too
+      //
+      // leaving the sidebar-click path below reading a challenge page, which
+      // is why its anchor dump came back as [Cloudflare, Privacy]. In-page
+      // navigation from a hub that is already loaded never asks for a document
+      // at all, so it is not subject to the rule that refuses them.
+      const standingOn = page.url();
+      if (/\/dashboard(\/|\?|#|$)/.test(standingOn)) {
+        const hubIsRendered = await page.evaluate((markers) => {
+          const text = document.body?.innerText || '';
+          return markers.some((m) => text.includes(m));
+        }, SELLER_HUB_MARKERS).catch(() => false);
+
+        if (hubIsRendered) {
+          info(`already on a rendered hub (${standingOn}) — using it instead of navigating`);
+          targetUrl = standingOn;
+          landed    = true;
+        }
+      }
+
+      for (const candidate of landed ? [] : analyticsUrlCandidates) {
         log(`trying URL: ${candidate}`);
         // Uncaught net::ERR_ABORTED here crashed the whole scrape (confirmed
         // live): switchToChannel()'s role-switch is a real HTML form POST that
@@ -5111,16 +5191,23 @@ async function extractLedgerFromPage(page) {
           ).catch(() => []);
           info('dashboard home anchors:', JSON.stringify(allAnchors.slice(0, 30)));
 
-          // Find the "Shows" sidebar nav link by text content (href pattern is unknown)
+          // Find the "Shows" sidebar nav link.
+          //
+          // The href is /dashboard/lives, not /dashboard/shows — the pattern
+          // this used to match. That left the exact-text fallback carrying the
+          // whole thing, and it only accepted the literal string "Shows", so a
+          // sidebar labelled "Lives" or "My shows" found nothing at all.
           const showsHref = await page.evaluate(() => {
             const links = Array.from(document.querySelectorAll('a[href]'));
-            // Try href pattern first
-            let match = links.find(a => /\/dashboard\/shows|\/seller\/shows/i.test(a.getAttribute('href') || ''));
-            // Fall back to exact text match for the sidebar "Shows" nav item
-            if (!match) {
-              match = links.find(a => (a.textContent || '').trim() === 'Shows');
-            }
-            if (match) { match.click(); return match.getAttribute('href'); }
+            const href  = (a) => a.getAttribute('href') || '';
+            const text  = (a) => (a.textContent || '').trim().toLowerCase();
+
+            // href first: it is the thing that does not change with copy edits.
+            let match = links.find(a => /\/dashboard\/(lives|shows)\b|\/seller\/shows\b/i.test(href(a)));
+            if (!match) match = links.find(a => ['shows', 'lives', 'my shows'].includes(text(a)));
+            if (!match) match = links.find(a => /^(shows|lives)\b/.test(text(a)));
+
+            if (match) { match.click(); return href(match); }
             return null;
           }).catch(() => null);
 
@@ -5257,14 +5344,16 @@ async function extractLedgerFromPage(page) {
         }
 
         if (!clickedTab) {
-          // Try URL param approach as fallback
-          info('/dashboard/lives: no Completed tab found — trying ?status=completed');
-          await page.goto('https://www.whatnot.com/dashboard/lives?status=completed', {
-            waitUntil: 'domcontentloaded', timeout: 20000
-          }).catch(() => {});
-          await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
-          await page.waitForTimeout(1500);
-          await debugShot(page, '06a-lives-status-param');
+          // This used to goto() ?status=completed, and that is now a way to
+          // lose the page: a document request for anything under /dashboard
+          // other than the hub itself comes back refused, so the fallback
+          // traded a rendered list for a challenge screen.
+          //
+          // Not finding the tab is survivable — the list is already on screen,
+          // just unfiltered. Reading it as-is beats navigating out of it.
+          info('/dashboard/lives: no Completed tab found — reading the list unfiltered');
+          info('/dashboard/lives: not re-navigating for ?status=completed; a document request here is refused');
+          await debugShot(page, '06a-lives-no-tab');
         }
       }
 

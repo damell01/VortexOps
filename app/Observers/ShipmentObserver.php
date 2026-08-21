@@ -14,7 +14,9 @@ class ShipmentObserver
      */
     public function updating(Shipment $shipment): void
     {
-        $show = $shipment->show;
+        // Use an explicit relation query rather than lazy-loading the property so
+        // this observer stays safe in environments where lazy loading is disabled.
+        $show = $shipment->show()->first();
         if (! $show) {
             return;
         }
@@ -43,23 +45,15 @@ class ShipmentObserver
             $new = $shipment->getAttribute($field);
 
             $format = static function ($value): string {
-                if ($value === null || $value === '') {
-                    return '—';
-                }
-                if (is_bool($value)) {
-                    return $value ? 'Yes' : 'No';
-                }
-                if (is_array($value)) {
-                    return json_encode($value, JSON_UNESCAPED_SLASHES) ?: '[]';
-                }
+                if ($value === null || $value === '') return '—';
+                if (is_bool($value)) return $value ? 'Yes' : 'No';
+                if (is_array($value)) return json_encode($value, JSON_UNESCAPED_SLASHES) ?: '[]';
                 return (string) $value;
             };
 
             $oldText = $format($old);
             $newText = $format($new);
-            if ($oldText === $newText) {
-                continue;
-            }
+            if ($oldText === $newText) continue;
 
             ShowChangeLog::logChange(
                 $show,

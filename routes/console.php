@@ -29,14 +29,8 @@ Schedule::command('activitylog:clean')
 // serialized and allow all of them to be paused together while debugging.
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
 
-// Primary Whatnot heartbeat. In one authenticated Seller Hub browser session it:
-//   1) refreshes Currently Live + Upcoming shows,
-//   2) infinite-scrolls the Past tab and upserts completed shows by UUID,
-//   3) enriches a small backlog batch with the exact Past-row Analytics and
-//      View Shipments links, persisting analytics on shows and shipment rows in
-//      the existing shipments table.
-// Keeping enrichment bounded prevents a 10-minute heartbeat from hammering Whatnot;
-// successive runs naturally work through older completed shows that still lack data.
+// Primary discovery heartbeat: keeps Current / Upcoming / Past show rows current,
+// captures newly completed shows, and fills a small missing-data enrichment backlog.
 Schedule::command('whatnot:sync-show-index --limit=200 --enrich=3')
     ->skip($whatnotPaused)
     ->cron('*/10 * * * *')
@@ -45,8 +39,22 @@ Schedule::command('whatnot:sync-show-index --limit=200 --enrich=3')
     ->onSuccess(fn () => Setting::set('whatnot_last_import_success_at', now()->toISOString()))
     ->onFailure(fn () => Setting::set('whatnot_last_import_failure_at', now()->toISOString()));
 
+// Rolling analytics + shipment refresh. The command itself decides what is due:
+//   • completed shows from the last 7 days become stale after 30 minutes,
+//   • completed shows 8–30 days old become stale after 6 hours,
+//   • older shows continue only while enrichment is missing or delivery is unresolved.
+// The production scraper paginates the shipment table, so this refresh is not
+// limited to the first 50 shipment rows for a show.
+Schedule::command('whatnot:refresh-recent --days=30 --limit=8')
+    ->skip($whatnotPaused)
+    ->cron('7,37 * * * *')
+    ->name('whatnot-refresh-recent')
+    ->withoutOverlapping(30)
+    ->onSuccess(fn () => Setting::set('whatnot_last_recent_refresh_success_at', now()->toISOString()))
+    ->onFailure(fn () => Setting::set('whatnot_last_recent_refresh_failure_at', now()->toISOString()));
+
 // Backfill item/order detail once a discovered show is no longer future-dated.
-// Show discovery now stores the Whatnot UUID/detail URL before the stream ends.
+// Show discovery stores the Whatnot UUID/detail URL before the stream ends.
 Schedule::command('whatnot:import-orders --new-only')
     ->skip($whatnotPaused)
     ->cron('22 * * * *')
@@ -68,8 +76,7 @@ Schedule::command('whatnot:import-ledger --days=1825')
     ->withoutOverlapping(480);
 
 // Do not schedule the legacy analytics-first import or direct shipment refresh.
-// Both used fresh protected-route navigations. The integrated show-index flow above
-// follows the exact working Seller Hub SPA path instead and owns analytics/shipments.
+// The production SPA path owns show discovery, analytics, and shipments now.
 
 Schedule::command('reports:midweek-report')->weeklyOn(3, '09:00')->name('midweek-report');
 Schedule::command('reports:weekly-review-reminder')->weeklyOn(5, '09:00')->name('weekly-review-reminder');

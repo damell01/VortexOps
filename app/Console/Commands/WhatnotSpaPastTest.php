@@ -8,10 +8,10 @@ use Symfony\Component\Process\Process;
 class WhatnotSpaPastTest extends Command
 {
     protected $signature = 'whatnot:spa-past-test
-                            {live-id=183498e1-fc7d-436b-a4a0-c042efba09b8 : Known past Whatnot livestream UUID}
+                            {live-id=183498e1-fc7d-436b-a4a0-c042efba09b8 : Preferred past Whatnot livestream UUID}
                             {--debug : Save screenshots under /tmp}';
 
-    protected $description = 'Test Past-tab show discovery, analytics, and shipments using infinite-scroll pagination and exact row links';
+    protected $description = 'Test Past-tab show discovery, analytics, and shipments; falls back to a real current-channel past show when needed';
 
     public function handle(): int
     {
@@ -33,16 +33,16 @@ class WhatnotSpaPastTest extends Command
         }
         $env['WHATNOT_DEBUG'] = $this->option('debug') ? '1' : '0';
 
-        $this->info('Testing Past-tab flow for show: ' . $liveId);
-        $this->line('Path: authenticated Seller Hub → /dashboard/lives → Past → infinite-scroll pagination → exact Analytics / Shipments links');
+        $this->info('Testing Past-tab flow. Preferred show: ' . $liveId);
+        $this->line('Path: Seller Hub → Shows → Past → infinite scroll → exact row Analytics / Shipments links');
         $this->newLine();
 
         $process = new Process([
             config('vortex.whatnot.node_bin', 'node'),
-            base_path('scripts/whatnot-spa-past-test-v4.cjs'),
+            base_path('scripts/whatnot-spa-past-test-v5.cjs'),
             $liveId,
         ], base_path(), $env);
-        $process->setTimeout(240);
+        $process->setTimeout(300);
         $process->run(function (string $type, string $buffer): void {
             if ($type === Process::ERR) {
                 $this->output->write($buffer);
@@ -77,7 +77,7 @@ class WhatnotSpaPastTest extends Command
         $rows = $data['past_rows'] ?? [];
         $this->info('Past rows loaded: ' . count($rows));
         if (isset($data['stages']['past']['scroll_passes'])) {
-            $this->line('Scroll passes: ' . ($data['stages']['past']['scroll_passes'] ?? 'until stable'));
+            $this->line('Scroll passes: ' . $data['stages']['past']['scroll_passes']);
         }
 
         if ($rows) {
@@ -93,12 +93,17 @@ class WhatnotSpaPastTest extends Command
             $this->table(['Live ID', 'Title', 'Shipments', 'Analytics'], $table);
         }
 
-        if (! empty($data['target'])) {
+        $target = $data['target'] ?? null;
+        if ($target) {
             $this->newLine();
-            $this->info('Target past-show row found:');
-            $this->line(json_encode($data['target'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            if (($data['target_source'] ?? null) === 'fallback-current-channel') {
+                $this->warn('Preferred UUID was not on this seller/channel. Testing a real current-channel past show instead:');
+            } else {
+                $this->info('Preferred past-show row found:');
+            }
+            $this->line(json_encode($target, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         } else {
-            $this->warn('Target past show was not found before the Past list stopped growing or the safety cap was reached.');
+            $this->warn('No past show with both Analytics and Shipments links could be selected.');
         }
 
         if (! empty($data['stages']['analytics'])) {
@@ -119,10 +124,19 @@ class WhatnotSpaPastTest extends Command
             $this->line('  ' . $op);
         }
 
-        $ok = !empty($rows)
-            && !empty($data['target'])
-            && empty($data['stages']['past']['challenged']);
+        $analyticsOk = !empty($data['stages']['analytics'])
+            && empty($data['stages']['analytics']['challenged'])
+            && !empty($data['stages']['analytics']['metrics']);
+        $shipmentsOk = !empty($data['stages']['shipments'])
+            && empty($data['stages']['shipments']['challenged'])
+            && (($data['stages']['shipments']['tbody_rows'] ?? 0) > 0);
 
-        return $ok ? self::SUCCESS : self::FAILURE;
+        $this->newLine();
+        $this->line('Analytics: ' . ($analyticsOk ? '<info>PASS</info>' : '<error>FAIL</error>'));
+        $this->line('Shipments: ' . ($shipmentsOk ? '<info>PASS</info>' : '<error>FAIL</error>'));
+
+        return (!empty($rows) && $target && $analyticsOk && $shipmentsOk)
+            ? self::SUCCESS
+            : self::FAILURE;
     }
 }

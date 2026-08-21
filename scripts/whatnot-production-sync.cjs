@@ -34,23 +34,34 @@ async function clickShows(page){
   await page.waitForTimeout(2500);
   return /\/dashboard\/lives(?:[/?#]|$)/.test(page.url());
 }
-async function clickTab(page,name){
-  const testId=name==='current'?'tab-current':name==='upcoming'?'tab-upcoming':null;
-  const loc=testId?page.locator(`[data-testid="${testId}"]`).first():page.locator('ul[role="tablist"] button[role="tab"]',{hasText:/^Past$/}).first();
-  if(!(await loc.count().catch(()=>0)))return false;
-  const before=await page.locator('[data-testid="show-list-item-title"]').allTextContents().catch(()=>[]);
-  if((await loc.getAttribute('aria-selected').catch(()=>null))!=='true')await loc.click({timeout:8000}).catch(()=>null);
-  await page.waitForTimeout(3000);
-  const selected=(await loc.getAttribute('aria-selected').catch(()=>null))==='true';
-  if(selected)return true;
-  const after=await page.locator('[data-testid="show-list-item-title"]').allTextContents().catch(()=>[]);
-  if(JSON.stringify(before)!==JSON.stringify(after))return true;
-  if(name==='past'){
-    const pastSignals=await page.locator('[data-testid="show-list-item"] a',{hasText:/See Analytics|View Shipments/i}).count().catch(()=>0);
-    if(pastSignals>0)return true;
-  }
-  return false;
+
+function tabLocator(page,name){
+  if(name==='current') return page.locator('button[data-testid="tab-current"][role="tab"]').first();
+  if(name==='upcoming') return page.locator('button[data-testid="tab-upcoming"][role="tab"]').first();
+  return page.getByRole('tab',{name:'Past',exact:true}).first();
 }
+async function tabStates(page){
+  return page.locator('ul[role="tablist"] button[role="tab"]').evaluateAll(btns=>btns.map(b=>({text:(b.textContent||'').trim(),selected:b.getAttribute('aria-selected'),testid:b.getAttribute('data-testid')}))).catch(()=>[]);
+}
+async function selectTab(page,name){
+  const loc=tabLocator(page,name);
+  if(!(await loc.count().catch(()=>0))) return {ok:false,states:await tabStates(page)};
+  if((await loc.getAttribute('aria-selected').catch(()=>null))==='true') return {ok:true,states:await tabStates(page)};
+
+  await loc.scrollIntoViewIfNeeded().catch(()=>{});
+  await loc.click({timeout:8000}).catch(()=>null);
+  await page.waitForTimeout(1800);
+  if((await loc.getAttribute('aria-selected').catch(()=>null))==='true') return {ok:true,states:await tabStates(page)};
+
+  // React occasionally ignores Playwright's synthetic click here even though
+  // the same button works in a normal browser. A direct DOM click follows the
+  // exact element we already resolved and triggers the app's own handler.
+  await loc.evaluate(el=>el.click()).catch(()=>null);
+  await page.waitForTimeout(2500);
+  const ok=(await loc.getAttribute('aria-selected').catch(()=>null))==='true';
+  return {ok,states:await tabStates(page)};
+}
+
 async function resetScroll(page){
   await page.evaluate(()=>{
     window.scrollTo(0,0);
@@ -129,7 +140,8 @@ async function extractShipmentPage(page){
 async function restorePast(page,targetId){
   if(!/\/dashboard\/lives(?:[/?#]|$)/.test(page.url())){await page.goBack({waitUntil:'domcontentloaded',timeout:15000}).catch(()=>null);await page.waitForTimeout(2200);}
   if(!/\/dashboard\/lives(?:[/?#]|$)/.test(page.url()))await clickShows(page);
-  await clickTab(page,'past');
+  const selected=await selectTab(page,'past');
+  if(!selected.ok)return null;
   const rows=await loadTabAll(page,'past',30,targetId);
   return rows.find(r=>r.live_id===targetId)||null;
 }
@@ -143,9 +155,18 @@ async function restorePast(page,targetId){
   try{
     const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});await page.waitForTimeout(2200);out.stages.home={status:resp?resp.status():null,...await state(page)};if(out.stages.home.challenged)throw new Error('Seller Hub home challenged');
     if(!await clickShows(page))throw new Error('Could not reach Shows'); out.stages.shows=await state(page);
-    out.current=await loadTabAll(page,'current',8);
-    await clickTab(page,'upcoming'); out.upcoming=await loadTabAll(page,'upcoming',16);
-    await clickTab(page,'past'); out.past=await loadTabAll(page,'past',30); await shot(page,'past');
+
+    for(const spec of [
+      {name:'current',key:'current',passes:8},
+      {name:'upcoming',key:'upcoming',passes:16},
+      {name:'past',key:'past',passes:30},
+    ]){
+      const selected=await selectTab(page,spec.name);
+      if(!selected.ok)throw new Error(`Could not select ${spec.name} tab; states=${JSON.stringify(selected.states)}`);
+      out[spec.key]=await loadTabAll(page,spec.key,spec.passes);
+      if(DEBUG)console.error(`[whatnot-prod] ${spec.key}: ${out[spec.key].length} unique show rows; states=${JSON.stringify(await tabStates(page))}`);
+    }
+    await shot(page,'past');
     if(out.past.length===0)throw new Error('Past tab produced no show rows');
 
     let targets=[];

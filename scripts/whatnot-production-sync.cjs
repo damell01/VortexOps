@@ -47,18 +47,14 @@ async function selectTab(page,name){
   const loc=tabLocator(page,name);
   if(!(await loc.count().catch(()=>0))){
     const states=await tabStates(page);
-    // Whatnot removes Currently Live entirely when nothing is live. That is a
-    // legitimate empty state, not a failed navigation.
     if(name==='current') return {ok:true,missing:true,states};
     return {ok:false,missing:false,states};
   }
   if((await loc.getAttribute('aria-selected').catch(()=>null))==='true') return {ok:true,missing:false,states:await tabStates(page)};
-
   await loc.scrollIntoViewIfNeeded().catch(()=>{});
   await loc.click({timeout:8000}).catch(()=>null);
   await page.waitForTimeout(1800);
   if((await loc.getAttribute('aria-selected').catch(()=>null))==='true') return {ok:true,missing:false,states:await tabStates(page)};
-
   await loc.evaluate(el=>el.click()).catch(()=>null);
   await page.waitForTimeout(2500);
   const ok=(await loc.getAttribute('aria-selected').catch(()=>null))==='true';
@@ -166,11 +162,7 @@ async function restorePast(page,targetId){
     ]){
       const selected=await selectTab(page,spec.name);
       if(!selected.ok)throw new Error(`Could not select ${spec.name} tab; states=${JSON.stringify(selected.states)}`);
-      if(selected.missing){
-        out[spec.key]=[];
-        if(DEBUG)console.error(`[whatnot-prod] ${spec.key}: tab absent, treating as 0 shows; states=${JSON.stringify(selected.states)}`);
-        continue;
-      }
+      if(selected.missing){out[spec.key]=[];if(DEBUG)console.error(`[whatnot-prod] ${spec.key}: tab absent, treating as 0 shows; states=${JSON.stringify(selected.states)}`);continue;}
       out[spec.key]=await loadTabAll(page,spec.key,spec.passes);
       if(DEBUG)console.error(`[whatnot-prod] ${spec.key}: ${out[spec.key].length} unique show rows; states=${JSON.stringify(await tabStates(page))}`);
     }
@@ -178,17 +170,49 @@ async function restorePast(page,targetId){
     if(out.past.length===0)throw new Error('Past tab produced no show rows');
 
     let targets=[];
-    for(const id of ENRICH_IDS){const row=out.past.find(r=>r.live_id===id&&r.analytics_url&&r.shipments_url);if(row)targets.push(row);}
-    if(!targets.length)targets=out.past.filter(r=>r.analytics_url&&r.shipments_url).slice(0,MAX_ENRICH);
+    if(ENRICH_IDS.length){
+      for(const id of ENRICH_IDS){
+        const row=out.past.find(r=>r.live_id===id);
+        if(!row){if(DEBUG)console.error(`[whatnot-prod] enrich ${id}: not found in loaded Past rows`);continue;}
+        if(!row.analytics_url&&!row.shipments_url){if(DEBUG)console.error(`[whatnot-prod] enrich ${id}: row has neither Analytics nor Shipments action`);continue;}
+        targets.push(row);
+        if(DEBUG)console.error(`[whatnot-prod] enrich ${id}: analytics=${row.analytics_url?'yes':'no'} shipments=${row.shipments_url?'yes':'no'}`);
+      }
+    } else {
+      targets=out.past.filter(r=>r.analytics_url||r.shipments_url).slice(0,MAX_ENRICH);
+    }
     targets=targets.slice(0,MAX_ENRICH);
+    if(DEBUG)console.error(`[whatnot-prod] enrichment targets: ${targets.length}/${ENRICH_IDS.length||MAX_ENRICH}`);
 
     for(const seed of targets){
-      let target=await restorePast(page,seed.live_id); if(!target)continue;
-      const item={live_id:target.live_id,analytics:null,shipments:null};
-      let row=await findRow(page,target);
-      if(row&&target.shipments_url){const link=row.locator('a',{hasText:/^View Shipments$/}).first();if(await link.count().catch(()=>0)){await link.click({timeout:8000}).catch(()=>null);await page.waitForTimeout(5500);if(!(await state(page)).challenged)item.shipments=await extractShipmentPage(page);}}
-      target=await restorePast(page,seed.live_id); row=target?await findRow(page,target):null;
-      if(row&&target.analytics_url){const link=row.locator('a',{hasText:/^See Analytics$/}).first();if(await link.count().catch(()=>0)){await link.click({timeout:8000}).catch(()=>null);await page.waitForTimeout(5500);const st=await state(page);if(!st.challenged)item.analytics={url:st.url,metrics:extractMetrics(await bodyText(page))};}}
+      let target=await restorePast(page,seed.live_id);
+      if(!target){if(DEBUG)console.error(`[whatnot-prod] enrich ${seed.live_id}: could not restore row`);continue;}
+      const item={live_id:target.live_id,analytics:null,shipments:null,availability:{analytics:!!target.analytics_url,shipments:!!target.shipments_url}};
+
+      if(target.shipments_url){
+        let row=await findRow(page,target);
+        if(row){
+          const link=row.locator('a',{hasText:/^View Shipments$/}).first();
+          if(await link.count().catch(()=>0)){
+            await link.click({timeout:8000}).catch(()=>null);await page.waitForTimeout(5500);
+            if(!(await state(page)).challenged)item.shipments=await extractShipmentPage(page);
+          }
+        }
+      }
+
+      if(target.analytics_url){
+        target=await restorePast(page,seed.live_id);
+        const row=target?await findRow(page,target):null;
+        if(row){
+          const link=row.locator('a',{hasText:/^See Analytics$/}).first();
+          if(await link.count().catch(()=>0)){
+            await link.click({timeout:8000}).catch(()=>null);await page.waitForTimeout(5500);
+            const st=await state(page);if(!st.challenged)item.analytics={url:st.url,metrics:extractMetrics(await bodyText(page))};
+          }
+        }
+      }
+
+      if(DEBUG)console.error(`[whatnot-prod] enrich ${seed.live_id}: analytics=${item.analytics?'ok':(item.availability.analytics?'failed':'n/a')} shipments=${item.shipments?'ok':(item.availability.shipments?'failed':'n/a')}`);
       out.enriched.push(item);
     }
     process.stdout.write(JSON.stringify(out)+'\n');

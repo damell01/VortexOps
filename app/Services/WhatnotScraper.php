@@ -1715,6 +1715,8 @@ class WhatnotScraper
             'needleHits'    => $data['needleHits'] ?? [],
             'chunksScanned' => $data['chunksScanned'] ?? 0,
             'buildId'       => $data['buildId'] ?? null,
+            'landedOn'      => $data['landedOn'] ?? null,
+            'landingStatus' => $data['landingStatus'] ?? null,
         ];
     }
 

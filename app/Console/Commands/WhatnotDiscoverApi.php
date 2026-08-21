@@ -33,7 +33,7 @@ class WhatnotDiscoverApi extends Command
 
     public function handle(WhatnotScraper $scraper): int
     {
-        $this->line('Opening /seller and watching what it asks for…');
+        $this->line('Opening the Seller Hub and watching what it asks for…');
         $this->line('<fg=gray>Read-only: one page load, no navigation, nothing written to Whatnot.</>');
         $this->newLine();
 
@@ -47,6 +47,18 @@ class WhatnotDiscoverApi extends Command
 
         $operations = $found['operations'] ?? [];
         $liveCalls  = $found['liveCalls'] ?? [];
+
+        // Which page it actually got. Reading the hub itself and reading the
+        // one page that answers produce very different bundles, and the
+        // operation count means different things in each case.
+        if ($landed = ($found['landedOn'] ?? null)) {
+            $this->line(sprintf(
+                '<fg=gray>Read from %s [%s]</>',
+                str_replace('https://www.whatnot.com', '', $landed),
+                $found['landingStatus'] ?? '?',
+            ));
+            $this->newLine();
+        }
 
         // The needle result counts as a finding, and a decisive one: it is the
         // answer to "are we reading the right files at all". Returning early on

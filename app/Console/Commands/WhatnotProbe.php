@@ -43,11 +43,20 @@ class WhatnotProbe extends Command
      * the homepage specifically or the whole site is the question this answers.
      */
     private const BROWSER_URLS = [
+        // The Seller Hub's own navigation, taken from the rendered sidebar
+        // rather than guessed. An earlier list had /dashboard/analytics/overview
+        // and /seller/shows, neither of which the hub links to — so their
+        // refusal proved nothing, and "the dashboard is blocked" was concluded
+        // from two URLs, one of which may not exist.
         'https://www.whatnot.com/seller',
         'https://www.whatnot.com/',
+        'https://www.whatnot.com/dashboard/home',
         'https://www.whatnot.com/dashboard/lives',
-        'https://www.whatnot.com/dashboard/analytics/overview',
-        'https://www.whatnot.com/seller/shows',
+        'https://www.whatnot.com/dashboard/orders',
+        'https://www.whatnot.com/dashboard/analytics',
+        'https://www.whatnot.com/dashboard/inventory',
+        'https://www.whatnot.com/dashboard/shipments',
+        'https://www.whatnot.com/dashboard/ledger/payouts',
     ];
 
     public function handle(WhatnotScraper $scraper): int

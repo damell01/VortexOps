@@ -3541,8 +3541,19 @@ async function extractLedgerFromPage(page) {
         } catch { /* a body already consumed or a redirect; nothing to read */ }
       });
 
-      await rawGoto('https://www.whatnot.com/seller', { waitUntil: 'domcontentloaded', timeout: 30000 })
-        .catch(() => null);
+      // /dashboard/home first: it is the hub's real entry point, and its code
+      // is what loads the operations worth having. /seller is the fallback,
+      // being the page known to answer.
+      let landedOn = 'https://www.whatnot.com/dashboard/home';
+      let landing  = await rawGoto(landedOn, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => null);
+
+      if (! landing || landing.status() >= 400) {
+        info(`[discover] /dashboard/home answered ${landing ? landing.status() : 'nothing'} — falling back to /seller`);
+        landedOn = 'https://www.whatnot.com/seller';
+        landing  = await rawGoto(landedOn, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => null);
+      } else {
+        info('[discover] /dashboard/home answered 200 — reading the hub itself');
+      }
 
       // Long enough for the hub to finish its own start-up calls.
       await page.waitForTimeout(12000);
@@ -3762,6 +3773,8 @@ async function extractLedgerFromPage(page) {
         needle,
         needleHits,
         introspection,
+        landedOn,
+        landingStatus: landing ? landing.status() : null,
         scriptCount: scriptUrls.length,
         chunksScanned: scanned,
         chunksDiscovered: discoveredChunks,

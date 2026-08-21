@@ -4,10 +4,68 @@ namespace App\Observers;
 
 use App\Jobs\NotifyShowPendingReview;
 use App\Models\Show;
+use App\Models\ShowChangeLog;
 use App\Models\StreamerLogEntry;
 
 class ShowObserver
 {
+    /**
+     * Record Whatnot-owned fields that are not already covered by Show::trackChanges().
+     * The production analytics sync calls trackChanges() for gross/net/units, so those
+     * fields are intentionally omitted here to avoid duplicate history rows.
+     */
+    public function updating(Show $show): void
+    {
+        if ($show->import_source !== 'auto_whatnot') {
+            return;
+        }
+
+        $fields = [
+            'title',
+            'show_date',
+            'start_time',
+            'completed_earnings',
+            'avg_order_value',
+            'giveaway_spend',
+            'giveaways_count',
+            'buyers_count',
+            'first_time_buyers',
+            'returning_buyers',
+            'shares_count',
+            'show_duration',
+            'max_concurrent_viewers',
+            'total_views',
+            'avg_order_rating',
+        ];
+
+        foreach ($fields as $field) {
+            if (! $show->isDirty($field)) {
+                continue;
+            }
+
+            $old = $show->getOriginal($field);
+            $new = $show->getAttribute($field);
+
+            // Eloquent date/cast objects can stringify differently while still
+            // representing the same value, so normalize them for comparison/logging.
+            $normalize = static function ($value): mixed {
+                if ($value instanceof \DateTimeInterface) {
+                    return $value->format('Y-m-d H:i:s');
+                }
+                return $value;
+            };
+
+            $old = $normalize($old);
+            $new = $normalize($new);
+
+            if ((string) $old === (string) $new) {
+                continue;
+            }
+
+            ShowChangeLog::logChange($show, $field, $old, $new, 'whatnot_import');
+        }
+    }
+
     public function created(Show $show): void
     {
         $this->detectImportedShowStreamer($show, true);
@@ -15,7 +73,7 @@ class ShowObserver
 
     public function updated(Show $show): void
     {
-        if ($show->isDirty('status') && $show->status === 'pending_review') {
+        if ($show->wasChanged('status') && $show->status === 'pending_review') {
             NotifyShowPendingReview::dispatch($show->id);
         }
 
@@ -28,10 +86,7 @@ class ShowObserver
 
         // When a show transitions to 'reconciled', auto-create a blank StreamerLogEntry
         // for the primary streamer if one does not already exist.
-        if (
-            $show->isDirty('status')
-            && $show->status === 'reconciled'
-        ) {
+        if ($show->wasChanged('status') && $show->status === 'reconciled') {
             $primaryStreamer = $show->primaryStreamer();
 
             if ($primaryStreamer && ! StreamerLogEntry::where('show_id', $show->id)->exists()) {

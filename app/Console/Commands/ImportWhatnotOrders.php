@@ -61,6 +61,13 @@ class ImportWhatnotOrders extends Command
                 $totalCreated += $result['created'];
                 $totalSkipped += $result['skipped'];
 
+                // Keep order freshness separate from show-index / analytics /
+                // shipment freshness. Direct assignment avoids mass-assignment
+                // coupling and works as soon as the migration is applied.
+                $show->setAttribute('last_orders_synced_at', now());
+                $show->last_synced_at = now();
+                $show->saveQuietly();
+
                 if ($result['created'] > 0) {
                     $this->advanceShowStatus($show);
                 }

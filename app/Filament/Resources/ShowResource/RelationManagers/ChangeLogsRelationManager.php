@@ -6,6 +6,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Table;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\BadgeColumn;
+use Filament\Tables\Filters\SelectFilter;
 
 class ChangeLogsRelationManager extends RelationManager
 {
@@ -27,19 +28,19 @@ class ChangeLogsRelationManager extends RelationManager
                     ->label('Field')
                     ->badge()
                     ->formatStateUsing(fn (string $state) => str_replace('_', ' ', ucwords($state)))
-                    ->color('info')
+                    ->color(fn (string $state) => str_starts_with($state, 'shipment_') ? 'warning' : 'info')
                     ->weight('semibold'),
 
                 TextColumn::make('old_value')
                     ->label('Before')
-                    ->limit(50)
-                    ->tooltip(fn (string $state) => $state)
+                    ->limit(70)
+                    ->tooltip(fn (?string $state) => $state)
                     ->placeholder('—'),
 
                 TextColumn::make('new_value')
                     ->label('After')
-                    ->limit(50)
-                    ->tooltip(fn (string $state) => $state)
+                    ->limit(70)
+                    ->tooltip(fn (?string $state) => $state)
                     ->weight('semibold')
                     ->color('success')
                     ->placeholder('—'),
@@ -49,10 +50,15 @@ class ChangeLogsRelationManager extends RelationManager
                     ->colors([
                         'primary' => 'manual',
                         'warning' => 'whatnot_import',
-                        'info' => 'cron',
+                        'info' => 'whatnot_spa_sync',
+                        'success' => 'whatnot_shipment_import',
                         'gray' => 'api',
                     ])
-                    ->formatStateUsing(fn (string $state) => str_replace('_', ' ', ucfirst($state))),
+                    ->formatStateUsing(fn (string $state) => match ($state) {
+                        'whatnot_import', 'whatnot_spa_sync' => 'Whatnot Analytics',
+                        'whatnot_shipment_import' => 'Whatnot Shipment',
+                        default => str_replace('_', ' ', ucfirst($state)),
+                    }),
 
                 TextColumn::make('changed_by')
                     ->label('By')
@@ -60,18 +66,15 @@ class ChangeLogsRelationManager extends RelationManager
                     ->placeholder('system'),
             ])
             ->filters([
-                //
-            ])
-            ->headerActions([
-                //
-            ])
-            ->actions([
-                //
-            ])
-            ->bulkActions([
-                //
+                SelectFilter::make('source')
+                    ->options([
+                        'whatnot_import' => 'Whatnot Analytics',
+                        'whatnot_spa_sync' => 'Whatnot Analytics (SPA)',
+                        'whatnot_shipment_import' => 'Whatnot Shipment',
+                        'manual' => 'Manual',
+                    ]),
             ])
             ->emptyStateHeading('No changes yet')
-            ->emptyStateDescription('Changes will appear here when this show is updated.');
+            ->emptyStateDescription('Analytics, shipment, and manual changes will appear here when values change.');
     }
 }

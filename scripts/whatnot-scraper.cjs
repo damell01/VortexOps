@@ -3368,20 +3368,30 @@ async function extractLedgerFromPage(page) {
           continue;
         }
 
-        // Give a challenge that resolves on its own the few seconds it needs,
-        // so a page that is merely slow is not recorded as blocked.
-        await page.waitForTimeout(4000);
-
-        const body = await readBodyText(page);
+        // Wait the challenge out, the way the scraper itself does.
+        //
+        // This used to sample the page four seconds after the request and
+        // record whatever it saw. That measures the challenge *arriving*, not
+        // whether the browser can pass it — and Cloudflare's managed challenge
+        // is designed to be passed: it runs, sets a clearance, and reloads into
+        // the real page. So every refused row here was a page the browser might
+        // well have reached, and five rounds of conclusions were drawn from it.
+        const settled     = await settleChallenge(page, { fatal: false });
+        const body        = await readBodyText(page);
+        const stillBlocked = body !== null && isChallengePage(body);
 
         results.push({
           url:        target,
           status,
-          challenged: body === null ? null : isChallengePage(body),
-          landedOn:   page.url(),
+          challenged: stillBlocked,
+          // Worth keeping apart: a page served immediately and a page served
+          // after the browser worked for it are both usable, and only the
+          // second says the challenge is passable at all.
+          hadChallenge: status === 403 || status === 503 || ! settled,
+          landedOn:     page.url(),
         });
 
-        info(`[probe] ${status} ${isChallengePage(body || '') ? 'CHALLENGED' : 'ok'} ${navPath(target)}`);
+        info(`[probe] ${status} ${stillBlocked ? 'BLOCKED' : (status >= 400 ? 'cleared after challenge' : 'ok')} ${navPath(target)}`);
       }
 
       // ── Second question: does the block apply to the app's own requests?

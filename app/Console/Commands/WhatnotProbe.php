@@ -140,15 +140,31 @@ class WhatnotProbe extends Command
         $refused = [];
 
         foreach ($results as $result) {
-            $blocked = ($result['challenged'] ?? false) || (($result['status'] ?? 0) >= 400);
-            $path    = str_replace('https://www.whatnot.com', '', $result['url']) ?: '/';
+            // The status a challenge arrives with is 403, and a page that then
+            // clears it is reachable. Treating any 4xx as blocked conflated
+            // "refused" with "made us work for it" — which is the whole reason
+            // this command reported pages as unreachable that the very next
+            // command read successfully.
+            $blocked = ($result['challenged'] ?? false)
+                || ((($result['status'] ?? 0) >= 400) && ! ($result['hadChallenge'] ?? false));
+
+            $path = str_replace('https://www.whatnot.com', '', $result['url']) ?: '/';
+
+            // A page that answered only after the browser worked through a
+            // challenge is still a page we can reach, and saying so is the
+            // difference between "blocked" and "costs a few seconds".
+            $worked = ! $blocked && ($result['hadChallenge'] ?? false);
 
             $this->line(sprintf(
                 '  %s  %-42s [%s]%s',
                 $blocked ? '<fg=red>NO </>' : '<fg=green>YES</>',
                 $path,
                 $result['status'] ?? 'no response',
-                ($result['challenged'] ?? false) ? ' Cloudflare challenge' : '',
+                match (true) {
+                    (bool) ($result['challenged'] ?? false) => ' Cloudflare challenge, never cleared',
+                    $worked => ' <fg=yellow>after clearing a challenge</>',
+                    default => '',
+                },
             ));
 
             $blocked ? $refused[] = $path : $served[] = $path;

@@ -156,4 +156,30 @@ class WhatnotBrowserProbeTest extends TestCase
         $this->probing([$this->page('https://www.whatnot.com/seller', 200, false)])
             ->doesntExpectOutputToContain('asked for as a fetch');
     }
+
+    public function test_a_page_that_clears_a_challenge_is_reported_as_reachable(): void
+    {
+        // The distinction the probe was missing entirely. Cloudflare's managed
+        // challenge is designed to be passed — it runs, sets a clearance and
+        // reloads into the real page. Sampling four seconds in recorded the
+        // challenge arriving and called the page blocked, and five rounds of
+        // conclusions were drawn from that.
+        $this->probing([
+            ['url' => 'https://www.whatnot.com/dashboard/home', 'status' => 403,
+             'challenged' => false, 'hadChallenge' => true],
+        ])
+            ->expectsOutputToContain('after clearing a challenge')
+            // And counted as served, not refused — the summary is what people
+            // read, and it disagreeing with the row above it is worse than
+            // either being wrong alone.
+            ->expectsOutputToContain('Every page was served');
+    }
+
+    public function test_a_challenge_that_never_clears_still_reads_as_blocked(): void
+    {
+        $this->probing([
+            ['url' => 'https://www.whatnot.com/', 'status' => 403,
+             'challenged' => true, 'hadChallenge' => true],
+        ])->expectsOutputToContain('never cleared');
+    }
 }

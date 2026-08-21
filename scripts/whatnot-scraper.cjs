@@ -3407,15 +3407,25 @@ async function extractLedgerFromPage(page) {
         // while /seller was open were neither — they were the app's own calls
         // to /services/*. Testing page URLs and concluding "everything is
         // blocked" would retire a route that was never tried.
+        // POST for GraphQL. The captured call the hub makes is a POST, and
+        // asking a GraphQL endpoint with a GET is how the first version of
+        // this got a 404 that said nothing about whether the surface was open.
         const apiTargets = [
-          'https://www.whatnot.com/services/graphql/?operationName=__probe',
-          'https://www.whatnot.com/api/v1/me',
+          { url: 'https://www.whatnot.com/services/graphql/?operationName=__probe&ssr=0', method: 'POST' },
+          { url: 'https://www.whatnot.com/api/v1/me', method: 'GET' },
         ];
 
         for (const target of apiTargets) {
-          const probe = await page.evaluate(async (url) => {
+          const probe = await page.evaluate(async ({ url, method }) => {
             try {
-              const response = await fetch(url, { credentials: 'include' });
+              const response = await fetch(url, {
+                method,
+                credentials: 'include',
+                headers: method === 'POST' ? { 'content-type': 'application/json' } : {},
+                body: method === 'POST'
+                  ? JSON.stringify({ operationName: '__probe', variables: {}, query: 'query __probe { __typename }' })
+                  : undefined,
+              });
               const body = await response.text();
 
               return {
@@ -3431,9 +3441,9 @@ async function extractLedgerFromPage(page) {
             }
           }, target);
 
-          soft.push({ url: target, api: true, ...probe });
+          soft.push({ url: target.url, api: true, ...probe });
 
-          info(`[probe:api] ${probe.status ?? 'ERR'} ${probe.challenged ? 'CHALLENGED' : (probe.reachedTheApp ? 'reached the app' : 'ok')} ${probe.bytes}B ${navPath(target)}`);
+          info(`[probe:api] ${probe.status ?? 'ERR'} ${probe.challenged ? 'CHALLENGED' : (probe.reachedTheApp ? 'reached the app' : 'ok')} ${probe.bytes}B ${navPath(target.url)}`);
         }
 
         for (const target of targets) {
@@ -3499,13 +3509,45 @@ async function extractLedgerFromPage(page) {
         });
       });
 
+      // Bundles read from the Node side, not from inside the page.
+      //
+      // The first attempt fetched them with page.evaluate and filtered to
+      // location.origin, which found nothing: the app's JavaScript is served
+      // from elsewhere, and a cross-origin fetch could not have read the body
+      // anyway — CORS would refuse it. Playwright sees every response the
+      // browser received, whatever host it came from and whatever the page is
+      // allowed to read, so the bodies are collected here instead.
+      const bundleOps = new Map();
+
+      page.on('response', async (response) => {
+        const url = response.url();
+
+        if (! /\.js(\?|$)/.test(url)) return;
+
+        try {
+          const text = await response.text();
+
+          for (const m of text.matchAll(/\b(query|mutation)\s+([A-Z][A-Za-z0-9_]{3,})\s*[({]/g)) {
+            if (! bundleOps.has(m[2])) {
+              bundleOps.set(m[2], { name: m[2], kind: m[1], from: url.split('/').pop().substring(0, 60) });
+            }
+          }
+
+          for (const m of text.matchAll(/operationName["'\s:=]+([A-Z][A-Za-z0-9_]{3,})/g)) {
+            if (! bundleOps.has(m[1])) {
+              bundleOps.set(m[1], { name: m[1], kind: 'operationName', from: url.split('/').pop().substring(0, 60) });
+            }
+          }
+        } catch { /* a body already consumed or a redirect; nothing to read */ }
+      });
+
       await rawGoto('https://www.whatnot.com/seller', { waitUntil: 'domcontentloaded', timeout: 30000 })
         .catch(() => null);
 
       // Long enough for the hub to finish its own start-up calls.
       await page.waitForTimeout(12000);
 
-      const operations = await page.evaluate(async () => {
+      const inPageOps = await page.evaluate(async () => {
         const scripts = [...new Set([
           ...performance.getEntriesByType('resource')
             .map((e) => e.name)
@@ -3539,6 +3581,12 @@ async function extractLedgerFromPage(page) {
 
         return [...found.values()];
       }).catch(() => []);
+
+      // Whichever source saw it. The in-page fetch still finds same-origin
+      // chunks the response listener may have missed to a cache hit.
+      const operations = [...new Map(
+        [...bundleOps.values(), ...inPageOps].map((op) => [op.name, op]),
+      ).values()];
 
       await flushProfile();
 

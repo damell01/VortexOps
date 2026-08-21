@@ -45,21 +45,24 @@ async function tabStates(page){
 }
 async function selectTab(page,name){
   const loc=tabLocator(page,name);
-  if(!(await loc.count().catch(()=>0))) return {ok:false,states:await tabStates(page)};
-  if((await loc.getAttribute('aria-selected').catch(()=>null))==='true') return {ok:true,states:await tabStates(page)};
+  if(!(await loc.count().catch(()=>0))){
+    const states=await tabStates(page);
+    // Whatnot removes Currently Live entirely when nothing is live. That is a
+    // legitimate empty state, not a failed navigation.
+    if(name==='current') return {ok:true,missing:true,states};
+    return {ok:false,missing:false,states};
+  }
+  if((await loc.getAttribute('aria-selected').catch(()=>null))==='true') return {ok:true,missing:false,states:await tabStates(page)};
 
   await loc.scrollIntoViewIfNeeded().catch(()=>{});
   await loc.click({timeout:8000}).catch(()=>null);
   await page.waitForTimeout(1800);
-  if((await loc.getAttribute('aria-selected').catch(()=>null))==='true') return {ok:true,states:await tabStates(page)};
+  if((await loc.getAttribute('aria-selected').catch(()=>null))==='true') return {ok:true,missing:false,states:await tabStates(page)};
 
-  // React occasionally ignores Playwright's synthetic click here even though
-  // the same button works in a normal browser. A direct DOM click follows the
-  // exact element we already resolved and triggers the app's own handler.
   await loc.evaluate(el=>el.click()).catch(()=>null);
   await page.waitForTimeout(2500);
   const ok=(await loc.getAttribute('aria-selected').catch(()=>null))==='true';
-  return {ok,states:await tabStates(page)};
+  return {ok,missing:false,states:await tabStates(page)};
 }
 
 async function resetScroll(page){
@@ -163,6 +166,11 @@ async function restorePast(page,targetId){
     ]){
       const selected=await selectTab(page,spec.name);
       if(!selected.ok)throw new Error(`Could not select ${spec.name} tab; states=${JSON.stringify(selected.states)}`);
+      if(selected.missing){
+        out[spec.key]=[];
+        if(DEBUG)console.error(`[whatnot-prod] ${spec.key}: tab absent, treating as 0 shows; states=${JSON.stringify(selected.states)}`);
+        continue;
+      }
       out[spec.key]=await loadTabAll(page,spec.key,spec.passes);
       if(DEBUG)console.error(`[whatnot-prod] ${spec.key}: ${out[spec.key].length} unique show rows; states=${JSON.stringify(await tabStates(page))}`);
     }

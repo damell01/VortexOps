@@ -11,7 +11,7 @@ class WhatnotSpaPastTest extends Command
                             {live-id=183498e1-fc7d-436b-a4a0-c042efba09b8 : Preferred past Whatnot livestream UUID}
                             {--debug : Save screenshots under /tmp}';
 
-    protected $description = 'Test Past-tab show discovery, analytics, and exact shipment-table extraction; falls back to a real current-channel past show when needed';
+    protected $description = 'Test Past-tab show discovery, exact shipment extraction, and analytics; falls back to a real current-channel past show when needed';
 
     public function handle(): int
     {
@@ -34,12 +34,12 @@ class WhatnotSpaPastTest extends Command
         $env['WHATNOT_DEBUG'] = $this->option('debug') ? '1' : '0';
 
         $this->info('Testing Past-tab flow. Preferred show: ' . $liveId);
-        $this->line('Path: Seller Hub → Shows → Past → infinite scroll → exact Analytics / Shipments row links');
+        $this->line('Path: Seller Hub → Shows → Past → infinite scroll → Shipments first → Analytics');
         $this->newLine();
 
         $process = new Process([
             config('vortex.whatnot.node_bin', 'node'),
-            base_path('scripts/whatnot-spa-past-test-v6.cjs'),
+            base_path('scripts/whatnot-spa-past-test-v7.cjs'),
             $liveId,
         ], base_path(), $env);
         $process->setTimeout(320);
@@ -62,7 +62,7 @@ class WhatnotSpaPastTest extends Command
             return self::FAILURE;
         }
 
-        foreach (['home','shows','past','analytics','shipments'] as $stage) {
+        foreach (['home','shows','past','shipments','analytics'] as $stage) {
             if (! isset($data['stages'][$stage])) continue;
             $row = $data['stages'][$stage];
             $this->line(sprintf(
@@ -106,13 +106,10 @@ class WhatnotSpaPastTest extends Command
             $this->warn('No past show with both Analytics and Shipments links could be selected.');
         }
 
-        if (! empty($data['stages']['analytics'])) {
+        if (! empty($data['stages']['shipments_click'])) {
             $this->newLine();
-            $this->info('Analytics result:');
-            $this->line(json_encode([
-                'url' => $data['stages']['analytics']['url'] ?? null,
-                'metrics' => $data['stages']['analytics']['metrics'] ?? [],
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line('Shipment link found on selected row: ' . (!empty($data['stages']['shipments_click']['found']) ? '<info>yes</info>' : '<error>no</error>'));
+            $this->line('Shipment href: ' . ($data['stages']['shipments_click']['expected_href'] ?? ''));
         }
 
         if (! empty($data['stages']['shipments'])) {
@@ -141,6 +138,15 @@ class WhatnotSpaPastTest extends Command
                 }
                 $this->table(['Recipient','Order Date','Items','Value','Weight','Dimensions','Status','Carrier','Tracking'], $table);
             }
+        }
+
+        if (! empty($data['stages']['analytics'])) {
+            $this->newLine();
+            $this->info('Analytics result:');
+            $this->line(json_encode([
+                'url' => $data['stages']['analytics']['url'] ?? null,
+                'metrics' => $data['stages']['analytics']['metrics'] ?? [],
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         }
 
         $this->newLine();

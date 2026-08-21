@@ -3384,8 +3384,50 @@ async function extractLedgerFromPage(page) {
         info(`[probe] ${status} ${isChallengePage(body || '') ? 'CHALLENGED' : 'ok'} ${navPath(target)}`);
       }
 
+      // ── Second question: does the block apply to the app's own requests?
+      //
+      // A 403 on a document navigation is not the same as the connection being
+      // refused. While /seller was open, its GraphQL and socket calls came back
+      // fine — so the edge is judging top-level navigations, and a route that
+      // never issues one may go straight through.
+      //
+      // Measured, not assumed: load the one page that is served, then ask for
+      // each refused path as a same-origin fetch from inside it.
+      const soft = [];
+
+      if (process.env.WHATNOT_PROBE_SOFT === '1') {
+        await rawGoto('https://www.whatnot.com/seller', { waitUntil: 'domcontentloaded', timeout: 25000 })
+          .catch(() => null);
+        await page.waitForTimeout(4000);
+
+        for (const target of targets) {
+          if (target.replace(/\/$/, '').endsWith('/seller')) continue;
+
+          const probe = await page.evaluate(async (url) => {
+            try {
+              const response = await fetch(url, { credentials: 'include', redirect: 'follow' });
+              const body = await response.text();
+
+              return {
+                status: response.status,
+                bytes: body.length,
+                // The challenge is served as a page like any other, so the
+                // status alone would record a 200 interstitial as working.
+                challenged: /Performing security verification|Just a moment|cf_chl|Ray ID/i.test(body),
+              };
+            } catch (e) {
+              return { status: null, bytes: 0, challenged: null, note: String(e).substring(0, 120) };
+            }
+          }, target);
+
+          soft.push({ url: target, ...probe });
+
+          info(`[probe:fetch] ${probe.status ?? 'ERR'} ${probe.challenged ? 'CHALLENGED' : 'ok'} ${probe.bytes}B ${navPath(target)}`);
+        }
+      }
+
       await context.close().catch(() => {});
-      writeJsonAndExit({ ok: true, results });
+      writeJsonAndExit({ ok: true, results, soft });
 
       // writeJsonAndExit defers process.exit to the write callback, so the
       // synchronous code after it keeps running — which is how a probe that had

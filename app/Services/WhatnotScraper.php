@@ -1634,11 +1634,12 @@ class WhatnotScraper
      * @param  array<int, string>  $urls
      * @return array<int, array<string, mixed>>
      */
-    public function probePathsInBrowser(array $urls, bool $debug = false): array
+    public function probePathsInBrowser(array $urls, bool $debug = false, bool $soft = false): array
     {
         $env = $this->baseEnv($debug);
         $env['WHATNOT_MODE']       = 'path-probe';
         $env['WHATNOT_PROBE_URLS'] = implode(',', $urls);
+        $env['WHATNOT_PROBE_SOFT'] = $soft ? '1' : '0';
 
         // Each page gets up to 25s to answer plus a 4s settle, and the browser
         // has to cold-start before the first one.
@@ -1661,7 +1662,7 @@ class WhatnotScraper
             throw new \RuntimeException('Path probe returned unexpected response: ' . $stdout);
         }
 
-        return $data['results'];
+        return ['navigations' => $data['results'], 'fetches' => $data['soft'] ?? []];
     }
 
     /**

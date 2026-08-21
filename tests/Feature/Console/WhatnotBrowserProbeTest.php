@@ -20,10 +20,11 @@ use Tests\TestCase;
 class WhatnotBrowserProbeTest extends TestCase
 {
     /** @param array<int, array<string, mixed>> $results */
-    private function probing(array $results): \Illuminate\Testing\PendingCommand
+    private function probing(array $results, array $fetches = []): \Illuminate\Testing\PendingCommand
     {
         $scraper = Mockery::mock(WhatnotScraper::class);
-        $scraper->shouldReceive('probePathsInBrowser')->andReturn($results);
+        $scraper->shouldReceive('probePathsInBrowser')
+            ->andReturn(['navigations' => $results, 'fetches' => $fetches]);
 
         $this->app->instance(WhatnotScraper::class, $scraper);
 
@@ -88,5 +89,47 @@ class WhatnotBrowserProbeTest extends TestCase
         ])
             ->expectsOutputToContain('not path-scoped')
             ->assertFailed();
+    }
+
+    // ── The second question: are the app's own requests blocked too? ──────
+
+    public function test_a_fetch_that_gets_through_is_reported_as_a_way_forward(): void
+    {
+        // A 403 on a navigation is not the same as the connection being
+        // refused. If the page's own requests are served, a route that never
+        // navigates is worth building — and that is the difference between
+        // "keep going" and "buy a proxy".
+        $this->probing(
+            [$this->page('https://www.whatnot.com/seller', 200, false)],
+            [['url' => 'https://www.whatnot.com/dashboard/lives', 'status' => 200, 'bytes' => 48210, 'challenged' => false]],
+        )
+            ->expectsOutputToContain('Asked for as a fetch from inside /seller')
+            ->expectsOutputToContain('get through where a navigation does not');
+    }
+
+    public function test_a_fetch_that_is_challenged_too_closes_that_door(): void
+    {
+        // Saying so plainly matters: it is the result that means the browser
+        // work is finished and the remaining variable is the connection.
+        $this->probing(
+            [$this->page('https://www.whatnot.com/seller', 200, false)],
+            [['url' => 'https://www.whatnot.com/dashboard/lives', 'status' => 403, 'bytes' => 6000, 'challenged' => true]],
+        )->expectsOutputToContain('would not help');
+    }
+
+    public function test_a_challenge_served_as_a_200_still_counts_as_blocked(): void
+    {
+        // Cloudflare's interactive challenge comes back 200, so reading the
+        // status alone would record an interstitial as a working page.
+        $this->probing(
+            [$this->page('https://www.whatnot.com/seller', 200, false)],
+            [['url' => 'https://www.whatnot.com/', 'status' => 200, 'bytes' => 5800, 'challenged' => true]],
+        )->expectsOutputToContain('would not help');
+    }
+
+    public function test_without_the_flag_nothing_extra_is_reported(): void
+    {
+        $this->probing([$this->page('https://www.whatnot.com/seller', 200, false)])
+            ->doesntExpectOutputToContain('Asked for as a fetch');
     }
 }

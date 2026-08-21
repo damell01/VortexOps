@@ -24,6 +24,7 @@ class WhatnotProbe extends Command
     protected $signature = 'whatnot:probe
                             {--url=* : Extra URLs to probe alongside the defaults}
                             {--browser : Probe through the real browser instead of plain HTTP}
+                            {--soft : Also ask for each page as a fetch from inside the one page that is served}
                             {--save= : Write the first successful response body here}';
 
     protected $description = 'Test whether Whatnot serves plain HTTP requests (no browser) with the saved session';
@@ -118,7 +119,8 @@ class WhatnotProbe extends Command
         $this->newLine();
 
         try {
-            $results = $scraper->probePathsInBrowser($urls);
+            $probe   = $scraper->probePathsInBrowser($urls, soft: (bool) $this->option('soft'));
+            $results = $probe['navigations'];
         } catch (\RuntimeException $e) {
             $this->error($e->getMessage());
 
@@ -141,6 +143,37 @@ class WhatnotProbe extends Command
             ));
 
             $blocked ? $refused[] = $path : $served[] = $path;
+        }
+
+        // What the app's own requests get, which is a different question from
+        // what a navigation gets — and the one that decides whether a route
+        // avoiding navigations is worth building.
+        if (($probe['fetches'] ?? []) !== []) {
+            $this->newLine();
+            $this->line('Asked for as a fetch from inside /seller:');
+
+            foreach ($probe['fetches'] as $fetch) {
+                $blocked = ($fetch['challenged'] ?? false) || (($fetch['status'] ?? 0) >= 400);
+
+                $this->line(sprintf(
+                    '  %s  %-42s [%s] %s',
+                    $blocked ? '<fg=red>NO </>' : '<fg=green>YES</>',
+                    str_replace('https://www.whatnot.com', '', $fetch['url']) ?: '/',
+                    $fetch['status'] ?? 'error',
+                    ($fetch['challenged'] ?? false) ? 'Cloudflare challenge' : number_format($fetch['bytes'] ?? 0) . ' bytes',
+                ));
+            }
+
+            $reachable = array_filter(
+                $probe['fetches'],
+                fn ($f) => ! ($f['challenged'] ?? false) && ($f['status'] ?? 0) < 400,
+            );
+
+            $this->newLine();
+            $this->line($reachable !== []
+                ? '<fg=green>The app\'s own requests get through where a navigation does not.</> A route that'
+                    . ' loads /seller once and then fetches, rather than navigating, is worth building.'
+                : 'The block applies to these requests too, so avoiding navigations would not help.');
         }
 
         $this->newLine();

@@ -7,13 +7,15 @@ use App\Filament\Resources\ShipmentResource\Pages;
 use App\Models\Shipment;
 use App\Models\Show;
 use App\Support\AdminModules;
+use Filament\Actions\Action;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
-use Filament\Tables\Table;
-use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\BadgeColumn;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class ShipmentResource extends Resource
 {
@@ -22,7 +24,7 @@ class ShipmentResource extends Resource
     protected static ?string $model = Shipment::class;
     protected static string $moduleSlug = 'shipments';
 
-    public static function getNavigationIcon(): ?string
+    public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-truck';
     }
@@ -42,147 +44,179 @@ class ShipmentResource extends Resource
         return 40;
     }
 
+    public static function canCreate(): bool { return false; }
+    public static function canEdit($record): bool { return false; }
+    public static function canDelete($record): bool { return false; }
+    public static function canDeleteAny(): bool { return false; }
+
     public static function form(Schema $schema): Schema
     {
-        return $schema
-            ->schema([
-                // Read-only view of shipment data
-            ]);
+        return $schema->components([]);
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->with(['show.channel'])
+            ->whereHas('show', fn (Builder $query) => $query->inChannelContext());
     }
 
     public static function table(Table $table): Table
     {
         return $table
+            ->deferLoading()
+            ->persistFiltersInSession()
+            ->defaultSort('created_at_whatnot', 'desc')
             ->columns([
                 TextColumn::make('show.title')
                     ->label('Show')
                     ->searchable()
                     ->sortable()
-                    ->url(fn (Shipment $record) => $record->show ? route('filament.admin.resources.shows.edit', $record->show) : null),
+                    ->wrap()
+                    ->description(fn (Shipment $record) => $record->show?->show_date?->format('M j, Y'))
+                    ->url(fn (Shipment $record) => $record->show
+                        ? ShowResource::getUrl('view', ['record' => $record->show])
+                        : null),
 
-                TextColumn::make('show.show_date')
-                    ->label('Show Date')
-                    ->date('M d, Y')
-                    ->sortable(),
+                TextColumn::make('show.channel.name')
+                    ->label('Channel')
+                    ->badge()
+                    ->placeholder('—')
+                    ->toggleable(),
 
                 TextColumn::make('buyer_username')
-                    ->label('Buyer')
+                    ->label('Recipient')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->placeholder('—'),
 
-                TextColumn::make('tracking_number')
-                    ->label('Tracking #')
-                    ->badge()
-                    ->color('info')
-                    ->copyable()
-                    ->searchable()
-                    ->sortable(),
-
-                BadgeColumn::make('carrier')
-                    ->label('Carrier')
-                    ->color('primary'),
-
-                TextColumn::make('status')
-                    ->label('Status')
-                    ->formatStateUsing(fn (string $state) => view('components.status-badge', [
-                        'status' => $state,
-                        'label' => str_replace('_', ' ', ucwords($state)),
-                    ])->render())
-                    ->html(),
-
-                TextColumn::make('next_action')
-                    ->label('Next Action')
-                    ->state(fn (Shipment $record): string => match ($record->status) {
-                        'Ready to Ship' => 'Pack & ship',
-                        'Shipped' => 'In transit',
-                        'Delivered' => 'Delivered ✓',
-                        default => 'Review',
-                    })
-                    ->badge()
-                    ->color(fn (Shipment $record): string => match ($record->status) {
-                        'Ready to Ship' => 'warning',
-                        'Shipped' => 'info',
-                        'Delivered' => 'success',
-                        default => 'gray',
-                    }),
+                TextColumn::make('created_at_whatnot')
+                    ->label('Order Date')
+                    ->dateTime('M j, Y g:i A')
+                    ->sortable()
+                    ->placeholder('—'),
 
                 TextColumn::make('item_count')
                     ->label('Items')
                     ->numeric()
                     ->sortable(),
 
-                TextColumn::make('weight_oz')
-                    ->label('Weight (oz)')
-                    ->numeric()
-                    ->formatStateUsing(fn ($state) => $state !== null ? number_format($state, 1) : '—')
+                TextColumn::make('shipping_cost')
+                    ->label('Shipping')
+                    ->money('USD')
+                    ->placeholder('—')
                     ->sortable(),
+
+                TextColumn::make('weight_oz')
+                    ->label('Weight')
+                    ->formatStateUsing(function ($state): string {
+                        if ($state === null || $state === '') return '—';
+                        $oz = (float) $state;
+                        if ($oz >= 16) {
+                            $lb = floor($oz / 16);
+                            $remain = round(fmod($oz, 16), 1);
+                            return $remain > 0 ? "{$lb} lb {$remain} oz" : "{$lb} lb";
+                        }
+                        return rtrim(rtrim(number_format($oz, 1), '0'), '.') . ' oz';
+                    })
+                    ->toggleable(),
 
                 TextColumn::make('dimensions_json')
                     ->label('Dimensions')
-                    ->formatStateUsing(function ($state) {
-                        if (!$state) return '—';
-                        $dims = $state;
-                        return sprintf(
-                            "%s × %s × %s in",
-                            $dims['length_in'] ?? '?',
-                            $dims['width_in'] ?? '?',
-                            $dims['height_in'] ?? '?'
-                        );
-                    }),
+                    ->state(function (Shipment $record): string {
+                        $d = $record->dimensions_json ?? [];
+                        if (! is_array($d) || $d === []) return '—';
+                        $l = $d['length_in'] ?? $d['length'] ?? null;
+                        $w = $d['width_in'] ?? $d['width'] ?? null;
+                        $h = $d['height_in'] ?? $d['height'] ?? null;
+                        return ($l !== null || $w !== null || $h !== null)
+                            ? implode(' × ', array_map(fn ($v) => $v ?? '—', [$l, $w, $h])) . ' in'
+                            : '—';
+                    })
+                    ->toggleable(),
 
-                TextColumn::make('shipping_cost')
-                    ->label('Shipping Cost')
-                    ->money('USD')
+                TextColumn::make('status')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => $state ? ucwords(str_replace('_', ' ', $state)) : 'Unknown')
+                    ->color(fn ($state) => match (strtolower((string) $state)) {
+                        'delivered' => 'success',
+                        'in_transit', 'in transit', 'shipped' => 'info',
+                        'pending', 'pending delivery', 'ready to ship', 'label_created', 'label created' => 'warning',
+                        'failed', 'returned', 'cancelled', 'canceled' => 'danger',
+                        default => 'gray',
+                    })
                     ->sortable(),
 
+                TextColumn::make('carrier')
+                    ->label('Carrier')
+                    ->searchable()
+                    ->sortable()
+                    ->placeholder('—'),
+
+                TextColumn::make('tracking_number')
+                    ->label('Tracking')
+                    ->searchable()
+                    ->copyable()
+                    ->copyMessage('Tracking number copied')
+                    ->fontFamily('mono')
+                    ->placeholder('—'),
+
                 IconColumn::make('insurance_added')
-                    ->label('Insurance')
-                    ->boolean(),
+                    ->label('Insured')
+                    ->boolean()
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 IconColumn::make('signature_required')
                     ->label('Signature')
-                    ->boolean(),
-
-                TextColumn::make('created_at')
-                    ->label('Created')
-                    ->dateTime('M d, Y H:i')
-                    ->sortable(),
+                    ->boolean()
+                    ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('show_id')
                     ->label('Show')
-                    ->options(Show::orderBy('title')->pluck('title', 'id'))
-                    ->searchable(),
+                    ->relationship('show', 'title')
+                    ->searchable()
+                    ->preload(),
 
                 SelectFilter::make('carrier')
                     ->label('Carrier')
-                    ->options(Shipment::distinct('carrier')->pluck('carrier', 'carrier')->toArray()),
+                    ->options(fn () => Shipment::query()
+                        ->whereNotNull('carrier')
+                        ->distinct()
+                        ->orderBy('carrier')
+                        ->pluck('carrier', 'carrier')
+                        ->all()),
 
                 SelectFilter::make('status')
                     ->label('Status')
-                    ->options([
-                        'Ready to Ship' => 'Ready to Ship',
-                        'Shipped' => 'Shipped',
-                        'Delivered' => 'Delivered',
-                    ]),
+                    ->options(fn () => Shipment::query()
+                        ->whereNotNull('status')
+                        ->distinct()
+                        ->orderBy('status')
+                        ->pluck('status', 'status')
+                        ->mapWithKeys(fn ($value, $key) => [$key => ucwords(str_replace('_', ' ', $value))])
+                        ->all()),
 
-                SelectFilter::make('insurance_added')
-                    ->label('Insurance Added')
-                    ->options([
-                        true => 'Yes',
-                        false => 'No',
-                    ]),
-
-                SelectFilter::make('signature_required')
-                    ->label('Signature Required')
-                    ->options([
-                        true => 'Yes',
-                        false => 'No',
-                    ]),
+                Filter::make('pending_delivery')
+                    ->label('Pending delivery')
+                    ->toggle()
+                    ->query(fn (Builder $query): Builder => $query->whereRaw('LOWER(COALESCE(status, \'\')) <> ?', ['delivered'])),
             ])
-            ->defaultSort('created_at', 'desc')
-            ->paginated([50, 100, 200])
-            ->striped();
+            ->actions([
+                Action::make('view_show')
+                    ->label('View Show')
+                    ->icon('heroicon-o-video-camera')
+                    ->url(fn (Shipment $record) => $record->show
+                        ? ShowResource::getUrl('view', ['record' => $record->show])
+                        : null)
+                    ->visible(fn (Shipment $record) => (bool) $record->show),
+            ])
+            ->paginationPageOptions([25, 50, 100])
+            ->defaultPaginationPageOption(50)
+            ->striped()
+            ->emptyStateIcon('heroicon-o-truck')
+            ->emptyStateHeading('No shipments yet')
+            ->emptyStateDescription('Shipment records are pulled automatically from Whatnot and tied back to their shows.');
     }
 
     public static function getPages(): array

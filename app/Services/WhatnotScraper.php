@@ -1701,8 +1701,10 @@ class WhatnotScraper
         }
 
         return [
-            'operations' => $data['operations'] ?? [],
-            'liveCalls'  => $data['liveCalls'] ?? [],
+            'operations'    => $data['operations'] ?? [],
+            'liveCalls'     => $data['liveCalls'] ?? [],
+            'introspection' => $data['introspection'] ?? null,
+            'scriptCount'   => $data['scriptCount'] ?? 0,
         ];
     }
 

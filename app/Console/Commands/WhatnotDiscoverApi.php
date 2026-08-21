@@ -44,7 +44,7 @@ class WhatnotDiscoverApi extends Command
         $operations = $found['operations'] ?? [];
         $liveCalls  = $found['liveCalls'] ?? [];
 
-        if ($operations === [] && $liveCalls === []) {
+        if ($operations === [] && $liveCalls === [] && empty($found['introspection'])) {
             $this->warn('Nothing found. Either the page did not finish loading, or the bundles');
             $this->line('are served from a host the fetch could not reach.');
 
@@ -64,6 +64,28 @@ class WhatnotDiscoverApi extends Command
                 ));
             }
 
+            $this->newLine();
+        }
+
+        // Introspection first: it is the schema answering for itself, where
+        // scraping minified JavaScript is guesswork about what a bundler left
+        // behind. When it is switched off, saying so is what stops the empty
+        // operation list reading as a broken command.
+        $schema = $found['introspection'] ?? null;
+
+        if ($schema) {
+            if (! empty($schema['fields'])) {
+                $this->info('Introspection is enabled — ' . count($schema['fields']) . ' queries the API accepts.');
+            } else {
+                $this->line('<fg=gray>Introspection: ' . ($schema['error'] ?: 'no schema returned')
+                    . ' [' . ($schema['status'] ?? 'no response') . ']</>');
+            }
+
+            $this->newLine();
+        }
+
+        if (($found['scriptCount'] ?? 0) === 0 && $operations === []) {
+            $this->line('<fg=gray>No scripts were referenced by the page, so there were no bundles to read.</>');
             $this->newLine();
         }
 

@@ -3582,16 +3582,85 @@ async function extractLedgerFromPage(page) {
         return [...found.values()];
       }).catch(() => []);
 
-      // Whichever source saw it. The in-page fetch still finds same-origin
-      // chunks the response listener may have missed to a cache hit.
-      const operations = [...new Map(
-        [...bundleOps.values(), ...inPageOps].map((op) => [op.name, op]),
-      ).values()];
+      // Third source, and the one that does not depend on reading bundles at
+      // all: ask the endpoint what it supports.
+      //
+      // Scraping names out of JavaScript is guesswork about minified code.
+      // Introspection, where it is enabled, is the schema saying so itself —
+      // every query the API accepts, authoritatively, in one call. When it is
+      // switched off the error says that plainly, which is also worth knowing.
+      const introspection = await page.evaluate(async () => {
+        try {
+          const response = await fetch('/services/graphql/?operationName=IntrospectionQuery&ssr=0', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              operationName: 'IntrospectionQuery',
+              variables: {},
+              query: 'query IntrospectionQuery { __schema { queryType { fields { name } } } }',
+            }),
+          });
+
+          const body = await response.text();
+          let json = null;
+          try { json = JSON.parse(body); } catch { /* not JSON: an edge page, not the app */ }
+
+          return {
+            status: response.status,
+            fields: json?.data?.__schema?.queryType?.fields?.map((f) => f.name) ?? null,
+            error: json?.errors?.[0]?.message ?? null,
+            preview: json ? null : body.substring(0, 200),
+          };
+        } catch (e) {
+          return { status: null, error: String(e).substring(0, 160) };
+        }
+      }).catch((e) => ({ status: null, error: String(e).substring(0, 160) }));
+
+      info(`[introspection] ${introspection.status ?? 'ERR'} ${introspection.fields ? introspection.fields.length + ' query fields' : (introspection.error || 'no schema')}`);
+
+      // Bundles fetched from Node rather than read off the wire.
+      //
+      // The response listener found nothing because this profile is warm: the
+      // bundles come from disk cache, so there is no response body to read.
+      // context.request goes out over the network with the same cookies, past
+      // both the page cache and CORS.
+      const scriptUrls = await page.evaluate(() => [...new Set([
+        ...performance.getEntriesByType('resource').map((e) => e.name),
+        ...[...document.querySelectorAll('script[src]')].map((el) => el.src),
+      ])].filter((u) => /\.js(\?|$)/.test(u))).catch(() => []);
+
+      info(`[bundles] ${scriptUrls.length} script(s) referenced by the page`);
+
+      for (const url of scriptUrls.slice(0, 60)) {
+        const fetched = await context.request.get(url).catch(() => null);
+
+        if (! fetched || ! fetched.ok()) continue;
+
+        const text = await fetched.text().catch(() => '');
+
+        for (const m of text.matchAll(/\b(query|mutation)\s+([A-Z][A-Za-z0-9_]{3,})\s*[({]/g)) {
+          if (! bundleOps.has(m[2])) bundleOps.set(m[2], { name: m[2], kind: m[1], from: url.split('/').pop().substring(0, 60) });
+        }
+
+        for (const m of text.matchAll(/operationName["'\s:=]+([A-Z][A-Za-z0-9_]{3,})/g)) {
+          if (! bundleOps.has(m[1])) bundleOps.set(m[1], { name: m[1], kind: 'operationName', from: url.split('/').pop().substring(0, 60) });
+        }
+      }
+
+      // Whichever source saw it.
+      const operations = [...new Map([
+        ...(introspection.fields ?? []).map((name) => [name, { name, kind: 'schema', from: 'introspection' }]),
+        ...[...bundleOps.values()].map((op) => [op.name, op]),
+        ...inPageOps.map((op) => [op.name, op]),
+      ]).values()];
 
       await flushProfile();
 
       writeJsonAndExit({
         ok: true,
+        introspection,
+        scriptCount: scriptUrls.length,
         operations,
         // Deduped by URL and method: the hub polls, and forty copies of one
         // call is not more information than one.

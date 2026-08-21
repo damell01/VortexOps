@@ -18,11 +18,19 @@ use Tests\TestCase;
  */
 class WhatnotDiscoverApiTest extends TestCase
 {
-    private function finding(array $operations = [], array $liveCalls = []): \Illuminate\Testing\PendingCommand
-    {
+    private function finding(
+        array $operations = [],
+        array $liveCalls = [],
+        ?array $introspection = null,
+        int $scriptCount = 12,
+    ): \Illuminate\Testing\PendingCommand {
         $scraper = Mockery::mock(WhatnotScraper::class);
-        $scraper->shouldReceive('discoverApi')
-            ->andReturn(['operations' => $operations, 'liveCalls' => $liveCalls]);
+        $scraper->shouldReceive('discoverApi')->andReturn([
+            'operations'    => $operations,
+            'liveCalls'     => $liveCalls,
+            'introspection' => $introspection,
+            'scriptCount'   => $scriptCount,
+        ]);
 
         $this->app->instance(WhatnotScraper::class, $scraper);
 
@@ -83,5 +91,44 @@ class WhatnotDiscoverApiTest extends TestCase
         $this->finding([$this->op('UpdateAvatarColour', 'mutation')])
             ->expectsOutputToContain('None matched the filter')
             ->assertSuccessful();
+    }
+
+    // ── Introspection: the schema answering for itself ────────────────────
+
+    public function test_an_enabled_schema_is_reported_as_the_authoritative_list(): void
+    {
+        // Names scraped from minified JavaScript are guesswork about what a
+        // bundler left behind. A schema that answers is the API stating what it
+        // accepts, so it is worth saying which one we are looking at.
+        $this->finding(
+            [$this->op('SellerShowsList', 'schema')],
+            [],
+            ['status' => 200, 'fields' => ['sellerShows', 'me', 'livestreams'], 'error' => null],
+        )
+            ->expectsOutputToContain('Introspection is enabled')
+            ->expectsOutputToContain('SellerShowsList');
+    }
+
+    public function test_a_disabled_schema_says_so_rather_than_looking_empty(): void
+    {
+        // Introspection off is the normal production setting. Printing nothing
+        // would read as the command failing, and send somebody debugging a
+        // command that worked perfectly.
+        $this->finding(
+            [],
+            [['method' => 'POST', 'url' => 'https://www.whatnot.com/services/graphql/?operationName=Whatever']],
+            ['status' => 400, 'fields' => null, 'error' => 'GraphQL introspection is not allowed'],
+        )
+            ->expectsOutputToContain('introspection is not allowed')
+            ->assertSuccessful();
+    }
+
+    public function test_no_scripts_at_all_is_distinguished_from_scripts_with_nothing_in_them(): void
+    {
+        // Two different failures that produce the same empty list: the page
+        // referenced no bundles, or it referenced bundles holding no operation
+        // names. Only the first means the discovery itself did not run.
+        $this->finding([], [['method' => 'GET', 'url' => '/x']], null, 0)
+            ->expectsOutputToContain('no bundles to read');
     }
 }

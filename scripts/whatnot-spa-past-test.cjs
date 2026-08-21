@@ -136,7 +136,6 @@ async function inspectPastRows(page) {
       if (!text || !actionRe.test(text)) continue;
       if (text.length > 2500) continue;
       if (seen.has(text)) continue;
-      // Prefer the smallest useful container: skip ancestors whose child already has the same action cluster.
       const childHasCluster = [...el.children].some(c => {
         const t = (c.innerText || '').trim();
         return actionRe.test(t) && /View Shipments/i.test(t);
@@ -160,7 +159,6 @@ async function inspectPastRows(page) {
 }
 
 async function findShowContainer(page) {
-  // First choice: any rendered link carrying the known UUID.
   const anchor = page.locator(`a[href*="${LIVE_ID}"]`).first();
   if (await anchor.count().catch(() => 0)) {
     const handle = await anchor.elementHandle();
@@ -184,7 +182,6 @@ async function findShowContainer(page) {
     }
   }
 
-  // Some controls are React buttons with no UUID in their DOM href. Return rows for diagnosis.
   const rows = await inspectPastRows(page);
   const uuidRow = rows.find(r => JSON.stringify(r).includes(LIVE_ID));
   return uuidRow || null;
@@ -204,7 +201,6 @@ async function extractAnalytics(page) {
 }
 
 async function clickRowAction(page, actionText) {
-  // Prefer a container tied to the UUID when one is exposed in the DOM.
   const anchor = page.locator(`a[href*="${LIVE_ID}"]`).first();
   if (await anchor.count().catch(() => 0)) {
     const container = anchor.locator('xpath=ancestor-or-self::*[self::tr or self::li or self::div][.//*[contains(normalize-space(), "'+actionText+'")] ]').first();
@@ -218,8 +214,7 @@ async function clickRowAction(page, actionText) {
     }
   }
 
-  // Diagnostic fallback: if only one action with that label is currently rendered, use it.
-  const actions = page.getByText(new RegExp('^'+actionText+'$','i));
+  const actions = page.getByText(new RegExp('^' + actionText + '$', 'i'));
   const count = await actions.count().catch(() => 0);
   if (count === 1) {
     try {

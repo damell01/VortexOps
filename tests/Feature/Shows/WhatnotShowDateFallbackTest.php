@@ -106,6 +106,34 @@ class WhatnotShowDateFallbackTest extends TestCase
         $this->assertSame('19:00:00', $show->start_time->format('H:i:s'));
     }
 
+    public function test_epoch_milliseconds_in_the_raw_field_create_the_show(): void
+    {
+        // The value the live run actually carried. Carbon refuses a bare number
+        // outright — it throws InvalidFormatException rather than guessing —
+        // so the raw-value fallback rescued nothing until this was handled.
+        $result = $this->importing([[
+            'title'         => 'TGIF RIPS AND SINGLES w/Connor',
+            'show_date'     => null,
+            'show_date_raw' => 1787310002471,
+        ]]);
+
+        $this->assertSame(1, $result['created']);
+        $this->assertSame('2026-08-21', Show::first()->show_date->toDateString());
+    }
+
+    public function test_epoch_seconds_are_not_read_as_milliseconds(): void
+    {
+        // Read the other way round, 1787310002 lands in 1970 — a date that
+        // stores cleanly and is off by fifty-six years.
+        $this->importing([[
+            'title'         => 'Same show, seconds',
+            'show_date'     => null,
+            'show_date_raw' => 1787310002,
+        ]]);
+
+        $this->assertSame('2026-08-21', Show::first()->show_date->toDateString());
+    }
+
     public function test_a_row_with_no_readable_date_at_all_is_still_skipped(): void
     {
         // show_date is NOT NULL — a row that genuinely has no date has to be

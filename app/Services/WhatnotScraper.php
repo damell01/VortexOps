@@ -1121,6 +1121,29 @@ class WhatnotScraper
      * Fetch shows and upsert them into the shows table for one channel.
      * Returns counts: ['created' => n, 'updated' => n, 'skipped' => n].
      */
+    /**
+     * Read a timestamp the scraper could not, or throw.
+     *
+     * Whatnot's startTime is epoch milliseconds — 1787310002471 — and Carbon
+     * refuses a bare number outright rather than guessing at it, which is the
+     * correct instinct and also why the raw-value fallback rescued nothing on
+     * its own. Only the two epoch scales are added here; everything else is
+     * still Carbon's call, because a fallback that invents a plausible date
+     * from an unreadable value is worse than one that gives up.
+     */
+    private function parseScrapedTimestamp(mixed $raw): Carbon
+    {
+        if (is_int($raw) || is_float($raw) || preg_match('/^\d{9,14}$/', (string) $raw)) {
+            $n = (float) $raw;
+
+            // Below ~1e11 the number is seconds; as milliseconds it would be
+            // 1973, and no show predates the platform.
+            return Carbon::createFromTimestampMs($n < 1e11 ? $n * 1000 : $n);
+        }
+
+        return Carbon::parse($raw);
+    }
+
     public function importShows(?WhatnotChannel $channel = null, int $limit = 50, bool $debug = false, bool $withOrders = true, ?callable $onProgress = null): array
     {
         try {
@@ -1174,7 +1197,7 @@ class WhatnotScraper
             // read and the scraper could not.
             if (! $lookupDate && filled($row['show_date_raw'] ?? null)) {
                 try {
-                    $parsed = Carbon::parse($row['show_date_raw']);
+                    $parsed = $this->parseScrapedTimestamp($row['show_date_raw']);
                     $lookupDate = $parsed->toDateString();
                     $row['show_date'] = $lookupDate;
                     // Same value, same reason: if the scraper could not read

@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
+use Symfony\Component\Process\Process;
 
 class WhatnotBundleContext extends Command
 {
@@ -14,7 +14,7 @@ class WhatnotBundleContext extends Command
                             {--after=16000 : Characters to print after the match}
                             {--save= : Optional file path to save the extracted context}';
 
-    protected $description = 'Fetch one public Whatnot JS chunk and print a large context window around a GraphQL operation/fragment';
+    protected $description = 'Fetch one Whatnot JS chunk through the authenticated Playwright session and print context around a GraphQL operation/fragment';
 
     public function handle(): int
     {
@@ -33,56 +33,46 @@ class WhatnotBundleContext extends Command
             return self::FAILURE;
         }
 
-        $urls = [
-            "https://www.whatnot.com/_next/static/chunks/{$chunk}",
-            "https://www.whatnot.com/_next/static/chunks/app/{$chunk}",
-        ];
+        $env = array_filter([
+            'PLAYWRIGHT_BROWSERS_PATH' => config('vortex.whatnot.playwright_browsers_path') ?: '/opt/pw-browsers',
+            'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH' => config('vortex.whatnot.playwright_chromium_executable'),
+            'WHATNOT_HEADLESS' => (($headless = config('vortex.whatnot.headless')) === null ? null : ($headless ? 'true' : 'false')),
+            'WHATNOT_USER_DATA_DIR' => storage_path('whatnot-browser-profile'),
+        ], fn ($value) => $value !== null && $value !== '');
 
-        $body = null;
-        $usedUrl = null;
-        foreach ($urls as $url) {
-            try {
-                $response = Http::timeout(30)
-                    ->withHeaders([
-                        'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/128 Safari/537.36',
-                        'Accept' => '*/*',
-                    ])
-                    ->get($url);
+        $node = config('vortex.whatnot.node_bin', 'node');
+        $script = base_path('scripts/whatnot-bundle-context.cjs');
 
-                if ($response->successful() && strlen($response->body()) > 100) {
-                    $body = $response->body();
-                    $usedUrl = $url;
-                    break;
-                }
-            } catch (\Throwable) {
-                // Try the next known Next.js chunk layout.
-            }
-        }
+        $process = new Process([
+            $node,
+            $script,
+            $chunk,
+            $needle,
+            (string) $before,
+            (string) $after,
+        ], base_path(), $env);
+        $process->setTimeout(180);
+        $process->run();
 
-        if ($body === null) {
-            $this->error("Could not fetch chunk {$chunk} from the known Whatnot Next.js chunk paths.");
+        if (! $process->isSuccessful()) {
+            $this->error(trim($process->getErrorOutput()) ?: 'Bundle context helper failed.');
             return self::FAILURE;
         }
 
-        $offset = strpos($body, $needle);
-        if ($offset === false) {
-            $this->error("Needle '{$needle}' was not found in {$chunk}.");
-            $this->line("Fetched: {$usedUrl}");
+        $data = json_decode(trim($process->getOutput()), true);
+        if (! is_array($data) || ! isset($data['context'])) {
+            $this->error('Bundle context helper returned invalid JSON.');
             return self::FAILURE;
         }
-
-        $start = max(0, $offset - $before);
-        $length = min(strlen($body) - $start, $before + strlen($needle) + $after);
-        $context = substr($body, $start, $length);
 
         $this->info("Found '{$needle}' in {$chunk}");
-        $this->line("Source: {$usedUrl}");
-        $this->line("Bundle bytes: " . strlen($body) . "; match offset: {$offset}");
+        $this->line('Source: ' . ($data['url'] ?? 'unknown'));
+        $this->line('Bundle bytes: ' . ($data['bundle_bytes'] ?? '?') . '; match offset: ' . ($data['match_offset'] ?? '?'));
         $this->newLine();
-        $this->line($context);
+        $this->line($data['context']);
 
         if ($path = $this->option('save')) {
-            file_put_contents($path, $context);
+            file_put_contents($path, $data['context']);
             $this->newLine();
             $this->info("Saved context to {$path}");
         }

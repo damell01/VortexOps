@@ -111,7 +111,12 @@ const URLS = {
   dashboardShows:  'https://www.whatnot.com/dashboard/shows',   // historic alias (404s on direct nav)
   dashboard:       'https://www.whatnot.com/dashboard',
   shows:           'https://www.whatnot.com/seller/shows',
-  sellerHub:       'https://www.whatnot.com/seller',
+  // The hub's real entry point. /seller is a marketing page that renders in
+  // buyer mode, which is what sent ensureSellerMode off to the homepage looking
+  // for a "Switch to Selling" drawer — and the homepage is the one path that is
+  // never served. Landing here instead skips both.
+  sellerHub:       'https://www.whatnot.com/dashboard/home',
+  sellerMarketing: 'https://www.whatnot.com/seller',
 };
 
 // Resolve Chromium binary.
@@ -800,7 +805,14 @@ const LOGIN_URL_RE = /\/(login|signin|auth)(\/|\?|$)/i;
 // structural selector here: the markup is generated class names that change
 // between deploys, and these strings are the same ones the channel switch
 // already waits on.
-const SELLER_HUB_MARKERS = ['Seller Hub', 'Manage Shows', 'Seller Dashboard'];
+// Taken from the hub's own sidebar rather than guessed. Every one of these is
+// a nav label that only renders once the Seller Hub is up, so matching any of
+// them means the page is the hub and the session is in seller mode — which is
+// the question ensureSellerMode was trying to answer the long way round.
+const SELLER_HUB_MARKERS = [
+  'Seller Hub', 'Account Health', 'Manage Shows', 'Seller Dashboard',
+  'Rewards Club', 'Seller Resources', 'Shipments',
+];
 
 // How long to keep watching after the hub first renders. A challenge that
 // arrives once the app starts fetching for itself lands a beat after the
@@ -1011,10 +1023,23 @@ async function ensureSellerMode(page) {
   info('ensureSellerMode: buyer mode detected — opening nav drawer to click "Switch to Selling"');
   await debugShot(page, 'seller-mode-01-buyer-mode');
 
-  // ── Step 1: navigate to homepage (not /seller marketing page) ────────────────
-  // The regular homepage renders the full logged-in nav including the hamburger drawer.
-  info('ensureSellerMode: navigating to https://www.whatnot.com');
-  await page.goto('https://www.whatnot.com', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+  // ── Step 1: the hub, then the homepage ──────────────────────────────────
+  //
+  // This went straight to the homepage, which renders the logged-in nav — and
+  // is also the one path Cloudflare never serves here. Every run ended in that
+  // navigation, looping through challenge tokens until it gave up.
+  //
+  // /dashboard/home carries the same nav and is served, so it is tried first.
+  // The homepage stays as a fallback rather than being removed: on an account
+  // where the hub is genuinely unavailable it is the only place the drawer
+  // exists, and failing there is no worse than not trying.
+  info('ensureSellerMode: navigating to the seller hub');
+  const hubResponse = await page.goto(URLS.sellerHub, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => null);
+
+  if (! hubResponse || hubResponse.status() >= 400) {
+    info('ensureSellerMode: hub unavailable — falling back to the homepage');
+    await page.goto('https://www.whatnot.com', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
+  }
   await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
   await debugShot(page, 'seller-mode-02-homepage');
 
@@ -3290,10 +3315,25 @@ async function extractLedgerFromPage(page) {
         } else {
           info('cookie auth check: seller hub reached and settled (', checkUrl, ')');
         }
-        // Activate seller mode if the session landed in buyer mode.
-        // Must be done before saving localStorage so the stored tokens reflect
-        // the seller-mode session, not the buyer-mode one.
-        if (MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe' && MODE !== 'api-discover') {
+        // Seller mode, but only when the hub did not already answer.
+        //
+        // ensureSellerMode exists for a session that lands in buyer mode, and
+        // its route out goes through the homepage to find a "Switch to Selling"
+        // drawer. The homepage is the one path that is never served here, so
+        // that route cannot complete — every run died in it.
+        //
+        // Landing on /dashboard/home makes the question mostly moot: the hub
+        // only renders for a seller, so its nav being present is the answer.
+        // The fallback stays for the case where it genuinely is not.
+        const alreadySelling = hub.reason === 'hub';
+
+        if (alreadySelling) {
+          info('cookie auth check: the hub rendered, so this session is already selling — no switch needed');
+        }
+
+        if (! alreadySelling
+          && MODE !== 'test' && MODE !== 'cookie-test' && MODE !== 'dump-cookies'
+          && MODE !== 'path-probe' && MODE !== 'api-discover') {
           await ensureSellerMode(page);
         }
         // Persist localStorage so ws-explore can inject it into its temp browser.

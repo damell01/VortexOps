@@ -418,7 +418,33 @@ function classifyBlockingPage(url, bodyText) {
 }
 
 /** Report a blocked page and stop, with the code that says what to do next. */
+/**
+ * The live browser context, for the exit paths.
+ *
+ * Chromium only writes its cookie store to disk on a clean close, and every
+ * blocked exit here kills the process outright. So anything the run changed
+ * about the profile — notably dropping an imported cf_clearance — was thrown
+ * away, and the next run read the same stale token back off disk and failed the
+ * same way. That is why dropping it appeared not to work.
+ */
+let liveContext = null;
+
+/** Close the browser if it is open, so the profile keeps what this run learned. */
+async function flushProfile() {
+  if (! liveContext) return;
+
+  const context = liveContext;
+  liveContext = null;
+
+  await context.close().catch(() => {});
+}
+
 function exitBlocked(blocked, url) {
+  // Fire-and-forget on purpose: exitAfterStderr must stay synchronous, and a
+  // close that hangs must not hold the process open. The common case finishes
+  // in milliseconds, well inside the stderr write.
+  flushProfile();
+
   exitAfterStderr(
     blocked.error + ': ' + blocked.message + '\n'
     + describeChallengeShape()
@@ -2934,7 +2960,7 @@ async function extractLedgerFromPage(page) {
   require('fs').mkdirSync(USER_DATA_DIR, { recursive: true });
   info('browser profile dir:', USER_DATA_DIR);
 
-  const context = await launchWithProfileRecovery(USER_DATA_DIR, {
+  const context = liveContext = await launchWithProfileRecovery(USER_DATA_DIR, {
     args: [
       '--no-sandbox',
       '--no-zygote',
@@ -3150,11 +3176,28 @@ async function extractLedgerFromPage(page) {
   // An escape hatch for the case reportClearance warns about: an imported
   // clearance token sits in the profile forever, because edge cookies are only
   // stripped on the bootstrap path and an established profile never takes it.
-  if (process.env.WHATNOT_DROP_CLEARANCE === '1') {
+  // A clearance this profile did not earn is never useful and is actively
+  // harmful: it is bound to the address and user agent that earned it, so
+  // presenting it from here is a mismatched token rather than no token. It was
+  // behind an opt-in flag, which meant it came back on the very next run —
+  // and worse, dropping it did not stick, because the run ends by killing
+  // Chromium and the cookie store is only flushed on a clean close.
+  //
+  // Cloudflare issues clearance for about an hour. Anything claiming months was
+  // imported, so the expiry is enough to tell the two apart without guessing.
+  const _importedClearance = await context.cookies('https://www.whatnot.com')
+    .then((cookies) => cookies.find((c) => c.name === 'cf_clearance'
+      && c.expires > 0
+      && (c.expires * 1000 - Date.now()) > 24 * 60 * 60 * 1000))
+    .catch(() => null);
+
+  if (_importedClearance || process.env.WHATNOT_DROP_CLEARANCE === '1') {
     for (const _edgeCookie of CLOUDFLARE_EDGE_COOKIES) {
       await context.clearCookies({ name: _edgeCookie }).catch(() => {});
     }
-    info('dropped Cloudflare edge cookies on request (WHATNOT_DROP_CLEARANCE=1)');
+    info(_importedClearance
+      ? 'dropped an imported cf_clearance — its expiry says it was earned on another machine'
+      : 'dropped Cloudflare edge cookies on request (WHATNOT_DROP_CLEARANCE=1)');
   }
 
   const page = await context.newPage();
@@ -3343,6 +3386,11 @@ async function extractLedgerFromPage(page) {
 
       await context.close().catch(() => {});
       writeJsonAndExit({ ok: true, results });
+
+      // writeJsonAndExit defers process.exit to the write callback, so the
+      // synchronous code after it keeps running — which is how a probe that had
+      // already finished went on to report "Unknown WHATNOT_MODE: path-probe".
+      return;
     }
 
     // ── Mode: cookie-test ────────────────────────────────────────────────────

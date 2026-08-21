@@ -34,6 +34,7 @@ class TestWhatnotPastShow extends Command
         $ordersOk = false;
         $shipmentsOk = false;
 
+        // 1) Analytics
         $this->info('1) Analytics');
         try {
             $rows = $scraper->fetchShows(
@@ -45,8 +46,8 @@ class TestWhatnotPastShow extends Command
             );
 
             $row = $rows[0] ?? null;
-            if (! is_array($row)) {
-                $this->warn('  No analytics row returned.');
+            if (! is_array($row) || $this->looksBlocked($row)) {
+                $this->warn('  ✗ Analytics returned a Cloudflare/security page instead of show data.');
             } else {
                 $analyticsFields = [
                     'title' => $row['title'] ?? null,
@@ -81,6 +82,8 @@ class TestWhatnotPastShow extends Command
         }
 
         $this->newLine();
+
+        // 2) Orders
         $this->info('2) Orders');
         try {
             $map = $scraper->fetchOrdersForShows(
@@ -89,20 +92,25 @@ class TestWhatnotPastShow extends Command
                 debug: $debug,
                 onProgress: $progress,
             );
-            $orders = $map['past-test'] ?? [];
-            $this->line('  Rows returned: ' . count($orders));
+            $orders = array_values(array_filter(
+                $map['past-test'] ?? [],
+                fn (array $row) => ! $this->looksBlocked($row),
+            ));
+            $this->line('  Valid rows returned: ' . count($orders));
             if ($orders !== []) {
                 $this->line('  First order: ' . json_encode($orders[0], JSON_UNESCAPED_SLASHES));
                 $ordersOk = true;
                 $this->info('  ✓ Orders returned for this past show.');
             } else {
-                $this->warn('  ✗ No order rows returned.');
+                $this->warn('  ✗ No valid order rows returned (challenge/security text is rejected).');
             }
         } catch (\Throwable $e) {
             $this->warn('  ✗ Orders failed: ' . $e->getMessage());
         }
 
         $this->newLine();
+
+        // 3) Shipments
         $this->info('3) Shipments');
         try {
             $map = $scraper->fetchShipmentsForShows(
@@ -111,14 +119,17 @@ class TestWhatnotPastShow extends Command
                 debug: $debug,
                 onProgress: $progress,
             );
-            $shipments = $map['past-test'] ?? [];
-            $this->line('  Rows returned: ' . count($shipments));
+            $shipments = array_values(array_filter(
+                $map['past-test'] ?? [],
+                fn (array $row) => ! $this->looksBlocked($row),
+            ));
+            $this->line('  Valid rows returned: ' . count($shipments));
             if ($shipments !== []) {
                 $this->line('  First shipment: ' . json_encode($shipments[0], JSON_UNESCAPED_SLASHES));
                 $shipmentsOk = true;
                 $this->info('  ✓ Shipment data returned for this past show.');
             } else {
-                $this->warn('  ✗ No shipment rows returned.');
+                $this->warn('  ✗ No valid shipment rows returned.');
             }
         } catch (\Throwable $e) {
             $this->warn('  ✗ Shipments failed: ' . $e->getMessage());
@@ -136,5 +147,25 @@ class TestWhatnotPastShow extends Command
         );
 
         return ($analyticsOk && $ordersOk && $shipmentsOk) ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function looksBlocked(array $row): bool
+    {
+        $haystack = strtolower(json_encode($row, JSON_UNESCAPED_SLASHES) ?: '');
+
+        foreach ([
+            'performing security verification',
+            'protect against malicious bots',
+            'cloudflare',
+            'ray id',
+            'just a moment',
+            'cf_chl',
+        ] as $needle) {
+            if (str_contains($haystack, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

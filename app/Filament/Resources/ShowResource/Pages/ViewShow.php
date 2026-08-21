@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ShowResource\Pages;
 
 use App\Filament\Resources\ShowResource;
 use App\Filament\Resources\DeductionRequestResource;
+use App\Filament\Resources\ShipmentResource;
 use App\Models\DeductionRequest;
 use App\Models\DeductionRequestLine;
 use App\Services\PayoutService;
@@ -101,8 +102,6 @@ class ViewShow extends ViewRecord
                 ->url(fn () => route('export.show-pl-pdf', ['show' => $this->record->id]))
                 ->openUrlInNewTab(),
 
-            // Streamers log their end-of-stream data here (hours, shipments, costs).
-            // This is the quick-entry form that precedes the full log review.
             Action::make('end_of_stream')
                 ->label('End of Stream')
                 ->icon('heroicon-o-camera')
@@ -122,10 +121,6 @@ class ViewShow extends ViewRecord
                 ->url(fn () => \App\Filament\Pages\EndOfStreamForm::getUrl(['showId' => $this->record->id]))
                 ->tooltip('Quickly log your show metrics (hours, shipments, costs)'),
 
-            // Kept as its own top-level button (not buried in the "More actions"
-            // dropdown below) since streamers — not just ops — need to reach this
-            // quickly during/after a show to log what went out, without needing
-            // to enter cost.
             Action::make('add_items')
                 ->label('Add Items')
                 ->icon('heroicon-o-plus-circle')
@@ -144,16 +139,20 @@ class ViewShow extends ViewRecord
                 })
                 ->url(fn () => ShowResource::getUrl('add-items', ['record' => $this->record])),
 
-            // Secondary/contextual actions live in a "More actions" dropdown so the
-            // header row never overflows (12 buttons inline was cutting off the last
-            // ones and forcing horizontal scroll). Each action keeps its own
-            // visibility rules, so the dropdown only lists what's currently relevant.
             ActionGroup::make([
             Action::make('inventory_breakdown')
                 ->label('Inventory Breakdown')
                 ->icon('heroicon-o-chart-bar-square')
                 ->color('gray')
                 ->url(fn () => ShowResource::getUrl('inventory', ['record' => $this->record])),
+
+            Action::make('shipments')
+                ->label(fn () => 'Shipments (' . $this->record->shipments()->count() . ')')
+                ->icon('heroicon-o-truck')
+                ->color('info')
+                ->url(fn () => ShipmentResource::getUrl('index', [
+                    'tableFilters[show_id][value]' => $this->record->id,
+                ])),
 
             Action::make('review_approval')
                 ->label('Review Approval')
@@ -220,13 +219,6 @@ class ViewShow extends ViewRecord
                         $show->update(['status' => 'pending_review']);
                     }
 
-                    // Group by lot_number — the identifier Whatnot actually gives
-                    // reliably ("Lot #123"), not item_name. Whatnot listings often
-                    // carry no real product description at all, and the old
-                    // groupBy('item_name') silently dropped every order with an
-                    // empty item_name instead of creating a line for it — lots
-                    // with no lot_number either (rare) still get their own line via
-                    // the per-order fallback key, so nothing is ever lost.
                     $groupKey = fn ($o) => $o->lot_number !== null
                         ? "lot:{$o->lot_number}"
                         : ($o->item_name ? 'name:' . strtolower(trim($o->item_name)) : "order:{$o->id}");
@@ -236,9 +228,6 @@ class ViewShow extends ViewRecord
                             return $o->item_name ?: "Order #{$o->id}";
                         }
 
-                        // Skip item_name when it's just another generic restatement
-                        // of the lot number itself ("Item #123", "Lot 123") —
-                        // Whatnot often has nothing more descriptive than that.
                         $isGenericRestatement = $o->item_name
                             && preg_match('/^\s*(item|lot)\s*#?\s*' . preg_quote((string) $o->lot_number, '/') . '\s*$/i', $o->item_name);
 

@@ -3635,8 +3635,48 @@ async function extractLedgerFromPage(page) {
       const needle     = (process.env.WHATNOT_FIND || '').trim();
       const needleHits = [];
 
-      for (const url of scriptUrls.slice(0, 60)) {
+      // Chunks this page never loaded.
+      //
+      // /seller pulls in its own code and nothing else, so the operations that
+      // list shows are in the bundle for /dashboard/lives — a page that is
+      // refused. The bundle is not: it is a static asset on the surface that
+      // answers, and nothing about being blocked from a page stops us reading
+      // the JavaScript that page would have run.
+      //
+      // Next.js publishes the map itself. _buildManifest.js lists every route
+      // and the chunks it needs, so this asks for the routes we cannot open and
+      // reads what they would have loaded.
+      const buildId = await page.evaluate(() => window.__NEXT_DATA__?.buildId ?? null).catch(() => null);
+
+      if (buildId) {
+        const manifestUrl = `https://www.whatnot.com/_next/static/${buildId}/_buildManifest.js`;
+        const manifest    = await context.request.get(manifestUrl).catch(() => null);
+
+        if (manifest && manifest.ok()) {
+          const text  = await manifest.text().catch(() => '');
+          const paths = [...new Set([...text.matchAll(/["'](static\/[^"']+\.js)["']/g)].map((m) => m[1]))];
+
+          info(`[bundles] build manifest lists ${paths.length} chunk(s) across every route`);
+
+          for (const path of paths) {
+            const url = `https://www.whatnot.com/_next/${path}`;
+
+            if (scriptUrls.includes(url)) continue;
+
+            scriptUrls.push(url);
+          }
+        } else {
+          info('[bundles] no build manifest — falling back to what the page loaded');
+        }
+      }
+
+      let scanned = 0;
+
+      for (const url of scriptUrls.slice(0, 400)) {
         const fetched = await context.request.get(url).catch(() => null);
+
+        // Several hundred silent fetches is indistinguishable from a hang.
+        if (++scanned % 50 === 0) info(`[bundles] read ${scanned} of ${Math.min(scriptUrls.length, 400)}…`);
 
         if (! fetched || ! fetched.ok()) continue;
 

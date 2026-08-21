@@ -26,7 +26,10 @@ class WhatnotDiscoverApi extends Command
     protected $description = 'List the API operations the Seller Hub uses, for building calls against';
 
     /** What a break business actually wants out of Whatnot. */
-    private const INTERESTING = ['show', 'live', 'order', 'sale', 'seller', 'payout', 'earning'];
+    private const INTERESTING = [
+        'show', 'livestream', 'live', 'order', 'sale', 'seller',
+        'payout', 'earning', 'product', 'listing', 'auction', 'analytics',
+    ];
 
     public function handle(WhatnotScraper $scraper): int
     {

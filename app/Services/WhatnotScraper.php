@@ -1683,9 +1683,11 @@ class WhatnotScraper
             $env['WHATNOT_FIND'] = $find;
         }
 
-        // The page is given twelve seconds to finish its own start-up calls,
-        // and the bundles are fetched after that.
-        $process = $this->makeProcess($env, timeout: 240);
+        // Twelve seconds for the page's own start-up calls, then every chunk
+        // the build manifest lists — which is every route's code, not just the
+        // one page we are allowed to open. That is hundreds of small fetches,
+        // so the budget is generous; it is a discovery run, not a sync.
+        $process = $this->makeProcess($env, timeout: 900);
 
         $this->withBrowserLock(fn () => $process->run());
 

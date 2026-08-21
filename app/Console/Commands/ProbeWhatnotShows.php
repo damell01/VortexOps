@@ -9,18 +9,18 @@ use Symfony\Component\Process\Process;
 class ProbeWhatnotShows extends Command
 {
     protected $signature = 'whatnot:probe-shows
-                            {--channel= : Channel name or ID; defaults to the first active import channel}
+                            {--channel= : Channel name or ID; omit to use the seller channel already active in the browser session}
                             {--limit=10 : Maximum shows to return}
                             {--debug : Enable scraper debug output}';
 
-    protected $description = 'Probe one Whatnot channel using the scraper shows mode, without touching analytics';
+    protected $description = 'Probe Whatnot shows mode without touching analytics; defaults to the currently active seller session';
 
     public function handle(): int
     {
-        $channel = $this->resolveChannel($this->option('channel'));
+        $channel = $this->option('channel') ? $this->resolveChannel($this->option('channel')) : null;
 
-        if (! $channel) {
-            $this->error('No active Whatnot channel found.');
+        if ($this->option('channel') && ! $channel) {
+            $this->error('Channel not found: ' . $this->option('channel'));
             return self::FAILURE;
         }
 
@@ -29,9 +29,17 @@ class ProbeWhatnotShows extends Command
         $env = [
             'WHATNOT_MODE' => 'shows',
             'WHATNOT_LIMIT' => (string) $limit,
-            'WHATNOT_CHANNEL_NAME' => (string) $channel->whatnot_username,
             'WHATNOT_DEBUG' => $this->option('debug') ? '1' : '0',
         ];
+
+        // Important: do NOT set WHATNOT_CHANNEL_NAME unless the caller explicitly
+        // asks for one. The persisted browser session is already authenticated as
+        // a seller, and role/channel switching is currently the operation hanging
+        // on the VPS. For the probe we want to prove show retrieval independently
+        // from account switching.
+        if ($channel) {
+            $env['WHATNOT_CHANNEL_NAME'] = (string) $channel->whatnot_username;
+        }
 
         foreach ([
             'WHATNOT_EMAIL' => config('vortex.whatnot.email'),
@@ -52,8 +60,12 @@ class ProbeWhatnotShows extends Command
         $node = config('vortex.whatnot.node_bin', 'node');
         $script = base_path('scripts/whatnot-scraper.cjs');
 
-        $this->info("Probing {$channel->name} (@{$channel->whatnot_username}) for {$limit} show(s)…");
-        $this->line('Mode: shows (analytics page bypassed)');
+        if ($channel) {
+            $this->info("Probing {$channel->name} (@{$channel->whatnot_username}) for {$limit} show(s)…");
+        } else {
+            $this->info("Probing the seller channel already active in the saved Whatnot session for {$limit} show(s)…");
+        }
+        $this->line('Mode: shows (analytics page bypassed; channel switch bypassed unless --channel is supplied)');
         $this->newLine();
 
         $process = new Process([$node, $script], base_path(), $env);
@@ -111,20 +123,10 @@ class ProbeWhatnotShows extends Command
 
     private function resolveChannel(mixed $value): ?WhatnotChannel
     {
-        if ($value) {
-            return is_numeric($value)
-                ? WhatnotChannel::find($value)
-                : WhatnotChannel::where('name', $value)
-                    ->orWhere('whatnot_username', $value)
-                    ->first();
-        }
-
-        return WhatnotChannel::query()
-            ->where('status', 'active')
-            ->where('include_in_import', true)
-            ->orderBy('id')
-            ->first()
-            ?? WhatnotChannel::query()->where('status', 'active')->orderBy('id')->first()
-            ?? WhatnotChannel::query()->orderBy('id')->first();
+        return is_numeric($value)
+            ? WhatnotChannel::find($value)
+            : WhatnotChannel::where('name', $value)
+                ->orWhere('whatnot_username', $value)
+                ->first();
     }
 }

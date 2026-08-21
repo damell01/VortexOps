@@ -1713,6 +1713,8 @@ class WhatnotScraper
             'scriptCount'   => $data['scriptCount'] ?? 0,
             'needle'        => $data['needle'] ?? null,
             'needleHits'    => $data['needleHits'] ?? [],
+            'chunksScanned' => $data['chunksScanned'] ?? 0,
+            'buildId'       => $data['buildId'] ?? null,
         ];
     }
 

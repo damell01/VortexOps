@@ -134,6 +134,15 @@ class WhatnotDiscoverApi extends Command
             ),
         ));
 
+        // How much was actually read. "69 operations" means nothing without it:
+        // the same number can come from one page's chunks or from four hundred,
+        // and only the second is evidence that the show queries are not there.
+        $this->line(sprintf(
+            '<fg=gray>Read %d chunk(s)%s.</>',
+            $found['chunksScanned'] ?? 0,
+            ($found['buildId'] ?? null) ? '' : ' — no buildId, so chunks were found by following references',
+        ));
+
         $this->info(count($operations) . ' operation(s) in the bundles, ' . count($relevant) . ' worth a look:');
 
         foreach ($relevant as $op) {

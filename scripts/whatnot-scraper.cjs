@@ -3668,19 +3668,51 @@ async function extractLedgerFromPage(page) {
         } else {
           info('[bundles] no build manifest — falling back to what the page loaded');
         }
+      } else {
+        info('[bundles] no buildId on the page (App Router publishes none)');
       }
+
+      // Follow chunk references found in the code itself.
+      //
+      // The manifest route assumes the Pages Router. App Router ships neither
+      // __NEXT_DATA__ nor _buildManifest.js, so that lookup can come back empty
+      // on a perfectly normal Next app — and then discovery only ever sees the
+      // chunks this one page happened to load.
+      //
+      // Every bundle names the ones it can pull in. Following those references
+      // reaches the code for routes we cannot open without needing to know
+      // which framework published them, or how.
+      const chunkQueue = new Set(scriptUrls);
+      let discoveredChunks = 0;
+
+      const queueChunkRefs = (text) => {
+        for (const m of text.matchAll(/["'`](?:\.\/)?(static\/chunks\/[A-Za-z0-9_\-./]+?\.js)["'`]/g)) {
+          const url = `https://www.whatnot.com/_next/${m[1]}`;
+
+          if (! chunkQueue.has(url) && chunkQueue.size < 500) {
+            chunkQueue.add(url);
+            discoveredChunks++;
+          }
+        }
+      };
 
       let scanned = 0;
 
-      for (const url of scriptUrls.slice(0, 400)) {
+      // A Set iterates entries added while looping, so references found in one
+      // chunk are picked up in the same pass.
+      for (const url of chunkQueue) {
+        if (scanned >= 400) break;
+
         const fetched = await context.request.get(url).catch(() => null);
 
         // Several hundred silent fetches is indistinguishable from a hang.
-        if (++scanned % 50 === 0) info(`[bundles] read ${scanned} of ${Math.min(scriptUrls.length, 400)}…`);
+        if (++scanned % 50 === 0) info(`[bundles] read ${scanned}, ${chunkQueue.size} known…`);
 
         if (! fetched || ! fetched.ok()) continue;
 
         const text = await fetched.text().catch(() => '');
+
+        queueChunkRefs(text);
 
         for (const m of text.matchAll(/\b(query|mutation)\s+([A-Z][A-Za-z0-9_]{3,})\s*[({]/g)) {
           if (! bundleOps.has(m[2])) bundleOps.set(m[2], { name: m[2], kind: m[1], from: url.split('/').pop().substring(0, 60) });
@@ -3731,6 +3763,9 @@ async function extractLedgerFromPage(page) {
         needleHits,
         introspection,
         scriptCount: scriptUrls.length,
+        chunksScanned: scanned,
+        chunksDiscovered: discoveredChunks,
+        buildId,
         operations,
         // Deduped by URL and method: the hub polls, and forty copies of one
         // call is not more information than one.

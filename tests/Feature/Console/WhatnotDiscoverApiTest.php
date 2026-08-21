@@ -25,6 +25,8 @@ class WhatnotDiscoverApiTest extends TestCase
         int $scriptCount = 12,
         ?string $needle = null,
         array $needleHits = [],
+        int $chunksScanned = 40,
+        ?string $buildId = 'abc123',
     ): \Illuminate\Testing\PendingCommand {
         $scraper = Mockery::mock(WhatnotScraper::class);
         $scraper->shouldReceive('discoverApi')->andReturn([
@@ -34,6 +36,8 @@ class WhatnotDiscoverApiTest extends TestCase
             'scriptCount'   => $scriptCount,
             'needle'        => $needle,
             'needleHits'    => $needleHits,
+            'chunksScanned' => $chunksScanned,
+            'buildId'       => $buildId,
         ]);
 
         $this->app->instance(WhatnotScraper::class, $scraper);
@@ -166,5 +170,26 @@ class WhatnotDiscoverApiTest extends TestCase
     {
         $this->finding([$this->op('SellerShowsList')])
             ->doesntExpectOutputToContain('is in none of the bundles');
+    }
+
+    // ── How much was actually read ────────────────────────────────────────
+
+    public function test_it_says_how_many_chunks_it_got_through(): void
+    {
+        // "69 operations" means nothing on its own: the same number can come
+        // from one page's chunks or from four hundred, and only the second is
+        // evidence that the show queries are genuinely not there.
+        $this->finding([$this->op('SellerShowsList')], [], null, 12, null, [], 317)
+            ->expectsOutputToContain('Read 317 chunk(s)');
+    }
+
+    public function test_a_missing_build_id_is_called_out(): void
+    {
+        // App Router ships no __NEXT_DATA__ and no _buildManifest.js, so the
+        // manifest lookup comes back empty on a perfectly normal Next app.
+        // Silently falling back would leave the reader thinking every route's
+        // code had been read when only one page's had.
+        $this->finding([$this->op('SellerShowsList')], [], null, 12, null, [], 40, null)
+            ->expectsOutputToContain('no buildId');
     }
 }

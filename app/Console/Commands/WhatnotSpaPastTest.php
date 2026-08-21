@@ -11,7 +11,7 @@ class WhatnotSpaPastTest extends Command
                             {live-id=183498e1-fc7d-436b-a4a0-c042efba09b8 : Preferred past Whatnot livestream UUID}
                             {--debug : Save screenshots under /tmp}';
 
-    protected $description = 'Test Past-tab show discovery, analytics, and shipments; falls back to a real current-channel past show when needed';
+    protected $description = 'Test Past-tab show discovery, analytics, and exact shipment-table extraction; falls back to a real current-channel past show when needed';
 
     public function handle(): int
     {
@@ -34,15 +34,15 @@ class WhatnotSpaPastTest extends Command
         $env['WHATNOT_DEBUG'] = $this->option('debug') ? '1' : '0';
 
         $this->info('Testing Past-tab flow. Preferred show: ' . $liveId);
-        $this->line('Path: Seller Hub → Shows → Past → infinite scroll → exact row Analytics / Shipments links');
+        $this->line('Path: Seller Hub → Shows → Past → infinite scroll → exact Analytics / Shipments row links');
         $this->newLine();
 
         $process = new Process([
             config('vortex.whatnot.node_bin', 'node'),
-            base_path('scripts/whatnot-spa-past-test-v5.cjs'),
+            base_path('scripts/whatnot-spa-past-test-v6.cjs'),
             $liveId,
         ], base_path(), $env);
-        $process->setTimeout(300);
+        $process->setTimeout(320);
         $process->run(function (string $type, string $buffer): void {
             if ($type === Process::ERR) {
                 $this->output->write($buffer);
@@ -109,13 +109,38 @@ class WhatnotSpaPastTest extends Command
         if (! empty($data['stages']['analytics'])) {
             $this->newLine();
             $this->info('Analytics result:');
-            $this->line(json_encode($data['stages']['analytics'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line(json_encode([
+                'url' => $data['stages']['analytics']['url'] ?? null,
+                'metrics' => $data['stages']['analytics']['metrics'] ?? [],
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         }
 
         if (! empty($data['stages']['shipments'])) {
+            $ship = $data['stages']['shipments'];
             $this->newLine();
             $this->info('Shipments result:');
-            $this->line(json_encode($data['stages']['shipments'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            $this->line('URL: ' . ($ship['url'] ?? ''));
+            $this->line('Rows on current page: ' . ($ship['row_count'] ?? 0));
+            if (! empty($ship['stats'])) {
+                $this->line('Stats: ' . json_encode($ship['stats'], JSON_UNESCAPED_SLASHES));
+            }
+            if (! empty($ship['rows'])) {
+                $table = [];
+                foreach (array_slice($ship['rows'], 0, 10) as $row) {
+                    $table[] = [
+                        $row['recipient'] ?? '—',
+                        $row['order_date'] ?? '—',
+                        $row['items'] ?? '—',
+                        $row['value'] ?? '—',
+                        $row['weight'] ?? '—',
+                        $row['dimensions'] ?? '—',
+                        $row['status'] ?? '—',
+                        $row['carrier'] ?? '—',
+                        $row['tracking'] ?? '—',
+                    ];
+                }
+                $this->table(['Recipient','Order Date','Items','Value','Weight','Dimensions','Status','Carrier','Tracking'], $table);
+            }
         }
 
         $this->newLine();
@@ -129,7 +154,8 @@ class WhatnotSpaPastTest extends Command
             && !empty($data['stages']['analytics']['metrics']);
         $shipmentsOk = !empty($data['stages']['shipments'])
             && empty($data['stages']['shipments']['challenged'])
-            && (($data['stages']['shipments']['tbody_rows'] ?? 0) > 0);
+            && (($data['stages']['shipments']['row_count'] ?? 0) > 0)
+            && !empty($data['stages']['shipments']['rows']);
 
         $this->newLine();
         $this->line('Analytics: ' . ($analyticsOk ? '<info>PASS</info>' : '<error>FAIL</error>'));

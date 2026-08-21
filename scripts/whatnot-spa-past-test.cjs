@@ -48,13 +48,17 @@ async function bodyText(page) {
 }
 
 async function pageLinks(page) {
-  return await page.locator('a').evaluateAll((els) => els.slice(0, 150).map(a => ({
+  return await page.locator('a').evaluateAll((els) => els.slice(0, 200).map(a => ({
     text: (a.innerText || a.textContent || '').trim().replace(/\s+/g, ' ').substring(0, 120),
     href: a.getAttribute('href'),
   })).filter(x => x.text || x.href)).catch(() => []);
 }
 
 async function clickShows(page) {
+  if (/\/dashboard\/lives(?:[/?#]|$)/.test(page.url())) {
+    return { clicked: true, via: 'already on /dashboard/lives', href: '/dashboard/lives', tried: [] };
+  }
+
   const choices = [
     ['href exact', page.locator('a[href="/dashboard/lives"]')],
     ['href contains', page.locator('a[href*="/dashboard/lives"]')],
@@ -74,19 +78,21 @@ async function clickShows(page) {
     tried[tried.length - 1].href = href;
     try {
       await el.click({ timeout: 8000 });
-      await page.waitForTimeout(5000);
-      return { clicked: true, via: name, href, tried };
+      await page.waitForURL(/\/dashboard\/lives(?:[/?#]|$)/, { timeout: 10000 }).catch(() => {});
+      await page.waitForTimeout(3000);
+      return { clicked: true, via: name, href, tried, landed: page.url() };
     } catch (e) {
       tried[tried.length - 1].error = String(e.message || e).substring(0, 180);
     }
   }
-  return { clicked: false, tried };
+  return { clicked: false, tried, landed: page.url() };
 }
 
 async function clickPast(page) {
   const choices = [
+    ['exact role+text', page.locator('ul[role="tablist"] button[role="tab"]', { hasText: /^Past$/ })],
     ['role tab', page.getByRole('tab', { name: /^Past$/i })],
-    ['role button', page.getByRole('button', { name: /^Past$/i })],
+    ['tablist text', page.locator('ul[role="tablist"] button', { hasText: /^Past$/ })],
     ['text', page.getByText(/^Past$/i)],
   ];
   const tried = [];
@@ -96,12 +102,22 @@ async function clickPast(page) {
     if (!count) continue;
     const el = loc.first();
     const visible = await el.isVisible().catch(() => false);
+    const selectedBefore = await el.getAttribute('aria-selected').catch(() => null);
     tried[tried.length - 1].visible = visible;
+    tried[tried.length - 1].selected_before = selectedBefore;
     if (!visible) continue;
     try {
-      await el.click({ timeout: 8000 });
-      await page.waitForTimeout(5000);
-      return { clicked: true, via: name, tried };
+      if (selectedBefore !== 'true') {
+        await el.click({ timeout: 8000 });
+      }
+      await page.waitForFunction(() => {
+        const tabs = [...document.querySelectorAll('ul[role="tablist"] button[role="tab"]')];
+        const past = tabs.find(b => (b.textContent || '').trim() === 'Past');
+        return !!past && past.getAttribute('aria-selected') === 'true';
+      }, { timeout: 10000 }).catch(() => {});
+      await page.waitForTimeout(3500);
+      const selectedAfter = await el.getAttribute('aria-selected').catch(() => null);
+      return { clicked: true, via: name, selected_before: selectedBefore, selected_after: selectedAfter, tried };
     } catch (e) {
       tried[tried.length - 1].error = String(e.message || e).substring(0, 180);
     }
@@ -109,65 +125,110 @@ async function clickPast(page) {
   return { clicked: false, tried };
 }
 
+async function inspectPastRows(page) {
+  return await page.evaluate(() => {
+    const actionRe = /Open show|View Shipments|See Analytics|Clone Products|Restart Show/i;
+    const candidates = [...document.querySelectorAll('main div, section div, article, li, tr')];
+    const rows = [];
+    const seen = new Set();
+    for (const el of candidates) {
+      const text = (el.innerText || '').trim().replace(/\s+/g, ' ');
+      if (!text || !actionRe.test(text)) continue;
+      if (text.length > 2500) continue;
+      if (seen.has(text)) continue;
+      // Prefer the smallest useful container: skip ancestors whose child already has the same action cluster.
+      const childHasCluster = [...el.children].some(c => {
+        const t = (c.innerText || '').trim();
+        return actionRe.test(t) && /View Shipments/i.test(t);
+      });
+      if (childHasCluster) continue;
+      seen.add(text);
+      rows.push({
+        text: text.substring(0, 2200),
+        links: [...el.querySelectorAll('a')].map(a => ({ text:(a.innerText||'').trim(), href:a.getAttribute('href') })),
+        buttons: [...el.querySelectorAll('button')].map(b => ({
+          text:(b.innerText||'').trim(),
+          aria:b.getAttribute('aria-label'),
+          testid:b.getAttribute('data-testid'),
+        })),
+        html: el.outerHTML.substring(0, 12000),
+      });
+      if (rows.length >= 30) break;
+    }
+    return rows;
+  }).catch(() => []);
+}
+
 async function findShowContainer(page) {
+  // First choice: any rendered link carrying the known UUID.
   const anchor = page.locator(`a[href*="${LIVE_ID}"]`).first();
   if (await anchor.count().catch(() => 0)) {
     const handle = await anchor.elementHandle();
     if (handle) {
-      return await handle.evaluate((el) => {
+      const found = await handle.evaluate((el) => {
         let n = el;
         for (let i=0;i<12 && n;i++,n=n.parentElement) {
           const text = (n.innerText || '').trim();
-          if (n.tagName === 'TR' || /See Analytics|View Shipments|Open show/i.test(text)) {
+          if (/View Shipments|See Analytics|Open show/i.test(text)) {
             return {
               text: text.substring(0,3000),
               html: n.outerHTML.substring(0,25000),
-              links: [...n.querySelectorAll('a')].map(a => ({ text:(a.innerText||'').trim(), href:a.href })),
-              buttons: [...n.querySelectorAll('button')].map(b => ({ text:(b.innerText||'').trim(), aria:b.getAttribute('aria-label') })),
+              links: [...n.querySelectorAll('a')].map(a => ({ text:(a.innerText||'').trim(), href:a.getAttribute('href') })),
+              buttons: [...n.querySelectorAll('button')].map(b => ({ text:(b.innerText||'').trim(), aria:b.getAttribute('aria-label'), testid:b.getAttribute('data-testid') })),
             };
           }
         }
         return null;
       });
+      if (found) return found;
     }
   }
-  return null;
+
+  // Some controls are React buttons with no UUID in their DOM href. Return rows for diagnosis.
+  const rows = await inspectPastRows(page);
+  const uuidRow = rows.find(r => JSON.stringify(r).includes(LIVE_ID));
+  return uuidRow || null;
 }
 
 async function extractAnalytics(page) {
   const text = await bodyText(page);
   const state = await challengeState(page, text);
-  const labels = ['Estimated Sales','Total Estimated Earnings','Completed Earnings','Orders','AOV','Average Order Value','Giveaway Spend','Buyers','Shares','Duration','Max Concurrent Viewers','Total Views'];
+  const labels = ['Estimated Sales','Total Estimated Earnings','Completed Earnings','Orders','Average Order Value','AOV','Giveaway Spend','Giveaways','Buyers','First Time Buyers','Returning Buyers','Shares','Show Duration','Duration','Max Concurrent Viewers','Total Views','Average Order Rating'];
   const lines = text.split('\n').map(s=>s.trim()).filter(Boolean);
   const metrics = {};
   for (const label of labels) {
     const idx = lines.findIndex(l => l.toLowerCase() === label.toLowerCase());
     if (idx >= 0) metrics[label] = lines[idx+1] || null;
   }
-  return { ...state, url: page.url(), metrics, body: text.substring(0,4000) };
+  return { ...state, url: page.url(), metrics, body: text.substring(0,5000) };
 }
 
 async function clickRowAction(page, actionText) {
+  // Prefer a container tied to the UUID when one is exposed in the DOM.
   const anchor = page.locator(`a[href*="${LIVE_ID}"]`).first();
-  if (!(await anchor.count().catch(() => 0))) return { clicked: false, reason: 'show anchor missing' };
-  const container = anchor.locator('xpath=ancestor-or-self::*[self::tr or self::li or self::div][.//*[contains(normalize-space(), "'+actionText+'")] ]').first();
-  const action = container.getByText(new RegExp('^'+actionText+'$','i')).first();
-  if (await action.count().catch(() => 0)) {
+  if (await anchor.count().catch(() => 0)) {
+    const container = anchor.locator('xpath=ancestor-or-self::*[self::tr or self::li or self::div][.//*[contains(normalize-space(), "'+actionText+'")] ]').first();
+    const action = container.getByText(new RegExp('^'+actionText+'$','i')).first();
+    if (await action.count().catch(() => 0)) {
+      try {
+        await action.click({ timeout: 8000 });
+        await page.waitForTimeout(5000);
+        return { clicked: true, scope: 'uuid-row' };
+      } catch (e) { return { clicked: false, reason: String(e.message || e).substring(0,180) }; }
+    }
+  }
+
+  // Diagnostic fallback: if only one action with that label is currently rendered, use it.
+  const actions = page.getByText(new RegExp('^'+actionText+'$','i));
+  const count = await actions.count().catch(() => 0);
+  if (count === 1) {
     try {
-      await action.click({ timeout: 8000 });
+      await actions.first().click({ timeout: 8000 });
       await page.waitForTimeout(5000);
-      return { clicked: true, scope: 'row' };
+      return { clicked: true, scope: 'single-page-action' };
     } catch (e) { return { clicked: false, reason: String(e.message || e).substring(0,180) }; }
   }
-  const broad = page.getByText(new RegExp('^'+actionText+'$','i')).first();
-  if (await broad.count().catch(() => 0)) {
-    try {
-      await broad.click({ timeout: 8000 });
-      await page.waitForTimeout(5000);
-      return { clicked: true, scope: 'page' };
-    } catch (e) { return { clicked: false, reason: String(e.message || e).substring(0,180) }; }
-  }
-  return { clicked: false, reason: 'action text missing' };
+  return { clicked: false, reason: `could not uniquely resolve ${actionText}; matches=${count}` };
 }
 
 (async () => {
@@ -206,13 +267,27 @@ async function clickRowAction(page, actionText) {
     out.stages.shows_click = await clickShows(page);
     await page.waitForTimeout(2000);
     text = await bodyText(page);
-    out.stages.shows = { url: page.url(), ...(await challengeState(page, text)), body: text.substring(0,2500), links: await pageLinks(page) };
+    out.stages.shows = {
+      url: page.url(),
+      ...(await challengeState(page, text)),
+      body: text.substring(0,3000),
+      links: await pageLinks(page),
+      tab_current_count: await page.locator('[data-testid="tab-current"]').count().catch(() => 0),
+      tab_upcoming_count: await page.locator('[data-testid="tab-upcoming"]').count().catch(() => 0),
+      past_tab_count: await page.locator('ul[role="tablist"] button[role="tab"]', { hasText: /^Past$/ }).count().catch(() => 0),
+    };
     await snapshot(page,'02-shows');
 
     out.stages.past_click = await clickPast(page);
     await page.waitForTimeout(2000);
     text = await bodyText(page);
-    out.stages.past = { url: page.url(), ...(await challengeState(page, text)), body: text.substring(0,3500), links: await pageLinks(page) };
+    out.stages.past = {
+      url: page.url(),
+      ...(await challengeState(page, text)),
+      body: text.substring(0,5000),
+      links: await pageLinks(page),
+      rows: await inspectPastRows(page),
+    };
     await snapshot(page,'03-past');
 
     out.stages.show_row = await findShowContainer(page);
@@ -234,7 +309,7 @@ async function clickRowAction(page, actionText) {
           out.stages.shipments = {
             url: page.url(),
             ...(await challengeState(page, shipText)),
-            body: shipText.substring(0,5000),
+            body: shipText.substring(0,7000),
             row_count: await page.locator('tr[data-testid^="shipments-"]').count().catch(() => 0),
           };
           await snapshot(page,'05-shipments');

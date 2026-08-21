@@ -25,12 +25,8 @@ Schedule::command('activitylog:clean')
     ->name('clean-activity-log')
     ->withoutOverlapping();
 
-// Every Whatnot browser task shares one persistent Chromium profile. Keep them
-// serialized and allow all of them to be paused together while debugging.
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
 
-// Primary discovery heartbeat: keeps Current / Upcoming / Past show rows current,
-// captures newly completed shows, and fills a small missing-data enrichment backlog.
 Schedule::command('whatnot:sync-show-index --limit=200 --enrich=3')
     ->skip($whatnotPaused)
     ->cron('*/10 * * * *')
@@ -39,12 +35,14 @@ Schedule::command('whatnot:sync-show-index --limit=200 --enrich=3')
     ->onSuccess(fn () => Setting::set('whatnot_last_import_success_at', now()->toISOString()))
     ->onFailure(fn () => Setting::set('whatnot_last_import_failure_at', now()->toISOString()));
 
-// Rolling analytics + shipment refresh. The command itself decides what is due:
-//   • completed shows from the last 7 days become stale after 30 minutes,
-//   • completed shows 8–30 days old become stale after 6 hours,
-//   • older shows continue only while enrichment is missing or delivery is unresolved.
-// The production scraper paginates the shipment table, so this refresh is not
-// limited to the first 50 shipment rows for a show.
+// If Whatnot exposes a duplicate UUID that has already been merged into a
+// canonical VortexOps show, remove the recreated row immediately after discovery.
+Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
+    ->skip($whatnotPaused)
+    ->cron('1,11,21,31,41,51 * * * *')
+    ->name('whatnot-show-alias-cleanup')
+    ->withoutOverlapping(10);
+
 Schedule::command('whatnot:refresh-recent --days=30 --limit=8')
     ->skip($whatnotPaused)
     ->cron('7,37 * * * *')
@@ -53,30 +51,23 @@ Schedule::command('whatnot:refresh-recent --days=30 --limit=8')
     ->onSuccess(fn () => Setting::set('whatnot_last_recent_refresh_success_at', now()->toISOString()))
     ->onFailure(fn () => Setting::set('whatnot_last_recent_refresh_failure_at', now()->toISOString()));
 
-// Backfill item/order detail once a discovered show is no longer future-dated.
-// Show discovery stores the Whatnot UUID/detail URL before the stream ends.
 Schedule::command('whatnot:import-orders --new-only')
     ->skip($whatnotPaused)
     ->cron('22 * * * *')
     ->name('whatnot-import-orders-backfill')
     ->withoutOverlapping(240);
 
-// Daily Whatnot ledger pull — grabs the last 30 days for financial data.
 Schedule::command('whatnot:import-ledger --days=30')
     ->skip($whatnotPaused)
     ->cron('52 4 * * *')
     ->name('whatnot-ledger-daily')
     ->withoutOverlapping(240);
 
-// Weekly historical ledger backfill.
 Schedule::command('whatnot:import-ledger --days=1825')
     ->skip($whatnotPaused)
     ->cron('0 1 * * 0')
     ->name('whatnot-ledger-backfill-annual')
     ->withoutOverlapping(480);
-
-// Do not schedule the legacy analytics-first import or direct shipment refresh.
-// The production SPA path owns show discovery, analytics, and shipments now.
 
 Schedule::command('reports:midweek-report')->weeklyOn(3, '09:00')->name('midweek-report');
 Schedule::command('reports:weekly-review-reminder')->weeklyOn(5, '09:00')->name('weekly-review-reminder');

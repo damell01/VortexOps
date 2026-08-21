@@ -274,62 +274,63 @@ class CreateInventoryItem extends CreateRecord
         }
     }
 
-    public function mutateFormDataBeforeSave(array $data): array
+    /**
+     * The initial-stock fields, read from the live form rather than from $data.
+     *
+     * Two separate reasons they were never arriving. This class used to define
+     * mutateFormDataBeforeSave(), which is the Edit page's hook — CreateRecord
+     * calls mutateFormDataBeforeCreate(), so it simply never ran. And the three
+     * fields are dehydrated(false), because they are not product columns, so
+     * they are absent from $data whichever hook reads it.
+     *
+     * $this->data is the form's own state and holds them either way, which is
+     * why this reads there instead. The stock silently never appeared: the item
+     * saved, the notification said so, and the quantity someone typed went
+     * nowhere.
+     *
+     * @return array{location: mixed, quantity: mixed, cost: mixed}
+     */
+    private function initialStockInput(): array
     {
-        // Remove the initial stock fields from the item data
-        $initialLocationId = $data['initial_stock_location_id'] ?? null;
-        $initialQuantity = $data['initial_stock_quantity'] ?? null;
-        $initialCost = $data['initial_stock_cost'] ?? null;
-
-        unset($data['initial_stock_location_id']);
-        unset($data['initial_stock_quantity']);
-        unset($data['initial_stock_cost']);
-
-        // Store for use after create
-        $this->initialStockData = compact('initialLocationId', 'initialQuantity', 'initialCost');
-
-        return $data;
+        return [
+            'location' => data_get($this->data, 'initial_stock_location_id'),
+            'quantity' => data_get($this->data, 'initial_stock_quantity'),
+            'cost'     => data_get($this->data, 'initial_stock_cost'),
+        ];
     }
 
     protected function afterCreate(): void
     {
-        if (!isset($this->initialStockData)) {
-            return;
-        }
+        ['location' => $locationId, 'quantity' => $quantity, 'cost' => $cost] = $this->initialStockInput();
 
-        $data = $this->initialStockData;
-        $locationId = $data['initialLocationId'];
-        $quantity = $data['initialQuantity'];
-        $cost = $data['initialCost'];
-
-        // Only add stock if location and quantity are provided
-        if (!$locationId || !$quantity) {
+        // Nothing asked for is not a failure — the section is optional and most
+        // items are created before anything of them is in the building.
+        if (blank($locationId) || blank($quantity) || (float) $quantity <= 0) {
             return;
         }
 
         try {
             $location = InventoryLocation::findOrFail($locationId);
-            $inventory = app(InventoryService::class);
 
-            // Use provided cost or fall back to unit cost
-            $unitCost = $cost ?? $this->record->unit_cost;
-
-            $inventory->addStock(
+            app(InventoryService::class)->addStock(
                 $this->record,
                 $location,
                 (float) $quantity,
                 'opening',
                 'Initial stock added on creation',
-                (float) $unitCost,
+                // Falls back to the item's own cost: opening stock at zero
+                // would drag the weighted average down on the first receipt.
+                (float) (filled($cost) ? $cost : $this->record->unit_cost),
             );
 
             Notification::make()
                 ->title('Initial stock added')
+                ->body(number_format((float) $quantity) . " units at {$location->name}.")
                 ->success()
                 ->send();
         } catch (\Exception $e) {
             Notification::make()
-                ->title('Error adding initial stock')
+                ->title('Item saved, but the initial stock was not added')
                 ->body($e->getMessage())
                 ->danger()
                 ->send();

@@ -363,6 +363,13 @@ class InventoryItemResource extends Resource
                     ->relationship('childContents', modifyQueryUsing: fn ($query) => $query->with('childItem'))
                     ->label('Items Inside This Container')
                     ->visible(fn (Get $get) => $get('is_container'))
+                    // Starts empty. A repeater defaults to one row, and the
+                    // item inside it is required — so ticking "this is a
+                    // container" produced a blank line that had to be filled
+                    // before the item could be saved at all. A sealed case
+                    // whose contents nobody has itemised yet is the ordinary
+                    // situation, not an incomplete form.
+                    ->defaultItems(0)
                     ->addActionLabel('Add Item Inside')
                     ->columnSpanFull()
                     ->schema([

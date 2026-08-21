@@ -38,15 +38,18 @@ async function clickTab(page,name){
   const testId=name==='current'?'tab-current':name==='upcoming'?'tab-upcoming':null;
   const loc=testId?page.locator(`[data-testid="${testId}"]`).first():page.locator('ul[role="tablist"] button[role="tab"]',{hasText:/^Past$/}).first();
   if(!(await loc.count().catch(()=>0)))return false;
+  const before=await page.locator('[data-testid="show-list-item-title"]').allTextContents().catch(()=>[]);
   if((await loc.getAttribute('aria-selected').catch(()=>null))!=='true')await loc.click({timeout:8000}).catch(()=>null);
-  await page.waitForFunction(({testId})=>{
-    let el=null;
-    if(testId)el=document.querySelector(`[data-testid="${testId}"]`);
-    else el=[...document.querySelectorAll('ul[role="tablist"] button[role="tab"]')].find(x=>(x.textContent||'').trim()==='Past');
-    return !!el&&el.getAttribute('aria-selected')==='true';
-  },{testId},{timeout:10000}).catch(()=>{});
-  await page.waitForTimeout(2500);
-  return (await loc.getAttribute('aria-selected').catch(()=>null))==='true';
+  await page.waitForTimeout(3000);
+  const selected=(await loc.getAttribute('aria-selected').catch(()=>null))==='true';
+  if(selected)return true;
+  const after=await page.locator('[data-testid="show-list-item-title"]').allTextContents().catch(()=>[]);
+  if(JSON.stringify(before)!==JSON.stringify(after))return true;
+  if(name==='past'){
+    const pastSignals=await page.locator('[data-testid="show-list-item"] a',{hasText:/See Analytics|View Shipments/i}).count().catch(()=>0);
+    if(pastSignals>0)return true;
+  }
+  return false;
 }
 async function resetScroll(page){
   await page.evaluate(()=>{
@@ -126,7 +129,7 @@ async function extractShipmentPage(page){
 async function restorePast(page,targetId){
   if(!/\/dashboard\/lives(?:[/?#]|$)/.test(page.url())){await page.goBack({waitUntil:'domcontentloaded',timeout:15000}).catch(()=>null);await page.waitForTimeout(2200);}
   if(!/\/dashboard\/lives(?:[/?#]|$)/.test(page.url()))await clickShows(page);
-  if(!await clickTab(page,'past'))return null;
+  await clickTab(page,'past');
   const rows=await loadTabAll(page,'past',30,targetId);
   return rows.find(r=>r.live_id===targetId)||null;
 }
@@ -140,12 +143,10 @@ async function restorePast(page,targetId){
   try{
     const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});await page.waitForTimeout(2200);out.stages.home={status:resp?resp.status():null,...await state(page)};if(out.stages.home.challenged)throw new Error('Seller Hub home challenged');
     if(!await clickShows(page))throw new Error('Could not reach Shows'); out.stages.shows=await state(page);
-    // The Shows page already renders one tab by default. Capture that rendered
-    // snapshot as Current without forcing a tab transition; Whatnot has been
-    // inconsistent about re-selecting the already-active Currently Live button.
     out.current=await loadTabAll(page,'current',8);
-    if(!await clickTab(page,'upcoming'))throw new Error('Could not select Upcoming tab'); out.upcoming=await loadTabAll(page,'upcoming',16);
-    if(!await clickTab(page,'past'))throw new Error('Could not select Past tab'); out.past=await loadTabAll(page,'past',30); await shot(page,'past');
+    await clickTab(page,'upcoming'); out.upcoming=await loadTabAll(page,'upcoming',16);
+    await clickTab(page,'past'); out.past=await loadTabAll(page,'past',30); await shot(page,'past');
+    if(out.past.length===0)throw new Error('Past tab produced no show rows');
 
     let targets=[];
     for(const id of ENRICH_IDS){const row=out.past.find(r=>r.live_id===id&&r.analytics_url&&r.shipments_url);if(row)targets.push(row);}

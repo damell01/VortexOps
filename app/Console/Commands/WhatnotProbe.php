@@ -149,10 +149,48 @@ class WhatnotProbe extends Command
         // what a navigation gets — and the one that decides whether a route
         // avoiding navigations is worth building.
         if (($probe['fetches'] ?? []) !== []) {
-            $this->newLine();
-            $this->line('Asked for as a fetch from inside /seller:');
+            $api   = array_values(array_filter($probe['fetches'], fn ($f) => $f['api'] ?? false));
+            $pages = array_values(array_filter($probe['fetches'], fn ($f) => ! ($f['api'] ?? false)));
 
-            foreach ($probe['fetches'] as $fetch) {
+            if ($api !== []) {
+                $this->newLine();
+                $this->line('The API surface, called from inside /seller:');
+
+                foreach ($api as $call) {
+                    $blocked = ($call['challenged'] ?? false);
+
+                    $this->line(sprintf(
+                        '  %s  %-42s [%s] %s',
+                        $blocked ? '<fg=red>NO </>' : '<fg=green>YES</>',
+                        str_replace('https://www.whatnot.com', '', $call['url']),
+                        $call['status'] ?? 'error',
+                        $blocked
+                            ? 'Cloudflare challenge'
+                            : (($call['reachedTheApp'] ?? false) ? 'reached the application' : 'no challenge'),
+                    ));
+                }
+
+                $apiOpen = array_filter($api, fn ($c) => ! ($c['challenged'] ?? false));
+
+                $this->newLine();
+
+                if ($apiOpen !== []) {
+                    // Short lines on purpose: this is the conclusion somebody
+                    // acts on, and the console wraps a long one mid-sentence.
+                    $this->info('The API answers even though the pages do not.');
+                    $this->line('So the route is: load /seller once, then read');
+                    $this->line('through the calls the app itself makes, and');
+                    $this->line('never ask for another page.');
+                } else {
+                    $this->warn('The API is challenged as well.');
+                    $this->line('There is no surface left to read through.');
+                }
+            }
+
+            $this->newLine();
+            $this->line('Page routes, asked for as a fetch from inside /seller:');
+
+            foreach ($pages as $fetch) {
                 $blocked = ($fetch['challenged'] ?? false) || (($fetch['status'] ?? 0) >= 400);
 
                 $this->line(sprintf(
@@ -165,15 +203,15 @@ class WhatnotProbe extends Command
             }
 
             $reachable = array_filter(
-                $probe['fetches'],
+                $pages,
                 fn ($f) => ! ($f['challenged'] ?? false) && ($f['status'] ?? 0) < 400,
             );
 
             $this->newLine();
             $this->line($reachable !== []
-                ? '<fg=green>The app\'s own requests get through where a navigation does not.</> A route that'
-                    . ' loads /seller once and then fetches, rather than navigating, is worth building.'
-                : 'The block applies to these requests too, so avoiding navigations would not help.');
+                ? '<fg=green>Page routes get through as a fetch where a navigation does not.</>'
+                : 'Page routes are refused as fetches too — but pages are what the rule protects, and'
+                    . ' the API line above is the one that decides whether this is over.');
         }
 
         $this->newLine();

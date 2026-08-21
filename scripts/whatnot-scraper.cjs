@@ -3400,6 +3400,42 @@ async function extractLedgerFromPage(page) {
           .catch(() => null);
         await page.waitForTimeout(4000);
 
+        // The API surface, which is not the same surface as the HTML routes.
+        //
+        // Fetching /dashboard/lives asks Cloudflare for a *page*, and pages are
+        // what the rule protects. The requests that demonstrably went through
+        // while /seller was open were neither — they were the app's own calls
+        // to /services/*. Testing page URLs and concluding "everything is
+        // blocked" would retire a route that was never tried.
+        const apiTargets = [
+          'https://www.whatnot.com/services/graphql/?operationName=__probe',
+          'https://www.whatnot.com/api/v1/me',
+        ];
+
+        for (const target of apiTargets) {
+          const probe = await page.evaluate(async (url) => {
+            try {
+              const response = await fetch(url, { credentials: 'include' });
+              const body = await response.text();
+
+              return {
+                status: response.status,
+                bytes: body.length,
+                challenged: /Performing security verification|Just a moment|cf_chl|Ray ID/i.test(body),
+                // A GraphQL endpoint answering "no such operation" is the
+                // endpoint working. Only the edge refusing it is a block.
+                reachedTheApp: /errors|operationName|json/i.test(body) || response.headers.get('content-type')?.includes('json'),
+              };
+            } catch (e) {
+              return { status: null, bytes: 0, challenged: null, note: String(e).substring(0, 120) };
+            }
+          }, target);
+
+          soft.push({ url: target, api: true, ...probe });
+
+          info(`[probe:api] ${probe.status ?? 'ERR'} ${probe.challenged ? 'CHALLENGED' : (probe.reachedTheApp ? 'reached the app' : 'ok')} ${probe.bytes}B ${navPath(target)}`);
+        }
+
         for (const target of targets) {
           if (target.replace(/\/$/, '').endsWith('/seller')) continue;
 

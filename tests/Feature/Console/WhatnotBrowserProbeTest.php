@@ -91,45 +91,69 @@ class WhatnotBrowserProbeTest extends TestCase
             ->assertFailed();
     }
 
-    // ── The second question: are the app's own requests blocked too? ──────
+    // ── The second question: which surface is actually protected? ─────────
 
-    public function test_a_fetch_that_gets_through_is_reported_as_a_way_forward(): void
+    private function api(string $url, int $status, bool $challenged, bool $reached = true): array
     {
-        // A 403 on a navigation is not the same as the connection being
-        // refused. If the page's own requests are served, a route that never
-        // navigates is worth building — and that is the difference between
-        // "keep going" and "buy a proxy".
+        return ['url' => $url, 'api' => true, 'status' => $status, 'bytes' => 900,
+                'challenged' => $challenged, 'reachedTheApp' => $reached];
+    }
+
+    private function pageFetch(string $url, int $status, bool $challenged): array
+    {
+        return ['url' => $url, 'api' => false, 'status' => $status, 'bytes' => 6000, 'challenged' => $challenged];
+    }
+
+    public function test_an_api_that_answers_is_the_route_forward(): void
+    {
+        // The distinction that decides whether this is over. Page routes being
+        // refused is expected — pages are what the rule protects. The API is a
+        // different surface, and its answer is the one that matters.
         $this->probing(
             [$this->page('https://www.whatnot.com/seller', 200, false)],
-            [['url' => 'https://www.whatnot.com/dashboard/lives', 'status' => 200, 'bytes' => 48210, 'challenged' => false]],
+            [
+                $this->api('https://www.whatnot.com/services/graphql/?operationName=__probe', 400, false),
+                $this->pageFetch('https://www.whatnot.com/dashboard/lives', 403, true),
+            ],
         )
-            ->expectsOutputToContain('Asked for as a fetch from inside /seller')
-            ->expectsOutputToContain('get through where a navigation does not');
+            ->expectsOutputToContain('The API answers even though the pages do not.')
+            ->expectsOutputToContain('load /seller once');
     }
 
-    public function test_a_fetch_that_is_challenged_too_closes_that_door(): void
+    public function test_a_challenged_api_is_the_end_of_the_road(): void
     {
-        // Saying so plainly matters: it is the result that means the browser
-        // work is finished and the remaining variable is the connection.
+        // Said plainly, because this is the result that means the browser work
+        // is finished and the remaining variable is the connection.
         $this->probing(
             [$this->page('https://www.whatnot.com/seller', 200, false)],
-            [['url' => 'https://www.whatnot.com/dashboard/lives', 'status' => 403, 'bytes' => 6000, 'challenged' => true]],
-        )->expectsOutputToContain('would not help');
+            [$this->api('https://www.whatnot.com/services/graphql/?operationName=__probe', 403, true, false)],
+        )->expectsOutputToContain('no surface left to read through.');
     }
 
-    public function test_a_challenge_served_as_a_200_still_counts_as_blocked(): void
+    public function test_a_graphql_error_still_counts_as_reaching_the_application(): void
     {
-        // Cloudflare's interactive challenge comes back 200, so reading the
-        // status alone would record an interstitial as a working page.
+        // An endpoint replying "no such operation" is the endpoint working.
+        // Only the edge refusing it is a block, and treating a 400 from the app
+        // as a failure would retire a route that was never actually shut.
         $this->probing(
             [$this->page('https://www.whatnot.com/seller', 200, false)],
-            [['url' => 'https://www.whatnot.com/', 'status' => 200, 'bytes' => 5800, 'challenged' => true]],
-        )->expectsOutputToContain('would not help');
+            [$this->api('https://www.whatnot.com/services/graphql/?operationName=__probe', 400, false)],
+        )->expectsOutputToContain('reached the application');
+    }
+
+    public function test_refused_page_routes_do_not_read_as_the_end(): void
+    {
+        // Pages are what the rule protects, so their refusal is not evidence
+        // about the API — and an earlier version of this output said it was.
+        $this->probing(
+            [$this->page('https://www.whatnot.com/seller', 200, false)],
+            [$this->pageFetch('https://www.whatnot.com/dashboard/lives', 403, true)],
+        )->expectsOutputToContain('the API line above is the one that decides');
     }
 
     public function test_without_the_flag_nothing_extra_is_reported(): void
     {
         $this->probing([$this->page('https://www.whatnot.com/seller', 200, false)])
-            ->doesntExpectOutputToContain('Asked for as a fetch');
+            ->doesntExpectOutputToContain('asked for as a fetch');
     }
 }

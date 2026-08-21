@@ -78,8 +78,6 @@ class SyncWhatnotShowIndex extends Command
                 $row['kind'] = $row['kind'] ?? $kind;
                 $liveId = $this->liveId($row);
                 if ($liveId) {
-                    // Past wins over Upcoming wins over Current if Whatnot happens
-                    // to return the same UUID in more than one transition window.
                     $allRows[$liveId] = $row;
                 }
             }
@@ -88,9 +86,7 @@ class SyncWhatnotShowIndex extends Command
         foreach ($allRows as $liveId => $row) {
             $title = trim((string) ($row['title'] ?? '')) ?: null;
             $showDate = $this->parseDate($row['date'] ?? $row['show_date'] ?? null);
-            if (! $title || ! $showDate) {
-                continue;
-            }
+            if (! $title || ! $showDate) continue;
 
             $show = Show::query()
                 ->where('whatnot_show_id', $liveId)
@@ -140,21 +136,15 @@ class SyncWhatnotShowIndex extends Command
         }
 
         foreach (($data['enriched'] ?? []) as $entry) {
-            if (! is_array($entry) || ! ($liveId = $this->liveId($entry))) {
-                continue;
-            }
+            if (! is_array($entry) || ! ($liveId = $this->liveId($entry))) continue;
 
             $show = Show::query()->where('whatnot_show_id', $liveId)->first();
-            if (! $show) {
-                continue;
-            }
+            if (! $show) continue;
 
             $metrics = $entry['analytics']['metrics'] ?? null;
             if (is_array($metrics) && $metrics !== []) {
                 $analyticsPayload = $this->analyticsPayload($metrics);
                 if ($analyticsPayload !== []) {
-                    // Preserve the review/reconciliation safety behavior from the old
-                    // analytics importer: flag later financial revisions after lock.
                     if (in_array($show->status, ['pending_approval', 'reconciled', 'closed'], true)) {
                         $changes = [];
                         foreach (['gross_revenue', 'whatnot_net', 'units_sold'] as $field) {
@@ -401,7 +391,6 @@ class SyncWhatnotShowIndex extends Command
                 $row['weight'] ?? null, $row['dimensions'] ?? null, $row['requirements'] ?? null,
                 $row['status'] ?? null, $row['carrier'] ?? null, $tracking,
             ])),
-            'raw_shipment_row' => $row,
         ], $dims);
     }
 }

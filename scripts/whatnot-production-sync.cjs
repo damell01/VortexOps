@@ -31,7 +31,7 @@ async function clickShows(page){
   if(!(await loc.count().catch(()=>0)))return false;
   await loc.click({timeout:8000}).catch(()=>null);
   await page.waitForURL(/\/dashboard\/lives(?:[/?#]|$)/,{timeout:10000}).catch(()=>{});
-  await page.waitForTimeout(2200);
+  await page.waitForTimeout(2500);
   return /\/dashboard\/lives(?:[/?#]|$)/.test(page.url());
 }
 async function clickTab(page,name){
@@ -39,8 +39,22 @@ async function clickTab(page,name){
   const loc=testId?page.locator(`[data-testid="${testId}"]`).first():page.locator('ul[role="tablist"] button[role="tab"]',{hasText:/^Past$/}).first();
   if(!(await loc.count().catch(()=>0)))return false;
   if((await loc.getAttribute('aria-selected').catch(()=>null))!=='true')await loc.click({timeout:8000}).catch(()=>null);
-  await page.waitForTimeout(2200);
-  return true;
+  await page.waitForFunction(({testId,name})=>{
+    let el=null;
+    if(testId)el=document.querySelector(`[data-testid="${testId}"]`);
+    else el=[...document.querySelectorAll('ul[role="tablist"] button[role="tab"]')].find(x=>(x.textContent||'').trim()==='Past');
+    return !!el&&el.getAttribute('aria-selected')==='true';
+  },{testId,name},{timeout:10000}).catch(()=>{});
+  await page.waitForTimeout(2500);
+  return (await loc.getAttribute('aria-selected').catch(()=>null))==='true';
+}
+async function resetScroll(page){
+  await page.evaluate(()=>{
+    window.scrollTo(0,0);
+    const els=[...document.querySelectorAll('*')].filter(el=>el.scrollHeight>el.clientHeight+200);
+    for(const el of els)el.scrollTop=0;
+  }).catch(()=>{});
+  await page.waitForTimeout(900);
 }
 async function extractRows(page,kind){
   return page.locator('[data-testid="show-list-item"]').evaluateAll((rows,kind)=>rows.map(row=>{
@@ -56,13 +70,22 @@ async function extractRows(page,kind){
     return {live_id:id,title,date,time,kind,open_url:openUrl,shipments_url:shipments?.getAttribute('href')||null,analytics_url:analytics?.getAttribute('href')||null};
   }),kind).catch(()=>[]);
 }
-async function loadTabAll(page,kind,maxPasses=30){
-  const all=new Map(); let stable=0,prev=0;
+async function loadTabAll(page,kind,maxPasses=30,targetId=null){
+  await resetScroll(page);
+  const all=new Map(); let stable=0,prev=-1;
   for(let pass=0;pass<maxPasses;pass++){
-    for(const row of await extractRows(page,kind))if(row.live_id)all.set(row.live_id,row);
-    stable=all.size===prev?stable+1:0; prev=all.size; if(stable>=3)break;
-    await page.evaluate(()=>{window.scrollTo(0,document.body.scrollHeight);const els=[...document.querySelectorAll('*')].filter(el=>el.scrollHeight>el.clientHeight+200);for(const el of els.slice(-8))el.scrollTop=el.scrollHeight;}).catch(()=>{});
-    await page.waitForTimeout(1500);
+    const rows=await extractRows(page,kind);
+    for(const row of rows)if(row.live_id)all.set(row.live_id,row);
+    if(targetId&&all.has(targetId))break;
+    if(all.size===prev)stable++; else stable=0;
+    prev=all.size;
+    if(stable>=3)break;
+    await page.evaluate(()=>{
+      window.scrollTo(0,document.body.scrollHeight);
+      const els=[...document.querySelectorAll('*')].filter(el=>el.scrollHeight>el.clientHeight+200);
+      for(const el of els.slice(-5))el.scrollTop=el.scrollHeight;
+    }).catch(()=>{});
+    await page.waitForTimeout(1800);
   }
   return [...all.values()];
 }
@@ -101,10 +124,10 @@ async function extractShipmentPage(page){
   return {stats,rows:all};
 }
 async function restorePast(page,targetId){
-  if(!/\/dashboard\/lives(?:[/?#]|$)/.test(page.url())){await page.goBack({waitUntil:'domcontentloaded',timeout:15000}).catch(()=>null);await page.waitForTimeout(2000);}
+  if(!/\/dashboard\/lives(?:[/?#]|$)/.test(page.url())){await page.goBack({waitUntil:'domcontentloaded',timeout:15000}).catch(()=>null);await page.waitForTimeout(2200);}
   if(!/\/dashboard\/lives(?:[/?#]|$)/.test(page.url()))await clickShows(page);
-  await clickTab(page,'past');
-  const rows=await loadTabAll(page,'past',30);
+  if(!await clickTab(page,'past'))return null;
+  const rows=await loadTabAll(page,'past',30,targetId);
   return rows.find(r=>r.live_id===targetId)||null;
 }
 
@@ -117,9 +140,9 @@ async function restorePast(page,targetId){
   try{
     const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});await page.waitForTimeout(2200);out.stages.home={status:resp?resp.status():null,...await state(page)};if(out.stages.home.challenged)throw new Error('Seller Hub home challenged');
     if(!await clickShows(page))throw new Error('Could not reach Shows'); out.stages.shows=await state(page);
-    await clickTab(page,'current'); out.current=await loadTabAll(page,'current',5);
-    await clickTab(page,'upcoming'); out.upcoming=await loadTabAll(page,'upcoming',10);
-    await clickTab(page,'past'); out.past=await loadTabAll(page,'past',30); await shot(page,'past');
+    if(!await clickTab(page,'current'))throw new Error('Could not select Currently Live tab'); out.current=await loadTabAll(page,'current',8);
+    if(!await clickTab(page,'upcoming'))throw new Error('Could not select Upcoming tab'); out.upcoming=await loadTabAll(page,'upcoming',16);
+    if(!await clickTab(page,'past'))throw new Error('Could not select Past tab'); out.past=await loadTabAll(page,'past',30); await shot(page,'past');
 
     let targets=[];
     for(const id of ENRICH_IDS){const row=out.past.find(r=>r.live_id===id&&r.analytics_url&&r.shipments_url);if(row)targets.push(row);}

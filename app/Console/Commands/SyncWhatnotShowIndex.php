@@ -6,6 +6,7 @@ use App\Models\Show;
 use App\Models\ShowIngestionLog;
 use App\Models\WhatnotChannel;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\Process\Process;
 
 class SyncWhatnotShowIndex extends Command
@@ -141,15 +142,32 @@ class SyncWhatnotShowIndex extends Command
         $process = new Process([$node, base_path('scripts/whatnot-scraper.cjs')], base_path(), $env);
         $process->setTimeout(360);
 
+        $lock = Cache::lock('whatnot:browser', 900);
+
         try {
+            // Same lock key used by WhatnotScraper, so this frequent poll cannot
+            // collide with order, shipment, ledger, or manual scraper runs.
+            $lock->block(300);
+            Cache::put('whatnot:browser:holder_pid', getmypid(), 900);
+
             $process->run(function (string $type, string $buffer) use ($debug): void {
                 if ($debug && $type === Process::ERR) {
                     $this->output->write($buffer);
                 }
             });
+        } catch (\Illuminate\Contracts\Cache\LockTimeoutException) {
+            $this->warn('Show-index sync skipped: another Whatnot browser job is still running.');
+            return [];
         } catch (\Throwable $e) {
             $this->error('Show-index scraper timed out or crashed: ' . $e->getMessage());
             return null;
+        } finally {
+            Cache::forget('whatnot:browser:holder_pid');
+            try {
+                $lock->release();
+            } catch (\Throwable) {
+                // Nothing else to do; the lock has its own TTL safety net.
+            }
         }
 
         $stdout = trim($process->getOutput());

@@ -7,7 +7,6 @@ use App\Filament\Resources\ShipmentResource;
 use App\Filament\Resources\ShowResource;
 use App\Models\DeductionRequest;
 use App\Models\DeductionRequestLine;
-use App\Services\PayoutService;
 use App\Services\WhatnotScraper;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -25,10 +24,10 @@ class ViewShow extends ViewRecord
             'streamers',
             'channel',
             'fulfillmentUsers',
-            'payouts.streamer',
             'latestDeductionRequest.lines.inventoryItem',
             'streamerLogEntry',
             'orders',
+            'shipments',
         ])->findOrFail($key);
     }
 
@@ -55,159 +54,105 @@ class ViewShow extends ViewRecord
 
     protected function getHeaderActions(): array
     {
+        $user = auth()->user();
+        $isAdmin = (bool) ($user?->isAdmin() || $user?->isOwner());
+        $isAssignedStreamer = (bool) (
+            $user?->isStreamer()
+            && $user->streamer
+            && $this->record->streamers->contains('id', $user->streamer->id)
+        );
+
         return [
-            Action::make('calculate_payout')
-                ->label('Calculate Payout')
-                ->icon('heroicon-o-calculator')
-                ->color('success')
-                ->visible(fn () => auth()->user()?->isAdmin() && $this->record->streamers->isNotEmpty())
-                ->requiresConfirmation()
-                ->modalHeading('Calculate Payout')
-                ->modalDescription(function (): string {
-                    $base = 'Computes and saves payout records for all streamers on this show based on their configured payout type and the show revenue data.';
+            Action::make('show_report')
+                ->label(function (): string {
                     $log = $this->record->streamerLogEntry;
-                    if ($log?->needsFulfillmentReview()) {
-                        $base .= ' ⚠ This show has a PWE + Labels streamer whose fulfillment review is not yet complete — the payout will use an estimated PWE/label count until that review happens.';
-                    }
-                    return $base;
+                    if ($log?->status === 'changes_requested') return 'Fix Show Report';
+                    if ($log?->submitted_at) return 'View Show Report';
+                    if ($log?->items()->exists()) return 'Resume Show Report';
+                    return 'Start Show Report';
                 })
-                ->action(function (): void {
-                    try {
-                        $payouts = app(PayoutService::class)->calculateForShow($this->record);
-                        $count = count($payouts);
-                        Notification::make()->title('Payout calculated')
-                            ->body("{$count} " . ($count === 1 ? 'streamer payout' : 'streamer payouts') . ' computed and saved.')
-                            ->success()->send();
-                        $this->record->load('payouts.streamer');
-                        $this->refreshFormData(['payouts']);
-                    } catch (\RuntimeException $e) {
-                        Notification::make()->title('Payout calculation failed')->body($e->getMessage())->danger()->send();
-                    }
-                }),
-
-            Action::make('export_pdf')
-                ->label('Export P&L PDF')
-                ->icon('heroicon-o-document-arrow-down')
-                ->color('gray')
-                ->url(fn () => route('export.show-pl-pdf', ['show' => $this->record->id]))
-                ->openUrlInNewTab(),
-
-            Action::make('end_of_stream')
-                ->label(fn () => $this->record->streamerLogEntry?->submitted_at ? 'Open Show Report' : 'End of Stream')
-                ->icon('heroicon-o-camera')
-                ->color('warning')
-                ->visible(function (): bool {
-                    $user = auth()->user();
-                    if (in_array($this->record->status, ['cancelled', 'closed'])) return false;
-                    if ($user?->isAdmin() || $user?->isOwner()) return true;
-                    return ($user?->isStreamer() ?? false)
-                        && $user->streamer
-                        && $this->record->streamers->contains('id', $user->streamer->id);
-                })
-                ->url(fn () => \App\Filament\Pages\EndOfStreamForm::getUrl(['showId' => $this->record->id]))
-                ->tooltip('Open the post-show inventory report'),
-
-            Action::make('add_items')
-                ->label('Add Items')
-                ->icon('heroicon-o-plus-circle')
+                ->icon('heroicon-o-clipboard-document-list')
                 ->color('primary')
-                ->visible(function (): bool {
-                    $user = auth()->user();
-                    if (in_array($this->record->status, ['cancelled', 'closed'])) return false;
-                    if ($user?->isAdmin() || $user?->isOwner()) return true;
-                    return ($user?->isStreamer() ?? false)
-                        && $user->streamer
-                        && $this->record->streamers->contains('id', $user->streamer->id);
-                })
-                ->url(fn () => ShowResource::getUrl('add-items', ['record' => $this->record])),
+                ->visible(fn (): bool => ! in_array($this->record->status, ['cancelled'], true) && ($isAdmin || $isAssignedStreamer))
+                ->url(fn () => \App\Filament\Pages\EndOfStreamForm::getUrl(['showId' => $this->record->id])),
+
+            Action::make('shipments')
+                ->label(fn () => 'Shipments (' . $this->record->shipments->count() . ')')
+                ->icon('heroicon-o-truck')
+                ->color('info')
+                ->visible(fn (): bool => $isAdmin || $isAssignedStreamer)
+                ->url(fn () => ShipmentResource::getUrl('index', [
+                    'tableFilters[show_id][value]' => $this->record->id,
+                ])),
 
             ActionGroup::make([
                 Action::make('inventory_breakdown')
                     ->label('Inventory Breakdown')
                     ->icon('heroicon-o-chart-bar-square')
-                    ->color('gray')
                     ->url(fn () => ShowResource::getUrl('inventory', ['record' => $this->record])),
-
-                Action::make('shipments')
-                    ->label(fn () => 'Shipments (' . $this->record->shipments()->count() . ')')
-                    ->icon('heroicon-o-truck')
-                    ->color('info')
-                    ->url(fn () => ShipmentResource::getUrl('index', [
-                        'tableFilters[show_id][value]' => $this->record->id,
-                    ])),
 
                 Action::make('review_approval')
                     ->label('Review Approval')
                     ->icon('heroicon-o-clipboard-document-check')
-                    ->color('info')
-                    ->visible(fn () => in_array($this->record->status, ['pending_approval', 'reconciled', 'closed']))
-                    ->url(fn () => DeductionRequestResource::getUrl('index', ['tableFilters[show_id][value]' => $this->record->id])),
+                    ->visible(fn (): bool => $isAdmin && in_array($this->record->status, ['pending_approval', 'reconciled', 'closed'], true))
+                    ->url(fn () => DeductionRequestResource::getUrl('index', [
+                        'tableFilters[show_id][value]' => $this->record->id,
+                    ])),
 
                 Action::make('detect_streamer')
                     ->label(fn () => $this->record->streamers->isEmpty() ? 'Detect Streamer' : 'Re-detect Streamer')
                     ->icon('heroicon-o-user-circle')
-                    ->color('gray')
-                    ->visible(fn () => auth()->user()?->isAdmin() && ! in_array($this->record->status, ['cancelled', 'closed']))
-                    ->action(function () {
+                    ->visible(fn (): bool => $isAdmin && ! in_array($this->record->status, ['cancelled', 'closed'], true))
+                    ->action(function (): void {
                         $suggestions = $this->record->detectStreamers();
                         if (empty($suggestions)) {
-                            Notification::make()->title('No streamer detected')
-                                ->body('No active streamer name was found in the show title. Assign one manually via Edit.')
-                                ->warning()->send();
+                            Notification::make()->title('No streamer detected')->warning()->send();
                         } else {
-                            $names = collect($suggestions)->pluck('streamer_name')->join(', ');
-                            Notification::make()->title('Streamer detected')
-                                ->body("Matched: {$names}. High-confidence matches have been attached to the show.")
-                                ->success()->send();
+                            Notification::make()
+                                ->title('Streamer detected')
+                                ->body('Matched: ' . collect($suggestions)->pluck('streamer_name')->join(', '))
+                                ->success()
+                                ->send();
                         }
                         $this->record->load('streamers');
-                        $this->refreshFormData(['streamers']);
                     }),
 
                 Action::make('map_manually')
                     ->label('Map Items Manually')
                     ->icon('heroicon-o-pencil-square')
-                    ->color('info')
-                    ->visible(fn () => auth()->user()?->isAdmin()
+                    ->visible(fn (): bool => $isAdmin
                         && $this->record->orders->isNotEmpty()
-                        && ! in_array($this->record->status, ['cancelled', 'closed'])
+                        && ! in_array($this->record->status, ['cancelled', 'closed'], true)
                         && (! $this->record->latestDeductionRequest || $this->record->latestDeductionRequest->status === 'draft'))
                     ->requiresConfirmation()
-                    ->modalHeading('Map Sold Items to Inventory')
-                    ->modalDescription('Creates deduction lines from imported order items for legacy/manual reconciliation.')
-                    ->action(function () {
+                    ->action(function (): void {
                         $show = $this->record;
-                        $dr = $show->latestDeductionRequest ?? DeductionRequest::create([
+                        $request = $show->latestDeductionRequest ?? DeductionRequest::create([
                             'show_id' => $show->id,
                             'streamer_id' => $show->streamers->first()?->id,
                             'status' => 'draft',
                         ]);
 
-                        if ($show->status === 'draft') $show->update(['status' => 'pending_review']);
-
-                        $groupKey = fn ($o) => $o->lot_number !== null
-                            ? "lot:{$o->lot_number}"
-                            : ($o->item_name ? 'name:' . strtolower(trim($o->item_name)) : "order:{$o->id}");
-
-                        $label = function ($o) {
-                            if ($o->lot_number === null) return $o->item_name ?: "Order #{$o->id}";
-                            $generic = $o->item_name && preg_match('/^\s*(item|lot)\s*#?\s*' . preg_quote((string)$o->lot_number, '/') . '\s*$/i', $o->item_name);
-                            return 'Lot #' . $o->lot_number . ($o->item_name && ! $generic ? " — {$o->item_name}" : '');
-                        };
-
-                        $existing = $dr->lines->pluck('raw_description')->map(fn ($d) => strtolower(trim($d)))->all();
+                        $existing = $request->lines
+                            ->pluck('raw_description')
+                            ->map(fn ($description) => strtolower(trim($description)))
+                            ->all();
                         $defaultLocation = $show->defaultInventoryLocation();
                         $created = 0;
 
-                        foreach ($show->orders->groupBy($groupKey) as $group) {
-                            $description = $label($group->first());
-                            if (in_array(strtolower(trim($description)), $existing)) continue;
+                        foreach ($show->orders as $order) {
+                            $description = $order->lot_number !== null
+                                ? 'Lot #' . $order->lot_number . ($order->item_name ? " — {$order->item_name}" : '')
+                                : ($order->item_name ?: "Order #{$order->id}");
 
+                            if (in_array(strtolower(trim($description)), $existing, true)) continue;
+
+                            $quantity = max(1, (int) $order->quantity);
                             DeductionRequestLine::create([
-                                'deduction_request_id' => $dr->id,
+                                'deduction_request_id' => $request->id,
                                 'raw_description' => $description,
-                                'quantity_suggested' => $group->sum('quantity'),
-                                'quantity_approved' => $group->sum('quantity'),
+                                'quantity_suggested' => $quantity,
+                                'quantity_approved' => $quantity,
                                 'unit_cost_snapshot' => 0,
                                 'line_total' => 0,
                                 'ai_confidence' => 'manual',
@@ -217,35 +162,42 @@ class ViewShow extends ViewRecord
                             $created++;
                         }
 
-                        Notification::make()->title("{$created} item line" . ($created !== 1 ? 's' : '') . ' added')->success()->send();
-                        $this->redirect(DeductionRequestResource::getUrl('view', ['record' => $dr->id]));
+                        Notification::make()->title("{$created} item line(s) added")->success()->send();
+                        $this->redirect(DeductionRequestResource::getUrl('view', ['record' => $request->id]));
                     }),
 
-                Action::make('raise_deduction')
-                    ->label('Raise Deduction')
-                    ->icon('heroicon-o-plus-circle')
-                    ->color('warning')
-                    ->visible(fn () => auth()->user()?->isAdmin()
-                        && $this->record->orders->isEmpty()
-                        && ! in_array($this->record->status, ['cancelled', 'closed'])
-                        && ! $this->record->latestDeductionRequest)
+                Action::make('import_items_sold')
+                    ->label(fn () => $this->record->orders->count() > 0 ? 'Items Sold (' . $this->record->orders->count() . ')' : 'Import Items Sold')
+                    ->icon('heroicon-o-shopping-cart')
+                    ->visible(fn (): bool => $isAdmin
+                        && (bool) $this->record->detail_url
+                        && \App\Services\FeatureFlagService::enabled('whatnot_import'))
                     ->requiresConfirmation()
-                    ->modalHeading('Raise a Manual Deduction Request')
-                    ->action(function () {
-                        $dr = DeductionRequest::create([
-                            'show_id' => $this->record->id,
-                            'streamer_id' => $this->record->streamers->first()?->id,
-                            'status' => 'draft',
-                        ]);
-                        Notification::make()->title('Deduction request created')->success()->send();
-                        $this->redirect(DeductionRequestResource::getUrl('index', ['tableFilters[show_id][value]' => $this->record->id]));
+                    ->action(function (): void {
+                        try {
+                            $result = app(WhatnotScraper::class)->importShowOrders($this->record);
+                            Notification::make()
+                                ->title('Import complete')
+                                ->body("{$result['created']} new item(s) imported.")
+                                ->success()
+                                ->send();
+                            $this->record->load('orders');
+                        } catch (\RuntimeException $exception) {
+                            Notification::make()->title('Import failed')->body($exception->getMessage())->danger()->send();
+                        }
                     }),
+
+                Action::make('export_pdf')
+                    ->label('Export P&L PDF')
+                    ->icon('heroicon-o-document-arrow-down')
+                    ->visible(fn (): bool => $isAdmin)
+                    ->url(fn () => route('export.show-pl-pdf', ['show' => $this->record->id]))
+                    ->openUrlInNewTab(),
 
                 Action::make('close_show')
                     ->label('Close Show')
                     ->icon('heroicon-o-lock-closed')
-                    ->color('gray')
-                    ->visible(fn () => $this->record->status === 'reconciled' && auth()->user()?->isAdmin())
+                    ->visible(fn (): bool => $isAdmin && $this->record->status === 'reconciled')
                     ->requiresConfirmation()
                     ->action(fn () => $this->record->update(['status' => 'closed'])),
 
@@ -253,30 +205,17 @@ class ViewShow extends ViewRecord
                     ->label('Cancel Show')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn () => ! in_array($this->record->status, ['closed', 'cancelled']) && auth()->user()?->isAdmin())
+                    ->visible(fn (): bool => $isAdmin && ! in_array($this->record->status, ['closed', 'cancelled'], true))
                     ->requiresConfirmation()
                     ->action(fn () => $this->record->update(['status' => 'cancelled'])),
+            ])
+                ->label('More')
+                ->icon('heroicon-o-ellipsis-horizontal')
+                ->button()
+                ->color('gray')
+                ->visible(fn (): bool => $isAdmin),
 
-                Action::make('import_items_sold')
-                    ->label(fn () => $this->record->orders->count() > 0 ? 'Items Sold (' . $this->record->orders->count() . ')' : 'Import Items Sold')
-                    ->icon('heroicon-o-shopping-cart')
-                    ->color('gray')
-                    ->visible(fn () => (bool)$this->record->detail_url && \App\Services\FeatureFlagService::enabled('whatnot_import'))
-                    ->requiresConfirmation()
-                    ->action(function (): void {
-                        try {
-                            $result = app(WhatnotScraper::class)->importShowOrders($this->record);
-                            Notification::make()->title('Import complete')
-                                ->body("{$result['created']} new item" . ($result['created'] !== 1 ? 's' : '') . ' imported.')
-                                ->success()->send();
-                            $this->record->load('orders');
-                        } catch (\RuntimeException $e) {
-                            Notification::make()->title('Import failed')->body($e->getMessage())->danger()->send();
-                        }
-                    }),
-            ])->label('More actions')->icon('heroicon-o-ellipsis-horizontal')->button()->color('gray'),
-
-            EditAction::make(),
+            EditAction::make()->visible(fn (): bool => $isAdmin),
         ];
     }
 }

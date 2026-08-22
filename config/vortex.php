@@ -10,6 +10,11 @@ return [
         'playwright_browsers_path'         => env('PLAYWRIGHT_BROWSERS_PATH'),
         'playwright_chromium_executable'   => env('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'),
 
+        // Sanity boundary for Upcoming shows. The Seller Hub should not be able
+        // to create malformed year-out rows in VortexOps. Four months still
+        // leaves plenty of room for legitimate advance scheduling.
+        'max_upcoming_days' => (int) env('WHATNOT_MAX_UPCOMING_DAYS', 120),
+
         // Pauses only the scheduled whatnot:* jobs. They all drive one Chromium
         // profile behind one lock, so while any of them is running a manual run
         // just queues — which makes the scraper the one thing you cannot debug

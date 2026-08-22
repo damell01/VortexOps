@@ -2,33 +2,36 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Resources\ShipmentResource;
+use App\Filament\Resources\ShowResource;
 use App\Models\Show;
-use App\Models\StreamerLogEntry;
 use App\Models\Streamer;
 use App\Support\AdminModules;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Panel;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Attributes\Computed;
 
 class Shows extends Page
 {
-    // Without this, Filament registers the link regardless of canAccess() —
-    // fulfillment users saw a Shows link that 403'd.
     use \App\Filament\Concerns\HasAdminNavVisibility;
 
     protected static string $moduleSlug = 'streams';
     protected static ?string $title = 'Shows';
 
-    public string $filterStatus = 'all'; // all, active, completed, closed
+    public string $filterStatus = 'all';
+    public string $filterTimeframe = 'all';
     public string $filterStreamer = '';
     public string $searchQuery = '';
     public string $sortBy = 'date';
 
     public function getSubheading(): ?string
     {
-        return 'Manage shows, track end-of-stream submissions, and view streamer reports.';
+        return 'Whatnot shows, streamer assignments, analytics, orders, shipments, and end-of-stream workflow in one place.';
     }
 
     public function getView(): string
@@ -64,12 +67,18 @@ class Shows extends Page
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('show_shipments')
+                ->label('Show Shipments')
+                ->icon('heroicon-o-truck')
+                ->color('gray')
+                ->url(fn () => ShowShipments::getUrl()),
+
             Action::make('create_show')
                 ->label('Add Show Manually')
                 ->icon('heroicon-o-plus')
                 ->color('success')
                 ->visible(fn () => auth()->user()?->isAdmin() ?? false)
-                ->url(fn () => '/admin/shows/create'),
+                ->url(fn () => ShowResource::getUrl('create')),
         ];
     }
 
@@ -80,7 +89,6 @@ class Shows extends Page
             && ($user?->isAdmin() || $user?->isStreamer());
     }
 
-
     #[Computed]
     public function streamers(): Collection
     {
@@ -90,7 +98,6 @@ class Shows extends Page
             return Streamer::orderBy('name')->get();
         }
 
-        // Streamers only see their own
         return $user?->streamer ? collect([$user->streamer]) : collect();
     }
 
@@ -98,74 +105,124 @@ class Shows extends Page
     public function shows(): Collection
     {
         $user = auth()->user();
-        $query = Show::query();
+        $query = Show::query()->inChannelContext();
 
-        // Filter by status
         if ($this->filterStatus !== 'all') {
             $query->where('status', $this->filterStatus);
         }
 
-        // Filter by streamer
+        match ($this->filterTimeframe) {
+            'upcoming' => $query->whereDate('show_date', '>', today()),
+            'past' => $query->whereDate('show_date', '<=', today()),
+            'attention' => $query
+                ->whereDate('show_date', '<=', today())
+                ->whereDoesntHave('streamerLogEntry')
+                ->whereNotIn('status', ['closed', 'cancelled']),
+            default => null,
+        };
+
         if ($this->filterStreamer && $user?->isAdmin()) {
             $query->whereHas('streamers', fn ($q) => $q->where('streamers.id', $this->filterStreamer));
         } elseif ($user?->isStreamer()) {
             $query->whereHas('streamers', fn ($q) => $q->where('streamers.id', $user->streamer->id));
         }
 
-        // Search
         if ($this->searchQuery) {
-            $query->where(function ($q) {
-                $q->where('title', 'like', "%{$this->searchQuery}%")
-                    ->orWhere('notes', 'like', "%{$this->searchQuery}%");
+            $needle = trim($this->searchQuery);
+            $query->where(function ($q) use ($needle) {
+                $q->where('title', 'like', "%{$needle}%")
+                    ->orWhere('notes', 'like', "%{$needle}%")
+                    ->orWhere('whatnot_show_id', 'like', "%{$needle}%");
             });
         }
 
-        // Sort
-        if ($this->sortBy === 'date') {
-            $query->orderBy('show_date', 'desc');
-        } elseif ($this->sortBy === 'revenue') {
-            $query->orderBy('gross_revenue', 'desc');
+        if ($this->sortBy === 'revenue') {
+            $query->orderByDesc('gross_revenue')->orderByDesc('show_date');
+        } elseif ($this->sortBy === 'oldest') {
+            $query->orderBy('show_date')->orderBy('start_time');
+        } else {
+            $query->orderByDesc('show_date')->orderByDesc('start_time');
         }
 
         return $query
-            ->with(['streamers', 'orders', 'streamerLogEntry'])
-            ->limit(100)
+            ->with(['streamers', 'streamerLogEntry'])
+            ->withCount(['orders', 'shipments'])
+            ->withCount([
+                'shipments as pending_shipments_count' => fn ($q) => $q
+                    ->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'"),
+            ])
+            ->limit(250)
             ->get();
     }
 
     public function clearFilters(): void
     {
         $this->filterStatus = 'all';
+        $this->filterTimeframe = 'all';
         $this->filterStreamer = '';
         $this->searchQuery = '';
         $this->sortBy = 'date';
     }
 
+    public function showUrl(int $showId): string
+    {
+        return ShowResource::getUrl('view', ['record' => $showId]);
+    }
+
+    public function editUrl(int $showId): string
+    {
+        return ShowResource::getUrl('edit', ['record' => $showId]);
+    }
+
+    public function shipmentsUrl(int $showId): string
+    {
+        return ShipmentResource::getUrl('index', [
+            'tableFilters[show_id][value]' => $showId,
+        ]);
+    }
+
+    public function isShowDue(Show $show): bool
+    {
+        if ($show->show_date?->isFuture()) {
+            return false;
+        }
+
+        if ($show->start_time && $show->start_time->isFuture()) {
+            return false;
+        }
+
+        return true;
+    }
+
     public function requestFormSubmission($showId): void
     {
-        $show = Show::findOrFail((int) $showId);
+        $show = Show::with('streamers.user')->findOrFail((int) $showId);
 
-        // Send notifications to all streamers on this show
+        if (! $this->isShowDue($show)) {
+            Notification::make()
+                ->title('Show has not happened yet')
+                ->body('Submission requests become available once the scheduled show is due.')
+                ->warning()
+                ->send();
+            return;
+        }
+
         foreach ($show->streamers as $streamer) {
             if ($streamer->user) {
-                \Filament\Notifications\Notification::make()
-                    ->title("📝 Form Submission Requested")
+                Notification::make()
+                    ->title('Form Submission Requested')
                     ->body("Admin is requesting you submit the end-of-stream form for \"{$show->title}\"")
                     ->info()
                     ->sendToDatabase($streamer->user);
             }
         }
 
-        \Filament\Notifications\Notification::make()
-            ->title("✓ Submission request sent")
-            ->body("Notification sent to " . $show->streamers->count() . " streamer(s)")
+        Notification::make()
+            ->title('Submission request sent')
+            ->body('Notification sent to ' . $show->streamers->count() . ' streamer(s)')
             ->success()
             ->send();
 
-        // No location.reload() here: it fired 500ms after the notification and
-        // wiped it along with any sign the action had run. The list is a
-        // #[Computed] property, which caches within the request, so it has to
-        // be invalidated explicitly or the re-render serves the stale rows.
         unset($this->shows);
     }
 
@@ -174,39 +231,66 @@ class Shows extends Page
         $show = Show::findOrFail((int) $showId);
         $logEntry = $show->streamerLogEntry;
 
-        if (!$logEntry) {
-            \Filament\Notifications\Notification::make()
-                ->title("Error")
-                ->body("No log entry found for this show")
-                ->danger()
-                ->send();
+        if (! $logEntry) {
+            Notification::make()->title('Error')->body('No log entry found for this show')->danger()->send();
             return;
         }
 
-        // Reset submitted_at and reviewed_at to allow re-editing, but keep other fields
         $logEntry->update([
-            // Distinct from 'pending' (never submitted) so the UI can say
-            // "Changes Requested" rather than falling through to "Submitted".
             'status' => 'changes_requested',
             'submitted_at' => null,
             'reviewed_by' => null,
             'reviewed_at' => null,
             'locked_at' => null,
         ]);
-
-        // Use model method to set rejection status and notify streamer
         $logEntry->rejectByAdmin('Admin requested changes to your submission.');
 
-        \Filament\Notifications\Notification::make()
-            ->title("✓ Change request sent")
-            ->body("Notification sent to " . $show->streamers->count() . " streamer(s)")
+        Notification::make()
+            ->title('Change request sent')
+            ->body('Notification sent to ' . $show->streamers()->count() . ' streamer(s)')
             ->success()
             ->send();
 
-        // No location.reload() here: it fired 500ms after the notification and
-        // wiped it along with any sign the action had run. The list is a
-        // #[Computed] property, which caches within the request, so it has to
-        // be invalidated explicitly or the re-render serves the stale rows.
+        unset($this->shows);
+    }
+
+    /**
+     * Explicit admin cleanup for duplicate/test rows. This is deliberately
+     * separate from ShowResource's conservative normal delete policy.
+     */
+    public function deleteShow(int $showId): void
+    {
+        abort_unless(auth()->user()?->isAdmin(), 403);
+
+        $show = Show::findOrFail($showId);
+
+        DB::transaction(function () use ($show): void {
+            foreach ([
+                'shipments',
+                'whatnot_show_orders',
+                'show_ingestion_logs',
+                'show_change_logs',
+                'deduction_requests',
+                'payouts',
+                'shipping_surcharges',
+                'show_reopening_requests',
+                'streamer_log_entries',
+            ] as $table) {
+                if (Schema::hasTable($table) && Schema::hasColumn($table, 'show_id')) {
+                    DB::table($table)->where('show_id', $show->id)->delete();
+                }
+            }
+
+            foreach (['show_streamer', 'show_fulfillment_user'] as $table) {
+                if (Schema::hasTable($table) && Schema::hasColumn($table, 'show_id')) {
+                    DB::table($table)->where('show_id', $show->id)->delete();
+                }
+            }
+
+            $show->delete();
+        });
+
+        Notification::make()->title('Show deleted')->body('The show and its related imported data were removed.')->success()->send();
         unset($this->shows);
     }
 }

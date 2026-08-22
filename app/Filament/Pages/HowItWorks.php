@@ -5,11 +5,6 @@ namespace App\Filament\Pages;
 use App\Filament\Concerns\HasAdminNavVisibility;
 use Filament\Pages\Page;
 
-/**
- * A plain-English tour of how VortexOps fits together — the show lifecycle,
- * the streamer log, inventory, and payouts — so a new team member can orient
- * themselves without a manual.
- */
 class HowItWorks extends Page
 {
     use HasAdminNavVisibility;
@@ -17,10 +12,6 @@ class HowItWorks extends Page
     protected static ?string $title = 'How It Works';
     protected static ?string $navigationLabel = 'How It Works';
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-academic-cap';
-
-    // Ungrouped (no getNavigationGroup() override) and sorted ahead of the
-    // Dashboard (which sorts at -2) so it's the very first item in the sidebar
-    // — not tucked under Settings where a new teammate would never find it.
     protected static ?int $navigationSort = -3;
 
     public static function canAccess(): bool
@@ -35,7 +26,7 @@ class HowItWorks extends Page
 
     public function getSubheading(): ?string
     {
-        return 'A quick tour of how the pieces fit together.';
+        return 'Your role, the show flow, and what to do next.';
     }
 
     /** @return array{label: string, items: array<int, array{title: string, body: string}>} */
@@ -47,8 +38,10 @@ class HowItWorks extends Page
             return [
                 'label' => 'Owner',
                 'items' => [
-                    ['title' => 'Everything', 'body' => 'You see and can do everything in the app, including toggling modules on/off and managing roles under <strong>Settings → Roles & Permissions</strong> — the only account that can.'],
-                    ['title' => 'Streamer balances', 'body' => 'Your dashboard includes the streamer balance widget other admins don\'t see, for tracking loans/advances against upcoming pay runs.'],
+                    ['title' => 'Run the exceptions first', 'body' => 'Start on the <strong>Admin Operations Center</strong>. Clear reports waiting for review, unmatched inventory, unassigned fulfillment, and other exceptions before working routine reporting.'],
+                    ['title' => 'Choose how automated the show flow should be', 'body' => 'The dashboard <strong>Show Workflow</strong> controls decide when inventory posts and whether every report, only exception reports, or no reports require manual approval.'],
+                    ['title' => 'Use each Show as the command center', 'body' => 'A show contains Whatnot analytics, shipments, streamer report, inventory reconciliation, activity history, and payout actions. Avoid bouncing between separate logs unless you need a specialized report.'],
+                    ['title' => 'Manage access and modules', 'body' => 'Use <strong>Settings → Roles & Permissions</strong> and module controls to decide what each role can see.'],
                 ],
             ];
         }
@@ -57,9 +50,11 @@ class HowItWorks extends Page
             return [
                 'label' => 'Admin',
                 'items' => [
-                    ['title' => 'Review & approve shows', 'body' => 'Work the <strong>Status Board</strong> and <strong>Streamer Log</strong> to approve streamer-reviewed entries, then run <strong>Payouts</strong> weekly.'],
-                    ['title' => 'Inventory & receiving', 'body' => 'Receive pallets, manage vendors, and watch <strong>Product Insights</strong> for dead stock and reorder suggestions.'],
-                    ['title' => 'Manage the team', 'body' => 'Add teammates and set their role under <strong>Settings → Users</strong>. Fine-tune what each role can see under <strong>Settings → Roles & Permissions</strong>.'],
+                    ['title' => 'Start with the Admin Operations Center', 'body' => 'The first numbers are action queues, not vanity metrics: reports to review, unmatched items, open shipments, unassigned fulfillment, and draft payouts.'],
+                    ['title' => 'Review the streamer report inside the Show', 'body' => 'Open a completed show. The <strong>Streamer Show Report</strong> shows Sold, Giveaway, Promo, Other, costs, posting status, and inventory exceptions in one place.'],
+                    ['title' => 'Match unlisted items inline', 'body' => 'If a streamer reports something not in the catalog, use <strong>Match to Inventory</strong> directly on that report line. Do not create a second reconciliation workflow.'],
+                    ['title' => 'Approve or request changes', 'body' => 'Approve a correct report or send it back with a clear reason. The activity timeline records report, inventory, and Whatnot changes for the show.'],
+                    ['title' => 'Finish fulfillment and payouts', 'body' => 'Make sure fulfillment ownership and shipment work are settled, then calculate/process payouts using the show’s final data.'],
                 ],
             ];
         }
@@ -68,9 +63,10 @@ class HowItWorks extends Page
             return [
                 'label' => 'Fulfillment Admin',
                 'items' => [
-                    ['title' => 'Every channel\'s fulfillment work', 'body' => 'Unlike regular fulfillment teammates, you see the <strong>Fulfillment Center</strong> across every channel, not just shows assigned to you.'],
-                    ['title' => 'PWE + Labels review', 'body' => 'You\'re the one who actions the "Fulfillment Reviewed" step in <strong>Streamer Log</strong> for streamers on that payout type — their pay depends on your count.'],
-                    ['title' => 'Clock in/out', 'body' => 'Use <strong>Timekeeping</strong> to log your hours — you only ever see your own entries there.'],
+                    ['title' => 'Use the Fulfillment Center as your queue', 'body' => 'It is show-first. On phones you see only the essential columns: show, open work, and next action. Open a row for the complete shipment and packing context.'],
+                    ['title' => 'Assign work before it gets lost', 'body' => 'Watch unassigned shows and make sure fulfillment users are attached to the work they own. Regular fulfillment users only see their assigned shows.'],
+                    ['title' => 'Keep shipment state current', 'body' => 'Work open shipments, verify packing lines, and update tracking/status as the package moves. Whatnot shipment data remains the reference source.'],
+                    ['title' => 'Complete fulfillment-dependent review', 'body' => 'For PWE + Labels streamers, complete the fulfillment review/count before final payout calculation.'],
                 ],
             ];
         }
@@ -79,8 +75,10 @@ class HowItWorks extends Page
             return [
                 'label' => 'Fulfillment',
                 'items' => [
-                    ['title' => 'Your assigned shows', 'body' => 'The <strong>Fulfillment Center</strong> shows only the shows assigned to you — pack and ship what\'s there.'],
-                    ['title' => 'Clock in/out', 'body' => 'Use <strong>Timekeeping</strong> to log your hours — you only ever see your own entries there.'],
+                    ['title' => 'Open the Fulfillment Center', 'body' => 'Your queue contains only shows assigned to you. Start with shows that have open shipments.'],
+                    ['title' => 'Work one show at a time', 'body' => 'Open a show, process its shipment and packing lines, and keep the shipping status/tracking current. Avoid working from one giant cross-show shipment list.'],
+                    ['title' => 'Use the dashboard for workload', 'body' => 'Shows to Work, Open Shipments, and Delivered Today tell you what needs attention without showing financial information you do not need.'],
+                    ['title' => 'Clock in/out separately', 'body' => 'Use <strong>Timekeeping</strong> for your hours. Shipping workflow and timekeeping stay separate.'],
                 ],
             ];
         }
@@ -89,10 +87,12 @@ class HowItWorks extends Page
             return [
                 'label' => 'Streamer',
                 'items' => [
-                    ['title' => 'Add items during/after your show', 'body' => 'Open your show and click <strong>Add Items</strong> to log what sold — no cost needed, ops fills that in later.'],
-                    ['title' => 'Review your show', 'body' => 'From <strong>Streamer Log → To Review</strong>, map sold items to inventory, confirm cost, add hours, and mark it <strong>Streamer Reviewed</strong>. You only ever see shows you were on.'],
-                    ['title' => 'Check your pay', 'body' => 'Use <strong>Payouts</strong> for a running list of what you\'re owed/paid, or <strong>Streamer Statement</strong> for a printable breakdown by date range — both are locked to your own numbers.'],
-                    ['title' => 'Clock in/out', 'body' => 'Use <strong>Timekeeping</strong> to log your hours — you only ever see your own entries there.'],
+                    ['title' => 'Before the show', 'body' => 'Make sure the inventory you will use has been transferred/assigned to your inventory location. Your dashboard shows the products and units available to you.'],
+                    ['title' => 'Run the show normally', 'body' => 'Whatnot sales, buyers, earnings, giveaways, and shipment reference data sync automatically. You do not need to re-enter those totals.'],
+                    ['title' => 'After the show: End of Stream', 'body' => 'Open <strong>End of Stream</strong> and record the inventory actually used. Classify every line as <strong>Sold</strong>, <strong>Giveaway</strong>, <strong>Promo / Bonus</strong>, or <strong>Other</strong>.'],
+                    ['title' => 'If an item is not in the catalog', 'body' => 'Use <strong>Unlisted Item</strong>. Do not pick a product that is “close enough.” The report will flag it so admin can match the correct inventory later.'],
+                    ['title' => 'Review and submit', 'body' => 'Check quantities, classifications, cost, and inventory exceptions on the Review step. The app will either post/approve automatically or route the report to admin based on the configured workflow.'],
+                    ['title' => 'If admin requests changes', 'body' => 'The report reopens in <strong>Changes Requested</strong>. Fix the specific issue and submit again.'],
                 ],
             ];
         }
@@ -100,7 +100,7 @@ class HowItWorks extends Page
         return [
             'label' => 'Your account',
             'items' => [
-                ['title' => 'No role assigned yet', 'body' => 'Ask an admin to assign you a role under <strong>Settings → Users</strong> — until then you won\'t see much in the sidebar.'],
+                ['title' => 'No role assigned yet', 'body' => 'Ask an admin to assign you a role under <strong>Settings → Users</strong>. Your dashboard and navigation are role-specific.'],
             ],
         ];
     }

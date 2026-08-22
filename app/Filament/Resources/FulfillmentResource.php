@@ -10,7 +10,6 @@ use App\Support\AdminModules;
 use App\Support\ChannelContext;
 use Filament\Forms\Components\Placeholder;
 use Filament\Resources\Resource;
-use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
@@ -18,11 +17,6 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
-/**
- * The fulfillment team's own workspace: sold items from shows they're
- * assigned to, scoped so they never see other streamers' cost/pay data —
- * just what needs packing, shipping, and tracking.
- */
 class FulfillmentResource extends Resource
 {
     use HasModuleAccess;
@@ -30,9 +24,8 @@ class FulfillmentResource extends Resource
     protected static ?string $model = Show::class;
     protected static string $moduleSlug = 'fulfillment';
     protected static ?string $slug = 'fulfillment-center';
-
     protected static ?string $navigationLabel = 'Fulfillment Center';
-    protected static ?string $modelLabel      = 'show';
+    protected static ?string $modelLabel = 'show';
 
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
@@ -52,7 +45,6 @@ class FulfillmentResource extends Resource
     protected static function passesModuleAccessCheck(): bool
     {
         $user = auth()->user();
-
         return ($user?->isAdmin() || $user?->isOwner() || $user?->isFulfillment() || $user?->isFulfillmentAdmin()) ?? false;
     }
 
@@ -60,21 +52,24 @@ class FulfillmentResource extends Resource
     {
         $query = parent::getEloquentQuery()
             ->with(['streamers', 'channel', 'fulfillmentUsers'])
+            ->withCount('orders')
+            ->withCount('shipments')
+            ->withCount([
+                'shipments as delivered_shipments_count' => fn ($q) => $q->whereRaw("LOWER(COALESCE(status, '')) = 'delivered'"),
+                'shipments as open_shipments_count' => fn ($q) => $q->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'"),
+            ])
             ->whereNotIn('status', ['draft', 'cancelled'])
-            ->whereHas('orders');
+            ->where(function ($q) {
+                $q->whereHas('shipments')->orWhereHas('orders');
+            });
 
         $user = auth()->user();
-
         $seesAllRows = $user && ($user->isAdmin() || $user->isOwner() || $user->isFulfillmentAdmin());
 
-        // Regular fulfillment users see only shows they're assigned to.
         if (! $seesAllRows && $user && $user->isFulfillment()) {
             $query->whereHas('fulfillmentUsers', fn (Builder $q) => $q->where('users.id', $user->id));
         }
 
-        // Channel context applies to everyone. Admins used to return early
-        // above, which skipped this — so picking a channel in the sidebar
-        // switcher did nothing here while every other resource honoured it.
         if (ChannelContext::isScoped()) {
             $query->where('whatnot_channel_id', ChannelContext::currentId());
         }
@@ -82,31 +77,15 @@ class FulfillmentResource extends Resource
         return $query;
     }
 
-    // A curated view onto existing shows — no create/edit/delete of the show itself.
-    // canView() is overridden too: the Show model's Shield-generated policy gates
-    // on a "View:Show" permission nobody holds (permissions are unseeded), which
-    // would 403 every non-admin here. This resource has its own access rule.
     public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
     {
         $user = auth()->user();
-
         return ($user?->isAdmin() || $user?->isOwner() || $user?->isFulfillment() || $user?->isFulfillmentAdmin()) ?? false;
     }
 
-    public static function canCreate(): bool
-    {
-        return false;
-    }
-
-    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
-    {
-        return false;
-    }
-
-    public static function canDeleteAny(): bool
-    {
-        return false;
-    }
+    public static function canCreate(): bool { return false; }
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool { return false; }
+    public static function canDeleteAny(): bool { return false; }
 
     public static function form(Schema $schema): Schema
     {
@@ -116,8 +95,8 @@ class FulfillmentResource extends Resource
                 Placeholder::make('show_date')->label('Date')->content(fn (?Show $record) => $record?->show_date?->format('M j, Y') ?? '—'),
                 Placeholder::make('status')->label('Status')->content(fn (?Show $record) => $record ? (Show::statusLabels()[$record->status] ?? $record->status) : '—'),
                 Placeholder::make('streamer')->label('Streamer')->content(fn (?Show $record) => $record?->streamers->pluck('name')->join(', ') ?: '—'),
-                Placeholder::make('channel')->label('Channel')->content(fn (?Show $record) => $record?->channel?->name ?? '—'),
-                Placeholder::make('units_sold')->label('Units Sold')->content(fn (?Show $record) => $record?->units_sold ?? '—'),
+                Placeholder::make('fulfillment')->label('Fulfillment')->content(fn (?Show $record) => $record?->fulfillmentUsers->pluck('name')->join(', ') ?: 'Unassigned'),
+                Placeholder::make('units_sold')->label('Whatnot Orders')->content(fn (?Show $record) => $record?->units_sold ?? '—'),
             ]),
         ]);
     }
@@ -125,112 +104,59 @@ class FulfillmentResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->striped()
+            ->recordUrl(fn (Show $record) => static::getUrl('view', ['record' => $record]))
             ->persistFiltersInSession()
+            ->defaultSort('show_date', 'desc')
             ->columns([
-                TextColumn::make('show_date')
-                    ->label('Date')
-                    ->date('M j, Y')
+                TextColumn::make('show_date')->label('Date')->date('M j, Y')->sortable(),
+                TextColumn::make('title')->label('Show')->searchable()->wrap()->limit(52),
+                TextColumn::make('streamers.name')->label('Streamer')->badge()->separator(', ')->placeholder('Unassigned'),
+                TextColumn::make('fulfillmentUsers.name')->label('Fulfillment')->badge()->separator(', ')->placeholder('Unassigned'),
+                TextColumn::make('shipments_count')->label('Shipments')->numeric()->sortable(),
+                TextColumn::make('open_shipments_count')
+                    ->label('Open')
+                    ->numeric()
+                    ->badge()
+                    ->color(fn ($state) => (int) $state > 0 ? 'warning' : 'success')
                     ->sortable(),
-
-                TextColumn::make('title')
-                    ->label('Show')
-                    ->searchable()
-                    ->limit(40)
-                    ->default('—'),
-
-                TextColumn::make('streamers.name')
-                    ->label('Streamer')
-                    ->badge()
-                    ->separator(', '),
-
-                TextColumn::make('channel.name')
-                    ->label('Channel')
-                    ->placeholder('—')
-                    ->badge()
-                    ->color('gray'),
-
-                TextColumn::make('orders_count')
-                    ->label('Items')
-                    ->counts('orders'),
-
-                TextColumn::make('shipping_progress')
-                    ->label('Shipping Progress')
-                    ->state(function (Show $record): string {
-                        $total = $record->orders()->count();
-                        if ($total === 0) return '—';
-                        $shipped = $record->orders()->whereIn('shipping_status', ['shipped', 'delivered'])->count();
-                        $percent = intval(($shipped / $total) * 100);
-                        return "{$shipped}/{$total} ({$percent}%)";
-                    })
-                    ->badge()
-                    ->color(fn (Show $record): string => static::isFullyShipped($record) ? 'success' : 'warning'),
+                TextColumn::make('delivered_shipments_count')->label('Delivered')->numeric()->sortable(),
+                TextColumn::make('orders_count')->label('Packing Lines')->numeric()->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('fulfillment_next_action')
                     ->label('Next Action')
                     ->state(function (Show $record): string {
-                        $total = $record->orders()->count();
-                        if ($total === 0) return 'No items';
-                        $shipped = $record->orders()->whereIn('shipping_status', ['shipped', 'delivered'])->count();
-                        $ready = $record->orders()->where('shipping_status', 'ready_to_ship')->count();
-
-                        return match (true) {
-                            $shipped === $total => 'Complete ✓',
-                            $ready > 0 => "Ship {$ready} items",
-                            default => 'Prepare items',
-                        };
+                        if ((int) $record->shipments_count === 0 && (int) $record->orders_count > 0) return 'Prepare items';
+                        if ((int) $record->open_shipments_count > 0) return 'Work open shipments';
+                        if ((int) $record->shipments_count > 0) return 'Complete ✓';
+                        return 'Waiting for shipment data';
                     })
                     ->badge()
-                    ->color(function (Show $record): string {
-                        $total = $record->orders()->count();
-                        if ($total === 0) return 'gray';
-                        $shipped = $record->orders()->whereIn('shipping_status', ['shipped', 'delivered'])->count();
-
-                        return $shipped === $total ? 'success' : 'warning';
-                    }),
+                    ->color(fn (Show $record) => (int) $record->open_shipments_count > 0 ? 'warning' : ((int) $record->shipments_count > 0 ? 'success' : 'gray')),
             ])
             ->filters([
-                SelectFilter::make('status')
-                    ->options(Show::statusLabels()),
+                SelectFilter::make('status')->options(Show::statusLabels()),
+                SelectFilter::make('fulfillment_user')
+                    ->label('Assigned To')
+                    ->relationship('fulfillmentUsers', 'name')
+                    ->searchable()
+                    ->preload(),
             ])
-            ->defaultSort('show_date', 'desc')
+            ->paginationPageOptions([25, 50, 100])
+            ->defaultPaginationPageOption(25)
             ->emptyStateIcon('heroicon-o-truck')
-            ->emptyStateHeading('No shows to fulfill')
-            ->emptyStateDescription('Shows with sold items you\'re assigned to will show up here.');
-    }
-
-    private static function shippingProgressLabel(Show $record): string
-    {
-        $total = $record->orders()->count();
-        if ($total === 0) {
-            return '—';
-        }
-        $shipped = $record->orders()->whereIn('shipping_status', ['shipped', 'delivered'])->count();
-
-        return "{$shipped} / {$total} shipped";
-    }
-
-    private static function isFullyShipped(Show $record): bool
-    {
-        $total = $record->orders()->count();
-        if ($total === 0) {
-            return false;
-        }
-
-        return $record->orders()->whereIn('shipping_status', ['shipped', 'delivered'])->count() === $total;
+            ->emptyStateHeading('No fulfillment shows')
+            ->emptyStateDescription('Assigned shows with imported shipments or packing lines will appear here.');
     }
 
     public static function getRelations(): array
     {
-        return [
-            FulfillmentOrdersRelationManager::class,
-        ];
+        return [FulfillmentOrdersRelationManager::class];
     }
 
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListFulfillmentShows::route('/'),
-            'view'  => Pages\ViewFulfillmentShow::route('/{record}'),
+            'view' => Pages\ViewFulfillmentShow::route('/{record}'),
         ];
     }
 }

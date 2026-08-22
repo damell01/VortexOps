@@ -18,7 +18,7 @@
                     <div class="mt-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-5">
                         <div class="min-w-0">
                             <h1 class="text-xl font-semibold leading-tight text-gray-950 dark:text-white sm:text-2xl">Your shows and inventory</h1>
-                            <p class="mt-1 max-w-2xl text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Before a show, make sure inventory is assigned to you. After it ends, report what sold, what was given away, and any promo inventory used.</p>
+                            <p class="mt-1 max-w-2xl text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Move inventory into your inventory whenever you take possession of it. It is not tied to a show ahead of time. After a show ends, report which items were sold, given away, or used as promo inventory.</p>
                         </div>
 
                         @if($nextShow)
@@ -58,9 +58,9 @@
                     <div class="min-w-0 flex-1">
                         <div class="text-xs font-semibold text-gray-900 dark:text-white">How your show flow works</div>
                         <div class="mt-1 grid gap-1 text-[11px] leading-4 text-gray-500 dark:text-gray-400 sm:grid-cols-3 sm:gap-3">
-                            <span><strong class="text-gray-700 dark:text-gray-200">1.</strong> Inventory is moved to you before the show.</span>
-                            <span><strong class="text-gray-700 dark:text-gray-200">2.</strong> Run the show and Whatnot data syncs automatically.</span>
-                            <span><strong class="text-gray-700 dark:text-gray-200">3.</strong> Finish End of Stream after the show.</span>
+                            <span><strong class="text-gray-700 dark:text-gray-200">1.</strong> Move inventory into your inventory whenever you take it.</span>
+                            <span><strong class="text-gray-700 dark:text-gray-200">2.</strong> Run shows normally while Whatnot data syncs automatically.</span>
+                            <span><strong class="text-gray-700 dark:text-gray-200">3.</strong> After each show, report the inventory actually used.</span>
                         </div>
                     </div>
                 </div>

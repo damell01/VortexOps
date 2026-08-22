@@ -1,73 +1,60 @@
 @php
     use App\Models\Show;
-
     /** @var Show $record */
     $record = $this->record;
+    $shipmentTotal = $record->shipments()->count();
+    $delivered = $record->shipments()->whereRaw("LOWER(COALESCE(status, '')) = 'delivered'")->count();
+    $open = max(0, $shipmentTotal - $delivered);
 @endphp
 
 <x-filament-panels::page>
-    <div class="space-y-6">
-        <!-- Header -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            <div class="flex items-start justify-between">
+    <div class="space-y-5">
+        <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                        {{ $record->title ?? 'Show' }}
-                    </h1>
-                    <p class="text-gray-600 dark:text-gray-400">
-                        {{ $record->primaryStreamer()?->name ?? 'Unknown Streamer' }} • {{ $record->show_date?->format('M d, Y') }}
+                    <div class="text-xs font-semibold uppercase tracking-wide text-primary-600">Fulfillment Show</div>
+                    <h1 class="mt-1 text-2xl font-semibold text-gray-950 dark:text-white">{{ $record->title ?? 'Show' }}</h1>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        {{ $record->primaryStreamer()?->name ?? 'Unknown Streamer' }} · {{ $record->show_date?->format('M j, Y') }}
                     </p>
                 </div>
-                <div class="text-right">
-                    <span @class([
-                        'inline-block px-4 py-2 rounded-full font-medium text-sm',
-                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' => in_array($record->status, ['draft', 'pending_review']),
-                        'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' => $record->status === 'mapping',
-                        'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' => $record->status === 'pending_approval',
-                        'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' => in_array($record->status, ['reconciled', 'closed']),
-                        'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' => $record->status === 'cancelled',
-                    ])>
-                        {{ Show::statusLabels()[$record->status] ?? ucfirst(str_replace('_', ' ', $record->status)) }}
-                    </span>
+                <span class="self-start rounded-full bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                    {{ Show::statusLabels()[$record->status] ?? ucfirst(str_replace('_', ' ', $record->status)) }}
+                </span>
+            </div>
+
+            <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div class="rounded-xl bg-gray-50 p-4 dark:bg-gray-800">
+                    <div class="text-xs text-gray-500">Shipments</div>
+                    <div class="mt-1 text-xl font-semibold text-gray-950 dark:text-white">{{ number_format($shipmentTotal) }}</div>
+                </div>
+                <div class="rounded-xl bg-blue-50 p-4 dark:bg-blue-950/30">
+                    <div class="text-xs text-blue-700 dark:text-blue-300">Open</div>
+                    <div class="mt-1 text-xl font-semibold text-blue-700 dark:text-blue-200">{{ number_format($open) }}</div>
+                </div>
+                <div class="rounded-xl bg-green-50 p-4 dark:bg-green-950/30">
+                    <div class="text-xs text-green-700 dark:text-green-300">Delivered</div>
+                    <div class="mt-1 text-xl font-semibold text-green-700 dark:text-green-200">{{ number_format($delivered) }}</div>
+                </div>
+                <div class="rounded-xl bg-gray-50 p-4 dark:bg-gray-800">
+                    <div class="text-xs text-gray-500">Packing Lines</div>
+                    <div class="mt-1 text-xl font-semibold text-gray-950 dark:text-white">{{ number_format($record->orders()->count()) }}</div>
                 </div>
             </div>
 
-            <!-- Quick Stats -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Gross Revenue</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">${{ number_format((float) $record->gross_revenue, 2) }}</p>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Items Count</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $record->orders()->count() }}</p>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Units Sold</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $record->units_sold ?? 0 }}</p>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">Shipments</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ $record->shipments()->count() }}</p>
-                </div>
+            <div class="mt-4 rounded-xl border border-gray-100 p-4 dark:border-gray-800">
+                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Assigned Fulfillment</div>
+                <div class="mt-2 text-sm font-medium text-gray-950 dark:text-white">{{ $record->fulfillmentUsers->pluck('name')->join(', ') ?: 'Unassigned' }}</div>
             </div>
-        </div>
+        </section>
 
-        <!-- Fulfillment Dashboard -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-            @livewire('fulfillment-dashboard', [
-                'show' => $record,
-            ], key('fulfillment-' . $record->id))
-        </div>
+        @livewire('fulfillment-dashboard', ['show' => $record], key('fulfillment-' . $record->id))
 
-        <!-- Actions -->
-        <div class="flex gap-3">
+        <div class="flex flex-wrap gap-2">
             @foreach($this->getHeaderActions() as $action)
                 {{ $action }}
             @endforeach
-            <a href="{{ route('filament.admin.resources.fulfillment-center.index') }}" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition font-medium">
-                ← Back
-            </a>
+            <a href="{{ route('filament.admin.resources.fulfillment-center.index') }}" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-600 dark:text-gray-200">← Back to Fulfillment Center</a>
         </div>
     </div>
 </x-filament-panels::page>

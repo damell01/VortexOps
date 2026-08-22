@@ -48,19 +48,24 @@ class ShowStreamerLogWidget extends Widget
         if ($log->items()->whereNull('inventory_item_id')->exists()) {
             Notification::make()
                 ->title('Unmatched items remain')
-                ->body('Match all unlisted items before approving this report, or use the workflow setting that permits automatic exception handling.')
+                ->body('Match all unlisted items before approving this report.')
                 ->warning()
                 ->send();
             return;
         }
 
         $problems = $log->approveByAdmin();
-
-        Notification::make()
+        $notification = Notification::make()
             ->title($problems === [] ? 'Show report approved' : 'Approved with inventory exceptions')
-            ->body($problems === [] ? 'The report is approved and the workflow can continue.' : implode("\n", $problems))
-            ->{$problems === [] ? 'success' : 'warning'}()
-            ->send();
+            ->body($problems === [] ? 'The report is approved and the workflow can continue.' : implode("\n", $problems));
+
+        if ($problems === []) {
+            $notification->success();
+        } else {
+            $notification->warning();
+        }
+
+        $notification->send();
     }
 
     public function toggleRejectForm(): void

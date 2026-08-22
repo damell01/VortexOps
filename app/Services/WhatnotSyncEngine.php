@@ -257,6 +257,31 @@ class WhatnotSyncEngine
     {
         $result = $this->scraper->fetchShipmentsFromLivePage($channel->whatnot_username);
 
+        // Discovery reads the show list at /dashboard/lives, and that page is
+        // the one currently being refused — so this comes back empty for a
+        // reason that has nothing to do with shipments.
+        //
+        // It does not need to. Shipments are per-show, addressed as
+        // /dashboard/shipments?source=<live_id>, and every show already
+        // imported carries that id in its detail_url. Discovery only ever
+        // saved us from having imported the shows first.
+        if ($result === []) {
+            $known = Show::where('whatnot_channel_id', $channel->id)
+                ->whereNotNull('detail_url')
+                ->orderByDesc('show_date')
+                ->limit(50)
+                ->get();
+
+            if ($known->isNotEmpty()) {
+                $refreshed = $this->scraper->refreshShipmentsForShows($known, $channel->whatnot_username);
+
+                return [
+                    'updated'      => $refreshed['updated'] ?? 0,
+                    'shows_synced' => $known->count() - ($refreshed['skipped_shows'] ?? 0),
+                ];
+            }
+        }
+
         $updated = 0;
         foreach ($result as $liveId => $rows) {
             // Match by livestream ID to find the show

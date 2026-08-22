@@ -40,9 +40,6 @@ class SyncWhatnotShowIndex extends Command
         $maxFutureDays = max(30, min(365, (int) config('vortex.whatnot.max_upcoming_days', 120)));
         $futureCutoff = today()->addDays($maxFutureDays);
 
-        // UUIDs learned by the repair pass as alternate/duplicate Whatnot rows are
-        // ignored at ingestion. This prevents the same duplicate from being
-        // recreated every ten minutes and then cleaned one minute later.
         $aliasIds = Schema::hasTable('whatnot_show_aliases')
             ? DB::table('whatnot_show_aliases')->pluck('duplicate_whatnot_show_id')->filter()->values()->all()
             : [];
@@ -112,13 +109,25 @@ class SyncWhatnotShowIndex extends Command
                     continue;
                 }
 
-                // An Upcoming row hundreds of days out was the source of the bogus
-                // 2027 cards. Reject it before the database upsert. Manual shows are
-                // unaffected because only the Whatnot index passes through here.
-                if (($row['kind'] ?? $kind) === 'upcoming' && Carbon::parse($showDate)->gt($futureCutoff)) {
+                $parsedDate = Carbon::parse($showDate);
+                $rowKind = (string) ($row['kind'] ?? $kind);
+
+                // Never allow malformed Whatnot dates to become database rows.
+                // Past/current rows cannot legitimately point into the future,
+                // and no automatic Whatnot row may exceed our configured future
+                // scheduling horizon. This catches bad years even when a scraper
+                // row is mislabeled as "past" rather than "upcoming".
+                $invalidForState = $rowKind === 'past' && $parsedDate->gt(today());
+                $invalidCurrent = $rowKind === 'current' && $parsedDate->gt(today()->addDay());
+                $beyondFutureHorizon = $parsedDate->gt($futureCutoff);
+
+                if ($invalidForState || $invalidCurrent || $beyondFutureHorizon) {
                     $counts['skipped']++;
                     if ($this->option('debug')) {
-                        $this->warn("[whatnot-index] rejected impossible future show {$liveId} {$showDate} {$title}");
+                        $reason = $beyondFutureHorizon
+                            ? 'beyond future horizon'
+                            : ($invalidForState ? 'future-dated past row' : 'future-dated current row');
+                        $this->warn("[whatnot-index] rejected {$reason}: {$liveId} {$showDate} [{$rowKind}] {$title}");
                     }
                     continue;
                 }

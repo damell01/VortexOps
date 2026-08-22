@@ -8,13 +8,13 @@
             ],
             [
                 'icon' => 'heroicon-o-user-circle', 'tone' => 'violet',
-                'title' => '2. Inventory is assigned before the show',
-                'body' => 'Inventory used by a streamer should be moved to that streamer’s inventory location before the show so the post-show report can reconcile against real stock.',
+                'title' => '2. Streamers manage their own inventory',
+                'body' => 'A streamer can move inventory into their streamer inventory whenever they take possession of it. That stock is not assigned to a specific show ahead of time and may remain with the streamer across multiple shows.',
             ],
             [
                 'icon' => 'heroicon-o-clipboard-document-list', 'tone' => 'amber',
                 'title' => '3. Streamer completes End of Stream',
-                'body' => 'After the show, the streamer records inventory actually used and marks each line as <strong>Sold</strong>, <strong>Giveaway</strong>, <strong>Promo / Bonus</strong>, or <strong>Other</strong>. Unlisted items are allowed and stay flagged for admin.',
+                'body' => 'After the show, the streamer records inventory actually used for that show and marks each line as <strong>Sold</strong>, <strong>Giveaway</strong>, <strong>Promo / Bonus</strong>, or <strong>Other</strong>. Unlisted items are allowed and stay flagged for admin.',
             ],
             [
                 'icon' => 'heroicon-o-check-badge', 'tone' => 'emerald',

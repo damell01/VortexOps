@@ -2,92 +2,103 @@
     $summary = $this->summary;
     $lines = $this->lineItems;
     $whatnot = $this->whatnotReference;
+    $reconciliationWarnings = $this->reconciliationWarnings;
 @endphp
 
 <x-filament-panels::page>
     @if (! $this->show)
-        <div class="mx-auto max-w-4xl space-y-4">
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
-                <h2 class="text-lg font-semibold text-gray-950 dark:text-white">Choose a completed show</h2>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Select the show you just finished to report sold items, giveaways, promos, and anything not yet in the catalog.</p>
+        <div class="mx-auto max-w-4xl space-y-3 sm:space-y-4">
+            <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
+                <h2 class="text-base font-semibold text-gray-950 dark:text-white sm:text-lg">Choose a completed show</h2>
+                <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Select the show you finished to report sold inventory, giveaways, promos, and anything not yet in the catalog.</p>
             </div>
 
-            <div class="grid gap-3 sm:grid-cols-2">
+            <div class="grid gap-2.5 sm:grid-cols-2 sm:gap-3">
                 @forelse ($this->shows as $show)
                     <button type="button" wire:click="selectShow('{{ $show->id }}')"
-                        class="rounded-2xl border border-gray-200 bg-white p-4 text-left transition hover:border-primary-400 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900">
-                        <div class="font-semibold text-gray-950 dark:text-white">{{ $show->title }}</div>
-                        <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                        class="rounded-xl border border-gray-200 bg-white p-3.5 text-left transition hover:border-primary-400 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-4">
+                        <div class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">{{ $show->title }}</div>
+                        <div class="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400 sm:mt-2 sm:text-xs">
                             <span>{{ $show->show_date?->format('M j, Y') ?? '—' }}</span>
                             @if($show->start_time)<span>{{ $show->start_time->format('g:i A') }}</span>@endif
                             @if($show->units_sold !== null)<span>{{ number_format($show->units_sold) }} Whatnot orders</span>@endif
                         </div>
                     </button>
                 @empty
-                    <div class="col-span-full rounded-2xl border border-dashed border-gray-300 p-10 text-center text-sm text-gray-500 dark:border-gray-700">
+                    <div class="col-span-full rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500 dark:border-gray-700 sm:rounded-2xl sm:p-10">
                         No completed shows are waiting on a report from you.
                     </div>
                 @endforelse
             </div>
         </div>
     @else
-        <div class="mx-auto max-w-7xl space-y-5">
-            {{-- Show context / Whatnot reference --}}
-            <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-                <div class="flex flex-col gap-3 border-b border-gray-100 p-5 sm:flex-row sm:items-start sm:justify-between dark:border-gray-800">
-                    <div>
-                        <div class="text-xs font-semibold uppercase tracking-wide text-primary-600">Streamer Show Report</div>
-                        <h2 class="mt-1 text-xl font-semibold text-gray-950 dark:text-white">{{ $this->show->title }}</h2>
-                        <div class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        <div class="mx-auto max-w-7xl space-y-3 pb-24 sm:space-y-5 sm:pb-0" data-vx-eos-report>
+            <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+                <div class="flex flex-col gap-2.5 border-b border-gray-100 p-4 sm:flex-row sm:items-start sm:justify-between sm:p-5 dark:border-gray-800">
+                    <div class="min-w-0">
+                        <div class="text-[10px] font-bold uppercase tracking-[.12em] text-primary-600 sm:text-xs">Streamer Show Report</div>
+                        <h2 class="mt-1 text-lg font-semibold leading-tight text-gray-950 dark:text-white sm:text-xl">{{ $this->show->title }}</h2>
+                        <div class="mt-1 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
                             {{ $this->show->show_date?->format('M j, Y') }}
                             @if($this->show->start_time) · {{ $this->show->start_time->format('g:i A') }} @endif
                             @if($this->show->channel) · {{ $this->show->channel->name }} @endif
                         </div>
                     </div>
-                    <button type="button" wire:click="selectShow('')" class="text-sm font-medium text-gray-500 hover:text-gray-900 dark:hover:text-white">Change show</button>
+                    <div class="flex items-center justify-between gap-3 sm:flex-col sm:items-end">
+                        <div class="text-[10px] font-medium text-gray-400 sm:text-xs">
+                            <span wire:dirty class="vx-eos-unsaved text-amber-600">Saving…</span>
+                            <span wire:loading.remove>
+                                @if($this->lastSavedAt)
+                                    Saved {{ \Illuminate\Support\Carbon::parse($this->lastSavedAt)->diffForHumans() }}
+                                @else
+                                    Autosave on
+                                @endif
+                            </span>
+                        </div>
+                        <button type="button" wire:click="selectShow('')" class="text-xs font-medium text-gray-500 hover:text-gray-900 dark:hover:text-white sm:text-sm">Change show</button>
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-3 lg:grid-cols-6 dark:bg-gray-800">
+                <div class="grid grid-cols-3 gap-px bg-gray-100 sm:grid-cols-3 lg:grid-cols-6 dark:bg-gray-800">
                     @foreach ([
-                        ['Whatnot Orders', $whatnot['orders'] !== null ? number_format($whatnot['orders']) : '—'],
+                        ['Orders', $whatnot['orders'] !== null ? number_format($whatnot['orders']) : '—'],
                         ['Sales', $whatnot['sales'] !== null ? '$'.number_format((float)$whatnot['sales'], 2) : '—'],
                         ['Earnings', $whatnot['earnings'] !== null ? '$'.number_format((float)$whatnot['earnings'], 2) : '—'],
                         ['Buyers', $whatnot['buyers'] !== null ? number_format($whatnot['buyers']) : '—'],
-                        ['Whatnot Giveaways', $whatnot['giveaways'] !== null ? number_format($whatnot['giveaways']) : '—'],
+                        ['Giveaways', $whatnot['giveaways'] !== null ? number_format($whatnot['giveaways']) : '—'],
                         ['Shipments', number_format($whatnot['shipments'] ?? 0)],
                     ] as [$label, $value])
-                        <div class="bg-white p-4 dark:bg-gray-900">
-                            <div class="text-xs text-gray-500 dark:text-gray-400">{{ $label }}</div>
-                            <div class="mt-1 text-lg font-semibold text-gray-950 dark:text-white">{{ $value }}</div>
+                        <div class="min-w-0 bg-white px-2.5 py-2.5 dark:bg-gray-900 sm:p-4">
+                            <div class="truncate text-[9px] font-medium uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">{{ $label }}</div>
+                            <div class="mt-0.5 truncate text-sm font-semibold text-gray-950 dark:text-white sm:mt-1 sm:text-lg">{{ $value }}</div>
                         </div>
                     @endforeach
                 </div>
-                <div class="bg-blue-50 px-5 py-3 text-xs text-blue-700 dark:bg-blue-950/40 dark:text-blue-200">
-                    These are Whatnot reference numbers. Your item quantities do not have to equal the Whatnot order count.
+                <div class="bg-blue-50 px-3 py-2 text-[10px] leading-4 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200 sm:px-5 sm:py-3 sm:text-xs">
+                    Whatnot totals are reference data. Physical inventory units do not have to match Whatnot transactions one-for-one.
                 </div>
             </section>
 
-            {{-- Wizard --}}
             <ol class="grid grid-cols-3 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-                @foreach ([1 => 'Items', 2 => 'Show Notes', 3 => 'Review'] as $n => $label)
+                @foreach ([1 => 'Items', 2 => 'Notes', 3 => 'Review'] as $n => $label)
                     <li>
                         <button type="button" wire:click="goToStep({{ $n }})"
-                            class="flex w-full items-center justify-center gap-2 px-3 py-3 text-sm font-medium {{ $this->step === $n ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/40 dark:text-primary-200' : 'text-gray-500 dark:text-gray-400' }}">
-                            <span class="flex h-6 w-6 items-center justify-center rounded-full {{ $this->step > $n ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-200' : 'bg-gray-100 dark:bg-gray-800' }}">{{ $this->step > $n ? '✓' : $n }}</span>
+                            class="flex min-h-11 w-full items-center justify-center gap-1.5 px-2 py-2 text-xs font-medium sm:gap-2 sm:px-3 sm:py-3 sm:text-sm {{ $this->step === $n ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/40 dark:text-primary-200' : 'text-gray-500 dark:text-gray-400' }}">
+                            <span class="flex h-5 w-5 items-center justify-center rounded-full text-[10px] sm:h-6 sm:w-6 sm:text-xs {{ $this->step > $n ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-200' : 'bg-gray-100 dark:bg-gray-800' }}">{{ $this->step > $n ? '✓' : $n }}</span>
                             <span>{{ $label }}</span>
                         </button>
                     </li>
                 @endforeach
             </ol>
 
-            <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-                <main class="space-y-5">
+            <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-5">
+                <main class="space-y-3 sm:space-y-5">
                     @if ($this->step === 1)
-                        <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
+                        <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
                             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
-                                    <h3 class="font-semibold text-gray-950 dark:text-white">What inventory was used?</h3>
-                                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Choose from the streamer's inventory. Classify each line as sold, giveaway, promo, or other.</p>
+                                    <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">What inventory was used?</h3>
+                                    <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Choose from inventory currently held by this streamer. Classify each line as Sold, Giveaway, Promo / Bonus, or Other.</p>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2 sm:flex">
                                     <x-filament::button type="button" icon="heroicon-m-magnifying-glass" wire:click="toggleBrowse">Browse Inventory</x-filament::button>
@@ -97,11 +108,11 @@
                         </section>
 
                         @if ($this->showManualItemForm)
-                            <section class="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 dark:border-amber-900 dark:bg-amber-950/20">
-                                <div class="mb-4 flex items-start justify-between gap-3">
+                            <section class="rounded-xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-900 dark:bg-amber-950/20 sm:rounded-2xl sm:p-5">
+                                <div class="mb-3 flex items-start justify-between gap-3 sm:mb-4">
                                     <div>
-                                        <h3 class="font-semibold text-gray-950 dark:text-white">Add an unlisted item</h3>
-                                        <p class="text-sm text-gray-500 dark:text-gray-400">This will be flagged for admin matching instead of silently creating catalog inventory.</p>
+                                        <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Add an unlisted item</h3>
+                                        <p class="text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Use this when the exact product is not in inventory. Admin can match it later.</p>
                                     </div>
                                     <button wire:click="toggleManualItem" type="button" class="text-gray-500">✕</button>
                                 </div>
@@ -127,46 +138,46 @@
                             </section>
                         @endif
 
-                        <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
-                            <div class="mb-4 flex items-center justify-between gap-3">
+                        <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
+                            <div class="mb-3 flex items-center justify-between gap-3 sm:mb-4">
                                 <div>
-                                    <h3 class="font-semibold text-gray-950 dark:text-white">Show Items</h3>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ $summary['units'] }} total units reported</p>
+                                    <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Show Items</h3>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 sm:text-sm">{{ $summary['units'] }} total units reported</p>
                                 </div>
                                 @if($summary['unmatched'] > 0)
-                                    <span class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-200">{{ $summary['unmatched'] }} unmatched</span>
+                                    <span class="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-200 sm:px-2.5 sm:text-xs">{{ $summary['unmatched'] }} unmatched</span>
                                 @endif
                             </div>
 
                             @if ($lines->isEmpty())
-                                <div class="rounded-xl border border-dashed border-gray-300 px-4 py-10 text-center dark:border-gray-700">
+                                <div class="rounded-xl border border-dashed border-gray-300 px-4 py-8 text-center dark:border-gray-700 sm:py-10">
                                     <div class="text-sm font-medium text-gray-700 dark:text-gray-200">No items reported yet</div>
                                     <div class="mt-1 text-xs text-gray-500">Browse the streamer's inventory or add an unlisted item.</div>
                                 </div>
                             @else
-                                <div class="space-y-3">
+                                <div class="space-y-2.5 sm:space-y-3">
                                     @foreach ($lines as $line)
-                                        <article wire:key="show-line-{{ $line->id }}" class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                                        <article wire:key="show-line-{{ $line->id }}" class="rounded-xl border border-gray-200 p-3 dark:border-gray-700 sm:p-4">
                                             <div class="flex items-start justify-between gap-3">
                                                 <div class="min-w-0">
-                                                    <div class="font-medium text-gray-950 dark:text-white">{{ $line->item_name }}</div>
+                                                    <div class="text-sm font-medium text-gray-950 dark:text-white sm:text-base">{{ $line->item_name }}</div>
                                                     @if($line->isMatched())
-                                                        <div class="mt-1 text-xs text-gray-500">SKU {{ $line->inventoryItem?->sku ?? '—' }}</div>
+                                                        <div class="mt-1 text-[10px] text-gray-500 sm:text-xs">SKU {{ $line->inventoryItem?->sku ?? '—' }}</div>
                                                     @else
-                                                        <div class="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-200">Unmatched inventory</div>
+                                                        <div class="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-200 sm:text-xs">Unmatched inventory</div>
                                                     @endif
                                                 </div>
                                                 <x-filament::icon-button icon="heroicon-m-trash" color="danger" label="Remove" wire:click="removeLineItem({{ $line->id }})" wire:confirm="Remove this item from the show report?" />
                                             </div>
 
-                                            <div class="mt-4 grid gap-3 sm:grid-cols-[110px_190px_130px_1fr] sm:items-end">
-                                                <label class="text-sm">
+                                            <div class="mt-3 grid grid-cols-2 gap-2.5 sm:mt-4 sm:grid-cols-[110px_190px_130px_1fr] sm:gap-3 sm:items-end">
+                                                <label class="text-xs sm:text-sm">
                                                     <span class="mb-1 block text-gray-500">Quantity</span>
                                                     <input type="number" min="1" inputmode="numeric" value="{{ $line->quantity }}"
                                                         wire:change="setLineQuantity({{ $line->id }}, $event.target.value)"
                                                         class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800" />
                                                 </label>
-                                                <label class="text-sm">
+                                                <label class="text-xs sm:text-sm">
                                                     <span class="mb-1 block text-gray-500">Type</span>
                                                     <select wire:change="setLineDisposition({{ $line->id }}, $event.target.value)" class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800">
                                                         @foreach(\App\Models\StreamerLogItem::DISPOSITIONS as $value => $label)
@@ -174,15 +185,15 @@
                                                         @endforeach
                                                     </select>
                                                 </label>
-                                                <label class="text-sm">
+                                                <label class="text-xs sm:text-sm">
                                                     <span class="mb-1 block text-gray-500">Unit Cost</span>
                                                     <input type="number" min="0" step="0.01" inputmode="decimal" value="{{ $line->unit_cost }}"
                                                         wire:change="setLineCost({{ $line->id }}, $event.target.value)"
                                                         class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800" />
                                                 </label>
-                                                <div class="sm:text-right">
-                                                    <div class="text-xs text-gray-500">Line Cost</div>
-                                                    <div class="text-base font-semibold text-gray-950 dark:text-white">${{ number_format($line->total_cost, 2) }}</div>
+                                                <div class="self-end text-right">
+                                                    <div class="text-[10px] text-gray-500 sm:text-xs">Line Cost</div>
+                                                    <div class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">${{ number_format($line->total_cost, 2) }}</div>
                                                 </div>
                                             </div>
                                         </article>
@@ -193,64 +204,79 @@
                     @endif
 
                     @if ($this->step === 2)
-                        <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
-                            <h3 class="font-semibold text-gray-950 dark:text-white">Show Notes</h3>
-                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Only add what the operations team needs to know. Whatnot analytics and shipments are imported automatically.</p>
-                            <label class="mt-5 block text-sm">
+                        <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
+                            <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Show Notes</h3>
+                            <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Only add what operations needs to know. Notes autosave while you type.</p>
+                            <label class="mt-4 block text-sm sm:mt-5">
                                 <span class="mb-2 block font-medium text-gray-700 dark:text-gray-200">Notes (optional)</span>
-                                <textarea rows="7" wire:model.blur="logNotes" class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-800" placeholder="Inventory issues, unusual giveaways, item not in catalog, or anything else admin should know…"></textarea>
+                                <textarea rows="6" wire:model.live.debounce.700ms="logNotes" class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-800" placeholder="Inventory issues, unusual giveaways, item not in catalog, or anything else admin should know…"></textarea>
                             </label>
                         </section>
                     @endif
 
                     @if ($this->step === 3)
-                        <section class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-900">
-                            <h3 class="font-semibold text-gray-950 dark:text-white">Review Show Report</h3>
-                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Review what will be recorded against this show before submitting.</p>
+                        <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
+                            <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Review Show Report</h3>
+                            <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Review the physical inventory recorded against this show before submitting.</p>
 
-                            <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                            <div class="mt-4 grid grid-cols-2 gap-2 sm:mt-5 sm:grid-cols-4 sm:gap-3">
                                 @foreach ([
                                     ['Sold', $summary['sold']],
                                     ['Giveaway', $summary['giveaway']],
                                     ['Promo', $summary['promo']],
                                     ['Other', $summary['other']],
                                 ] as [$label, $value])
-                                    <div class="rounded-xl bg-gray-50 p-4 dark:bg-gray-800">
-                                        <div class="text-xs text-gray-500">{{ $label }}</div>
-                                        <div class="mt-1 text-xl font-semibold text-gray-950 dark:text-white">{{ number_format($value) }}</div>
+                                    <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800 sm:rounded-xl sm:p-4">
+                                        <div class="text-[10px] text-gray-500 sm:text-xs">{{ $label }}</div>
+                                        <div class="mt-0.5 text-lg font-semibold text-gray-950 dark:text-white sm:mt-1 sm:text-xl">{{ number_format($value) }}</div>
                                     </div>
                                 @endforeach
                             </div>
 
-                            <div class="mt-4 grid gap-3 sm:grid-cols-3">
-                                <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
-                                    <div class="text-xs text-gray-500">Total Units</div>
-                                    <div class="mt-1 text-lg font-semibold">{{ number_format($summary['units']) }}</div>
+                            <div class="mt-3 grid grid-cols-3 gap-2 sm:mt-4 sm:gap-3">
+                                <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700 sm:rounded-xl sm:p-4">
+                                    <div class="text-[9px] uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">Units</div>
+                                    <div class="mt-0.5 text-base font-semibold sm:mt-1 sm:text-lg">{{ number_format($summary['units']) }}</div>
                                 </div>
-                                <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
-                                    <div class="text-xs text-gray-500">Inventory Cost</div>
-                                    <div class="mt-1 text-lg font-semibold">${{ number_format($summary['productCost'], 2) }}</div>
+                                <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700 sm:rounded-xl sm:p-4">
+                                    <div class="text-[9px] uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">Inv. Cost</div>
+                                    <div class="mt-0.5 truncate text-sm font-semibold sm:mt-1 sm:text-lg">${{ number_format($summary['productCost'], 2) }}</div>
                                 </div>
-                                <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
-                                    <div class="text-xs text-gray-500">Giveaway Cost</div>
-                                    <div class="mt-1 text-lg font-semibold">${{ number_format($summary['giveawayCost'], 2) }}</div>
+                                <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700 sm:rounded-xl sm:p-4">
+                                    <div class="text-[9px] uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">Giveaway Cost</div>
+                                    <div class="mt-0.5 truncate text-sm font-semibold sm:mt-1 sm:text-lg">${{ number_format($summary['giveawayCost'], 2) }}</div>
                                 </div>
                             </div>
 
-                            @php($preview = $this->deductionPreview)
-                            @if (! empty($preview))
-                                <div class="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/20">
-                                    <div class="font-medium text-amber-800 dark:text-amber-200">Inventory exceptions</div>
-                                    <ul class="mt-2 space-y-1 text-sm text-amber-700 dark:text-amber-300">
-                                        @foreach ($preview as $problem)<li>• {{ $problem }}</li>@endforeach
-                                    </ul>
-                                    <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">You can still submit. These stay visible for admin reconciliation.</p>
+                            @if($reconciliationWarnings)
+                                <div class="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950/20 sm:mt-5 sm:p-4">
+                                    <div class="flex items-start gap-2.5">
+                                        <x-heroicon-m-information-circle class="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+                                        <div>
+                                            <div class="text-xs font-semibold text-blue-900 dark:text-blue-100 sm:text-sm">Whatnot reference differences</div>
+                                            <div class="mt-1 space-y-1 text-[11px] leading-5 text-blue-700 dark:text-blue-300 sm:text-xs">
+                                                @foreach($reconciliationWarnings as $warning)<p>{{ $warning }}</p>@endforeach
+                                            </div>
+                                            <p class="mt-1.5 text-[10px] leading-4 text-blue-600 dark:text-blue-400">These do not block submission. Transactions and physical inventory units can legitimately differ.</p>
+                                        </div>
+                                    </div>
                                 </div>
-                            @else
-                                <div class="mt-5 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700 dark:border-green-900 dark:bg-green-950/20 dark:text-green-200">✓ All matched report lines have enough stock in the streamer's inventory.</div>
                             @endif
 
-                            <div class="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                            @php($preview = $this->deductionPreview)
+                            @if (! empty($preview))
+                                <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/20 sm:mt-5 sm:p-4">
+                                    <div class="text-xs font-semibold text-amber-800 dark:text-amber-200 sm:text-sm">Inventory exceptions</div>
+                                    <ul class="mt-2 space-y-1 text-xs leading-5 text-amber-700 dark:text-amber-300 sm:text-sm">
+                                        @foreach ($preview as $problem)<li>• {{ $problem }}</li>@endforeach
+                                    </ul>
+                                    <p class="mt-2 text-[10px] text-amber-700 dark:text-amber-300 sm:mt-3 sm:text-xs">You can still submit. These stay visible for admin reconciliation.</p>
+                                </div>
+                            @else
+                                <div class="mt-4 rounded-xl border border-green-200 bg-green-50 p-3 text-xs text-green-700 dark:border-green-900 dark:bg-green-950/20 dark:text-green-200 sm:mt-5 sm:p-4 sm:text-sm">✓ All matched report lines have enough stock in the streamer's inventory.</div>
+                            @endif
+
+                            <div class="mt-5 hidden gap-2 sm:flex sm:justify-end">
                                 <x-filament::button type="button" color="gray" wire:click="goToStep(2)">Back</x-filament::button>
                                 <x-filament::button type="button" wire:click="submit" wire:confirm="Submit this show report?">Submit Show Report</x-filament::button>
                             </div>
@@ -258,7 +284,7 @@
                     @endif
 
                     @if ($this->step < 3)
-                        <div class="flex justify-between gap-3">
+                        <div class="hidden justify-between gap-3 sm:flex">
                             @if ($this->step > 1)
                                 <x-filament::button type="button" color="gray" wire:click="goToStep({{ $this->step - 1 }})">Back</x-filament::button>
                             @else
@@ -271,70 +297,99 @@
                     @endif
                 </main>
 
-                <aside class="space-y-4">
-                    <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-                        <h3 class="text-sm font-semibold text-gray-950 dark:text-white">Report Summary</h3>
-                        <dl class="mt-4 space-y-3 text-sm">
+                <aside class="space-y-3 sm:space-y-4">
+                    <section class="rounded-xl border border-gray-200 bg-white p-3.5 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-4">
+                        <h3 class="text-xs font-semibold text-gray-950 dark:text-white sm:text-sm">Report Summary</h3>
+                        <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:mt-4 sm:block sm:space-y-3 sm:text-sm">
                             <div class="flex justify-between"><dt class="text-gray-500">Sold</dt><dd class="font-medium">{{ $summary['sold'] }}</dd></div>
                             <div class="flex justify-between"><dt class="text-gray-500">Giveaways</dt><dd class="font-medium">{{ $summary['giveaway'] }}</dd></div>
-                            <div class="flex justify-between"><dt class="text-gray-500">Promo / Bonus</dt><dd class="font-medium">{{ $summary['promo'] }}</dd></div>
+                            <div class="flex justify-between"><dt class="text-gray-500">Promo</dt><dd class="font-medium">{{ $summary['promo'] }}</dd></div>
                             <div class="flex justify-between"><dt class="text-gray-500">Other</dt><dd class="font-medium">{{ $summary['other'] }}</dd></div>
-                            <div class="border-t border-gray-100 pt-3 dark:border-gray-800 flex justify-between"><dt class="text-gray-500">Total Units</dt><dd class="font-semibold">{{ $summary['units'] }}</dd></div>
+                            <div class="col-span-2 flex justify-between border-t border-gray-100 pt-2 dark:border-gray-800 sm:pt-3"><dt class="text-gray-500">Total Units</dt><dd class="font-semibold">{{ $summary['units'] }}</dd></div>
                         </dl>
                     </section>
 
-                    <section class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
-                        <h3 class="text-sm font-semibold text-gray-950 dark:text-white">Inventory Status</h3>
+                    <section class="rounded-xl border border-gray-200 bg-white p-3.5 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-4">
+                        <h3 class="text-xs font-semibold text-gray-950 dark:text-white sm:text-sm">Inventory Status</h3>
                         @if($summary['items'] === 0)
-                            <p class="mt-3 text-sm text-gray-500">Add show items to begin.</p>
+                            <p class="mt-2 text-xs text-gray-500 sm:mt-3 sm:text-sm">Add show items to begin.</p>
                         @elseif($summary['unmatched'] > 0)
-                            <p class="mt-3 text-sm text-amber-700 dark:text-amber-300">{{ $summary['unmatched'] }} unlisted {{ \Illuminate\Support\Str::plural('item', $summary['unmatched']) }} will need admin matching.</p>
+                            <p class="mt-2 text-xs leading-5 text-amber-700 dark:text-amber-300 sm:mt-3 sm:text-sm">{{ $summary['unmatched'] }} unlisted {{ \Illuminate\Support\Str::plural('item', $summary['unmatched']) }} will need admin matching.</p>
                         @else
-                            <p class="mt-3 text-sm text-green-700 dark:text-green-300">All report lines are linked to inventory.</p>
+                            <p class="mt-2 text-xs text-green-700 dark:text-green-300 sm:mt-3 sm:text-sm">All report lines are linked to inventory.</p>
                         @endif
                     </section>
                 </aside>
             </div>
         </div>
 
-        {{-- Existing page, catalog-modal experience implemented without Filament's Alpine modal lifecycle. --}}
+        {{-- Mobile sticky workflow actions --}}
+        <div class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden" data-vx-mobile-actions>
+            <div class="mx-auto flex max-w-7xl gap-2">
+                @if($this->step === 1)
+                    <button type="button" wire:click="toggleBrowse" class="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">Add Item</button>
+                    <button type="button" wire:click="goToStep(2)" class="inline-flex min-h-11 flex-[1.25] items-center justify-center rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white">Continue</button>
+                @elseif($this->step === 2)
+                    <button type="button" wire:click="goToStep(1)" class="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">Back</button>
+                    <button type="button" wire:click="goToStep(3)" class="inline-flex min-h-11 flex-[1.25] items-center justify-center rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white">Review Report</button>
+                @else
+                    <button type="button" wire:click="goToStep(2)" class="inline-flex min-h-11 flex-1 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">Back</button>
+                    <button type="button" wire:click="submit" wire:confirm="Submit this show report?" class="inline-flex min-h-11 flex-[1.35] items-center justify-center rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white">Submit Report</button>
+                @endif
+            </div>
+        </div>
+
         @if($this->showInventoryPicker)
             <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6" wire:click.self="toggleBrowse">
                 <section class="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl dark:bg-gray-900">
                     <div class="flex items-center justify-between gap-3 border-b border-gray-200 p-4 dark:border-gray-700">
                         <div>
-                            <h3 class="font-semibold text-gray-950 dark:text-white">Add From Streamer Inventory</h3>
-                            <p class="text-xs text-gray-500">Only stock assigned to this streamer's inventory is shown by default.</p>
+                            <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Add From Streamer Inventory</h3>
+                            <p class="text-[11px] leading-4 text-gray-500 sm:text-xs">Shows stock currently held in this streamer's inventory locations.</p>
                         </div>
                         <button type="button" wire:click="toggleBrowse" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">✕</button>
                     </div>
-                    <div class="border-b border-gray-100 p-4 dark:border-gray-800">
+                    <div class="border-b border-gray-100 p-3 dark:border-gray-800 sm:p-4">
                         <input type="search" wire:model.live.debounce.250ms="search" placeholder="Search product, SKU, or brand…" autofocus
                             class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-800" />
                     </div>
-                    <div class="overflow-y-auto p-4">
-                        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <div class="overflow-y-auto p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4">
+                        <div class="grid gap-2.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
                             @forelse($this->inventory as $item)
-                                <article class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
-                                    <div class="min-h-14">
-                                        <div class="font-medium text-gray-950 dark:text-white">{{ $item->name }}</div>
-                                        <div class="mt-1 text-xs text-gray-500">SKU {{ $item->sku ?? '—' }}</div>
+                                <article class="rounded-xl border border-gray-200 p-3 dark:border-gray-700 sm:p-4">
+                                    <div class="min-h-12 sm:min-h-14">
+                                        <div class="text-sm font-medium text-gray-950 dark:text-white sm:text-base">{{ $item->name }}</div>
+                                        <div class="mt-1 text-[10px] text-gray-500 sm:text-xs">SKU {{ $item->sku ?? '—' }}</div>
                                     </div>
-                                    <div class="mt-4 flex items-center justify-between gap-3">
+                                    <div class="mt-3 flex items-center justify-between gap-3 sm:mt-4">
                                         <div>
-                                            <div class="text-xs text-gray-500">Streamer Stock</div>
+                                            <div class="text-[10px] text-gray-500 sm:text-xs">On Hand</div>
                                             <div class="font-semibold text-gray-950 dark:text-white">{{ number_format((float)($item->stock_sum_quantity ?? 0)) }}</div>
                                         </div>
                                         <x-filament::button type="button" size="sm" wire:click="addLineItem({{ $item->id }})">Add</x-filament::button>
                                     </div>
                                 </article>
                             @empty
-                                <div class="col-span-full rounded-xl border border-dashed border-gray-300 p-10 text-center text-sm text-gray-500 dark:border-gray-700">No streamer inventory matched this search.</div>
+                                <div class="col-span-full rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500 dark:border-gray-700 sm:p-10">No streamer inventory matched this search.</div>
                             @endforelse
                         </div>
                     </div>
                 </section>
             </div>
         @endif
+
+        <script>
+            (() => {
+                if (window.__vxEosUnloadGuardInstalled) return;
+                window.__vxEosUnloadGuardInstalled = true;
+
+                window.addEventListener('beforeunload', (event) => {
+                    const marker = document.querySelector('.vx-eos-unsaved');
+                    if (!marker || getComputedStyle(marker).display === 'none') return;
+                    event.preventDefault();
+                    event.returnValue = '';
+                });
+            })();
+        </script>
     @endif
 </x-filament-panels::page>

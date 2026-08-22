@@ -2,23 +2,23 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Widgets\FulfillmentNeedsAttentionWidget;
 use App\Filament\Widgets\FulfillmentInventoryWidget;
 use App\Filament\Widgets\NeedsAttentionWidget;
 use App\Filament\Widgets\OperationsOverviewWidget;
 use App\Filament\Widgets\RecentShowsWidget;
+use App\Filament\Widgets\ShowWorkflowControlWidget;
 use App\Filament\Widgets\ShowsKpiWidget;
-use App\Filament\Widgets\StreamerOverviewWidget;
-use App\Filament\Widgets\StreamerShowsToReviewWidget;
-use App\Filament\Widgets\StreamerProfitShareWidget;
 use App\Filament\Widgets\StreamerInventoryWidget;
-use App\Models\DeductionRequest;
-use App\Models\Payout;
-use App\Models\Shipment;
-use App\Models\StreamerLogEntry;
-use App\Models\Show;
+use App\Filament\Widgets\StreamerOverviewWidget;
+use App\Filament\Widgets\StreamerProfitShareWidget;
+use App\Filament\Widgets\StreamerShowsToReviewWidget;
 use App\Models\InventoryItem;
+use App\Models\Payout;
 use App\Models\Setting;
+use App\Models\Shipment;
+use App\Models\Show;
+use App\Models\StreamerLogEntry;
+use App\Models\StreamerLogItem;
 use App\Support\ChannelContext;
 use Filament\Pages\Dashboard;
 
@@ -29,48 +29,39 @@ class DashboardImproved extends Dashboard
         return 'filament.pages.dashboard-improved';
     }
 
-    /**
-     * Which channel's numbers these are.
-     *
-     * The dashboard scopes to the active channel but every figure on it is
-     * unlabelled, so with two channels the same page shows two different sets
-     * of numbers and looks identical. Naming the channel here is the only
-     * thing on the page that says which one is being read.
-     */
     public function getSubheading(): ?string
     {
         $channel = ChannelContext::current();
-
         $name = $channel?->display_title ?: $channel?->name ?: 'Vortex Breaks';
-
-        return "Overview of {$name} operations";
+        return "{$name} operations center";
     }
 
     public function getWidgets(): array
     {
-        if ((bool) Setting::get('demo_mode', false)) {
-            return [];
-        }
+        if ((bool) Setting::get('demo_mode', false)) return [];
 
         $user = auth()->user();
-        $widgets = [];
 
-        if ($user?->isStreamer() && ! $user->isAdmin()) {
-            $widgets = [
+        if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
+            return [
                 StreamerOverviewWidget::class,
-                StreamerProfitShareWidget::class,
                 StreamerInventoryWidget::class,
                 StreamerShowsToReviewWidget::class,
+                StreamerProfitShareWidget::class,
                 RecentShowsWidget::class,
             ];
-        } elseif ($user?->isFulfillment() && ! $user->isAdmin()) {
-            $widgets = [
+        }
+
+        if (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->isAdmin() && ! $user?->isOwner()) {
+            return [
                 FulfillmentInventoryWidget::class,
                 RecentShowsWidget::class,
-                ShowsKpiWidget::class,
             ];
-        } elseif ($user?->isAdmin() || $user?->isOwner()) {
-            $widgets = [
+        }
+
+        if ($user?->isAdmin() || $user?->isOwner()) {
+            return [
+                ShowWorkflowControlWidget::class,
                 NeedsAttentionWidget::class,
                 OperationsOverviewWidget::class,
                 RecentShowsWidget::class,
@@ -78,51 +69,94 @@ class DashboardImproved extends Dashboard
             ];
         }
 
-        return $widgets;
+        return [];
     }
 
     public function getViewData(): array
     {
-        $data = [];
         $user = auth()->user();
+        $data = ['roleMode' => 'user'];
 
-        if ($user?->isStreamer() && ! $user->isAdmin()) {
-            // Streamer-specific metrics
-            $data['pendingShows'] = StreamerLogEntry::where('streamer_id', $user->streamer?->id ?? 0)
+        if ($user?->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
+            $streamerId = $user->streamer?->id ?? 0;
+            $locationIds = $user->streamer?->inventoryLocations()->pluck('id') ?? collect();
+
+            $assignedShows = Show::query()
+                ->inChannelContext()
+                ->whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamerId));
+
+            $nextShow = (clone $assignedShows)
+                ->whereDate('show_date', '>=', today())
+                ->orderBy('show_date')
+                ->orderBy('start_time')
+                ->first();
+
+            $reportsDue = StreamerLogEntry::query()
+                ->where('streamer_id', $streamerId)
                 ->where('status', 'pending')
                 ->count();
 
-            $data['pendingPayouts'] = Payout::where('streamer_id', $user->streamer?->id ?? 0)
-                ->where('status', 'approved')
+            $unreportedEndedShows = (clone $assignedShows)
+                ->whereDate('show_date', '<=', today())
+                ->whereNotIn('status', ['closed', 'cancelled'])
+                ->whereDoesntHave('streamerLogEntry', fn ($q) => $q->whereNotNull('submitted_at'))
                 ->count();
 
-            $data['inventoryCount'] = InventoryItem::whereHas('stock', fn ($q) =>
-                $q->whereIn('inventory_location_id', $user->streamer?->inventoryLocations()->pluck('id') ?? [])
-            )->where('is_active', true)->count();
-        } elseif ($user?->isFulfillment() && ! $user->isAdmin()) {
-            // Fulfillment-specific metrics
-            $data['showsToFulfill'] = Show::whereHas('fulfillmentUsers', fn ($q) =>
-                $q->where('users.id', $user->id)
-            )->whereHas('orders', fn ($q) =>
-                $q->where('shipping_status', 'ready_to_ship')
-            )->count();
+            $data += [
+                'roleMode' => 'streamer',
+                'nextShow' => $nextShow,
+                'reportsDue' => $reportsDue + $unreportedEndedShows,
+                'pendingPayouts' => Payout::where('streamer_id', $streamerId)->where('status', 'approved')->count(),
+                'inventoryCount' => InventoryItem::whereHas('stock', fn ($q) => $q->whereIn('inventory_location_id', $locationIds)->where('quantity', '>', 0))->where('is_active', true)->count(),
+                'inventoryUnits' => (float) \App\Models\InventoryStock::whereIn('inventory_location_id', $locationIds)->sum('quantity'),
+                'giveawayUnits30' => (int) StreamerLogItem::where('disposition', 'giveaway')
+                    ->whereHas('logEntry', fn ($q) => $q->where('streamer_id', $streamerId)->where('created_at', '>=', now()->subDays(30)))
+                    ->sum('quantity'),
+            ];
+        } elseif (($user?->isFulfillment() || $user?->isFulfillmentAdmin()) && ! $user?->isAdmin() && ! $user?->isOwner()) {
+            $showsQuery = Show::query()->inChannelContext()->whereNotIn('status', ['closed', 'cancelled']);
+            if (! $user?->isFulfillmentAdmin()) {
+                $showsQuery->whereHas('fulfillmentUsers', fn ($q) => $q->where('users.id', $user->id));
+            }
 
-            $data['readyToShip'] = Shipment::where('status', 'Ready to Ship')->count();
-            $data['inTransit'] = Shipment::where('status', 'Shipped')->count();
-        } elseif ($user?->isAdmin()) {
-            // Admin-specific metrics
-            $data['pendingReview'] = Show::where('status', 'pending_review')
-                ->inChannelContext()
-                ->count();
+            $showIds = (clone $showsQuery)->pluck('shows.id');
+            $shipmentQuery = Shipment::whereIn('show_id', $showIds);
 
-            $data['draftPayouts'] = Payout::where('status', 'draft')
-                ->inChannelContext()
-                ->count();
-
-            $data['lowStock'] = InventoryItem::whereHas('stock', fn ($q) =>
-                $q->whereRaw('quantity <= COALESCE(reorder_level, 0)')
-                    ->whereHas('location', fn ($lq) => $lq->inChannelContext())
-            )->where('is_active', true)->count();
+            $data += [
+                'roleMode' => 'fulfillment',
+                'showsToFulfill' => (clone $showsQuery)->where(function ($q) {
+                    $q->whereHas('shipments', fn ($s) => $s->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'"))
+                        ->orWhereHas('orders', fn ($o) => $o->whereNotIn('shipping_status', ['shipped', 'delivered']));
+                })->count(),
+                'openShipments' => (clone $shipmentQuery)->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'")->count(),
+                'deliveredToday' => (clone $shipmentQuery)->whereRaw("LOWER(COALESCE(status, '')) = 'delivered'")->whereDate('updated_at', today())->count(),
+                'unassignedShows' => $user?->isFulfillmentAdmin()
+                    ? Show::query()->inChannelContext()->whereHas('shipments')->whereDoesntHave('fulfillmentUsers')->whereNotIn('status', ['closed', 'cancelled'])->count()
+                    : 0,
+            ];
+        } elseif ($user?->isAdmin() || $user?->isOwner()) {
+            $data += [
+                'roleMode' => 'admin',
+                'reportsToReview' => StreamerLogEntry::query()
+                    ->where('status', 'streamer_reviewed')
+                    ->whereHas('show', fn ($q) => $q->inChannelContext())
+                    ->count(),
+                'unmatchedItems' => StreamerLogItem::query()
+                    ->whereNull('inventory_item_id')
+                    ->whereHas('logEntry.show', fn ($q) => $q->inChannelContext())
+                    ->count(),
+                'openShipments' => Shipment::query()
+                    ->whereHas('show', fn ($q) => $q->inChannelContext())
+                    ->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'")
+                    ->count(),
+                'unassignedFulfillment' => Show::query()
+                    ->inChannelContext()
+                    ->whereHas('shipments')
+                    ->whereDoesntHave('fulfillmentUsers')
+                    ->whereNotIn('status', ['closed', 'cancelled'])
+                    ->count(),
+                'draftPayouts' => Payout::where('status', 'draft')->inChannelContext()->count(),
+            ];
         }
 
         return $data;

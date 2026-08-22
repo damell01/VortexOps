@@ -87,9 +87,9 @@ class HowItWorks extends Page
             return [
                 'label' => 'Streamer',
                 'items' => [
-                    ['title' => 'Before the show', 'body' => 'Make sure the inventory you will use has been transferred/assigned to your inventory location. Your dashboard shows the products and units available to you.'],
+                    ['title' => 'Keep your inventory current', 'body' => 'Move inventory into your streamer inventory whenever you take possession of it. That stock is yours to hold/use and is <strong>not assigned to a specific show ahead of time</strong>.'],
                     ['title' => 'Run the show normally', 'body' => 'Whatnot sales, buyers, earnings, giveaways, and shipment reference data sync automatically. You do not need to re-enter those totals.'],
-                    ['title' => 'After the show: End of Stream', 'body' => 'Open <strong>End of Stream</strong> and record the inventory actually used. Classify every line as <strong>Sold</strong>, <strong>Giveaway</strong>, <strong>Promo / Bonus</strong>, or <strong>Other</strong>.'],
+                    ['title' => 'After the show: End of Stream', 'body' => 'Open <strong>End of Stream</strong> and record which inventory was actually used for that show. Classify every line as <strong>Sold</strong>, <strong>Giveaway</strong>, <strong>Promo / Bonus</strong>, or <strong>Other</strong>.'],
                     ['title' => 'If an item is not in the catalog', 'body' => 'Use <strong>Unlisted Item</strong>. Do not pick a product that is “close enough.” The report will flag it so admin can match the correct inventory later.'],
                     ['title' => 'Review and submit', 'body' => 'Check quantities, classifications, cost, and inventory exceptions on the Review step. The app will either post/approve automatically or route the report to admin based on the configured workflow.'],
                     ['title' => 'If admin requests changes', 'body' => 'The report reopens in <strong>Changes Requested</strong>. Fix the specific issue and submit again.'],

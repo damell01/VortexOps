@@ -1,298 +1,167 @@
 /**
- * Mobile UX Enhancements
- * Handles: Infinite Scroll, Bottom Action Bar, Floating Action Button, etc.
+ * Mobile UX enhancements.
+ *
+ * IMPORTANT: Livewire can morph/navigate the DOM many times without a full page
+ * reload. Every binding here is therefore idempotent. The old implementation
+ * re-added document and element listeners after each navigation, eventually
+ * causing mobile taps (including the Filament sidebar and page tabs) to feel
+ * frozen or fire many handlers at once.
  */
-
 class MobileEnhancements {
     constructor() {
+        this.documentBound = false;
         this.init();
     }
 
     init() {
+        this.bindDocumentHandlersOnce();
         this.initInfiniteScroll();
-        this.initBottomActionBar();
         this.initFloatingActionButton();
         this.initCollapsibleSections();
         this.initTableRowSelection();
     }
 
-    /**
-     * Infinite Scroll - Load more items as user scrolls to bottom
-     */
-    initInfiniteScroll() {
-        const containers = document.querySelectorAll('.infinite-scroll-container');
+    bindDocumentHandlersOnce() {
+        if (this.documentBound) return;
+        this.documentBound = true;
 
-        containers.forEach(container => {
-            const loadMoreUrl = container.dataset.loadMore;
-            const pageParam = container.dataset.pageParam || 'page';
-
-            if (!loadMoreUrl) return;
-
-            let isLoading = false;
-            let currentPage = 1;
-            let hasMore = true;
-
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting && hasMore && !isLoading) {
-                        this.loadMoreItems(container, loadMoreUrl, pageParam, currentPage, (success) => {
-                            if (success) {
-                                currentPage++;
-                            }
-                            isLoading = false;
-                        });
-                        isLoading = true;
-                    }
-                });
-            }, {
-                root: null,
-                rootMargin: '200px',
-                threshold: 0.1
-            });
-
-            // Observe the loader element
-            const loader = container.querySelector('.infinite-scroll-loader');
-            if (loader) {
-                observer.observe(loader);
-            }
-        });
-    }
-
-    /**
-     * Load more items via AJAX
-     */
-    loadMoreItems(container, url, pageParam, page, callback) {
-        const separator = url.includes('?') ? '&' : '?';
-        const fetchUrl = `${url}${separator}${pageParam}=${page + 1}`;
-
-        fetch(fetchUrl, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.items && data.items.length > 0) {
-                // Insert new items before loader
-                const loader = container.querySelector('.infinite-scroll-loader');
-                const itemsHtml = data.items.join('');
-                loader.insertAdjacentHTML('beforebegin', itemsHtml);
-                callback(true);
-            } else {
-                // No more items
-                this.showScrollEnd(container);
-                callback(false);
-            }
-        })
-        .catch(error => {
-            console.error('Infinite scroll error:', error);
-            this.showScrollError(container);
-            callback(false);
-        });
-    }
-
-    /**
-     * Show end-of-list message
-     */
-    showScrollEnd(container) {
-        const loader = container.querySelector('.infinite-scroll-loader');
-        if (loader) {
-            loader.innerHTML = '<div class="infinite-scroll-end">No more items to load</div>';
-        }
-    }
-
-    /**
-     * Show error message with retry
-     */
-    showScrollError(container) {
-        const loader = container.querySelector('.infinite-scroll-loader');
-        if (loader) {
-            loader.innerHTML = `
-                <div class="infinite-scroll-error">
-                    Failed to load more items
-                    <button class="infinite-scroll-retry" onclick="location.reload()">Retry</button>
-                </div>
-            `;
-        }
-    }
-
-    /**
-     * Bottom Action Bar - Show when table rows are selected
-     */
-    initBottomActionBar() {
-        // Listen for table row selection
         document.addEventListener('change', (e) => {
-            if (e.target.type === 'checkbox' && e.target.closest('table')) {
+            if (e.target instanceof HTMLInputElement && e.target.type === 'checkbox' && e.target.closest('table')) {
                 this.updateBottomActionBar();
             }
         });
 
-        // Also listen for row click selection if using that method
         document.addEventListener('click', (e) => {
-            if (e.target.closest('[data-selectable-row]')) {
-                setTimeout(() => this.updateBottomActionBar(), 0);
+            const target = e.target instanceof Element ? e.target : null;
+            if (target?.closest('[data-selectable-row]')) {
+                requestAnimationFrame(() => this.updateBottomActionBar());
             }
         });
     }
 
-    /**
-     * Update bottom action bar based on selected rows
-     */
-    updateBottomActionBar() {
-        const selectedCount = document.querySelectorAll('input[type="checkbox"]:checked').length;
-        const actionBar = document.querySelector('.bottom-action-bar');
+    initInfiniteScroll() {
+        document.querySelectorAll('.infinite-scroll-container').forEach((container) => {
+            if (container.dataset.vxInfiniteBound === '1') return;
 
-        if (selectedCount > 0) {
-            if (actionBar) {
-                actionBar.classList.add('active');
-                const info = actionBar.querySelector('.bottom-action-bar-info');
-                if (info) {
-                    info.innerHTML = `<strong>${selectedCount}</strong> item(s) selected`;
+            const loadMoreUrl = container.dataset.loadMore;
+            if (! loadMoreUrl) return;
+
+            const loader = container.querySelector('.infinite-scroll-loader');
+            if (! loader) return;
+
+            container.dataset.vxInfiniteBound = '1';
+            const pageParam = container.dataset.pageParam || 'page';
+            let currentPage = 1;
+            let isLoading = false;
+            let hasMore = true;
+
+            const observer = new IntersectionObserver(async (entries) => {
+                if (! entries.some((entry) => entry.isIntersecting) || ! hasMore || isLoading) return;
+                isLoading = true;
+                const separator = loadMoreUrl.includes('?') ? '&' : '?';
+
+                try {
+                    const response = await fetch(`${loadMoreUrl}${separator}${pageParam}=${currentPage + 1}`, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+                    });
+                    const data = await response.json();
+                    if (Array.isArray(data.items) && data.items.length) {
+                        loader.insertAdjacentHTML('beforebegin', data.items.join(''));
+                        currentPage++;
+                        this.initTableRowSelection();
+                    } else {
+                        hasMore = false;
+                        loader.innerHTML = '<div class="infinite-scroll-end">No more items to load</div>';
+                        observer.disconnect();
+                    }
+                } catch (error) {
+                    console.warn('[mobile] infinite scroll failed', error);
+                } finally {
+                    isLoading = false;
                 }
-            }
-        } else {
-            if (actionBar) {
-                actionBar.classList.remove('active');
-            }
-        }
+            }, { rootMargin: '200px', threshold: 0.1 });
+
+            observer.observe(loader);
+        });
     }
 
-    /**
-     * Floating Action Button
-     */
     initFloatingActionButton() {
-        const fab = document.querySelector('.floating-action-button');
-        const menu = document.querySelector('.floating-action-menu');
-        const overlay = document.querySelector('.floating-action-overlay');
+        document.querySelectorAll('.floating-action-button').forEach((fab) => {
+            if (fab.dataset.vxFabBound === '1') return;
+            fab.dataset.vxFabBound = '1';
 
-        if (!fab) return;
-
-        fab.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            if (menu) {
-                menu.classList.toggle('open');
-            }
-            if (overlay) {
-                overlay.classList.toggle('open');
-            }
+            fab.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const scope = fab.closest('[data-floating-action-scope]') || document;
+                scope.querySelector('.floating-action-menu')?.classList.toggle('open');
+                scope.querySelector('.floating-action-overlay')?.classList.toggle('open');
+            });
         });
 
-        // Close menu when clicking overlay
-        if (overlay) {
+        document.querySelectorAll('.floating-action-overlay').forEach((overlay) => {
+            if (overlay.dataset.vxFabOverlayBound === '1') return;
+            overlay.dataset.vxFabOverlayBound = '1';
             overlay.addEventListener('click', () => {
-                if (menu) {
-                    menu.classList.remove('open');
-                }
                 overlay.classList.remove('open');
-            });
-        }
-
-        // Close menu when clicking menu items
-        const menuItems = document.querySelectorAll('.floating-action-menu-item');
-        menuItems.forEach(item => {
-            item.addEventListener('click', () => {
-                if (menu) {
-                    menu.classList.remove('open');
-                }
-                if (overlay) {
-                    overlay.classList.remove('open');
-                }
+                document.querySelectorAll('.floating-action-menu.open').forEach((menu) => menu.classList.remove('open'));
             });
         });
     }
 
-    /**
-     * Collapsible Sections - Click to expand/collapse
-     */
     initCollapsibleSections() {
-        const collapsibles = document.querySelectorAll('.mobile-collapsible');
-
-        collapsibles.forEach(section => {
+        document.querySelectorAll('.mobile-collapsible').forEach((section) => {
             const header = section.querySelector('.mobile-collapsible-header');
-            if (!header) return;
+            if (! header || header.dataset.vxCollapsibleBound === '1') return;
+            header.dataset.vxCollapsibleBound = '1';
 
-            // Skip if already bound
-            if (header.dataset.collapsibleBound) {
-                return;
-            }
-
-            header.dataset.collapsibleBound = 'true';
-
-            const toggleCollapsible = (e) => {
+            const toggle = (e) => {
                 e?.preventDefault();
-                e?.stopPropagation();
-
-                const isOpen = section.classList.contains('open');
-                section.classList.toggle('open');
-                header.setAttribute('aria-expanded', !isOpen);
+                const open = section.classList.toggle('open');
+                header.setAttribute('aria-expanded', String(open));
             };
 
-            // Click handler
-            header.addEventListener('click', toggleCollapsible);
-
-            // Keyboard handler (Enter/Space)
+            header.addEventListener('click', toggle);
             header.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    toggleCollapsible(e);
-                }
+                if (e.key === 'Enter' || e.key === ' ') toggle(e);
             });
         });
     }
 
-    /**
-     * Table Row Selection with Bottom Action Bar
-     */
     initTableRowSelection() {
-        const tables = document.querySelectorAll('table[data-selectable]');
+        document.querySelectorAll('table[data-selectable] tbody tr').forEach((row) => {
+            if (row.dataset.vxSelectableBound === '1') return;
+            row.dataset.vxSelectableBound = '1';
 
-        tables.forEach(table => {
-            // Make rows clickable to select
-            const rows = table.querySelectorAll('tbody tr');
-            rows.forEach(row => {
-                row.addEventListener('click', (e) => {
-                    // Don't select if clicking on an interactive element
-                    if (e.target.closest('a, button, input')) {
-                        return;
-                    }
-
-                    const checkbox = row.querySelector('input[type="checkbox"]');
-                    if (checkbox) {
-                        checkbox.checked = !checkbox.checked;
-
-                        // Trigger change event
-                        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-
-                        // Highlight row
-                        row.classList.toggle('table-row-selected');
-                    }
-                });
-
-                // Sync row highlight with checkbox
+            row.addEventListener('click', (e) => {
+                const target = e.target instanceof Element ? e.target : null;
+                if (target?.closest('a,button,input,select,textarea,label')) return;
                 const checkbox = row.querySelector('input[type="checkbox"]');
-                if (checkbox) {
-                    checkbox.addEventListener('change', () => {
-                        if (checkbox.checked) {
-                            row.classList.add('table-row-selected');
-                        } else {
-                            row.classList.remove('table-row-selected');
-                        }
-                    });
-
-                    // Check initial state
-                    if (checkbox.checked) {
-                        row.classList.add('table-row-selected');
-                    }
-                }
+                if (! checkbox) return;
+                checkbox.checked = ! checkbox.checked;
+                checkbox.dispatchEvent(new Event('change', { bubbles: true }));
             });
+
+            const checkbox = row.querySelector('input[type="checkbox"]');
+            if (checkbox && checkbox.dataset.vxRowCheckboxBound !== '1') {
+                checkbox.dataset.vxRowCheckboxBound = '1';
+                const sync = () => row.classList.toggle('table-row-selected', checkbox.checked);
+                checkbox.addEventListener('change', sync);
+                sync();
+            }
         });
     }
 
-    /**
-     * Show Loading Skeleton - Replace content with skeleton while loading
-     */
+    updateBottomActionBar() {
+        const selectedCount = document.querySelectorAll('table input[type="checkbox"]:checked').length;
+        const actionBar = document.querySelector('.bottom-action-bar');
+        if (! actionBar) return;
+
+        actionBar.classList.toggle('active', selectedCount > 0);
+        const info = actionBar.querySelector('.bottom-action-bar-info');
+        if (info) info.innerHTML = `<strong>${selectedCount}</strong> item(s) selected`;
+    }
+
     static showSkeleton(container, skeletonClass = 'skeleton-card') {
         const skeleton = document.createElement('div');
         skeleton.className = `${skeletonClass} skeleton`;
@@ -300,79 +169,23 @@ class MobileEnhancements {
         return skeleton;
     }
 
-    /**
-     * Hide Loading Skeleton
-     */
     static hideSkeleton(skeleton) {
-        if (skeleton) {
-            skeleton.remove();
-        }
-    }
-
-    /**
-     * Utility: Create skeleton for table
-     */
-    static createTableSkeleton(rows = 3) {
-        let html = '<div class="skeleton-table">';
-
-        // Header
-        html += '<div class="skeleton-table-header">';
-        for (let i = 0; i < 4; i++) {
-            html += '<div class="skeleton-table-header-cell skeleton"></div>';
-        }
-        html += '</div>';
-
-        // Rows
-        for (let i = 0; i < rows; i++) {
-            html += '<div class="skeleton-table-row">';
-            for (let j = 0; j < 4; j++) {
-                html += '<div class="skeleton-table-cell skeleton"></div>';
-            }
-            html += '</div>';
-        }
-
-        html += '</div>';
-        return html;
-    }
-
-    /**
-     * Utility: Create skeleton for list
-     */
-    static createListSkeleton(items = 3) {
-        let html = '';
-
-        for (let i = 0; i < items; i++) {
-            html += `
-                <div class="skeleton-list-item skeleton">
-                    <div class="skeleton-list-item-header">
-                        <div class="skeleton-list-item-avatar skeleton"></div>
-                        <div class="skeleton-list-item-text">
-                            <div class="skeleton-list-item-title skeleton"></div>
-                            <div class="skeleton-list-item-subtitle skeleton"></div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        return html;
+        skeleton?.remove();
     }
 }
 
-// Initialize on DOMContentLoaded
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
+const boot = () => {
+    if (! window.MobileEnhancements) {
         window.MobileEnhancements = new MobileEnhancements();
-    });
-} else {
-    window.MobileEnhancements = new MobileEnhancements();
-}
-
-// Also reinitialize on Livewire navigation
-document.addEventListener('livewire:navigated', () => {
-    if (window.MobileEnhancements) {
+    } else {
         window.MobileEnhancements.init();
     }
-});
+};
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+else boot();
+
+document.addEventListener('livewire:navigated', boot);
+document.addEventListener('livewire:initialized', boot, { once: true });
 
 export default MobileEnhancements;

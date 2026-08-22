@@ -1,355 +1,94 @@
-@php
-    use Filament\Support\Enums\MaxWidth;
-@endphp
-
 <x-filament-panels::page>
-    <div class="mx-auto max-w-2xl">
-        <!-- Progress Indicator -->
-        <div class="mb-8 flex justify-between">
-            @for ($i = 1; $i <= 3; $i++)
-                <div class="flex flex-col items-center flex-1">
-                    <div class="flex items-center w-full">
-                        @if ($i > 1)
-                            <div class="flex-1 h-0.5 {{ $i <= $this->currentStep ? 'bg-success-500' : 'bg-gray-300' }}"></div>
-                        @endif
-                        <div class="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-full {{ $i <= $this->currentStep ? 'bg-success-500 text-white' : 'bg-gray-300 text-gray-600' }}">
-                            @if ($i < $this->currentStep)
-                                <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                                </svg>
-                            @else
-                                {{ $i }}
-                            @endif
-                        </div>
-                        @if ($i < 3)
-                            <div class="flex-1 h-0.5 {{ $i < $this->currentStep ? 'bg-success-500' : 'bg-gray-300' }}"></div>
-                        @endif
+    <div
+        class="mx-auto max-w-3xl space-y-3 pb-24 sm:space-y-5 sm:pb-0"
+        data-vx-page="inventory-quick-add"
+        x-data="{
+            openScanner() { window.dispatchEvent(new CustomEvent('open-camera-scanner')); },
+            useScan(event) {
+                const value = event?.detail?.value;
+                if (value) $wire.setScannedBarcode(value);
+            }
+        }"
+        x-on:barcode-scanned.window="useScan($event)"
+        x-on:quick-add-ready.window="setTimeout(() => document.querySelector('[data-quick-add-name]')?.focus(), 100)"
+    >
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+            <div class="p-4 sm:p-5">
+                <div class="text-[10px] font-bold uppercase tracking-[.12em] text-primary-600 sm:text-xs">Quick Add</div>
+                <h2 class="mt-1 text-lg font-semibold text-gray-950 dark:text-white sm:text-xl">Add an item without the long form</h2>
+                <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Enter what you know now. Name is the only product field you must have; barcode, SKU, cost, vendor, and starting stock can be added when available.</p>
+            </div>
+        </section>
+
+        <section data-tour="quick-add-main" class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
+            <div class="grid gap-4 sm:grid-cols-2">
+                <label class="sm:col-span-2">
+                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Item name <span class="text-red-500">*</span></span>
+                    <input data-quick-add-name wire:model="data.name" type="text" autocomplete="off" autofocus placeholder="e.g. 2024 Topps Chrome Hobby Box" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" />
+                    @error('data.name')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                </label>
+
+                <label class="sm:col-span-2">
+                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Barcode / UPC <span class="font-normal text-gray-400">optional</span></span>
+                    <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                        <input wire:model="data.barcode" type="text" inputmode="numeric" autocomplete="off" placeholder="Scan or type barcode" class="min-h-11 min-w-0 rounded-lg border-gray-300 font-mono text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" />
+                        <button id="quickadd-scan-btn" type="button" @click="openScanner()" class="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white"><x-heroicon-o-camera class="h-5 w-5" /> Scan</button>
                     </div>
-                    <span class="mt-2 text-sm font-medium text-gray-600">
-                        @if ($i === 1) Item Details
-                        @elseif ($i === 2) Add Stock
-                        @else Review
-                        @endif
-                    </span>
-                </div>
-            @endfor
+                    @error('data.barcode')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                </label>
+
+                <label>
+                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">SKU <span class="font-normal text-gray-400">optional</span></span>
+                    <input wire:model="data.sku" type="text" autocomplete="off" placeholder="Internal SKU" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" />
+                    @error('data.sku')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                </label>
+
+                <label>
+                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Category <span class="font-normal text-gray-400">optional</span></span>
+                    <input wire:model="data.category" type="text" placeholder="e.g. Pokémon Sealed" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" list="inventory-category-list" />
+                    <datalist id="inventory-category-list">@foreach(\App\Models\InventoryItem::whereNotNull('category')->distinct()->orderBy('category')->pluck('category') as $category)<option value="{{ $category }}"></option>@endforeach</datalist>
+                </label>
+            </div>
+        </section>
+
+        <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
+            <div class="mb-3">
+                <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Starting stock</h3>
+                <p class="mt-0.5 text-[11px] leading-4 text-gray-500 dark:text-gray-400 sm:text-xs">Skip this when you only need the catalog item. For vendor pallets, use Receive Shipment so costs and paperwork stay with the delivery.</p>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+                <label>
+                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Location</span>
+                    <select wire:model="data.location_id" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm"><option value="">No starting stock</option>@foreach(\App\Models\InventoryLocation::activeOptions() as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
+                </label>
+                <label>
+                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Quantity</span>
+                    <input wire:model="data.quantity" type="number" step="0.01" min="0" inputmode="decimal" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" />
+                </label>
+                <label>
+                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Unit cost <span class="font-normal text-gray-400">optional</span></span>
+                    <input wire:model="data.unit_cost" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" />
+                </label>
+                <label>
+                    <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Vendor <span class="font-normal text-gray-400">optional</span></span>
+                    <select wire:model="data.preferred_vendor_id" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm"><option value="">No preferred vendor</option>@foreach(\App\Models\Vendor::activeOptions() as $id => $name)<option value="{{ $id }}">{{ $name }}</option>@endforeach</select>
+                </label>
+            </div>
+        </section>
+
+        <details class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+            <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold text-gray-800 dark:text-gray-100 sm:px-5"><span>More cost details</span><x-heroicon-m-chevron-down class="h-4 w-4 text-gray-400" /></summary>
+            <div class="border-t border-gray-100 p-4 dark:border-gray-800 sm:p-5">
+                <label><span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Cost for this starting stock</span><input wire:model="data.cost" type="number" step="0.01" min="0" inputmode="decimal" placeholder="Leave blank to use unit cost" class="min-h-11 w-full rounded-lg border-gray-300 text-base dark:border-gray-600 dark:bg-gray-800 sm:text-sm" /><p class="mt-1 text-[10px] text-gray-500 sm:text-xs">Only use this when the opening stock came in at a different cost from the normal unit cost.</p></label>
+            </div>
+        </details>
+
+        <div class="hidden items-center justify-end gap-2 sm:flex">
+            <button type="button" wire:click="resetQuickAdd" class="min-h-11 rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:text-gray-200">Clear</button>
+            <button type="button" wire:click="submit(true)" wire:loading.attr="disabled" class="min-h-11 rounded-lg border border-primary-300 px-4 text-sm font-semibold text-primary-700 disabled:opacity-60 dark:border-primary-800 dark:text-primary-300">Save & Add Another</button>
+            <button type="button" wire:click="submit(false)" wire:loading.attr="disabled" class="min-h-11 rounded-lg bg-primary-600 px-5 text-sm font-semibold text-white disabled:opacity-60">Save Item</button>
         </div>
 
-        <!-- Form -->
-        <div class="space-y-6">
-            <!-- Step 1: Item Details -->
-            @if ($this->currentStep === 1)
-            <div class="space-y-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <h3 class="text-lg font-semibold">Step 1: Item Details</h3>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="col-span-2">
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Item Name</label>
-                        <input type="text" wire:model="data.name" placeholder="e.g., 2024 Topps Chrome Box" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500" autofocus />
-                    </div>
-                    <div class="col-span-2">
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Barcode/UPC (optional)</label>
-                        <div class="flex gap-2 mt-1">
-                            <input type="text" wire:model="data.barcode" placeholder="Scan barcode or enter UPC" class="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500" />
-                            <button type="button" id="quickadd-scan-btn" class="px-4 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition font-medium text-sm">📷 Scan</button>
-                        </div>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">SKU</label>
-                        <input type="text" wire:model="data.sku" placeholder="Auto-generated" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500" />
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
-                        <select wire:model="data.category" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500">
-                            <option value="">Select or type category...</option>
-                            @php
-                                $categories = \App\Models\InventoryItem::whereNotNull('category')->distinct()->pluck('category')->sort();
-                            @endphp
-                            @foreach($categories as $category)
-                                <option value="{{ $category }}">{{ $category }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Unit Cost</label>
-                        <input type="number" step="0.01" wire:model="data.unit_cost" placeholder="0.00" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500" />
-                    </div>
-                    <div class="col-span-2">
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Vendor (optional)</label>
-                        <select wire:model="data.preferred_vendor_id" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500">
-                            <option value="">Select a vendor...</option>
-                            @foreach(\App\Models\Vendor::activeOptions() as $id => $name)
-                            <option value="{{ $id }}">{{ $name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                </div>
-            </div>
-            @endif
-
-            <!-- Step 2: Add Stock -->
-            @if ($this->currentStep === 2)
-            <div class="space-y-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <h3 class="text-lg font-semibold">Step 2: Add Stock</h3>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="col-span-2">
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Stock Location</label>
-                        <select wire:model="data.location_id" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500">
-                            <option value="">Select location...</option>
-                            @foreach(\App\Models\InventoryLocation::activeOptions() as $id => $name)
-                            <option value="{{ $id }}">{{ $name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Quantity</label>
-                        <input type="number" step="0.01" wire:model="data.quantity" placeholder="0" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500" />
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Cost for Stock</label>
-                        <input type="number" step="0.01" wire:model="data.cost" placeholder="Leave blank to use unit cost" class="mt-1 w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500" />
-                    </div>
-                </div>
-            </div>
-            @endif
-
-            <!-- Step 3: Review & Add -->
-            @if ($this->currentStep === 3)
-            <div class="space-y-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6">
-                <h3 class="text-lg font-semibold">Step 3: Review & Add</h3>
-                <div class="space-y-4">
-                    <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Item Name</label>
-                        <p class="mt-1 text-gray-900 dark:text-gray-100">{{ $data['name'] ?? 'N/A' }}</p>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">SKU</label>
-                        <p class="mt-1 text-gray-900 dark:text-gray-100">{{ $data['sku'] ?? 'N/A' }}</p>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Category</label>
-                        <p class="mt-1 text-gray-900 dark:text-gray-100">{{ $data['category'] ?? 'N/A' }}</p>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Unit Cost</label>
-                        <p class="mt-1 text-gray-900 dark:text-gray-100">${{ $data['unit_cost'] ?? '0.00' }}</p>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Location</label>
-                        <p class="mt-1 text-gray-900 dark:text-gray-100">
-                            @php
-                                $location = \App\Models\InventoryLocation::find($data['location_id'] ?? null);
-                            @endphp
-                            {{ $location?->name ?? 'Not selected' }}
-                        </p>
-                    </div>
-                    <div>
-                        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">Quantity</label>
-                        <p class="mt-1 text-gray-900 dark:text-gray-100">{{ $data['quantity'] ?? '0' }}</p>
-                    </div>
-                </div>
-            </div>
-            @endif
-
-            <!-- Navigation Buttons -->
-            <div class="flex justify-between gap-4 pt-8 mt-8 border-t border-gray-200 dark:border-gray-700">
-                @if ($this->currentStep > 1)
-                    <button
-                        type="button"
-                        wire:click="dispatch('previous-step')"
-                        class="px-6 py-3 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium"
-                    >
-                        ← Back
-                    </button>
-                @else
-                    <div></div>
-                @endif
-
-                @if ($this->currentStep < 3)
-                    <button
-                        type="button"
-                        wire:click="dispatch('next-step')"
-                        class="px-8 py-3 bg-primary-600 dark:bg-primary-600 text-white rounded-lg hover:bg-primary-700 dark:hover:bg-primary-700 active:bg-primary-800 transition font-bold text-lg shadow-md"
-                    >
-                        Next →
-                    </button>
-                @else
-                    <div class="flex gap-4 ml-auto">
-                        <button
-                            type="button"
-                            wire:click="dispatch('previous-step')"
-                            class="px-6 py-3 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition font-medium"
-                        >
-                            ← Back
-                        </button>
-                        <button
-                            type="button"
-                            wire:click="dispatch('submit-wizard')"
-                            class="px-8 py-3 bg-success-600 dark:bg-success-600 text-white rounded-lg hover:bg-success-700 dark:hover:bg-success-700 active:bg-success-800 transition font-bold text-lg shadow-md"
-                        >
-                            ✓ Add to Inventory
-                        </button>
-                    </div>
-                @endif
-            </div>
-        </div>
+        <div class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden" data-vx-mobile-actions><div class="flex gap-2"><button type="button" @click="openScanner()" class="inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg border border-primary-300 bg-white px-3 text-sm font-semibold text-primary-700 dark:border-primary-800 dark:bg-gray-800 dark:text-primary-300"><x-heroicon-o-camera class="h-5 w-5" /> Scan</button><button type="button" wire:click="submit(false)" wire:loading.attr="disabled" class="inline-flex min-h-11 flex-[1.35] items-center justify-center rounded-lg bg-primary-600 px-3 text-sm font-semibold text-white disabled:opacity-60"><span wire:loading.remove>Save Item</span><span wire:loading>Saving…</span></button></div></div>
     </div>
-
-    <!-- Hidden Camera Container for Barcode Scanning -->
-    <div id="quickadd-camera-container" class="hidden fixed inset-0 bg-black z-50 flex flex-col">
-        <div class="flex-1 flex items-center justify-center">
-            <video id="quickadd-camera-video" class="w-full h-full object-cover"></video>
-        </div>
-        <div class="bg-gray-900 p-4 flex justify-between items-center">
-            <div class="text-white text-sm">Point camera at barcode</div>
-            <button type="button" id="quickadd-camera-stop-btn" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition">Close Camera</button>
-        </div>
-    </div>
-
-    <script>
-        (function() {
-            let scanning = false;
-            let codeReader = null;
-            let stream = null;
-
-            function getInput() {
-                return document.querySelector('input[wire\\:model="data.barcode"]');
-            }
-
-            async function handleCameraClick() {
-                try {
-                    if (scanning) {
-                        console.log('Already scanning');
-                        return;
-                    }
-
-                    const input = getInput();
-                    if (!input) {
-                        alert('Barcode input field not found');
-                        return;
-                    }
-
-                    const container = document.getElementById('quickadd-camera-container');
-                    const video = document.getElementById('quickadd-camera-video');
-
-                    if (!container || !video) {
-                        alert('Camera elements not found');
-                        return;
-                    }
-
-                    if (stream) {
-                        stream.getTracks().forEach(track => track.stop());
-                        stream = null;
-                    }
-
-                    if (codeReader) {
-                        try {
-                            codeReader.reset();
-                        } catch (e) {}
-                    }
-
-                    container.classList.remove('hidden');
-                    scanning = true;
-
-                    // Initialize barcode reader
-                    // Loaded on demand: the decoder is not shipped to pages that never
-                    // scan, so it is fetched the first time one is opened.
-                    await window.ensureBarcodeScanner?.();
-
-                    if (!window.barcodeScanner?.BrowserMultiFormatReader) {
-                        alert('Barcode scanner library not loaded');
-                        scanning = false;
-                        container.classList.add('hidden');
-                        return;
-                    }
-
-                    codeReader = new window.barcodeScanner.BrowserMultiFormatReader();
-
-                    // Start scanning
-                    const result = await codeReader.decodeFromVideoDevice(undefined, video, (result, err) => {
-                        if (result) {
-                            const barcode = result.text;
-                            input.value = barcode;
-                            input.dispatchEvent(new Event('input', { bubbles: true }));
-                            input.dispatchEvent(new Event('change', { bubbles: true }));
-
-                            // Close camera
-                            scanning = false;
-                            if (codeReader) {
-                                try {
-                                    codeReader.reset();
-                                } catch (e) {}
-                                codeReader = null;
-                            }
-                            if (stream) {
-                                stream.getTracks().forEach(track => track.stop());
-                                stream = null;
-                            }
-                            container.classList.add('hidden');
-                        }
-                    });
-
-                } catch (error) {
-                    console.error('Camera error:', error);
-                    scanning = false;
-                    const container = document.getElementById('quickadd-camera-container');
-                    if (container) container.classList.add('hidden');
-                    alert('Error opening camera: ' + error.message);
-                }
-            }
-
-            // Bind scan button
-            function bindScanButton() {
-                const scanBtn = document.getElementById('quickadd-scan-btn');
-                if (scanBtn && !scanBtn.dataset.bound) {
-                    scanBtn.dataset.bound = '1';
-                    scanBtn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleCameraClick();
-                    });
-                }
-            }
-
-            // Bind stop button
-            function bindStopButton() {
-                const stopBtn = document.getElementById('quickadd-camera-stop-btn');
-                if (stopBtn && !stopBtn.dataset.bound) {
-                    stopBtn.dataset.bound = '1';
-                    stopBtn.addEventListener('click', () => {
-                        scanning = false;
-                        if (codeReader) {
-                            try {
-                                codeReader.reset();
-                            } catch (e) {}
-                            codeReader = null;
-                        }
-                        if (stream) {
-                            stream.getTracks().forEach(track => track.stop());
-                            stream = null;
-                        }
-                        const container = document.getElementById('quickadd-camera-container');
-                        if (container) container.classList.add('hidden');
-                    });
-                }
-            }
-
-            // Initialize
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', () => {
-                    bindScanButton();
-                    bindStopButton();
-                });
-            } else {
-                bindScanButton();
-                bindStopButton();
-            }
-
-            // Rebind after Livewire updates
-            document.addEventListener('livewire:updated', () => {
-                setTimeout(() => {
-                    bindScanButton();
-                }, 100);
-            });
-        })();
-    </script>
 </x-filament-panels::page>

@@ -7,21 +7,29 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A single item a streamer logged as sold during a show.
+ * A single item a streamer reported for a show.
  *
- * inventory_item_id is nullable on purpose: a streamer can log something that
- * is not in the catalogue yet. Those rows are excluded from stock deduction
- * and surfaced as unmatched rather than silently ignored.
+ * inventory_item_id is nullable on purpose: a streamer can report something
+ * that is not in the catalogue yet. Those rows are surfaced as unmatched for
+ * admin reconciliation instead of silently disappearing.
  */
 class StreamerLogItem extends Model
 {
     use HasFactory;
+
+    public const DISPOSITIONS = [
+        'sold' => 'Sold',
+        'giveaway' => 'Giveaway',
+        'promo' => 'Promo / Bonus',
+        'other' => 'Other',
+    ];
 
     protected $fillable = [
         'streamer_log_entry_id',
         'inventory_item_id',
         'item_name',
         'quantity',
+        'disposition',
         'unit_cost',
         'inventory_location_id',
         'deducted_quantity',
@@ -31,7 +39,7 @@ class StreamerLogItem extends Model
     protected $casts = [
         'quantity'          => 'integer',
         'deducted_quantity' => 'integer',
-        'unit_cost' => 'decimal:2',
+        'unit_cost'         => 'decimal:2',
     ];
 
     public function logEntry(): BelongsTo
@@ -49,7 +57,6 @@ class StreamerLogItem extends Model
         return $this->belongsTo(InventoryLocation::class, 'inventory_location_id');
     }
 
-    /** Line total, used for the log's product cost. */
     public function getTotalCostAttribute(): float
     {
         return (float) ($this->unit_cost ?? 0) * (int) $this->quantity;
@@ -58,5 +65,10 @@ class StreamerLogItem extends Model
     public function isMatched(): bool
     {
         return $this->inventory_item_id !== null;
+    }
+
+    public function dispositionLabel(): string
+    {
+        return self::DISPOSITIONS[$this->disposition ?? 'sold'] ?? ucfirst((string) $this->disposition);
     }
 }

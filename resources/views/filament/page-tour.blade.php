@@ -56,19 +56,9 @@
         background: rgb(17 24 39);
     }
 
-    .vx-tour-progress {
-        height: 3px;
-        background: rgb(243 244 246);
-    }
-
+    .vx-tour-progress { height: 3px; background: rgb(243 244 246); }
     .dark .vx-tour-progress { background: rgb(31 41 55); }
-
-    .vx-tour-progress > span {
-        display: block;
-        height: 100%;
-        background: rgb(var(--primary-600, 124 58 237));
-        transition: width .2s ease;
-    }
+    .vx-tour-progress > span { display: block; height: 100%; background: rgb(var(--primary-600, 124 58 237)); transition: width .2s ease; }
 
     .vx-tour-content { padding: 15px 16px 14px; }
     .vx-tour-kicker { color: rgb(var(--primary-600, 124 58 237)); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
@@ -106,11 +96,7 @@
     }
 </style>
 
-<div
-    x-data="vxPageTour()"
-    x-init="init()"
-    x-cloak
->
+<div x-data="vxPageTour()" x-init="init()" x-cloak>
     <button
         x-show="tour !== null && !open"
         type="button"
@@ -150,6 +136,7 @@
             steps: [],
             index: 0,
             highlighted: null,
+            autoStart: false,
 
             get current() { return this.steps[this.index] ?? null; },
             get progress() { return this.steps.length ? ((this.index + 1) / this.steps.length) * 100 : 0; },
@@ -157,26 +144,26 @@
             definitions() {
                 return [
                     {
-                        id: 'streamer-dashboard-v2', label: 'Streamer Center',
+                        id: 'streamer-dashboard-v2', label: 'Streamer Center', auto: true,
                         match: () => document.querySelector('[data-vx-page="streamer-dashboard"]'),
                         steps: [
                             { selector: '[data-vx-tour="role-overview"]', title: 'This is your work center', text: 'Start here. It keeps your next show, report workload, and the inventory you are responsible for together.' },
                             { selector: '[data-vx-tour="role-metrics"]', title: 'Quick numbers, not giant cards', text: 'These compact totals tell you what needs attention without making you scroll through oversized dashboard tiles.' },
                             { selector: '[data-vx-tour="primary-action"]', title: 'Finish a show here', text: 'After a stream ends, open End of Stream. Record sold items, giveaways, promo items, and anything that is not yet in the catalog.' },
-                            { selector: '[data-vx-tour="dashboard-widgets"]', title: 'More detail below', text: 'These widgets give you deeper show, inventory, and payout information. The top of the page stays focused on what you need to do next.' },
+                            { selector: '[data-vx-tour="dashboard-widgets"]', title: 'More detail below', text: 'These widgets give you deeper show, inventory, and payout information. The top stays focused on what you need to do next.' },
                         ],
                     },
                     {
-                        id: 'admin-dashboard-v2', label: 'Admin Center',
+                        id: 'admin-dashboard-v2', label: 'Admin Center', auto: true,
                         match: () => document.querySelector('[data-vx-page="admin-dashboard"]'),
                         steps: [
                             { selector: '[data-vx-tour="role-overview"]', title: 'Start with exceptions', text: 'This dashboard is organized around work that needs attention: report review, unmatched inventory, fulfillment, shipments, and payouts.' },
                             { selector: '[data-vx-tour="role-metrics"]', title: 'Scan the queue', text: 'These compact counts are the fastest way to see where work is piling up.' },
-                            { selector: '[data-vx-tour="dashboard-widgets"]', title: 'Work the details', text: 'Below the summary are your workflow controls, needs-attention queues, recent shows, and operating metrics.' },
+                            { selector: '[data-vx-tour="dashboard-widgets"]', title: 'Work the details', text: 'Below the summary are workflow controls, needs-attention queues, recent shows, and operating metrics.' },
                         ],
                     },
                     {
-                        id: 'fulfillment-dashboard-v2', label: 'Fulfillment Center',
+                        id: 'fulfillment-dashboard-v2', label: 'Fulfillment Center', auto: true,
                         match: () => document.querySelector('[data-vx-page="fulfillment-dashboard"]'),
                         steps: [
                             { selector: '[data-vx-tour="role-overview"]', title: 'Shipping work starts here', text: 'This view is about shows and shipments, not financial metrics. Open work is kept at the top.' },
@@ -185,7 +172,7 @@
                         ],
                     },
                     {
-                        id: 'end-of-stream-v2', label: 'End of Stream',
+                        id: 'end-of-stream-v2', label: 'End of Stream', auto: true,
                         match: () => location.pathname.includes('end-of-stream'),
                         steps: [
                             { selector: 'main', title: 'Report what actually happened', text: 'Use this after the show. Add inventory used during the stream and classify each line as Sold, Giveaway, Promo / Bonus, or Other.' },
@@ -195,7 +182,7 @@
                         ],
                     },
                     {
-                        id: 'show-detail-v2', label: 'Show Command Center',
+                        id: 'show-detail-v2', label: 'Show Command Center', auto: true,
                         match: () => document.querySelector('[data-vx-page="show-report-review"]'),
                         steps: [
                             { selector: '[data-vx-tour="show-report"]', title: 'Review the streamer report here', text: 'You do not need a separate reconciliation page. Reported inventory, giveaways, promo lines, matching status, and approval all live on the show.' },
@@ -204,7 +191,7 @@
                         ],
                     },
                     {
-                        id: 'show-shipments-v2', label: 'Show Shipments',
+                        id: 'show-shipments-v2', label: 'Show Shipments', auto: true,
                         match: () => document.querySelector('[data-vx-page="show-shipments"]'),
                         steps: [
                             { selector: '[data-vx-tour="shipment-filters"]', title: 'Find the show first', text: 'Search or filter at the show level. This keeps thousands of shipment rows from becoming one unreadable list.' },
@@ -212,24 +199,44 @@
                         ],
                     },
                     {
-                        id: 'fulfillment-list-v2', label: 'Fulfillment Queue',
+                        id: 'fulfillment-list-v2', label: 'Fulfillment Queue', auto: true,
                         match: () => location.pathname.includes('fulfillment-center') && document.querySelector('.fi-ta'),
                         steps: [
-                            { selector: '.fi-ta', title: 'Work one show at a time', text: 'This list is show-first. Open the show with open work, then process its shipment and packing lines.' },
+                            { selector: '.fi-ta', title: 'Work one show at a time', text: 'This list is show-first. On phones it intentionally keeps only the show, open count, and next action visible.' },
                             { selector: '.fi-ta-filters, .fi-ta-header-toolbar, .fi-ta-header', title: 'Use filters when the queue grows', text: 'Filter by assignment or status rather than scrolling through unrelated work.' },
                         ],
                     },
                 ];
             },
 
+            genericTour() {
+                const candidates = [
+                    { selector: '.fi-page-header', title: 'Page header', text: 'The title and description tell you what this page controls. Use the Tour button again anytime you need a refresher.' },
+                    { selector: '.fi-page-header-actions', title: 'Page actions', text: 'Primary create, save, import, export, or workflow actions for this page live here.' },
+                    { selector: '.fi-ta', title: 'Table and filters', text: 'Use search and filters to narrow the list. On mobile, only the most useful columns should stay visible where the page supports responsive columns.' },
+                    { selector: '.fi-fo, form', title: 'Form fields', text: 'Complete the required fields, then use the primary action to save or continue. Fields are sized for touch and iPhone input without browser zoom.' },
+                    { selector: '.fi-section', title: 'Page sections', text: 'Related information is grouped into sections so you can scan the page without reading every field.' },
+                ].filter(step => document.querySelector(step.selector));
+
+                return {
+                    id: 'generic:' + location.pathname,
+                    label: 'Page Guide',
+                    auto: false,
+                    match: () => true,
+                    steps: candidates.length ? candidates : [
+                        { selector: '.fi-main, main', title: 'This page', text: 'Use the page title and primary actions to understand the workflow. The How It Works page explains the full role-based process.' },
+                    ],
+                };
+            },
+
             init() {
-                this.tour = this.definitions().find(t => t.match()) ?? null;
-                if (!this.tour) return;
+                this.tour = this.definitions().find(t => t.match()) ?? this.genericTour();
+                this.autoStart = this.tour.auto === true;
                 this.steps = this.tour.steps.filter(step => document.querySelector(step.selector));
                 if (!this.steps.length) return;
 
                 const key = `vx-tour-seen:${this.tour.id}`;
-                if (!localStorage.getItem(key)) {
+                if (this.autoStart && !localStorage.getItem(key)) {
                     setTimeout(() => this.start(true), 700);
                 }
             },
@@ -253,14 +260,14 @@
 
             focusCurrent() {
                 this.clearHighlight();
-                this.$nextTick(() => {
+                setTimeout(() => {
                     const selector = this.current?.selector;
                     const el = selector ? document.querySelector(selector) : null;
                     if (!el) return;
                     this.highlighted = el;
                     el.setAttribute('data-vx-tour-active', 'true');
                     el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-                });
+                }, 0);
             },
 
             next() {

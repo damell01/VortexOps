@@ -29,6 +29,25 @@ class FulfillmentDashboard extends Component
         }
     }
 
+    public function markNextAsPacked(): void
+    {
+        $order = $this->show->orders()
+            ->where(function ($q) {
+                $q->whereNull('shipping_status')
+                    ->orWhereIn('shipping_status', ['', 'pending', 'label_created']);
+            })
+            ->orderByRaw('COALESCE(lot_number, 999999)')
+            ->orderBy('id')
+            ->first();
+
+        if (! $order) {
+            $this->dispatch('notify', message: 'No unpacked order lines remain');
+            return;
+        }
+
+        $this->markAsPacked($order);
+    }
+
     public function markAsShipped(WhatnotShowOrder $order, string $trackingNumber): void
     {
         $trackingNumber = trim($trackingNumber);
@@ -60,6 +79,7 @@ class FulfillmentDashboard extends Component
             ->get();
 
         $allOrders = $this->show->orders()->get(['id', 'shipping_status']);
+        $pendingPackingCount = $allOrders->filter(fn ($order) => in_array($order->shipping_status, [null, '', 'pending', 'label_created'], true))->count();
         $shipments = $this->show->shipments()
             ->orderByDesc('created_at_whatnot')
             ->orderByDesc('id')
@@ -73,6 +93,7 @@ class FulfillmentDashboard extends Component
             'show' => $this->show,
             'orders' => $orders,
             'allOrders' => $allOrders,
+            'pendingPackingCount' => $pendingPackingCount,
             'shipments' => $shipments,
             'shipmentStats' => [
                 'total' => $shipments->count(),

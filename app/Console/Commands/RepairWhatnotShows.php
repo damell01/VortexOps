@@ -14,13 +14,15 @@ class RepairWhatnotShows extends Command
     protected $signature = 'whatnot:repair-shows
                             {--apply : Apply repairs; otherwise run as a dry-run}
                             {--skip-sync : Do not run a fresh show-index sync first}
-                            {--aliases-only : Only remove rows whose UUID is already recorded as a duplicate alias}';
+                            {--aliases-only : Run lightweight recurring cleanup instead of historical merging}
+                            {--max-future-days=120 : Reject auto-imported shows farther in the future than this}';
 
-    protected $description = 'Repair duplicate legacy/imported Whatnot shows and bad future dates using the UUID-based index as source of truth';
+    protected $description = 'Repair duplicate/bad Whatnot show imports and enforce sane future scheduling';
 
     public function handle(): int
     {
         $apply = (bool) $this->option('apply');
+        $maxFutureDays = max(30, min(365, (int) $this->option('max-future-days')));
         $syncStartedAt = now()->subSecond();
 
         if (! $this->option('skip-sync') && ! $this->option('aliases-only')) {
@@ -40,21 +42,33 @@ class RepairWhatnotShows extends Command
             'stale_future_removed' => 0,
         ];
 
-        // First honor previously learned duplicate UUID aliases. This is also what
-        // the lightweight scheduled cleanup uses after every show-index run.
+        // Known duplicate UUIDs never get to survive a scheduled cleanup cycle.
         if (Schema::hasTable('whatnot_show_aliases')) {
-            $aliases = DB::table('whatnot_show_aliases')->get();
-            foreach ($aliases as $alias) {
+            foreach (DB::table('whatnot_show_aliases')->get() as $alias) {
                 $duplicate = Show::query()->where('whatnot_show_id', $alias->duplicate_whatnot_show_id)->first();
                 $canonical = Show::find($alias->canonical_show_id);
                 if (! $duplicate || ! $canonical || $duplicate->id === $canonical->id) continue;
 
                 $this->line("Alias duplicate #{$duplicate->id} {$duplicate->whatnot_show_id} → canonical #{$canonical->id}");
-                if ($apply) {
-                    $this->mergeShow($duplicate, $canonical);
-                }
+                if ($apply) $this->mergeShow($duplicate, $canonical);
                 $summary['alias_rows_removed']++;
             }
+        }
+
+        // Whatnot does not need to populate VortexOps with arbitrary year-out rows.
+        // Enforce this on EVERY cleanup, including the lightweight scheduled one,
+        // so malformed dates such as March 2027 disappear even if last_synced_at
+        // was just touched by the scraper.
+        $futureCutoff = today()->addDays($maxFutureDays);
+        $impossibleFuture = Show::query()
+            ->where('import_source', 'auto_whatnot')
+            ->whereDate('show_date', '>', $futureCutoff)
+            ->get();
+
+        foreach ($impossibleFuture as $bad) {
+            $this->line("Invalid future show #{$bad->id} {$bad->show_date?->format('Y-m-d')} {$bad->title}");
+            if ($apply) $this->deleteShowGraph($bad);
+            $summary['stale_future_removed']++;
         }
 
         if ($this->option('aliases-only')) {
@@ -62,7 +76,6 @@ class RepairWhatnotShows extends Command
         }
 
         // Merge old pre-UUID rows into an exact title/date UUID-backed record.
-        // These are the obvious legacy duplicates visible in the audit output.
         $legacy = Show::query()
             ->where('import_source', 'auto_whatnot')
             ->whereNull('whatnot_show_id')
@@ -86,9 +99,9 @@ class RepairWhatnotShows extends Command
             $summary['legacy_rows_merged']++;
         }
 
-        // The user confirmed exact same-title/same-date imported pairs are duplicate
-        // show records. Keep the richest row as canonical, merge the rest, and save
-        // every discarded UUID as an alias so scheduled cleanup prevents recreation.
+        // Exact same title + date imported rows are duplicate records for this
+        // integration. Retain the richer canonical record and remember discarded
+        // UUIDs so recurring sync cleanup cannot leave them behind again.
         $groups = Show::query()
             ->where('import_source', 'auto_whatnot')
             ->whereNotNull('title')
@@ -99,12 +112,10 @@ class RepairWhatnotShows extends Command
 
         foreach ($groups as $rows) {
             $rows = $rows->sortByDesc(fn (Show $show) => $this->canonicalScore($show))->values();
-            /** @var Show $canonical */
             $canonical = $rows->first();
 
-            foreach ($rows->slice(1) as $duplicate) {
-                // A remaining no-UUID row may already have been merged above.
-                $duplicate = Show::find($duplicate->id);
+            foreach ($rows->slice(1) as $candidate) {
+                $duplicate = Show::find($candidate->id);
                 if (! $duplicate || $duplicate->id === $canonical->id) continue;
 
                 $this->line("Same-day duplicate #{$duplicate->id} " . ($duplicate->whatnot_show_id ?: 'NO UUID') . " → #{$canonical->id}");
@@ -127,9 +138,9 @@ class RepairWhatnotShows extends Command
             }
         }
 
-        // Any auto-imported future row that was not touched by the fresh authoritative
-        // Current/Upcoming/Past sync is stale/bogus. This removes the old 2027-style
-        // records without touching manually scheduled shows.
+        // After a fresh authoritative index refresh, also remove ordinary future
+        // auto-import rows that were NOT touched by that refresh. This handles
+        // deleted/cancelled Whatnot schedules inside the allowed future horizon.
         if (! $this->option('skip-sync')) {
             $staleFuture = Show::query()
                 ->where('import_source', 'auto_whatnot')
@@ -195,15 +206,13 @@ class RepairWhatnotShows extends Command
     private function mergeShow(Show $duplicate, Show $canonical): void
     {
         DB::transaction(function () use ($duplicate, $canonical): void {
-            // Preserve the richer scalar values before transferring relationships.
-            $copyIfEmpty = [
+            foreach ([
                 'gross_revenue','whatnot_net','completed_earnings','units_sold','avg_order_value',
                 'giveaway_spend','giveaways_count','buyers_count','first_time_buyers',
                 'returning_buyers','shares_count','show_duration','max_concurrent_viewers',
                 'total_views','avg_order_rating','last_analytics_synced_at','last_shipments_synced_at',
                 'last_orders_synced_at',
-            ];
-            foreach ($copyIfEmpty as $field) {
+            ] as $field) {
                 if ($canonical->{$field} === null && $duplicate->{$field} !== null) {
                     $canonical->{$field} = $duplicate->{$field};
                 }
@@ -222,21 +231,13 @@ class RepairWhatnotShows extends Command
     private function moveSimpleForeignKeys(int $from, int $to): void
     {
         foreach ([
-            'shipments',
-            'whatnot_show_orders',
-            'show_ingestion_logs',
-            'show_change_logs',
-            'deduction_requests',
-            'payouts',
-            'shipping_surcharges',
-            'show_reopening_requests',
+            'shipments','whatnot_show_orders','show_ingestion_logs','show_change_logs',
+            'deduction_requests','payouts','shipping_surcharges','show_reopening_requests',
         ] as $table) {
             if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'show_id')) continue;
             try {
                 DB::table($table)->where('show_id', $from)->update(['show_id' => $to]);
             } catch (\Throwable) {
-                // If a table has a show-scoped uniqueness constraint, keep the
-                // canonical row and discard only the conflicting duplicate rows.
                 $rows = DB::table($table)->where('show_id', $from)->get();
                 foreach ($rows as $row) {
                     try {
@@ -248,7 +249,6 @@ class RepairWhatnotShows extends Command
             }
         }
 
-        // streamer_log_entries is effectively one-per-show; keep canonical if both exist.
         if (Schema::hasTable('streamer_log_entries') && Schema::hasColumn('streamer_log_entries', 'show_id')) {
             $canonicalExists = DB::table('streamer_log_entries')->where('show_id', $to)->exists();
             if ($canonicalExists) DB::table('streamer_log_entries')->where('show_id', $from)->delete();
@@ -259,8 +259,7 @@ class RepairWhatnotShows extends Command
     private function mergePivot(string $table, string $otherKey, int $from, int $to): void
     {
         if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'show_id')) return;
-        $rows = DB::table($table)->where('show_id', $from)->get();
-        foreach ($rows as $row) {
+        foreach (DB::table($table)->where('show_id', $from)->get() as $row) {
             $exists = DB::table($table)->where('show_id', $to)->where($otherKey, $row->{$otherKey})->exists();
             if (! $exists) {
                 $data = (array) $row;
@@ -274,8 +273,6 @@ class RepairWhatnotShows extends Command
 
     private function deleteShowGraph(Show $show): void
     {
-        // Relations configured cascade/null-on-delete are allowed to perform their
-        // normal cleanup here. Explicitly delete UUID-less/future duplicate rows.
         $show->delete();
     }
 }

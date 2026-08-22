@@ -2,37 +2,35 @@
     @php
         $steps = [
             [
-                'icon' => 'heroicon-o-arrow-down-tray', 'color' => 'sky',
-                'title' => '1. Shows import automatically',
-                'body' => 'A scheduled job pulls finished shows from Whatnot every few minutes — along with the items that sold in each one. New shows land in <strong>Pending Review</strong>, and each show gets a <strong>Streamer Log</strong> entry created for it.',
+                'icon' => 'heroicon-o-arrow-down-tray', 'tone' => 'sky',
+                'title' => '1. Whatnot syncs the show',
+                'body' => 'Shows, analytics, sold-item reference data, and shipment information are imported from Whatnot. Streamers do not need to re-enter those totals.',
             ],
             [
-                'icon' => 'heroicon-o-clipboard-document-list', 'color' => 'amber',
-                'title' => '2. The streamer enriches their log',
-                'body' => 'From <strong>Streamer Log → To Review</strong>, a streamer opens their show and, right on that page, maps each sold item to inventory and confirms its cost (<strong>Fill Costs</strong> does the mapped ones in one click). They add hours and product cost, then mark it <strong>Streamer Reviewed</strong>. Streamers only see shows they were on.',
+                'icon' => 'heroicon-o-user-circle', 'tone' => 'violet',
+                'title' => '2. Inventory is assigned before the show',
+                'body' => 'Inventory used by a streamer should be moved to that streamer’s inventory location before the show so the post-show report can reconcile against real stock.',
             ],
             [
-                'icon' => 'heroicon-o-check-badge', 'color' => 'emerald',
-                'title' => '3. Admin reviews & approves',
-                'body' => 'An admin opens the reviewed entry, checks the numbers and pay breakdown, and <strong>Approves</strong> it. If something needs changing after approval, <strong>Send Back</strong> reopens it for the streamer.',
+                'icon' => 'heroicon-o-clipboard-document-list', 'tone' => 'amber',
+                'title' => '3. Streamer completes End of Stream',
+                'body' => 'After the show, the streamer records inventory actually used and marks each line as <strong>Sold</strong>, <strong>Giveaway</strong>, <strong>Promo / Bonus</strong>, or <strong>Other</strong>. Unlisted items are allowed and stay flagged for admin.',
             ],
             [
-                'icon' => 'heroicon-o-view-columns', 'color' => 'violet',
-                'title' => '4. Track the pipeline',
-                'body' => 'The <strong>Status Board</strong> shows every show moving through the pipeline (Pending Review → Mapping → Pending Approval → Reconciled), with a time-in-status badge so nothing gets stuck.',
+                'icon' => 'heroicon-o-check-badge', 'tone' => 'emerald',
+                'title' => '4. The workflow reconciles the report',
+                'body' => 'Depending on the configured policy, inventory can post on submission, only when the report is clean, or after admin approval. Clean reports can also auto-approve if the admin chooses an exceptions-only workflow.',
             ],
             [
-                'icon' => 'heroicon-o-banknotes', 'color' => 'emerald',
-                'title' => '5. Run payouts',
-                'body' => 'A weekly <strong>Pay Run</strong> groups each streamer\'s payouts. <strong>Preview</strong> shows exactly what everyone will receive (after loan repayments) before you finalize, then export for payment.',
+                'icon' => 'heroicon-o-truck', 'tone' => 'sky',
+                'title' => '5. Fulfillment works the show',
+                'body' => 'Fulfillment works show-first: open a show, process its shipment and packing lines, and keep shipment status/tracking current. Regular fulfillment users only see their assigned shows.',
             ],
-        ];
-
-        $modules = [
-            ['icon' => 'heroicon-o-video-camera', 'title' => 'Shows', 'body' => 'Every show carries its financials, a <strong>Net Margin</strong> column, an <strong>Engagement</strong> summary (viewers, conversion, ratings), and a P&L breakdown. Filter tabs focus on what needs review.'],
-            ['icon' => 'heroicon-o-presentation-chart-line', 'title' => 'Product Insights', 'body' => 'Which products earn the most margin, how fast they sell (<strong>sell-through</strong>), and what\'s <strong>dead stock</strong> — capital sitting unsold. All from your sales + inventory data.'],
-            ['icon' => 'heroicon-o-cube', 'title' => 'Inventory & Receiving', 'body' => 'Receive pallets, map lines to products, and receive by barcode. Costs (WAC) update on every receipt and flow into each show\'s COGS.'],
-            ['icon' => 'heroicon-o-shield-check', 'title' => 'Roles & Access', 'body' => 'Only the owner grants admin/super-admin. Per-role page visibility controls what each role sees in the sidebar. Streamers are scoped to their own data everywhere.'],
+            [
+                'icon' => 'heroicon-o-banknotes', 'tone' => 'emerald',
+                'title' => '6. Finalize payout and reporting',
+                'body' => 'Once the report and any fulfillment-dependent counts are settled, payout calculation and financial reporting use the show’s final data.',
+            ],
         ];
 
         $tone = fn (string $c) => [
@@ -43,62 +41,68 @@
         ][$c] ?? ['bg' => 'bg-gray-100 dark:bg-white/10', 'text' => 'text-gray-500'];
     @endphp
 
-    <div class="space-y-8">
-        {{-- What do I do? (role-specific) --}}
-        <section>
-            <div class="flex items-center gap-2 mb-4">
-                <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">What do I do?</h2>
-                <span class="inline-flex items-center rounded-full bg-primary-100 dark:bg-primary-500/15 px-2.5 py-0.5 text-xs font-medium text-primary-600 dark:text-primary-400">
-                    You're: {{ $this->myRoleGuide['label'] }}
-                </span>
+    <div class="mx-auto max-w-5xl space-y-4 sm:space-y-7">
+        <section class="rounded-xl border border-primary-200 bg-primary-50/60 p-4 dark:border-primary-500/20 dark:bg-primary-500/5 sm:p-5">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <div class="text-[10px] font-bold uppercase tracking-[.12em] text-primary-600 sm:text-xs">Your role</div>
+                    <div class="mt-1 flex flex-wrap items-center gap-2">
+                        <h2 class="text-base font-semibold text-gray-950 dark:text-white sm:text-lg">{{ $this->myRoleGuide['label'] }}</h2>
+                        <span class="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-primary-600 shadow-sm dark:bg-gray-900 sm:text-xs">Role-specific guide</span>
+                    </div>
+                    <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">These are the actions you should focus on. Other roles may see a different workflow.</p>
+                </div>
             </div>
-            <div class="space-y-3">
+
+            <div class="mt-4 divide-y divide-primary-100 overflow-hidden rounded-xl border border-primary-100 bg-white dark:divide-primary-500/10 dark:border-primary-500/10 dark:bg-gray-900">
                 @foreach ($this->myRoleGuide['items'] as $item)
-                    <div class="flex gap-4 rounded-xl border border-primary-200 dark:border-primary-500/20 bg-primary-50/50 dark:bg-primary-500/5 p-4">
-                        <div class="shrink-0 h-8 w-8 rounded-lg bg-primary-100 dark:bg-primary-500/15 flex items-center justify-center">
+                    <div class="flex gap-3 p-3 sm:p-4">
+                        <div class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-100 dark:bg-primary-500/15 sm:h-8 sm:w-8">
                             <x-heroicon-o-check class="h-4 w-4 text-primary-600 dark:text-primary-400" />
                         </div>
                         <div class="min-w-0">
-                            <p class="font-semibold text-gray-900 dark:text-gray-100">{{ $item['title'] }}</p>
-                            <p class="text-sm text-gray-600 dark:text-gray-300 mt-0.5 leading-relaxed">{!! $item['body'] !!}</p>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $item['title'] }}</p>
+                            <p class="mt-0.5 text-xs leading-5 text-gray-600 dark:text-gray-300 sm:text-sm">{!! $item['body'] !!}</p>
                         </div>
                     </div>
                 @endforeach
             </div>
         </section>
 
-        {{-- The core loop --}}
         <section>
-            <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">The show-to-payout loop</h2>
-            <div class="space-y-3">
+            <div class="mb-3 flex items-end justify-between gap-3 sm:mb-4">
+                <div>
+                    <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">The show flow</h2>
+                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">The same lifecycle from import through payout.</p>
+                </div>
+                <span class="text-[10px] font-medium text-gray-400 sm:text-xs">6 steps</span>
+            </div>
+
+            <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
                 @foreach ($steps as $s)
-                    @php $t = $tone($s['color']); @endphp
-                    <div class="flex gap-4 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 p-4">
-                        <div class="shrink-0 h-10 w-10 rounded-lg {{ $t['bg'] }} flex items-center justify-center">
-                            <x-dynamic-component :component="$s['icon']" class="h-5 w-5 {{ $t['text'] }}" />
+                    @php $t = $tone($s['tone']); @endphp
+                    <div class="flex gap-3 border-b border-gray-100 p-3 last:border-b-0 dark:border-gray-800 sm:gap-4 sm:p-4">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {{ $t['bg'] }} sm:h-9 sm:w-9">
+                            <x-dynamic-component :component="$s['icon']" class="h-4 w-4 {{ $t['text'] }} sm:h-5 sm:w-5" />
                         </div>
                         <div class="min-w-0">
-                            <p class="font-semibold text-gray-900 dark:text-gray-100">{{ $s['title'] }}</p>
-                            <p class="text-sm text-gray-600 dark:text-gray-300 mt-0.5 leading-relaxed">{!! $s['body'] !!}</p>
+                            <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">{{ $s['title'] }}</p>
+                            <p class="mt-0.5 text-xs leading-5 text-gray-600 dark:text-gray-300 sm:text-sm">{!! $s['body'] !!}</p>
                         </div>
                     </div>
                 @endforeach
             </div>
         </section>
 
-        {{-- Modules at a glance --}}
-        <section>
-            <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-4">Modules at a glance</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                @foreach ($modules as $m)
-                    <div class="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-gray-900 p-4">
-                        <div class="flex items-center gap-2 mb-1.5">
-                            <x-dynamic-component :component="$m['icon']" class="h-5 w-5 text-primary-500" />
-                            <p class="font-semibold text-gray-900 dark:text-gray-100">{{ $m['title'] }}</p>
-                        </div>
-                        <p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">{!! $m['body'] !!}</p>
-                    </div>
-                @endforeach
+        <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-5">
+            <div class="flex items-start gap-3">
+                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-300">
+                    <x-heroicon-o-cursor-arrow-rays class="h-4 w-4" />
+                </div>
+                <div>
+                    <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Use the page tours too</h2>
+                    <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Operational pages have a small <strong>Tour</strong> button in the lower-right corner. The tour opens automatically the first time you visit a supported workflow page, then stays out of the way. Tap Tour anytime to replay it.</p>
+                </div>
             </div>
         </section>
     </div>

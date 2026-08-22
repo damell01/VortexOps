@@ -87,7 +87,19 @@ class ShowStreamerLogWidget extends Widget
         $log = $this->getLog();
         if (! $log) return;
 
+        // rejectByAdmin() handles inventory reversal + notification. Normalize
+        // the state afterward to the status already used by the older Streamer
+        // Log pages so both review surfaces agree about what the streamer sees.
         $log->rejectByAdmin($notes);
+        $log->update([
+            'status' => 'changes_requested',
+            'reviewed_at' => null,
+            'reviewed_by' => null,
+            'fulfillment_reviewed_at' => null,
+            'fulfillment_reviewed_by' => null,
+            'locked_at' => null,
+        ]);
+
         $this->showRejectForm = false;
         $this->rejectionNotes = '';
 

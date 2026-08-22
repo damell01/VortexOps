@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\InventoryItemResource\Pages;
 
+use App\Filament\Pages\InventoryScanner;
 use App\Filament\Resources\InventoryItemResource;
+use App\Filament\Resources\PalletResource;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\CreateAction;
@@ -27,21 +29,14 @@ class ListInventoryItems extends ListRecords
 
     public function getSubheading(): ?string
     {
-        return 'Manage and track all of your inventory items.';
+        return 'Find stock, scan items, receive shipments, and make inventory changes from one place.';
     }
 
-    /** The title says where you are; the crumb trail above it was one row of noise. */
     public function getBreadcrumbs(): array
     {
         return [];
     }
 
-    /**
-     * Headline counts for the tiles above the table.
-     *
-     * Scoped through the resource's own query so a streamer sees counts for
-     * their locations only, matching the rows they can actually see.
-     */
     public function getStats(): array
     {
         if ($this->statsMemo !== null) {
@@ -51,9 +46,9 @@ class ListInventoryItems extends ListRecords
         $items = InventoryItemResource::getEloquentQuery()
             ->get(['products.id', 'products.reorder_level']);
 
-        $total  = $items->count();
-        $out    = 0;
-        $low    = 0;
+        $total = $items->count();
+        $out = 0;
+        $low = 0;
 
         foreach ($items as $item) {
             $onHand = (float) ($item->stock_sum_quantity ?? 0);
@@ -70,52 +65,49 @@ class ListInventoryItems extends ListRecords
         $share = fn (int $n) => $total > 0 ? round(($n / $total) * 100, 1) . '% of total' : '—';
 
         return $this->statsMemo = [
-            [
-                'label' => 'Total Items',
-                'value' => number_format($total),
-                'sub'   => 'All items',
-                'icon'  => 'heroicon-o-cube',
-                'tone'  => 'purple',
-            ],
-            [
-                'label' => 'In Stock',
-                'value' => number_format($inStock),
-                'sub'   => $share($inStock),
-                'icon'  => 'heroicon-o-check-circle',
-                'tone'  => 'green',
-            ],
-            [
-                'label' => 'Low Stock',
-                'value' => number_format($low),
-                'sub'   => $share($low),
-                'icon'  => 'heroicon-o-exclamation-circle',
-                'tone'  => 'amber',
-            ],
-            [
-                'label' => 'Out of Stock',
-                'value' => number_format($out),
-                'sub'   => $share($out),
-                'icon'  => 'heroicon-o-x-circle',
-                'tone'  => 'red',
-            ],
+            ['label' => 'Total Items', 'value' => number_format($total), 'sub' => 'All items', 'icon' => 'heroicon-o-cube', 'tone' => 'purple'],
+            ['label' => 'In Stock', 'value' => number_format($inStock), 'sub' => $share($inStock), 'icon' => 'heroicon-o-check-circle', 'tone' => 'green'],
+            ['label' => 'Low Stock', 'value' => number_format($low), 'sub' => $share($low), 'icon' => 'heroicon-o-exclamation-circle', 'tone' => 'amber'],
+            ['label' => 'Out of Stock', 'value' => number_format($out), 'sub' => $share($out), 'icon' => 'heroicon-o-x-circle', 'tone' => 'red'],
         ];
     }
 
     protected function getHeaderActions(): array
     {
-        $canExport = fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner();
-
-        $canCreate = function () {
-            $user = auth()->user();
-
-            return ($user?->isAdmin() ?? false)
-                || ($user?->isOwner() ?? false)
-                || ($user?->isStreamer() ?? false);
-        };
+        $user = auth()->user();
+        $canExport = fn () => $user?->isAdmin() || $user?->isOwner();
+        $canReceive = fn () => $user?->isAdmin() || $user?->isOwner();
+        $canCreate = fn () => ($user?->isAdmin() ?? false)
+            || ($user?->isOwner() ?? false)
+            || ($user?->isStreamer() ?? false);
 
         return [
-            // Three separate export buttons crowded the header; they're one
-            // icon button now, matching the download control in the design.
+            Action::make('scan')
+                ->label('Quick Scan')
+                ->icon('heroicon-o-qr-code')
+                ->color('primary')
+                ->url(fn () => InventoryScanner::getUrl())
+                ->visible($canReceive),
+
+            Action::make('receive')
+                ->label('Receive Shipment')
+                ->icon('heroicon-o-inbox-arrow-down')
+                ->color('success')
+                ->url(fn () => PalletResource::getUrl('index'))
+                ->visible($canReceive),
+
+            Action::make('quick-add')
+                ->label('Quick Add')
+                ->icon('heroicon-o-bolt')
+                ->color('gray')
+                ->url(fn () => InventoryItemResource::getUrl('quick-add'))
+                ->visible($canCreate),
+
+            CreateAction::make()
+                ->label('Add Item')
+                ->icon('heroicon-m-plus')
+                ->visible($canCreate),
+
             ActionGroup::make([
                 Action::make('view-report')
                     ->label('View report')
@@ -133,23 +125,11 @@ class ListInventoryItems extends ListRecords
                     ->url(route('export.inventory-items'))
                     ->openUrlInNewTab(),
             ])
-                ->label('Export')
-                ->icon('heroicon-o-arrow-down-tray')
+                ->label('More')
+                ->icon('heroicon-o-ellipsis-horizontal')
                 ->button()
                 ->color('gray')
                 ->visible($canExport),
-
-            Action::make('quick-add')
-                ->label('Quick Add')
-                ->icon('heroicon-o-bolt')
-                ->color('gray')
-                ->url(fn () => InventoryItemResource::getUrl('quick-add'))
-                ->visible($canCreate),
-
-            CreateAction::make()
-                ->label('Add Item')
-                ->icon('heroicon-m-plus')
-                ->visible($canCreate),
         ];
     }
 }

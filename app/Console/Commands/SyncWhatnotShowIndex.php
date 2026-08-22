@@ -9,6 +9,8 @@ use App\Services\WhatnotScraper;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Symfony\Component\Process\Process;
 
 class SyncWhatnotShowIndex extends Command
@@ -35,8 +37,19 @@ class SyncWhatnotShowIndex extends Command
             return self::FAILURE;
         }
 
+        $maxFutureDays = max(30, min(365, (int) config('vortex.whatnot.max_upcoming_days', 120)));
+        $futureCutoff = today()->addDays($maxFutureDays);
+
+        // UUIDs learned by the repair pass as alternate/duplicate Whatnot rows are
+        // ignored at ingestion. This prevents the same duplicate from being
+        // recreated every ten minutes and then cleaned one minute later.
+        $aliasIds = Schema::hasTable('whatnot_show_aliases')
+            ? DB::table('whatnot_show_aliases')->pluck('duplicate_whatnot_show_id')->filter()->values()->all()
+            : [];
+        $aliasMap = array_fill_keys($aliasIds, true);
+
         $enrichLimit = max(0, min(10, (int) $this->option('enrich')));
-        $enrichIds = Show::query()
+        $enrichQuery = Show::query()
             ->where('whatnot_channel_id', $channel->id)
             ->whereNotNull('whatnot_show_id')
             ->whereDate('show_date', '<=', today())
@@ -45,7 +58,13 @@ class SyncWhatnotShowIndex extends Command
                     ->orWhereNull('completed_earnings')
                     ->orWhereNull('buyers_count')
                     ->orWhereNull('total_views');
-            })
+            });
+
+        if ($aliasIds !== []) {
+            $enrichQuery->whereNotIn('whatnot_show_id', $aliasIds);
+        }
+
+        $enrichIds = $enrichQuery
             ->orderByDesc('show_date')
             ->limit($enrichLimit)
             ->pluck('whatnot_show_id')
@@ -62,9 +81,10 @@ class SyncWhatnotShowIndex extends Command
             'created' => 0,
             'updated' => 0,
             'unchanged' => 0,
-            'current' => count($data['current'] ?? []),
-            'upcoming' => count($data['upcoming'] ?? []),
-            'past' => count($data['past'] ?? []),
+            'current' => 0,
+            'upcoming' => 0,
+            'past' => 0,
+            'skipped' => 0,
             'analytics' => 0,
             'shipments_created' => 0,
             'shipments_updated' => 0,
@@ -77,15 +97,41 @@ class SyncWhatnotShowIndex extends Command
                 if (! is_array($row)) continue;
                 $row['kind'] = $row['kind'] ?? $kind;
                 $liveId = $this->liveId($row);
-                if ($liveId) {
-                    $allRows[$liveId] = $row;
+                if (! $liveId) continue;
+
+                if (isset($aliasMap[$liveId])) {
+                    $counts['skipped']++;
+                    if ($this->option('debug')) $this->line("[whatnot-index] skip alias {$liveId}");
+                    continue;
                 }
+
+                $title = trim((string) ($row['title'] ?? '')) ?: null;
+                $showDate = $this->parseDate($row['date'] ?? $row['show_date'] ?? null);
+                if (! $title || ! $showDate) {
+                    $counts['skipped']++;
+                    continue;
+                }
+
+                // An Upcoming row hundreds of days out was the source of the bogus
+                // 2027 cards. Reject it before the database upsert. Manual shows are
+                // unaffected because only the Whatnot index passes through here.
+                if (($row['kind'] ?? $kind) === 'upcoming' && Carbon::parse($showDate)->gt($futureCutoff)) {
+                    $counts['skipped']++;
+                    if ($this->option('debug')) {
+                        $this->warn("[whatnot-index] rejected impossible future show {$liveId} {$showDate} {$title}");
+                    }
+                    continue;
+                }
+
+                $row['_parsed_show_date'] = $showDate;
+                $allRows[$liveId] = $row;
+                $counts[$kind]++;
             }
         }
 
         foreach ($allRows as $liveId => $row) {
             $title = trim((string) ($row['title'] ?? '')) ?: null;
-            $showDate = $this->parseDate($row['date'] ?? $row['show_date'] ?? null);
+            $showDate = $row['_parsed_show_date'] ?? $this->parseDate($row['date'] ?? $row['show_date'] ?? null);
             if (! $title || ! $showDate) continue;
 
             $show = Show::query()
@@ -137,6 +183,7 @@ class SyncWhatnotShowIndex extends Command
 
         foreach (($data['enriched'] ?? []) as $entry) {
             if (! is_array($entry) || ! ($liveId = $this->liveId($entry))) continue;
+            if (isset($aliasMap[$liveId])) continue;
 
             $show = Show::query()->where('whatnot_show_id', $liveId)->first();
             if (! $show) continue;
@@ -218,10 +265,10 @@ class SyncWhatnotShowIndex extends Command
 
         $this->info("Whatnot show sync complete for {$channel->name}:");
         $this->table(
-            ['Current', 'Upcoming', 'Past', 'Created', 'Updated', 'Analytics', 'Shipments +', 'Shipments ↻'],
+            ['Current', 'Upcoming', 'Past', 'Created', 'Updated', 'Skipped', 'Analytics', 'Shipments +', 'Shipments ↻'],
             [[
                 $counts['current'], $counts['upcoming'], $counts['past'],
-                $counts['created'], $counts['updated'], $counts['analytics'],
+                $counts['created'], $counts['updated'], $counts['skipped'], $counts['analytics'],
                 $counts['shipments_created'], $counts['shipments_updated'],
             ]]
         );

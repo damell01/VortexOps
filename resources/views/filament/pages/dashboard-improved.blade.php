@@ -1,152 +1,108 @@
 <x-filament-panels::page>
-    <div class="space-y-6 animate-fade-in">
-        {{-- Quick Status Cards --}}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in-up">
-            @if(auth()->user()?->isStreamer() && !auth()->user()?->isAdmin())
-                {{-- Streamer: Shows Awaiting Action --}}
-                <div class="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-xl p-6 shadow-sm hover:shadow-md transition">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-bold text-amber-900">Shows to Process</h3>
-                        <span class="bg-amber-500 text-white rounded-full px-3 py-1 text-sm font-semibold">{{ $pendingShows ?? 0 }}</span>
+    <div class="space-y-5">
+        @if(($roleMode ?? 'user') === 'streamer')
+            <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                <div class="p-5 sm:p-6">
+                    <div class="text-xs font-semibold uppercase tracking-wide text-primary-600">Streamer Center</div>
+                    <div class="mt-1 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <h1 class="text-2xl font-semibold text-gray-950 dark:text-white">Your shows and inventory</h1>
+                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Transfer inventory normally before a show. After it ends, report what was sold, given away, or used as promo inventory.</p>
+                        </div>
+                        @if($nextShow)
+                            <a href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $nextShow]) }}" class="rounded-xl border border-primary-200 bg-primary-50 px-4 py-3 text-sm dark:border-primary-900 dark:bg-primary-950/30">
+                                <div class="text-xs font-medium text-primary-600">Next Show</div>
+                                <div class="mt-1 max-w-64 font-semibold text-gray-950 dark:text-white">{{ $nextShow->title }}</div>
+                                <div class="mt-1 text-xs text-gray-500">{{ $nextShow->show_date?->format('M j, Y') }} @if($nextShow->start_time) · {{ $nextShow->start_time->format('g:i A') }} @endif</div>
+                            </a>
+                        @endif
                     </div>
-                    <p class="text-sm text-amber-800 mb-4">Shows that need items mapped and costs entered</p>
-                    <p class="text-xs text-amber-600">Check your Streamer Log in the sidebar to view and process shows</p>
                 </div>
 
-                {{-- Streamer: Pending Payouts --}}
-                <div class="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-6 shadow-sm hover:shadow-md transition">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-bold text-green-900">Pending Payouts</h3>
-                        <span class="bg-green-500 text-white rounded-full px-3 py-1 text-sm font-semibold">{{ $pendingPayouts ?? 0 }}</span>
-                    </div>
-                    <p class="text-sm text-green-800 mb-4">Approved payouts waiting to be processed</p>
-                    <a href="{{ route('filament.admin.resources.payouts.index', ['tableFilters[status][value]' => 'approved']) }}"
-                       class="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2.5 rounded-lg font-medium transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        View Payouts →
-                    </a>
+                <div class="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-4 dark:bg-gray-800">
+                    @foreach ([
+                        ['Reports Due', $reportsDue ?? 0, 'Open ended shows and finish your report'],
+                        ['Inventory Products', $inventoryCount ?? 0, 'Products currently in your inventory'],
+                        ['Inventory Units', $inventoryUnits ?? 0, 'Units available across your locations'],
+                        ['Giveaways · 30d', $giveawayUnits30 ?? 0, 'Units recorded as giveaways'],
+                    ] as [$label, $value, $caption])
+                        <div class="bg-white p-4 dark:bg-gray-900">
+                            <div class="text-xs text-gray-500">{{ $label }}</div>
+                            <div class="mt-1 text-2xl font-semibold text-gray-950 dark:text-white">{{ number_format((float)$value) }}</div>
+                            <div class="mt-1 text-[11px] leading-4 text-gray-400">{{ $caption }}</div>
+                        </div>
+                    @endforeach
                 </div>
+            </section>
 
-                {{-- Streamer: Inventory Overview --}}
-                <div class="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl p-6 shadow-sm hover:shadow-md transition">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-bold text-purple-900">Your Inventory</h3>
-                        <span class="bg-purple-500 text-white rounded-full px-3 py-1 text-sm font-semibold">{{ $inventoryCount ?? 0 }}</span>
+            @if(($reportsDue ?? 0) > 0)
+                <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <div class="font-semibold text-amber-900 dark:text-amber-100">You have {{ $reportsDue }} show {{ \Illuminate\Support\Str::plural('report', $reportsDue) }} to finish</div>
+                            <p class="mt-1 text-sm text-amber-700 dark:text-amber-300">Use End of Stream to add sold inventory, giveaways, promo items, and anything not in the catalog.</p>
+                        </div>
+                        <a href="{{ \App\Filament\Pages\EndOfStreamForm::getUrl() }}" class="rounded-lg bg-amber-600 px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-amber-500">Open End of Stream</a>
                     </div>
-                    <p class="text-sm text-purple-800 mb-4">Items you can map from your inventory</p>
-                    <a href="{{ route('filament.admin.resources.inventory-items.index') }}"
-                       class="inline-flex items-center gap-2 bg-purple-500 hover:bg-purple-600 text-white px-4 py-2.5 rounded-lg font-medium transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                        </svg>
-                        View Inventory →
-                    </a>
-                </div>
-            @elseif(auth()->user()?->isFulfillment() && !auth()->user()?->isAdmin())
-                {{-- Fulfillment: Shows to Fulfill --}}
-                <div class="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl p-6 shadow-sm hover:shadow-md transition">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-bold text-blue-900">Shows to Fulfill</h3>
-                        <span class="bg-blue-500 text-white rounded-full px-3 py-1 text-sm font-semibold">{{ $showsToFulfill ?? 0 }}</span>
-                    </div>
-                    <p class="text-sm text-blue-800 mb-4">Shows with items ready to pack and ship</p>
-                    <a href="{{ route('filament.admin.resources.fulfillment-center.index') }}"
-                       class="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2.5 rounded-lg font-medium transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.325 15.581l-5.404-5.404a1.5 1.5 0 10-2.122 2.122l5.404 5.404c.586.586 1.535.586 2.122 0zM9 3a6 6 0 100 12A6 6 0 009 3z"></path>
-                        </svg>
-                        Start Fulfilling →
-                    </a>
-                </div>
-
-                {{-- Fulfillment: Shipments to Track --}}
-                <div class="bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200 rounded-xl p-6 shadow-sm hover:shadow-md transition">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-bold text-orange-900">Shipments Ready</h3>
-                        <span class="bg-orange-500 text-white rounded-full px-3 py-1 text-sm font-semibold">{{ $readyToShip ?? 0 }}</span>
-                    </div>
-                    <p class="text-sm text-orange-800 mb-4">Items packed and ready for carrier pickup</p>
-                    <a href="{{ route('filament.admin.resources.shipments.index', ['tableFilters[status][value]' => 'Ready to Ship']) }}"
-                       class="inline-flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2.5 rounded-lg font-medium transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                        </svg>
-                        Review Shipments →
-                    </a>
-                </div>
-
-                {{-- Fulfillment: In Transit --}}
-                <div class="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-6 shadow-sm hover:shadow-md transition">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-bold text-indigo-900">In Transit</h3>
-                        <span class="bg-indigo-500 text-white rounded-full px-3 py-1 text-sm font-semibold">{{ $inTransit ?? 0 }}</span>
-                    </div>
-                    <p class="text-sm text-indigo-800 mb-4">Shipments currently being delivered</p>
-                    <a href="{{ route('filament.admin.resources.shipments.index', ['tableFilters[status][value]' => 'Shipped']) }}"
-                       class="inline-flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2.5 rounded-lg font-medium transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                        </svg>
-                        Track Shipments →
-                    </a>
-                </div>
-            @elseif(auth()->user()?->isAdmin())
-                {{-- Admin: Pending Shows --}}
-                <div class="bg-gradient-to-br from-red-50 to-pink-50 border-2 border-red-200 rounded-xl p-6 shadow-sm hover:shadow-md transition">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-bold text-red-900">Pending Review</h3>
-                        <span class="bg-red-500 text-white rounded-full px-3 py-1 text-sm font-semibold">{{ $pendingReview ?? 0 }}</span>
-                    </div>
-                    <p class="text-sm text-red-800 mb-4">Shows awaiting admin review and approval</p>
-                    <a href="{{ route('filament.admin.resources.shows.index', ['tableFilters[status][value]' => 'pending_review']) }}"
-                       class="inline-flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2.5 rounded-lg font-medium transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                        </svg>
-                        Review Now →
-                    </a>
-                </div>
-
-                {{-- Admin: Pending Payouts --}}
-                <div class="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-6 shadow-sm hover:shadow-md transition">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-bold text-green-900">Payouts to Process</h3>
-                        <span class="bg-green-500 text-white rounded-full px-3 py-1 text-sm font-semibold">{{ $draftPayouts ?? 0 }}</span>
-                    </div>
-                    <p class="text-sm text-green-800 mb-4">Draft payouts ready for approval and payment</p>
-                    <a href="{{ route('filament.admin.resources.payouts.index', ['tableFilters[status][value]' => 'draft']) }}"
-                       class="inline-flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2.5 rounded-lg font-medium transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        </svg>
-                        Process Payouts →
-                    </a>
-                </div>
-
-                {{-- Admin: Inventory Management --}}
-                <div class="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl p-6 shadow-sm hover:shadow-md transition">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-bold text-blue-900">Low Stock Items</h3>
-                        <span class="bg-blue-500 text-white rounded-full px-3 py-1 text-sm font-semibold">{{ $lowStock ?? 0 }}</span>
-                    </div>
-                    <p class="text-sm text-blue-800 mb-4">Items below reorder level that need attention</p>
-                    <a href="{{ route('filament.admin.resources.inventory-stocks.index') }}"
-                       class="inline-flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2.5 rounded-lg font-medium transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-                        </svg>
-                        Manage Inventory →
-                    </a>
-                </div>
+                </section>
             @endif
-        </div>
+        @elseif(($roleMode ?? 'user') === 'fulfillment')
+            <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                <div class="p-5 sm:p-6">
+                    <div class="text-xs font-semibold uppercase tracking-wide text-primary-600">Fulfillment Operations</div>
+                    <h1 class="mt-1 text-2xl font-semibold text-gray-950 dark:text-white">Shows that need shipping attention</h1>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Work by show first, then drill into Whatnot shipments and packing lines. Your time tracking remains separate.</p>
+                </div>
 
-        {{-- Dashboard Widgets --}}
-        <x-filament-widgets::widgets
-            :widgets="$this->getWidgets()"
-            :columns="$this->getColumns()"
-        />
+                <div class="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-4 dark:bg-gray-800">
+                    @foreach ([
+                        ['Shows to Work', $showsToFulfill ?? 0],
+                        ['Open Shipments', $openShipments ?? 0],
+                        ['Delivered Today', $deliveredToday ?? 0],
+                        ['Unassigned Shows', $unassignedShows ?? 0],
+                    ] as [$label, $value])
+                        <div class="bg-white p-4 dark:bg-gray-900">
+                            <div class="text-xs text-gray-500">{{ $label }}</div>
+                            <div class="mt-1 text-2xl font-semibold text-gray-950 dark:text-white">{{ number_format((float)$value) }}</div>
+                        </div>
+                    @endforeach
+                </div>
+            </section>
+
+            <section class="rounded-2xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-900 dark:bg-blue-950/30">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <div class="font-semibold text-blue-900 dark:text-blue-100">Start from the Fulfillment Center</div>
+                        <p class="mt-1 text-sm text-blue-700 dark:text-blue-300">Shows are sorted by date and expose shipment progress, assigned fulfillment users, and next action.</p>
+                    </div>
+                    <a href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('index') }}" class="rounded-lg bg-blue-600 px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-blue-500">Open Fulfillment Center</a>
+                </div>
+            </section>
+        @elseif(($roleMode ?? 'user') === 'admin')
+            <section class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
+                <div class="p-5 sm:p-6">
+                    <div class="text-xs font-semibold uppercase tracking-wide text-primary-600">Admin Operations Center</div>
+                    <h1 class="mt-1 text-2xl font-semibold text-gray-950 dark:text-white">What needs attention right now</h1>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Post-show reporting, inventory reconciliation, fulfillment ownership, and Whatnot shipment state in one place.</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-px bg-gray-100 sm:grid-cols-5 dark:bg-gray-800">
+                    @foreach ([
+                        ['Reports to Review', $reportsToReview ?? 0],
+                        ['Unmatched Items', $unmatchedItems ?? 0],
+                        ['Open Shipments', $openShipments ?? 0],
+                        ['Unassigned Fulfillment', $unassignedFulfillment ?? 0],
+                        ['Draft Payouts', $draftPayouts ?? 0],
+                    ] as [$label, $value])
+                        <div class="bg-white p-4 dark:bg-gray-900">
+                            <div class="text-xs text-gray-500">{{ $label }}</div>
+                            <div class="mt-1 text-2xl font-semibold text-gray-950 dark:text-white">{{ number_format((float)$value) }}</div>
+                        </div>
+                    @endforeach
+                </div>
+            </section>
+        @endif
+
+        <x-filament-widgets::widgets :widgets="$this->getWidgets()" :columns="$this->getColumns()" />
     </div>
 </x-filament-panels::page>

@@ -2,51 +2,59 @@
 
 namespace App\Support;
 
-/**
- * What each screen's guided tour says, and which element each line points at.
- *
- * Tours live here as data rather than inside the pages they describe, for two
- * reasons. Steps are copy — they get reworded far more often than the screens
- * do, and hunting through Filament resources to fix a sentence is how
- * documentation stops being maintained. And keeping them together makes the set
- * reviewable: you can read every tour in the app in one sitting and notice that
- * two screens explain the same idea differently.
- *
- * A step's `el` is a CSS selector against the rendered page. Selectors that
- * match nothing are dropped before the tour starts rather than pointing at
- * empty space — see the note on filtering in tourFor().
- */
+/** Central copy and selectors for the in-app guided tours. */
 class GuidedTours
 {
-    /**
-     * Steps keyed by tour id.
-     *
-     * @return array<string, array{title: string, steps: array<int, array<string, string>>}>
-     */
     public static function definitions(): array
     {
         return [
             'inventory-list' => [
-                'title' => 'All Inventory',
+                'title' => 'Inventory Center',
                 'steps' => [
                     [
-                        'title' => 'Everything you stock',
-                        'body'  => 'One row per item. The number you have is stock; the row itself is the item. Adding a second row for something you already stock is the mistake this page exists to prevent.',
+                        'el' => '[data-tour="inventory-start"]',
+                        'title' => 'Start with the job you are doing',
+                        'body' => 'Quick Add is for a simple new product, Quick Scan is for something already in your hand, and Receive Shipment is for pallets or vendor deliveries. You do not need to start with a long form.',
                     ],
                     [
-                        'el'    => '.fi-ta-search-field, .fi-input-wrp:has(input[type="search"])',
-                        'title' => 'Search before you add',
-                        'body'  => 'Search by name, SKU or barcode. If it turns up here, add stock to it instead of creating a new item.',
+                        'el' => '.fi-ta-search-field, .fi-input-wrp:has(input[type="search"])',
+                        'title' => 'Search before creating another item',
+                        'body' => 'Search by product name, SKU, or barcode first. If the item already exists, open it and change or move its stock instead of creating a duplicate product.',
                     ],
                     [
-                        'el'    => '.fi-ta-header-toolbar .fi-btn, .fi-header-heading + * .fi-btn',
-                        'title' => 'Adding something new',
-                        'body'  => 'Only for items that genuinely do not exist yet. Quick Add asks the minimum; the full form covers vendor, reorder points and notes.',
+                        'el' => '[data-tour="inventory-health"]',
+                        'title' => 'Stock health at a glance',
+                        'body' => 'These totals show what is in stock, low, or out. They use the same inventory visibility rules as the list below.',
                     ],
                     [
-                        'el'    => '.fi-ta-filters-trigger, .fi-ta-actions',
-                        'title' => 'Narrowing the list',
-                        'body'  => 'Filter by location or category when you are counting one shelf rather than browsing everything.',
+                        'el' => '[data-tour="inventory-list"]',
+                        'title' => 'Open an item for the full story',
+                        'body' => 'The item page is where you see stock by location, movement history, case/container contents, transfers, and adjustments. Keep the main list for finding things quickly.',
+                    ],
+                ],
+            ],
+
+            'inventory-scanner' => [
+                'title' => 'Quick Scan',
+                'steps' => [
+                    [
+                        'title' => 'Scan something in your hand',
+                        'body' => 'Use Lookup when you want to identify an item or see where it is. Use Quick Add when you are intentionally booking stock into a location.',
+                    ],
+                    [
+                        'el' => '#camera-scan-btn, #camera-scan-btn-mobile, [data-camera-scan]',
+                        'title' => 'Use the rear camera',
+                        'body' => 'Tap Camera and point the phone at the UPC or barcode. The scanner confirms the same code several times before accepting it to reduce false reads. Manual entry is always available as a fallback.',
+                    ],
+                    [
+                        'el' => 'input[id*="barcode"], input[placeholder*="barcode" i], input[placeholder*="scan" i]',
+                        'title' => 'Scanner guns work too',
+                        'body' => 'A USB or Bluetooth scanner can type directly into the barcode field. Lookup automatically runs when a complete code arrives; Quick Add stays explicit so a partial scan cannot change stock.',
+                    ],
+                    [
+                        'el' => '.fi-main, main',
+                        'title' => 'For shipments, use Receive Inventory',
+                        'body' => 'Quick Scan is for one item at a time. A vendor pallet should be received from its pallet screen so expected quantities, landed cost, shortages, photos, and receiving history stay together.',
                     ],
                 ],
             ],
@@ -55,68 +63,114 @@ class GuidedTours
                 'title' => 'Quick Add',
                 'steps' => [
                     [
-                        'title' => 'Three steps, one required field',
-                        'body'  => 'Only the item name is required. Everything else can be filled in later from the item page.',
+                        'title' => 'Keep it quick',
+                        'body' => 'Use this when you need a simple inventory record now. Start with the product name and barcode; details such as notes, vendor settings, and reorder information can be filled in later.',
                     ],
                     [
-                        'el'    => 'input[wire\\:model="data.name"]',
-                        'title' => 'Name it as you would say it',
-                        'body'  => 'Use the name you would use out loud — "2024 Topps Chrome Hobby Box". This is what everyone searches for later.',
+                        'el' => 'input[wire\\:model="data.name"]',
+                        'title' => 'Use a name people will actually search',
+                        'body' => 'Name the product the way someone in the warehouse would say it. Clear names make receiving and show reporting much faster later.',
                     ],
                     [
-                        'el'    => '#quickadd-scan-btn',
-                        'title' => 'Scan the barcode',
-                        'body'  => 'Opens the camera and fills the barcode field. A USB scanner gun works too — click into the field and scan. If the barcode is already on another item, that item already exists.',
+                        'el' => '#quickadd-scan-btn',
+                        'title' => 'Scan instead of typing a UPC',
+                        'body' => 'Tap Scan Barcode to open the camera. If the barcode already belongs to another product, use that existing product rather than making another copy.',
                     ],
                     [
-                        'el'    => 'input[wire\\:model="data.sku"]',
+                        'el' => 'input[wire\\:model="data.sku"]',
                         'title' => 'SKU is optional',
-                        'body'  => 'Leave it blank if you do not have one. Blank is fine on any number of items.',
+                        'body' => 'Leave SKU blank when you do not have one. A barcode or the product name can still identify the item.',
                     ],
                 ],
             ],
 
             'inventory-locations' => [
-                'title' => 'Locations',
+                'title' => 'Inventory Locations',
                 'steps' => [
                     [
-                        'title' => 'Places stock can sit',
-                        'body'  => 'Nothing else in inventory works until one exists — an empty location dropdown elsewhere in the app usually means this page is empty.',
+                        'title' => 'Locations are where stock actually sits',
+                        'body' => 'Every quantity belongs to a location. Main storage, streamer inventory, receiving, damaged stock, and other areas should be represented accurately because transfers use these locations.',
                     ],
                     [
-                        'el'    => '.fi-ta-header-toolbar .fi-btn',
-                        'title' => 'The general one is Main Storage',
-                        'body'  => 'There is no type called "warehouse". Main Storage is the general-purpose shelf. Create it if you cannot find it.',
+                        'el' => '.fi-ta-header-toolbar .fi-btn, .fi-page-header-actions .fi-btn',
+                        'title' => 'Use the correct location type',
+                        'body' => 'Main Storage is the normal shared stock location. Streamer Inventory is intentionally scoped to a streamer, so do not use that type for a general shelf.',
                     ],
                     [
-                        'el'    => '.fi-ta-table tbody tr:first-child',
-                        'title' => 'Type is not decoration',
-                        'body'  => 'Streamer Inventory locations are filtered per streamer — a streamer sees only their own. Naming a shared shelf that way hides it from everybody else.',
+                        'el' => '.fi-ta-table tbody tr:first-child, .fi-ta',
+                        'title' => 'Move stock instead of editing history',
+                        'body' => 'When inventory changes places, use the item transfer action. That preserves a movement record instead of silently changing a location.',
+                    ],
+                ],
+            ],
+
+            'pallet-list' => [
+                'title' => 'Receive Inventory',
+                'steps' => [
+                    [
+                        'title' => 'One pallet is one vendor delivery workspace',
+                        'body' => 'Create or open the delivery you are physically receiving. Keep its packing slip, expected lines, freight, photos, shortages, and received quantities together.',
+                    ],
+                    [
+                        'el' => '.fi-ta-search-field, .fi-ta',
+                        'title' => 'Find the pallet, then work inside it',
+                        'body' => 'Search by pallet name, vendor, or reference. Open the pallet instead of receiving its products independently so landed cost and receiving history remain accurate.',
+                    ],
+                    [
+                        'el' => '.fi-page-header-actions, .fi-ta-header-toolbar',
+                        'title' => 'New delivery starts here',
+                        'body' => 'Create a pallet when a shipment is expected or arrives. Add the manifest, then use its Receive screen while unloading it.',
                     ],
                 ],
             ],
 
             'pallet-view' => [
-                'title' => 'Receiving a pallet',
+                'title' => 'Pallet Workspace',
                 'steps' => [
                     [
-                        'title' => 'The pallet is the workspace',
-                        'body'  => 'Everything about this delivery lives here — expected items, photos, paperwork and the costs that decide what the stock is worth.',
+                        'title' => 'Everything about this delivery stays together',
+                        'body' => 'Expected products, paperwork, costs, photos, shortages, and receiving progress all belong to this pallet.',
                     ],
                     [
-                        'el'    => '[data-tour="pallet-lines"], .fi-section:has(table)',
-                        'title' => 'Expected items',
-                        'body'  => 'One line per product on the pallet. Add them by name as you read the packing slip; the item does not need to exist yet.',
+                        'el' => '[data-tour="pallet-lines"], .fi-section:has(table)',
+                        'title' => 'Manifest lines are what you expect',
+                        'body' => 'One line should represent each product or case on the packing slip. A product does not have to exist in inventory before the pallet arrives.',
                     ],
                     [
-                        'el'    => '[data-tour="pallet-scan"]',
-                        'title' => 'Scan as you unload',
-                        'body'  => 'Scan each case to receive it, or use Receive All on a line you have counted by hand.',
+                        'el' => '[data-tour="pallet-scan"], .fi-page-header-actions',
+                        'title' => 'Open Receive when the shipment is in front of you',
+                        'body' => 'The Receive screen is designed for the warehouse floor. Scan each line, count a full line when appropriate, and record shortages without leaving the pallet.',
                     ],
                     [
-                        'el'    => '[data-tour="pallet-costs"]',
-                        'title' => 'Freight belongs on the pallet',
-                        'body'  => 'Shipping and fees entered here spread across the lines, which is what makes landed cost correct. Adding boxes one at a time elsewhere loses this.',
+                        'el' => '[data-tour="pallet-costs"]',
+                        'title' => 'Keep freight and fees with the delivery',
+                        'body' => 'Shipping and payment fees belong on the pallet because they are part of landed inventory cost.',
+                    ],
+                ],
+            ],
+
+            'pallet-receive' => [
+                'title' => 'Receiving Station',
+                'steps' => [
+                    [
+                        'el' => '[data-tour="receiving-summary"], main',
+                        'title' => 'Work from expected to received',
+                        'body' => 'The progress count is the main signal: how many boxes were expected, how many are in, and what is still left to handle.',
+                    ],
+                    [
+                        'el' => '[data-tour="pallet-scan"], #camera-scan-btn-mobile, #camera-scan-btn',
+                        'title' => 'Tap Scan on the item you are holding',
+                        'body' => 'For an unmapped line, tapping Scan aims the next barcode at that exact line and opens the camera on a phone. The first successful scan can create/link the product and count the box in one flow.',
+                    ],
+                    [
+                        'el' => '[data-tour="manifest-lines"], .fi-main',
+                        'title' => 'Use Receive All only after you counted the line',
+                        'body' => 'Receive All is the fast path when every expected box for a mapped line is physically present. Otherwise keep scanning so the progress remains honest.',
+                    ],
+                    [
+                        'el' => '[data-tour="receiving-complete"], .fi-main',
+                        'title' => 'Record exceptions before completing',
+                        'body' => 'Mark shortages when something did not arrive and add photos or paperwork if useful. Finalize only after the receiving summary matches what you actually received.',
                     ],
                 ],
             ],
@@ -124,85 +178,44 @@ class GuidedTours
             'payouts' => [
                 'title' => 'Payouts',
                 'steps' => [
-                    [
-                        'title' => 'What each streamer is owed',
-                        'body'  => 'One row per payout. The type decides how it is calculated — profit share, hourly, PWE and labels, or a flat rate.',
-                    ],
-                    [
-                        'el'    => '.fi-ta-filters-trigger, .fi-ta-actions',
-                        'title' => 'Work one week at a time',
-                        'body'  => 'Filter to the week you are paying. Batches group a week of payouts so they can be approved and paid together.',
-                    ],
-                    [
-                        'el'    => '.fi-ta-table tbody tr:first-child',
-                        'title' => 'Check before approving',
-                        'body'  => 'Open a payout to see the shows and figures behind the number. Approval is the point it becomes a real obligation.',
-                    ],
+                    ['title' => 'What each worker is owed', 'body' => 'One row per payout. The configured pay type determines how the amount is calculated.'],
+                    ['el' => '.fi-ta-filters-trigger, .fi-ta-actions', 'title' => 'Work one period at a time', 'body' => 'Filter to the period being paid and review the source figures before approval.'],
+                    ['el' => '.fi-ta-table tbody tr:first-child', 'title' => 'Check before approving', 'body' => 'Open a payout to see what produced the amount. Approval is the point it becomes a real payment obligation.'],
                 ],
             ],
         ];
     }
 
-    /**
-     * Which screen shows which tour.
-     *
-     * Keyed by Filament's route name rather than by page class, so a tour is
-     * attached without editing the page — resource List and Edit pages are
-     * Filament's own classes, and adding a trait to each of them to hold one
-     * string is a lot of edits to maintain a lookup table that reads better in
-     * one place anyway.
-     *
-     * @return array<string, string>
-     */
     public static function routeMap(): array
     {
         return [
-            'filament.admin.resources.inventory-items.index'     => 'inventory-list',
+            'filament.admin.resources.inventory-items.index' => 'inventory-list',
             'filament.admin.resources.inventory-items.quick-add' => 'inventory-quick-add',
+            'filament.admin.pages.inventory-scanner' => 'inventory-scanner',
             'filament.admin.resources.inventory-locations.index' => 'inventory-locations',
-            'filament.admin.resources.pallets.view'              => 'pallet-view',
-            'filament.admin.resources.payouts.index'             => 'payouts',
+            'filament.admin.resources.pallets.index' => 'pallet-list',
+            'filament.admin.resources.pallets.view' => 'pallet-view',
+            'filament.admin.resources.pallets.receive' => 'pallet-receive',
+            'filament.admin.resources.payouts.index' => 'payouts',
         ];
     }
 
-    /**
-     * The tour for the current route, already marked with whether it should
-     * open itself for this viewer.
-     *
-     * @return array<string, mixed>|null
-     */
     public static function forRoute(?string $routeName, ?object $user = null): ?array
     {
         $tour = static::tourFor(static::routeMap()[$routeName] ?? null);
+        if ($tour === null) return null;
 
-        if ($tour === null) {
-            return null;
-        }
-
-        // Still offered after it has been seen — the launcher stays in the
-        // header — but it stops opening itself.
         $seen = $user?->completed_tours ?? [];
-
         return [...$tour, 'auto' => ! in_array($tour['id'], $seen, true)];
     }
 
-    /**
-     * The tour for a page, or null when it has none.
-     *
-     * @return array{id: string, title: string, steps: array<int, array<string, string>>}|null
-     */
     public static function tourFor(?string $id): ?array
     {
-        if ($id === null) {
-            return null;
-        }
-
+        if ($id === null) return null;
         $tour = static::definitions()[$id] ?? null;
-
         return $tour === null ? null : ['id' => $id, ...$tour];
     }
 
-    /** Every tour id, for validating what a page asks for. */
     public static function ids(): array
     {
         return array_keys(static::definitions());

@@ -107,17 +107,56 @@ class ManageStockPageTest extends TestCase
 
         $this->assertSame('adjustment', $movement->movement_type);
         $this->assertEqualsWithDelta(-6.0, $movement->signedChange(), 0.01);
-        $this->assertSame('six were water damaged', $movement->reason);
+
+        // The note is kept, and the category it was filed under is kept with
+        // it. Reading back "six were water damaged" alone leaves the reader to
+        // infer whether that was a correction, a loss or a write-off.
+        $this->assertStringContainsString('six were water damaged', $movement->reason);
+        $this->assertStringContainsString('Inventory Correction', $movement->reason);
     }
 
-    public function test_an_adjustment_without_a_reason_is_refused(): void
+    public function test_a_category_is_explanation_enough_on_its_own(): void
     {
-        // A number nobody can explain later is worse than no number.
+        // A number nobody can explain later is worse than no number — but the
+        // category is that explanation. Demanding prose on top of "Giveaway"
+        // buys nothing and gets typed around.
         $before = InventoryMovement::count();
 
         $this->page()
             ->set('newQuantity', '14')
             ->set('reason', '')
+            ->call('submit');
+
+        $this->assertSame($before + 1, InventoryMovement::count());
+        $this->assertEqualsWithDelta(14.0, $this->stockAt($this->main), 0.01);
+        $this->assertStringContainsString('Inventory Correction', InventoryMovement::latest('id')->first()->reason);
+    }
+
+    public function test_other_is_the_one_category_that_explains_nothing(): void
+    {
+        // "Other" names no reason at all, so the note is the whole record.
+        $before = InventoryMovement::count();
+
+        $this->page()
+            ->set('adjustmentType', 'other')
+            ->set('newQuantity', '14')
+            ->set('reason', '')
+            ->call('submit');
+
+        $this->assertSame($before, InventoryMovement::count());
+        $this->assertEqualsWithDelta(20.0, $this->stockAt($this->main), 0.01);
+    }
+
+    public function test_a_reason_that_removes_stock_must_actually_remove_stock(): void
+    {
+        // Filing an increase as a giveaway would leave the movement log saying
+        // the opposite of what happened.
+        $before = InventoryMovement::count();
+
+        $this->page()
+            ->set('adjustmentType', 'giveaway')
+            ->set('newQuantity', '26')
+            ->set('reason', 'gave some away')
             ->call('submit');
 
         $this->assertSame($before, InventoryMovement::count());

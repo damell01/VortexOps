@@ -98,15 +98,37 @@ class QuickAddInventoryItemTest extends TestCase
         $this->assertSame(0, InventoryItem::count());
     }
 
-    public function test_a_failed_validation_returns_to_the_step_holding_the_field(): void
+    public function test_a_failed_validation_keeps_what_was_already_typed(): void
     {
-        // Submitting from Review with a bad field used to leave the user on
-        // Review, where the error message had nothing to point at.
+        // This used to check that a bad submit sent the user back to the step
+        // holding the field. There are no steps any more — Quick Add is one
+        // screen — so the question that survives is whether the work already
+        // done is still on the screen to correct, or has to be retyped.
         Livewire::test(QuickAddInventoryItem::class)
-            ->set('currentStep', 3)
-            ->set('data', ['unit_cost' => 10])
+            ->set('data', ['unit_cost' => 10, 'category' => 'Sealed Wax'])
             ->call('submit')
-            ->assertSet('currentStep', 1);
+            ->assertHasErrors(['name'])
+            ->assertSet('data.unit_cost', 10)
+            ->assertSet('data.category', 'Sealed Wax');
+
+        $this->assertSame(0, InventoryItem::count());
+    }
+
+    public function test_a_barcode_already_in_use_is_refused_with_the_reason(): void
+    {
+        // The duplicate this page exists to prevent. Creating a second item on
+        // a barcode already in use makes every future scan of that code
+        // ambiguous, and the message has to say so rather than just "taken".
+        InventoryItem::create([
+            'name' => 'Already Here', 'sku' => 'AH-1', 'barcode' => '012345678905', 'is_active' => true,
+        ]);
+
+        Livewire::test(QuickAddInventoryItem::class)
+            ->set('data', ['name' => 'Duplicate Attempt', 'barcode' => '012345678905'])
+            ->call('submit')
+            ->assertHasErrors(['barcode']);
+
+        $this->assertSame(1, InventoryItem::count());
     }
 
     public function test_two_items_can_be_added_without_skus(): void

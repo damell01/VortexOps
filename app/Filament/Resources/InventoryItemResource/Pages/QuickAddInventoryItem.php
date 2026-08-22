@@ -101,12 +101,18 @@ class QuickAddInventoryItem extends Page
         try {
             $validatedData = $this->validated();
         } catch (\Illuminate\Validation\ValidationException $e) {
+            // The toast is worth keeping — on a phone the offending field is
+            // often scrolled off screen — but swallowing the exception here
+            // meant nothing was ever highlighted, while the toast said to go
+            // and check the highlighted fields. Re-throwing lets Livewire fill
+            // the error bag so the fields actually mark themselves.
             Notification::make()
                 ->title('Check the highlighted fields')
                 ->body(collect($e->errors())->flatten()->join(' '))
                 ->danger()
                 ->send();
-            return;
+
+            throw $e;
         }
 
         try {

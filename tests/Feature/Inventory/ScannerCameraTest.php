@@ -76,14 +76,18 @@ class ScannerCameraTest extends TestCase
             ->assertSet('scanInput', 'half-typed');
     }
 
-    public function test_the_receive_screen_offers_a_camera_button(): void
+    public function test_the_scanner_offers_a_camera_button(): void
     {
+        // The camera used to be a button with its own id and its own preview
+        // element on this page. It is one shared component now, reached by
+        // dispatching open-camera-scanner, so the thing worth asserting is
+        // that a button exists and that it fires that event — testing for the
+        // old id would only prove the old markup was still there.
         $html = $this->receiving()->html();
 
-        // The id in quotes, not the bare string: the wiring script names it too,
-        // and matching that would pass whether or not the button was rendered.
-        $this->assertStringContainsString('id="rcv-camera-btn"', $html, 'no camera button while receiving');
-        $this->assertStringContainsString('zxing-scanner', $html, 'no target for the camera preview');
+        $this->assertStringContainsString('data-camera-scan', $html, 'no camera button on the scanner');
+        $this->assertStringContainsString('openScanner()', $html, 'camera button is not wired to the scanner');
+        $this->assertStringContainsString('open-camera-scanner', $html, 'nothing dispatches the event the scanner listens for');
     }
 
     public function test_the_camera_is_not_offered_before_a_pallet_is_chosen(): void

@@ -14,15 +14,7 @@ use Illuminate\Support\Facades\DB;
 class InventoryService
 {
     public function __construct(private NotificationRouter $notificationRouter) {}
-    /**
-     * Movement types that represent goods arriving at a known cost, and so
-     * should be recorded with that cost and folded into the weighted average.
-     *
-     * An adjustment is a correction and a return comes back at whatever was
-     * already recorded, so neither belongs here. A breakdown does: opening a
-     * case turns one costed thing into several, and the cost has to land on
-     * them or it leaves the books entirely.
-     */
+
     private const COSTED_INTAKE = ['opening', 'breakdown'];
 
     public function addStock(
@@ -47,11 +39,6 @@ class InventoryService
                 'from_location_id' => null,
                 'to_location_id' => $location->id,
                 'quantity' => $quantity,
-                // The level at this location either side of the write. Stored
-                // rather than derived so the history is a record of what the
-                // stock was, not only of what moved — and so nothing has to
-                // work the sign out from which location column happens to be
-                // filled in.
                 'quantity_before' => $before,
                 'quantity_after' => $before + $quantity,
                 'unit_cost' => in_array($movementType, self::COSTED_INTAKE, true) ? $unitCost : null,
@@ -60,14 +47,11 @@ class InventoryService
                 'created_by' => Auth::id(),
             ]);
 
-            // See COSTED_INTAKE: only goods actually arriving at a stated
-            // cost re-average the item.
             if (in_array($movementType, self::COSTED_INTAKE, true) && $unitCost !== null && $unitCost > 0) {
                 app(ReceivingService::class)->recalculateAverageCost($item, $quantity, $unitCost);
             }
 
             $this->notifyIfLowStock($item);
-
             return $movement;
         });
     }
@@ -90,7 +74,6 @@ class InventoryService
             }
 
             $before = (float) $fromStock->quantity;
-
             $fromStock->decrement('quantity', $quantity);
 
             $toStock = InventoryStock::firstOrCreate(
@@ -104,9 +87,6 @@ class InventoryService
                 'from_location_id' => $from->id,
                 'to_location_id' => $to->id,
                 'quantity' => $quantity,
-                // The source side. A transfer nets to zero across the item, so
-                // the levels that mean anything are the ones at the place the
-                // stock left — which is also the side that can go wrong.
                 'quantity_before' => $before,
                 'quantity_after' => $before - $quantity,
                 'movement_type' => 'transfer',
@@ -115,28 +95,20 @@ class InventoryService
             ]);
 
             $this->notifyIfLowStock($item);
-
             return $movement;
         });
     }
 
-    /**
-     * Set stock at a location to an exact quantity.
-     *
-     * $movementType exists so a stocktake can still call itself a stocktake.
-     * The arithmetic, the locking, the before/after and the direction are the
-     * same whatever prompted it — and those are exactly the parts that were
-     * being re-implemented, slightly differently and slightly wrong, wherever a
-     * screen wrote stock for itself.
-     */
     public function adjustStock(
         InventoryItem $item,
         InventoryLocation $location,
         float $newQuantity,
         ?string $reason = null,
-        string $movementType = 'adjustment'
+        string $movementType = 'adjustment',
+        ?string $referenceType = null,
+        ?int $referenceId = null,
     ): InventoryMovement {
-        return DB::transaction(function () use ($item, $location, $newQuantity, $reason, $movementType) {
+        return DB::transaction(function () use ($item, $location, $newQuantity, $reason, $movementType, $referenceType, $referenceId) {
             $stock = InventoryStock::firstOrCreate(
                 ['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id],
                 ['quantity' => 0]
@@ -150,12 +122,13 @@ class InventoryService
                     'quantity' => 0,
                     'movement_type' => $movementType,
                     'reason' => 'No change — quantity already at ' . $newQuantity,
+                    'reference_type' => $referenceType,
+                    'reference_id' => $referenceId,
                     'created_by' => Auth::id(),
                 ]);
             }
 
             $before = (float) $stock->quantity;
-
             $stock->update(['quantity' => $newQuantity]);
 
             $movement = InventoryMovement::create([
@@ -167,11 +140,12 @@ class InventoryService
                 'quantity_after' => $newQuantity,
                 'movement_type' => $movementType,
                 'reason' => $reason ?? 'Manual adjustment',
+                'reference_type' => $referenceType,
+                'reference_id' => $referenceId,
                 'created_by' => Auth::id(),
             ]);
 
             $this->notifyIfLowStock($item);
-
             return $movement;
         });
     }
@@ -193,6 +167,7 @@ class InventoryService
                 throw new \RuntimeException("Insufficient stock at {$from->name}.");
             }
 
+            $before = (float) $fromStock->quantity;
             $fromStock->decrement('quantity', $quantity);
 
             $damagedStock = InventoryStock::firstOrCreate(
@@ -206,6 +181,8 @@ class InventoryService
                 'from_location_id' => $from->id,
                 'to_location_id' => $damagedLocation->id,
                 'quantity' => $quantity,
+                'quantity_before' => $before,
+                'quantity_after' => $before - $quantity,
                 'movement_type' => 'damaged',
                 'reason' => $reason,
                 'created_by' => Auth::id(),
@@ -219,7 +196,6 @@ class InventoryService
                 ->sendToDatabase($this->notificationRouter->getRecipients('damaged'));
 
             $this->notifyIfLowStock($item);
-
             return $movement;
         });
     }
@@ -241,6 +217,7 @@ class InventoryService
                 throw new \RuntimeException("Insufficient stock at {$from->name}.");
             }
 
+            $before = (float) $fromStock->quantity;
             $fromStock->decrement('quantity', $quantity);
 
             $returnStock = InventoryStock::firstOrCreate(
@@ -254,13 +231,14 @@ class InventoryService
                 'from_location_id' => $from->id,
                 'to_location_id' => $returnsLocation->id,
                 'quantity' => $quantity,
+                'quantity_before' => $before,
+                'quantity_after' => $before - $quantity,
                 'movement_type' => 'return',
                 'reason' => $reason,
                 'created_by' => Auth::id(),
             ]);
 
             $this->notifyIfLowStock($item);
-
             return $movement;
         });
     }
@@ -282,29 +260,30 @@ class InventoryService
                 throw new \RuntimeException("Insufficient stock at {$location->name}. Available: " . ($stock?->quantity ?? 0));
             }
 
+            $before = (float) $stock->quantity;
             $stock->decrement('quantity', $quantity);
 
             $movement = InventoryMovement::create([
                 'inventory_item_id' => $item->id,
-                'from_location_id'  => $location->id,
-                'to_location_id'    => null,
-                'quantity'          => $quantity,
-                'movement_type'     => 'sale_deduction',
-                'reason'            => $reason ?? 'Show sale deduction',
-                'reference_type'    => $referenceId ? 'deduction_request' : null,
-                'reference_id'      => $referenceId,
-                'created_by'        => Auth::id(),
+                'from_location_id' => $location->id,
+                'to_location_id' => null,
+                'quantity' => $quantity,
+                'quantity_before' => $before,
+                'quantity_after' => $before - $quantity,
+                'movement_type' => 'sale_deduction',
+                'reason' => $reason ?? 'Show sale deduction',
+                'reference_type' => $referenceId ? 'deduction_request' : null,
+                'reference_id' => $referenceId,
+                'created_by' => Auth::id(),
             ]);
 
             $this->notifyIfLowStock($item);
-
             return $movement;
         });
     }
 
     private function notifyIfLowStock(InventoryItem $item): void
     {
-        // Dispatch async so inventory actions return immediately without waiting for DB notification writes.
         SendLowStockNotification::dispatch($item->id)->afterCommit();
     }
 }

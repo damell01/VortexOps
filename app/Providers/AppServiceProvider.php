@@ -55,7 +55,6 @@ class AppServiceProvider extends ServiceProvider
         ));
 
         $this->app->singleton(ReceivingReportService::class);
-
         $this->app->singleton(InventoryVelocityService::class);
     }
 
@@ -63,8 +62,6 @@ class AppServiceProvider extends ServiceProvider
     {
         Model::preventLazyLoading(! app()->isProduction());
 
-        // Admins and the owner bypass all Shield-generated policy checks.
-        // super_admin gets the same treatment via filament-shield's gate intercept.
         Gate::before(function ($user, $ability) {
             if ($user->isAdmin() || $user->isOwner()) {
                 return true;
@@ -80,6 +77,14 @@ class AppServiceProvider extends ServiceProvider
         FilamentView::registerRenderHook(
             'panels::body.start',
             fn (): \Illuminate\Contracts\View\View => view('filament.demo-overlay'),
+        );
+
+        // One lightweight tour layer for all operational pages. Individual pages
+        // expose small data-vx-tour anchors, while the component owns onboarding,
+        // mobile-safe bottom-sheet instructions, highlighting, and restart state.
+        FilamentView::registerRenderHook(
+            'panels::body.end',
+            fn (): \Illuminate\Contracts\View\View => view('filament.page-tour'),
         );
 
         $listener = new LogAuthActivity();

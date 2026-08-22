@@ -79,9 +79,10 @@ class StreamerLogEntry extends Model
 
     public function profitShareAmount(): float
     {
-        $gross   = (float) ($this->gross_revenue ?? $this->show?->gross_revenue ?? 0);
-        $cost    = (float) ($this->product_cost ?? 0);
-        $psPct   = (float) ($this->streamer?->payout_percentage ?? 0);
+        $gross = (float) ($this->gross_revenue ?? $this->show?->gross_revenue ?? 0);
+        $cost  = (float) ($this->product_cost ?? 0);
+        $psPct = (float) ($this->streamer?->payout_percentage ?? 0);
+
         return round(max(0, $gross - $cost) * ($psPct / 100), 2);
     }
 
@@ -90,23 +91,15 @@ class StreamerLogEntry extends Model
         return $this->belongsTo(Show::class);
     }
 
-    /** Limit to the admin's currently active channel (App\Support\ChannelContext), if any. */
     public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
-        if (! \App\Support\ChannelContext::isScoped()) {
-            return $query;
-        }
+        if (! \App\Support\ChannelContext::isScoped()) return $query;
 
         return $query->whereHas('show', fn (\Illuminate\Database\Eloquent\Builder $q) =>
             $q->where('whatnot_channel_id', \App\Support\ChannelContext::currentId())
         );
     }
 
-    /**
-     * The items sold on this entry's show — matched on show_id so the streamer
-     * can enrich them from the log page without opening the show.
-     */
-    /** Line items the streamer logged as sold; replaces the scraped orders. */
     public function items(): HasMany
     {
         return $this->hasMany(StreamerLogItem::class, 'streamer_log_entry_id');
@@ -132,7 +125,6 @@ class StreamerLogEntry extends Model
         return $this->belongsTo(User::class, 'fulfillment_reviewed_by');
     }
 
-    /** Fulfillment review only applies to pwe_labels-payout streamers, and only once admin has approved. */
     public function needsFulfillmentReview(): bool
     {
         return $this->status === 'admin_approved'
@@ -152,69 +144,58 @@ class StreamerLogEntry extends Model
 
     public function canStreamerEdit(): bool
     {
-        // Approval lives in two columns: the workflow `status` and the
-        // `approval_status` set by approveByAdmin(). They can diverge —
-        // EndOfStreamForm writes status directly — and only checking
-        // approval_status below left an approved entry editable whenever the
-        // other path set it. Treat either as final.
-        if ($this->status === 'admin_approved' || $this->approval_status === 'approved') {
-            return false;
-        }
+        if ($this->status === 'admin_approved' || $this->approval_status === 'approved') return false;
+        if (! $this->isSubmitted()) return true;
+        if ($this->isLocked()) return false;
+        if (! $this->submitted_at) return true;
 
-        if (!$this->isSubmitted()) {
-            return true;
-        }
-
-        if ($this->isLocked()) {
-            return false;
-        }
-
-        if ($this->approval_status === 'approved') {
-            return false;
-        }
-
-        if (!$this->submitted_at) {
-            return true;
-        }
-
-        $editWindowExpired = $this->submitted_at->addMinutes($this->edit_window_minutes)->isPast();
-        return !$editWindowExpired;
+        return ! $this->submitted_at->addMinutes($this->edit_window_minutes)->isPast();
     }
 
     public function getEditWindowExpiresAt(): ?\Illuminate\Support\Carbon
     {
-        if (!$this->submitted_at) {
-            return null;
-        }
-
-        return $this->submitted_at->addMinutes($this->edit_window_minutes);
+        return $this->submitted_at
+            ? $this->submitted_at->addMinutes($this->edit_window_minutes)
+            : null;
     }
 
     public function getMinutesUntilEditWindowCloses(): ?int
     {
-        if (!$this->submitted_at) {
-            return null;
-        }
-
-        $expiresAt = $this->getEditWindowExpiresAt();
-        $minutesRemaining = now()->diffInMinutes($expiresAt, false);
-
-        return max(0, $minutesRemaining);
+        if (! $this->submitted_at) return null;
+        return max(0, now()->diffInMinutes($this->getEditWindowExpiresAt(), false));
     }
 
-    /** @return array<int, string> deduction problems, empty when clean */
+    /**
+     * Submit the streamer report. Posting behavior is controlled by the existing
+     * Settings model instead of being permanently welded to submission:
+     *
+     * on_submit   = preserve the historical behavior and post immediately.
+     * clean_only  = post automatically only when every line can reconcile.
+     * on_approval = report first; admin approval posts the inventory later.
+     *
+     * @return array<int,string> inventory exceptions
+     */
     public function submitReport(): array
     {
         $this->update([
             'submitted_at' => now(),
+            'streamer_reviewed_at' => now(),
             'locked_at' => null,
-            'edit_window_minutes' => $this->edit_window_minutes ?? 120, // 2 hours default
+            'edit_window_minutes' => $this->edit_window_minutes ?? 120,
         ]);
 
-        // Returns any lines that could not be deducted (unmatched item or not
-        // enough stock). Surfaced rather than swallowed, so a streamer is not
-        // told the submission is clean when inventory did not move.
-        return $this->deductInventoryOnSubmission();
+        $policy = (string) Setting::get('show_inventory_posting_policy', 'on_submit');
+
+        if ($policy === 'on_approval') {
+            return $this->inventoryPostingProblems();
+        }
+
+        if ($policy === 'clean_only') {
+            $problems = $this->inventoryPostingProblems();
+            return $problems === [] ? $this->postInventoryMovements() : $problems;
+        }
+
+        return $this->postInventoryMovements();
     }
 
     public function lockReport(): void
@@ -238,15 +219,27 @@ class StreamerLogEntry extends Model
 
     public function approveByAdmin(): void
     {
+        $postingProblems = [];
+
+        if ((string) Setting::get('show_inventory_posting_policy', 'on_submit') === 'on_approval') {
+            $postingProblems = $this->postInventoryMovements();
+        }
+
         $this->update([
+            'status' => 'admin_approved',
             'approval_status' => 'approved',
+            'reviewed_by' => auth()->id(),
+            'reviewed_at' => now(),
             'locked_at' => now(),
+            'approval_notes' => $postingProblems === []
+                ? $this->approval_notes
+                : trim(($this->approval_notes ? $this->approval_notes . "\n" : '') . 'Inventory exceptions: ' . implode(' | ', $postingProblems)),
         ]);
 
         if ($this->streamer?->user) {
             \Filament\Notifications\Notification::make()
-                ->title('✓ Log Entry Approved')
-                ->body("Your log entry for {$this->show?->title} has been approved by admin.")
+                ->title('✓ Show Report Approved')
+                ->body("Your show report for {$this->show?->title} has been approved.")
                 ->success()
                 ->sendToDatabase($this->streamer->user);
         }
@@ -264,117 +257,135 @@ class StreamerLogEntry extends Model
 
         if ($this->streamer?->user) {
             \Filament\Notifications\Notification::make()
-                ->title('Changes Requested on Your Log Entry')
-                ->body("Your log entry for {$this->show?->title} needs revision.\n\nReason: {$notes}")
+                ->title('Changes Requested on Your Show Report')
+                ->body("Your show report for {$this->show?->title} needs revision.\n\nReason: {$notes}")
                 ->warning()
                 ->sendToDatabase($this->streamer->user);
         }
     }
 
-    /**
-     * Deduct logged line items from the streamer's stock on submission.
-     *
-     * Returns any lines that could not be deducted so the caller can surface
-     * them. Previously this walked scraped Whatnot orders and silently skipped
-     * both unmapped items and locations without enough stock, so a streamer
-     * could submit believing inventory had reconciled when nothing moved.
-     *
-     * @return array<int, string> human-readable problems, empty when clean
-     */
-    public function deductInventoryOnSubmission(): array
+    /** @return array<int,string> */
+    public function inventoryPostingProblems(): array
     {
+        if (! $this->show) return ['No show attached to this report.'];
+        if (! $this->streamer) return ['No streamer attached to this report.'];
+
         $problems = [];
-
-        if (! $this->show) {
-            return ['No show attached to this log entry.'];
-        }
-
-        $streamer = $this->streamer;
-        if (! $streamer) {
-            return ['No streamer attached to this log entry.'];
-        }
-
-        $inventoryService = app(\App\Services\InventoryService::class);
-        $locations = $streamer->inventoryLocations;
+        $locationIds = $this->streamer->inventoryLocations->pluck('id');
 
         foreach ($this->items()->with('inventoryItem')->get() as $line) {
             if (! $line->inventoryItem) {
-                $problems[] = "\"{$line->item_name}\" is not linked to an inventory product, so no stock was deducted.";
+                $problems[] = "\"{$line->item_name}\" is not linked to an inventory product.";
                 continue;
             }
 
-            $item = $line->inventoryItem;
             $quantity = max(0, (int) $line->quantity);
-            if ($quantity === 0) {
-                continue;
-            }
+            $onHand = InventoryStock::where('inventory_item_id', $line->inventory_item_id)
+                ->whereIn('inventory_location_id', $locationIds)
+                ->sum('quantity');
 
-            // Prefer the location recorded on the line, else the streamer's.
-            $candidates = $line->inventory_location_id
-                ? $locations->where('id', $line->inventory_location_id)
-                : $locations;
-
-            $deducted = false;
-
-            foreach ($candidates as $location) {
-                $stock = InventoryStock::where('inventory_item_id', $item->id)
-                    ->where('inventory_location_id', $location->id)
-                    ->first();
-
-                if ($stock && (float) $stock->quantity >= $quantity) {
-                    $inventoryService->adjustStock(
-                        $item,
-                        $location,
-                        (float) $stock->quantity - $quantity,
-                        "Inventory deducted - Streamer submitted log for show: {$this->show->title}"
-                    );
-                    $line->update([
-                        'inventory_location_id' => $location->id,
-                        'deducted_quantity'     => $quantity,
-                    ]);
-                    $deducted = true;
-                    break;
-                }
-            }
-
-            if (! $deducted) {
-                $onHand = InventoryStock::where('inventory_item_id', $item->id)
-                    ->whereIn('inventory_location_id', $locations->pluck('id'))
-                    ->sum('quantity');
-
-                $problems[] = "\"{$item->name}\" needed {$quantity} but only "
-                    . (float) $onHand . " on hand, so no stock was deducted.";
+            if ((float) $onHand < $quantity) {
+                $problems[] = "\"{$line->item_name}\" needs {$quantity} but only " . (float) $onHand . ' is in streamer inventory.';
             }
         }
 
         return $problems;
     }
 
-    /** Put back everything deduction took, when changes are requested. */
-    public function restoreInventoryOnRejection(): void
+    /**
+     * Post each report line to the inventory ledger exactly once. Disposition is
+     * retained as the movement type so giveaways and promos become reportable
+     * everywhere InventoryMovement is used.
+     *
+     * @return array<int,string>
+     */
+    public function postInventoryMovements(): array
     {
-        if (! $this->show) {
-            return;
-        }
-
-        $streamer = $this->streamer;
-        if (! $streamer) {
-            return;
-        }
+        $problems = [];
+        if (! $this->show) return ['No show attached to this report.'];
+        if (! $this->streamer) return ['No streamer attached to this report.'];
 
         $inventoryService = app(\App\Services\InventoryService::class);
-        $locations = $streamer->inventoryLocations;
+        $locations = $this->streamer->inventoryLocations;
 
-        // Only lines that actually came out of stock go back in. Using the
-        // logged quantity here would return units that were never deducted.
-        foreach ($this->items()->with('inventoryItem')->where('deducted_quantity', '>', 0)->get() as $line) {
+        foreach ($this->items()->with('inventoryItem')->get() as $line) {
+            $alreadyPosted = max(0, (int) $line->deducted_quantity);
+            $requested = max(0, (int) $line->quantity);
+            $quantity = max(0, $requested - $alreadyPosted);
+            if ($quantity === 0) continue;
+
             if (! $line->inventoryItem) {
+                $problems[] = "\"{$line->item_name}\" is not linked to an inventory product, so no stock was posted.";
                 continue;
             }
 
             $item = $line->inventoryItem;
-            $quantity = (int) $line->deducted_quantity;
+            $candidates = $line->inventory_location_id
+                ? $locations->where('id', $line->inventory_location_id)
+                : $locations;
 
+            $posted = false;
+
+            foreach ($candidates as $location) {
+                $stock = InventoryStock::where('inventory_item_id', $item->id)
+                    ->where('inventory_location_id', $location->id)
+                    ->first();
+
+                if (! $stock || (float) $stock->quantity < $quantity) continue;
+
+                $movementType = match ($line->disposition ?? 'sold') {
+                    'giveaway' => 'giveaway',
+                    'promo' => 'promo',
+                    'other' => 'show_other',
+                    default => 'show_sale',
+                };
+
+                $label = $line->dispositionLabel();
+                $inventoryService->adjustStock(
+                    $item,
+                    $location,
+                    (float) $stock->quantity - $quantity,
+                    "{$label} - show: {$this->show->title}",
+                    $movementType,
+                );
+
+                $line->update([
+                    'inventory_location_id' => $location->id,
+                    'deducted_quantity' => $alreadyPosted + $quantity,
+                ]);
+                $posted = true;
+                break;
+            }
+
+            if (! $posted) {
+                $onHand = InventoryStock::where('inventory_item_id', $item->id)
+                    ->whereIn('inventory_location_id', $locations->pluck('id'))
+                    ->sum('quantity');
+                $problems[] = "\"{$item->name}\" needed {$quantity} but only " . (float) $onHand . ' was available.';
+            }
+        }
+
+        return $problems;
+    }
+
+    /** Backwards-compatible name used by older callers/tests. */
+    public function deductInventoryOnSubmission(): array
+    {
+        return $this->postInventoryMovements();
+    }
+
+    public function restoreInventoryOnRejection(): void
+    {
+        if (! $this->show || ! $this->streamer) return;
+
+        $inventoryService = app(\App\Services\InventoryService::class);
+        $locations = $this->streamer->inventoryLocations;
+
+        foreach ($this->items()->with('inventoryItem')->where('deducted_quantity', '>', 0)->get() as $line) {
+            if (! $line->inventoryItem) continue;
+
+            $item = $line->inventoryItem;
+            $quantity = (int) $line->deducted_quantity;
             $candidates = $line->inventory_location_id
                 ? $locations->where('id', $line->inventory_location_id)
                 : $locations;
@@ -384,16 +395,17 @@ class StreamerLogEntry extends Model
                     ->where('inventory_location_id', $location->id)
                     ->first();
 
-                if ($stock !== null) {
-                    $inventoryService->adjustStock(
-                        $item,
-                        $location,
-                        (float) $stock->quantity + $quantity,
-                        "Inventory restored - changes requested for show: {$this->show->title}"
-                    );
-                    $line->update(['deducted_quantity' => 0]);
-                    break;
-                }
+                if ($stock === null) continue;
+
+                $inventoryService->adjustStock(
+                    $item,
+                    $location,
+                    (float) $stock->quantity + $quantity,
+                    "Show report reversed - {$this->show->title}",
+                    'show_reversal',
+                );
+                $line->update(['deducted_quantity' => 0]);
+                break;
             }
         }
     }

@@ -37,11 +37,11 @@
         <section data-tour="scanner-input" class="rounded-xl border-2 {{ $mode === 'lookup' ? 'border-primary-300 bg-primary-50/40 dark:border-primary-800 dark:bg-primary-950/20' : 'border-emerald-300 bg-emerald-50/40 dark:border-emerald-800 dark:bg-emerald-950/20' }} p-4 sm:rounded-2xl sm:p-5">
             <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Barcode, UPC, or SKU</label>
             <div class="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
-                <input wire:model.live.debounce.300ms="scanInput" wire:keydown.enter="submitScan" type="text" inputmode="numeric" autocomplete="off" autofocus placeholder="Scan or type a code…" class="min-h-12 min-w-0 rounded-lg border-gray-300 bg-white px-3 font-mono text-base dark:border-gray-600 dark:bg-gray-900" />
-                <button type="button" @click="openScanner()" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200"><x-heroicon-o-camera class="h-5 w-5" /> Camera</button>
+                <input wire:model.live.debounce.300ms="scanInput" wire:keydown.enter="submitScan" type="text" inputmode="text" autocomplete="off" autocapitalize="none" autofocus placeholder="Scan or type a code…" class="min-h-12 min-w-0 rounded-lg border-gray-300 bg-white px-3 font-mono text-base dark:border-gray-600 dark:bg-gray-900" />
+                <button data-camera-scan type="button" @click="openScanner()" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200"><x-heroicon-o-camera class="h-5 w-5" /> Camera</button>
                 <button type="button" wire:click="submitScan" wire:loading.attr="disabled" class="inline-flex min-h-12 items-center justify-center rounded-lg px-4 text-sm font-semibold text-white disabled:opacity-60 {{ $mode === 'lookup' ? 'bg-primary-600' : 'bg-emerald-600' }}"><span wire:loading.remove>{{ $mode === 'lookup' ? 'Look Up' : 'Add Stock' }}</span><span wire:loading>Working…</span></button>
             </div>
-            <p class="mt-2 text-[10px] leading-4 text-gray-500 sm:text-xs">USB/Bluetooth scanner: scan directly into this field. Camera: tap Camera and point at the barcode.</p>
+            <p class="mt-2 text-[10px] leading-4 text-gray-500 sm:text-xs">USB/Bluetooth scanner: scan directly into this field. Camera: tap Camera and center the barcode in the scan box.</p>
         </section>
 
         @if($errorMessage)<section class="rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200"><strong>Not found.</strong> {{ $errorMessage }}</section>@endif
@@ -64,15 +64,19 @@
                         <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[9px] uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">Avg cost</div><div class="mt-0.5 truncate text-base font-semibold sm:text-xl">${{ number_format((float)$result['avg_cost'], 2) }}</div></div>
                         <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800"><div class="text-[9px] uppercase tracking-wide text-gray-400 sm:text-xs sm:normal-case sm:tracking-normal">Value</div><div class="mt-0.5 truncate text-base font-semibold sm:text-xl">${{ number_format((float)$result['inventory_value'], 2) }}</div></div>
                     </div>
+                    <div class="mt-4 grid grid-cols-2 gap-2">
+                        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $result['id']]) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">View Item</a>
+                        <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('stock', ['record' => $result['id']]) }}" class="inline-flex min-h-11 items-center justify-center rounded-lg bg-violet-600 px-3 text-sm font-semibold text-white">Move / Correct Stock</a>
+                    </div>
                 </div>
                 <div class="border-t border-gray-100 p-4 dark:border-gray-800 sm:p-5">
-                    <div class="flex items-center justify-between"><h3 class="text-xs font-semibold text-gray-950 dark:text-white sm:text-sm">Stock by location</h3><a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('view', ['record' => $result['id']]) }}" class="text-xs font-semibold text-primary-600">Open item</a></div>
+                    <h3 class="text-xs font-semibold text-gray-950 dark:text-white sm:text-sm">Stock by location</h3>
                     <div class="mt-3 divide-y divide-gray-100 dark:divide-gray-800">@forelse($result['stock'] as $stock)<div class="flex items-center justify-between py-2.5 text-sm"><span class="text-gray-600 dark:text-gray-300">{{ $stock['location'] }}</span><span class="font-semibold text-gray-950 dark:text-white">{{ number_format((float)$stock['qty']) }}</span></div>@empty<div class="py-4 text-xs text-gray-500">No stock currently recorded.</div>@endforelse</div>
                 </div>
                 @if($costWarnings)<div class="border-t border-gray-100 p-4 dark:border-gray-800 sm:p-5">@foreach($costWarnings as $warning)<div class="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 last:mb-0 dark:bg-amber-950/30 dark:text-amber-200"><strong>{{ $warning['title'] }}:</strong> {{ $warning['message'] }}</div>@endforeach</div>@endif
             </section>
         @endif
 
-        <div class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden" data-vx-mobile-actions><button type="button" @click="openScanner()" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg {{ $mode === 'lookup' ? 'bg-primary-600' : 'bg-emerald-600' }} px-4 text-sm font-semibold text-white"><x-heroicon-o-camera class="h-5 w-5" /> {{ $mode === 'lookup' ? 'Scan Item' : 'Scan & Add Stock' }}</button></div>
+        <div class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden" data-vx-mobile-actions><button data-camera-scan type="button" @click="openScanner()" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg {{ $mode === 'lookup' ? 'bg-primary-600' : 'bg-emerald-600' }} px-4 text-sm font-semibold text-white"><x-heroicon-o-camera class="h-5 w-5" /> {{ $mode === 'lookup' ? 'Scan Item' : 'Scan & Add Stock' }}</button></div>
     </div>
 </x-filament-panels::page>

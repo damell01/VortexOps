@@ -17,7 +17,6 @@ class NotifyWorkflowState extends Command
     {
         $this->notifyStreamersOfEndedShows();
         $this->notifyFulfillmentAssignments();
-
         return self::SUCCESS;
     }
 
@@ -38,9 +37,12 @@ class NotifyWorkflowState extends Command
                 $user = $streamer->user;
                 if (! $user) continue;
 
-                $title = 'Show ended — report ready';
-                $body = "{$show->title} is ready for End of Stream. Report the inventory actually sold, given away, used as promo, or otherwise consumed.";
-                $this->notifyOnce($user, $title, $body, 'warning');
+                $this->notifyOnce(
+                    $user,
+                    'Show ended — report ready',
+                    "{$show->title} is ready for End of Stream. Report the inventory actually sold, given away, used as promo, or otherwise consumed.",
+                    'warning'
+                );
             }
         }
     }
@@ -57,9 +59,12 @@ class NotifyWorkflowState extends Command
 
         foreach ($shows as $show) {
             foreach ($show->fulfillmentUsers as $user) {
-                $title = 'Fulfillment show assigned';
-                $body = "You are assigned to fulfillment for {$show->title} ({$show->show_date?->format('M j, Y')}). Open the Fulfillment Center to work its shipment and packing queue.";
-                $this->notifyOnce($user, $title, $body, 'info');
+                $this->notifyOnce(
+                    $user,
+                    'Fulfillment show assigned',
+                    "You are assigned to fulfillment for {$show->title} ({$show->show_date?->format('M j, Y')}). Open the Fulfillment Center to work its shipment and packing queue.",
+                    'info'
+                );
             }
         }
     }
@@ -70,12 +75,13 @@ class NotifyWorkflowState extends Command
         if ($show->show_date->lt(today())) return true;
         if (! $show->show_date->isToday()) return false;
 
-        if (! $show->start_time) {
-            return now()->hour >= 18;
-        }
+        // Streams can run for many hours. Without a direct "ended" signal,
+        // wait eight hours after the scheduled start rather than interrupting
+        // an active stream with a premature End of Stream reminder.
+        if (! $show->start_time) return now()->hour >= 22;
 
         $start = Carbon::parse($show->start_time)->format('H:i:s');
-        return $start <= now()->subHours(2)->format('H:i:s');
+        return $start <= now()->subHours(8)->format('H:i:s');
     }
 
     private function notifyOnce(User $user, string $title, string $body, string $tone): void

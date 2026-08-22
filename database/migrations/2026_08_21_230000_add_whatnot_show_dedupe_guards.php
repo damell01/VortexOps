@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -40,14 +39,17 @@ return new class extends Migration
         }
     }
 
+    /**
+     * Ask the schema, not MySQL's catalogue.
+     *
+     * This read information_schema.statistics directly, which only MySQL
+     * serves — so under SQLite the check itself threw before it could answer,
+     * and since every test migrates a fresh in-memory database, that took down
+     * the whole suite rather than this one migration. Schema::hasIndex asks
+     * whichever driver is connected and gives the same answer on both.
+     */
     private function indexExists(string $table, string $index): bool
     {
-        $database = DB::getDatabaseName();
-
-        return DB::table('information_schema.statistics')
-            ->where('table_schema', $database)
-            ->where('table_name', $table)
-            ->where('index_name', $index)
-            ->exists();
+        return Schema::hasIndex($table, $index);
     }
 };

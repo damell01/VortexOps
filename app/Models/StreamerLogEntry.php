@@ -14,7 +14,7 @@ class StreamerLogEntry extends Model
         'pwe_pay', 'hourly_pay', 'profit_share_amount', 'profit_share_paid', 'tips_paid',
         'total_due', 'total_paid', 'business_net_rev', 'gross_revenue', 'product_cost',
         'reviewed_by', 'reviewed_at', 'streamer_reviewed_at', 'fulfillment_reviewed_by',
-        'fulfillment_reviewed_at', 'notes', 'submitted_at', 'locked_at', 'edit_window_minutes',
+        'fulfillment_reviewed_at', 'notes', 'draft_step', 'draft_saved_at', 'submitted_at', 'locked_at', 'edit_window_minutes',
         'approval_requested_at', 'approval_status', 'approval_notes',
     ];
 
@@ -36,6 +36,8 @@ class StreamerLogEntry extends Model
         'label_count' => 'integer',
         'number_of_packages_over_500' => 'integer',
         'edit_window_minutes' => 'integer',
+        'draft_step' => 'integer',
+        'draft_saved_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'streamer_reviewed_at' => 'datetime',
         'submitted_at' => 'datetime',
@@ -48,6 +50,7 @@ class StreamerLogEntry extends Model
     {
         return [
             'pending' => 'Pending',
+            'changes_requested' => 'Changes Requested',
             'streamer_reviewed' => 'Streamer Reviewed',
             'admin_approved' => 'Admin Approved',
         ];
@@ -107,12 +110,6 @@ class StreamerLogEntry extends Model
         return max(0, now()->diffInMinutes($this->getEditWindowExpiresAt(), false));
     }
 
-    /**
-     * Submit the streamer report and apply both workflow settings:
-     * inventory posting policy and admin review policy.
-     *
-     * @return array<int,string> inventory exceptions
-     */
     public function submitReport(): array
     {
         $this->update([
@@ -135,30 +132,20 @@ class StreamerLogEntry extends Model
         }
 
         $this->applyReviewPolicy($problems);
-
         return $problems;
     }
 
-    /**
-     * Auto-approval is intentionally separate from approveByAdmin() so an
-     * automated flow never records the streamer as the admin reviewer.
-     *
-     * @param array<int,string> $problems
-     */
     private function applyReviewPolicy(array $problems): void
     {
         $reviewPolicy = (string) Setting::get('show_report_review_policy', 'required');
-
         if ($reviewPolicy === 'required') return;
         if ($reviewPolicy === 'exceptions_only' && $problems !== []) return;
-
         $this->approveAutomatically($reviewPolicy === 'auto' ? 'Auto-approved by workflow policy.' : 'Auto-approved: no inventory exceptions.');
     }
 
     public function approveAutomatically(?string $note = null): array
     {
         $postingProblems = [];
-
         if ((string) Setting::get('show_inventory_posting_policy', 'on_submit') === 'on_approval') {
             $postingProblems = $this->postInventoryMovements();
         }
@@ -181,11 +168,6 @@ class StreamerLogEntry extends Model
         return $postingProblems;
     }
 
-    /**
-     * Re-run automation after an admin matches an unlisted line or fixes stock.
-     * This is what lets an exceptions-only report leave the review queue as
-     * soon as its final exception is resolved.
-     */
     public function reconcileWorkflowAfterFix(): array
     {
         $problems = $this->inventoryPostingProblems();
@@ -217,7 +199,6 @@ class StreamerLogEntry extends Model
     public function approveByAdmin(): array
     {
         $postingProblems = [];
-
         if ((string) Setting::get('show_inventory_posting_policy', 'on_submit') === 'on_approval') {
             $postingProblems = $this->postInventoryMovements();
         }
@@ -254,13 +235,11 @@ class StreamerLogEntry extends Model
     {
         $user = $this->streamer?->user;
         if (! $user) return;
-
         $notification = \Filament\Notifications\Notification::make()->title($title)->body($body);
         $notification = $tone === 'success' ? $notification->success() : $notification->warning();
         $notification->sendToDatabase($user);
     }
 
-    /** @return array<int,string> */
     public function inventoryPostingProblems(): array
     {
         if (! $this->show) return ['No show attached to this report.'];
@@ -290,7 +269,6 @@ class StreamerLogEntry extends Model
         return $problems;
     }
 
-    /** @return array<int,string> */
     public function postInventoryMovements(): array
     {
         $problems = [];
@@ -317,7 +295,6 @@ class StreamerLogEntry extends Model
                 : $locations;
 
             $posted = false;
-
             foreach ($candidates as $location) {
                 $stock = InventoryStock::where('inventory_item_id', $item->id)
                     ->where('inventory_location_id', $location->id)

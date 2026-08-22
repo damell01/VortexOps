@@ -9,6 +9,7 @@ use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
 use App\Models\StreamerLogItem;
+use App\Models\User;
 use App\Support\AdminModules;
 use App\Support\NavVisibility;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -28,9 +29,10 @@ class EndOfStreamForm extends Page implements HasForms
 
     public ?Show $show = null;
     public int $step = 1;
+    public ?string $lastSavedAt = null;
 
     // Existing operational fields are retained for backwards compatibility,
-    // but the new UI treats Whatnot as the source of truth where data exists.
+    // but Whatnot remains the source of truth where imported data exists.
     public string $hoursStreamed = '';
     public string $shipments = '';
     public string $pweCount = '';
@@ -46,7 +48,6 @@ class EndOfStreamForm extends Page implements HasForms
     public int $manualQuantity = 1;
     public string $manualDisposition = 'sold';
 
-    // Kept because older Livewire state/bookmarks may still reference these.
     public array $selectedItems = [];
     public array $itemQuantities = [];
 
@@ -57,7 +58,7 @@ class EndOfStreamForm extends Page implements HasForms
 
     public function getSubheading(): ?string
     {
-        return 'Report the inventory used during your show. Whatnot sales and shipment totals are shown as reference only.';
+        return 'Report the inventory actually used during this show. Whatnot sales and shipment totals are reference data.';
     }
 
     public function getView(): string
@@ -70,6 +71,7 @@ class EndOfStreamForm extends Page implements HasForms
         $showId = $showId ?: request()->query('showId');
         if ($showId) {
             $this->show = Show::with(['streamers', 'channel'])->find($showId);
+            $this->resumeDraft();
         }
     }
 
@@ -84,6 +86,28 @@ class EndOfStreamForm extends Page implements HasForms
         $this->itemQuantities = [];
         $this->showInventoryPicker = false;
         $this->showManualItemForm = false;
+        $this->step = 1;
+        $this->lastSavedAt = null;
+
+        if ($this->show) {
+            $this->resumeDraft();
+        }
+    }
+
+    private function resumeDraft(): void
+    {
+        $entry = $this->logEntry();
+        if (! $entry) return;
+
+        $this->loadDetails();
+        $this->lastSavedAt = $entry->draft_saved_at?->toIso8601String()
+            ?? $entry->updated_at?->toIso8601String();
+
+        if (! $entry->isSubmitted() || $entry->status === 'changes_requested') {
+            $this->step = max(1, min(3, (int) ($entry->draft_step ?: 1)));
+        } else {
+            $this->step = 3;
+        }
     }
 
     public function getShowsProperty()
@@ -140,7 +164,7 @@ class EndOfStreamForm extends Page implements HasForms
         return Streamer::find($streamerId)?->inventoryLocations()->pluck('inventory_locations.id') ?? collect();
     }
 
-    /** Catalog view defaults to stock actually assigned to this streamer. */
+    /** Catalog view uses inventory currently held in the streamer's inventory locations. */
     public function getInventoryProperty()
     {
         $locationIds = $this->reportLocationIds();
@@ -156,9 +180,6 @@ class EndOfStreamForm extends Page implements HasForms
                     'stock as stock_sum_quantity' => fn ($q) => $q->whereIn('inventory_location_id', $locationIds),
                 ], 'quantity');
         } else {
-            // Admins can still repair a report where the streamer has no
-            // inventory location configured; regular streamers get no false
-            // impression that warehouse stock belongs to them.
             if (auth()->user()?->isAdmin() || auth()->user()?->isOwner()) {
                 $query->withSum('stock', 'quantity');
             } else {
@@ -189,6 +210,20 @@ class EndOfStreamForm extends Page implements HasForms
                 'status' => 'pending',
             ],
         );
+    }
+
+    private function touchDraft(?int $step = null): void
+    {
+        $entry = $this->logEntry();
+        if (! $entry) return;
+
+        $savedAt = now();
+        StreamerLogEntry::whereKey($entry->id)->update(array_filter([
+            'draft_step' => $step ?? $this->step,
+            'draft_saved_at' => $savedAt,
+        ], fn ($value) => $value !== null));
+
+        $this->lastSavedAt = $savedAt->toIso8601String();
     }
 
     public function getLineItemsProperty()
@@ -231,6 +266,27 @@ class EndOfStreamForm extends Page implements HasForms
         ];
     }
 
+    /** Non-blocking comparisons between Whatnot reference totals and physical inventory reporting. */
+    public function getReconciliationWarningsProperty(): array
+    {
+        if (! $this->show) return [];
+
+        $summary = $this->summary;
+        $warnings = [];
+
+        if ($this->show->giveaways_count !== null && (int) $this->show->giveaways_count !== (int) $summary['giveaway']) {
+            $warnings[] = 'Whatnot shows ' . number_format((int) $this->show->giveaways_count)
+                . ' giveaways; this report contains ' . number_format((int) $summary['giveaway']) . ' giveaway inventory units.';
+        }
+
+        if ($this->show->units_sold !== null && (int) $this->show->units_sold !== (int) $summary['sold']) {
+            $warnings[] = 'Whatnot shows ' . number_format((int) $this->show->units_sold)
+                . ' orders/items sold; this report contains ' . number_format((int) $summary['sold']) . ' sold inventory units.';
+        }
+
+        return $warnings;
+    }
+
     public function addLineItem(int $inventoryItemId, int $quantity = 1, string $disposition = 'sold'): void
     {
         $entry = $this->logEntry();
@@ -239,8 +295,6 @@ class EndOfStreamForm extends Page implements HasForms
 
         $disposition = array_key_exists($disposition, StreamerLogItem::DISPOSITIONS) ? $disposition : 'sold';
 
-        // Same product can legitimately appear twice when some units sold and
-        // others were giveaways; merge only within the same disposition.
         $line = $entry->items()
             ->where('inventory_item_id', $item->id)
             ->where('disposition', $disposition)
@@ -260,6 +314,7 @@ class EndOfStreamForm extends Page implements HasForms
 
         $this->showInventoryPicker = false;
         $this->search = '';
+        $this->touchDraft();
     }
 
     public function addManualLineItem(string $name, int $quantity = 1, ?float $unitCost = null, string $disposition = 'sold'): void
@@ -277,6 +332,8 @@ class EndOfStreamForm extends Page implements HasForms
             'disposition' => $disposition,
             'unit_cost' => $unitCost,
         ]);
+
+        $this->touchDraft();
     }
 
     public function addManualItemFromForm(): void
@@ -297,11 +354,13 @@ class EndOfStreamForm extends Page implements HasForms
     public function setLineQuantity(int $lineId, int $quantity): void
     {
         $this->logEntry()?->items()->find($lineId)?->update(['quantity' => max(1, $quantity)]);
+        $this->touchDraft();
     }
 
     public function setLineCost(int $lineId, float $unitCost): void
     {
         $this->logEntry()?->items()->find($lineId)?->update(['unit_cost' => max(0, $unitCost)]);
+        $this->touchDraft();
     }
 
     public function setLineDisposition(int $lineId, string $disposition): void
@@ -325,11 +384,14 @@ class EndOfStreamForm extends Page implements HasForms
         } else {
             $line->update(['disposition' => $disposition]);
         }
+
+        $this->touchDraft();
     }
 
     public function removeLineItem(int $lineId): void
     {
         $this->logEntry()?->items()->find($lineId)?->delete();
+        $this->touchDraft();
     }
 
     public function loadDetails(): void
@@ -347,7 +409,11 @@ class EndOfStreamForm extends Page implements HasForms
 
     public function saveDetails(): void
     {
-        $this->logEntry()?->update([
+        $entry = $this->logEntry();
+        if (! $entry) return;
+
+        $savedAt = now();
+        $entry->update([
             'hours_streamed' => $this->hoursStreamed !== '' ? (float) $this->hoursStreamed : null,
             'number_of_shipments' => $this->shipments !== '' ? (int) $this->shipments : null,
             'pwe_count' => $this->pweCount !== '' ? (int) $this->pweCount : null,
@@ -355,14 +421,29 @@ class EndOfStreamForm extends Page implements HasForms
             'number_of_packages_over_500' => $this->packagesOver500 !== '' ? (int) $this->packagesOver500 : null,
             'notes' => $this->logNotes !== '' ? $this->logNotes : null,
         ]);
+
+        StreamerLogEntry::whereKey($entry->id)->update([
+            'draft_step' => $this->step,
+            'draft_saved_at' => $savedAt,
+        ]);
+        $this->lastSavedAt = $savedAt->toIso8601String();
+    }
+
+    public function updated(string $property): void
+    {
+        if (in_array($property, [
+            'hoursStreamed', 'shipments', 'pweCount', 'labelCount', 'packagesOver500', 'logNotes',
+        ], true)) {
+            $this->saveDetails();
+        }
     }
 
     public function goToStep(int $step): void
     {
         $step = max(1, min(3, $step));
-        if ($this->step === 2 && $step !== 2) $this->saveDetails();
-        if ($step === 2) $this->loadDetails();
+        $this->saveDetails();
         $this->step = $step;
+        $this->touchDraft($step);
     }
 
     public function getDeductionPreviewProperty(): array
@@ -411,20 +492,28 @@ class EndOfStreamForm extends Page implements HasForms
         }
 
         try {
+            $this->saveDetails();
+
             $entry->update([
                 'product_cost' => $lines->sum(fn ($line) => $line->total_cost),
                 'status' => 'streamer_reviewed',
             ]);
 
             $problems = $entry->submitReport();
+            $entry->refresh();
             $postingPolicy = (string) Setting::get('show_inventory_posting_policy', 'on_submit');
+
+            StreamerLogEntry::whereKey($entry->id)->update([
+                'draft_step' => 3,
+                'draft_saved_at' => now(),
+            ]);
 
             if (empty($problems)) {
                 Notification::make()
                     ->title('Show report submitted')
                     ->body($postingPolicy === 'on_submit'
                         ? $this->summary['units'] . ' units reported and inventory movements posted.'
-                        : $this->summary['units'] . ' units reported for review.')
+                        : $this->summary['units'] . ' units reported.')
                     ->success()
                     ->send();
             } else {
@@ -436,6 +525,26 @@ class EndOfStreamForm extends Page implements HasForms
                     ->send();
             }
 
+            // If the report still needs admin review, notify admins once at the
+            // moment of submission with the exception count front and center.
+            if ($entry->status !== 'admin_approved') {
+                $unmatched = $entry->items()->whereNull('inventory_item_id')->count();
+                $problemCount = max($unmatched, count($problems));
+                $admins = User::query()->get()->filter(fn (User $user) => $user->isAdmin() || $user->isOwner());
+
+                if ($admins->isNotEmpty()) {
+                    $notification = Notification::make()
+                        ->title($problemCount > 0 ? 'Show report needs review' : 'Show report submitted')
+                        ->body($problemCount > 0
+                            ? "{$this->show->title}: {$problemCount} reconciliation " . \Illuminate\Support\Str::plural('issue', $problemCount) . ' need attention.'
+                            : "{$this->show->title} is ready for admin approval.")
+                        ->warning();
+                    $notification->sendToDatabase($admins);
+                }
+            }
+
+            $this->lastSavedAt = now()->toIso8601String();
+            $this->step = 3;
             $this->selectedItems = [];
             $this->itemQuantities = [];
         } catch (\Throwable $e) {

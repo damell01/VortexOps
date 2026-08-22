@@ -82,7 +82,23 @@
             </div>
 
             @if($targetLineId)
-                @php($target = collect($lineProgress)->firstWhere('id', $targetLineId))
+                {{--
+                    Block form deliberately. The inline php() directive is
+                    collected by the same raw-block pass that handles the block
+                    form, so written inline here it paired itself with the
+                    closing tag of the manifest loop forty lines below and
+                    swallowed everything in between — the closing tag of the
+                    conditional above included. That is why this view compiled
+                    to PHP with an unclosed if, and the receiving page 500'd.
+
+                    Note also that directive names cannot be written literally
+                    in a comment inside the block form: the raw-block pass is
+                    text, not syntax, and a closing tag mentioned in a comment
+                    ends the block exactly as a real one would.
+                --}}
+                @php
+                    $target = collect($lineProgress)->firstWhere('id', $targetLineId);
+                @endphp
                 @if($target)
                     <div class="mt-3 flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-xs dark:bg-gray-900">
                         <span class="min-w-0 truncate text-gray-600 dark:text-gray-300"><strong class="text-primary-700 dark:text-primary-300">Next scan:</strong> L{{ $target['line_number'] }} · {{ $target['description'] }}</span>

@@ -1,4 +1,6 @@
-@php($events = $this->events)
+@php
+    $events = $this->events;
+@endphp
 
 <x-filament-widgets::widget>
     <section data-vx-tour="show-activity" class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">

@@ -27,20 +27,9 @@ class FulfillmentResource extends Resource
     protected static ?string $navigationLabel = 'Fulfillment Center';
     protected static ?string $modelLabel = 'show';
 
-    public static function getNavigationIcon(): string|\BackedEnum|null
-    {
-        return 'heroicon-o-truck';
-    }
-
-    public static function getNavigationGroup(): string|\UnitEnum|null
-    {
-        return AdminModules::navigationGroupFor('fulfillment');
-    }
-
-    public static function getNavigationSort(): ?int
-    {
-        return 44;
-    }
+    public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-truck'; }
+    public static function getNavigationGroup(): string|\UnitEnum|null { return AdminModules::navigationGroupFor('fulfillment'); }
+    public static function getNavigationSort(): ?int { return 44; }
 
     protected static function passesModuleAccessCheck(): bool
     {
@@ -108,26 +97,67 @@ class FulfillmentResource extends Resource
             ->persistFiltersInSession()
             ->defaultSort('show_date', 'desc')
             ->columns([
-                TextColumn::make('show_date')->label('Date')->date('M j, Y')->sortable(),
-                TextColumn::make('title')->label('Show')->searchable()->wrap()->limit(52),
-                TextColumn::make('streamers.name')->label('Streamer')->badge()->separator(', ')->placeholder('Unassigned'),
-                TextColumn::make('fulfillmentUsers.name')->label('Fulfillment')->badge()->separator(', ')->placeholder('Unassigned'),
-                TextColumn::make('shipments_count')->label('Shipments')->numeric()->sortable(),
+                // Mobile stays intentionally narrow: show + open work + next action.
+                // The context columns return at md+ rather than forcing a sideways
+                // table on the phones fulfillment staff actually use.
+                TextColumn::make('show_date')
+                    ->label('Date')
+                    ->date('M j')
+                    ->sortable()
+                    ->visibleFrom('md'),
+
+                TextColumn::make('title')
+                    ->label('Show')
+                    ->searchable()
+                    ->wrap()
+                    ->limit(42),
+
+                TextColumn::make('streamers.name')
+                    ->label('Streamer')
+                    ->badge()
+                    ->separator(', ')
+                    ->placeholder('Unassigned')
+                    ->visibleFrom('md'),
+
+                TextColumn::make('fulfillmentUsers.name')
+                    ->label('Fulfillment')
+                    ->badge()
+                    ->separator(', ')
+                    ->placeholder('Unassigned')
+                    ->visibleFrom('lg'),
+
+                TextColumn::make('shipments_count')
+                    ->label('Shipments')
+                    ->numeric()
+                    ->sortable()
+                    ->visibleFrom('md'),
+
                 TextColumn::make('open_shipments_count')
                     ->label('Open')
                     ->numeric()
                     ->badge()
                     ->color(fn ($state) => (int) $state > 0 ? 'warning' : 'success')
                     ->sortable(),
-                TextColumn::make('delivered_shipments_count')->label('Delivered')->numeric()->sortable(),
-                TextColumn::make('orders_count')->label('Packing Lines')->numeric()->toggleable(isToggledHiddenByDefault: true),
+
+                TextColumn::make('delivered_shipments_count')
+                    ->label('Delivered')
+                    ->numeric()
+                    ->sortable()
+                    ->visibleFrom('lg'),
+
+                TextColumn::make('orders_count')
+                    ->label('Packing Lines')
+                    ->numeric()
+                    ->visibleFrom('xl')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('fulfillment_next_action')
-                    ->label('Next Action')
+                    ->label('Next')
                     ->state(function (Show $record): string {
-                        if ((int) $record->shipments_count === 0 && (int) $record->orders_count > 0) return 'Prepare items';
-                        if ((int) $record->open_shipments_count > 0) return 'Work open shipments';
+                        if ((int) $record->shipments_count === 0 && (int) $record->orders_count > 0) return 'Prepare';
+                        if ((int) $record->open_shipments_count > 0) return 'Work shipments';
                         if ((int) $record->shipments_count > 0) return 'Complete ✓';
-                        return 'Waiting for shipment data';
+                        return 'Waiting';
                     })
                     ->badge()
                     ->color(fn (Show $record) => (int) $record->open_shipments_count > 0 ? 'warning' : ((int) $record->shipments_count > 0 ? 'success' : 'gray')),

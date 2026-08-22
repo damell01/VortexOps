@@ -1,24 +1,78 @@
 /**
  * Mobile UX enhancements.
- *
- * IMPORTANT: Livewire can morph/navigate the DOM many times without a full page
- * reload. Every binding here is therefore idempotent. The old implementation
- * re-added document and element listeners after each navigation, eventually
- * causing mobile taps (including the Filament sidebar and page tabs) to feel
- * frozen or fire many handlers at once.
+ * All bindings are idempotent because Livewire can morph/navigate repeatedly
+ * without a full browser reload.
  */
 class MobileEnhancements {
     constructor() {
         this.documentBound = false;
+        this.sidebarTouchBound = false;
+        this.touchStartX = 0;
+        this.installSidebarGestureGuard();
         this.init();
     }
 
     init() {
+        this.installSidebarGestureGuard();
         this.bindDocumentHandlersOnce();
         this.initInfiniteScroll();
         this.initFloatingActionButton();
         this.initCollapsibleSections();
         this.initTableRowSelection();
+        this.bindSidebarLinks();
+    }
+
+    /**
+     * AdminPanelProvider historically re-called a global
+     * initMobileSidebarGestures() after every Livewire morph. Replace it with
+     * this safe implementation so the provider's existing hook becomes harmless
+     * rather than stacking document touch handlers forever.
+     */
+    installSidebarGestureGuard() {
+        const instance = this;
+        window.initMobileSidebarGestures = function () {
+            instance.bindSidebarGesturesOnce();
+            instance.bindSidebarLinks();
+        };
+        this.bindSidebarGesturesOnce();
+    }
+
+    bindSidebarGesturesOnce() {
+        if (this.sidebarTouchBound) return;
+        this.sidebarTouchBound = true;
+
+        document.addEventListener('touchstart', (e) => {
+            const touch = e.changedTouches?.[0];
+            if (touch) this.touchStartX = touch.screenX;
+        }, { passive: true });
+
+        document.addEventListener('touchend', (e) => {
+            const touch = e.changedTouches?.[0];
+            if (! touch) return;
+
+            const diff = this.touchStartX - touch.screenX;
+            const threshold = 50;
+
+            if (this.touchStartX < 50 && diff < -threshold) {
+                document.querySelector('.fi-topbar-open-sidebar-btn')?.click();
+            } else if (diff > threshold) {
+                const close = document.querySelector('.fi-topbar-close-sidebar-btn');
+                if (close instanceof HTMLElement && close.offsetParent !== null) close.click();
+            }
+        }, { passive: true });
+    }
+
+    bindSidebarLinks() {
+        document.querySelectorAll('.fi-sidebar a[href]').forEach((item) => {
+            if (item.dataset.vxSidebarCloseBound === '1') return;
+            item.dataset.vxSidebarCloseBound = '1';
+            item.addEventListener('click', () => {
+                const close = document.querySelector('.fi-topbar-close-sidebar-btn');
+                if (close instanceof HTMLElement && close.offsetParent !== null) {
+                    setTimeout(() => close.click(), 50);
+                }
+            });
+        });
     }
 
     bindDocumentHandlersOnce() {
@@ -42,12 +96,9 @@ class MobileEnhancements {
     initInfiniteScroll() {
         document.querySelectorAll('.infinite-scroll-container').forEach((container) => {
             if (container.dataset.vxInfiniteBound === '1') return;
-
             const loadMoreUrl = container.dataset.loadMore;
-            if (! loadMoreUrl) return;
-
             const loader = container.querySelector('.infinite-scroll-loader');
-            if (! loader) return;
+            if (! loadMoreUrl || ! loader) return;
 
             container.dataset.vxInfiniteBound = '1';
             const pageParam = container.dataset.pageParam || 'page';
@@ -89,13 +140,11 @@ class MobileEnhancements {
         document.querySelectorAll('.floating-action-button').forEach((fab) => {
             if (fab.dataset.vxFabBound === '1') return;
             fab.dataset.vxFabBound = '1';
-
             fab.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const scope = fab.closest('[data-floating-action-scope]') || document;
-                scope.querySelector('.floating-action-menu')?.classList.toggle('open');
-                scope.querySelector('.floating-action-overlay')?.classList.toggle('open');
+                document.querySelector('.floating-action-menu')?.classList.toggle('open');
+                document.querySelector('.floating-action-overlay')?.classList.toggle('open');
             });
         });
 
@@ -120,7 +169,6 @@ class MobileEnhancements {
                 const open = section.classList.toggle('open');
                 header.setAttribute('aria-expanded', String(open));
             };
-
             header.addEventListener('click', toggle);
             header.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') toggle(e);
@@ -153,33 +201,18 @@ class MobileEnhancements {
     }
 
     updateBottomActionBar() {
-        const selectedCount = document.querySelectorAll('table input[type="checkbox"]:checked').length;
-        const actionBar = document.querySelector('.bottom-action-bar');
-        if (! actionBar) return;
-
-        actionBar.classList.toggle('active', selectedCount > 0);
-        const info = actionBar.querySelector('.bottom-action-bar-info');
-        if (info) info.innerHTML = `<strong>${selectedCount}</strong> item(s) selected`;
-    }
-
-    static showSkeleton(container, skeletonClass = 'skeleton-card') {
-        const skeleton = document.createElement('div');
-        skeleton.className = `${skeletonClass} skeleton`;
-        container.appendChild(skeleton);
-        return skeleton;
-    }
-
-    static hideSkeleton(skeleton) {
-        skeleton?.remove();
+        const count = document.querySelectorAll('table input[type="checkbox"]:checked').length;
+        const bar = document.querySelector('.bottom-action-bar');
+        if (! bar) return;
+        bar.classList.toggle('active', count > 0);
+        const info = bar.querySelector('.bottom-action-bar-info');
+        if (info) info.innerHTML = `<strong>${count}</strong> item(s) selected`;
     }
 }
 
 const boot = () => {
-    if (! window.MobileEnhancements) {
-        window.MobileEnhancements = new MobileEnhancements();
-    } else {
-        window.MobileEnhancements.init();
-    }
+    if (! window.MobileEnhancements) window.MobileEnhancements = new MobileEnhancements();
+    else window.MobileEnhancements.init();
 };
 
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });

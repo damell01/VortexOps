@@ -14,6 +14,7 @@ Schedule::call(fn () => Setting::set('scheduler_last_heartbeat', now()->toISOStr
 Schedule::job(new WorkerHeartbeat)->everyFiveMinutes()->name('worker-heartbeat')->withoutOverlapping();
 Schedule::command('db:backup')->dailyAt('02:00');
 Schedule::command('health:check --notify')->everyThirtyMinutes();
+Schedule::command('workflow:notify-state')->everyFifteenMinutes()->name('workflow-state-notifications')->withoutOverlapping(10);
 
 Schedule::command('model:prune', ['--model' => [\App\Models\AiInteraction::class]])
     ->dailyAt('03:00')
@@ -35,8 +36,6 @@ Schedule::command('whatnot:sync-show-index --limit=200 --enrich=3')
     ->onSuccess(fn () => Setting::set('whatnot_last_import_success_at', now()->toISOString()))
     ->onFailure(fn () => Setting::set('whatnot_last_import_failure_at', now()->toISOString()));
 
-// If Whatnot exposes a duplicate UUID that has already been merged into a
-// canonical VortexOps show, remove the recreated row immediately after discovery.
 Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->skip($whatnotPaused)
     ->cron('1,11,21,31,41,51 * * * *')

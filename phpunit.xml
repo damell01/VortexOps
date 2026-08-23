@@ -25,6 +25,10 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
+        <!-- A stuck browser lock must fail the test, not stall it for twenty
+             minutes. The array cache is process-wide, so one lock left held
+             would otherwise block every later test that touches the scraper. -->
+        <env name="WHATNOT_BROWSER_LOCK_WAIT" value="2"/>
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>

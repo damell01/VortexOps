@@ -10,6 +10,16 @@ return [
         'playwright_browsers_path'         => env('PLAYWRIGHT_BROWSERS_PATH'),
         'playwright_chromium_executable'   => env('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'),
 
+        // How long a run waits for the shared browser lock before giving up.
+        //
+        // Twenty minutes is right in production, where the queue behind the
+        // lock is another real scrape that will finish. It is exactly wrong in
+        // a test suite: one lock left held turns every later test that touches
+        // the scraper into a twenty-minute stall, and a suite that hangs looks
+        // identical to one that is still working. phpunit.xml sets this to a
+        // couple of seconds so a stuck lock fails and says so.
+        'browser_lock_wait' => (int) env('WHATNOT_BROWSER_LOCK_WAIT', 1200),
+
         // Sanity boundary for Upcoming shows. The Seller Hub should not be able
         // to create malformed year-out rows in VortexOps. Four months still
         // leaves plenty of room for legitimate advance scheduling.

@@ -396,7 +396,24 @@ class Show extends Model
         }
 
         if (! empty($suggestions)) {
-            $this->update(['ai_streamer_suggestion' => $suggestions]);
+            // Quietly, or this never returns.
+            //
+            // Detection runs from the show observer, and the observer re-runs
+            // detection on update. Writing the suggestion with update() fires
+            // that observer, which calls back into here, which writes again —
+            // and the attach below, the one thing that would have stopped it,
+            // is never reached because each nested pass finds no streamers yet.
+            //
+            // Importing a show whose title matched a streamer therefore hung
+            // outright: not slow, never returning, and every scheduled import
+            // behind it stuck on a browser lock that was never released. The
+            // empty-suggestion path a few lines away in the observer already
+            // wrote quietly for the same reason.
+            //
+            // Nothing is lost by going quiet: this is a derived annotation
+            // about the show, not a change to it that anyone needs notifying
+            // about.
+            $this->updateQuietly(['ai_streamer_suggestion' => $suggestions]);
 
             // Auto-attach only when the show has no streamers yet
             if ($this->streamers()->count() === 0) {

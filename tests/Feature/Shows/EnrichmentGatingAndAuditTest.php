@@ -58,10 +58,21 @@ class EnrichmentGatingAndAuditTest extends TestCase
 
         Livewire::actingAs($user);
 
+        // Two things moved under this test since it was written, both
+        // deliberately, and both leaving it asserting the wrong thing.
+        //
+        // add_inventory_item was removed from this table entirely in cc32e7e6:
+        // creating catalogue entries out of a show's order rows is not what
+        // that screen is for. Asserting it stays hidden would now pass for the
+        // wrong reason — hidden from everyone, admins included, by not being
+        // there at all.
+        //
+        // fill_costs became admin-only in the same pass. It writes unit costs
+        // onto sold rows, which is what COGS and every profit-share number are
+        // computed from, so it is not a streamer's to press on their own show.
         $this->rm($show)
-            ->assertTableActionHidden('import_orders')     // triggers a scrape
-            ->assertTableActionHidden('add_inventory_item') // writes shared catalogue
-            ->assertTableActionVisible('fill_costs');       // still theirs to use
+            ->assertTableActionHidden('import_orders')  // triggers a scrape
+            ->assertTableActionHidden('fill_costs');    // writes the cost basis
     }
 
     public function test_admin_sees_all_enrichment_actions(): void
@@ -74,7 +85,6 @@ class EnrichmentGatingAndAuditTest extends TestCase
 
         $this->rm($show)
             ->assertTableActionVisible('import_orders')
-            ->assertTableActionVisible('add_inventory_item')
             ->assertTableActionVisible('fill_costs');
     }
 

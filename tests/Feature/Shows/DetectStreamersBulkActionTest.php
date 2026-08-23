@@ -48,7 +48,11 @@ class DetectStreamersBulkActionTest extends TestCase
         $unmapped        = $this->show('Josh Break Night');
         $noMatch         = $this->show('Completely Unrelated Title');
         $alreadyMapped   = $this->show('Josh Break Night');
-        $alreadyMapped->streamers()->attach($otherStreamer->id, ['is_primary' => true]);
+        // sync, not attach: a show imported with a matching title is given its
+        // streamer at creation by the observer, so attaching another on top
+        // produced a show with two — which is not "already mapped to Diamo",
+        // it is a different situation that happens to have a Diamo in it.
+        $alreadyMapped->streamers()->sync([$otherStreamer->id => ['is_primary' => true]]);
 
         Livewire::actingAs($this->adminUser);
 
@@ -79,7 +83,11 @@ class DetectStreamersBulkActionTest extends TestCase
         $unmapped      = $this->show('Josh Break Night');
         $noMatch       = $this->show('Completely Unrelated Title');
         $alreadyMapped = $this->show('Josh Break Night');
-        $alreadyMapped->streamers()->attach($otherStreamer->id, ['is_primary' => true]);
+        // sync, not attach: a show imported with a matching title is given its
+        // streamer at creation by the observer, so attaching another on top
+        // produced a show with two — which is not "already mapped to Diamo",
+        // it is a different situation that happens to have a Diamo in it.
+        $alreadyMapped->streamers()->sync([$otherStreamer->id => ['is_primary' => true]]);
 
         Livewire::actingAs($this->adminUser);
 

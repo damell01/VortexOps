@@ -1053,8 +1053,10 @@ class WhatnotScraper
      * @param  callable():T  $fn
      * @return T
      */
-    protected function withBrowserLock(callable $fn, int $waitSeconds = 1200)
+    protected function withBrowserLock(callable $fn, ?int $waitSeconds = null)
     {
+        $waitSeconds ??= (int) config('vortex.whatnot.browser_lock_wait', 1200);
+
         $lock = Cache::lock('whatnot:browser', 13800);
 
         // Take it without blocking first, purely so we can say something when we

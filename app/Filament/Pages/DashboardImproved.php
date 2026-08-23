@@ -6,7 +6,7 @@ use App\Filament\Widgets\FulfillmentInventoryWidget;
 use App\Filament\Widgets\NeedsAttentionWidget;
 use App\Filament\Widgets\OperationsOverviewWidget;
 use App\Filament\Widgets\RecentShowsWidget;
-use App\Filament\Widgets\ShowWorkflowControlWidget;
+use App\Filament\Widgets\ShowQueueCountsWidget;
 use App\Filament\Widgets\ShowsKpiWidget;
 use App\Filament\Widgets\StreamerInventoryWidget;
 use App\Filament\Widgets\StreamerOverviewWidget;
@@ -61,7 +61,12 @@ class DashboardImproved extends Dashboard
 
         if ($user?->isAdmin() || $user?->isOwner()) {
             return [
-                ShowWorkflowControlWidget::class,
+                // The policy radios that used to lead this list are settings
+                // now (Settings → Post-Show Workflow): chosen once, then left
+                // for months, while taking the top of a screen read many times
+                // a day by people who mostly cannot change them. Their counts
+                // stayed — nothing else here reports them.
+                ShowQueueCountsWidget::class,
                 NeedsAttentionWidget::class,
                 OperationsOverviewWidget::class,
                 RecentShowsWidget::class,

@@ -1,6 +1,6 @@
 <x-filament-panels::page>
     <div class="space-y-3 sm:space-y-5" data-vx-page="show-shipments">
-        <section class="rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900 sm:p-4" data-vx-tour="shipment-filters">
+        <section class="rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-900 sm:p-4">
             <div class="mb-3">
                 <h2 class="text-sm font-semibold text-gray-950 dark:text-white">Find a show</h2>
                 <p class="mt-0.5 text-[11px] leading-4 text-gray-500 dark:text-gray-400">Choose the show first, then open its shipment list. This keeps mobile usable even with a large shipping history.</p>
@@ -25,7 +25,7 @@
             </div>
         </section>
 
-        <div class="grid gap-2.5 sm:gap-3 lg:grid-cols-2" data-vx-tour="shipment-cards">
+        <div class="grid gap-2.5 sm:gap-3 lg:grid-cols-2">
             @forelse($this->shows as $show)
                 <article class="overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:border-primary-300 hover:shadow-sm dark:border-gray-700 dark:bg-gray-900">
                     <div class="p-3.5 sm:p-4">

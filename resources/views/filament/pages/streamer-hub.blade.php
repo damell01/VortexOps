@@ -158,10 +158,20 @@
                 </div>
 
                 <div class="space-y-2">
-                    <a href="{{ route('filament.admin.resources.streamer-logs.create') }}"
+                    {{--
+                        This pointed at streamer-logs.create, which is not a
+                        route: the resource has no create page, and could not
+                        sensibly have one — a report belongs to a show, so
+                        there is nothing to attach a report created from
+                        nowhere to. The route helper threw on it, which took
+                        the whole Streamer Hub down.
+
+                        End of Stream is where a report is actually filed.
+                    --}}
+                    <a href="{{ route('filament.admin.pages.end-of-stream') }}"
                         class="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg transition text-gray-900 dark:text-white">
                         <span class="text-lg">➕</span>
-                        <span class="font-semibold text-sm">Create New Log</span>
+                        <span class="font-semibold text-sm">File an End of Stream Report</span>
                     </a>
                     <a href="{{ route('filament.admin.pages.streamer-shows') }}?tab=create"
                         class="flex items-center gap-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-lg transition text-gray-900 dark:text-white">

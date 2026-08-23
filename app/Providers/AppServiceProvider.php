@@ -84,14 +84,6 @@ class AppServiceProvider extends ServiceProvider
             fn (): \Illuminate\Contracts\View\View => view('filament.mobile-polish'),
         );
 
-        // One lightweight tour layer for all operational pages. Individual pages
-        // expose small data-vx-tour anchors, while the component owns onboarding,
-        // mobile-safe bottom-sheet instructions, highlighting, and restart state.
-        FilamentView::registerRenderHook(
-            'panels::body.end',
-            fn (): \Illuminate\Contracts\View\View => view('filament.page-tour'),
-        );
-
         $listener = new LogAuthActivity();
         Event::listen(Login::class,         [$listener, 'handleLogin']);
         Event::listen(Logout::class,        [$listener, 'handleLogout']);

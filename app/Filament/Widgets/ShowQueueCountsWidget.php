@@ -2,60 +2,34 @@
 
 namespace App\Filament\Widgets;
 
-use App\Models\Setting;
 use App\Models\Show;
 use App\Models\StreamerLogEntry;
 use App\Models\StreamerLogItem;
-use Filament\Notifications\Notification;
 use Filament\Widgets\Widget;
 
-class ShowWorkflowControlWidget extends Widget
+/**
+ * What is waiting, in four numbers.
+ *
+ * This was the Post-show automation panel: two sets of radio buttons choosing
+ * when inventory posts and which reports need review, with these counts along
+ * the top. The radios were settings — chosen once and then left for months —
+ * sitting at the top of a screen read many times a day, mostly by people
+ * without the permission to change them. They are in Settings now.
+ *
+ * The counts stayed, because nothing else on the dashboard reports them and
+ * they are the ones that mean someone has work to do.
+ */
+class ShowQueueCountsWidget extends Widget
 {
     protected static ?int $sort = -50;
     protected int|string|array $columnSpan = 'full';
-    protected string $view = 'filament.widgets.show-workflow-control';
-
-    public string $postingPolicy = 'on_submit';
-    public string $reviewPolicy = 'required';
-
-    public function mount(): void
-    {
-        $this->postingPolicy = (string) Setting::get('show_inventory_posting_policy', 'on_submit');
-        $this->reviewPolicy = (string) Setting::get('show_report_review_policy', 'required');
-    }
+    protected string $view = 'filament.widgets.show-queue-counts';
 
     public static function canView(): bool
     {
         $user = auth()->user();
+
         return ($user?->isAdmin() || $user?->isOwner()) ?? false;
-    }
-
-    public function setPostingPolicy(string $policy): void
-    {
-        $this->authorizeAdmin();
-        if (! in_array($policy, ['on_submit', 'clean_only', 'on_approval'], true)) return;
-
-        Setting::set('show_inventory_posting_policy', $policy);
-        $this->postingPolicy = $policy;
-
-        Notification::make()->title('Inventory posting policy updated')->success()->send();
-    }
-
-    public function setReviewPolicy(string $policy): void
-    {
-        $this->authorizeAdmin();
-        if (! in_array($policy, ['required', 'exceptions_only', 'auto'], true)) return;
-
-        Setting::set('show_report_review_policy', $policy);
-        $this->reviewPolicy = $policy;
-
-        Notification::make()->title('Show review policy updated')->success()->send();
-    }
-
-    private function authorizeAdmin(): void
-    {
-        $user = auth()->user();
-        abort_unless(($user?->isAdmin() || $user?->isOwner()) ?? false, 403);
     }
 
     public function getCountsProperty(): array

@@ -87,6 +87,18 @@ class AppSettings extends Page
      */
     public array $streamer_visible_location_ids = [];
 
+    // ── Post-Show Workflow ───────────────────────────────────────────────────
+    //
+    // These lived on the dashboard, as a panel of radio buttons above the work.
+    // They are settings — chosen once and then left alone for months — and the
+    // dashboard is read many times a day by people who cannot change them, so
+    // they took the top of the screen from the numbers that are the reason to
+    // open it.
+
+    public string $show_inventory_posting_policy = 'on_submit';
+
+    public string $show_report_review_policy = 'required';
+
     // ── Shipping Surcharge ───────────────────────────────────────────────────
 
     public string $shipping_surcharge_rate      = '4.00';
@@ -165,6 +177,9 @@ class AppSettings extends Page
 
         $this->default_receiving_location_id = Setting::get('default_receiving_location_id') ?: null;
         $this->streamer_visible_location_ids = \App\Support\InventoryVisibility::configuredForStreamers();
+
+        $this->show_inventory_posting_policy = (string) Setting::get('show_inventory_posting_policy', 'on_submit');
+        $this->show_report_review_policy     = (string) Setting::get('show_report_review_policy', 'required');
 
         $this->shipping_surcharge_rate      = Setting::get('shipping_surcharge_rate', '4.00');
         $this->shipping_surcharge_threshold = Setting::get('shipping_surcharge_threshold', '500.00');
@@ -275,6 +290,8 @@ class AppSettings extends Page
             'default_receiving_location_id'    => 'nullable|integer|exists:inventory_locations,id',
             'streamer_visible_location_ids'    => 'array',
             'streamer_visible_location_ids.*'  => 'integer|exists:inventory_locations,id',
+            'show_inventory_posting_policy'    => 'required|in:on_submit,clean_only,on_approval',
+            'show_report_review_policy'        => 'required|in:required,exceptions_only,auto',
             'shipping_surcharge_rate'          => 'required|numeric|min:0',
             'shipping_surcharge_threshold'     => 'required|numeric|min:0',
             'default_owner_fee_type'           => 'nullable|in:percentage,flat',
@@ -320,6 +337,9 @@ class AppSettings extends Page
             \App\Support\InventoryVisibility::SETTING_KEY,
             json_encode(array_values(array_map('intval', $this->streamer_visible_location_ids))),
         );
+
+        Setting::set('show_inventory_posting_policy', $this->show_inventory_posting_policy);
+        Setting::set('show_report_review_policy',     $this->show_report_review_policy);
 
         Setting::set('shipping_surcharge_rate',      $this->shipping_surcharge_rate);
         Setting::set('shipping_surcharge_threshold', $this->shipping_surcharge_threshold);

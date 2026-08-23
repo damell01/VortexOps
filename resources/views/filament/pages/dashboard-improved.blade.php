@@ -59,7 +59,7 @@
         @endif
     >
         @if($pageMode === 'streamer')
-            <section data-vx-tour="role-overview" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+            <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
                 <div class="p-4 sm:p-6">
                     <div class="flex items-center justify-between gap-3">
                         <div class="text-[10px] font-bold uppercase tracking-[.12em] text-primary-600 sm:text-xs">Streamer Center</div>
@@ -72,7 +72,7 @@
                     </div>
                 </div>
 
-                <div data-vx-tour="role-metrics" class="grid grid-cols-2 gap-px bg-gray-100 dark:bg-gray-800 sm:grid-cols-4">
+                <div class="grid grid-cols-2 gap-px bg-gray-100 dark:bg-gray-800 sm:grid-cols-4">
                     @foreach ([
                         ['Upcoming', $myUpcomingShows->count(), 'On your schedule'],
                         ['Recent Shows', $myRecentShows->count(), 'Quick access'],
@@ -104,7 +104,7 @@
                 </div>
             </section>
 
-            <section data-vx-tour="streamer-schedule" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+            <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
                 <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5 sm:py-4">
                     <div>
                         <h2 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Upcoming Shows</h2>
@@ -139,7 +139,7 @@
                 @endforelse
             </section>
 
-            <section data-vx-tour="primary-action" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+            <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
                 <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5 sm:py-4">
                     <div>
                         <h2 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Recent Shows</h2>
@@ -213,14 +213,14 @@
                 @endforelse
             </section>
         @elseif($pageMode === 'fulfillment')
-            <section data-vx-tour="role-overview" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+            <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
                 <div class="p-4 sm:p-6">
                     <div class="text-[10px] font-bold uppercase tracking-[.12em] text-primary-600 sm:text-xs">Fulfillment Operations</div>
                     <h1 class="mt-1 text-xl font-semibold leading-tight text-gray-950 dark:text-white sm:text-2xl">Shipping work that needs attention</h1>
                     <p class="mt-1 max-w-2xl text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Work by show first. Open the show, then handle its Whatnot shipments and packing lines.</p>
                 </div>
 
-                <div data-vx-tour="role-metrics" class="grid grid-cols-2 gap-px bg-gray-100 dark:bg-gray-800 sm:grid-cols-4">
+                <div class="grid grid-cols-2 gap-px bg-gray-100 dark:bg-gray-800 sm:grid-cols-4">
                     @foreach ([
                         ['Shows to Work', $showsToFulfill ?? 0],
                         ['Open Shipments', $openShipments ?? 0],
@@ -243,7 +243,7 @@
                 </div>
             </section>
 
-            <section data-vx-tour="primary-action" class="rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950/30 sm:p-4">
+            <section class="rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950/30 sm:p-4">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <div class="text-sm font-semibold text-blue-900 dark:text-blue-100">Ready to work the queue?</div>
@@ -253,14 +253,14 @@
                 </div>
             </section>
         @elseif($pageMode === 'admin')
-            <section data-vx-tour="role-overview" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+            <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
                 <div class="p-4 sm:p-6">
                     <div class="text-[10px] font-bold uppercase tracking-[.12em] text-primary-600 sm:text-xs">Admin Operations Center</div>
                     <h1 class="mt-1 text-xl font-semibold leading-tight text-gray-950 dark:text-white sm:text-2xl">What needs attention now</h1>
                     <p class="mt-1 max-w-2xl text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Exceptions first: show reports, inventory matching, fulfillment ownership, shipments, and payouts.</p>
                 </div>
 
-                <div data-vx-tour="role-metrics" class="grid grid-cols-2 gap-px bg-gray-100 dark:bg-gray-800 sm:grid-cols-5">
+                <div class="grid grid-cols-2 gap-px bg-gray-100 dark:bg-gray-800 sm:grid-cols-5">
                     @foreach ([
                         ['Reports', $reportsToReview ?? 0],
                         ['Unmatched', $unmatchedItems ?? 0],
@@ -284,7 +284,7 @@
             </section>
         @endif
 
-        <div data-vx-tour="dashboard-widgets" class="min-w-0">
+        <div class="min-w-0">
             <x-filament-widgets::widgets :widgets="$this->getWidgets()" :columns="$this->getColumns()" />
         </div>
     </div>

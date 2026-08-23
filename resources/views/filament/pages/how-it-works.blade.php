@@ -95,15 +95,6 @@
         </section>
 
         <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:p-5">
-            <div class="flex items-start gap-3">
-                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-950 dark:text-violet-300">
-                    <x-heroicon-o-cursor-arrow-rays class="h-4 w-4" />
-                </div>
-                <div>
-                    <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Use the page tours too</h2>
-                    <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Operational pages have a small <strong>Tour</strong> button in the lower-right corner. The tour opens automatically the first time you visit a supported workflow page, then stays out of the way. Tap Tour anytime to replay it.</p>
-                </div>
-            </div>
         </section>
     </div>
 </x-filament-panels::page>

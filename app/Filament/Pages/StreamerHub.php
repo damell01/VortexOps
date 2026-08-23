@@ -44,6 +44,20 @@ class StreamerHub extends Page
         return auth()->user()?->streamer ?? abort(403);
     }
 
+    /**
+     * The view reads $stats, and nothing was putting it there.
+     *
+     * getStats() is a plain method: Filament hands a page's view whatever
+     * getViewData() returns, and a bare method is not that. So every line of
+     * this page referencing $stats threw on an undefined variable — meaning
+     * the Streamer Hub was broken for the only people who can open it, and
+     * only for them, which is why it stayed unnoticed.
+     */
+    public function getViewData(): array
+    {
+        return ['stats' => $this->getStats()];
+    }
+
     public function getStats()
     {
         $streamer = $this->getStreamer();

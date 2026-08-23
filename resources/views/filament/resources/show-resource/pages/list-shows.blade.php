@@ -22,7 +22,7 @@
     @endphp
 
     <div class="space-y-3 sm:space-y-5" data-vx-page="shows-operations">
-        <section data-vx-tour="shows-ops-overview" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
             <div class="p-4 sm:p-5">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div class="min-w-0">
@@ -49,7 +49,7 @@
         </section>
 
         @unless($isStreamer)
-            <section data-vx-tour="shows-attention" class="overflow-hidden rounded-xl border border-amber-200 bg-white dark:border-amber-900/70 dark:bg-gray-900 sm:rounded-2xl">
+            <section class="overflow-hidden rounded-xl border border-amber-200 bg-white dark:border-amber-900/70 dark:bg-gray-900 sm:rounded-2xl">
                 <div class="flex items-center justify-between gap-3 border-b border-amber-100 bg-amber-50/60 px-4 py-3 dark:border-amber-900/40 dark:bg-amber-950/20 sm:px-5 sm:py-4">
                     <div>
                         <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Needs Attention</h3>
@@ -103,7 +103,7 @@
             </section>
         @endunless
 
-        <section data-vx-tour="shows-schedule" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
             <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5 sm:py-4">
                 <div>
                     <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">{{ $isStreamer ? 'My Upcoming Shows' : 'Upcoming Schedule' }}</h3>
@@ -141,7 +141,7 @@
             @endforelse
         </section>
 
-        <section data-vx-tour="shows-recent" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
             <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5 sm:py-4">
                 <div>
                     <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">{{ $isStreamer ? 'Recent Shows & Reports' : 'Recent Shows' }}</h3>
@@ -206,7 +206,7 @@
         </section>
 
         @unless($isStreamer)
-            <details class="group overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl" data-vx-tour="shows-data-view">
+            <details class="group overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
                 <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 sm:px-5 sm:py-4">
                     <div>
                         <div class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">All Shows / Advanced View</div>

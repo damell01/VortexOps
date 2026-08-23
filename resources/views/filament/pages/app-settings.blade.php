@@ -879,6 +879,80 @@
             </div>
         </div>
 
+        {{-- ── Post-Show Workflow ──────────────────────────────────────────── --}}
+        <div wire:key="section-show-workflow" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+
+            <button type="button" @click="open = !open"
+                class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <x-heroicon-o-arrow-path-rounded-square class="h-5 w-5 text-sky-500 shrink-0" />
+                <div class="flex-1 min-w-0">
+                    <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Post-Show Workflow</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">When a show report posts to inventory, and which reports an admin has to see</p>
+                </div>
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
+            </button>
+
+            <div x-show="open" class="border-t border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
+
+                <div class="px-6 py-5">
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Inventory posting</h3>
+                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">When Sold, Giveaway and Promo lines come out of stock.</p>
+
+                    <div class="mt-3 grid gap-2 max-w-2xl">
+                        @foreach ([
+                            'on_submit'   => ['Immediately', 'Stock moves as soon as the streamer submits. Fastest, and wrong lines have to be corrected afterwards.'],
+                            'clean_only'  => ['Only clean reports', 'A report with no unmatched or exceptional lines posts itself. Anything with a problem waits.'],
+                            'on_approval' => ['After an admin approves', 'Nothing moves until someone has read the report. Slowest, and nothing lands wrong.'],
+                        ] as $vxKey => [$vxLabel, $vxHelp])
+                            <label class="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 transition-colors
+                                {{ $show_inventory_posting_policy === $vxKey
+                                    ? 'border-sky-400 bg-sky-50 dark:border-sky-700 dark:bg-sky-950/30'
+                                    : 'border-gray-200 hover:border-sky-300 dark:border-gray-600' }}">
+                                <input type="radio" value="{{ $vxKey }}" wire:model.live="show_inventory_posting_policy"
+                                    class="mt-0.5 shrink-0 border-gray-300 text-sky-600 focus:ring-sky-500 dark:border-gray-500" />
+                                <span class="min-w-0">
+                                    <span class="block text-sm font-medium text-gray-900 dark:text-gray-100">{{ $vxLabel }}</span>
+                                    <span class="mt-0.5 block text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $vxHelp }}</span>
+                                </span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="px-6 py-5">
+                    <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">Admin review</h3>
+                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Which reports stop in the review queue.</p>
+
+                    <div class="mt-3 grid gap-2 max-w-2xl">
+                        @foreach ([
+                            'required'        => ['Every report', 'An admin approves each one. Use while a new streamer is learning the process.'],
+                            'exceptions_only' => ['Only reports with problems', 'Clean reports pass on their own; unmatched or short lines wait for a person.'],
+                            'auto'            => ['None', 'Reports approve themselves on submission. Nothing queues, and nothing is checked.'],
+                        ] as $vxKey => [$vxLabel, $vxHelp])
+                            <label class="flex cursor-pointer items-start gap-3 rounded-lg border px-4 py-3 transition-colors
+                                {{ $show_report_review_policy === $vxKey
+                                    ? 'border-sky-400 bg-sky-50 dark:border-sky-700 dark:bg-sky-950/30'
+                                    : 'border-gray-200 hover:border-sky-300 dark:border-gray-600' }}">
+                                <input type="radio" value="{{ $vxKey }}" wire:model.live="show_report_review_policy"
+                                    class="mt-0.5 shrink-0 border-gray-300 text-sky-600 focus:ring-sky-500 dark:border-gray-500" />
+                                <span class="min-w-0">
+                                    <span class="block text-sm font-medium text-gray-900 dark:text-gray-100">{{ $vxLabel }}</span>
+                                    <span class="mt-0.5 block text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $vxHelp }}</span>
+                                </span>
+                            </label>
+                        @endforeach
+                    </div>
+
+                    @if ($show_report_review_policy === 'auto' && $show_inventory_posting_policy === 'on_approval')
+                        <p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                            These two disagree: posting waits for an approval that now happens automatically, so
+                            stock will move without anyone having looked at the report.
+                        </p>
+                    @endif
+                </div>
+            </div>
+        </div>
+
         {{-- ── Shipping Surcharge ──────────────────────────────────────────── --}}
         <div wire:key="section-shipping" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
 

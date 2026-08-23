@@ -12,7 +12,7 @@
 
 <x-filament-widgets::widget>
     <div class="space-y-3" data-vx-page="show-report-review">
-        <section data-vx-tour="show-report" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
             <div class="border-b border-gray-100 p-4 dark:border-gray-800 sm:p-5">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div class="min-w-0">
@@ -97,7 +97,7 @@
                     </div>
                 @endif
 
-                <div data-vx-tour="show-report-lines" class="space-y-2 p-3 sm:space-y-3 sm:p-5">
+                <div class="space-y-2 p-3 sm:space-y-3 sm:p-5">
                     @forelse($items as $line)
                         <article class="rounded-xl border border-gray-200 p-3 dark:border-gray-700 sm:p-4">
                             <div class="flex items-start justify-between gap-3">

@@ -111,7 +111,7 @@
     <header class="review-topbar sticky top-0 z-50">
         <div class="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
             <div class="flex min-w-0 items-center gap-3">
-                <a href="{{ route('review.index') }}" class="review-brand-chip flex items-center gap-3 rounded-2xl px-3 py-2 text-sm font-semibold text-slate-100 transition">
+                <a href="{{ route('filament.admin.pages.dashboard-improved') }}" class="review-brand-chip flex items-center gap-3 rounded-2xl px-3 py-2 text-sm font-semibold text-slate-100 transition">
                     <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 via-sky-500 to-violet-600 shadow-lg shadow-violet-950/30">
                         <svg class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

@@ -3,7 +3,7 @@
 @endphp
 
 <x-filament-widgets::widget>
-    <section data-vx-tour="show-activity" class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
+    <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
         <div class="flex items-start justify-between gap-3">
             <div>
                 <h2 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Show Activity & Changes</h2>

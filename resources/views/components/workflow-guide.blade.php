@@ -30,7 +30,7 @@
                             <li>You'll see all items that were sold during the show</li>
                             <li>Red highlighted rows need to be mapped to your inventory</li>
                         </ul>
-                        <a href="{{ route('filament.admin.resources.streamer-log-entries.index') }}" class="mt-4 inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 font-medium hover:underline">
+                        <a href="{{ route('filament.admin.resources.streamer-logs.index') }}" class="mt-4 inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 font-medium hover:underline">
                             Go to Streamer Logs <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                         </a>
                     </div>

@@ -39,7 +39,7 @@ class HowItWorks extends Page
                 'label' => 'Owner',
                 'items' => [
                     ['title' => 'Run the exceptions first', 'body' => 'Start on the <strong>Admin Operations Center</strong>. Clear reports waiting for review, unmatched inventory, unassigned fulfillment, and other exceptions before working routine reporting.'],
-                    ['title' => 'Choose how automated the show flow should be', 'body' => 'The dashboard <strong>Show Workflow</strong> controls decide when inventory posts and whether every report, only exception reports, or no reports require manual approval.'],
+                    ['title' => 'Choose how automated the show flow should be', 'body' => 'Under <strong>Settings → Post-Show Workflow</strong>, decide when inventory posts and whether every report, only exception reports, or no reports need an approval.'],
                     ['title' => 'Use each Show as the command center', 'body' => 'A show contains Whatnot analytics, shipments, streamer report, inventory reconciliation, activity history, and payout actions. Avoid bouncing between separate logs unless you need a specialized report.'],
                     ['title' => 'Manage access and modules', 'body' => 'Use <strong>Settings → Roles & Permissions</strong> and module controls to decide what each role can see.'],
                 ],

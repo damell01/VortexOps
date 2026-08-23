@@ -39,9 +39,15 @@ class StreamerHub extends Page
         return 'filament.pages.streamer-hub';
     }
 
+    private ?Streamer $resolvedStreamer = null;
+
     public function getStreamer(): Streamer
     {
-        return auth()->user()?->streamer ?? abort(403);
+        // Held for the request. The view asks for this five times to print one
+        // person's name and id, and each ask was a fresh query — lazy loading
+        // is off, so there is no relation cache doing it for us.
+        return $this->resolvedStreamer
+            ??= auth()->user()?->streamer ?? abort(403);
     }
 
     /**

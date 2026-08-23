@@ -20,6 +20,22 @@ class OperationsOverviewWidget extends BaseWidget
     protected static bool $isLazy = true;
     protected static ?int $sort = 1;
 
+    /**
+     * Two across on a phone, four on a desktop.
+     *
+     * Left to itself this lays one column out per stat, which on a phone means
+     * four money figures sharing a 390px row: the labels truncate to "STREAM…
+     * ER LOGS" and "ENUE · AUG", and $26,970.00 renders as $26,970.0( with the
+     * last character clipped. A revenue figure missing its final digit is
+     * worse than no figure — it is a number that can be misread rather than
+     * one that is obviously incomplete.
+     */
+    protected int | array | null $columns = [
+        'default' => 2,
+        'md'      => 2,
+        'xl'      => 4,
+    ];
+
     public static function canView(): bool
     {
         return (auth()->user()?->isAdmin() || auth()->user()?->isOwner()) ?? false;

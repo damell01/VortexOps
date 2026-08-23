@@ -18,6 +18,17 @@ class ShowsKpiWidget extends BaseWidget
     protected static bool $isLazy = true;
     protected static ?int $sort = 0;
 
+    /**
+     * Five stats, so the default one-column-each is even tighter here than on
+     * the operations strip. Two on a phone, three from tablet up — five across
+     * leaves the last card a sliver whatever the screen.
+     */
+    protected int | array | null $columns = [
+        'default' => 2,
+        'md'      => 3,
+        'xl'      => 5,
+    ];
+
     public static function canView(): bool
     {
         return auth()->user()?->isAdmin() && AdminModules::isEnabled('streams');

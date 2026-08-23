@@ -27,6 +27,10 @@ class HowItWorksTest extends TestCase
 
     public function test_role_guide_matches_the_viewers_role(): void
     {
+        // The guide names the viewer's role and lists what that role does. It
+        // asserted the copy — "You're: Admin", "Streamer Statement" — and the
+        // page was rewritten out from under it, so every string it looked for
+        // had gone. The label is the contract; the prose beneath it is not.
         Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'streamer', 'guard_name' => 'web']);
         Role::firstOrCreate(['name' => 'fulfillment', 'guard_name' => 'web']);
@@ -34,26 +38,34 @@ class HowItWorksTest extends TestCase
 
         $owner = User::factory()->create(['email' => 'owner@vortex.com']);
         $this->actingAs($owner);
-        Livewire::test(HowItWorks::class)->assertSee('Owner');
+        $this->assertSame('Owner', (new HowItWorks)->getMyRoleGuideProperty()['label']);
 
-        $admin = User::factory()->create();
-        $admin->assignRole('admin');
-        $this->actingAs($admin);
-        Livewire::test(HowItWorks::class)->assertSee('You\'re: Admin', false);
+        foreach ([
+            'admin'             => 'Admin',
+            'streamer'          => 'Streamer',
+            'fulfillment'       => 'Fulfillment',
+            'fulfillment_admin' => 'Fulfillment Admin',
+        ] as $role => $label) {
+            $user = User::factory()->create();
+            $user->assignRole($role);
+            $this->actingAs($user);
 
-        $streamer = User::factory()->create();
-        $streamer->assignRole('streamer');
-        $this->actingAs($streamer);
-        Livewire::test(HowItWorks::class)->assertSee('Streamer Statement');
+            $this->assertSame(
+                $label,
+                (new HowItWorks)->getMyRoleGuideProperty()['label'],
+                "a {$role} was shown the wrong role guide",
+            );
+        }
+    }
 
-        $fulfillment = User::factory()->create();
-        $fulfillment->assignRole('fulfillment');
-        $this->actingAs($fulfillment);
-        Livewire::test(HowItWorks::class)->assertSee('You\'re: Fulfillment', false);
+    public function test_someone_with_no_role_is_told_what_to_do_about_it(): void
+    {
+        // The state a new hire is in on their first sign-in, and the one most
+        // likely to be left rendering an empty page.
+        $this->actingAs(User::factory()->create());
 
-        $fulfillmentAdmin = User::factory()->create();
-        $fulfillmentAdmin->assignRole('fulfillment_admin');
-        $this->actingAs($fulfillmentAdmin);
-        Livewire::test(HowItWorks::class)->assertSee('Every channel\'s fulfillment work');
+        $guide = (new HowItWorks)->getMyRoleGuideProperty();
+
+        $this->assertNotEmpty($guide['items']);
     }
 }

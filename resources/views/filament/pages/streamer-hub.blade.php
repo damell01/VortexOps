@@ -8,10 +8,13 @@
                     <p class="text-indigo-100">Here's your streaming dashboard. Quick access to everything you need.</p>
                 </div>
                 <div class="flex gap-3 flex-wrap md:flex-nowrap">
-                    <a href="{{ route('filament.admin.resources.streamer-logs.index') }}"
+                    {{-- A plus icon labelled "New Log" that opened the list of
+                         existing logs. Filing a report is End of Stream, the
+                         same destination the quick action further down uses. --}}
+                    <a href="{{ route('filament.admin.pages.end-of-stream') }}"
                         class="inline-flex items-center justify-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg font-semibold transition">
                         <x-heroicon-o-plus-circle class="h-5 w-5" />
-                        <span class="hidden sm:inline">New Log</span>
+                        <span class="hidden sm:inline">Report a Show</span>
                     </a>
                     @livewire('create-manual-show', ['streamer' => $this->getStreamer()], key('create-show-' . $this->getStreamer()->id))
                 </div>

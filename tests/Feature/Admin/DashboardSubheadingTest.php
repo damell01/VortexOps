@@ -28,7 +28,10 @@ class DashboardSubheadingTest extends TestCase
 
         $subheading = (new Dashboard)->getSubheading();
 
-        $this->assertStringContainsString('Overview of Vortex Breaks operations', $subheading);
+        // The wording around it is marketing copy and has already been
+        // rewritten once under this test. What has to hold is that the brand
+        // is named when no channel is chosen.
+        $this->assertStringContainsString('Vortex Breaks', $subheading);
     }
 
     public function test_subheading_shows_the_active_channels_name(): void
@@ -38,7 +41,7 @@ class DashboardSubheadingTest extends TestCase
 
         $subheading = (new Dashboard)->getSubheading();
 
-        $this->assertStringContainsString('Overview of Vortex Collects operations', $subheading);
+        $this->assertStringContainsString('Vortex Collects', $subheading);
     }
 
     public function test_subheading_prefers_display_title_over_name_when_set(): void
@@ -48,6 +51,9 @@ class DashboardSubheadingTest extends TestCase
 
         $subheading = (new Dashboard)->getSubheading();
 
-        $this->assertStringContainsString('Overview of Vortex Breaks Main operations', $subheading);
+        // display_title wins over name — the point of the test, and the
+        // part that would silently break.
+        $this->assertStringContainsString('Vortex Breaks Main', $subheading);
+        $this->assertStringNotContainsString('vb_main', $subheading);
     }
 }

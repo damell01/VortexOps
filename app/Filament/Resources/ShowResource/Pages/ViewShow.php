@@ -140,19 +140,33 @@ class ViewShow extends ViewRecord
                         $defaultLocation = $show->defaultInventoryLocation();
                         $created = 0;
 
+                        // Group first, create second.
+                        //
+                        // This ran straight down the orders creating a line
+                        // each, and the duplicate check read $existing — built
+                        // once, before the loop, and never added to inside it.
+                        // So it caught a description already on the request and
+                        // never one produced moments earlier in the same run:
+                        // a lot sold across four orders arrived as four lines
+                        // of one, for somebody to notice and merge by hand.
+                        $grouped = [];
+
                         foreach ($show->orders as $order) {
-                            $description = $order->lot_number !== null
-                                ? 'Lot #' . $order->lot_number . ($order->item_name ? " — {$order->item_name}" : '')
-                                : ($order->item_name ?: "Order #{$order->id}");
+                            $description = $this->describeOrderLine($order);
+                            $key = strtolower(trim($description));
 
-                            if (in_array(strtolower(trim($description)), $existing, true)) continue;
+                            if (in_array($key, $existing, true)) continue;
 
-                            $quantity = max(1, (int) $order->quantity);
+                            $grouped[$key] ??= ['description' => $description, 'quantity' => 0];
+                            $grouped[$key]['quantity'] += max(1, (int) $order->quantity);
+                        }
+
+                        foreach ($grouped as $line) {
                             DeductionRequestLine::create([
                                 'deduction_request_id' => $request->id,
-                                'raw_description' => $description,
-                                'quantity_suggested' => $quantity,
-                                'quantity_approved' => $quantity,
+                                'raw_description' => $line['description'],
+                                'quantity_suggested' => $line['quantity'],
+                                'quantity_approved' => $line['quantity'],
                                 'unit_cost_snapshot' => 0,
                                 'line_total' => 0,
                                 'ai_confidence' => 'manual',
@@ -217,5 +231,31 @@ class ViewShow extends ViewRecord
 
             EditAction::make()->visible(fn (): bool => $isAdmin),
         ];
+    }
+
+    /**
+     * How one sold order reads on a deduction line.
+     *
+     * Whatnot fills item_name in for every lot whether or not anyone typed a
+     * name, so an unnamed lot comes back as "Item #42" — which appended to its
+     * own lot number gave "Lot #42 — Item #42", the same number twice with a
+     * dash between. A real name still earns its place beside the lot.
+     */
+    private function describeOrderLine(\App\Models\WhatnotShowOrder $order): string
+    {
+        $name = trim((string) $order->item_name);
+
+        if ($order->lot_number === null) {
+            return $name !== '' ? $name : "Order #{$order->id}";
+        }
+
+        $lot = 'Lot #' . $order->lot_number;
+
+        // "Item #42", "Lot 42", "#42", "42" — a placeholder standing in for the
+        // lot number rather than describing what was in it.
+        $restatesLot = $name === ''
+            || preg_match('/^(item|lot)?\s*#?\s*' . preg_quote((string) $order->lot_number, '/') . '$/i', $name) === 1;
+
+        return $restatesLot ? $lot : "{$lot} — {$name}";
     }
 }

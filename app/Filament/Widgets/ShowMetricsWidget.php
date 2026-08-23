@@ -31,7 +31,14 @@ class ShowMetricsWidget extends Widget
         }
 
         $entry         = $show->streamerLogEntry;
-        $itemCount     = $show->orders()->count();
+
+        // Items, not rows. This counted order rows, so a buyer taking three of
+        // one lot in a single order showed as one item sold. Whatnot's own
+        // units_sold covers the case where the order rows have not been
+        // imported yet, which is most shows for their first hours.
+        $orderRows     = $show->orders()->count();
+        $orderUnits    = (int) $show->orders()->sum('quantity');
+        $itemCount     = $orderUnits > 0 ? $orderUnits : (int) ($show->units_sold ?? 0);
         $shipmentCount = $show->shipments()->count();
         $pendingCount  = $show->shipments()
             ->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'")
@@ -69,9 +76,24 @@ class ShowMetricsWidget extends Widget
             [
                 'label' => 'Items Sold',
                 'value' => number_format($itemCount),
-                'sub'   => 'Imported order rows',
+                'sub'   => $orderUnits > 0
+                    ? number_format($orderRows) . ' ' . \Illuminate\Support\Str::plural('order', $orderRows)
+                    : 'From Whatnot — orders not imported yet',
                 'icon'  => 'heroicon-o-cube',
                 'tone'  => 'amber',
+            ],
+            [
+                // What went out without being sold. It is the other half of
+                // what left the shelf, and the show had no figure for it —
+                // which made a stock count that did not match sales look like
+                // a mistake rather than a giveaway.
+                'label' => 'Giveaways',
+                'value' => number_format((int) ($show->giveaways_count ?? 0)),
+                'sub'   => ((float) ($show->giveaway_spend ?? 0)) > 0
+                    ? '$' . number_format((float) $show->giveaway_spend, 2) . ' spent'
+                    : 'No giveaway spend recorded',
+                'icon'  => 'heroicon-o-gift',
+                'tone'  => 'violet',
             ],
             [
                 'label' => 'Shipments',

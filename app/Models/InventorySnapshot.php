@@ -37,6 +37,20 @@ class InventorySnapshot extends Model
     {
         $stocks = InventoryStock::with(['item', 'location'])->get();
 
+        // Which items have moved recently, in one grouped query.
+        //
+        // The loop below asked this per stock row — a count(*) over
+        // inventory_movements for every row on the shelf — so the inventory
+        // report ran 57 queries over 40 products and 97 over 80, growing one
+        // for one with the catalogue. A warehouse of five thousand meant five
+        // thousand round trips to draw a page.
+        $movedRecently = InventoryMovement::query()
+            ->whereIn('inventory_item_id', $stocks->pluck('inventory_item_id')->filter()->unique())
+            ->where('created_at', '>=', now()->subDays(30))
+            ->distinct()
+            ->pluck('inventory_item_id')
+            ->flip();
+
         $totalValue = 0;
         $totalItems = 0;
         $totalQuantity = 0;
@@ -90,11 +104,9 @@ class InventorySnapshot extends Model
             }
 
             // Slow-moving items (no movement in last 30 days)
-            $lastMovement = $stock->item->movements()
-                ->where('created_at', '>=', now()->subDays(30))
-                ->count();
+            $hasMoved = isset($movedRecently[$stock->inventory_item_id]);
 
-            if ($lastMovement === 0 && $stock->quantity > 0) {
+            if (! $hasMoved && $stock->quantity > 0) {
                 $slowMovingItems[] = [
                     'item_id' => $stock->item_id,
                     'name' => $stock->item->name,

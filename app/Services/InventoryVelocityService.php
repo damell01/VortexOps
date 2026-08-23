@@ -9,6 +9,56 @@ use Illuminate\Support\Carbon;
 class InventoryVelocityService
 {
     /**
+     * Movement totals for many items at once, keyed by item id.
+     *
+     * calculateItemVelocity below runs one SUM per item, which is right for
+     * one item and wrong for a report that asks about all of them: the
+     * inventory report ran 57 queries over 40 products and 97 over 80 — one
+     * apiece, so a catalogue of five thousand meant five thousand round trips
+     * to draw one page.
+     *
+     * @param  iterable<int>  $itemIds
+     * @return \Illuminate\Support\Collection<int, float>
+     */
+    public function movementTotalsFor(iterable $itemIds, int $daysPeriod = 30): \Illuminate\Support\Collection
+    {
+        $ids = collect($itemIds)->filter()->unique()->values();
+
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+
+        return InventoryMovement::query()
+            ->whereIn('inventory_item_id', $ids)
+            ->where('created_at', '>=', now()->subDays($daysPeriod))
+            ->where('movement_type', '!=', 'adjustment')
+            ->groupBy('inventory_item_id')
+            ->selectRaw('inventory_item_id, SUM(quantity) as total')
+            ->pluck('total', 'inventory_item_id')
+            ->map(fn ($total) => (float) $total);
+    }
+
+    /**
+     * Turn a movement total into the same shape calculateItemVelocity returns.
+     *
+     * Kept beside it so the two cannot drift: a report reading pre-fetched
+     * totals and a page reading one item's must agree on what velocity means.
+     *
+     * @return array{daily_velocity: float, days_of_stock: int}
+     */
+    public function velocityFromTotal(float $movements, float $currentStock, int $daysPeriod = 30): array
+    {
+        $dailyVelocity = $daysPeriod > 0 ? $movements / $daysPeriod : 0.0;
+
+        return [
+            'daily_velocity' => $dailyVelocity,
+            'days_of_stock'  => $dailyVelocity > 0
+                ? (int) ceil($currentStock / $dailyVelocity)
+                : ($currentStock > 0 ? 999 : 0),
+        ];
+    }
+
+    /**
      * Calculate velocity metrics for an item over a time period.
      * Returns movement rate, turnover ratio, and classification.
      */

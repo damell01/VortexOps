@@ -230,8 +230,19 @@ class ReceivePallet extends Page
             return;
         }
 
-        // Normalize barcode (remove common prefixes/checksums if needed)
-        $barcode = preg_replace('/^[^0-9]*/', '', $barcode); // Remove leading non-digits
+        // The scanned code is used as scanned.
+        //
+        // This used to run preg_replace('/^[^0-9]*/', ...) over it to drop
+        // "common prefixes", which strips every leading non-digit — so a code
+        // that is not purely numeric is destroyed before anything looks it up.
+        // Case labels and the SKUs this app generates itself both start with
+        // letters (Product::generateSku produces VB250815abcd), so the codes
+        // most likely to be scanned at a pallet were the ones being mangled.
+        //
+        // A scanner prefix is still worth handling, but as a second attempt
+        // rather than by rewriting the code before the first one.
+        $rawBarcode = $barcode;
+        $numeric    = preg_replace('/^[^0-9]*/', '', $barcode);
 
         // A row was tapped, so there is no question about which line this is.
         if ($this->targetLineId) {
@@ -246,6 +257,45 @@ class ReceivePallet extends Page
                 return;
             }
         }
+
+        // A case label on this pallet is the most specific thing the code can
+        // be, so it is checked first.
+        //
+        // It used to be checked last and was therefore never checked at all:
+        // the scanner below throws for any code that is not a known product or
+        // container barcode, and a per-box case label is neither — so the
+        // receiveCaseByBarcode call further down sat behind an exception that
+        // always fired first. Scanning a case at the pallet did everything
+        // except receive the case.
+        foreach ([$rawBarcode, $numeric] as $candidate) {
+            if ($candidate === '') {
+                continue;
+            }
+
+            $case = InventoryCase::findByBarcode($candidate);
+
+            if (! $case || $case->status !== 'expected') {
+                continue;
+            }
+
+            try {
+                $received = app(ReceivingService::class)->receiveCaseByBarcode($candidate);
+                $this->lastScannedResult = "✓ Received {$candidate} — " . ($received->palletLine->inventoryItem?->name ?? 'case');
+                $this->lastScanDetails = null;
+                $this->lastScanSuccess = true;
+            } catch (\RuntimeException $e) {
+                $this->lastScannedResult = "✗ {$e->getMessage()}";
+                $this->lastScanDetails = null;
+                $this->lastScanSuccess = false;
+            }
+
+            $this->record->refresh()->load(['lines.cases', 'lines.inventoryItem', 'lines.location']);
+            $this->refreshProgress();
+
+            return;
+        }
+
+        $barcode = $rawBarcode;
 
         try {
             $scanner = app(PalletScanningService::class);

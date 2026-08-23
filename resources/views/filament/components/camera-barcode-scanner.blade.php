@@ -79,7 +79,20 @@
     body.vx-camera-scanner-open .vx-tour-launcher { display: none !important; }
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/quagga@0.12.1/dist/quagga.min.js"></script>
+{{--
+    Served from our own origin, not a CDN.
+
+    This was loaded from jsdelivr, which makes the camera scanner depend on
+    the warehouse having working general internet at the moment somebody
+    points a phone at a box. When it does not — a restricted network, a CDN
+    outage, a captive portal — the script never arrives and the scanner opens
+    to "Scanner library did not load", which reads as the app being broken
+    rather than as one file being missing.
+
+    Same file, same version, pinned in package.json and copied to
+    public/vendor, so it is as available as the page that asks for it.
+--}}
+<script src="{{ asset('vendor/quagga.min.js') }}"></script>
 @verbatim
 <script>
 function cameraScanner() {

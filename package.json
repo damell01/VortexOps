@@ -19,6 +19,7 @@
         "barcode-detector": "^3.2.0",
         "driver.js": "^1.4.0",
         "fabric": "^5.3.0",
-        "html2canvas": "^1.4.1"
+        "html2canvas": "^1.4.1",
+        "quagga": "^0.12.1"
     }
 }

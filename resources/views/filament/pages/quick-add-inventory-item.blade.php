@@ -20,7 +20,7 @@
             </div>
         </section>
 
-        <section data-tour="quick-add-main" class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
+        <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
             <div class="grid gap-4 sm:grid-cols-2">
                 <label class="sm:col-span-2">
                     <span class="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Item name <span class="text-red-500">*</span></span>

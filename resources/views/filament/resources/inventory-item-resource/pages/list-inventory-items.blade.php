@@ -1,6 +1,6 @@
 <x-filament-panels::page>
     <div class="space-y-3 sm:space-y-5" data-vx-page="inventory-center">
-        <section data-tour="inventory-start" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
             <div class="p-4 sm:p-5">
                 <div class="text-[10px] font-bold uppercase tracking-[.12em] text-primary-600 sm:text-xs">Inventory Center</div>
                 <h2 class="mt-1 text-lg font-semibold text-gray-950 dark:text-white sm:text-xl">What are you trying to do?</h2>
@@ -49,11 +49,11 @@
             </div>
         </section>
 
-        <div data-tour="inventory-health">
+        <div>
             <x-kpi-row :stats="$this->getStats()" />
         </div>
 
-        <section data-tour="inventory-list" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
             <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5">
                 <h2 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Inventory Items</h2>
                 <p class="mt-0.5 text-[11px] leading-4 text-gray-500 dark:text-gray-400 sm:text-xs">Search by item name, SKU, or barcode. Open an item for stock by location, history, transfer, adjustment, and case/container details.</p>

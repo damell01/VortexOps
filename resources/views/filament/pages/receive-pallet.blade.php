@@ -23,7 +23,7 @@
         x-on:scan-line-targeted.window="openScanner()"
         x-on:barcode-scanned.window="submitCameraScan($event)"
     >
-        <section data-tour="receiving-summary" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
             <div class="p-4 sm:p-5">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
@@ -66,7 +66,7 @@
             </div>
         </section>
 
-        <section data-tour="pallet-scan" class="rounded-xl border border-primary-200 bg-primary-50/60 p-4 dark:border-primary-900 dark:bg-primary-950/20 sm:rounded-2xl sm:p-5">
+        <section class="rounded-xl border border-primary-200 bg-primary-50/60 p-4 dark:border-primary-900 dark:bg-primary-950/20 sm:rounded-2xl sm:p-5">
             <div class="flex items-start gap-3">
                 <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-white"><x-heroicon-o-qr-code class="h-5 w-5" /></div>
                 <div class="min-w-0 flex-1">
@@ -131,7 +131,7 @@
             </section>
         @endif
 
-        <section data-tour="manifest-lines" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
             <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5 sm:py-4">
                 <div><h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Manifest</h3><p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Scan one box at a time, or Receive All only after physically counting the entire mapped line.</p></div>
                 <span class="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300 sm:text-xs">{{ $incompleteLines->count() }} open</span>
@@ -192,7 +192,7 @@
         </section>
 
         @if($summaryDone)
-            <section data-tour="receiving-complete" class="rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950/20 sm:p-5"><div class="flex items-start gap-3"><x-heroicon-o-check-circle class="mt-0.5 h-6 w-6 shrink-0 text-green-600" /><div class="min-w-0 flex-1"><h3 class="text-sm font-semibold text-green-900 dark:text-green-100 sm:text-base">Receiving matches the manifest</h3><p class="mt-1 text-xs leading-5 text-green-700 dark:text-green-300">{{ $summaryReceived }} of {{ $summaryExpected }} boxes are recorded. Complete the pallet when the receiver and supporting information are correct.</p><button type="button" wire:click="finalizePallet" wire:confirm="Complete this pallet? This marks receiving finished." wire:loading.attr="disabled" @disabled(blank($receivedByName)) class="mt-3 min-h-11 w-full rounded-lg bg-green-600 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">Complete Receiving</button></div></div></section>
+            <section class="rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950/20 sm:p-5"><div class="flex items-start gap-3"><x-heroicon-o-check-circle class="mt-0.5 h-6 w-6 shrink-0 text-green-600" /><div class="min-w-0 flex-1"><h3 class="text-sm font-semibold text-green-900 dark:text-green-100 sm:text-base">Receiving matches the manifest</h3><p class="mt-1 text-xs leading-5 text-green-700 dark:text-green-300">{{ $summaryReceived }} of {{ $summaryExpected }} boxes are recorded. Complete the pallet when the receiver and supporting information are correct.</p><button type="button" wire:click="finalizePallet" wire:confirm="Complete this pallet? This marks receiving finished." wire:loading.attr="disabled" @disabled(blank($receivedByName)) class="mt-3 min-h-11 w-full rounded-lg bg-green-600 px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto">Complete Receiving</button></div></div></section>
         @endif
 
         <div class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden" data-vx-mobile-actions>

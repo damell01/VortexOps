@@ -138,22 +138,6 @@ class AdminPanelProvider extends PanelProvider
             // Account card pinned to the bottom of the sidebar. Filament renders
             // no sidebar footer in this panel (.fi-sidebar-footer was absent from
             // the DOM), so the design's user block is supplied through this hook.
-            // Guided tour for whichever screen is open. Attached by route name
-            // so no page class has to carry a tour id — see GuidedTours.
-            ->renderHook(
-                PanelsRenderHook::BODY_END,
-                function () use ($isAuthenticatedAdminView): string {
-                    if (! $isAuthenticatedAdminView()) {
-                        return '';
-                    }
-
-                    $tour = \App\Support\GuidedTours::forRoute(request()->route()?->getName(), auth()->user());
-
-                    return $tour === null
-                        ? ''
-                        : Blade::render('@include(\'filament.components.guided-tour\', [\'tour\' => $tour])', ['tour' => $tour]);
-                },
-            )
             ->renderHook(
                 PanelsRenderHook::SIDEBAR_FOOTER,
                 fn (): string => ! $isAuthenticatedAdminView()

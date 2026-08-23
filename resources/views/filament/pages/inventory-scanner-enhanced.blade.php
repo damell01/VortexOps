@@ -34,7 +34,7 @@
             </section>
         @endif
 
-        <section data-tour="scanner-input" class="rounded-xl border-2 {{ $mode === 'lookup' ? 'border-primary-300 bg-primary-50/40 dark:border-primary-800 dark:bg-primary-950/20' : 'border-emerald-300 bg-emerald-50/40 dark:border-emerald-800 dark:bg-emerald-950/20' }} p-4 sm:rounded-2xl sm:p-5">
+        <section class="rounded-xl border-2 {{ $mode === 'lookup' ? 'border-primary-300 bg-primary-50/40 dark:border-primary-800 dark:bg-primary-950/20' : 'border-emerald-300 bg-emerald-50/40 dark:border-emerald-800 dark:bg-emerald-950/20' }} p-4 sm:rounded-2xl sm:p-5">
             <label class="block text-xs font-semibold text-gray-700 dark:text-gray-200 sm:text-sm">Barcode, UPC, or SKU</label>
             <div class="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
                 <input wire:model.live.debounce.300ms="scanInput" wire:keydown.enter="submitScan" type="text" inputmode="text" autocomplete="off" autocapitalize="none" autofocus placeholder="Scan or type a code…" class="min-h-12 min-w-0 rounded-lg border-gray-300 bg-white px-3 font-mono text-base dark:border-gray-600 dark:bg-gray-900" />

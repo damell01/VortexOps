@@ -4,7 +4,7 @@
 @php($isSend = $operation === \App\Filament\Resources\InventoryItemResource\Pages\ManageStock::SEND)
 
 <div class="space-y-3 pb-24 sm:space-y-5 sm:pb-0">
-    <div data-tour="stock-purpose" class="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 dark:border-violet-900 dark:bg-violet-950/40 sm:px-5">
+    <div class="rounded-xl border border-violet-200 bg-violet-50 px-4 py-3 dark:border-violet-900 dark:bg-violet-950/40 sm:px-5">
         <p class="text-sm font-semibold text-violet-950 dark:text-violet-100">What are you trying to do?</p>
         <p class="mt-1 text-xs leading-5 text-violet-800 dark:text-violet-300 sm:text-sm">
             <strong>Correct / remove</strong> when the count is wrong, damaged, lost, used, or given away. <strong>Move stock</strong> when the quantity is right but the item changed locations. Every change is saved to inventory history.
@@ -12,7 +12,7 @@
     </div>
 
     <div class="grid gap-3 sm:gap-5 lg:grid-cols-3">
-        <div data-tour="stock-current" class="overflow-hidden rounded-xl border border-gray-200 bg-white lg:col-span-1 dark:border-gray-700 dark:bg-gray-900">
+        <div class="overflow-hidden rounded-xl border border-gray-200 bg-white lg:col-span-1 dark:border-gray-700 dark:bg-gray-900">
             <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5">
                 <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Stock on hand now</h2>
                 <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Choose the location you are physically changing.</p>
@@ -42,7 +42,7 @@
         </div>
 
         <div class="space-y-3 sm:space-y-4 lg:col-span-2">
-            <div data-tour="stock-operation" class="flex gap-1 rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-900">
+            <div class="flex gap-1 rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-900">
                 @php($ops = [
                     \App\Filament\Resources\InventoryItemResource\Pages\ManageStock::ADJUST => 'Correct / remove',
                     \App\Filament\Resources\InventoryItemResource\Pages\ManageStock::TRANSFER => 'Move stock',
@@ -59,7 +59,7 @@
                 @endforeach
             </div>
 
-            <div data-tour="stock-form" class="space-y-3 rounded-xl border border-gray-200 bg-white px-4 py-4 dark:border-gray-700 dark:bg-gray-900 sm:space-y-4 sm:px-5 sm:py-5">
+            <div class="space-y-3 rounded-xl border border-gray-200 bg-white px-4 py-4 dark:border-gray-700 dark:bg-gray-900 sm:space-y-4 sm:px-5 sm:py-5">
                 <div class="grid gap-3 md:grid-cols-2 sm:gap-4">
                     <label class="block">
                         <span class="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:text-xs">{{ $isAdjust ? 'Location being corrected' : 'Move from' }}</span>
@@ -127,7 +127,7 @@
                         class="min-h-11 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800" />
                 </label>
 
-                <div data-tour="stock-preview" class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 dark:border-gray-700 dark:bg-gray-800/60 sm:px-4">
+                <div class="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3 dark:border-gray-700 dark:bg-gray-800/60 sm:px-4">
                     <p class="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:text-xs">Before you save</p>
                     <p class="text-xs font-semibold leading-5 text-gray-900 dark:text-gray-100 sm:text-sm">{{ $this->effect }}</p>
                 </div>

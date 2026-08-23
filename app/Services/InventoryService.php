@@ -17,6 +17,37 @@ class InventoryService
 
     private const COSTED_INTAKE = ['opening', 'breakdown'];
 
+    /**
+     * The stock row for an item at a location, held until the transaction ends.
+     *
+     * Every method here that reduces stock already took this lock; the two that
+     * did not were the two that raise it, and one of those is the dangerous
+     * one. adjustStock writes an absolute quantity rather than a delta, so a
+     * receipt landing between its read and its write is not merely miscounted,
+     * it is erased: 20 on hand, a scan adds 10, a count submitted as 14 reads
+     * the stale 20 and stores 14 — the ten units are gone from the record with
+     * nothing to show they arrived.
+     *
+     * addStock's own total was never at risk, since increment() is a single
+     * statement, but the before/after it writes onto the movement were read
+     * outside any lock and could describe a different row than the one that
+     * ended up stored.
+     */
+    private function lockedStock(InventoryItem $item, InventoryLocation $location): InventoryStock
+    {
+        InventoryStock::firstOrCreate(
+            ['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id],
+            ['quantity' => 0],
+        );
+
+        // Re-read rather than use what firstOrCreate returned: the lock is the
+        // point, and that call does not take one.
+        return InventoryStock::where('inventory_item_id', $item->id)
+            ->where('inventory_location_id', $location->id)
+            ->lockForUpdate()
+            ->first();
+    }
+
     public function addStock(
         InventoryItem $item,
         InventoryLocation $location,
@@ -26,10 +57,7 @@ class InventoryService
         ?float $unitCost = null,
     ): InventoryMovement {
         return DB::transaction(function () use ($item, $location, $quantity, $movementType, $reason, $unitCost) {
-            $stock = InventoryStock::firstOrCreate(
-                ['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id],
-                ['quantity' => 0]
-            );
+            $stock = $this->lockedStock($item, $location);
 
             $before = (float) $stock->quantity;
             $stock->increment('quantity', $quantity);
@@ -109,10 +137,7 @@ class InventoryService
         ?int $referenceId = null,
     ): InventoryMovement {
         return DB::transaction(function () use ($item, $location, $newQuantity, $reason, $movementType, $referenceType, $referenceId) {
-            $stock = InventoryStock::firstOrCreate(
-                ['inventory_item_id' => $item->id, 'inventory_location_id' => $location->id],
-                ['quantity' => 0]
-            );
+            $stock = $this->lockedStock($item, $location);
 
             $diff = $newQuantity - (float) $stock->quantity;
 

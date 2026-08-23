@@ -11,6 +11,13 @@ class GuidedTours
             'inventory-list' => [
                 'title' => 'Inventory Center',
                 'steps' => [
+                    // Unbound, like every other tour's opening step. A step
+                    // whose selector matches nothing is dropped at runtime, so
+                    // an element-bound opener means the tour starts midway
+                    // through — or not at all — on any layout where that
+                    // element is absent, which on this page includes every
+                    // narrow viewport that collapses the action row.
+                    ['title' => 'Everything about your stock starts here', 'body' => 'This page lists every product you hold, what is on hand, and where it is. Use it to find something before creating it again.'],
                     ['el' => '[data-tour="inventory-start"]', 'title' => 'Start with the job you are doing', 'body' => 'Quick Add is for a simple new product, Quick Scan is for something already in your hand, and Receive Shipment is for pallets or vendor deliveries. You do not need to start with a long form.'],
                     ['el' => '.fi-ta-search-field, .fi-input-wrp:has(input[type="search"])', 'title' => 'Search before creating another item', 'body' => 'Search by product name, SKU, or barcode first. If the item already exists, open it and change or move its stock instead of creating a duplicate product.'],
                     ['el' => '[data-tour="inventory-health"]', 'title' => 'Stock health at a glance', 'body' => 'These totals show what is in stock, low, or out. They use the same inventory visibility rules as the list below.'],
@@ -42,6 +49,7 @@ class GuidedTours
             'inventory-stock' => [
                 'title' => 'Move or Correct Stock',
                 'steps' => [
+                    ['title' => 'One page for every way stock changes', 'body' => 'Correcting a count, moving units between locations, and sending stock to a streamer are the same act — units at one place becoming units at another, or a different number of them.'],
                     ['el' => '[data-tour="stock-purpose"]', 'title' => 'Choose based on what physically happened', 'body' => 'Correct / remove changes the count at one location. Move stock keeps the total quantity the same and transfers units between locations.'],
                     ['el' => '[data-tour="stock-current"]', 'title' => 'Start with where the units are now', 'body' => 'Tap the location you are changing. The number beside it is the quantity currently recorded there.'],
                     ['el' => '[data-tour="stock-operation"]', 'title' => 'Correction and transfer are different events', 'body' => 'Use a correction for a count discrepancy, loss, giveaway, promo, or internal use. Use Move stock when the units still exist but were physically moved somewhere else.'],
@@ -101,6 +109,7 @@ class GuidedTours
             'pallet-receive' => [
                 'title' => 'Receiving Station',
                 'steps' => [
+                    ['title' => 'Check the delivery in against what was ordered', 'body' => 'This page holds the lines that were expected. Scan or receive each one as you unload, and anything still short at the end is reported rather than assumed.'],
                     ['el' => '[data-tour="receiving-summary"], main', 'title' => 'Work from expected to received', 'body' => 'The progress count is the main signal: how many boxes were expected, how many are in, and what is still left to handle.'],
                     ['el' => '[data-tour="pallet-scan"], #camera-scan-btn-mobile, #camera-scan-btn', 'title' => 'Tap Scan on the item you are holding', 'body' => 'For an unmapped line, tapping Scan aims the next barcode at that exact line and opens the camera on a phone. The first successful scan can create/link the product and count the box in one flow.'],
                     ['el' => '[data-tour="manifest-lines"], .fi-main', 'title' => 'Use Receive All only after you counted the line', 'body' => 'Receive All is the fast path when every expected box for a mapped line is physically present. Otherwise keep scanning so the progress remains honest.'],

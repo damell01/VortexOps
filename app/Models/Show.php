@@ -347,6 +347,81 @@ class Show extends Model
     }
 
     /**
+     * Everything Whatnot told us about this show.
+     *
+     * All of this is imported and has been for a long time — twenty-two fields
+     * land on every scrape — and the show page displayed seven of them. The
+     * rest sat in columns nobody could read without opening the database,
+     * which is a strange place for the only record of how many people watched.
+     *
+     * Grouped the way Whatnot's own analytics page groups them, so a figure
+     * can be checked against the source without hunting for it.
+     *
+     * A null is reported as null rather than as zero. "No rating yet" and "a
+     * rating of nothing" are different facts, and only one of them is true.
+     *
+     * @return array<string, array<int, array{label: string, value: string|null, hint: string|null}>>
+     */
+    public function whatnotAnalytics(): array
+    {
+        // The sign goes outside the symbol. number_format on a negative gives
+        // "$-25.58", which reads as a currency nobody has. Completed earnings
+        // genuinely run negative when refunds outrun settlement, so this is
+        // not a hypothetical shape.
+        $money = function ($value): ?string {
+            if ($value === null) {
+                return null;
+            }
+
+            $value = (float) $value;
+
+            return ($value < 0 ? '-$' : '$') . number_format(abs($value), 2);
+        };
+
+        $count = fn ($value) => $value === null ? null : number_format((int) $value);
+
+        $duration = function ($minutes): ?string {
+            if ($minutes === null) {
+                return null;
+            }
+
+            $minutes = (int) $minutes;
+
+            return $minutes >= 60
+                ? intdiv($minutes, 60) . 'h ' . ($minutes % 60) . 'm'
+                : $minutes . 'm';
+        };
+
+        return [
+            'Sales' => [
+                ['label' => 'Estimated sales',        'value' => $money($this->gross_revenue),      'hint' => 'Before Whatnot takes its cut'],
+                ['label' => 'Total est. earnings',    'value' => $money($this->whatnot_net),        'hint' => 'What Whatnot expects to pay out'],
+                ['label' => 'Completed earnings',     'value' => $money($this->completed_earnings), 'hint' => 'Settled so far'],
+                ['label' => 'Orders',                 'value' => $count($this->units_sold),         'hint' => null],
+                ['label' => 'Average order value',    'value' => $money($this->avg_order_value),    'hint' => null],
+                ['label' => 'Giveaway spend',         'value' => $money($this->giveaway_spend),     'hint' => null],
+                ['label' => 'Giveaways',              'value' => $count($this->giveaways_count),    'hint' => null],
+                ['label' => 'Tips',                   'value' => $money($this->tips),               'hint' => null],
+            ],
+
+            'Audience' => [
+                ['label' => 'Buyers',                 'value' => $count($this->buyers_count),           'hint' => null],
+                ['label' => 'First-time buyers',      'value' => $count($this->first_time_buyers),      'hint' => 'Bought from this channel for the first time'],
+                ['label' => 'Returning buyers',       'value' => $count($this->returning_buyers),       'hint' => null],
+                ['label' => 'Shares',                 'value' => $count($this->shares_count),           'hint' => null],
+                ['label' => 'Max concurrent viewers', 'value' => $count($this->max_concurrent_viewers), 'hint' => 'Most people watching at once'],
+                ['label' => 'Total views',            'value' => $count($this->total_views),            'hint' => null],
+                ['label' => 'Show duration',          'value' => $duration($this->show_duration),       'hint' => null],
+                [
+                    'label' => 'Average order rating',
+                    'value' => $this->avg_order_rating === null ? null : number_format((float) $this->avg_order_rating, 2),
+                    'hint'  => 'Whatnot reports none until a show has been rated',
+                ],
+            ],
+        ];
+    }
+
+    /**
      * Whether the report has been filed at all.
      *
      * Nothing logged and a report never submitted is a different situation

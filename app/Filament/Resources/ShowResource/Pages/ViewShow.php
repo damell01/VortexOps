@@ -42,6 +42,7 @@ class ViewShow extends ViewRecord
     {
         return [
             \App\Filament\Widgets\ShowStreamerLogWidget::class,
+            \App\Filament\Widgets\ShowWhatnotAnalyticsWidget::class,
             \App\Filament\Widgets\ShowActivityWidget::class,
         ];
     }

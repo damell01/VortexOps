@@ -33,6 +33,7 @@ class ViewShow extends ViewRecord
     {
         return [
             \App\Filament\Widgets\ShowMetricsWidget::class,
+            \App\Filament\Widgets\ShowItemReconciliationWidget::class,
             \App\Filament\Widgets\ShowPipelineStatusWidget::class,
         ];
     }

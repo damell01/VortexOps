@@ -278,6 +278,91 @@ class Show extends Model
         return $this->hasMany(WhatnotShowOrder::class);
     }
 
+    /**
+     * What Whatnot says left the shelf, against what the streamer logged.
+     *
+     * Two independent records of the same night. Whatnot counts what buyers
+     * paid for; the streamer's End of Stream report counts what they physically
+     * handed over, including the giveaways and promos Whatnot has no order for.
+     * Neither is wrong when they differ — a difference is the thing worth
+     * looking at, and until now nowhere in the app put the two side by side.
+     *
+     * Sold is the row that has to reconcile. Giveaways are compared where
+     * Whatnot reports a count, and promo and other exist only in the report,
+     * so they are shown as logged rather than as a comparison against nothing.
+     *
+     * @return array<int, array{key: string, label: string, whatnot: int|null, logged: int, difference: int|null}>
+     */
+    public function itemReconciliation(): array
+    {
+        $entry = $this->relationLoaded('streamerLogEntry')
+            ? $this->streamerLogEntry
+            : $this->streamerLogEntry()->first();
+
+        $logged = $entry
+            ? $entry->items()
+                ->selectRaw('disposition, SUM(quantity) as total')
+                ->groupBy('disposition')
+                ->pluck('total', 'disposition')
+            : collect();
+
+        // Order rows are the finer-grained truth when they have been imported;
+        // units_sold is Whatnot's own figure and all there is before that.
+        $orderUnits = (int) $this->orders()->sum('quantity');
+        $whatnotSold = $orderUnits > 0 ? $orderUnits : (int) ($this->units_sold ?? 0);
+
+        $rows = [
+            [
+                'key'     => 'sold',
+                'label'   => 'Sold',
+                'whatnot' => $whatnotSold,
+                'logged'  => (int) ($logged['sold'] ?? 0),
+            ],
+            [
+                'key'     => 'giveaway',
+                'label'   => 'Giveaways',
+                'whatnot' => $this->giveaways_count === null ? null : (int) $this->giveaways_count,
+                'logged'  => (int) ($logged['giveaway'] ?? 0),
+            ],
+            [
+                'key'     => 'promo',
+                'label'   => 'Promo / Bonus',
+                'whatnot' => null,
+                'logged'  => (int) ($logged['promo'] ?? 0),
+            ],
+            [
+                'key'     => 'other',
+                'label'   => 'Other',
+                'whatnot' => null,
+                'logged'  => (int) ($logged['other'] ?? 0),
+            ],
+        ];
+
+        return array_map(
+            fn (array $row) => $row + [
+                'difference' => $row['whatnot'] === null ? null : $row['logged'] - $row['whatnot'],
+            ],
+            $rows,
+        );
+    }
+
+    /**
+     * Whether the report has been filed at all.
+     *
+     * Nothing logged and a report never submitted is a different situation
+     * from nothing logged after someone sat down and submitted an empty one,
+     * and a screen that shows "0 vs 98" for both is telling a story about the
+     * second while the truth is usually the first.
+     */
+    public function itemReportIsFiled(): bool
+    {
+        $entry = $this->relationLoaded('streamerLogEntry')
+            ? $this->streamerLogEntry
+            : $this->streamerLogEntry()->first();
+
+        return (bool) $entry?->submitted_at;
+    }
+
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

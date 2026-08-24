@@ -57,7 +57,7 @@ class ManagerHub extends Page
 
         $query = ProfitSharePacket::query();
         if (!$manager->isAdmin()) {
-            $query->whereIn('streamer_id', $manager->managedStreamers()->pluck('id'));
+            $query->whereIn('streamer_id', $manager->managedStreamers()->pluck('streamers.id'));
         }
 
         return [

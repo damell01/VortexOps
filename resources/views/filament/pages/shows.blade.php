@@ -1,6 +1,11 @@
 <x-filament-panels::page>
     <div class="space-y-5">
-        @if(auth()->user()->isStreamer() && !auth()->user()->isAdmin())
+        {{--
+            The streamer relation is set up by hand, so a user can hold the
+            role with nothing linked. Logging a show needs a streamer to log it
+            against, so there is nothing useful to show them here.
+        --}}
+        @if(auth()->user()->isStreamer() && !auth()->user()->isAdmin() && auth()->user()->streamer)
             @livewire('create-manual-show', ['streamer' => auth()->user()->streamer])
         @endif
 

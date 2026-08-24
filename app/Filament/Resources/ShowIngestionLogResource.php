@@ -47,6 +47,17 @@ class ShowIngestionLogResource extends Resource
     public static function canDelete($r): bool       { return auth()->user()?->isOwner() ?? false; }
     public static function canDeleteAny(): bool      { return auth()->user()?->isOwner() ?? false; }
 
+    /**
+     * Admin-only. These are scraper run records — every channel's imports,
+     * with raw error messages attached — and the query is deliberately not
+     * scoped to anyone. HasModuleAccess admits any signed-in user by default,
+     * which put them in front of streamers.
+     */
+    protected static function passesModuleAccessCheck(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()->with('show');

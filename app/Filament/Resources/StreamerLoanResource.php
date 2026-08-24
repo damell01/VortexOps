@@ -185,6 +185,19 @@ class StreamerLoanResource extends Resource
             ]);
     }
 
+    /**
+     * Admin-only. HasModuleAccess lets any signed-in user through by default,
+     * and this table lists every streamer's advance — label, original amount,
+     * weekly repayment, and outstanding balance — with no row-level scoping,
+     * so without this a streamer opening /admin/streamer-loans read the whole
+     * roster's borrowing. The record pages were already covered by
+     * StreamerLoanPolicy; the list was not.
+     */
+    protected static function passesModuleAccessCheck(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {
         return parent::getEloquentQuery()->with('streamer');

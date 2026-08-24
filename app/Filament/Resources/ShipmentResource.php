@@ -39,9 +39,25 @@ class ShipmentResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()
+        $query = parent::getEloquentQuery()
             ->with(['show.channel', 'show.streamers'])
             ->whereHas('show', fn (Builder $query) => $query->inChannelContext());
+
+        // Channel context alone is not ownership: it narrowed this to one
+        // channel and then showed a streamer every other streamer's shipments
+        // in it — buyer usernames, order dates, shipping costs. Same rule as
+        // ShowResource: a streamer sees their own shows and nothing else.
+        // Fulfillment works other people's shipments by design, so it keeps
+        // the channel-wide view.
+        $user = auth()->user();
+
+        if ($user && $user->isStreamer() && ! $user->isAdmin()) {
+            $streamerId = $user->streamer?->id ?? 0;
+
+            $query->whereHas('show.streamers', fn (Builder $q) => $q->where('streamers.id', $streamerId));
+        }
+
+        return $query;
     }
 
     public static function table(Table $table): Table

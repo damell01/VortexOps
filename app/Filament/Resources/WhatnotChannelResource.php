@@ -38,6 +38,17 @@ class WhatnotChannelResource extends Resource
 
     protected static ?string $model = WhatnotChannel::class;
 
+    /**
+     * Admin-only. Channels are configuration — scraper credentials, sync
+     * settings, which channel the whole panel is scoped to — and the resource
+     * registers create, edit, and delete pages. HasModuleAccess admits any
+     * signed-in user by default, so this needs saying out loud.
+     */
+    protected static function passesModuleAccessCheck(): bool
+    {
+        return auth()->user()?->isAdmin() ?? false;
+    }
+
     public static function getGloballySearchableAttributes(): array
     {
         return ['name', 'whatnot_username'];

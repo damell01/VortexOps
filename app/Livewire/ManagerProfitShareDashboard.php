@@ -86,7 +86,7 @@ class ManagerProfitShareDashboard extends Component
 
         // If not admin, only show own managed streamers
         if (!$this->manager->isAdmin()) {
-            $query->whereIn('streamer_id', $this->manager->managedStreamers()->pluck('id'));
+            $query->whereIn('streamer_id', $this->manager->managedStreamers()->pluck('streamers.id'));
         }
 
         // Filter by status
@@ -102,7 +102,7 @@ class ManagerProfitShareDashboard extends Component
         $query = ProfitSharePacket::query();
 
         if (!$this->manager->isAdmin()) {
-            $query->whereIn('streamer_id', $this->manager->managedStreamers()->pluck('id'));
+            $query->whereIn('streamer_id', $this->manager->managedStreamers()->pluck('streamers.id'));
         }
 
         return [

@@ -10,7 +10,14 @@ use Livewire\Component;
 
 class CreateManualShow extends Component
 {
-    public Streamer $streamer;
+    /**
+     * Nullable because a user can hold the streamer role without a Streamer
+     * row behind it — the two are linked by hand. mount() and openModal()
+     * already read this as optional; the non-nullable type meant a user in
+     * that state got a TypeError rather than the empty state the rest of the
+     * component was written for.
+     */
+    public ?Streamer $streamer = null;
     public bool $showModal = false;
     public string $title = '';
     public string $showDatetime = '';
@@ -33,7 +40,7 @@ class CreateManualShow extends Component
         'endTime' => 'nullable|date_format:H:i',
     ];
 
-    public function mount(Streamer $streamer): void
+    public function mount(?Streamer $streamer = null): void
     {
         $this->streamer = $streamer;
         $this->showDatetime = now()->format('Y-m-d\TH:i');

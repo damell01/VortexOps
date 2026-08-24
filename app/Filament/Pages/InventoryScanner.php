@@ -187,7 +187,10 @@ class InventoryScanner extends Page
      * page or a saved session could still ask for one that is no longer here
      * and land on a screen with no way back to it.
      */
-    public const MODES = ['lookup', 'quickadd'];
+    // 'receive' was written, documented on $mode and wired into submitScan(),
+    // and then left out of this list — so switchMode() bounced it back to
+    // lookup and roughly seven hundred lines of receiving code had no way in.
+    public const MODES = ['lookup', 'quickadd', 'receive'];
 
     public function switchMode(string $mode): void
     {
@@ -461,6 +464,175 @@ class InventoryScanner extends Page
             $this->rcvFlash = "Received {$result['item_name']} — {$result['cases_received']} case(s) added to stock.";
             $this->lastScannedLineId = $result['line_id'] ?? null;
         } catch (RuntimeException $e) {
+            $this->rcvError = $e->getMessage();
+        }
+
+        $this->refreshPalletProgress();
+    }
+
+    // ── Receiving without a scan ──────────────────────────────────────────────
+
+    /**
+     * The three answers a delivery actually has, per line.
+     *
+     * "Did it turn up" has three answers — all of it, some of it, none of it —
+     * and only the first and a barcode-at-a-time were reachable. Which one you
+     * could give also depended on which page you had open: the scanning station
+     * had one set, the pallet page another, the review modal a third. They are
+     * all here now, next to the scan box, so scanning is a way to fill the
+     * count in rather than a different screen.
+     */
+    public function receiveAllOfLine(int $lineId): void
+    {
+        $this->withLine($lineId, function (PalletLine $line) {
+            $count = app(ReceivingService::class)->receiveAllCasesForLine($line);
+
+            $this->rcvFlash = "Received all {$count} case(s) of \"{$line->description}\".";
+        });
+    }
+
+    public function receiveSomeOfLine(int $lineId, $cases): void
+    {
+        $this->withLine($lineId, function (PalletLine $line) use ($cases) {
+            $result = app(ReceivingService::class)->receiveSomeCases($line, (int) $cases);
+
+            $this->rcvFlash = "Received {$result['added']} case(s) of \"{$line->description}\" "
+                . "({$result['received']} of {$result['expected']} in).";
+        });
+    }
+
+    public function markLineShort(int $lineId): void
+    {
+        $this->withLine($lineId, function (PalletLine $line) {
+            $result = app(ReceivingService::class)->markLineShort($line);
+
+            $this->rcvFlash = $result['short'] > 0
+                ? "Reported {$result['short']} case(s) of \"{$line->description}\" as missing."
+                : "\"{$line->description}\" is already fully received.";
+        });
+    }
+
+    /**
+     * Run one line action against the selected pallet, or say why not.
+     *
+     * Scoped to $rcvPalletId on purpose: the line id arrives from the browser,
+     * and without the pallet in the where clause it would address any line in
+     * the database.
+     */
+    private function withLine(int $lineId, callable $callback): void
+    {
+        $this->rcvFlash = null;
+        $this->rcvError = null;
+
+        if (! $this->rcvPalletId) {
+            $this->rcvError = 'Select a pallet first.';
+
+            return;
+        }
+
+        $line = PalletLine::where('id', $lineId)
+            ->where('pallet_id', $this->rcvPalletId)
+            ->first();
+
+        if (! $line) {
+            $this->rcvError = 'That line is not on this pallet.';
+
+            return;
+        }
+
+        try {
+            $callback($line);
+        } catch (\Throwable $e) {
+            $this->rcvError = $e->getMessage();
+        }
+
+        $this->refreshPalletProgress();
+    }
+
+    // ── Receiving with no manifest ────────────────────────────────────────────
+
+    /**
+     * Start receiving a delivery nobody typed up first.
+     *
+     * The manifest was a gate: "Start receiving" only appeared once lines
+     * existed, so a box that turned up unannounced had to be keyed in as
+     * expectations before anything could be put away — expectations nothing
+     * downstream reads. Every column on a pallet is nullable, so a delivery
+     * with no paperwork is a perfectly good pallet; the lines get added as
+     * they come out of the box.
+     */
+    public function startBlankPallet(): void
+    {
+        $this->rcvFlash = null;
+        $this->rcvError = null;
+
+        $pallet = Pallet::create([
+            'reference'  => 'Walk-in ' . now()->format('M j, H:i'),
+            'status'     => 'receiving',
+            'created_by' => auth()->id(),
+            'notes'      => 'Started from the scanner with no manifest.',
+        ]);
+
+        $this->mode        = 'receive';
+        $this->rcvPalletId = $pallet->id;
+        $this->rcvFlash    = 'Started ' . $pallet->reference . '. Add items as you unpack them.';
+
+        $this->refreshPalletProgress();
+    }
+
+    /**
+     * Put something in that was never on the manifest, and receive it now.
+     *
+     * One step, because adding a line and then receiving it are the same
+     * intention when the thing is already in your hand. Works on a blank
+     * pallet and on a manifested one that turned up with an extra.
+     */
+    public function receiveUnlistedItem(int $itemId, int $locationId, $cases = 1, $qtyPerCase = 1, $unitCost = null): void
+    {
+        $this->rcvFlash = null;
+        $this->rcvError = null;
+
+        if (! $this->rcvPalletId) {
+            $this->rcvError = 'Select or start a pallet first.';
+
+            return;
+        }
+
+        $pallet   = Pallet::find($this->rcvPalletId);
+        $item     = InventoryItem::find($itemId);
+        $location = InventoryLocation::find($locationId);
+
+        if (! $pallet || ! $item || ! $location) {
+            $this->rcvError = 'Pallet, item or location not found.';
+
+            return;
+        }
+
+        $cases      = max(1, (int) $cases);
+        $qtyPerCase = max(1, (float) $qtyPerCase);
+
+        try {
+            $line = PalletLine::create([
+                'pallet_id'             => $pallet->id,
+                'line_number'           => ((int) $pallet->lines()->max('line_number')) + 1,
+                'description'           => $item->name,
+                'vendor_description'    => $item->name,
+                'inventory_item_id'     => $item->id,
+                'inventory_location_id' => $location->id,
+                'case_count'            => $cases,
+                'quantity_per_case'     => $qtyPerCase,
+                // Falls back to what the item is already carrying, so an
+                // unpriced walk-in does not drag the weighted average to zero.
+                'unit_cost'             => $unitCost !== null && $unitCost !== ''
+                    ? (float) $unitCost
+                    : (float) $item->average_cost,
+                'line_status'           => 'pending',
+            ]);
+
+            $received = app(ReceivingService::class)->receiveAllCasesForLine($line);
+
+            $this->rcvFlash = "Added and received {$received} case(s) of \"{$item->name}\".";
+        } catch (\Throwable $e) {
             $this->rcvError = $e->getMessage();
         }
 

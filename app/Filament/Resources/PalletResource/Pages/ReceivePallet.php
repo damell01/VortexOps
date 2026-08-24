@@ -383,28 +383,16 @@ class ReceivePallet extends Page
             ->firstOrFail();
 
         try {
-            $shortCount = $line->case_count - $line->cases->where('status', '!=', 'expected')->count();
-            if ($shortCount > 0) {
-                // Create missing item report
-                \App\Models\MissingItemReport::create([
-                    'pallet_id'          => $this->record->id,
-                    // The line, and what the slip called it. A line that never
-                    // arrived was never scanned, so it has no product — which
-                    // is the case this report exists for, and the one that used
-                    // to fail on a not-null constraint.
-                    'pallet_line_id'     => $line->id,
-                    'description'        => $line->description,
-                    'inventory_item_id'  => $line->inventory_item_id,
-                    'expected_quantity'  => $shortCount,
-                    'unit_cost'          => $line->unit_cost,
-                    'total_value'        => $shortCount * ($line->unit_cost ?? 0),
-                    'reported_by'        => auth()->id(),
-                    'notes'              => "Marked as short during receiving: {$shortCount} units missing",
-                ]);
+            // Filing the report lives in ReceivingService so this page and the
+            // scanner say the same thing by "short" — they had grown separate
+            // copies, which is how three screens ended up with three different
+            // ideas of what a partial delivery was.
+            $result = app(ReceivingService::class)->markLineShort($line);
 
+            if ($result['short'] > 0) {
                 Notification::make()
-                    ->title("Marked {$shortCount} item(s) as missing")
-                    ->body("{$line->description} - {$shortCount} short")
+                    ->title("Marked {$result['short']} case(s) as missing")
+                    ->body("{$line->description} — {$result['short']} short")
                     ->warning()
                     ->send();
             }

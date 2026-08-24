@@ -380,10 +380,12 @@ class ViewPallet extends ViewRecord
                 ->color('success')
                 ->size(\Filament\Support\Enums\Size::Large)
                 ->url(fn () => PalletResource::getUrl('receive', ['record' => $this->getRecord()]))
-                // Nothing to receive against until the manifest exists, and a
-                // finished pallet is finished.
-                ->visible(fn () => $this->getRecord()->lines()->exists()
-                    && ! in_array($this->getRecord()->status, ['received', 'processed'], true)),
+                // A finished pallet is finished. The manifest is no longer a
+                // gate: it used to require lines before receiving could start,
+                // so a delivery nobody typed up first had to be keyed in as
+                // expectations — and nothing downstream reads them. Lines can
+                // be added from the scanner as the box is unpacked.
+                ->visible(fn () => ! in_array($this->getRecord()->status, ['received', 'processed'], true)),
 
             // The other direction of the same question. From an item you ask
             // "where did this come from"; from a pallet, "what did this bring

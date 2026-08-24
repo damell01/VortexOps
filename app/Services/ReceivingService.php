@@ -388,6 +388,82 @@ class ReceivingService
      *
      * @return array{line: PalletLine, received: int, expected: int, complete: bool}
      */
+    /**
+     * Receive a given number of cases off one line without scanning them.
+     *
+     * The middle answer to "did it all turn up". Receiving all of a line and
+     * scanning each case were the only two things you could say, so a box that
+     * arrived six-of-ten meant scanning six barcodes you were holding anyway,
+     * or receiving ten you had not got.
+     *
+     * @return array{received: int, expected: int, complete: bool, added: int}
+     */
+    public function receiveSomeCases(PalletLine $line, int $cases): array
+    {
+        if ($cases < 1) {
+            throw new RuntimeException('Enter how many cases arrived.');
+        }
+
+        $outstanding = (int) $line->case_count - $line->fresh()->receivedCases();
+
+        if ($outstanding <= 0) {
+            throw new RuntimeException("All {$line->case_count} cases of \"{$line->description}\" are already in.");
+        }
+
+        // Asking for more than the line expects is a manifest that was wrong,
+        // not a reason to refuse the delivery — take what is outstanding and
+        // let the short/over reconciliation on the pallet review say so.
+        $take  = min($cases, $outstanding);
+        $added = 0;
+
+        for ($i = 0; $i < $take; $i++) {
+            $result = $this->confirmOneCase($line);
+            $added++;
+        }
+
+        return [
+            'received' => $result['received'] ?? 0,
+            'expected' => (int) $line->case_count,
+            'complete' => ($result['complete'] ?? false),
+            'added'    => $added,
+        ];
+    }
+
+    /**
+     * Record that the rest of a line never arrived.
+     *
+     * Lifted out of ReceivePallet so the scanner and the pallet page file the
+     * same report rather than each growing their own idea of what "short"
+     * means — the sort of split that left three different ways to say "some"
+     * on three different screens.
+     *
+     * @return array{short: int, report: \App\Models\MissingItemReport|null}
+     */
+    public function markLineShort(PalletLine $line, ?string $note = null): array
+    {
+        $short = (int) $line->case_count - $line->fresh()->receivedCases();
+
+        if ($short <= 0) {
+            return ['short' => 0, 'report' => null];
+        }
+
+        $report = \App\Models\MissingItemReport::create([
+            'pallet_id'         => $line->pallet_id,
+            // A line that never arrived was never scanned, so it has no
+            // product — which is the case this report exists for.
+            'pallet_line_id'    => $line->id,
+            'description'       => $line->description,
+            'inventory_item_id' => $line->inventory_item_id,
+            'expected_quantity' => $short,
+            'unit_cost'         => $line->unit_cost,
+            'total_value'       => $short * ($line->unit_cost ?? 0),
+            'reported_by'       => auth()->id(),
+            'notes'             => $note ?? "Marked as short during receiving: {$short} case(s) missing",
+        ]);
+
+        return ['short' => $short, 'report' => $report];
+    }
+
     public function confirmOneCase(PalletLine $line): array
     {
         if (! $line->isFullyMapped()) {

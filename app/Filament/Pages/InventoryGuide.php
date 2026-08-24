@@ -66,7 +66,6 @@ class InventoryGuide extends Page
             'restock' => ['📷', 'Restock & Scan', [
                 InventoryScanner::class,
                 QuickAddContainerScan::class,
-                MobileScannerApp::class,
             ]],
             'pallets' => ['🚚', 'Stage & Receive', [
                 \App\Filament\Resources\PalletResource::class,

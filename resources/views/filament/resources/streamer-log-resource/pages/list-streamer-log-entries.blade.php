@@ -10,30 +10,17 @@ use Filament\Support\Enums\MaxWidth;
          between the tiles and the table. --}}
     {{ $this->table }}
 
-    <!-- Bottom action bar for bulk operations on mobile -->
-    <x-bottom-action-bar>
-        <button
-            class="bottom-action-bar-action bottom-action-bar-action-primary"
-            onclick="approveSelected()"
-            title="Approve selected logs"
-        >
-            ✓ Approve
-        </button>
-        <button
-            class="bottom-action-bar-action bottom-action-bar-action-danger"
-            onclick="rejectSelected()"
-            title="Reject selected logs"
-        >
-            ✗ Reject
-        </button>
-        <button
-            class="bottom-action-bar-action bottom-action-bar-action-secondary"
-            onclick="exportSelected()"
-            title="Export selected logs"
-        >
-            📤 Export
-        </button>
-    </x-bottom-action-bar>
+    {{--
+        The bulk Approve / Reject / Export bar that used to sit here was dead:
+        it read a data-log-id attribute nothing sets, and posted to
+        /admin/api/streamer-logs/{approve,reject}-bulk, two routes that were
+        never registered. Every button either said "Please select logs" or
+        404'd, and all of its feedback came through browser dialogs.
+
+        Real bulk actions live on the table itself now (see
+        StreamerLogResource::table), which brings proper modals, a required
+        reason field, and notifications instead of browser dialogs.
+    --}}
 
     <!-- Floating action button for quick navigation -->
     <x-floating-action-button label="Menu" icon="⋮">
@@ -47,93 +34,3 @@ use Filament\Support\Enums\MaxWidth;
         </a>
     </x-floating-action-button>
 </x-filament-panels::page>
-
-<script>
-function approveSelected() {
-    const selected = Array.from(document.querySelectorAll('input[type="checkbox"]:checked'))
-        .map(cb => cb.closest('tr')?.dataset.logId)
-        .filter(Boolean);
-
-    if (selected.length === 0) {
-        alert('Please select logs to approve');
-        return;
-    }
-
-    if (!confirm(`Approve ${selected.length} log(s)?`)) return;
-
-    fetch('/admin/api/streamer-logs/approve-bulk', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
-        },
-        body: JSON.stringify({ ids: selected })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            alert(`${data.count} log(s) approved`);
-            location.reload();
-        } else {
-            alert('Error: ' + (data.message || 'Could not approve logs'));
-        }
-    })
-    .catch(err => {
-        console.error('Error:', err);
-        alert('Error approving logs');
-    });
-}
-
-function rejectSelected() {
-    const selected = Array.from(document.querySelectorAll('input[type="checkbox"]:checked'))
-        .map(cb => cb.closest('tr')?.dataset.logId)
-        .filter(Boolean);
-
-    if (selected.length === 0) {
-        alert('Please select logs to reject');
-        return;
-    }
-
-    const reason = prompt(`Rejection reason for ${selected.length} log(s):`);
-    if (!reason) return;
-
-    fetch('/admin/api/streamer-logs/reject-bulk', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content
-        },
-        body: JSON.stringify({ ids: selected, reason })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            alert(`${data.count} log(s) rejected`);
-            location.reload();
-        } else {
-            alert('Error: ' + (data.message || 'Could not reject logs'));
-        }
-    })
-    .catch(err => {
-        console.error('Error:', err);
-        alert('Error rejecting logs');
-    });
-}
-
-function exportSelected() {
-    const selected = Array.from(document.querySelectorAll('input[type="checkbox"]:checked'))
-        .map(cb => cb.closest('tr')?.dataset.logId)
-        .filter(Boolean);
-
-    if (selected.length === 0) {
-        alert('Please select logs to export');
-        return;
-    }
-
-    // Create download link
-    const downloadLink = document.createElement('a');
-    downloadLink.href = '/admin/export/streamer-logs?ids=' + selected.join(',');
-    downloadLink.download = true;
-    downloadLink.click();
-}
-</script>

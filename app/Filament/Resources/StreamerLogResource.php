@@ -25,9 +25,11 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\Filter;
+use Illuminate\Database\Eloquent\Collection;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -482,6 +484,86 @@ class StreamerLogResource extends Resource
                     ->color('gray')
                     ->iconButton()
                     ->url(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record])),
+            ])
+            // Approving a week of logs one row at a time is the actual job on
+            // this screen. There was a "bottom action bar" offering Approve,
+            // Reject and Export in bulk, but it read a data-log-id attribute
+            // nothing sets and posted to two routes that were never
+            // registered, so every button either said "Please select logs" or
+            // 404'd. These do the work, through the same model methods the row
+            // actions use — so stock returns on a rejection, same as before.
+            ->toolbarActions([
+                BulkAction::make('bulk_admin_approve')
+                    ->label('Approve selected')
+                    ->icon('heroicon-o-check-badge')
+                    ->color('success')
+                    ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner())
+                    ->requiresConfirmation()
+                    ->modalHeading('Approve these log entries')
+                    ->modalDescription('Only entries the streamer has submitted for review can be approved; anything else in the selection is skipped.')
+                    ->modalSubmitActionLabel('Approve')
+                    ->deselectRecordsAfterCompletion()
+                    ->action(function (Collection $records): void {
+                        $approved = $records
+                            ->filter(fn (StreamerLogEntry $record) => $record->status === 'streamer_reviewed')
+                            ->each(function (StreamerLogEntry $record): void {
+                                $record->status      = 'admin_approved';
+                                $record->reviewed_by = auth()->id();
+                                $record->reviewed_at = now();
+                                $record->save();
+                            })
+                            ->count();
+
+                        $skipped = $records->count() - $approved;
+
+                        Notification::make()
+                            ->title($approved === 1 ? '1 log entry approved' : "{$approved} log entries approved")
+                            ->body($skipped > 0 ? "{$skipped} skipped — not submitted for review." : null)
+                            ->success()
+                            ->send();
+                    }),
+                BulkAction::make('bulk_send_back')
+                    ->label('Request changes')
+                    ->icon('heroicon-o-arrow-uturn-left')
+                    ->color('warning')
+                    ->visible(fn () => auth()->user()?->isAdmin() || auth()->user()?->isOwner())
+                    ->form([
+                        \Filament\Forms\Components\Textarea::make('notes')
+                            ->label('What needs changing?')
+                            ->rows(3)
+                            ->placeholder('Tell the streamers what to fix before resubmitting.')
+                            ->helperText('The same note goes to every entry selected.')
+                            ->required(),
+                    ])
+                    ->modalHeading('Request changes from the streamers')
+                    ->modalDescription('Reopens each entry for editing and returns any stock that was deducted when it was submitted.')
+                    ->modalSubmitActionLabel('Request Changes')
+                    ->deselectRecordsAfterCompletion()
+                    ->action(function (Collection $records, array $data): void {
+                        $sent = $records
+                            ->filter(fn (StreamerLogEntry $record) => in_array($record->status, ['streamer_reviewed', 'admin_approved'], true))
+                            ->each(function (StreamerLogEntry $record) use ($data): void {
+                                // rejectByAdmin() is what returns the deducted
+                                // stock and notifies the streamer.
+                                $record->rejectByAdmin($data['notes']);
+
+                                $record->update([
+                                    'status'               => 'changes_requested',
+                                    'streamer_reviewed_at' => null,
+                                    'reviewed_by'          => null,
+                                    'reviewed_at'          => null,
+                                ]);
+                            })
+                            ->count();
+
+                        $skipped = $records->count() - $sent;
+
+                        Notification::make()
+                            ->title($sent === 1 ? '1 entry sent back' : "{$sent} entries sent back")
+                            ->body($skipped > 0 ? "{$skipped} skipped — not reviewed or approved yet." : null)
+                            ->warning()
+                            ->send();
+                    }),
             ])
             ->recordUrl(fn (StreamerLogEntry $record) => static::getUrl('edit', ['record' => $record]))
             ->defaultSort('id', 'desc')

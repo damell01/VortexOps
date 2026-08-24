@@ -276,7 +276,13 @@
                                 </div>
                             @endif
 
-                            @php($preview = $this->deductionPreview)
+                            {{-- Block form deliberately: an inline @ php(...) is collected by the same
+                                 raw-block pass as @ php ... @ endphp and pairs with the next block's
+                                 closing tag, which silently moves the boundary and breaks compilation
+                                 somewhere else entirely. This file already had that latent. --}}
+                            @php
+                                $preview = $this->deductionPreview;
+                            @endphp
                             @if (! empty($preview))
                                 <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900 dark:bg-amber-950/20 sm:mt-5 sm:p-4">
                                     <div class="text-xs font-semibold text-amber-800 dark:text-amber-200 sm:text-sm">Inventory exceptions</div>
@@ -369,25 +375,89 @@
                         <input type="search" wire:model.live.debounce.250ms="search" placeholder="Search product, SKU, or brand…" autofocus
                             class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-800" />
                     </div>
-                    <div class="overflow-y-auto p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4">
+                    @php
+                        $staged = $this->stagedSummary;
+                        $alreadyInReport = $lines->groupBy('inventory_item_id')->map(fn ($rows) => $rows->sum('quantity'));
+                    @endphp
+
+                    <div class="flex-1 overflow-y-auto p-3 sm:p-4">
                         <div class="grid gap-2.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
                             @forelse($this->inventory as $item)
-                                <article class="rounded-xl border border-gray-200 p-3 dark:border-gray-700 sm:p-4">
+                                @php $stagedQty = (int) ($this->stagedQuantities[$item->id] ?? 0); @endphp
+                                <article @class([
+                                    'rounded-xl border p-3 transition sm:p-4',
+                                    'border-primary-500 bg-primary-50/50 dark:border-primary-500 dark:bg-primary-950/20' => $stagedQty > 0,
+                                    'border-gray-200 dark:border-gray-700' => $stagedQty === 0,
+                                ])>
                                     <div class="min-h-12 sm:min-h-14">
                                         <div class="text-sm font-medium text-gray-950 dark:text-white sm:text-base">{{ $item->name }}</div>
-                                        <div class="mt-1 text-[10px] text-gray-500 sm:text-xs">SKU {{ $item->sku ?? '—' }}</div>
+                                        <div class="mt-1 text-[10px] text-gray-500 sm:text-xs">
+                                            SKU {{ $item->sku ?? '—' }}
+                                            @if(($alreadyInReport[$item->id] ?? 0) > 0)
+                                                · <span class="font-medium text-green-700 dark:text-green-300">{{ $alreadyInReport[$item->id] }} already on this report</span>
+                                            @endif
+                                        </div>
                                     </div>
                                     <div class="mt-3 flex items-center justify-between gap-3 sm:mt-4">
                                         <div>
                                             <div class="text-[10px] text-gray-500 sm:text-xs">On Hand</div>
                                             <div class="font-semibold text-gray-950 dark:text-white">{{ number_format((float)($item->stock_sum_quantity ?? 0)) }}</div>
                                         </div>
-                                        <x-filament::button type="button" size="sm" wire:click="addLineItem({{ $item->id }})">Add</x-filament::button>
+
+                                        @if($stagedQty === 0)
+                                            <x-filament::button type="button" size="sm" wire:click="stageItem({{ $item->id }})">Add</x-filament::button>
+                                        @else
+                                            <div class="flex items-center gap-1.5">
+                                                <button type="button" wire:click="stageItem({{ $item->id }}, -1)"
+                                                    class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 text-lg font-medium leading-none text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                                                    aria-label="One fewer {{ $item->name }}">−</button>
+                                                <input type="number" min="0" inputmode="numeric"
+                                                    value="{{ $stagedQty }}"
+                                                    wire:change="setStagedQuantity({{ $item->id }}, $event.target.value)"
+                                                    class="h-9 w-14 rounded-lg border-gray-300 text-center text-sm font-semibold dark:border-gray-600 dark:bg-gray-800"
+                                                    aria-label="Quantity of {{ $item->name }}" />
+                                                <button type="button" wire:click="stageItem({{ $item->id }}, 1)"
+                                                    class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 text-lg font-medium leading-none text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                                                    aria-label="One more {{ $item->name }}">+</button>
+                                            </div>
+                                        @endif
                                     </div>
                                 </article>
                             @empty
                                 <div class="col-span-full rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500 dark:border-gray-700 sm:p-10">No streamer inventory matched this search.</div>
                             @endforelse
+                        </div>
+                    </div>
+
+                    {{-- Running total. Sticky so the basket stays readable while scrolling a long catalog. --}}
+                    <div class="border-t border-gray-200 bg-gray-50 p-3 pb-[max(.75rem,env(safe-area-inset-bottom))] dark:border-gray-700 dark:bg-gray-900/60 sm:p-4">
+                        <div class="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                            <div class="min-w-0 text-xs text-gray-600 dark:text-gray-300 sm:text-sm">
+                                @if($staged['items'] === 0)
+                                    Nothing selected yet — search above and add what this show used.
+                                @else
+                                    <span class="font-semibold text-gray-950 dark:text-white">{{ $staged['items'] }}</span>
+                                    {{ Str::plural('item', $staged['items']) }} ·
+                                    <span class="font-semibold text-gray-950 dark:text-white">{{ number_format($staged['units']) }}</span>
+                                    {{ Str::plural('unit', $staged['units']) }}
+                                    @if($staged['cost'] > 0)
+                                        · <span class="font-semibold text-gray-950 dark:text-white">${{ number_format($staged['cost'], 2) }}</span> at cost
+                                    @endif
+                                @endif
+                            </div>
+                            <div class="flex shrink-0 items-center gap-2">
+                                @if($staged['items'] > 0)
+                                    <button type="button" wire:click="clearStaged"
+                                        class="min-h-10 rounded-lg px-3 text-xs font-medium text-gray-500 hover:text-gray-900 dark:hover:text-white sm:text-sm">Clear</button>
+                                @endif
+                                <x-filament::button type="button" wire:click="addStagedItems" :disabled="$staged['items'] === 0">
+                                    @if($staged['items'] === 0)
+                                        Add to report
+                                    @else
+                                        Add {{ number_format($staged['units']) }} {{ Str::plural('unit', $staged['units']) }} to report
+                                    @endif
+                                </x-filament::button>
+                            </div>
                         </div>
                     </div>
                 </section>

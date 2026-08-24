@@ -438,6 +438,20 @@
     @if($mode === 'lookup')
         <script>
         (function () {
+            // Filament's own toast, so a scanner failure looks like every
+            // other message in the panel instead of a browser alert() that
+            // blocks the page and cannot be styled. Falls back to the console
+            // if the notifications bundle has not booted yet.
+            function vxNotify(message, status = 'danger') {
+                if (window.FilamentNotification) {
+                    new window.FilamentNotification().title(message).status(status).send();
+
+                    return;
+                }
+
+                console.error(message);
+            }
+
             function setup() {
                 const btn       = document.getElementById('camera-scan-btn');
                 const container = document.getElementById('camera-container');
@@ -459,7 +473,7 @@
                     await window.ensureBarcodeScanner?.();
 
                     if (!window.barcodeScanner?.BrowserMultiFormatReader) {
-                        alert('Barcode scanner not available');
+                        vxNotify('Barcode scanner not available', 'danger');
                         return;
                     }
 
@@ -506,7 +520,7 @@
                         );
                     } catch (e) {
                         console.error('Camera error:', e);
-                        alert('Camera error: ' + (e.message || 'Unable to start camera'));
+                        vxNotify('Camera error: ' + (e.message || 'Unable to start camera'), 'danger');
                     }
                 });
 

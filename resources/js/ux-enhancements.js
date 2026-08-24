@@ -184,7 +184,12 @@ document.addEventListener('submit', () => {
 });
 
 window.addEventListener('beforeunload', (e) => {
-    if (formDirty && !confirm('You have unsaved changes. Leave anyway?')) {
+    // No confirm() here: browsers ignore dialogs raised inside beforeunload
+    // and show their own prompt for preventDefault()/returnValue instead. The
+    // old call could never display, and because an ignored confirm() is
+    // undefined, `!undefined` was always true — so the guard fired on every
+    // dirty form regardless of what the user would have answered.
+    if (formDirty) {
         e.preventDefault();
         e.returnValue = '';
     }

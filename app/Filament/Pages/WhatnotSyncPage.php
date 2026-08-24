@@ -107,6 +107,28 @@ class WhatnotSyncPage extends Page
         Notification::make()->title('Full resync queued')->warning()->send();
     }
 
+    /**
+     * The confirmation this button needs, as a real modal.
+     *
+     * It used to be `onclick="return confirm(...)"` sitting next to a
+     * wire:click. Livewire binds its own listener, so returning false from an
+     * inline onclick does not stop it — pressing Cancel queued the full
+     * resync anyway, which is the one action on this page worth being sure
+     * about.
+     */
+    public function fullResyncAction(): \Filament\Actions\Action
+    {
+        return \Filament\Actions\Action::make('fullResync')
+            ->label('Full Resync')
+            ->icon('heroicon-o-arrow-path-rounded-square')
+            ->color('danger')
+            ->requiresConfirmation()
+            ->modalHeading('Run a full resync?')
+            ->modalDescription('This re-pulls every show, order and shipment from the beginning. It can take several minutes and will keep the scraper busy until it finishes.')
+            ->modalSubmitActionLabel('Start full resync')
+            ->action(fn () => $this->syncFull());
+    }
+
     public function syncShipments(?int $channelId = null): void
     {
         SyncWhatnotShipmentsJob::dispatch($channelId);

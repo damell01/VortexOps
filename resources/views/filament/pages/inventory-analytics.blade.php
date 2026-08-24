@@ -227,7 +227,9 @@
                     </div>
                 </header>
 
-                @php ($topValue = max(array_column($locations, 'value') ?: [1]))
+                @php
+                    $topValue = max(array_column($locations, 'value') ?: [1]);
+                @endphp
                 <ul class="vx-an-bars">
                     @foreach ($locations as $location)
                         <li>

@@ -884,6 +884,32 @@ class InventoryItemResource extends Resource
                                 ->havingRaw('SUM(quantity) <= products.reorder_level');
                         })
                     ),
+                // A streamer opening All Inventory wants their own shelves —
+                // that is what they count, pick from and report against. The
+                // wider list matters too, but only when they are looking for
+                // something to request a transfer of, which is the rarer trip.
+                //
+                // So: their own by default, one toggle away from everything
+                // they are allowed to see. Off, this filter adds nothing and
+                // getEloquentQuery()'s visibility scope is what remains.
+                Filter::make('mine_only')
+                    ->label('My inventory only')
+                    ->visible(fn () => \App\Support\InventoryVisibility::isLimited(auth()->user()))
+                    ->default()
+                    ->query(function (Builder $query) {
+                        $user = auth()->user();
+                        $own  = $user ? \App\Support\InventoryVisibility::ownLocationIds($user) : [];
+
+                        // With no location of their own, this would filter the
+                        // page down to nothing and read as an empty catalog.
+                        if ($own === []) {
+                            return $query;
+                        }
+
+                        return $query->whereHas('stock', fn ($q) => $q
+                            ->whereIn('inventory_location_id', $own)
+                            ->where('quantity', '>', 0));
+                    }),
                 Filter::make('is_active')
                     ->label('Active Only')
                     ->query(fn (Builder $query) => $query->where('is_active', true))

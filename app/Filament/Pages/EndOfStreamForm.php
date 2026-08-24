@@ -48,8 +48,14 @@ class EndOfStreamForm extends Page implements HasForms
     public int $manualQuantity = 1;
     public string $manualDisposition = 'sold';
 
-    public array $selectedItems = [];
-    public array $itemQuantities = [];
+    /**
+     * The picker's basket: inventory item id => quantity staged, not yet
+     * written to the report. Survives closing the picker so a mis-click does
+     * not throw the selection away; cleared once it is added.
+     *
+     * @var array<int, int>
+     */
+    public array $stagedQuantities = [];
 
     public function getTitle(): string | Htmlable
     {
@@ -82,8 +88,7 @@ class EndOfStreamForm extends Page implements HasForms
             : null;
 
         $this->search = '';
-        $this->selectedItems = [];
-        $this->itemQuantities = [];
+        $this->stagedQuantities = [];
         $this->showInventoryPicker = false;
         $this->showManualItemForm = false;
         $this->step = 1;
@@ -134,6 +139,85 @@ class EndOfStreamForm extends Page implements HasForms
     {
         $this->showInventoryPicker = ! $this->showInventoryPicker;
         if ($this->showInventoryPicker) $this->showManualItemForm = false;
+    }
+
+    /** Nudge one item's staged quantity. Zero drops it out of the basket. */
+    public function stageItem(int $inventoryItemId, int $delta = 1): void
+    {
+        $this->setStagedQuantity(
+            $inventoryItemId,
+            ($this->stagedQuantities[$inventoryItemId] ?? 0) + $delta,
+        );
+    }
+
+    public function setStagedQuantity(int $inventoryItemId, int $quantity): void
+    {
+        // No upper bound against stock on hand: a report records what was
+        // actually used, and finding more of something on the shelf than the
+        // system believed is the ordinary reason a count gets corrected. The
+        // review step already flags lines that overdraw.
+        $quantity = max(0, $quantity);
+
+        if ($quantity === 0) {
+            unset($this->stagedQuantities[$inventoryItemId]);
+
+            return;
+        }
+
+        $this->stagedQuantities[$inventoryItemId] = $quantity;
+    }
+
+    public function clearStaged(): void
+    {
+        $this->stagedQuantities = [];
+    }
+
+    /** Running total for the picker's footer, so the basket is legible before it is committed. */
+    public function getStagedSummaryProperty(): array
+    {
+        $staged = array_filter($this->stagedQuantities, fn ($qty) => $qty > 0);
+
+        if (empty($staged)) {
+            return ['items' => 0, 'units' => 0, 'cost' => 0.0];
+        }
+
+        $costs = InventoryItem::whereKey(array_keys($staged))->pluck('average_cost', 'id');
+
+        $cost = 0.0;
+        foreach ($staged as $itemId => $quantity) {
+            $cost += (float) ($costs[$itemId] ?? 0) * $quantity;
+        }
+
+        return [
+            'items' => count($staged),
+            'units' => array_sum($staged),
+            'cost'  => round($cost, 2),
+        ];
+    }
+
+    /** Commit the whole basket in one go, which is the point of staging it. */
+    public function addStagedItems(string $disposition = 'sold'): void
+    {
+        $staged = array_filter($this->stagedQuantities, fn ($qty) => $qty > 0);
+
+        if (empty($staged)) {
+            return;
+        }
+
+        foreach ($staged as $inventoryItemId => $quantity) {
+            $this->addLineItem((int) $inventoryItemId, (int) $quantity, $disposition);
+        }
+
+        $this->stagedQuantities = [];
+        $this->showInventoryPicker = false;
+        $this->search = '';
+
+        $count = count($staged);
+
+        Notification::make()
+            ->title($count === 1 ? '1 item added to the report' : "{$count} items added to the report")
+            ->success()
+            ->send();
     }
 
     public function toggleManualItem(): void
@@ -350,8 +434,9 @@ class EndOfStreamForm extends Page implements HasForms
             ]);
         }
 
-        $this->showInventoryPicker = false;
-        $this->search = '';
+        // Deliberately leaves the picker open. Closing it on every add meant
+        // reopening and re-searching for each line of a report that usually
+        // has several; addStagedItems() closes it once the basket is in.
         $this->touchDraft();
     }
 
@@ -583,8 +668,7 @@ class EndOfStreamForm extends Page implements HasForms
 
             $this->lastSavedAt = now()->toIso8601String();
             $this->step = 3;
-            $this->selectedItems = [];
-            $this->itemQuantities = [];
+            $this->stagedQuantities = [];
         } catch (\Throwable $e) {
             report($e);
             Notification::make()->title('Could not submit the report')->body($e->getMessage())->danger()->send();

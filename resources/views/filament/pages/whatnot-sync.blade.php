@@ -68,12 +68,7 @@
                         <x-heroicon-o-calendar-days class="h-3.5 w-3.5" />
                         Last 30 Days
                     </button>
-                    <button wire:click="syncFull()" wire:loading.attr="disabled"
-                        onclick="return confirm('Full resync may take several minutes. Continue?')"
-                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors">
-                        <x-heroicon-o-arrow-path-rounded-square class="h-3.5 w-3.5" />
-                        Full Resync
-                    </button>
+                    {{ $this->fullResyncAction }}
                 </div>
             </div>
 

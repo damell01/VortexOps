@@ -609,9 +609,21 @@ class PayoutService
     public function markPayoutPaid(\App\Models\Payout $payout): void
     {
         DB::transaction(function () use ($payout) {
-            $payout->update(['status' => 'paid']);
-            \App\Models\Streamer::where('id', $payout->streamer_id)
-                ->increment('total_earnings_paid', (float) $payout->calculated_payout);
+            // Re-read under a lock and stop if it is already paid. This runs
+            // off a button; a second press used to increment the streamer's
+            // paid total again, and outstanding is (due − paid), so the second
+            // press wrote off money that was never sent. markBatchPaid() has
+            // always filtered on status for the same reason.
+            $locked = \App\Models\Payout::lockForUpdate()->find($payout->getKey());
+
+            if (! $locked || $locked->status === 'paid') {
+                return;
+            }
+
+            $locked->update(['status' => 'paid']);
+
+            \App\Models\Streamer::where('id', $locked->streamer_id)
+                ->increment('total_earnings_paid', (float) $locked->calculated_payout);
         });
     }
 
@@ -632,11 +644,35 @@ class PayoutService
             $activeLoans = $payout->streamer->loans
                 ->where('status', 'active');
 
-            $totalDeducted = 0;
+            // What is actually there to withhold. Repaying more than the
+            // payout is not possible, and a balance written down by more than
+            // was collected is debt the business quietly forgives.
+            $available     = max(0.0, (float) $payout->calculated_payout);
+            $totalDeducted = 0.0;
             $loanNotes     = [];
 
             foreach ($activeLoans as $loan) {
-                $repayment  = min((float) $loan->weekly_repayment, (float) $loan->remaining_balance);
+                // "Auto-deduct from payout" off means this loan is repaid some
+                // other way. The pay run took nothing for it and must not
+                // write its balance down either.
+                if (! $loan->deduct_from_payout) {
+                    continue;
+                }
+
+                if ($available <= 0) {
+                    break;
+                }
+
+                $repayment = round(min(
+                    (float) $loan->weekly_repayment,
+                    (float) $loan->remaining_balance,
+                    $available,
+                ), 2);
+
+                if ($repayment <= 0) {
+                    continue;
+                }
+
                 $newBalance = max(0, round((float) $loan->remaining_balance - $repayment, 2));
 
                 $loan->update([
@@ -644,10 +680,9 @@ class PayoutService
                     'status'            => $newBalance <= 0 ? 'paid_off' : 'active',
                 ]);
 
-                if ($loan->deduct_from_payout) {
-                    $totalDeducted += $repayment;
-                    $loanNotes[]    = "\${$repayment} {$loan->label}";
-                }
+                $available     -= $repayment;
+                $totalDeducted += $repayment;
+                $loanNotes[]    = '$' . number_format($repayment, 2) . ' ' . $loan->label;
             }
 
             if ($totalDeducted > 0) {

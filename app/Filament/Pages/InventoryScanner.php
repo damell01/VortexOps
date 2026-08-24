@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Filament\Concerns\HasModuleAccess;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
+use App\Models\Setting;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\Pallet;
@@ -639,6 +640,52 @@ class InventoryScanner extends Page
         $this->refreshPalletProgress();
     }
 
+    /**
+     * Add what is in your hand to the delivery, priced.
+     *
+     * receiveUnlistedItem() shipped with a $unitCost parameter and nothing on
+     * screen to call it, so a box that turned up unlisted could not be added
+     * at all — and the two manifest editors that do take a cost are the screen
+     * you are not standing at with the box.
+     *
+     * Defaults the destination to the configured receiving location so the
+     * common case is item, count, done.
+     */
+    public function addUnlistedToDelivery(): void
+    {
+        $locationId = $this->manualLocationId
+            ?: (int) (Setting::get('default_receiving_location_id') ?: 0)
+            ?: (int) InventoryLocation::orderBy('name')->value('id');
+
+        if (! $this->manualItemId) {
+            $this->rcvError = 'Pick an item first.';
+
+            return;
+        }
+
+        $this->receiveUnlistedItem(
+            (int) $this->manualItemId,
+            $locationId,
+            $this->manualCaseCount,
+            $this->manualQtyPerCase,
+            $this->manualUnitCost === '' ? null : $this->manualUnitCost,
+        );
+
+        if (! $this->rcvError) {
+            $this->resetUnlistedForm();
+        }
+    }
+
+    private function resetUnlistedForm(): void
+    {
+        $this->manualItemId      = null;
+        $this->manualItemSearch  = '';
+        $this->manualItemOptions = null;
+        $this->manualCaseCount   = '1';
+        $this->manualQtyPerCase  = '1';
+        $this->manualUnitCost    = '';
+    }
+
     // ── Pallet Staging (Advanced Feature) ──────────────────────────────────────
 
     public function stagePallet(): void
@@ -829,6 +876,19 @@ class InventoryScanner extends Page
         $this->showManualLineEntry = true;
         $this->resetManualLineForm();
         $this->manualLocationId = $this->qaLocationId ?: InventoryLocation::orderBy('name')->value('id');
+    }
+
+    /**
+     * Livewire hook rather than a wire:keydown binding.
+     *
+     * keydown misses every way text arrives that is not a person typing —
+     * paste, autofill, and a USB barcode scanner, which is the one that
+     * matters on this page. The model is already .live, so reacting to the
+     * update covers all of them.
+     */
+    public function updatedManualItemSearch(): void
+    {
+        $this->searchManualItems();
     }
 
     public function searchManualItems(): void

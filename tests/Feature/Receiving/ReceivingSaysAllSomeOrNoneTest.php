@@ -216,4 +216,62 @@ class ReceivingSaysAllSomeOrNoneTest extends TestCase
             ->call('receiveAllOfLine', 1)
             ->assertSet('rcvError', 'Select a pallet first.');
     }
+
+    public function test_an_unlisted_item_can_be_priced_as_it_is_added(): void
+    {
+        // receiveUnlistedItem() shipped with a $unitCost parameter and nothing
+        // on screen to call it. The two manifest editors that do take a cost
+        // are the screen you are not standing at with the box.
+        $item = InventoryItem::create([
+            'name' => 'Walk-in Case', 'sku' => 'WLK-1',
+            'unit_cost' => 10, 'average_cost' => 10, 'is_active' => true,
+        ]);
+
+        Livewire::test(InventoryScanner::class)
+            ->call('switchMode', 'receive')
+            ->set('rcvPalletId', $this->pallet->id)
+            ->call('selectManualItem', $item->id)
+            ->set('manualCaseCount', '2')
+            ->set('manualQtyPerCase', '5')
+            ->set('manualUnitCost', '42.50')
+            ->set('manualLocationId', $this->location->id)
+            ->call('addUnlistedToDelivery')
+            ->assertOk()
+            ->assertSet('rcvError', null);
+
+        $line = PalletLine::firstWhere('inventory_item_id', $item->id);
+
+        $this->assertNotNull($line);
+        $this->assertEqualsWithDelta(42.50, (float) $line->unit_cost, 0.01);
+        $this->assertSame(2, $line->fresh()->receivedCases());
+        $this->assertSame(10.0, (float) $item->stock()->sum('quantity'));
+    }
+
+    public function test_the_form_clears_after_a_successful_add(): void
+    {
+        $item = InventoryItem::create([
+            'name' => 'Walk-in Case', 'sku' => 'WLK-2',
+            'unit_cost' => 10, 'average_cost' => 10, 'is_active' => true,
+        ]);
+
+        Livewire::test(InventoryScanner::class)
+            ->call('switchMode', 'receive')
+            ->set('rcvPalletId', $this->pallet->id)
+            ->call('selectManualItem', $item->id)
+            ->set('manualUnitCost', '9.99')
+            ->set('manualLocationId', $this->location->id)
+            ->call('addUnlistedToDelivery')
+            ->assertSet('manualItemId', null)
+            ->assertSet('manualUnitCost', '')
+            ->assertSet('manualCaseCount', '1');
+    }
+
+    public function test_adding_without_choosing_an_item_says_so(): void
+    {
+        Livewire::test(InventoryScanner::class)
+            ->call('switchMode', 'receive')
+            ->set('rcvPalletId', $this->pallet->id)
+            ->call('addUnlistedToDelivery')
+            ->assertSet('rcvError', 'Pick an item first.');
+    }
 }

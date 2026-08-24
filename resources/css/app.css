@@ -1065,10 +1065,26 @@ button:not(:focus-visible), a:not(:focus-visible), input:not(:focus-visible), se
     to   { opacity: 1; transform: translateX(0); }
 }
 
-/* Page content entrance */
+/* Page content entrance.
+
+   fill-mode is `backwards`, never `both`, on every entrance animation whose
+   keyframes touch `transform`. `both` keeps the final keyframe applied after
+   the animation ends, so `transform: translateY(0)` stays on the element
+   forever — an identity transform, invisible, but enough to make that element
+   the containing block for every `position: fixed` descendant.
+
+   On .fi-page-content that broke modals across the whole panel: Filament skips
+   the page-level <x-filament-actions::modals /> for pages implementing
+   HasTable and renders it inside the table instead, i.e. inside this element,
+   so table and header action modals were laid out against the page body and
+   opened somewhere below the fold rather than centred on the viewport.
+
+   `backwards` still applies the `from` keyframe through any animation-delay,
+   which is what the staggered cards below need, and drops the transform once
+   the animation finishes. */
 .fi-page-content,
 .fi-simple-page {
-    animation: vx-fade-up 220ms var(--vx-ease) both;
+    animation: vx-fade-up 220ms var(--vx-ease) backwards;
 }
 
 /* ENHANCED SIDEBAR — already handled by the always-dark sidebar section above */
@@ -1232,7 +1248,7 @@ button:not(:focus-visible), a:not(:focus-visible), input:not(:focus-visible), se
 /* See the note above .fi-modal-window's other rule — same reason this can't
    target .fi-modal itself. */
 .fi-modal-window {
-    animation: vx-fade-up 180ms var(--vx-ease) both !important;
+    animation: vx-fade-up 180ms var(--vx-ease) backwards !important;
 }
 
 /* Modal header gradient */
@@ -1257,7 +1273,7 @@ button:not(:focus-visible), a:not(:focus-visible), input:not(:focus-visible), se
    ═══════════════════════════════════════════ */
 
 .fi-dropdown-panel {
-    animation: vx-fade-up 130ms var(--vx-ease) both !important;
+    animation: vx-fade-up 130ms var(--vx-ease) backwards !important;
 }
 
 /* Danger dropdown items */
@@ -1338,7 +1354,7 @@ button:not(:focus-visible), a:not(:focus-visible), input:not(:focus-visible), se
    ═══════════════════════════════════════════ */
 
 .fi-no-notification {
-    animation: vx-slide-in-left 200ms var(--vx-ease) both !important;
+    animation: vx-slide-in-left 200ms var(--vx-ease) backwards !important;
 }
 
 /* Success notification accent */
@@ -1490,7 +1506,7 @@ hr, .fi-section-header + *, .fi-ta-header-toolbar + * {
 
 /* Stat cards cascade in with sequential delays */
 .fi-wi-stats-overview-stat {
-    animation: vx-fade-up 260ms var(--vx-ease) both;
+    animation: vx-fade-up 260ms var(--vx-ease) backwards;
 }
 .fi-wi-stats-overview-stat:nth-child(1) { animation-delay: 30ms; }
 .fi-wi-stats-overview-stat:nth-child(2) { animation-delay: 75ms; }
@@ -1503,7 +1519,7 @@ hr, .fi-section-header + *, .fi-ta-header-toolbar + * {
 
 /* Table-based widgets stagger vertically */
 .fi-wi-table {
-    animation: vx-fade-up 300ms var(--vx-ease) both;
+    animation: vx-fade-up 300ms var(--vx-ease) backwards;
 }
 .fi-wi-table:nth-child(1) { animation-delay: 60ms; }
 .fi-wi-table:nth-child(2) { animation-delay: 120ms; }
@@ -1813,7 +1829,7 @@ a.fi-link:hover {
     box-shadow: var(--vx-shadow-md) !important;
     background-color: var(--vx-card-bg) !important;
     overflow: hidden !important;
-    animation: vx-fade-up 120ms var(--vx-ease) both !important;
+    animation: vx-fade-up 120ms var(--vx-ease) backwards !important;
 }
 
 /* ═══════════════════════════════════════════

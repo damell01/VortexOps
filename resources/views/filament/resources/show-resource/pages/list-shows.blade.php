@@ -206,19 +206,60 @@
         </section>
 
         @unless($isStreamer)
-            <details class="group overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
-                <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 sm:px-5 sm:py-4">
+            {{--
+                Collapsed with max-height rather than <details>, because the table
+                has to stay rendered even while this section is shut.
+
+                Filament skips the page-level <x-filament-actions::modals /> for
+                any page implementing HasTable and lets the table render it
+                instead (components/page/index.blade.php). That container holds
+                *every* action modal on this page, header actions included, so
+                putting the table inside a <details> left "Schedule Future Show"
+                mounting fine server-side and then opening into hidden content —
+                the click looked like it did nothing. A max-height collapse keeps
+                the subtree rendered; the modals are position: fixed, so they are
+                not clipped by the overflow.
+            --}}
+            <div x-data="{ open: false }" class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+                {{--
+                    A div rather than a <button>: the app's global stylesheets
+                    skin every bare button (inline-flex, centred, grey fill,
+                    fixed padding) with rules this can't reasonably opt out of,
+                    and the old <summary> was not a button either.
+                --}}
+                <div
+                    role="button"
+                    tabindex="0"
+                    x-on:click="open = ! open"
+                    x-on:keydown.enter.prevent="open = ! open"
+                    x-on:keydown.space.prevent="open = ! open"
+                    x-bind:aria-expanded="open ? 'true' : 'false'"
+                    class="flex min-h-12 cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 sm:px-5 sm:py-4"
+                >
                     <div>
                         <div class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">All Shows / Advanced View</div>
                         <div class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400 sm:text-xs">Filters, bulk actions, export, historical data, and detailed table columns.</div>
                     </div>
-                    <x-heroicon-m-chevron-down class="h-5 w-5 shrink-0 text-gray-400 transition group-open:rotate-180" />
-                </summary>
-                <div class="border-t border-gray-100 p-2 dark:border-gray-800 sm:p-3">
+                    <span class="shrink-0 text-gray-400 transition" x-bind:class="open ? 'rotate-180' : ''">
+                        <x-heroicon-m-chevron-down class="h-5 w-5" />
+                    </span>
+                </div>
+                {{--
+                    Inline style collapses it before Alpine boots, so there is
+                    no flash of the full table. !important because the global
+                    stylesheets set padding on this kind of wrapper the same
+                    way, and without it the first rows of the KPI cards show
+                    through the gap.
+                --}}
+                <div
+                    class="border-t border-gray-100 p-2 dark:border-gray-800 sm:p-3"
+                    style="max-height: 0 !important; overflow: hidden !important; padding-top: 0 !important; padding-bottom: 0 !important; border-top-width: 0 !important;"
+                    x-bind:style="open ? '' : 'max-height: 0 !important; overflow: hidden !important; padding-top: 0 !important; padding-bottom: 0 !important; border-top-width: 0 !important;'"
+                >
                     <x-kpi-row :stats="$this->getStats()" />
                     <div class="mt-3">{{ $this->table }}</div>
                 </div>
-            </details>
+            </div>
         @endunless
 
         <div id="show-log-panel-container">

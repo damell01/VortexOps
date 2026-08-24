@@ -215,7 +215,12 @@ class ListShows extends ListRecords
                         'show_date' => $data['show_date'],
                         'start_time' => $data['start_time'] ?? null,
                         'end_time' => $data['end_time'] ?? null,
-                        'title' => $data['title'],
+                        // The field is optional, and a show saved without one
+                        // lists as a blank row and reads as "'' is set for …"
+                        // in the notification below.
+                        'title' => filled($data['title'] ?? null)
+                            ? $data['title']
+                            : 'Show on ' . \Illuminate\Support\Carbon::parse($data['show_date'])->format('M d, Y'),
                         'whatnot_channel_id' => $data['whatnot_channel_id'] ?? null,
                         'status' => 'draft',
                         'import_source' => 'manual',

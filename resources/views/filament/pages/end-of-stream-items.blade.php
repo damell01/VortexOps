@@ -363,7 +363,7 @@
 
         @if($this->showInventoryPicker && ! $reportBlocked)
             <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6" wire:click.self="toggleBrowse">
-                <section class="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl dark:bg-gray-900">
+                <section class="flex h-[92vh] w-full max-w-7xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl dark:bg-gray-900">
                     <div class="flex items-center justify-between gap-3 border-b border-gray-200 p-4 dark:border-gray-700">
                         <div>
                             <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Add From Streamer Inventory</h3>
@@ -372,8 +372,39 @@
                         <button type="button" wire:click="toggleBrowse" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">✕</button>
                     </div>
                     <div class="border-b border-gray-100 p-3 dark:border-gray-800 sm:p-4">
-                        <input type="search" wire:model.live.debounce.250ms="search" placeholder="Search product, SKU, or brand…" autofocus
-                            class="w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-800" />
+                        <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_200px_auto] sm:items-center">
+                            <input type="search" wire:model.live.debounce.250ms="search" placeholder="Search product, SKU, or brand…" autofocus
+                                class="min-h-11 w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-800" />
+
+                            <select wire:model.live="pickerCategory" class="min-h-11 w-full rounded-xl border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800">
+                                <option value="">All categories</option>
+                                @foreach($this->pickerCategories as $category)
+                                    <option value="{{ $category }}">{{ $category }}</option>
+                                @endforeach
+                            </select>
+
+                            <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-gray-300 px-3 dark:border-gray-600">
+                                <input type="checkbox" wire:model.live="pickerStagedOnly" class="rounded border-gray-300 text-primary-600" />
+                                <span class="whitespace-nowrap text-sm text-gray-700 dark:text-gray-200">Selected only</span>
+                            </label>
+                        </div>
+
+                        {{--
+                            Say how many matched, not just how many are drawn.
+                            A silent cut reads as "we do not stock that" when it
+                            means "narrow your search", and the two look
+                            identical on screen.
+                        --}}
+                        @php $total = $this->inventoryTotal; @endphp
+                        <p class="mt-2 text-[11px] text-gray-500 sm:text-xs">
+                            @if($total === 0)
+                                Nothing matches.
+                            @elseif($total > $this->inventory->count())
+                                Showing {{ number_format($this->inventory->count()) }} of {{ number_format($total) }} — keep typing to narrow it down.
+                            @else
+                                {{ number_format($total) }} {{ Str::plural('item', $total) }}.
+                            @endif
+                        </p>
                     </div>
                     @php
                         $staged = $this->stagedSummary;
@@ -381,7 +412,7 @@
                     @endphp
 
                     <div class="flex-1 overflow-y-auto p-3 sm:p-4">
-                        <div class="grid gap-2.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
+                        <div class="grid gap-2.5 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
                             @forelse($this->inventory as $item)
                                 @php $stagedQty = (int) ($this->stagedQuantities[$item->id] ?? 0); @endphp
                                 <article @class([
@@ -424,9 +455,20 @@
                                     </div>
                                 </article>
                             @empty
-                                <div class="col-span-full rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500 dark:border-gray-700 sm:p-10">No streamer inventory matched this search.</div>
+                                <div class="col-span-full rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500 dark:border-gray-700 sm:p-10">
+                                    {{ $this->pickerStagedOnly ? 'Nothing selected yet.' : 'No streamer inventory matched this search.' }}
+                                </div>
                             @endforelse
                         </div>
+
+                        @if($total > $this->inventory->count())
+                            <div class="mt-3 text-center">
+                                <button type="button" wire:click="showMoreInventory"
+                                    class="inline-flex min-h-10 items-center rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200">
+                                    Show 60 more
+                                </button>
+                            </div>
+                        @endif
                     </div>
 
                     {{-- Running total. Sticky so the basket stays readable while scrolling a long catalog. --}}

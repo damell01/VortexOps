@@ -57,6 +57,11 @@ class EndOfStreamForm extends Page implements HasForms
      */
     public array $stagedQuantities = [];
 
+    /** Catalog controls, for the case where the catalog is a thousand things. */
+    public string $pickerCategory   = '';
+    public bool   $pickerStagedOnly = false;
+    public int    $pickerLimit      = 60;
+
     public function getTitle(): string | Htmlable
     {
         return $this->show ? "Show Report: {$this->show->title}" : 'End of Stream';
@@ -248,8 +253,15 @@ class EndOfStreamForm extends Page implements HasForms
         return Streamer::find($streamerId)?->inventoryLocations()->pluck('inventory_locations.id') ?? collect();
     }
 
-    /** Catalog view uses inventory currently held in the streamer's inventory locations. */
-    public function getInventoryProperty()
+    /**
+     * The catalog, before paging.
+     *
+     * Split out from getInventoryProperty() so the page can say how many
+     * matched as well as show the first slice of them. A silent cut at sixty
+     * reads as "we don't stock that" when it means "narrow your search", and
+     * the two look identical on screen.
+     */
+    private function inventoryQuery()
     {
         $locationIds = $this->reportLocationIds();
 
@@ -280,7 +292,66 @@ class EndOfStreamForm extends Page implements HasForms
             });
         }
 
-        return $query->orderBy('name')->limit(60)->get();
+        if ($this->pickerCategory !== '') {
+            $query->where('category', $this->pickerCategory);
+        }
+
+        // Reviewing what you have picked should not mean scrolling a thousand
+        // things you have not.
+        if ($this->pickerStagedOnly) {
+            $staged = array_keys(array_filter($this->stagedQuantities, fn ($qty) => $qty > 0));
+            $query->whereKey($staged ?: [0]);
+        }
+
+        return $query->orderBy('name');
+    }
+
+    /** How many items match, so the page can say when it is showing a slice. */
+    public function getInventoryTotalProperty(): int
+    {
+        return $this->inventoryQuery()->toBase()->getCountForPagination();
+    }
+
+    public function getInventoryProperty()
+    {
+        return $this->inventoryQuery()->limit($this->pickerLimit)->get();
+    }
+
+    /** Categories present in what this report can actually draw on. */
+    public function getPickerCategoriesProperty(): array
+    {
+        $locationIds = $this->reportLocationIds();
+
+        $query = InventoryItem::query()->where('is_active', true)->whereNotNull('category');
+
+        if ($locationIds->isNotEmpty()) {
+            $query->whereHas('stock', fn ($q) => $q
+                ->whereIn('inventory_location_id', $locationIds)
+                ->where('quantity', '>', 0));
+        }
+
+        return $query->distinct()->orderBy('category')->pluck('category')->all();
+    }
+
+    public function showMoreInventory(): void
+    {
+        $this->pickerLimit += 60;
+    }
+
+    /** Any change to what is being looked at starts the list again from the top. */
+    public function updatedSearch(): void
+    {
+        $this->pickerLimit = 60;
+    }
+
+    public function updatedPickerCategory(): void
+    {
+        $this->pickerLimit = 60;
+    }
+
+    public function updatedPickerStagedOnly(): void
+    {
+        $this->pickerLimit = 60;
     }
 
     /**

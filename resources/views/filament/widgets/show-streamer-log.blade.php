@@ -97,21 +97,29 @@
                     </div>
                 @endif
 
+                {{--
+                    Only the lines that need a decision.
+
+                    Every reported line used to be listed here, one card each,
+                    which on a normal show is a long scroll of "Item #142, qty
+                    1" that nobody reads — the counts above already say what
+                    the show did. What cannot be read off a count is a line
+                    that matched nothing in inventory: that one needs someone
+                    to point it at an item before it can post. So the routine
+                    lines are gone and the exceptions stay, with the matcher
+                    they carry.
+                --}}
+                @php $needsMatch = $items->whereNull('inventory_item_id'); @endphp
+
                 <div class="space-y-2 p-3 sm:space-y-3 sm:p-5">
-                    @forelse($items as $line)
+                    @forelse($needsMatch as $line)
                         <article class="rounded-xl border border-gray-200 p-3 dark:border-gray-700 sm:p-4">
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0 flex-1">
                                     <div class="font-medium leading-5 text-gray-950 dark:text-white">{{ $line->item_name }}</div>
                                     <div class="mt-1 flex flex-wrap gap-1.5">
                                         <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-200 sm:text-xs">{{ $line->dispositionLabel() }}</span>
-                                        @if(!$line->inventory_item_id)
-                                            <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-200 sm:text-xs">Needs match</span>
-                                        @elseif((int)$line->deducted_quantity >= (int)$line->quantity)
-                                            <span class="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-950 dark:text-green-200 sm:text-xs">Posted</span>
-                                        @else
-                                            <span class="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-200 sm:text-xs">Matched</span>
-                                        @endif
+                                        <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-200 sm:text-xs">Needs match</span>
                                     </div>
                                 </div>
                                 <div class="shrink-0 text-right">
@@ -126,13 +134,11 @@
                                 @if($line->inventoryItem)<span class="col-span-2 truncate sm:col-auto"><strong class="text-gray-700 dark:text-gray-200">Inventory</strong> {{ $line->inventoryItem->name }}</span>@endif
                             </div>
 
-                            @if(!$line->inventory_item_id)
-                                @livewire('admin-match-show-item', ['line' => $line], key('admin-match-show-item-'.$line->id))
-                            @endif
+                            @livewire('admin-match-show-item', ['line' => $line], key('admin-match-show-item-'.$line->id))
                         </article>
                     @empty
                         <div class="rounded-xl border border-dashed border-gray-300 px-4 py-8 text-center dark:border-gray-700">
-                            <div class="text-sm font-medium text-gray-700 dark:text-gray-200">No inventory lines yet</div>
+                            <div class="text-sm font-medium text-gray-700 dark:text-gray-200">{{ $items->isEmpty() ? 'No inventory lines yet' : 'Every line is matched to inventory' }}</div>
                             <p class="mt-1 text-xs text-gray-500">The streamer has not added items to this report.</p>
                         </div>
                     @endforelse

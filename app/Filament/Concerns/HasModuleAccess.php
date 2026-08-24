@@ -15,6 +15,15 @@ trait HasModuleAccess
         if (NavVisibility::isHiddenForUser(static::class, auth()->user())) {
             return false;
         }
+
+        // A role that explicitly names this page on Roles & Permissions has
+        // been granted it, and that is the answer. Without this the hardcoded
+        // check below always won and the screen could only ever take access
+        // away, never give it.
+        if (\App\Support\RoleAccess::grants(static::class)) {
+            return true;
+        }
+
         return static::passesModuleAccessCheck();
     }
 

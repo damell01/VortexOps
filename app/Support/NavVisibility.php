@@ -35,6 +35,29 @@ class NavVisibility
         return array_key_exists($role, self::visibleByRole());
     }
 
+    /**
+     * Does any role this user holds explicitly name this page as visible?
+     *
+     * The difference between this and isHiddenForUser() is the difference
+     * between a grant and the absence of a ban. A role with no explicit list
+     * is "not hidden from" everything, which is why that method cannot be used
+     * to open a page a resource has hardcoded shut — see RoleAccess.
+     */
+    public static function isExplicitlyGrantedTo(string $class, $user): bool
+    {
+        if (! $user || ! method_exists($user, 'getRoleNames')) {
+            return false;
+        }
+
+        foreach ($user->getRoleNames() as $role) {
+            if (self::hasExplicitVisibility($role) && in_array($class, self::visibleForRole($role), true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function setVisibleForRole(string $role, array $classes): void
     {
         $map = self::visibleByRole();

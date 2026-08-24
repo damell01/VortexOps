@@ -67,6 +67,12 @@ class StreamerLogResource extends Resource
 
     public static function canAccess(): bool
     {
+        // An explicit grant on Roles & Permissions is the answer; the rules
+        // below are the fallback for roles that have no explicit list.
+        if (\App\Support\RoleAccess::grants(static::class)) {
+            return true;
+        }
+
         $user = auth()->user();
         if (! AdminModules::isEnabled('streams') || NavVisibility::isHiddenForUser(static::class, $user)) {
             return false;
@@ -88,6 +94,12 @@ class StreamerLogResource extends Resource
      */
     public static function shouldRegisterNavigation(): bool
     {
+        // A role granted this page on Roles & Permissions gets its link too;
+        // access without a way to reach it is only half a grant.
+        if (\App\Support\RoleAccess::grants(static::class)) {
+            return true;
+        }
+
         $user = auth()->user();
 
         return ($user?->isAdmin() || $user?->isOwner())

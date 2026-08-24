@@ -32,6 +32,12 @@ class DemoData extends Page
     // admins are excluded (it must never be used to seed a production DB).
     public static function canAccess(): bool
     {
+        // An explicit grant on Roles & Permissions is the answer; the rules
+        // below are the fallback for roles that have no explicit list.
+        if (\App\Support\RoleAccess::grants(static::class)) {
+            return true;
+        }
+
         $user = auth()->user();
 
         return ($user?->isOwner() || $user?->hasRole('super_admin')) ?? false;

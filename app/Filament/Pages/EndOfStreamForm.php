@@ -677,6 +677,12 @@ class EndOfStreamForm extends Page implements HasForms
 
     public static function canAccess(): bool
     {
+        // An explicit grant on Roles & Permissions is the answer; the rules
+        // below are the fallback for roles that have no explicit list.
+        if (\App\Support\RoleAccess::grants(static::class)) {
+            return true;
+        }
+
         $user = auth()->user();
 
         return AdminModules::isEnabled('streams')
@@ -692,6 +698,12 @@ class EndOfStreamForm extends Page implements HasForms
 
     public static function shouldRegisterNavigation(): bool
     {
+        // A role granted this page on Roles & Permissions gets its link too;
+        // access without a way to reach it is only half a grant.
+        if (\App\Support\RoleAccess::grants(static::class)) {
+            return true;
+        }
+
         if (NavVisibility::isHiddenForUser(static::class, auth()->user())) return false;
         return auth()->user()?->isStreamer() ?? false;
     }

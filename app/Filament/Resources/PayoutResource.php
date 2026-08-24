@@ -57,6 +57,12 @@ class PayoutResource extends Resource
     // resource itself.
     public static function shouldRegisterNavigation(): bool
     {
+        // A role granted this page on Roles & Permissions gets its link too;
+        // access without a way to reach it is only half a grant.
+        if (\App\Support\RoleAccess::grants(static::class)) {
+            return true;
+        }
+
         // Nav visibility is configured per role in Settings; without this
         // check an override here silently ignored that setting and the link
         // stayed in the sidebar regardless.

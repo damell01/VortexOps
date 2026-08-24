@@ -58,6 +58,12 @@ class InventoryStockResource extends Resource
 
     public static function canAccess(): bool
     {
+        // An explicit grant on Roles & Permissions is the answer; the rules
+        // below are the fallback for roles that have no explicit list.
+        if (\App\Support\RoleAccess::grants(static::class)) {
+            return true;
+        }
+
         return static::isVisibleToRole() && parent::canAccess();
     }
 

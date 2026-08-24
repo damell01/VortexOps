@@ -53,6 +53,12 @@ class WhatnotBackfill extends Page implements HasForms
 
     public static function canAccess(): bool
     {
+        // An explicit grant on Roles & Permissions is the answer; the rules
+        // below are the fallback for roles that have no explicit list.
+        if (\App\Support\RoleAccess::grants(static::class)) {
+            return true;
+        }
+
         return auth()->user()?->isOwner() ?? false;
     }
 

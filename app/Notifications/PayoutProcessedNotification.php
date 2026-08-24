@@ -6,16 +6,25 @@ use App\Models\Payout;
 use App\Support\NotificationLinks;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
+use App\Notifications\Concerns\EmailsWhenEnabled;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class PayoutProcessedNotification extends Notification
 {
+    use EmailsWhenEnabled;
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject('A payout has been processed')
+            ->line("A payout of $" . number_format((float) $this->payout->calculated_payout, 2) . " has been processed.")
+            ->action('Open payout', NotificationLinks::forShow($this->payout->show_id, $notifiable))
+            ->line('You are receiving this because email notifications are switched on in Settings.');
+    }
+
     public function __construct(public readonly Payout $payout) {}
 
-    public function via(object $notifiable): array
-    {
-        return ['database'];
-    }
 
     public function toDatabase(object $notifiable): array
     {

@@ -6,16 +6,24 @@ use App\Models\DeductionRequest;
 use App\Support\NotificationLinks;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
+use App\Notifications\Concerns\EmailsWhenEnabled;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class DeductionApprovedNotification extends Notification
 {
+    use EmailsWhenEnabled;
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject('Deduction approved')
+            ->line('An inventory deduction request has been approved and posted.')
+            ->line('You are receiving this because email notifications are switched on in Settings.');
+    }
+
     public function __construct(public readonly DeductionRequest $deductionRequest) {}
 
-    public function via(object $notifiable): array
-    {
-        return ['database'];
-    }
 
     public function toDatabase(object $notifiable): array
     {

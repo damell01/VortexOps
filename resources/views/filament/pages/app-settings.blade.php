@@ -235,7 +235,31 @@
                     <label for="show_ready_notification_email" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1.5">Show-ready Notification Email</label>
                     <input wire:model.blur="show_ready_notification_email" id="show_ready_notification_email" type="email" placeholder="ops@yourcompany.com"
                         class="w-full max-w-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-500 focus:outline-none" />
-                    <p class="mt-1 text-xs text-gray-400">Optional. Receive an email when a show enters Pending Review.</p>
+                    <p class="mt-1 text-xs text-gray-400">Optional. For someone who needs the alert without needing a login. Sends only while email notifications are on.</p>
+                </div>
+
+                {{--
+                    The master switch for the mail channel.
+
+                    Seven of the ten notifications were database-only and
+                    hardcoded that way, so configuring a mailer changed nothing
+                    they did. They can email now, but off by default: turning a
+                    mailer on should not silently start sending the team every
+                    operational event that used to be a badge on a bell.
+                --}}
+                <div class="px-6 py-4">
+                    <label class="flex cursor-pointer items-start gap-3">
+                        <input type="checkbox" wire:model="notify_email_enabled"
+                            class="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500 bg-white dark:bg-gray-900" />
+                        <span>
+                            <span class="block text-sm font-medium text-gray-900 dark:text-gray-100">Also send notifications by email</span>
+                            <span class="mt-0.5 block text-xs text-gray-400">
+                                Off means in-app only. On, the same alerts also go out through the configured mailer
+                                (<code class="rounded bg-gray-100 px-1 dark:bg-gray-800">{{ config('mail.default') }}</code>).
+                                Check it works first with <code class="rounded bg-gray-100 px-1 dark:bg-gray-800">php artisan mail:test</code>.
+                            </span>
+                        </span>
+                    </label>
                 </div>
             </div>
         </div>

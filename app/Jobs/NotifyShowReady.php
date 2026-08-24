@@ -29,8 +29,21 @@ class NotifyShowReady implements ShouldQueue
                 return;
             }
 
+            $notification = new \App\Notifications\ShowReadyNotification($show);
+
             foreach ($router->getRecipients('show_ready') as $user) {
-                $user->notify(new \App\Notifications\ShowReadyNotification($show));
+                $user->notify($notification);
+            }
+
+            // Settings has asked for this address since the page was built and
+            // nothing ever read it — a field that takes an email and quietly
+            // discards it. It is for someone who needs the alert without
+            // needing a login, so it is mail only, and only when mail is on.
+            $extra = \App\Models\Setting::get('show_ready_notification_email', '');
+
+            if (filled($extra) && \App\Notifications\ShowReadyNotification::emailIsEnabled()) {
+                \Illuminate\Support\Facades\Notification::route('mail', $extra)
+                    ->notify($notification);
             }
         } catch (\Exception $e) {
             Log::warning('NotifyShowReady failed', ['show_id' => $this->showId, 'error' => $e->getMessage()]);

@@ -6,16 +6,25 @@ use App\Models\Show;
 use App\Support\NotificationLinks;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
+use App\Notifications\Concerns\EmailsWhenEnabled;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class ShowPendingReviewNotification extends Notification
 {
+    use EmailsWhenEnabled;
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject("Show pending review: {$this->show->title}")
+            ->line("Show \"{$this->show->title}\" is waiting on a review before it can move on.")
+            ->action('Review show', NotificationLinks::forShow($this->show->id, $notifiable))
+            ->line('You are receiving this because email notifications are switched on in Settings.');
+    }
+
     public function __construct(public readonly Show $show) {}
 
-    public function via(object $notifiable): array
-    {
-        return ['database'];
-    }
 
     public function toDatabase(object $notifiable): array
     {

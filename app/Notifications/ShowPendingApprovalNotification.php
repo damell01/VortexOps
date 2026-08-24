@@ -3,16 +3,25 @@
 namespace App\Notifications;
 
 use App\Models\Show;
+use App\Notifications\Concerns\EmailsWhenEnabled;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class ShowPendingApprovalNotification extends Notification
 {
+    use EmailsWhenEnabled;
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject("Show pending approval: {$this->show->title}")
+            ->line("Show \"{$this->show->title}\" has been reviewed and is waiting for approval.")
+            ->action('Open show', NotificationLinks::forShow($this->show->id, $notifiable))
+            ->line('You are receiving this because email notifications are switched on in Settings.');
+    }
+
     public function __construct(public readonly Show $show) {}
 
-    public function via(object $notifiable): array
-    {
-        return ['database'];
-    }
 
     public function toDatabase(object $notifiable): array
     {

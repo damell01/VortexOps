@@ -67,6 +67,7 @@ class AppSettings extends Page
 
     public string $show_import_mode                = 'manual';
     public string $show_ready_notification_email   = '';
+    public bool   $notify_email_enabled           = false;
 
     // ── Whatnot connection test ──────────────────────────────────────────────
 
@@ -196,6 +197,7 @@ class AppSettings extends Page
 
         $this->show_import_mode              = Setting::get('show_import_mode', 'manual');
         $this->show_ready_notification_email = Setting::get('show_ready_notification_email', '');
+        $this->notify_email_enabled          = filter_var(Setting::get('notify_email_enabled', false), FILTER_VALIDATE_BOOLEAN);
         $this->whatnotLastImport             = Setting::get('whatnot_last_import_at', '');
 
         $this->notify_low_stock_mode        = Setting::get('notify_low_stock_mode', 'all');
@@ -310,6 +312,7 @@ class AppSettings extends Page
             'logo_upload'                      => 'nullable|image|max:2048',
             'show_import_mode'                 => 'required|in:manual,auto_whatnot',
             'show_ready_notification_email'    => 'nullable|email|max:255',
+            'notify_email_enabled'             => 'boolean',
             // The recipient lists only mean anything while their mode is
             // "custom" — that is the only mode whose checkboxes are rendered.
             // Validated unconditionally, a list left behind by a mode that has
@@ -361,6 +364,7 @@ class AppSettings extends Page
         Setting::set('primary_color', $this->primary_color);
         Setting::set('show_import_mode', $this->show_import_mode);
         Setting::set('show_ready_notification_email', $this->show_ready_notification_email);
+        Setting::set('notify_email_enabled', $this->notify_email_enabled ? '1' : '0');
 
         Setting::set('notify_low_stock_mode',        $this->notify_low_stock_mode);
         Setting::set('notify_low_stock_users',        json_encode($this->notify_low_stock_users));

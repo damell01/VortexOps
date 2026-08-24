@@ -199,14 +199,52 @@ class EndOfStreamForm extends Page implements HasForms
         return $query->orderBy('name')->limit(60)->get();
     }
 
+    /**
+     * Why this show cannot take a report, or null when it can.
+     *
+     * Reaching this means none of reportStreamerId()'s three fallbacks could
+     * answer, which pins down the state exactly: no report exists yet, the
+     * signed-in user has no streamer profile of their own, and the show names
+     * nobody. Without a streamer the report has no owner and logEntry()
+     * returns null, which leaves every control below the header inert — a
+     * form that quietly discards what you type is worse than one that says
+     * why it cannot take it.
+     */
+    public function reportBlockedReason(): ?string
+    {
+        if (! $this->show || $this->reportStreamerId()) {
+            return null;
+        }
+
+        return auth()->user()?->isAdmin()
+            ? 'This show has no streamer assigned, and your own account is not a streamer profile, so there is nobody to file the report against. Assign a streamer to the show first — "Detect Streamers" on the Shows page handles most imported shows.'
+            : 'This show has no streamer assigned, and your account is not linked to a streamer profile. An admin needs to do one of those before this report can be started.';
+    }
+
     public function logEntry(): ?StreamerLogEntry
     {
         if (! $this->show) return null;
 
+        // reportStreamerId() is allowed to come back empty and streamer_id is
+        // NOT NULL, so the two together were a 500 rather than a missing row.
+        // It happens on any show with no streamer attached — the common state
+        // for a scraped show before detection has run — because none of the
+        // three fallbacks can answer: no existing entry, the signed-in user
+        // has no streamer profile of their own (admins never do), and the show
+        // names nobody.
+        //
+        // Returning null is what the rest of this page already expects; every
+        // caller guards on it, and openReport() tells the user.
+        $streamerId = $this->reportStreamerId();
+
+        if (! $streamerId) {
+            return null;
+        }
+
         return StreamerLogEntry::firstOrCreate(
             ['show_id' => $this->show->id],
             [
-                'streamer_id' => $this->reportStreamerId(),
+                'streamer_id' => $streamerId,
                 'status' => 'pending',
             ],
         );

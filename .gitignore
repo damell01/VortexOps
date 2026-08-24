@@ -37,7 +37,12 @@ tests/Browser/output/
 /storage/whatnot-browser-profile.broken/
 
 # The saved session itself, in every shape it takes.
-/storage/whatnot-cookies.json
-/storage/whatnot-cookies.json.loaded-mtime
-/storage/whatnot-live-cookies.json
-/storage/whatnot-localstorage.json
+#
+# Listed as a pattern rather than one line per file because the per-file list
+# had already drifted: whatnot-cookies.json.loaded-mtime was ignored and
+# whatnot-live-cookies.json.loaded-mtime was not, so a `git stash -u` on the
+# production box swept the live session's marker away while leaving its
+# sibling alone. Untracked and ignored are not the same thing — only the
+# second survives a stash or a reset.
+/storage/whatnot-*.json
+/storage/whatnot-*.json.loaded-mtime

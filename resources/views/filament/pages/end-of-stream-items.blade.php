@@ -3,6 +3,7 @@
     $lines = $this->lineItems;
     $whatnot = $this->whatnotReference;
     $reconciliationWarnings = $this->reconciliationWarnings;
+    $reportBlocked = $this->reportBlockedReason();
 @endphp
 
 <x-filament-panels::page>
@@ -78,6 +79,18 @@
                     Whatnot totals are reference data. Physical inventory units do not have to match Whatnot transactions one-for-one.
                 </div>
             </section>
+
+            @if ($reportBlocked)
+                <section class="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/40 sm:rounded-2xl sm:p-5">
+                    <div class="flex items-start gap-3">
+                        <x-heroicon-o-exclamation-triangle class="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                        <div class="min-w-0">
+                            <h3 class="text-sm font-semibold text-amber-900 dark:text-amber-100 sm:text-base">This report cannot be started yet</h3>
+                            <p class="mt-1 text-xs leading-5 text-amber-800 dark:text-amber-200 sm:text-sm">{{ $reportBlocked }}</p>
+                        </div>
+                    </div>
+                </section>
+            @else
 
             <ol class="grid grid-cols-3 overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
                 @foreach ([1 => 'Items', 2 => 'Notes', 3 => 'Review'] as $n => $label)
@@ -321,9 +334,11 @@
                     </section>
                 </aside>
             </div>
+            @endif
         </div>
 
         {{-- Mobile sticky workflow actions --}}
+        @unless ($reportBlocked)
         <div class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden" data-vx-mobile-actions>
             <div class="mx-auto flex max-w-7xl gap-2">
                 @if($this->step === 1)
@@ -338,8 +353,9 @@
                 @endif
             </div>
         </div>
+        @endunless
 
-        @if($this->showInventoryPicker)
+        @if($this->showInventoryPicker && ! $reportBlocked)
             <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6" wire:click.self="toggleBrowse">
                 <section class="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl dark:bg-gray-900">
                     <div class="flex items-center justify-between gap-3 border-b border-gray-200 p-4 dark:border-gray-700">

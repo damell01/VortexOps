@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\RespectsRoleVisibility;
 use App\Models\ScanSession;
 use App\Models\InventoryItem;
 use Filament\Pages\Page;
@@ -11,6 +12,8 @@ use App\Support\NavVisibility;
 
 class MobileScannerHub extends Page
 {
+    use RespectsRoleVisibility;
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-queue-list';

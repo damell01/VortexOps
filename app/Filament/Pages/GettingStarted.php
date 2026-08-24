@@ -2,11 +2,14 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\RespectsRoleVisibility;
 use Filament\Pages\Page;
 use App\Support\NavVisibility;
 
 class GettingStarted extends Page
 {
+    use RespectsRoleVisibility;
+
     protected static ?string $title = 'Getting Started';
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-question-mark-circle';

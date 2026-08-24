@@ -22,7 +22,11 @@ class HowItWorks extends Page
             return true;
         }
 
-        return auth()->check();
+        // Was `auth()->check()`, i.e. open to anyone signed in regardless of
+        // what Roles & Permissions said. A role with an explicit list gets
+        // what is on that list; a role without one is unrestricted, as before.
+        return auth()->check()
+            && ! \App\Support\NavVisibility::isHiddenForUser(static::class, auth()->user());
     }
 
     public function getView(): string

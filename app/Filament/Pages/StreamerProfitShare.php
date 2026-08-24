@@ -2,12 +2,15 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\RespectsRoleVisibility;
 use Filament\Pages\Page;
 use App\Models\Streamer;
 use App\Support\NavVisibility;
 
 class StreamerProfitShare extends Page
 {
+    use RespectsRoleVisibility;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
     protected static ?string $navigationLabel = 'Profit Share';
     protected static ?int $navigationSort = 50;

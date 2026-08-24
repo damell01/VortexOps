@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\RespectsRoleVisibility;
 use Filament\Pages\Page;
 use App\Models\User;
 use App\Models\ProfitSharePacket;
@@ -9,6 +10,8 @@ use App\Support\NavVisibility;
 
 class ManagerHub extends Page
 {
+    use RespectsRoleVisibility;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-list';
     protected static ?string $navigationLabel = 'Manager Hub';
     protected static ?int $navigationSort = 15;

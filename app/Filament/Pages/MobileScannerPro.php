@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\RespectsRoleVisibility;
 use App\Models\ScanSession;
 use App\Models\Product;
 use App\Models\InventoryItem;
@@ -16,6 +17,8 @@ use App\Support\NavVisibility;
 
 class MobileScannerPro extends Page
 {
+    use RespectsRoleVisibility;
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-qr-code';

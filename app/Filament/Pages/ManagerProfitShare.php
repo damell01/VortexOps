@@ -2,12 +2,15 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\RespectsRoleVisibility;
 use Filament\Pages\Page;
 use App\Models\User;
 use App\Support\NavVisibility;
 
 class ManagerProfitShare extends Page
 {
+    use RespectsRoleVisibility;
+
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-check';
     protected static ?string $navigationLabel = 'Profit Share Approvals';
     protected static ?int $navigationSort = 30;

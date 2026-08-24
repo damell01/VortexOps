@@ -56,7 +56,10 @@ class InventoryReport extends Page
             return true;
         }
 
-        return true;
+        // Was a bare `return true` — open to anyone, signed in or not, and
+        // deaf to Roles & Permissions.
+        return auth()->check()
+            && ! \App\Support\NavVisibility::isHiddenForUser(static::class, auth()->user());
     }
 
     public static function shouldRegisterNavigation(): bool

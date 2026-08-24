@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Concerns\RespectsRoleVisibility;
 use App\Models\Product;
 use App\Models\InventoryLocation;
 use App\Models\InventoryLot;
@@ -12,6 +13,8 @@ use Livewire\Attributes\On;
 
 class QuickAddStock extends Page
 {
+    use RespectsRoleVisibility;
+
     use \App\Filament\Concerns\HasAdminNavVisibility;
 
     public ?Product $product = null;

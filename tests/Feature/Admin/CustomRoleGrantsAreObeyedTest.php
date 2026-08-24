@@ -163,4 +163,58 @@ class CustomRoleGrantsAreObeyedTest extends TestCase
 
         $this->assertTrue(\App\Filament\Resources\StreamerLoanResource::canAccess());
     }
+
+    public function test_an_explicit_list_is_exhaustive(): void
+    {
+        // The other half of "follow the screen exactly". Thirteen pages had no
+        // access check of any kind, and two more answered `return true` and
+        // `auth()->check()`, so a role granted only Pallets still reached
+        // StreamerHub, Manager Hub, both scanners, Quick Add Stock and the
+        // inventory report. A role with an explicit list now gets what is on
+        // it and the handful of pages nobody is ever locked out of.
+        $this->enableEveryModule();
+        $this->actingAs($this->customRoleUser([\App\Filament\Resources\PalletResource::class]));
+
+        $allowed = [];
+
+        foreach ($this->panelClasses() as $class) {
+            if (rescue(fn () => $class::canAccess(), false, false)) {
+                $allowed[] = class_basename($class);
+            }
+        }
+
+        sort($allowed);
+
+        $this->assertSame([
+            'DashboardImproved',
+            'EditProfile',
+            'PalletResource',
+            'TwoFactorAuth',
+            'TwoFactorVerify',
+        ], $allowed);
+    }
+
+    public function test_a_role_with_no_list_keeps_everything_it_had(): void
+    {
+        // Built-in roles have no explicit list, so tightening the ungated
+        // pages must not touch them. A streamer reaches the same pages as
+        // before.
+        $this->enableEveryModule();
+
+        Role::findOrCreate('streamer', 'web');
+        $streamer = User::factory()->create(['email' => 'unrestricted@example.com']);
+        $streamer->assignRole('streamer');
+
+        $this->actingAs($streamer->fresh());
+
+        foreach ([
+            \App\Filament\Pages\StreamerHub::class,
+            \App\Filament\Pages\StreamerShows::class,
+            \App\Filament\Pages\QuickAddStock::class,
+            \App\Filament\Pages\InventoryReport::class,
+            \App\Filament\Pages\HowItWorks::class,
+        ] as $class) {
+            $this->assertTrue($class::canAccess(), class_basename($class) . ' closed for a role with no explicit list');
+        }
+    }
 }

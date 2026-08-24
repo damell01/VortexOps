@@ -135,6 +135,12 @@ class InventoryMovementResource extends Resource
 
     public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
     {
+        // "Can Edit" on Roles & Permissions, which used to be a checkbox
+        // nothing read.
+        if (\App\Support\RoleAccess::allowsEditing(static::class)) {
+            return true;
+        }
+
         return false;
     }
 

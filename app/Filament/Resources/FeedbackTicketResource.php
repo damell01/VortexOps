@@ -124,6 +124,11 @@ class FeedbackTicketResource extends Resource
 
     public static function canView(Model $record): bool
     {
+        // A page granted on Roles & Permissions carries its records with it.
+        if (\App\Support\RoleAccess::grants(static::class)) {
+            return true;
+        }
+
         $user = auth()->user();
 
         return $user && ($user->canManageFeedback() || $record->submitted_by === $user->id);
@@ -131,6 +136,12 @@ class FeedbackTicketResource extends Resource
 
     public static function canEdit(Model $record): bool
     {
+        // "Can Edit" on Roles & Permissions, which used to be a checkbox
+        // nothing read.
+        if (\App\Support\RoleAccess::allowsEditing(static::class)) {
+            return true;
+        }
+
         return auth()->user()?->canManageFeedback() ?? false;
     }
 

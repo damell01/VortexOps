@@ -159,6 +159,35 @@ class AppSettings extends Page
     public array  $notify_show_reconciled_users = [];
     public array  $enabled_modules  = [];
 
+    /**
+     * A saved recipient list, minus anyone who is no longer a user.
+     *
+     * Recipient checkboxes only render while their mode is "custom", so a list
+     * left behind by a mode that has since changed is invisible — and a user
+     * deleted after being picked leaves an id with no checkbox to untick even
+     * in custom mode. Either way `exists:users,id` failed on every save and
+     * the message named a field with nothing on screen to fix it, which took
+     * the whole settings page down: the default receiving location could not
+     * be saved because of a notification recipient nobody could see.
+     *
+     * Filtering on load means the ghost is gone the first time the page opens
+     * and is written out on the next save.
+     *
+     * @return array<int, int>
+     */
+    private function recipientsStillHere(string $key): array
+    {
+        $saved = json_decode(Setting::get($key, '[]'), true);
+
+        if (! is_array($saved) || $saved === []) {
+            return [];
+        }
+
+        $ids = array_values(array_unique(array_map('intval', array_filter($saved, 'is_numeric'))));
+
+        return User::whereKey($ids)->pluck('id')->all();
+    }
+
     public function mount(): void
     {
         $this->brand_name    = Setting::get('brand_name',    'VortexOps');
@@ -170,13 +199,13 @@ class AppSettings extends Page
         $this->whatnotLastImport             = Setting::get('whatnot_last_import_at', '');
 
         $this->notify_low_stock_mode        = Setting::get('notify_low_stock_mode', 'all');
-        $this->notify_low_stock_users       = json_decode(Setting::get('notify_low_stock_users', '[]'), true) ?? [];
+        $this->notify_low_stock_users       = $this->recipientsStillHere('notify_low_stock_users');
         $this->notify_damaged_mode          = Setting::get('notify_damaged_mode', 'all');
-        $this->notify_damaged_users         = json_decode(Setting::get('notify_damaged_users', '[]'), true) ?? [];
+        $this->notify_damaged_users         = $this->recipientsStillHere('notify_damaged_users');
         $this->notify_show_ready_mode       = Setting::get('notify_show_ready_mode', 'admins');
-        $this->notify_show_ready_users      = json_decode(Setting::get('notify_show_ready_users', '[]'), true) ?? [];
+        $this->notify_show_ready_users      = $this->recipientsStillHere('notify_show_ready_users');
         $this->notify_show_reconciled_mode  = Setting::get('notify_show_reconciled_mode', 'admins');
-        $this->notify_show_reconciled_users = json_decode(Setting::get('notify_show_reconciled_users', '[]'), true) ?? [];
+        $this->notify_show_reconciled_users = $this->recipientsStillHere('notify_show_reconciled_users');
         $this->enabled_modules  = AdminModules::enabledSlugs();
 
         $this->demo_mode = (bool) Setting::get('demo_mode', false);
@@ -281,17 +310,24 @@ class AppSettings extends Page
             'logo_upload'                      => 'nullable|image|max:2048',
             'show_import_mode'                 => 'required|in:manual,auto_whatnot',
             'show_ready_notification_email'    => 'nullable|email|max:255',
+            // The recipient lists only mean anything while their mode is
+            // "custom" — that is the only mode whose checkboxes are rendered.
+            // Validated unconditionally, a list left behind by a mode that has
+            // since changed blocked the whole page, and the message named a
+            // field with nothing on screen to fix. exclude_unless drops them
+            // from validation, and from the validated payload, when the mode
+            // is not custom.
             'notify_low_stock_mode'            => 'required|in:all,admins,custom',
-            'notify_low_stock_users'           => 'nullable|array',
+            'notify_low_stock_users'           => 'exclude_unless:notify_low_stock_mode,custom|nullable|array',
             'notify_low_stock_users.*'         => 'integer|exists:users,id',
             'notify_damaged_mode'              => 'required|in:all,admins,custom',
-            'notify_damaged_users'             => 'nullable|array',
+            'notify_damaged_users'             => 'exclude_unless:notify_damaged_mode,custom|nullable|array',
             'notify_damaged_users.*'           => 'integer|exists:users,id',
             'notify_show_ready_mode'           => 'required|in:all,admins,custom',
-            'notify_show_ready_users'          => 'nullable|array',
+            'notify_show_ready_users'          => 'exclude_unless:notify_show_ready_mode,custom|nullable|array',
             'notify_show_ready_users.*'        => 'integer|exists:users,id',
             'notify_show_reconciled_mode'      => 'required|in:all,admins,custom',
-            'notify_show_reconciled_users'     => 'nullable|array',
+            'notify_show_reconciled_users'     => 'exclude_unless:notify_show_reconciled_mode,custom|nullable|array',
             'notify_show_reconciled_users.*'   => 'integer|exists:users,id',
             'default_receiving_location_id'    => 'nullable|integer|exists:inventory_locations,id',
             'streamer_visible_location_ids'    => 'array',

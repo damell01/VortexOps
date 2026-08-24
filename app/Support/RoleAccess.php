@@ -58,6 +58,46 @@ final class RoleAccess
     }
 
     /**
+     * Does a granting role also allow changing what is on the page?
+     *
+     * The Roles & Permissions screen offers "Visible" and "Can Edit" per page.
+     * Visible was the only one that did anything: readonlyForRole() was
+     * written by that screen and read back by that same screen, and nothing
+     * else ever asked. Can Edit was a checkbox with no effect.
+     *
+     * Most permissive role wins, the same way visibility does. A role that
+     * grants the page without marking it readonly allows editing, even if
+     * another of the user's roles marks it readonly — otherwise adding a
+     * narrow second role would quietly take away what the first one gave.
+     *
+     * @param  class-string  $class
+     */
+    public static function allowsEditing(string $class, ?User $user = null): bool
+    {
+        $user ??= auth()->user();
+
+        if (! $user || ! self::grants($class, $user)) {
+            return false;
+        }
+
+        foreach ($user->getRoleNames() as $role) {
+            if (! NavVisibility::hasExplicitVisibility($role)) {
+                continue;
+            }
+
+            if (! in_array($class, NavVisibility::visibleForRole($role), true)) {
+                continue;
+            }
+
+            if (! in_array($class, NavVisibility::readonlyForRole($role), true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * The module a page belongs to, read once per class.
      *
      * Reflection because $moduleSlug is protected and this runs for every

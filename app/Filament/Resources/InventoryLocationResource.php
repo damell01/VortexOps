@@ -68,6 +68,12 @@ class InventoryLocationResource extends Resource
 
     public static function canEdit(Model $record): bool
     {
+        // "Can Edit" on Roles & Permissions, which used to be a checkbox
+        // nothing read.
+        if (\App\Support\RoleAccess::allowsEditing(static::class)) {
+            return true;
+        }
+
         return auth()->user()?->isAdmin() ?? false;
     }
 

@@ -46,6 +46,28 @@ trait HasModuleAccess
     }
 
     /**
+     * Opening a record, and changing one.
+     *
+     * canAccess() only governs the list page. A record page asks canView() /
+     * canEdit(), which fall through to the policy — so a role granted "Shows"
+     * on Roles & Permissions could open the list and then take a 403 on any
+     * show in it, because the grant never reached the Shield permission the
+     * policy checks. Granting a page now means the records on it too.
+     *
+     * Both fall back to the parent, so a role with no explicit list is decided
+     * by the policy exactly as before.
+     */
+    public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return \App\Support\RoleAccess::grants(static::class) || parent::canView($record);
+    }
+
+    public static function canEdit(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return \App\Support\RoleAccess::allowsEditing(static::class) || parent::canEdit($record);
+    }
+
+    /**
      * Base access check — subclasses can override for stricter role-specific checks.
      * Now that visibility is controlled by NavVisibility, this just checks basic auth.
      * Resources that need stricter checks (admin-only, etc.) override canAccess() directly.

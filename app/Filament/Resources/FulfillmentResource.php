@@ -68,6 +68,11 @@ class FulfillmentResource extends Resource
 
     public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
     {
+        // A page granted on Roles & Permissions carries its records with it.
+        if (\App\Support\RoleAccess::grants(static::class)) {
+            return true;
+        }
+
         $user = auth()->user();
         return ($user?->isAdmin() || $user?->isOwner() || $user?->isFulfillment() || $user?->isFulfillmentAdmin()) ?? false;
     }

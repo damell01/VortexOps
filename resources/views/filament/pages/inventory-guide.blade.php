@@ -13,6 +13,168 @@
     @endforeach
 </div>
 
+{{-- Setup state, above the tabs on purpose. With no location nothing on any
+     tab can be followed to the end, so this is not one tab's business. --}}
+@if($status['count'] === 0)
+    <x-guide.panel tone="amber" title="⚠ You have no active locations">
+        <p>Stock has nowhere to go, which is exactly why location dropdowns elsewhere look empty. Create one before anything else.</p>
+    </x-guide.panel>
+@elseif(! $status['hasStorage'])
+    <x-guide.panel tone="amber" title="⚠ No general storage location">
+        <p>
+            You have {{ $status['count'] }} active {{ Str::plural('location', $status['count']) }}
+            ({{ implode(', ', array_slice($status['names'], 0, 6)) }}@if($status['count'] > 6), …@endif),
+            and none of type <strong>Main Storage</strong>. If you have been hunting for "the warehouse",
+            that is its name here — and it does not exist yet.
+        </p>
+    </x-guide.panel>
+@else
+    <x-guide.panel tone="green" title="✓ Locations are set up">
+        <p>{{ $status['count'] }} active {{ Str::plural('location', $status['count']) }}, including general storage. Nothing to do on this tab.</p>
+    </x-guide.panel>
+@endif
+
+{{-- ═══════════════════════════════════════════════════════════════ FULL CYCLE --}}
+@if($tab === 'cycle')
+<div class="space-y-5">
+
+    <x-guide.panel tone="violet" title="One box, from the loading dock to the payout">
+        <p>Every other tab in this guide explains a screen. This one follows a single box
+        through all of them, in order, so you can see where each screen sits in the run of
+        things. Work down it once and the rest of the guide stops being a list of pages.</p>
+        <p class="mt-2">The screenshots are of this install, not a demo — what you see here
+        is what you will see when you click through.</p>
+    </x-guide.panel>
+
+    <x-guide.walkthrough
+        number="1"
+        title="Have somewhere to put it"
+        screen="Inventory → Locations"
+        url="{{ \App\Filament\Resources\InventoryLocationResource::getUrl('index') }}"
+        shot="01-locations.png">
+        <p>Stock is always <em>somewhere</em>. A location is that somewhere — a shelf, a
+        streamer's setup, the returns bin.</p>
+        <p>Get this right before anything else: every later step asks which location, and a
+        receipt booked to the wrong one is a count that will not reconcile weeks later.</p>
+        <p class="text-gray-500 dark:text-gray-400">You only do this once, when setting up
+        or when a new shelf appears.</p>
+    </x-guide.walkthrough>
+
+    <x-guide.walkthrough
+        number="2"
+        title="Make sure the item exists in the catalogue"
+        screen="Inventory → All Inventory"
+        url="{{ \App\Filament\Resources\InventoryItemResource::getUrl('index') }}"
+        shot="02-item-list.png">
+        <p>Search the code on the box first. If it is already here, skip to step 4 — creating
+        a second record for something you already stock is the single commonest way a count
+        goes wrong.</p>
+        <p>Nothing found? Two routes: <strong>Add Item</strong> for the full form, or
+        <strong>Quick Add</strong> when you have a box in one hand and want a name, a cost
+        and a code recorded in twenty seconds.</p>
+        <p>If the item is there but has no barcode, open its row menu and choose
+        <strong>Scan Barcode</strong> — scan, and the code is saved to it without opening
+        the item at all.</p>
+    </x-guide.walkthrough>
+
+    <x-guide.walkthrough
+        number="3"
+        title="Record what it costs and what it should fetch"
+        screen="Inventory → All Inventory → Add Item"
+        url="{{ \App\Filament\Resources\InventoryItemResource::getUrl('create') }}"
+        shot="03-item-create.png">
+        <p>Two numbers matter and they are not the same. <strong>List Unit Cost</strong> is
+        the fallback price used until real receipts exist. <strong>Sale Price / Target</strong>
+        is what it is meant to sell for.</p>
+        <p>The margin underneath answers as you type: target minus whichever cost is real for
+        this item. It is not stored anywhere — it is recalculated from the weighted average
+        every time you look, so it never drifts out of date after a receipt.</p>
+        <p class="text-gray-500 dark:text-gray-400">Leaving the target blank is fine; the
+        item simply drops out of every margin figure until it has one, and the
+        <em>Missing a sale target</em> filter will find it again.</p>
+    </x-guide.walkthrough>
+
+    <x-guide.walkthrough
+        number="4"
+        title="Book the delivery in against a pallet"
+        screen="Inventory → Pallets"
+        url="{{ \App\Filament\Resources\PalletResource::getUrl('index') }}"
+        shot="04-pallets.png">
+        <p>A pallet is one delivery from one vendor. Create it, add a line per product with
+        what the paperwork says you should be getting, then receive against it.</p>
+        <p>Receiving is where cost actually enters the system: each receipt recalculates the
+        item's weighted average, so the cost of everything downstream follows what you really
+        paid rather than what the catalogue guessed.</p>
+        <p><strong>You do not need a manifest.</strong> Start a blank pallet and scan what
+        turned up; lines are created as you go.</p>
+    </x-guide.walkthrough>
+
+    <x-guide.walkthrough
+        number="5"
+        title="Scan it in"
+        screen="Inventory → Quick Scan"
+        url="{{ \App\Filament\Pages\InventoryScanner::getUrl() }}"
+        shot="05-scanner.png">
+        <p>Three modes, and the mode decides what a scan does. <strong>Look Up</strong> is
+        read-only. <strong>Add Stock</strong> puts units into a location.
+        <strong>Receive</strong> works a delivery off a pallet.</p>
+        <p>Either input works: a USB or Bluetooth gun typed straight into the box, or the
+        camera on a phone. Both end in the same place.</p>
+        <p class="text-gray-500 dark:text-gray-400">Received everything on a line without
+        counting each one? Use <em>Receive all</em>. Short? Say how many turned up and mark
+        the rest short — the discrepancy is recorded rather than argued about later.</p>
+    </x-guide.walkthrough>
+
+    <x-guide.walkthrough
+        number="6"
+        title="Check it landed where you meant"
+        screen="Inventory → Stock Levels"
+        url="{{ \App\Filament\Resources\InventoryStockResource::getUrl('index') }}"
+        shot="06-stock.png">
+        <p>One row per item per location — the answer to "how many, and where?".</p>
+        <p>This is the screen to look at straight after a receipt. If a number is not where
+        you expect, it is nearly always a location picked in haste at step 4.</p>
+        <p>Moving stock between shelves is <strong>Stock Transfer</strong>, never editing a
+        number by hand: a transfer records both sides, an edit records nothing.</p>
+    </x-guide.walkthrough>
+
+    <x-guide.walkthrough
+        number="7"
+        title="Send it out, and account for what left"
+        screen="Streams → End of Stream"
+        url="{{ \App\Filament\Pages\EndOfStreamForm::getUrl() }}"
+        shot="07-movements.png">
+        <p>Stock leaves when a streamer files their End of Stream report. They scan or pick
+        what they used, and the approved report is what deducts it — inventory is not touched
+        by Whatnot sales directly, because giveaways and promos leave the shelf too and have
+        no order behind them.</p>
+        <p>Every change lands in <strong>Movement History</strong>: what moved, when, who did
+        it, and why. Nothing in the system changes a quantity without writing a row here.</p>
+    </x-guide.walkthrough>
+
+    <x-guide.walkthrough
+        number="8"
+        title="See what it was worth"
+        screen="Inventory → Inventory Value"
+        url="{{ \App\Filament\Pages\InventoryValueDashboard::getUrl() }}"
+        shot="08-value.png">
+        <p>What is on the shelf, at weighted average cost, and what margin is sitting in it
+        at your sale targets.</p>
+        <p>This is the number the whole cycle exists to keep honest — and it is only as good
+        as steps 4 and 7. Cost enters at receiving; it leaves at the report.</p>
+    </x-guide.walkthrough>
+
+    <x-guide.panel tone="amber" title="If a count is wrong, do not just fix the number">
+        <p>Editing a quantity to make it match tells you nothing next month. Use
+        <strong>Inventory Reconciliation</strong> to record a physical count, or
+        <strong>Adjust</strong> on the item with a reason. Both leave a row in Movement
+        History saying what happened and who said so, which is what turns a recurring
+        discrepancy into something you can actually track down.</p>
+    </x-guide.panel>
+
+</div>
+@endif
+
 {{-- ════════════════════════════════════════════════════════════════ START HERE --}}
 @if($tab === 'start')
 <div class="space-y-6">
@@ -29,25 +191,6 @@
             stock splits your counts and your costs in two, and nothing warns you it happened.
         </p>
     </x-guide.panel>
-
-    @if($status['count'] === 0)
-        <x-guide.panel tone="amber" title="⚠ You have no active locations">
-            <p>Stock has nowhere to go, which is exactly why location dropdowns elsewhere look empty. Create one before anything else.</p>
-        </x-guide.panel>
-    @elseif(! $status['hasStorage'])
-        <x-guide.panel tone="amber" title="⚠ No general storage location">
-            <p>
-                You have {{ $status['count'] }} active {{ Str::plural('location', $status['count']) }}
-                ({{ implode(', ', array_slice($status['names'], 0, 6)) }}@if($status['count'] > 6), …@endif),
-                and none of type <strong>Main Storage</strong>. If you have been hunting for "the warehouse",
-                that is its name here — and it does not exist yet.
-            </p>
-        </x-guide.panel>
-    @else
-        <x-guide.panel tone="green" title="✓ Locations are set up">
-            <p>{{ $status['count'] }} active {{ Str::plural('location', $status['count']) }}, including general storage. Nothing to do on this tab.</p>
-        </x-guide.panel>
-    @endif
 
     @if($this->canSee(\App\Filament\Resources\InventoryLocationResource::class))
     <x-guide.steps title="Locations — Inventory → Locations" :steps="[

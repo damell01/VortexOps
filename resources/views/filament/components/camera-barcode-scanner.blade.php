@@ -105,9 +105,26 @@ function cameraScanner() {
         helperText: 'Hold the code inside the frame. It submits automatically.',
         targetInput: null,
         detectedCallback: null,
-        lastDetectionTime: 0,
+        // The code that was actually accepted, shown on the success overlay.
         lastDetectedBarcode: null,
-        detectionConfidence: 0,
+        // Votes per code within a rolling window, rather than a run of
+        // identical reads — see onBarcodeDetected.
+        votes: {},
+        lastVoteTime: 0,
+
+        // How many quality-checked reads of the same code end a scan. Two,
+        // because the error gate below has already thrown out the reads that
+        // used to need out-voting.
+        VOTES_TO_ACCEPT: 2,
+        // Quagga scores every decoded digit; the average across a barcode is
+        // a reliable separator. Good reads sit well under 0.1, and the
+        // plausible-but-wrong ones that used to reset the counter are mostly
+        // above 0.25.
+        MAX_DECODE_ERROR: 0.18,
+        // Long enough to survive a hand wobble between frames, short enough
+        // that pointing at a second barcode does not inherit the first's
+        // votes.
+        VOTE_WINDOW_MS: 1400,
 
         async open(event = null) {
             if (this.isOpen) return;
@@ -122,7 +139,8 @@ function cameraScanner() {
             this.error = null;
             this.statusText = 'Starting rear camera…';
             this.lastDetectedBarcode = null;
-            this.detectionConfidence = 0;
+            this.votes = {};
+            this.lastVoteTime = 0;
             if (this.$refs.manualInput) this.$refs.manualInput.value = '';
             await this.$nextTick();
             await this.startScanner();
@@ -167,7 +185,7 @@ function cameraScanner() {
                     Quagga.start();
                     this.detectedCallback = result => {
                         const value = result?.codeResult?.code;
-                        if (value) this.onBarcodeDetected(value);
+                        if (value) this.onBarcodeDetected(value, this.decodeError(result));
                     };
                     Quagga.onDetected(this.detectedCallback);
                     this.statusText = 'Ready — center the barcode in the box';
@@ -185,28 +203,66 @@ function cameraScanner() {
             this.$nextTick(() => setTimeout(() => this.$refs.manualInput?.focus(), 100));
         },
 
-        onBarcodeDetected(value) {
+        /**
+         * How badly Quagga struggled to read this barcode.
+         *
+         * It scores every decoded digit; the average across the code
+         * separates a clean read from a plausible-looking wrong one far more
+         * reliably than seeing the same string twice does. Null when the
+         * library gives us nothing to judge by, which is treated as "cannot
+         * tell" rather than "bad".
+         */
+        decodeError(result) {
+            const codes = result?.codeResult?.decodedCodes;
+            if (!Array.isArray(codes)) return null;
+
+            const errors = codes.map(c => c?.error).filter(e => typeof e === 'number');
+            if (!errors.length) return null;
+
+            return errors.reduce((a, b) => a + b, 0) / errors.length;
+        },
+
+        /**
+         * Accept a code once enough good reads agree on it.
+         *
+         * This used to require three *consecutive* identical reads, throttled
+         * to one every 160ms, and any single misread reset the run to one. On
+         * a phone camera Quagga misreads regularly, so a scan needed three
+         * clean frames in a row with nothing wrong in between — which usually
+         * happened in about a second and occasionally took half a minute.
+         * That was the thirty-second scan.
+         *
+         * Two changes. Bad reads are rejected on their decode error instead
+         * of being out-voted by repetition, and the votes that survive are
+         * tallied rather than required to be consecutive, so one stray frame
+         * costs nothing instead of starting over.
+         */
+        onBarcodeDetected(value, error = null) {
             const cleaned = String(value || '').trim();
             if (!cleaned || this.detected) return;
 
-            const now = Date.now();
-            if (now - this.lastDetectionTime < 160) return;
-            this.lastDetectionTime = now;
+            if (error !== null && error > this.MAX_DECODE_ERROR) {
+                return;
+            }
 
-            if (cleaned !== this.lastDetectedBarcode) {
-                this.lastDetectedBarcode = cleaned;
-                this.detectionConfidence = 1;
+            const now = Date.now();
+
+            // A gap means the camera moved, or moved on. Old votes should not
+            // carry into whatever is in front of it now.
+            if (now - this.lastVoteTime > this.VOTE_WINDOW_MS) {
+                this.votes = {};
+            }
+            this.lastVoteTime = now;
+
+            this.votes[cleaned] = (this.votes[cleaned] || 0) + 1;
+
+            if (this.votes[cleaned] < this.VOTES_TO_ACCEPT) {
                 this.statusText = 'Found ' + cleaned + ' — hold steady';
                 return;
             }
 
-            this.detectionConfidence++;
-            if (this.detectionConfidence < 3) {
-                this.statusText = 'Confirming ' + cleaned + ' (' + this.detectionConfidence + '/3)';
-                return;
-            }
-
             this.detected = true;
+            this.lastDetectedBarcode = cleaned;
             this.statusText = 'Barcode scanned';
             if (navigator.vibrate) navigator.vibrate([80, 45, 80]);
             this.fillInput(cleaned);

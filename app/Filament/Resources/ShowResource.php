@@ -226,6 +226,7 @@ class ShowResource extends Resource
                         ->schema([
                             static::showDetailsSection(),
                             static::notesSection(),
+                            static::fulfillmentSection(),
                         ]),
 
                     Tab::make('Financials')
@@ -336,6 +337,35 @@ class ShowResource extends Resource
                 ->rows(3)
                 ->columnSpanFull(),
         ]);
+    }
+
+    /**
+     * What the people packing this show need to know before they start.
+     *
+     * Nothing carried from the person who ran the stream to the people who
+     * ship it: "this one is all big boxes" was said on the night and gone by
+     * morning, so fulfillment met it as a surprise in the queue.
+     */
+    private static function fulfillmentSection(): Section
+    {
+        return Section::make('For the fulfillment team')
+            ->icon('heroicon-o-truck')
+            ->description('Anything the packers should know before they open this show.')
+            ->columnSpanFull()
+            ->schema([
+                // Separate from the note on purpose: a note has to be read,
+                // and the thing worth knowing before you plan an afternoon is
+                // whether this show is going to eat one.
+                Toggle::make('is_slow_pack')
+                    ->label('This one will take a while')
+                    ->helperText('Big boxes, awkward items, unusually high volume — flags the show in the fulfillment queue.')
+                    ->columnSpanFull(),
+                Textarea::make('fulfillment_notes')
+                    ->label('Packing notes')
+                    ->rows(3)
+                    ->placeholder('e.g. all jumbo boxes, will need the large mailers — allow an extra hour')
+                    ->columnSpanFull(),
+            ]);
     }
 
     private static function financialsSection(): Section

@@ -100,11 +100,17 @@ class ShowMetricsWidget extends Widget
             [
                 'label' => 'Shipments',
                 'value' => number_format($shipmentCount),
-                'sub'   => $pendingCount > 0
-                    ? number_format($pendingCount) . ' not delivered'
-                    : ($shipmentCount > 0 ? 'All delivered' : 'No shipment rows yet'),
+                // The packing warning rides on this tile rather than taking
+                // one of its own: it is a fact about shipping this show, and
+                // it belongs where someone is already looking at the shipping
+                // numbers.
+                'sub'   => $show->is_slow_pack
+                    ? 'Flagged: takes a while to pack'
+                    : ($pendingCount > 0
+                        ? number_format($pendingCount) . ' not delivered'
+                        : ($shipmentCount > 0 ? 'All delivered' : 'No shipment rows yet')),
                 'icon'  => 'heroicon-o-truck',
-                'tone'  => $pendingCount > 0 ? 'amber' : 'green',
+                'tone'  => $show->is_slow_pack ? 'amber' : ($pendingCount > 0 ? 'amber' : 'green'),
             ],
             [
                 'label' => 'Whatnot Sync',

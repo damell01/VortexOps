@@ -115,7 +115,20 @@ class FulfillmentResource extends Resource
                     ->label('Show')
                     ->searchable()
                     ->wrap()
-                    ->limit(42),
+                    ->limit(42)
+                    // The one thing worth knowing before planning an
+                    // afternoon, on the column nobody can hide, and on the
+                    // mobile card too — this queue is worked from a phone.
+                    ->icon(fn ($record) => $record->is_slow_pack ? 'heroicon-m-clock' : null)
+                    ->iconColor('warning')
+                    ->description(fn ($record) => $record->is_slow_pack
+                        ? 'Takes a while' . (filled($record->fulfillment_notes)
+                            ? ' — ' . \Illuminate\Support\Str::limit($record->fulfillment_notes, 70)
+                            : '')
+                        : (filled($record->fulfillment_notes)
+                            ? \Illuminate\Support\Str::limit($record->fulfillment_notes, 70)
+                            : null))
+                    ->tooltip(fn ($record) => $record->fulfillment_notes),
 
                 TextColumn::make('streamers.name')
                     ->label('Streamer')
@@ -174,6 +187,13 @@ class FulfillmentResource extends Resource
                     ->relationship('fulfillmentUsers', 'name')
                     ->searchable()
                     ->preload(),
+                // Both directions are useful: finding the long jobs to plan
+                // around them, and finding the quick ones to clear a queue.
+                \Filament\Tables\Filters\TernaryFilter::make('is_slow_pack')
+                    ->label('Takes a while')
+                    ->placeholder('All shows')
+                    ->trueLabel('Flagged as slow')
+                    ->falseLabel('Not flagged'),
             ])
             ->paginationPageOptions([25, 50, 100])
             ->defaultPaginationPageOption(25)

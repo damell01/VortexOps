@@ -7,6 +7,12 @@ return [
         'password' => env('WHATNOT_PASSWORD'),
         'node_bin' => env('WHATNOT_NODE_BIN', 'node'),
         'limit'    => (int) env('WHATNOT_IMPORT_LIMIT', 50),
+        // Mirrors the resolution in scripts/whatnot-scraper.cjs, which honours
+        // this before falling back to storage/. Declared here so PHP can name
+        // the same file the scraper will actually read: env() outside a config
+        // file returns null the moment the config is cached.
+        'cookies_file' => env('WHATNOT_COOKIES_FILE'),
+
         'playwright_browsers_path'         => env('PLAYWRIGHT_BROWSERS_PATH'),
         'playwright_chromium_executable'   => env('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'),
 

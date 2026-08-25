@@ -136,6 +136,7 @@ class RefreshRecentWhatnotShows extends Command
 
             ShowIngestionLog::create([
                 'show_id' => $show->id,
+                'whatnot_channel_id' => $channel->id,
                 'source' => 'whatnot_recent_refresh',
                 'status' => 'success',
                 'raw_payload' => [

@@ -1237,6 +1237,7 @@ class WhatnotScraper
             $rows = $this->fetchShows($limit, $debug, $channel?->whatnot_username, $onProgress, $seedLiveId);
         } catch (\Throwable $e) {
             ShowIngestionLog::create([
+                'whatnot_channel_id' => $channel?->id,
                 'source'        => 'whatnot',
                 'status'        => 'failed',
                 'error_message' => $e->getMessage(),
@@ -1266,6 +1267,7 @@ class WhatnotScraper
             if (empty($row['title']) && empty($row['show_date'])) {
                 $skipped++;
                 ShowIngestionLog::create([
+                    'whatnot_channel_id' => $channel?->id,
                     'source'        => 'whatnot',
                     'status'        => 'failed',
                     'error_message' => 'Scraped row had no title or show_date — could not identify the show.',
@@ -1392,6 +1394,7 @@ class WhatnotScraper
                     $updated++;
                     ShowIngestionLog::create([
                         'show_id'     => $existing->id,
+                        'whatnot_channel_id' => $existing->whatnot_channel_id ?? $channel?->id,
                         'source'      => 'whatnot',
                         'status'      => 'success',
                         'raw_payload' => $row,
@@ -1418,6 +1421,7 @@ class WhatnotScraper
                 if (! $lookupDate) {
                     $skipped++;
                     ShowIngestionLog::create([
+                        'whatnot_channel_id' => $channel?->id,
                         'source'        => 'whatnot',
                         'status'        => 'failed',
                         'error_message' => 'Scraped row had a title but no show_date (required) — show was not created.',
@@ -1436,6 +1440,7 @@ class WhatnotScraper
                 $showModel = $show;
                 ShowIngestionLog::create([
                     'show_id'     => $show->id,
+                    'whatnot_channel_id' => $show->whatnot_channel_id ?? $channel?->id,
                     'source'      => 'whatnot',
                     'status'      => 'success',
                     'raw_payload' => $row,

@@ -183,6 +183,7 @@ class SyncWhatnotShowIndex extends Command
                 $counts['created']++;
                 ShowIngestionLog::create([
                     'show_id' => $show->id,
+                    'whatnot_channel_id' => $channel->id,
                     'source' => 'whatnot_show_index',
                     'status' => 'success',
                     'raw_payload' => array_merge($row, ['_channel_id' => $channel->id]),
@@ -260,6 +261,7 @@ class SyncWhatnotShowIndex extends Command
 
             ShowIngestionLog::create([
                 'show_id' => $show->id,
+                'whatnot_channel_id' => $channel->id,
                 'source' => 'whatnot_spa_enrichment',
                 'status' => 'success',
                 'raw_payload' => [

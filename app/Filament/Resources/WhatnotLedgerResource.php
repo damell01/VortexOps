@@ -144,7 +144,11 @@ class WhatnotLedgerResource extends Resource
                         DatePicker::make('from')->label('From'),
                         DatePicker::make('until')->label('Until'),
                     ])
-                    ->query(fn (Builder $q, array $data) => $q
+                    // $query, not $q: Filament injects the table's builder by
+                    // parameter name, so anything else resolves a throwaway
+                    // Builder from the container and the date range filters
+                    // nothing at all.
+                    ->query(fn (Builder $query, array $data) => $query
                         ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('created_date', '>=', $d))
                         ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('created_date', '<=', $d))),
             ])

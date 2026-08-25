@@ -1,4 +1,33 @@
 @import 'tailwindcss';
+
+/* ── Make the brand colour a real Tailwind palette ────────────────────
+   Filament publishes its palette as --primary-50 … --primary-950 on
+   :root, following whatever colour the panel is configured with. Tailwind
+   v4 only generates a utility for a colour registered under --color-*,
+   so every bg-primary-600, text-primary-700 and border-primary-300 in
+   this app's hand-written views resolved to nothing at all.
+
+   The damage was invisible rather than obvious: a button with
+   `bg-primary-600 text-white` kept its white text and lost its
+   background, so the app's primary action on twenty-five views — the
+   camera scanner's Use Code button, the mobile action bars on receiving,
+   quick add and end of stream — rendered as white text on a white card.
+
+   Mapping the names through means they track the configured brand
+   colour, including the one set from Settings. */
+@theme {
+    --color-primary-50: var(--primary-50);
+    --color-primary-100: var(--primary-100);
+    --color-primary-200: var(--primary-200);
+    --color-primary-300: var(--primary-300);
+    --color-primary-400: var(--primary-400);
+    --color-primary-500: var(--primary-500);
+    --color-primary-600: var(--primary-600);
+    --color-primary-700: var(--primary-700);
+    --color-primary-800: var(--primary-800);
+    --color-primary-900: var(--primary-900);
+    --color-primary-950: var(--primary-950);
+}
 @import 'driver.js/dist/driver.css';
 @import 'animations.css';
 @import 'mobile-optimizations.css';

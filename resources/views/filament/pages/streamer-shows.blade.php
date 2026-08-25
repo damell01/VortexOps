@@ -1,159 +1,136 @@
+@php
+    $groups = $this->groups();
+
+    $tones = [
+        'danger'  => 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+        'warning' => 'bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
+        'info'    => 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
+        'success' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+        'gray'    => 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
+    ];
+@endphp
+
 <x-filament-panels::page>
-    <div class="space-y-8">
-        <!-- Create Manual Show Component -->
-        @livewire('create-manual-show', ['streamer' => $this->getStreamer()])
+    <div class="space-y-3 sm:space-y-5" data-vx-page="streamer-shows">
 
-        <!-- Upcoming Shows -->
-        <div>
-            <div class="mb-4">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Upcoming Shows</h2>
-                <p class="text-gray-600 dark:text-gray-400">Scheduled shows you'll be streaming</p>
+        @php $needsYou = $groups['needs_you']; @endphp
+
+        {{-- Sorted by who is blocked, not by date: a show from three weeks ago
+             that still has no report is more urgent than last night's. --}}
+        <section @class([
+            'overflow-hidden rounded-xl border sm:rounded-2xl',
+            'border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30' => filled($needsYou),
+            'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900' => empty($needsYou),
+        ])>
+            <div class="p-4 sm:p-5">
+                <div @class([
+                    'text-[10px] font-bold uppercase tracking-[.12em] sm:text-xs',
+                    'text-amber-700 dark:text-amber-400' => filled($needsYou),
+                    'text-emerald-700 dark:text-emerald-400' => empty($needsYou),
+                ])>Waiting on you</div>
+                <h2 class="mt-1 text-lg font-semibold text-gray-950 dark:text-white sm:text-xl">
+                    @if (filled($needsYou))
+                        {{ count($needsYou) }} {{ Str::plural('show', count($needsYou)) }} {{ count($needsYou) === 1 ? 'needs' : 'need' }} a report
+                    @else
+                        Nothing needs you right now
+                    @endif
+                </h2>
+                @if (empty($needsYou))
+                    <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Every show you have run has a report filed. New ones appear here the morning after.</p>
+                @endif
             </div>
 
-            @php
-                $upcomingShows = $this->getStreamer()
-                    ->shows()
-                    ->where('show_date', '>', now())
-                    ->orderBy('show_date', 'asc')
-                    ->get();
-            @endphp
-
-            @if ($upcomingShows->count() > 0)
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    @foreach ($upcomingShows as $show)
-                        <div class="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-700 p-6 hover:shadow-lg transition">
-                            <div class="flex items-start justify-between mb-3">
-                                <div>
-                                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $show->title }}</h3>
-                                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ $show->channel }}</p>
-                                </div>
-                                <span class="inline-block px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 rounded-full text-xs font-semibold">
-                                    📅 Upcoming
-                                </span>
-                            </div>
-
-                            <div class="space-y-2 text-sm mb-4">
-                                <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                                    <span class="text-lg">📍</span>
-                                    <span>{{ $show->show_date->format('F j, Y') }} at {{ $show->show_date->format('g:i A') }}</span>
-                                </div>
-                                @if ($show->gross_revenue)
-                                    <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                                        <span class="text-lg">💰</span>
-                                        <span>Estimated Revenue: ${{ number_format($show->gross_revenue, 2) }}</span>
+            @if (filled($needsYou))
+                <div class="divide-y divide-amber-200 bg-amber-200 dark:divide-amber-900 dark:bg-amber-900 sm:grid sm:grid-cols-2 sm:gap-px sm:divide-y-0">
+                    @foreach ($needsYou as $show)
+                        <a href="{{ $show['url'] }}" style="display:block !important"
+                           class="group bg-white p-4 transition hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800/70">
+                          <div class="w-full min-w-0">
+                            <div class="flex items-start justify-between gap-2">
+                                <div class="min-w-0">
+                                    <div class="truncate text-sm font-semibold text-gray-950 dark:text-white">{{ $show['title'] }}</div>
+                                    <div class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                                        {{ $show['date'] }}@if ($show['channel']) · {{ $show['channel'] }}@endif
                                     </div>
-                                @endif
-                                <div class="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                                    <span class="text-lg">📦</span>
-                                    <span>Expected Items: {{ $show->orders()->count() ?? 'TBD' }}</span>
                                 </div>
+                                <span class="shrink-0 whitespace-nowrap rounded-full {{ $tones[$show['tone']] }} px-2 py-0.5 text-[10px] font-bold">{{ $show['state'] }}</span>
                             </div>
 
-                            <div class="pt-4 border-t border-blue-200 dark:border-blue-700">
-                                <a href="{{ route('filament.admin.resources.shows.edit', $show) }}"
-                                    class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold text-sm">
-                                    View Details →
-                                </a>
+                            <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+                                <span class="whitespace-nowrap">{{ number_format($show['shipments']) }} {{ Str::plural('shipment', $show['shipments']) }}</span>
+                                @if ($show['slow_pack'])
+                                    <span class="rounded-full bg-amber-100 px-2 py-0.5 font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-300">Slow to pack</span>
+                                @endif
                             </div>
-                        </div>
+
+                            <div class="mt-3 inline-flex min-h-9 w-fit items-center gap-1.5 self-start rounded-lg bg-primary-600 px-3 text-xs font-semibold text-white">
+                                {{ $show['action'] }}
+                                <x-heroicon-m-arrow-right class="h-4 w-4" />
+                            </div>
+                          </div>
+                        </a>
                     @endforeach
                 </div>
-            @else
-                <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-8 text-center">
-                    <p class="text-blue-900 dark:text-blue-200 font-semibold">No upcoming shows scheduled</p>
-                    <p class="text-blue-700 dark:text-blue-400 text-sm mt-1">You don't have any shows scheduled yet. Check back soon!</p>
-                </div>
             @endif
-        </div>
+        </section>
 
-        <!-- Past Shows -->
-        <div>
-            <div class="mb-4">
-                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Past Shows</h2>
-                <p class="text-gray-600 dark:text-gray-400">Shows you've already streamed</p>
-            </div>
+        @foreach ([
+            ['key' => 'upcoming', 'title' => 'Coming up',       'blurb' => 'Shows you are scheduled to run. Nothing to do until they have aired.'],
+            ['key' => 'waiting',  'title' => 'With the office',  'blurb' => 'Filed and waiting on review. You will see these move back up if changes are asked for.'],
+            ['key' => 'done',     'title' => 'Done',             'blurb' => 'Approved. Kept here so you can look back at what you reported.'],
+        ] as $section)
+            @php $rows = $groups[$section['key']]; @endphp
 
-            @php
-                $pastShows = $this->getStreamer()
-                    ->shows()
-                    ->where('show_date', '<=', now())
-                    ->orderBy('show_date', 'desc')
-                    ->get();
-            @endphp
+            @if (filled($rows))
+                <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+                    <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5">
+                        <h2 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">{{ $section['title'] }} <span class="ml-1 text-gray-400">{{ count($rows) }}</span></h2>
+                        <p class="mt-0.5 text-[11px] leading-4 text-gray-500 dark:text-gray-400 sm:text-xs">{{ $section['blurb'] }}</p>
+                    </div>
 
-            @if ($pastShows->count() > 0)
-                <div class="space-y-3">
-                    @foreach ($pastShows as $show)
-                        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition flex items-center justify-between">
-                            <div class="flex-1">
-                                <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $show->title }}</h3>
-                                <div class="flex flex-wrap gap-4 mt-2 text-sm text-gray-600 dark:text-gray-400">
-                                    <span>📅 {{ $show->show_date->format('M j, Y') }}</span>
-                                    <span>📦 {{ $show->orders()->count() }} items</span>
-                                    <span>💰 Revenue: ${{ number_format($show->gross_revenue, 2) }}</span>
+                    <div class="divide-y divide-gray-100 dark:divide-gray-800">
+                        @foreach ($rows as $show)
+                            @php $tag = 'div'; @endphp
+                            <{{ $show['url'] ? 'a' : 'div' }}
+                                style="display:block !important"
+                                @if ($show['url']) href="{{ $show['url'] }}" @endif
+                                @class([
+                                    'block px-4 py-3 sm:px-5',
+                                    'transition hover:bg-gray-50 dark:hover:bg-gray-800/60' => (bool) $show['url'],
+                                ])
+                            >
+                              <div class="flex w-full min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+                                <div class="min-w-0 flex-1">
+                                    <div class="truncate text-sm font-medium text-gray-950 dark:text-white">{{ $show['title'] }}</div>
+                                    <div class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                                        {{ $show['date'] }}@if ($show['time']) · {{ $show['time'] }}@endif
+                                        @if ($show['channel']) · {{ $show['channel'] }}@endif
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div class="flex gap-2 ml-4">
-                                @if ($show->streamerLogEntry)
-                                    <span class="inline-block px-3 py-1 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 rounded-full text-xs font-semibold">
-                                        ✓ Logged
-                                    </span>
-                                @else
-                                    <span class="inline-block px-3 py-1 bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 rounded-full text-xs font-semibold">
-                                        ⏳ Pending Log
-                                    </span>
+                                <div class="shrink-0 whitespace-nowrap text-[11px] text-gray-500 dark:text-gray-400">
+                                    {{ number_format($show['shipments']) }} {{ Str::plural('shipment', $show['shipments']) }}
+                                </div>
+
+                                <span class="shrink-0 whitespace-nowrap rounded-full {{ $tones[$show['tone']] }} px-2 py-0.5 text-[10px] font-bold">{{ $show['state'] }}</span>
+
+                                @if ($show['url'])
+                                    <span class="shrink-0 whitespace-nowrap text-xs font-semibold text-primary-600 dark:text-primary-400">{{ $show['action'] }} →</span>
                                 @endif
-
-                                <a href="{{ route('filament.admin.resources.shows.edit', $show) }}"
-                                    class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded font-medium transition">
-                                    View
-                                </a>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-
-                <!-- Pagination/Load More could go here if needed -->
-            @else
-                <div class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-8 text-center">
-                    <p class="text-gray-600 dark:text-gray-400 font-semibold">No past shows</p>
-                </div>
+                              </div>
+                            </{{ $show['url'] ? 'a' : 'div' }}>
+                        @endforeach
+                    </div>
+                </section>
             @endif
-        </div>
+        @endforeach
 
-        <!-- Show Statistics -->
-        <div class="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg border border-purple-200 dark:border-purple-700 p-6">
-            <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Your Statistics</h3>
-
-            @php
-                $totalShows = $this->getStreamer()->shows()->count();
-                $totalRevenue = $this->getStreamer()->shows()->sum('gross_revenue');
-                $totalItems = $this->getStreamer()->shows()->withCount('orders')->get()->sum('orders_count');
-                $completedLogs = $this->getStreamer()->streamerLogEntries()->count();
-            @endphp
-
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div class="bg-white dark:bg-gray-800 rounded p-4 border border-purple-200 dark:border-purple-700">
-                    <p class="text-xs text-purple-600 dark:text-purple-400 uppercase font-semibold">Total Shows</p>
-                    <p class="text-3xl font-bold text-purple-900 dark:text-purple-100">{{ $totalShows }}</p>
-                </div>
-
-                <div class="bg-white dark:bg-gray-800 rounded p-4 border border-green-200 dark:border-green-700">
-                    <p class="text-xs text-green-600 dark:text-green-400 uppercase font-semibold">Total Revenue</p>
-                    <p class="text-3xl font-bold text-green-900 dark:text-green-100">${{ number_format($totalRevenue, 0) }}</p>
-                </div>
-
-                <div class="bg-white dark:bg-gray-800 rounded p-4 border border-blue-200 dark:border-blue-700">
-                    <p class="text-xs text-blue-600 dark:text-blue-400 uppercase font-semibold">Items Sold</p>
-                    <p class="text-3xl font-bold text-blue-900 dark:text-blue-100">{{ $totalItems }}</p>
-                </div>
-
-                <div class="bg-white dark:bg-gray-800 rounded p-4 border border-indigo-200 dark:border-indigo-700">
-                    <p class="text-xs text-indigo-600 dark:text-indigo-400 uppercase font-semibold">Logs Submitted</p>
-                    <p class="text-3xl font-bold text-indigo-900 dark:text-indigo-100">{{ $completedLogs }}</p>
-                </div>
-            </div>
-        </div>
+        @if (empty($groups['needs_you']) && empty($groups['upcoming']) && empty($groups['waiting']) && empty($groups['done']))
+            <section class="rounded-xl border border-gray-200 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
+                <x-heroicon-o-video-camera class="mx-auto h-10 w-10 text-gray-300 dark:text-gray-600" />
+                <h2 class="mt-3 text-base font-semibold text-gray-950 dark:text-white">No shows yet</h2>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Once you are assigned to a show it will appear here, and you will be able to file its report from this page.</p>
+            </section>
+        @endif
     </div>
 </x-filament-panels::page>

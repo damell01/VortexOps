@@ -85,6 +85,7 @@ class Product extends Model
         'image_path',
         'unit_cost',
         'average_cost',
+        'sale_price',
         'total_units_received',
         'reorder_level',
         'is_active',
@@ -163,6 +164,7 @@ class Product extends Model
     protected $casts = [
         'unit_cost'            => 'decimal:2',
         'average_cost'         => 'decimal:4',
+        'sale_price'           => 'decimal:2',
         'total_units_received' => 'decimal:2',
         'is_active'            => 'boolean',
         'is_container'         => 'boolean',
@@ -172,6 +174,75 @@ class Product extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()->logAll()->logOnlyDirty();
+    }
+
+    // ── Margin ─────────────────────────────────────────────────────────────────
+
+    /**
+     * The cost to measure a sale price against.
+     *
+     * The weighted average is the truth once anything has been received, and
+     * it is the number every other costing surface in the app already uses.
+     * Before the first receipt there is no average, so the unit cost stands in
+     * — an item imported from a cost sheet has one of those and nothing else,
+     * and a margin that reads as the whole sale price until someone receives
+     * a pallet would be worse than no margin at all.
+     */
+    public function costBasis(): ?float
+    {
+        $average = (float) ($this->average_cost ?? 0);
+
+        if ($average > 0) {
+            return $average;
+        }
+
+        $unit = (float) ($this->unit_cost ?? 0);
+
+        return $unit > 0 ? $unit : null;
+    }
+
+    /**
+     * Money left over on one unit at the target price.
+     *
+     * Null rather than zero when either side is unknown: "no target set" and
+     * "sells for exactly what it cost" are different facts, and a column that
+     * shows $0.00 for both hides the one worth acting on.
+     */
+    public function marginPotential(): ?float
+    {
+        $cost = $this->costBasis();
+        $sale = (float) ($this->sale_price ?? 0);
+
+        if ($cost === null || $sale <= 0) {
+            return null;
+        }
+
+        return round($sale - $cost, 2);
+    }
+
+    /** The same margin as a share of the sale price. */
+    public function marginPercent(): ?float
+    {
+        $margin = $this->marginPotential();
+        $sale   = (float) ($this->sale_price ?? 0);
+
+        if ($margin === null || $sale <= 0) {
+            return null;
+        }
+
+        return round(($margin / $sale) * 100, 1);
+    }
+
+    /** Total margin available across everything currently on the shelf. */
+    public function marginPotentialOnHand(): ?float
+    {
+        $margin = $this->marginPotential();
+
+        if ($margin === null) {
+            return null;
+        }
+
+        return round($margin * (float) ($this->stock_sum_quantity ?? $this->stock()->sum('quantity')), 2);
     }
 
     // ── Relationships ──────────────────────────────────────────────────────────

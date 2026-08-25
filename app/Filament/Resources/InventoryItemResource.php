@@ -482,6 +482,35 @@ class InventoryItemResource extends Resource
                         ->default(0)
                         ->step(0.0001)
                         ->helperText('Auto-calculated from receiving history'),
+                    TextInput::make('sale_price')
+                        ->label('Sale Price / Target ($)')
+                        ->numeric()
+                        ->prefix('$')
+                        ->minValue(0)
+                        ->step(0.01)
+                        ->placeholder('—')
+                        ->helperText('What this should sell for')
+                        // Live so the margin below answers as the number is
+                        // typed — the two only mean anything together.
+                        ->live(onBlur: true),
+                    Placeholder::make('margin_potential')
+                        ->label('Margin Potential')
+                        ->content(function ($record, $get) {
+                            $sale = (float) ($get('sale_price') ?? 0);
+                            $cost = (float) ($get('average_cost') ?? 0) > 0
+                                ? (float) $get('average_cost')
+                                : (float) ($get('unit_cost') ?? 0);
+
+                            if ($sale <= 0 || $cost <= 0) {
+                                return 'Set a cost and a target to see this';
+                            }
+
+                            $margin = $sale - $cost;
+
+                            return '$' . number_format($margin, 2)
+                                . ' per unit  ·  ' . number_format(($margin / $sale) * 100, 1) . '%'
+                                . ($margin < 0 ? '  ·  selling below cost' : '');
+                        }),
                     TextInput::make('reorder_level')
                         ->numeric()
                         ->minValue(0)
@@ -795,6 +824,36 @@ class InventoryItemResource extends Resource
                             ? number_format((int) ($record->stock_sum_quantity ?? 0)) . ' units • $' . number_format(((int) ($record->stock_sum_quantity ?? 0)) * ((float) ($record->average_cost ?? 0)), 2)
                             : '(' . number_format((float) $record->total_units_received, 0) . ' units received)'
                     ),
+                TextColumn::make('sale_price')
+                    ->label('Sale Target')
+                    ->money('USD')
+                    ->sortable()
+                    ->placeholder('Not set')
+                    ->toggleable(isToggledHiddenByDefault: true),
+                // Not a stored column: it is the target less whichever cost
+                // is real for this item, and a saved copy of that subtraction
+                // is wrong the moment a receipt moves the weighted average.
+                TextColumn::make('margin_potential')
+                    ->label('Margin Potential')
+                    ->getStateUsing(fn ($record) => $record->marginPotential())
+                    ->money('USD')
+                    ->placeholder('—')
+                    ->description(fn ($record) => $record->marginPercent() !== null
+                        ? number_format($record->marginPercent(), 1) . '% of target'
+                        : null)
+                    ->color(fn ($record) => match (true) {
+                        $record->marginPotential() === null => 'gray',
+                        $record->marginPotential() < 0      => 'danger',
+                        default                             => 'success',
+                    })
+                    // Sortable through the same arithmetic the accessor does,
+                    // so the column can be ordered without a stored copy.
+                    ->sortable(query: fn (Builder $query, string $direction) => $query->orderByRaw(
+                        'CASE WHEN products.sale_price IS NULL THEN 1 ELSE 0 END,
+                         (products.sale_price - CASE WHEN COALESCE(products.average_cost, 0) > 0
+                            THEN products.average_cost ELSE COALESCE(products.unit_cost, 0) END) ' . $direction
+                    ))
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('inventory_value')
                     ->label('Inventory Value')
                     ->getStateUsing(fn ($record) => ((int) ($record->stock_sum_quantity ?? 0)) * ((float) ($record->average_cost ?? 0)))
@@ -917,6 +976,22 @@ class InventoryItemResource extends Resource
                             ->whereIn('inventory_location_id', $own)
                             ->where('quantity', '>', 0));
                     }),
+                // An item with no target cannot be judged at all — it is
+                // absent from every margin figure rather than showing badly
+                // in one, which is exactly how it stays missing.
+                Filter::make('no_sale_price')
+                    ->label('Missing a sale target')
+                    ->query(fn (Builder $query) => $query->whereNull('sale_price')),
+                Filter::make('thin_margin')
+                    ->label('Margin under 25%')
+                    ->query(fn (Builder $query) => $query
+                        ->whereNotNull('sale_price')
+                        ->where('sale_price', '>', 0)
+                        ->whereRaw(
+                            '(products.sale_price - CASE WHEN COALESCE(products.average_cost, 0) > 0
+                                THEN products.average_cost ELSE COALESCE(products.unit_cost, 0) END)
+                             < (products.sale_price * 0.25)'
+                        )),
                 Filter::make('is_active')
                     ->label('Active Only')
                     ->query(fn (Builder $query) => $query->where('is_active', true))
@@ -936,6 +1011,7 @@ class InventoryItemResource extends Resource
                                 ->distinct()->pluck('category', 'category')->toArray()))
                             ->multiple(),
                         NumberConstraint::make('average_cost')->label('Avg Cost ($)'),
+                        NumberConstraint::make('sale_price')->label('Sale Target ($)'),
                         NumberConstraint::make('reorder_level')->label('Reorder Level'),
                         BooleanConstraint::make('is_active')->label('Active'),
                     ]),

@@ -60,6 +60,10 @@
        page and its picture on the next is the failure mode of every generated
        manual. */
     .step { page-break-inside: avoid; margin-bottom: 18px; }
+    /* A step with a full field reference is taller than a page. Forcing it to
+       stay whole would push a half-empty page ahead of it every time, so these
+       are allowed to break and the table repeats no header. */
+    .step-long { page-break-inside: auto; }
     .step-head { margin-bottom: 5px; }
     .step-num { color: #7c3aed; font-weight: bold; margin-right: 4px; }
     .where { font-size: 8.5pt; color: #7c3aed; margin: 0 0 6px 14px; font-weight: bold; }
@@ -74,6 +78,18 @@
 
     .shot { margin: 9px 0 0 14px; }
     .shot img { width: 166mm; border: 0.5pt solid #d1d5db; }
+
+    .fields {
+        margin: 9px 0 0 14px; border: 0.5pt solid #e5e7eb;
+    }
+    .fields td {
+        padding: 5px 8px; border-bottom: 0.5pt solid #f3f4f6;
+        vertical-align: top; font-size: 8.5pt; line-height: 1.45;
+    }
+    .fields td.f { width: 32%; font-weight: bold; color: #4c1d95; }
+    .fields-caption {
+        margin: 12px 0 0 14px; font-size: 8.5pt; font-weight: bold; color: #6b7280;
+    }
 
     .trouble td {
         padding: 7px 8px; border-bottom: 0.5pt solid #e5e7eb;
@@ -146,7 +162,7 @@
         <p class="section-blurb">{!! $section['blurb'] !!}</p>
 
         @foreach ($section['steps'] as $n => $step)
-            <div class="step">
+            <div class="step {{ empty($step['fields']) ? '' : 'step-long' }}">
                 <div class="step-head">
                     <h3><span class="step-num">{{ $n + 1 }}.</span>{{ $step['title'] }}</h3>
                 </div>
@@ -160,6 +176,18 @@
                         <p>{!! $paragraph !!}</p>
                     @endforeach
                 </div>
+
+                @if (! empty($step['fields']))
+                    <div class="fields-caption">Every field on this screen</div>
+                    <table width="100%" cellspacing="0" cellpadding="0" class="fields">
+                        @foreach ($step['fields'] as [$field, $meaning])
+                            <tr>
+                                <td class="f">{{ $field }}</td>
+                                <td>{!! $meaning !!}</td>
+                            </tr>
+                        @endforeach
+                    </table>
+                @endif
 
                 @if ($step['note'])
                     <div class="note">{!! $step['note'] !!}</div>

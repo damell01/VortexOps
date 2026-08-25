@@ -193,7 +193,7 @@ button[type="submit"]:disabled {
    symptom; the rest were quietly wrong too. This now applies only to plain
    buttons in hand-written markup, which is what it was for. */
 .fi-btn-secondary,
-button[type="button"]:not([class*="fi-"]):not([role="switch"]) {
+button[type="button"]:not([class*="fi-"]):not([role="switch"]):not(.vx-plain) {
     background-color: #f3f4f6;
     color: #111827;
     border: 1px solid #e5e7eb;
@@ -211,20 +211,20 @@ button[type="button"]:not([class*="fi-"]):not([role="switch"]) {
 }
 
 .fi-btn-secondary:hover,
-button[type="button"]:not([class*="fi-"]):not([role="switch"]):hover {
+button[type="button"]:not([class*="fi-"]):not([role="switch"]):not(.vx-plain):hover {
     background-color: #e5e7eb;
     border-color: #d1d5db;
 }
 
 html.dark .fi-btn-secondary,
-html.dark button[type="button"]:not([class*="fi-"]):not([role="switch"]) {
+html.dark button[type="button"]:not([class*="fi-"]):not([role="switch"]):not(.vx-plain) {
     background-color: #1f2937;
     color: #f3f4f6;
     border-color: #374151;
 }
 
 html.dark .fi-btn-secondary:hover,
-html.dark button[type="button"]:hover {
+html.dark button[type="button"]:not([class*="fi-"]):not([role="switch"]):not(.vx-plain):hover {
     background-color: #374151;
     border-color: #4b5563;
 }

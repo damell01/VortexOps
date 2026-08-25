@@ -359,10 +359,20 @@ button[type="submit"]:disabled {
     box-shadow: none;
 }
 
-/* Secondary action button */
+/* Secondary action button.
+   Scoped the same way as its twin in accessibility-enterprise-polish.css,
+   which had already been narrowed for exactly this reason — but this copy
+   loads afterwards, so its wider selector simply undid that. Unscoped, it
+   claimed every plain button in the app: a card that happens to be a button,
+   a tab strip, a contents list. Each one came out 100px wide, grey and
+   inline-flex, and the symptom looked like broken layout rather than a style
+   rule, so it was rediscovered three separate times.
+
+   .vx-plain is the deliberate way out for hand-written markup that wants a
+   button's semantics and none of this skin. */
 .fi-btn-secondary,
 .btn-secondary,
-button[type="button"]:not(.fi-btn-primary) {
+button[type="button"]:not([class*="fi-"]):not([role="switch"]):not(.vx-plain) {
     background-color: #f3f4f6;
     color: #111827;
     border: 1px solid #e5e7eb;
@@ -382,14 +392,14 @@ button[type="button"]:not(.fi-btn-primary) {
 
 .fi-btn-secondary:hover,
 .btn-secondary:hover,
-button[type="button"]:hover {
+button[type="button"]:not([class*="fi-"]):not([role="switch"]):not(.vx-plain):hover {
     background-color: #e5e7eb;
     border-color: #d1d5db;
 }
 
 html.dark .fi-btn-secondary,
 html.dark .btn-secondary,
-html.dark button[type="button"]:not(.fi-btn-primary) {
+html.dark button[type="button"]:not([class*="fi-"]):not([role="switch"]):not(.vx-plain) {
     background-color: #1f2937;
     color: #f3f4f6;
     border-color: #374151;
@@ -397,7 +407,7 @@ html.dark button[type="button"]:not(.fi-btn-primary) {
 
 html.dark .fi-btn-secondary:hover,
 html.dark .btn-secondary:hover,
-html.dark button[type="button"]:hover {
+html.dark button[type="button"]:not([class*="fi-"]):not([role="switch"]):not(.vx-plain):hover {
     background-color: #374151;
     border-color: #4b5563;
 }

@@ -351,7 +351,12 @@ a.btn-icon {
         font-size: 0.8125rem !important;
     }
 
-    button, a[role="button"] {
+    /* A label that wraps mid-word looks broken on a real button, hence this.
+       A button that is a card is a different thing — it holds a paragraph,
+       and nowrap sends that paragraph off the side of the card. .vx-plain
+       marks those; see enterprise-ui-refinements.css for the rest of the
+       opt-out. */
+    button:not(.vx-plain), a[role="button"]:not(.vx-plain) {
         white-space: nowrap !important;
     }
 }

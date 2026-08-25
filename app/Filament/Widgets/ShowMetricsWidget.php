@@ -36,14 +36,22 @@ class ShowMetricsWidget extends Widget
         // one lot in a single order showed as one item sold. Whatnot's own
         // units_sold covers the case where the order rows have not been
         // imported yet, which is most shows for their first hours.
-        $orderRows     = $show->orders()->count();
-        $orderUnits    = (int) $show->orders()->sum('quantity');
-        $itemCount     = $orderUnits > 0 ? $orderUnits : (int) ($show->units_sold ?? 0);
         $shipmentCount = $show->shipments()->count();
         $pendingCount  = $show->shipments()
             ->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'")
             ->count();
-        $revenue       = (float) ($show->gross_revenue ?? 0);
+        // Net, not gross. Gross is what buyers were charged; the business
+        // never sees Whatnot's cut of it, so every figure derived from gross
+        // — margin most of all — was flattering by the size of the fee.
+        //
+        // Falling back to gross when the net has not been scraped yet is the
+        // lesser wrong: it is the same number the page showed before, and it
+        // is labelled as gross so nobody reads a fee-inclusive figure as net.
+        $gross         = (float) ($show->gross_revenue ?? 0);
+        $net           = (float) ($show->whatnot_net ?? 0);
+        $haveNet       = $net > 0;
+        $revenue       = $haveNet ? $net : $gross;
+        $fees          = $haveNet ? max($gross - $net, 0) : 0.0;
         $cost          = (float) ($entry?->product_cost ?? 0);
 
         $analyticsSynced = $this->humanTime($show->getAttribute('last_analytics_synced_at'));
@@ -51,9 +59,11 @@ class ShowMetricsWidget extends Widget
 
         return [
             [
-                'label' => 'Revenue',
+                'label' => $haveNet ? 'Net Revenue' : 'Revenue',
                 'value' => '$' . number_format($revenue, 2),
-                'sub'   => 'Gross for this show',
+                'sub'   => $haveNet
+                    ? 'After $' . number_format($fees, 2) . ' Whatnot fees'
+                    : 'Gross — net not synced from Whatnot yet',
                 'icon'  => 'heroicon-o-banknotes',
                 'tone'  => 'blue',
             ],
@@ -68,19 +78,11 @@ class ShowMetricsWidget extends Widget
                 'label' => 'Margin',
                 'value' => '$' . number_format($revenue - $cost, 2),
                 'sub'   => $revenue > 0
-                    ? round((($revenue - $cost) / $revenue) * 100, 1) . '% of revenue'
+                    ? round((($revenue - $cost) / $revenue) * 100, 1) . '% of '
+                        . ($haveNet ? 'net' : 'gross')
                     : '—',
                 'icon'  => 'heroicon-o-chart-bar',
                 'tone'  => 'green',
-            ],
-            [
-                'label' => 'Items Sold',
-                'value' => number_format($itemCount),
-                'sub'   => $orderUnits > 0
-                    ? number_format($orderRows) . ' ' . \Illuminate\Support\Str::plural('order', $orderRows)
-                    : 'From Whatnot — orders not imported yet',
-                'icon'  => 'heroicon-o-cube',
-                'tone'  => 'amber',
             ],
             [
                 // What went out without being sold. It is the other half of

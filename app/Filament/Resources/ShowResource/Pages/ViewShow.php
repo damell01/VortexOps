@@ -31,9 +31,14 @@ class ViewShow extends ViewRecord
 
     protected function getHeaderWidgets(): array
     {
+        // ShowItemReconciliationWidget is deliberately not here. It compared
+        // Whatnot's item count against the streamer log and showed the
+        // difference — a number that mostly measured giveaways and promos
+        // Whatnot has no order for, so it read as a discrepancy on nights
+        // where nothing was wrong. The shipment count is the count that
+        // matters and it lives in the metrics above.
         return [
             \App\Filament\Widgets\ShowMetricsWidget::class,
-            \App\Filament\Widgets\ShowItemReconciliationWidget::class,
             \App\Filament\Widgets\ShowPipelineStatusWidget::class,
         ];
     }

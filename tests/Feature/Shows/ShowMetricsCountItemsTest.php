@@ -75,31 +75,69 @@ class ShowMetricsCountItemsTest extends TestCase
         ]);
     }
 
-    public function test_items_sold_counts_items_not_orders(): void
+    public function test_revenue_is_the_net_whatnot_pays_not_the_gross_buyers_were_charged(): void
     {
-        // Three of one lot in a single order is three items. Counting rows
-        // reported it as one, which understates every multi-buy on the show.
-        $this->order(3);
-        $this->order(1);
+        // Gross is what buyers were charged; the business never sees
+        // Whatnot's cut of it. Every figure derived from gross — margin most
+        // of all — was flattering by the size of the fee.
+        $this->show->update(['gross_revenue' => 1000, 'whatnot_net' => 820]);
 
-        $this->assertSame('4', $this->stats()['Items Sold']['value']);
+        $stats = $this->stats();
+
+        $this->assertSame('Net Revenue', array_key_first(
+            array_filter($stats, fn ($v, $k) => $k === 'Net Revenue', ARRAY_FILTER_USE_BOTH),
+        ));
+        $this->assertSame('$820.00', $stats['Net Revenue']['value']);
+        $this->assertStringContainsString('180.00', $stats['Net Revenue']['sub']);
+        $this->assertStringContainsString('Whatnot fees', $stats['Net Revenue']['sub']);
     }
 
-    public function test_the_order_count_is_still_shown_underneath(): void
+    public function test_margin_is_measured_against_the_net(): void
     {
-        $this->order(3);
-        $this->order(1);
+        $this->show->update(['gross_revenue' => 1000, 'whatnot_net' => 800]);
 
-        $this->assertSame('2 orders', $this->stats()['Items Sold']['sub']);
+        // No streamer log, so cost is zero and the whole net is margin —
+        // what matters here is which revenue the percentage is a share of.
+        $this->assertStringContainsString('of net', $this->stats()['Margin']['sub']);
     }
 
-    public function test_whatnots_own_total_stands_in_until_orders_are_imported(): void
+    public function test_gross_stands_in_until_the_net_has_been_synced(): void
     {
-        // The state every show is in for its first hours: analytics have
-        // landed, the order rows have not. Reporting zero there reads as a
-        // show that sold nothing.
-        $this->assertSame('98', $this->stats()['Items Sold']['value']);
-        $this->assertStringContainsString('not imported yet', $this->stats()['Items Sold']['sub']);
+        // The state every show is in for its first hours. Showing $0.00 there
+        // would read as a show that took nothing, so the gross stands in —
+        // labelled as gross, so nobody reads a fee-inclusive number as net.
+        $this->show->update(['gross_revenue' => 1000, 'whatnot_net' => 0]);
+
+        $stats = $this->stats();
+
+        $this->assertArrayNotHasKey('Net Revenue', $stats);
+        $this->assertSame('$1,000.00', $stats['Revenue']['value']);
+        $this->assertStringContainsString('not synced', $stats['Revenue']['sub']);
+    }
+
+    public function test_the_whatnot_item_count_is_gone(): void
+    {
+        // Whatnot's count and the streamer's log are two records of the same
+        // night that differ for ordinary reasons — giveaways and promos have
+        // no Whatnot order at all — so the difference read as a discrepancy
+        // on nights where nothing was wrong. The shipment count is the count
+        // that matters.
+        $this->order(3);
+
+        $stats = $this->stats();
+
+        $this->assertArrayNotHasKey('Items Sold', $stats);
+        $this->assertArrayHasKey('Shipments', $stats);
+    }
+
+    public function test_the_reconciliation_widget_is_not_on_the_show_page(): void
+    {
+        $source = file_get_contents(
+            (new \ReflectionClass(\App\Filament\Resources\ShowResource\Pages\ViewShow::class))->getFileName(),
+        );
+
+        $this->assertStringNotContainsString('ShowItemReconciliationWidget::class', $source);
+        $this->assertFalse(class_exists(\App\Filament\Widgets\ShowItemReconciliationWidget::class));
     }
 
     public function test_giveaways_are_reported(): void

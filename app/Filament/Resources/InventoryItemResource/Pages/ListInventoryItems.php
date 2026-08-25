@@ -5,9 +5,11 @@ namespace App\Filament\Resources\InventoryItemResource\Pages;
 use App\Filament\Pages\InventoryScanner;
 use App\Filament\Resources\InventoryItemResource;
 use App\Filament\Resources\PalletResource;
+use App\Models\Product;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\CreateAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 
 class ListInventoryItems extends ListRecords
@@ -70,6 +72,85 @@ class ListInventoryItems extends ListRecords
             ['label' => 'Low Stock', 'value' => number_format($low), 'sub' => $share($low), 'icon' => 'heroicon-o-exclamation-circle', 'tone' => 'amber'],
             ['label' => 'Out of Stock', 'value' => number_format($out), 'sub' => $share($out), 'icon' => 'heroicon-o-x-circle', 'tone' => 'red'],
         ];
+    }
+
+    /**
+     * Which item a camera scan is currently being captured for.
+     *
+     * Null the rest of the time, which is also what stops a scan meant for
+     * something else on the page from being written to a product.
+     */
+    public ?int $barcodeScanTargetId = null;
+
+    public ?string $barcodeScanTargetName = null;
+
+    /**
+     * Open the camera with a product in mind.
+     *
+     * Putting a code on an item used to mean opening it, finding the field,
+     * scanning into it and saving — four screens to record one number that a
+     * phone can read in under a second.
+     */
+    public function startBarcodeScan(int $productId): void
+    {
+        $product = Product::find($productId);
+
+        if (! $product) {
+            return;
+        }
+
+        $this->barcodeScanTargetId   = $product->getKey();
+        $this->barcodeScanTargetName = $product->name;
+
+        // Livewire re-emits this on window, which is where the camera
+        // component is listening.
+        $this->dispatch('open-camera-scanner', title: 'Scan barcode', helper: $product->name);
+    }
+
+    /**
+     * Write a scanned code onto the item the scan was started for.
+     */
+    public function saveScannedBarcode(string $barcode): void
+    {
+        $barcode = trim($barcode);
+        $product = $this->barcodeScanTargetId ? Product::find($this->barcodeScanTargetId) : null;
+
+        // Cleared first: whatever happens below, this scan is spent, and a
+        // target left set would catch the next unrelated scan on the page.
+        $this->barcodeScanTargetId   = null;
+        $name = $this->barcodeScanTargetName;
+        $this->barcodeScanTargetName = null;
+
+        if ($barcode === '' || ! $product) {
+            return;
+        }
+
+        // The column is uniquely indexed, so without this the save throws a
+        // constraint violation and the page 500s on a mis-scan.
+        $clash = Product::where('barcode', $barcode)
+            ->whereKeyNot($product->getKey())
+            ->first();
+
+        if ($clash) {
+            Notification::make()
+                ->title('That barcode is already in use')
+                ->body($barcode . ' is on "' . $clash->name . '". Nothing was changed.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $previous = $product->barcode;
+        $product->forceFill(['barcode' => $barcode])->save();
+
+        Notification::make()
+            ->title('Barcode saved')
+            ->body(filled($previous)
+                ? $name . ' — replaced ' . $previous . ' with ' . $barcode
+                : $name . ' — ' . $barcode)
+            ->success()
+            ->send();
     }
 
     protected function getHeaderActions(): array

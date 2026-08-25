@@ -1228,17 +1228,22 @@ class InventoryItemResource extends Resource
                             app(InventoryService::class)->moveToReturns($record, $from, $returns, (float) $data['quantity'], $data['reason'] ?? null);
                             Notification::make()->title('Items moved to returns')->success()->send();
                         }),
+                    // This used to open a notification telling you to go and
+                    // edit the item — a menu entry whose whole function was
+                    // to name the four screens you still had to walk through
+                    // to record one number a phone can read in a second.
                     Action::make('scan_barcode')
-                        ->label('Scan Barcode')
+                        ->label(fn ($record) => filled($record->barcode) ? 'Replace Barcode' : 'Scan Barcode')
                         ->icon('heroicon-o-qr-code')
                         ->color('info')
-                        ->action(function (InventoryItem $record): void {
-                            Notification::make()
-                                ->title('📱 Scan via item')
-                                ->body('Edit the item to use the barcode scanner.')
-                                ->info()
-                                ->send();
-                        }),
+                        ->visible(fn () => (auth()->user()?->isAdmin() ?? false)
+                            || (auth()->user()?->isOwner() ?? false)
+                            || (auth()->user()?->isStreamer() ?? false))
+                        // The page owns the capture. The camera reports back
+                        // through a window event carrying only the code, so
+                        // something has to remember which item it was opened
+                        // for, and the record is not in scope by then.
+                        ->action(fn (InventoryItem $record, $livewire) => $livewire->startBarcodeScan($record->getKey())),
                     DeleteAction::make(),
                 ]),
             ])

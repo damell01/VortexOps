@@ -1,4 +1,18 @@
 <x-filament-panels::page>
+    {{-- Camera scans arrive as a window event carrying only the code. The
+         page already knows which item it opened the camera for, so it is the
+         only thing that can pair the two — and it only forwards a scan while
+         a capture is actually in flight, so a scan meant for something else
+         is never written to a product. --}}
+    <div
+        x-data
+        x-on:barcode-scanned.window="
+            if ($wire.barcodeScanTargetId) {
+                $wire.saveScannedBarcode($event.detail.value);
+            }
+        "
+    ></div>
+
     <div class="space-y-3 sm:space-y-5" data-vx-page="inventory-center">
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
             <div class="p-4 sm:p-5">

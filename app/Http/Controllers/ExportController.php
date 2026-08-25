@@ -81,6 +81,55 @@ class ExportController extends Controller
         return $pdf->stream($filename);
     }
 
+    /**
+     * The inventory handbook as a printable PDF.
+     *
+     * Screenshots are passed as base64 data URIs rather than paths. dompdf
+     * resolves a relative src against its chroot and a file:// path against
+     * the filesystem, and which of those works depends on configuration this
+     * install does not pin — so the images are put beyond doubt by embedding
+     * them. A missing picture in a printed manual is not recoverable by the
+     * reader the way a broken <img> on a page is.
+     */
+    public function inventoryManualPdf(Request $request)
+    {
+        $sections = \App\Support\InventoryManual::sections();
+
+        $images = [];
+
+        foreach ($sections as $section) {
+            foreach ($section['steps'] as $step) {
+                $shot = $step['shot'] ?? null;
+
+                if (! $shot || isset($images[$shot])) {
+                    continue;
+                }
+
+                $path = public_path(\App\Support\InventoryManual::IMAGE_DIR . '/' . $shot);
+
+                if (is_file($path)) {
+                    $images[$shot] = 'data:image/png;base64,' . base64_encode(file_get_contents($path));
+                }
+            }
+        }
+
+        $pdf = Pdf::loadView('exports.inventory-manual', [
+            'title'           => \App\Support\InventoryManual::title(),
+            'subtitle'        => \App\Support\InventoryManual::subtitle(),
+            'brand'           => \App\Models\Setting::get('brand_name', 'VortexOps'),
+            'sections'        => $sections,
+            'troubleshooting' => \App\Support\InventoryManual::troubleshooting(),
+            'images'          => $images,
+            'generatedAt'     => now()->format('M j, Y'),
+        ])->setPaper('a4');
+
+        $filename = 'inventory-handbook-' . now()->format('Y-m-d') . '.pdf';
+
+        return $request->query('download')
+            ? $pdf->download($filename)
+            : $pdf->stream($filename);
+    }
+
     public function stockLevels(): StreamedResponse
     {
         abort_unless(auth()->user()?->isAdmin(), 403);

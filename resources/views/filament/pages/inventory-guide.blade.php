@@ -38,6 +38,26 @@
 @if($tab === 'cycle')
 <div class="space-y-5">
 
+    {{-- The printed handbook covers the same ground in more detail and can be
+         carried to the receiving bay, where the person doing the job is. --}}
+    <div class="rounded-xl border border-violet-200 bg-violet-50 px-5 py-4 dark:border-violet-800 dark:bg-violet-950/40">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="min-w-0">
+                <h3 class="text-sm font-semibold text-violet-900 dark:text-violet-200">Prefer it on paper?</h3>
+                <p class="mt-0.5 text-xs text-violet-800 dark:text-violet-300">
+                    The full Inventory Handbook — adding and editing items, transfers, staging and receiving
+                    pallets, bulk receive, and scanning UPCs onto items after the fact — as a PDF with a
+                    screenshot for every step.
+                </p>
+            </div>
+            <a href="{{ route('export.inventory-manual-pdf', ['download' => 1]) }}"
+               style="display:inline-flex !important"
+               class="min-h-10 shrink-0 items-center gap-1.5 rounded-lg bg-violet-600 px-4 text-sm font-semibold text-white hover:bg-violet-700">
+                <x-heroicon-o-arrow-down-tray class="h-4 w-4" /> Download PDF
+            </a>
+        </div>
+    </div>
+
     <x-guide.panel tone="violet" title="One box, from the loading dock to the payout">
         <p>Every other tab in this guide explains a screen. This one follows a single box
         through all of them, in order, so you can see where each screen sits in the run of

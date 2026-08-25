@@ -121,6 +121,48 @@ class InventoryManual
                         'note'  => null,
                     ],
                     [
+                        'title' => 'Search across everything at once',
+                        'where' => 'Inventory → Inventory Search',
+                        'body'  => [
+                            'One box that looks across items, locations and stock together, rather than filtering one list at a time.',
+                            'Quickest way to answer "do we have any of these, anywhere?" without knowing which screen to be on.',
+                        ],
+                        'shot'  => 'inventory-search.png',
+                        'note'  => null,
+                    ],
+                    [
+                        'title' => 'Give an item its extra codes',
+                        'where' => 'Inventory → Product Identities',
+                        'body'  => [
+                            'An item can carry more than one code: the manufacturer\'s UPC, a vendor\'s own SKU, a case code and a singles code.',
+                            'Every code listed here resolves to the same item when scanned, so a box labelled by the vendor and the same box labelled by the manufacturer both find it.',
+                            'Add one here when a delivery arrives with a code the system does not recognise but the item already exists.',
+                        ],
+                        'shot'  => 'product-identities.png',
+                        'note'  => null,
+                    ],
+                    [
+                        'title' => 'Find items that got entered twice',
+                        'where' => 'Inventory → Duplicate Detector',
+                        'body'  => [
+                            'Compares names, SKUs and codes to surface records that are probably the same physical thing.',
+                            'Two records for one product splits its stock and its cost in two, and nothing warns you it happened — this is how you catch it.',
+                            'Run it after a busy receiving week, or whenever a count looks wrong for no reason.',
+                        ],
+                        'shot'  => 'duplicate-detector.png',
+                        'note'  => null,
+                    ],
+                    [
+                        'title' => 'Print labels for things that arrive without one',
+                        'where' => 'Inventory → Barcode Printer',
+                        'body'  => [
+                            'Generates printable barcode labels for any item.',
+                            'For products that turn up with no scannable code, or a code so damaged the camera will not read it. Label it once and it scans forever after.',
+                        ],
+                        'shot'  => 'barcode-printer.png',
+                        'note'  => null,
+                    ],
+                    [
                         'title' => 'Look at one item in full',
                         'where' => 'Inventory → All Inventory → row menu → View',
                         'body'  => [
@@ -146,6 +188,37 @@ class InventoryManual
                             '<b>Contents</b> and <b>Break Case</b> appear on containers only.',
                         ],
                         'shot'  => 'item-actions.png',
+                        'note'  => null,
+                    ],
+                    [
+                        'title' => 'Add stock to a location',
+                        'where' => 'row menu → Add Stock',
+                        'body'  => [
+                            'Location and quantity are required; vendor and unit cost are optional but worth filling in.',
+                            'The unit cost you enter blends into this item\'s weighted average. Leave it blank to add units without moving the average — which is what you want when correcting a count rather than recording a purchase.',
+                            'The reason field is free text and it is what Movement History will show later. "Restock from vendor" is worth four seconds now and saves an argument in a month.',
+                        ],
+                        'shot'  => 'add-stock-modal.png',
+                        'note'  => 'Use this for stock arriving outside a pallet. Anything that came on a delivery should be received against the pallet instead, so the cost and the paperwork stay together.',
+                    ],
+                    [
+                        'title' => 'Adjust a count, with a reason',
+                        'where' => 'row menu → Adjust',
+                        'body'  => [
+                            'For a single correction: the count says nine, the shelf says eight.',
+                            'Say what the difference is and why. The adjustment is written to Movement History with your name on it.',
+                        ],
+                        'shot'  => 'adjust-modal.png',
+                        'note'  => null,
+                    ],
+                    [
+                        'title' => 'Add stock in a hurry',
+                        'where' => 'Inventory → Quick Add Stock',
+                        'body'  => [
+                            'The same job as Add Stock, on its own screen and built for a phone — one item, one location, a number.',
+                            'For putting a handful of units somewhere without navigating the catalogue first.',
+                        ],
+                        'shot'  => 'quick-add-stock.png',
                         'note'  => null,
                     ],
                     [
@@ -242,6 +315,45 @@ class InventoryManual
                         'shot'  => 'pallet-receive.png',
                         'note'  => 'Bulk receive and scanning are not exclusive. Bulk-receive the lines you have counted, scan the ones you want confirmed individually.',
                     ],
+                    [
+                        'title' => 'Pause and hand over mid-pallet',
+                        'where' => 'Receive Pallet → Pause — keep it open',
+                        'body'  => [
+                            'A pallet does not have to be finished in one go. Pausing keeps everything received so far and leaves the rest outstanding.',
+                            'Each stint is recorded as a receiving session, so a pallet worked by two people over two days shows who did which part.',
+                        ],
+                        'shot'  => 'receiving-sessions.png',
+                        'note'  => null,
+                    ],
+                    [
+                        'title' => 'Look back at what was received',
+                        'where' => 'Inventory → Receiving History',
+                        'body'  => [
+                            'Every session with a per-item breakdown, exportable as PDF.',
+                            'This is the screen for "what actually came off that pallet?" weeks later, and for settling a disagreement with a vendor about a short delivery.',
+                        ],
+                        'shot'  => 'receiving-history.png',
+                        'note'  => null,
+                    ],
+                    [
+                        'title' => 'The pallet\'s own history',
+                        'where' => 'Inventory → Pallet Receiving History',
+                        'body'  => [
+                            'The same events grouped by pallet rather than by session — how long each took, what was short, what was still outstanding when it closed.',
+                        ],
+                        'shot'  => 'pallet-history.png',
+                        'note'  => null,
+                    ],
+                    [
+                        'title' => 'Track a delivery that has not landed yet',
+                        'where' => 'Inventory → Shipments',
+                        'body'  => [
+                            'Inbound shipments and their status, before they become a pallet you can receive.',
+                            'Use it to see what is on its way and what is overdue.',
+                        ],
+                        'shot'  => 'shipments.png',
+                        'note'  => null,
+                    ],
                 ],
             ],
 
@@ -321,6 +433,76 @@ class InventoryManual
                         'note'  => null,
                     ],
                     [
+                        'title' => 'What is not moving',
+                        'where' => 'Inventory → Inventory Age',
+                        'body'  => [
+                            'How long each item has been sitting, and what that capital is worth.',
+                            'Dead stock is money on a shelf. This is the screen that tells you which shelf.',
+                        ],
+                        'shot'  => 'inventory-age.png',
+                        'note'  => null,
+                    ],
+                    [
+                        'title' => 'What is moving, and how fast',
+                        'where' => 'Inventory → Velocity Analytics',
+                        'body'  => [
+                            'Turnover per item — what sells through quickly and what does not.',
+                            'Read alongside Inventory Age: slow and valuable is a different problem from slow and cheap.',
+                        ],
+                        'shot'  => 'velocity.png',
+                        'note'  => null,
+                    ],
+                    [
+                        'title' => 'The overview',
+                        'where' => 'Inventory → Inventory Analytics',
+                        'body'  => [
+                            'Stock levels, values and movement trends over time in one place.',
+                            'Where to start when the question is general rather than about one item.',
+                        ],
+                        'shot'  => 'inventory-analytics.png',
+                        'note'  => null,
+                    ],
+                    [
+                        'title' => 'How individual products perform',
+                        'where' => 'Inventory → Product Insights',
+                        'body'  => [
+                            'Per-product history: what it cost over time, how it moved, what it made.',
+                            'The screen to open before deciding whether to reorder something.',
+                        ],
+                        'shot'  => 'product-insights.png',
+                        'note'  => null,
+                    ],
+                    [
+                        'title' => 'How receiving itself is going',
+                        'where' => 'Inventory → Receiving Analytics',
+                        'body'  => [
+                            'Throughput, shortfalls and how long pallets take to work.',
+                            'Useful for spotting a vendor who is consistently short, or a week where receiving fell behind.',
+                        ],
+                        'shot'  => 'receiving-analytics.png',
+                        'note'  => null,
+                    ],
+                    [
+                        'title' => 'When a cost changed and why',
+                        'where' => 'Inventory → Cost Adjustment History',
+                        'body'  => [
+                            'Every change to an item\'s cost, with what caused it.',
+                            'The answer to "why did the average cost move?" — usually a receipt at a different price, and this says which one.',
+                        ],
+                        'shot'  => 'cost-adjustments.png',
+                        'note'  => null,
+                    ],
+                    [
+                        'title' => 'Things reported missing',
+                        'where' => 'Inventory → Missing Item Reports',
+                        'body'  => [
+                            'What people have flagged as unaccounted for, and whether it was resolved.',
+                            'A pattern here is worth more than any single report — the same item going missing repeatedly is a process problem, not bad luck.',
+                        ],
+                        'shot'  => 'missing-items.png',
+                        'note'  => null,
+                    ],
+                    [
                         'title' => 'Printable reports',
                         'where' => 'Inventory → Reports',
                         'body'  => [
@@ -350,7 +532,53 @@ class InventoryManual
             ['The count is wrong', 'Do not edit the number. Use Adjust with a reason, or Reconciliation for a counted shelf, so the correction is recorded.'],
             ['Stock is in the wrong place', 'Use Stock Transfer, not two adjustments. A transfer records both sides as one movement.'],
             ['Margin shows nothing for an item', 'It has no sale target. Set one on the item, or find them all with the "Missing a sale target" filter.'],
-            ['Cost looks wrong after receiving', 'The weighted average moved because a receipt came in at a different unit cost. The item\'s view screen shows the cost history that explains it.'],
+            ['Cost looks wrong after receiving', 'The weighted average moved because a receipt came in at a different unit cost. Cost Adjustment History says which receipt did it.'],
+            ['The same item appears twice', 'Two records were created for one product, which splits its stock and its cost. Inventory → Duplicate Detector finds them.'],
+            ['A vendor code will not scan', 'The item exists but that code is not on it. Add it under Product Identities — an item can carry a manufacturer UPC, a vendor SKU and a case code, and all of them resolve to it.'],
+            ['A box has no barcode at all', 'Inventory → Barcode Printer produces a label for it. Print it once and it scans forever after.'],
+            ['Half a pallet is received and the person went home', 'Nothing is lost. Pause keeps it open, and the next person picks it up — Receiving History shows who did which part.'],
+            ['Stock is on the shelf but the system says zero', 'Nothing was ever received for it, or it was received against a different item. Check Movement History for the item, then Duplicate Detector.'],
+            ['A screen in this handbook is not in your sidebar', 'That is a role or a switched-off module, not a fault. Ask an admin — the Roles & Permissions screen decides it.'],
+        ];
+    }
+
+    /**
+     * Every inventory screen on one page, for someone who knows what they want
+     * and only needs to be told where it lives.
+     *
+     * @return array<int, array{0: string, 1: string}>
+     */
+    public static function screenIndex(): array
+    {
+        return [
+            ['All Inventory', 'The catalogue. Every item, its stock, cost and sale target. Most jobs start here.'],
+            ['Quick Add', 'Create an item fast: name, cost, code.'],
+            ['Quick Add Stock', 'Put units into a location without going through the catalogue.'],
+            ['Quick Scan', 'Scan to look up, add stock, or receive against a pallet.'],
+            ['Inventory Search', 'Search items, locations and stock together.'],
+            ['Locations', 'The physical places stock can be. Admin only.'],
+            ['Vendors', 'Who you buy from. Pallets are booked against one.'],
+            ['Stock Levels', 'One row per item per location — how many, and where.'],
+            ['Stock Transfer', 'Move stock between locations. Records both sides.'],
+            ['Reconciliation', 'Record a physical count; the difference is written as an adjustment.'],
+            ['Movement History', 'Every change to every quantity, with who and why.'],
+            ['Pallets', 'Deliveries. Stage one, map its lines, receive it.'],
+            ['Receiving Sessions', 'Each stint of work at the receiving station.'],
+            ['Receiving History', 'What came off each pallet, per item, exportable.'],
+            ['Pallet Receiving History', 'The same events grouped by pallet.'],
+            ['Shipments', 'Inbound deliveries that have not become pallets yet.'],
+            ['Product Identities', 'The extra codes an item answers to.'],
+            ['Duplicate Detector', 'Finds records that are probably the same product.'],
+            ['Barcode Printer', 'Labels for items that arrive without a scannable code.'],
+            ['Missing Item Reports', 'What has been flagged as unaccounted for.'],
+            ['Inventory Value', 'What is on the shelf at weighted average cost.'],
+            ['Inventory Age', 'How long things have been sitting, and what that is worth.'],
+            ['Velocity Analytics', 'Turnover — what sells through and what does not.'],
+            ['Inventory Analytics', 'Levels, values and trends over time.'],
+            ['Product Insights', 'One product\'s cost, movement and performance history.'],
+            ['Receiving Analytics', 'Throughput, shortfalls and how long pallets take.'],
+            ['Cost Adjustment History', 'Every change to an item\'s cost, and what caused it.'],
+            ['Reports', 'Printable stock, valuation and movement summaries.'],
         ];
     }
 }

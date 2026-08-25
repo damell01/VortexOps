@@ -122,7 +122,12 @@
         <tr class="toc-row">
             <td class="num">{{ count($sections) + 1 }}</td>
             <td><b>When something looks wrong</b><br>
-                <span style="color:#6b7280;font-size:9pt">The handful of things people hit, and what each one actually means.</span></td>
+                <span style="color:#6b7280;font-size:9pt">The things people hit, and what each one actually means.</span></td>
+        </tr>
+        <tr class="toc-row">
+            <td class="num">{{ count($sections) + 2 }}</td>
+            <td><b>Every screen, and what it is for</b><br>
+                <span style="color:#6b7280;font-size:9pt">The whole module on one page, for when you just need to know where something lives.</span></td>
         </tr>
     </table>
 
@@ -178,6 +183,21 @@
             <tr>
                 <td class="q">{{ $question }}</td>
                 <td>{{ $answer }}</td>
+            </tr>
+        @endforeach
+    </table>
+</div>
+
+{{-- ── Screen index ──────────────────────────────────────────────────── --}}
+<div class="section">
+    <h2>{{ count($sections) + 2 }}. Every screen, and what it is for</h2>
+    <p class="section-blurb">For when you know what you want and only need to be told where it lives.</p>
+
+    <table width="100%" cellspacing="0" cellpadding="0" class="trouble">
+        @foreach ($screenIndex as [$screen, $purpose])
+            <tr>
+                <td class="q">{{ $screen }}</td>
+                <td>{{ $purpose }}</td>
             </tr>
         @endforeach
     </table>

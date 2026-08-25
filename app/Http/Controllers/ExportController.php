@@ -119,6 +119,7 @@ class ExportController extends Controller
             'brand'           => \App\Models\Setting::get('brand_name', 'VortexOps'),
             'sections'        => $sections,
             'troubleshooting' => \App\Support\InventoryManual::troubleshooting(),
+            'screenIndex'     => \App\Support\InventoryManual::screenIndex(),
             'images'          => $images,
             'generatedAt'     => now()->format('M j, Y'),
         ])->setPaper('a4');

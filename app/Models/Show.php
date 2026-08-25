@@ -42,6 +42,7 @@ class Show extends Model
         'whatnot_net',
         'fulfillment_notes',
         'is_slow_pack',
+        'show_format',
         'whatnot_fees',
         'whatnot_payout_amount',
         'last_synced_at',
@@ -865,6 +866,31 @@ class Show extends Model
             'days_into_month'       => $daysIntoMonth,
             'projected_month_total' => $projectedMonthTotal,
         ];
+    }
+
+    /**
+     * The kinds of break this business runs.
+     *
+     * Set after the show, not before: nobody knows how a night went while
+     * they are running it. Null means nobody has said yet, which the
+     * comparison reports as its own group rather than folding into a default
+     * — an unclassified show is not a standard one.
+     */
+    public static function formatLabels(): array
+    {
+        return [
+            'standard'     => 'Standard break',
+            'sudden_death' => 'Sudden death',
+            'big_giveaway' => 'Big giveaway',
+            'low_giveaway' => 'Low giveaway',
+            'themed'       => 'Themed / special',
+            'personal'     => 'Personal break',
+        ];
+    }
+
+    public function formatLabel(): string
+    {
+        return static::formatLabels()[$this->show_format] ?? 'Unclassified';
     }
 
     public static function statusLabels(): array

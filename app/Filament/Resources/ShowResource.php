@@ -333,6 +333,15 @@ class ShowResource extends Resource
     private static function notesSection(): Section
     {
         return Section::make('Notes')->columnSpanFull()->schema([
+            // Classified after the fact, which is why it sits here rather
+            // than in the details you fill in to create a show: nobody knows
+            // how a night went while they are running it.
+            Select::make('show_format')
+                ->label('What kind of break was this?')
+                ->options(Show::formatLabels())
+                ->placeholder('Not classified')
+                ->native(false)
+                ->helperText('Set this after the show. It is what the format comparison in Reports groups by.'),
             Textarea::make('notes')
                 ->rows(3)
                 ->columnSpanFull(),
@@ -746,6 +755,14 @@ class ShowResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->summarize(Sum::make()->label('Total Hours')->formatStateUsing(fn ($state) => number_format(((float) $state) / 60, 1) . 'h')),
 
+                TextColumn::make('show_format')
+                    ->label('Format')
+                    ->badge()
+                    ->color('gray')
+                    ->formatStateUsing(fn ($state) => Show::formatLabels()[$state] ?? $state)
+                    ->placeholder('Unclassified')
+                    ->toggleable(isToggledHiddenByDefault: true),
+
                 TextColumn::make('gross_revenue')
                     ->label('Gross Revenue')
                     ->money('USD')
@@ -899,6 +916,21 @@ class ShowResource extends Resource
                     ->placeholder('All shows')
                     ->trueLabel('Revised after lock — needs review')
                     ->falseLabel('Not revised'),
+
+                SelectFilter::make('show_format')
+                    ->label('Format')
+                    ->options(Show::formatLabels() + ['__none__' => 'Unclassified'])
+                    ->query(function (Builder $query, array $data) {
+                        $value = $data['value'] ?? null;
+
+                        // Finding what still needs classifying is the whole
+                        // point of a report grouped by classification.
+                        return match (true) {
+                            $value === null || $value === '' => $query,
+                            $value === '__none__'            => $query->whereNull('show_format'),
+                            default                          => $query->where('show_format', $value),
+                        };
+                    }),
 
                 QueryBuilder::make()
                     ->label('Advanced Filters')

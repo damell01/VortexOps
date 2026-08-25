@@ -60,10 +60,40 @@ php artisan migrate --force
 echo "✓ Migrations complete"
 echo ""
 
+# Long-running processes are still holding the old code.
+#
+# PHP-FPM caches compiled bytecode in OPcache, so until it is reloaded the
+# site keeps serving the classes it read at boot — a pull that looks like it
+# did nothing. Queue workers are worse: each one loaded the app once and
+# keeps it in memory until it exits, so they carry the previous release
+# until told otherwise.
+echo "♻️  Reloading long-running processes..."
+
+# The FPM unit is named for the PHP version, which differs between hosts.
+FPM_UNIT="$(systemctl list-units --type=service --all --no-legend 'php*-fpm.service' 2>/dev/null | awk '{print $1}' | head -n1)"
+
+if [ -n "$FPM_UNIT" ]; then
+    if sudo -n systemctl reload "$FPM_UNIT" 2>/dev/null; then
+        echo "✓ Reloaded $FPM_UNIT (OPcache cleared)"
+    else
+        echo "⚠ Could not reload $FPM_UNIT without a password. Run:"
+        echo "    sudo systemctl reload $FPM_UNIT"
+        echo "  Until you do, the site keeps serving the old code."
+    fi
+else
+    echo "⚠ No php*-fpm service found — reload your web server by hand if it caches bytecode."
+fi
+
+# Signals every worker to finish its current job and exit; systemd starts
+# a fresh one. Needs no sudo, and is a no-op when nothing is listening.
+php artisan queue:restart
+echo "✓ Queue workers signalled to restart"
+echo ""
+
 echo "════════════════════════════════════════════════════════════"
 echo "✅ Pull & Optimize Complete!"
 echo "════════════════════════════════════════════════════════════"
 echo ""
-echo "Ready to use! Start with:"
-echo "  php artisan serve"
+echo "Deployed. If anything still looks like the old version, the FPM"
+echo "reload above is the first thing to check."
 echo ""

@@ -20,7 +20,9 @@ use App\Services\InventoryVelocityService;
 use App\Services\PackingSlipAnalyzerService;
 use App\Services\ProductMatchingService;
 use App\Services\ReceivingReportService;
+use App\Support\TableFilterPresentation;
 use Filament\Support\Facades\FilamentView;
+use Filament\Tables\Table;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
@@ -73,6 +75,11 @@ class AppServiceProvider extends ServiceProvider
         Show::observe(ShowObserver::class);
         Shipment::observe(ShipmentObserver::class);
         Product::observe(ProductObserver::class);
+
+        // Every table in the panel, not just the resources — relation managers
+        // and the custom pages that build their own tables go through the same
+        // Table::make(), so they pick this up as well.
+        Table::configureUsing(fn (Table $table) => TableFilterPresentation::apply($table));
 
         FilamentView::registerRenderHook(
             'panels::body.start',

@@ -872,6 +872,9 @@ class ShowResource extends Resource
 
                 QueryBuilder::make()
                     ->label('Advanced Filters')
+                    // Full-width controls; one column of a three-column
+                    // filter dialog is not enough room for a rule.
+                    ->columnSpanFull()
                     ->constraintPickerColumns(2)
                     ->constraints([
                         DateConstraint::make('show_date')->label('Show Date'),

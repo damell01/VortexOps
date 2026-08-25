@@ -833,15 +833,10 @@ class InventoryItemResource extends Resource
                         return ($user?->isAdmin() ?? false) || ($user?->isOwner() ?? false) || ($user?->isStreamer() ?? false);
                     }),
             ])
-            // AboveContent turned the Advanced Filters query builder into a
-            // full-height panel that pushed the table below the fold. The
-            // dropdown keeps a compact trigger with an active-filter count.
-            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::Dropdown)
-            ->filtersTriggerAction(fn (TableAction $action) => $action
-                ->label('Filters')
-                ->icon('heroicon-m-funnel')
-                ->button()
-                ->color('gray'))
+            // Layout and trigger come from TableFilterPresentation, applied to
+            // every table in the panel. Eight filters here is what put it over
+            // the line into a dialog: AboveContent pushed the table below the
+            // fold, and the dropdown ran off the bottom of the window.
             ->filters([
                 SelectFilter::make('item_type')
                     ->label('Type')
@@ -928,6 +923,9 @@ class InventoryItemResource extends Resource
                     ->default(),
                 QueryBuilder::make()
                     ->label('Advanced Filters')
+                    // Its rules are full-width controls; squeezed into one
+                    // column of three it is unusable.
+                    ->columnSpanFull()
                     ->constraintPickerColumns(2)
                     ->constraints([
                         TextConstraint::make('name')->label('Item Name'),

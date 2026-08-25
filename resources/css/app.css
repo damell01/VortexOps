@@ -5340,8 +5340,24 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
         /* dvh, not vh: the mobile URL bar collapses and expands, and vh keeps
            measuring the taller state — so the footer sits under the browser
            chrome exactly when somebody reaches for it. */
-        height: 100dvh !important;
-        max-height: 100dvh !important;
+        /* Start below the status bar, and give back exactly what that costs.
+           An installed PWA lays out under the notch, so a sheet at top 0 has
+           its heading and close button painted over by iOS — and the close
+           button is positioned against the window's padding box, which means
+           padding the header moves the title down and leaves the X where it
+           was. Moving the window moves all three together.
+
+           Both offsets have to be stated here: mobile-polish.blade.php insets
+           a smaller sheet off the safe area, and without a top of our own its
+           value would slide this one down while it stayed a full 100dvh tall,
+           hanging the footer off the bottom of the screen.
+
+           var() first so a test can force an inset no headless browser
+           reports; env() behind it so a phone gets the real number anyway. */
+        top: var(--vx-safe-top, env(safe-area-inset-top, 0px)) !important;
+        bottom: 0 !important;
+        height: calc(100dvh - var(--vx-safe-top, env(safe-area-inset-top, 0px))) !important;
+        max-height: calc(100dvh - var(--vx-safe-top, env(safe-area-inset-top, 0px))) !important;
         margin: 0 !important;
         border-radius: 0 !important;
         display: flex !important;
@@ -5364,6 +5380,10 @@ html.dark button[role="switch"] { background-color: #374151 !important; }
     .fi-modal-window:not(.fi-modal-slide-over):not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md):not(.fi-width-lg) > .fi-modal-footer {
         padding-bottom: max(1rem, env(safe-area-inset-bottom));
     }
+
+    /* The status bar at the other end is handled in mobile-polish.blade.php,
+       alongside the .fi-modal-header rule whose !important shorthand would
+       otherwise reset any padding-top set from here. */
 
     .fi-modal-window:not(.fi-modal-slide-over):not(.fi-width-3xs):not(.fi-width-2xs):not(.fi-width-xs):not(.fi-width-sm):not(.fi-width-md):not(.fi-width-lg) .fi-modal-footer-actions .fi-btn {
         min-height: 2.75rem;

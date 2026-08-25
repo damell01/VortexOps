@@ -1,4 +1,41 @@
 <style>
+    /* ── Installed-PWA safe area ──────────────────────────────────────
+       The panel ships `viewport-fit=cover` with a black-translucent
+       status bar, so once VortexOps is installed to a home screen the
+       page lays out under the notch and iOS paints the status bar on
+       top of whatever is there. At the top of every page that is the
+       topbar — and the sidebar toggle sits at y=10..54, entirely inside
+       the status-bar strip on a notched iPhone. It is drawn, it looks
+       enabled, and tapping it does nothing, because the tap never
+       reaches the page at all.
+
+       mobile-optimizations.css already tried to pad .fi-topbar for
+       this, but every topbar rule after it sets `padding` with
+       !important, and the shorthand resets the top back to zero. These
+       land instead: this partial renders at BODY_END, after both
+       stylesheets, and pads the element that actually carries the
+       bar's background rather than its transparent wrapper.
+
+       Read through a variable because no headless browser reports a
+       notch — forcing --vx-safe-top is the only way to test the
+       geometry, and env() supplies the real number on a phone. */
+    :root {
+        --vx-safe-top: env(safe-area-inset-top, 0px);
+        --vx-safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    /* The bar has to grow, not just pad: it is a border-box flex row with
+       min-height 4rem, so padding on its own is absorbed by the existing
+       height and the toggle only creeps partway down. */
+    nav.fi-topbar {
+        padding-top: var(--vx-safe-top) !important;
+        min-height: calc(4rem + var(--vx-safe-top)) !important;
+    }
+
+    /* Same strip, same problem: the mobile sidebar is fixed at top 0, so
+       its close button and first nav link land under the status bar. */
+    .fi-sidebar { padding-top: var(--vx-safe-top) !important; }
+
     /* Shared form/dialog behavior. Inventory uses forms heavily, so keep
        confirmations compact while allowing real work to use the screen. */
     .fi-modal-window { max-height: min(92vh, 920px); }
@@ -28,9 +65,20 @@
         .fi-modal-window:not(.fi-width-xs):not(.fi-width-sm) {
             position: fixed !important;
             inset: .35rem !important;
+            /* A near-edge-to-edge sheet puts its own header — and its
+               close button — under the status bar for the same reason
+               the topbar was. Declared after `inset` so these win. */
+            top: max(.35rem, var(--vx-safe-top)) !important;
+            bottom: max(.35rem, var(--vx-safe-bottom)) !important;
             width: auto !important;
             max-width: none !important;
-            max-height: calc(100dvh - .7rem) !important;
+            /* Let the two offsets define the height between them. The
+               previous calc() carried its own copy of the insets and
+               something upstream pins a height, so the sheet ran past
+               the bottom edge; auto + none hands the arithmetic back to
+               the offsets, and .fi-modal-content scrolls within. */
+            height: auto !important;
+            max-height: none !important;
             border-radius: .85rem !important;
         }
         .fi-modal-header { padding: .9rem 1rem !important; }

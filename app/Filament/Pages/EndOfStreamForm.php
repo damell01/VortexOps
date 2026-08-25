@@ -146,6 +146,63 @@ class EndOfStreamForm extends Page implements HasForms
         if ($this->showInventoryPicker) $this->showManualItemForm = false;
     }
 
+    /**
+     * Add whatever was just scanned to the basket.
+     *
+     * Filing a report meant reading a box, typing enough of its name to find
+     * it, and picking the right one out of the near-duplicates that a card
+     * catalogue is full of. A scan settles all three at once, and the code is
+     * already on the item from receiving.
+     *
+     * The search box is set to what was found as well as staged, because the
+     * request was to see the item — the list underneath filters to it, and
+     * clearing the box puts the whole catalogue back.
+     */
+    public function scanIntoPicker(string $code): void
+    {
+        $code = trim($code);
+
+        if ($code === '') {
+            return;
+        }
+
+        $item = InventoryItem::findByScan($code);
+
+        if (! $item) {
+            Notification::make()
+                ->title('Nothing matches ' . $code)
+                ->body('No item carries that barcode, UPC or SKU. Add it to the item record and scan again.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        // Scoped the same way the picker is: an item the report cannot draw
+        // on must not become a line just because it scanned.
+        $reachable = $this->inventoryScopeQuery()->whereKey($item->getKey())->exists();
+
+        if (! $reachable) {
+            Notification::make()
+                ->title($item->name . ' is not stocked here')
+                ->body('It has no stock at the locations this report covers, so it cannot be added to it.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $this->showInventoryPicker = true;
+        $this->search              = $item->name;
+        $this->stageItem($item->getKey(), 1);
+
+        Notification::make()
+            ->title('Added ' . $item->name)
+            ->body('Now ' . $this->stagedQuantities[$item->getKey()] . ' staged. Clear the search to see everything again.')
+            ->success()
+            ->send();
+    }
+
     /** Nudge one item's staged quantity. Zero drops it out of the basket. */
     public function stageItem(int $inventoryItemId, int $delta = 1): void
     {
@@ -261,34 +318,51 @@ class EndOfStreamForm extends Page implements HasForms
      * reads as "we don't stock that" when it means "narrow your search", and
      * the two look identical on screen.
      */
-    private function inventoryQuery()
+    /**
+     * Everything this report is allowed to draw on, before any narrowing.
+     *
+     * Split from the filters so a scan can ask "may this item be added at
+     * all?" without the answer depending on whatever is currently typed in
+     * the search box.
+     */
+    private function inventoryScopeQuery()
     {
         $locationIds = $this->reportLocationIds();
 
         $query = InventoryItem::query()->where('is_active', true);
 
         if ($locationIds->isNotEmpty()) {
-            $query
+            return $query
                 ->whereHas('stock', fn ($q) => $q
                     ->whereIn('inventory_location_id', $locationIds)
                     ->where('quantity', '>', 0))
                 ->withSum([
                     'stock as stock_sum_quantity' => fn ($q) => $q->whereIn('inventory_location_id', $locationIds),
                 ], 'quantity');
-        } else {
-            if (auth()->user()?->isAdmin() || auth()->user()?->isOwner()) {
-                $query->withSum('stock', 'quantity');
-            } else {
-                $query->whereRaw('1 = 0');
-            }
         }
+
+        if (auth()->user()?->isAdmin() || auth()->user()?->isOwner()) {
+            return $query->withSum('stock', 'quantity');
+        }
+
+        return $query->whereRaw('1 = 0');
+    }
+
+    private function inventoryQuery()
+    {
+        $query = $this->inventoryScopeQuery();
 
         if ($this->search !== '') {
             $needle = trim($this->search);
             $query->where(function ($q) use ($needle) {
                 $q->where('name', 'like', "%{$needle}%")
                     ->orWhere('sku', 'like', "%{$needle}%")
-                    ->orWhere('brand', 'like', "%{$needle}%");
+                    ->orWhere('brand', 'like', "%{$needle}%")
+                    // A scanner pointed at the search box types a code and
+                    // presses Enter; without these it matched nothing and the
+                    // catalogue looked empty.
+                    ->orWhere('barcode', 'like', "%{$needle}%")
+                    ->orWhere('upc', 'like', "%{$needle}%");
             });
         }
 

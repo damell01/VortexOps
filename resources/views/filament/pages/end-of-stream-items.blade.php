@@ -7,6 +7,11 @@
 @endphp
 
 <x-filament-panels::page>
+    {{-- A scan anywhere on this page goes into the report. The camera reports
+         through a window event carrying only the code; the page resolves it
+         to an item, checks it is one this report may draw on, and stages it. --}}
+    <div x-data x-on:barcode-scanned.window="$wire.scanIntoPicker($event.detail.value)"></div>
+
     @if (! $this->show)
         <div class="mx-auto max-w-4xl space-y-3 sm:space-y-4">
             <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
@@ -60,9 +65,13 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-px bg-gray-100 sm:grid-cols-3 lg:grid-cols-6 dark:bg-gray-800">
+                {{-- No order count. It is Whatnot's tally of transactions, and
+                     nothing on this page is reconciled against it — the report
+                     records what physically left the shelf, giveaways and
+                     promos included, which Whatnot has no order for. Showing
+                     it invited a comparison that was never meant to balance. --}}
+                <div class="grid grid-cols-3 gap-px bg-gray-100 sm:grid-cols-3 lg:grid-cols-5 dark:bg-gray-800">
                     @foreach ([
-                        ['Orders', $whatnot['orders'] !== null ? number_format($whatnot['orders']) : '—'],
                         ['Sales', $whatnot['sales'] !== null ? '$'.number_format((float)$whatnot['sales'], 2) : '—'],
                         ['Earnings', $whatnot['earnings'] !== null ? '$'.number_format((float)$whatnot['earnings'], 2) : '—'],
                         ['Buyers', $whatnot['buyers'] !== null ? number_format($whatnot['buyers']) : '—'],
@@ -372,9 +381,17 @@
                         <button type="button" wire:click="toggleBrowse" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800">✕</button>
                     </div>
                     <div class="border-b border-gray-100 p-3 dark:border-gray-800 sm:p-4">
-                        <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_200px_auto] sm:items-center">
-                            <input type="search" wire:model.live.debounce.250ms="search" placeholder="Search product, SKU, or brand…" autofocus
+                        <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_200px_auto] sm:items-center">
+                            {{-- Barcode and UPC are searched too, so a scanner
+                                 aimed at this box works without the camera. --}}
+                            <input type="search" wire:model.live.debounce.250ms="search" placeholder="Search or scan — name, SKU, barcode…" autofocus
                                 class="min-h-11 w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-800" />
+
+                            <button type="button"
+                                    x-on:click="window.dispatchEvent(new CustomEvent('open-camera-scanner', { detail: { title: 'Scan an item', helper: 'Adds it to this report' } }))"
+                                    class="inline-flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-primary-300 bg-white px-3 text-sm font-semibold text-primary-700 dark:border-primary-800 dark:bg-gray-800 dark:text-primary-300">
+                                <x-heroicon-o-camera class="h-5 w-5" /> Scan
+                            </button>
 
                             <select wire:model.live="pickerCategory" class="min-h-11 w-full rounded-xl border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800">
                                 <option value="">All categories</option>

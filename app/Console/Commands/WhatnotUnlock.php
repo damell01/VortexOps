@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Cache;
 
 class WhatnotUnlock extends Command
 {
-    protected $signature = 'whatnot:unlock {--force : Skip the liveness check and release unconditionally}';
+    protected $signature = 'whatnot:unlock {--force : Release unconditionally, and kill an orphaned Chrome still holding the profile}';
 
     protected $description = 'Clear a stuck whatnot:browser lock left behind by a process killed before it could release cleanly (pkill -9, Ctrl+C, OOM)';
 
@@ -88,8 +88,39 @@ class WhatnotUnlock extends Command
             }
 
             if ($holder = $this->chromeProfileHolder($path)) {
+                // We only reach here having already decided no artisan job owns
+                // the cache lock. A Chrome sitting on the profile with no job
+                // behind it is an orphan — Playwright's browser outlives the
+                // node process when a run is interrupted, and then nothing can
+                // ever scrape again until somebody kills it by hand.
+                if ($this->isOurChrome($holder) && $this->option('force')) {
+                    posix_kill($holder, SIGTERM);
+                    usleep(500_000);
+
+                    if ($this->pidIsAlive($holder)) {
+                        posix_kill($holder, SIGKILL);
+                        usleep(250_000);
+                    }
+
+                    $this->info("Killed orphaned Chrome (PID {$holder}) — it was holding the profile with no job behind it.");
+
+                    if (@unlink($path)) {
+                        $removed[] = $name;
+                    }
+
+                    continue;
+                }
+
                 $this->warn("Chrome still holds the profile (PID {$holder}) — left {$name} in place.");
-                $this->line('  <fg=gray>Stop that process before running a scrape, or the profile can be corrupted.</>');
+
+                if ($this->isOurChrome($holder)) {
+                    $this->line('  <fg=gray>No artisan job owns the browser lock, so this is an orphan left by an</>');
+                    $this->line('  <fg=gray>interrupted run: Playwright\'s Chrome outlives the node process that</>');
+                    $this->line('  <fg=gray>started it. Clear it with php artisan whatnot:unlock --force.</>');
+                } else {
+                    $this->line('  <fg=gray>That process is not using this profile. Stop it before running a scrape,</>');
+                    $this->line('  <fg=gray>or the profile can be corrupted.</>');
+                }
 
                 return;
             }
@@ -102,6 +133,24 @@ class WhatnotUnlock extends Command
         if ($removed !== []) {
             $this->info('Cleared Chrome\'s stale profile lock (' . implode(', ', $removed) . ').');
         }
+    }
+
+    /**
+     * Whether that PID is a browser running against *this* profile.
+     *
+     * Checked before killing anything: the PID comes out of a file Chrome
+     * wrote, and a recycled PID would otherwise make this kill a stranger.
+     */
+    private function isOurChrome(int $pid): bool
+    {
+        $command = $this->commandLine($pid);
+
+        if ($command === null) {
+            return false;
+        }
+
+        return str_contains($command, storage_path('whatnot-browser-profile'))
+            && preg_match('/chrome|chromium/i', $command) === 1;
     }
 
     /** The live PID recorded in a SingletonLock symlink, if there is one. */
@@ -128,7 +177,20 @@ class WhatnotUnlock extends Command
         // /proc/<pid> existence works across users (readable regardless of who
         // owns the process, unlike posix_kill()'s permission-gated result) and
         // this app only ever runs on Linux, so no portability fallback needed.
-        return is_dir("/proc/{$pid}");
+        if (! is_dir("/proc/{$pid}")) {
+            return false;
+        }
+
+        // A process that has exited but not yet been reaped keeps its /proc
+        // entry, so existence alone counts a dead browser as a live one and
+        // leaves the lock refused for ever. Zombies hold no profile.
+        $status = @file_get_contents("/proc/{$pid}/status");
+
+        if ($status === false) {
+            return true;
+        }
+
+        return preg_match('/^State:\s*Z/m', $status) !== 1;
     }
 
     /** The process's argv, space-separated, or null if it cannot be read. */

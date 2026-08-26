@@ -180,6 +180,54 @@ class WhatnotUnlockTest extends TestCase
         $this->assertTrue(is_link($lock), 'a profile lock held by a live Chrome was removed');
     }
 
+    public function test_force_kills_an_orphaned_chrome_holding_the_profile(): void
+    {
+        // Playwright's Chrome outlives the node process when a run is
+        // interrupted. With no artisan job owning the cache lock, that browser
+        // is an orphan — and until somebody kills it by hand, nothing can ever
+        // scrape again, because Chrome refuses a profile another instance holds.
+        $pid  = $this->spawn('chrome --user-data-dir=' . storage_path('whatnot-browser-profile'));
+        $lock = $this->profilePath('SingletonLock');
+        @symlink('srv1590821-' . $pid, $lock);
+
+        $this->artisan('whatnot:unlock --force')
+            ->expectsOutputToContain('Killed orphaned Chrome')
+            ->assertSuccessful();
+
+        // Give the signal a moment to land before asking. The process is a
+        // child of this one, so it lingers as an unreaped zombie — which is
+        // exactly the state pidIsAlive has to read as dead.
+        usleep(400_000);
+
+        $this->assertFalse($this->stillRunning($pid), 'the orphaned browser is still running');
+        $this->assertFalse(is_link($lock), 'the profile lock was left behind');
+    }
+
+    public function test_it_will_not_kill_a_process_that_is_not_this_profiles_browser(): void
+    {
+        // The PID comes out of a file Chrome wrote. A recycled one would
+        // otherwise make --force kill a stranger.
+        $pid  = $this->spawn('vortexops-probe-not-chrome');
+        $lock = $this->profilePath('SingletonLock');
+        @symlink('srv1590821-' . $pid, $lock);
+
+        $this->artisan('whatnot:unlock --force')
+            ->doesntExpectOutputToContain('Killed orphaned Chrome')
+            ->assertSuccessful();
+
+        $this->assertTrue($this->stillRunning($pid), 'an unrelated process was killed');
+    }
+
+    /** Alive and not a zombie — the same question the command has to answer. */
+    private function stillRunning(int $pid): bool
+    {
+        if (! is_dir("/proc/{$pid}")) {
+            return false;
+        }
+
+        return preg_match('/^State:\s*Z/m', (string) @file_get_contents("/proc/{$pid}/status")) !== 1;
+    }
+
     private function profilePath(string $name): string
     {
         $dir = storage_path('whatnot-browser-profile');

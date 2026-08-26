@@ -120,6 +120,8 @@ Or pass already-loaded relations explicitly (see `ReceivingService::creditStock(
 | Vendors | `Vendor` | — | `VendorResource` |
 | Streamers | `Streamer` | `PayoutService` | `StreamerResource` |
 | Whatnot scrape | `WhatnotChannel` | `WhatnotScraper` | Settings page |
+| Sheet import | `Product` | `ProductSheetImporter` | `ImportInventorySheet` page, `inventory:import-cost-sheet` |
+| Handbook | — | `InventoryManual` (content) | `Handbook` page, `ExportController@inventoryManualPdf` |
 
 ---
 
@@ -194,6 +196,50 @@ Channel routing: streamer's `channel_routing_rules` JSON array `[{channel, bank_
 5. `receivePallet(Pallet)` — validates all lines mapped, receives all
 
 WAC is recalculated on every receipt: `((existing_qty × existing_avg) + (incoming_qty × unit_cost)) / total_qty`.
+
+---
+
+## Product sheet import
+
+`ProductSheetImporter` reads a workbook into the catalogue and is shared by two
+callers — deliberately, so the preview cannot describe different behaviour from
+the write:
+
+| Caller | What it does |
+|--------|--------------|
+| `ImportInventorySheet` page | Upload → `plan()` renders every row → `apply()` on confirm |
+| `inventory:import-cost-sheet` | Same, with `--dry-run` for the plan and `--overwrite-prices` |
+
+- Headers are found **by name, wherever they sit** (`PRODUCT NAME`, `SKU`, `Type`,
+  `Auction or BIN?`, `Cost`, `Sale price / Target`). Only `PRODUCT NAME` is required.
+- Matching is by SKU, then by trimmed lowercase name — so a re-import updates
+  rather than duplicating.
+- A price cell holding a formula is **skipped and reported**, never cast to 0.00.
+- Costs, targets and `sold_as` already set are left alone unless `overwrite` is
+  passed; `average_cost` is never written here — it belongs to receiving.
+
+### `sold_as` (Auction / BIN / Both)
+
+Free-text column on `products`, normalised on import (`buy it now` → `BIN`,
+`either` → `Both`) but never rejected — an unrecognised value is stored as typed.
+Pickers offer `Product::soldAsOptions()` plus whatever is in the data, so a
+hand-typed value stays selectable and filterable.
+
+---
+
+## The handbook
+
+`App\Support\InventoryManual` holds the content — sections, steps, field tables,
+troubleshooting, screen index — and **both** the on-screen `Handbook` page and the
+printed PDF render from it, so they cannot drift.
+
+- Screenshots live in `public/guide/manual/` and are tracked in git.
+- A step may carry `more` for a long form captured in parts.
+- Tests enforce the standard: every step has a screenshot on disk, every step has
+  a field table, every named field has an explanation, and no screenshot sits in
+  the folder unreferenced. See `InventoryManualPdfTest`.
+- Other modules get a handbook by adding a class of the same shape and a row in
+  `Handbook::modules()`.
 
 ---
 

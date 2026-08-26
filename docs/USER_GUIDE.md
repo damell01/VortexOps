@@ -19,56 +19,30 @@ Easy-to-follow workflows and clear step-by-step guidance for every task.
 
 ---
 
-## Inventory Scanner (3 Modes)
+## Inventory
 
-### Mode 1: Look Up
-**Purpose:** Find an item and check its stock across all locations.
+The inventory module has its own handbook, in the app and on paper: **Handbook**
+at the top of the sidebar, and the **Printable PDF** button on it. Every screen,
+every button and every field, with a picture of the real thing.
 
-**Steps:**
-1. Click **Look Up** tab
-2. Scan barcode OR type SKU
-3. View: stock by location, recent movements, reorder level
-4. Optional: Click **Adjust Stock** to add/remove units
+It is generated from one source and tested, so it does not drift. This page
+keeps only the shape of the work; the handbook has the detail.
 
-**Pro Tips:**
-- Use camera button for hands-free scanning
-- Works with Bluetooth scanners too
-- Filters by location on adjustment
+### Scanning — three modes, and the mode is the difference
 
----
+| Mode | What a scan does |
+|------|------------------|
+| **Look Up** | Reads only. Tells you what the code is, what it costs and where it is. Nothing changes. |
+| **Add Stock** | Books units into a location. Asks for location and quantity before it commits. |
+| **Receive** | Works a delivery against a pallet you pick first. Each scan books one unit against its line. |
 
-### Mode 2: Quick Add
-**Purpose:** Receive new inventory quickly during unboxing.
+A gun scanner types into the code box and submits itself. For a phone, press
+**Camera** and fill the frame with the barcode — it confirms a code across
+several frames before accepting it, so a blurred read is refused rather than
+guessed.
 
-**Steps:**
-1. Select destination **Location** (dropdown)
-2. Set **Units per Scan** (default: 1)
-3. Scan each item barcode
-4. Each scan adds units to chosen location instantly
-
-**When to use:**
-- Receiving new stock from vendor
-- Putting items into storage
-- Physical inventory count
-
----
-
-### Mode 3: Receive Pallet
-**Purpose:** Receive entire shipments with detailed tracking.
-
-**Steps:**
-1. **Review Pallet** — Check vendor, reference, expected items
-2. **Map Lines** — Link each line item to your inventory
-   - Missing mapping? Item won't be receivable yet
-   - Ask supervisor to add/map items first
-3. **Receive Items** — Scan barcodes one-by-one
-   - Progress bar shows completion per line
-   - Green checkmark = line fully received
-4. **Confirm** — Click "Finalize Receipt" when done
-
-**Status:**
-- 🔵 Receiving — In progress
-- 🟢 Received — All items accounted for
+If a scan seems to do nothing, check the mode first. Look Up is doing exactly
+what it promises.
 
 ---
 
@@ -135,45 +109,32 @@ Easy-to-follow workflows and clear step-by-step guidance for every task.
 
 ---
 
-## Receiving & Inventory
+## Receiving a delivery
 
-### Create Pallet
-1. Click **+ Add Pallet**
-2. Select **Vendor** (dropdown)
-3. Enter **PO Reference** (optional tracking number)
-4. Click **Create**
+1. **Stage the pallet** — vendor and PO reference are enough to start.
+2. **Add the lines** — the Manifest Lines grid, one row per product: Tab moves
+   across, Enter starts a new row. Or photograph the packing slip and let
+   **Import Packing Slip** read it, then check it at the Verify step.
+3. **Link each line to an item** — a line that is not linked cannot be received.
+   Do it on the manifest, or scan the box at the station and it links and
+   receives in one step.
+4. **Receive** — scan box by box, or **Receive All** on a line once you have
+   physically counted it. **Mark Short** records what did not arrive.
+5. **Complete Receiving** when the counts match. **Pause — keep it open** is
+   safe at any point; the next person picks it up and the session log says who
+   did which part.
 
-### Add Items to Pallet
-1. Click pallet to open
-2. Click **Add Line Item**
-3. Select **Item** from inventory
-4. Set **Expected Cases** (boxes expected)
-5. Set **Unit Cost** ($)
-6. Select **Location** (storage location)
-7. Click **Add Line**
+Receiving is where real cost enters the system: each receipt recalculates the
+item's weighted average, so everything downstream follows what you actually
+paid.
 
-### Map Lines (Important!)
-**What:** Link pallet line items to your inventory items
+### Importing a product sheet
 
-**Why:** System needs to know which item each line contains
-
-**How:**
-1. Open pallet
-2. Look for **⚠ Needs mapping** indicator
-3. Click line → Select item from dropdown
-4. Click **Map** → Done!
-
-### Receive Inventory
-**Option 1: Barcode Scanner**
-- Go to **Inventory → Scan Inventory**
-- Switch to **Receive Pallet** mode
-- Select pallet
-- Scan each item's barcode
-
-**Option 2: Manual Entry**
-- Open pallet
-- Click **Receive All** on each line
-- Confirms receipt of all expected units
+**Inventory → Import Sheet** reads an .xlsx, .xls or .csv into the catalogue —
+and shows you every row it would touch before it writes anything: what would be
+created, what would be updated and which field changes from what, what already
+matches, and what needs a look. Costs already set are left alone unless you tick
+the overwrite box.
 
 ---
 
@@ -191,8 +152,11 @@ Easy-to-follow workflows and clear step-by-step guidance for every task.
 ## Common Issues & Solutions
 
 ### "Item not found" when scanning
-- **Solution:** Check barcode matches item SKU in system
-- **Fallback:** Type SKU manually in scanner
+- **Reason:** That code is on no item yet — a scan matches a barcode, not a SKU.
+- **Fix:** Find the item by name, then **Replace Barcode** on its row menu and
+  scan the box. It scans everywhere after that.
+- **At the receiving station:** tap the line's **Scan** button instead — the code
+  becomes that line's mapping and the box is received in the same step.
 
 ### Camera not working on mobile
 - **iOS:** Use Safari (Firefox/Chrome don't have camera API)
@@ -200,12 +164,16 @@ Easy-to-follow workflows and clear step-by-step guidance for every task.
 - **Check:** Settings → Allow camera access
 
 ### Pallet won't receive
-- **Reason:** Lines aren't mapped to items
-- **Fix:** Go to pallet detail → Map each line first
+- **Reason:** A line is not linked to an inventory item yet.
+- **Fix:** Open the pallet → **Review Manifest** → link the line. Or scan the box
+  at the station, which links and receives in one step.
 
-### Can't find inventory location
-- **Reason:** Location may not be created yet
-- **Fix:** Ask admin to create location (one per streamer)
+### A location dropdown is empty
+- **Reason:** No active location of the type that screen needs. Mark Damaged only
+  offers **Damaged** locations, Move to Returns only **Returned**, and a
+  streamer's own stock needs a **Streamer Inventory** location tied to them.
+- **Fix:** Inventory → Locations, and check the location's **Type**. A location
+  with the wrong type looks exactly like a missing feature.
 
 ---
 
@@ -215,7 +183,8 @@ Easy-to-follow workflows and clear step-by-step guidance for every task.
 2. **Use camera on mobile** — Hands-free, no scanner needed
 3. **Batch operations** — Receive multiple items at once
 4. **Keyboard shortcuts** — Cmd+E for quick access
-5. **Save filters** — Browser remembers your last filter
+5. **Save filters** — Inventory Search saves named search profiles; most other
+   tables remember the filters you last applied
 
 ---
 
@@ -226,6 +195,8 @@ Easy-to-follow workflows and clear step-by-step guidance for every task.
 - **Unit Cost:** Enter per-unit wholesale cost
 - **Location:** Be specific (e.g., "Shelf A-3", "Bin 12")
 - **Notes:** Add context for future reference
+- **Sold as:** Auction, Buy It Now or Both — set it and the catalogue can be
+  filtered by it when you are planning a show
 
 ---
 
@@ -234,16 +205,19 @@ Easy-to-follow workflows and clear step-by-step guidance for every task.
 - **Tooltip:** Hover **ⓘ** icons for hints
 - **Empty states:** Guidance when no data to show
 - **Error messages:** Red boxes explain what went wrong
-- **In-app chat:** Ask supervisor real-time questions
+- **Handbook:** Top of the sidebar — every inventory screen, button and field,
+  searchable, with a printable PDF
+- **Feedback:** Raise a ticket from the sidebar when something is wrong
 
 ---
 
-## Video Tutorials
+## The handbook
 
-Coming soon! Link to YouTube walkthroughs for:
-- First-time setup
-- Receiving a pallet
-- Scanner setup on mobile
-- Running reports
-- Managing team
+The **Handbook** at the top of the sidebar covers the inventory module in full:
+six sections, sixty-odd walkthroughs, every screen photographed on this
+installation, a search across every field description, a troubleshooting page
+and an index of every screen. The **Printable PDF** button on it produces the
+same thing as a document.
+
+Handbooks for Shows, Payouts and Fulfillment are listed there as coming.
 

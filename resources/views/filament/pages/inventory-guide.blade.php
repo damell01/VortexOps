@@ -257,7 +257,7 @@
     <x-guide.table title="All Inventory — the list everything starts from" :rows="[
         ['What it is', 'Every item you carry, one row each, with stock on hand.'],
         ['Search', 'Name, SKU or barcode. This is the duplicate check — do it first.'],
-        ['Row actions', 'Add Stock, Transfer, Adjust, Mark Damaged, Move to Returns, Scan Barcode, Delete. The everyday operations without leaving the list.'],
+        ['Row actions', 'Add Stock, Move or correct stock, Mark Damaged, Move to Returns, Replace Barcode, Delete — plus Contents and Break Case on containers. The everyday operations without leaving the list.'],
         ['Advanced Search', 'A separate page for filter combinations you run repeatedly — it saves search profiles, which the list filters do not.'],
     ]" />
 
@@ -269,11 +269,13 @@
         ['Step 3 · Review and save', 'You land on the item page with the stock already recorded.'],
     ]" />
 
-    <x-guide.steps title="Create Inventory Item — the full form" :steps="[
-        ['Item Details', 'Name, SKU, barcode, category, description, photo. Same fields as Quick Add plus the ones worth setting properly.'],
-        ['Stock & Location', 'Opening quantity, location and cost, exactly as Quick Add.'],
-        ['Item Settings', 'Reorder level, unit type, preferred vendor, active flag — and container breakdown, if this is a case that splits into boxes.'],
-        ['Review & Save', 'Use this form over Quick Add for anything you will reorder; the reorder level is what puts it on the low-stock views.'],
+    <x-guide.steps title="Create Inventory Item — the full form, section by section" :steps="[
+        ['Item Identification', 'Photo, name, Active switch, SKU with its regenerate button, barcode with its scan button.'],
+        ['Container / Case Settings', 'Whether this is a container, and one row per thing inside it. Only mark it a container if you will break it into its parts.'],
+        ['Classification & Sourcing', 'Category, preferred vendor, and Sold as — Auction, Buy It Now or Both, which is filterable and shows as a column.'],
+        ['Pricing & Inventory Levels', 'List unit cost, average cost, sale target and reorder level. Margin Potential answers under the sale target as you type.'],
+        ['Notes & Description', 'Description shows in lists; notes stay internal.'],
+        ['Initial Stock', 'Create-only shortcut: opening quantity, location and cost in one step instead of creating the item and then adding stock.'],
     ]" />
 
     <x-guide.steps title="Editing an item" :steps="[
@@ -291,6 +293,13 @@
             would carry no reason, and the reason is the part you need when the count is questioned weeks later.
         </p>
     </x-guide.panel>
+
+    <x-guide.steps title="Import Sheet — two hundred at once" :steps="[
+        ['Choose the file', 'An .xlsx, .xls or .csv with a PRODUCT NAME column. SKU, Type, Cost, Sale price / Target and Auction or BIN? are read when they are there.'],
+        ['Read what it would do', 'Every row matched against the catalogue first — what would be created, what would be updated and which field changes from what, what already matches, and what needs a look.'],
+        ['Then decide', 'Nothing is written until the button at the bottom. A formula in a price cell is skipped and said so, rather than read as $0.00.'],
+        ['Re-import safely', 'Costs and targets already set are left alone unless you tick the overwrite box, so a second run fills blanks instead of undoing corrections.'],
+    ]" />
 
     <x-guide.table title="Catalog housekeeping" :rows="[
         ['Duplicate Detector', 'Finds likely duplicates — same name, close SKU — so you can merge them before they split stock and sales across two entries. Worth running monthly.'],
@@ -447,7 +456,6 @@
         ['Inventory Value Dashboard', 'Live value, velocity trends and stock insights. The headline number and what is moving it.'],
         ['Inventory Report', 'The comprehensive one: value, health, velocity and coverage together. Use it for a period review rather than a daily glance.'],
         ['Analytics', 'Key metrics, health status and quick actions — the everyday overview.'],
-        ['Velocity Analytics', 'Fast movers, slow movers and dead stock. What to reorder and what to stop buying.'],
         ['Inventory Age', 'How long stock has been sitting. Old stock is money on a shelf, and it rarely gets better with time.'],
         ['Product Insights', 'Which products make money and which are stuck — margin and sell-through from your actual sales.'],
         ['Stock Levels & Movements', 'Current stock per item and location, and the movement log behind every change.'],

@@ -67,6 +67,7 @@ class InventoryGuide extends Page
             ]],
             'items'   => ['➕', 'Add & Edit Items', [
                 \App\Filament\Resources\InventoryItemResource::class,
+                ImportInventorySheet::class,
             ]],
             'restock' => ['📷', 'Restock & Scan', [
                 InventoryScanner::class,

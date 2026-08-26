@@ -86,6 +86,31 @@ class InventoryManualPdfTest extends TestCase
         }
     }
 
+    public function test_every_step_says_what_is_on_the_screen_it_shows(): void
+    {
+        // The standard for this handbook, and for the module handbooks that
+        // follow it: a step shows a screen, so it lists what is on that screen.
+        // "Fill in the form" is not documentation — the field table is.
+        $bare = [];
+
+        foreach (InventoryManual::sections() as $section) {
+            foreach ($section['steps'] as $step) {
+                if (empty($step['fields'])) {
+                    $bare[] = $section['title'] . ' → ' . $step['title'];
+                    continue;
+                }
+
+                foreach ($step['fields'] as $field) {
+                    $this->assertCount(2, $field, "malformed field row in \"{$step['title']}\"");
+                    $this->assertNotEmpty(trim($field[0]), "unnamed field in \"{$step['title']}\"");
+                    $this->assertNotEmpty(trim($field[1]), "field \"{$field[0]}\" in \"{$step['title']}\" is named but not explained");
+                }
+            }
+        }
+
+        $this->assertSame([], $bare, "steps with no field table:\n" . implode("\n", $bare));
+    }
+
     public function test_it_covers_the_jobs_the_handbook_is_for(): void
     {
         $text = json_encode(InventoryManual::sections());
@@ -108,8 +133,10 @@ class InventoryManualPdfTest extends TestCase
         // a manual describing only one of them sends someone hunting.
         $text = json_encode(InventoryManual::sections());
 
-        $this->assertStringContainsString('Receive all', $text);
-        $this->assertStringContainsString('Mark short', $text);
+        // Spelled the way the buttons are spelled: someone reading the handbook
+        // with the screen open should be able to match them by eye.
+        $this->assertStringContainsString('Receive All', $text);
+        $this->assertStringContainsString('Mark Short', $text);
         $this->assertStringContainsString('Receive Scan', $text);
     }
 

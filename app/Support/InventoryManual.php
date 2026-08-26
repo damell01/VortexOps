@@ -293,6 +293,29 @@ class InventoryManual
                         'note'  => null,
                     ],
                     [
+                        'title' => 'Or add two hundred at once, from a spreadsheet',
+                        'where' => 'Inventory → Import Sheet',
+                        'body'  => [
+                            'For a price list from a vendor, or the sheet the catalogue lived in before this app. Three steps: choose the file, read what it would do, then decide.',
+                            'It matches every row against the catalogue first — by SKU where the sheet has one, by name otherwise — so a second import of the same sheet updates what the first one created instead of duplicating it.',
+                            'Nothing is written until the button at the bottom. The table you approve is what gets written, because the preview and the import are the same code.',
+                        ],
+                        'shot'  => 'import-sheet.png',
+                        'more'  => ['import-sheet-2.png', 'import-sheet-3.png'],
+                        'fields' => [
+                            ['Spreadsheet', '.xlsx, .xls or .csv, up to 20 MB. The only column it insists on is <b>PRODUCT NAME</b>.'],
+                            ['Worksheet', 'Which sheet in the workbook to read. It picks the usual one where it finds it, and lists the rest.'],
+                            ['Replace costs and targets that already have a value', 'Off by default, and worth leaving off. On, the sheet wins over every number already in the catalogue — including ones the warehouse corrected after a real receipt.'],
+                            ['New items', 'Rows that match nothing and would create a record.'],
+                            ['Updated', 'Rows that match something and would change it. The match is shown per row — "matched on sku" or "matched on name" — so you can see why.'],
+                            ['Already matched', 'Rows that match something and would change nothing. Normal on a re-import.'],
+                            ['Need a look', 'Rows with something wrong: a formula in a price cell, a cost that is not a number, or the same product twice in one sheet. Read these before importing.'],
+                            ['Changes column', 'Field by field, with the old value where there is one — "Unit cost 118.00 → 129.00". This is the whole promise of the screen.'],
+                            ['Import N rows', 'Writes it. Afterwards the table is re-read against the catalogue as it now is, which is why most rows then say "No change".'],
+                        ],
+                        'note'  => 'Cost columns holding a formula are skipped rather than read as zero, and the row says so. A sheet imported without that check puts plausible, wrong costs into the catalogue.',
+                    ],
+                    [
                         'title' => 'Edit an item',
                         'where' => 'Inventory → All Inventory → row menu → Edit',
                         'body'  => [
@@ -1076,24 +1099,6 @@ class InventoryManual
                         'note'  => null,
                     ],
                     [
-                        'title' => 'What is moving, and how fast',
-                        'where' => 'Inventory → Velocity Analytics',
-                        'body'  => [
-                            'Turnover per item — what sells through quickly and what does not.',
-                            'Read alongside Inventory Age: slow and valuable is a different problem from slow and cheap.',
-                        ],
-                        'shot'  => 'velocity.png',
-                        'fields' => [
-                            ['Total Items / Total Value', 'The catalogue and what it is worth, for context under the rest.'],
-                            ['Fast Movers', 'Selling through quickly. These are the ones worth reordering before they run out.'],
-                            ['Slow Movers', 'Moving, but slowly.'],
-                            ['Dead Stock', 'No sale in 90 days, with the money tied up in it and its share of total value. The number to act on.'],
-                            ['High-Value Fast Movers', 'Where speed and money meet — the stock to keep in depth.'],
-                            ['Dead Stock (Consider Clearance)', 'The list to price down, itemised.'],
-                        ],
-                        'note'  => null,
-                    ],
-                    [
                         'title' => 'The overview',
                         'where' => 'Inventory → Inventory Analytics',
                         'body'  => [
@@ -1298,6 +1303,7 @@ class InventoryManual
         return [
             ['All Inventory', 'The catalogue. Every item, its stock, cost and sale target. Most jobs start here.'],
             ['Quick Add', 'Create an item fast: name, cost, code.'],
+            ['Import Sheet', 'Read a spreadsheet of products into the catalogue, after showing you every row it would touch.'],
             ['Quick Add Stock', 'Put units into a location without going through the catalogue.'],
             ['Quick Scan', 'Scan to look up, add stock, or receive against a pallet.'],
             ['Inventory Search', 'Search items, locations and stock together.'],
@@ -1325,7 +1331,6 @@ class InventoryManual
             ['Missing Item Reports', 'What has been flagged as unaccounted for.'],
             ['Inventory Value', 'What is on the shelf at weighted average cost.'],
             ['Inventory Age', 'How long things have been sitting, and what that is worth.'],
-            ['Velocity Analytics', 'Turnover — what sells through and what does not.'],
             ['Inventory Analytics', 'Levels, values and trends over time.'],
             ['Product Insights', 'One product\'s cost, movement and performance history.'],
             ['Receiving Analytics', 'Throughput, shortfalls and how long pallets take.'],

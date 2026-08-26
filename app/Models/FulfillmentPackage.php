@@ -46,6 +46,6 @@ class FulfillmentPackage extends Model
         return (float) $this->items()
             ->with('product')
             ->get()
-            ->sum(fn ($item) => $item->quantity * ((float) $item->product->average_cost));
+            ->sum(fn ($item) => $item->quantity * ($item->product?->effectiveCost() ?? 0));
     }
 }

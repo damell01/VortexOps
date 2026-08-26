@@ -832,14 +832,36 @@ class InventoryItemResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('average_cost')
                     ->label('Avg Cost')
+                    // A weighted average only exists once something has been
+                    // received. Until then the column read $0.00 for every item
+                    // that had a perfectly good list cost, which looks like the
+                    // stock is worth nothing rather than like nothing has been
+                    // received yet. effectiveCost() is what the rest of the app
+                    // already values stock at.
+                    ->getStateUsing(fn ($record) => $record->effectiveCost())
                     ->money('USD')
-                    ->sortable()
+                    // Sort on the number shown, not the raw column — otherwise
+                    // every not-yet-received item sorts as if it cost nothing.
+                    ->sortable(query: fn ($query, string $direction) => $query->orderByRaw(
+                        'CASE WHEN COALESCE(products.average_cost, 0) > 0
+                              THEN products.average_cost
+                              ELSE COALESCE(products.unit_cost, 0) END ' . $direction
+                    ))
                     ->toggleable(isToggledHiddenByDefault: true)
-                    ->description(fn ($record) =>
-                        ((int) ($record->stock_sum_quantity ?? 0)) > 0
-                            ? number_format((int) ($record->stock_sum_quantity ?? 0)) . ' units • $' . number_format(((int) ($record->stock_sum_quantity ?? 0)) * ((float) ($record->average_cost ?? 0)), 2)
-                            : '(' . number_format((float) $record->total_units_received, 0) . ' units received)'
-                    ),
+                    ->description(function ($record) {
+                        $units = (int) ($record->stock_sum_quantity ?? 0);
+
+                        if ($units > 0) {
+                            return number_format($units) . ' units • $'
+                                . number_format($units * $record->effectiveCost(), 2);
+                        }
+
+                        // Say which number is on show, so a list cost is never
+                        // mistaken for an average nothing has earned yet.
+                        return ((float) $record->average_cost) > 0
+                            ? '(' . number_format((float) $record->total_units_received, 0) . ' units received)'
+                            : 'list cost — nothing received yet';
+                    }),
                 TextColumn::make('sold_as')
                     ->label('Sold as')
                     ->badge()

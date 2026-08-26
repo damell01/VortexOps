@@ -29,6 +29,6 @@ class FulfillmentPackageItem extends Model
 
     public function getItemValue(): float
     {
-        return ((float) $this->quantity) * ((float) ($this->product->average_cost ?? 0));
+        return ((float) $this->quantity) * ($this->product?->effectiveCost() ?? 0);
     }
 }

@@ -61,7 +61,10 @@ class InventorySnapshot extends Model
         $stockOuts = [];
 
         foreach ($stocks as $stock) {
-            $itemValue = $stock->quantity * ($stock->item->average_cost ?? 0);
+            // Before anything is received there is no weighted average, and
+            // valuing that stock at zero understates the snapshot by whatever
+            // the list cost says it is worth.
+            $itemValue = $stock->quantity * ($stock->item?->effectiveCost() ?? 0);
             $totalValue += $itemValue;
             $totalItems++;
             $totalQuantity += (int) $stock->quantity;

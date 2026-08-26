@@ -2025,15 +2025,19 @@ a.fi-link:hover {
     }
 }
 
+/* Collapsed is the absence of .fi-sidebar-open, which Filament binds from
+   $store.sidebar.isOpen. There is no data-collapsed attribute — every rule in
+   this file that used to ask for one silently matched nothing, which is why the
+   collapsed rail kept its labels: "Streamer" wrapped to one letter per line
+   down the rail, and "Log out" was clipped mid-word. */
+
 /* When sidebar is fully collapsed (icon-only) center the icons */
-.fi-sidebar[data-collapsed="true"] .fi-sidebar-item-btn,
 .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-item-btn {
     justify-content: center !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
 }
 
-.fi-sidebar[data-collapsed="true"] .fi-sidebar-item-label,
 .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-item-label {
     opacity: 0 !important;
     width: 0 !important;
@@ -2042,7 +2046,6 @@ a.fi-link:hover {
     transition: opacity 200ms, width 200ms !important;
 }
 
-.fi-sidebar[data-collapsed="true"] .fi-sidebar-group-label,
 .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-group-label {
     opacity: 0 !important;
     height: 0 !important;
@@ -2051,19 +2054,16 @@ a.fi-link:hover {
     margin: 0 !important;
 }
 
-.fi-sidebar[data-collapsed="true"] .fi-sidebar-item-badge-ctn,
 .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-item-badge-ctn {
     display: none !important;
 }
 
 /* Tooltip on icon-only items */
-.fi-sidebar[data-collapsed="true"] .fi-sidebar-item-btn,
 .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-item-btn {
     position: relative !important;
 }
 
 /* Sidebar icons slightly bigger in collapsed mode for clarity */
-.fi-sidebar[data-collapsed="true"] .fi-sidebar-item-btn svg,
 .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-item-btn svg {
     width: 1.1875rem !important;
     height: 1.1875rem !important;
@@ -3284,39 +3284,39 @@ html body .fi-sidebar-group-collapse-btn svg {
 
     /* Only force labels visible in the expanded state — applying it while
        collapsed is what left wide gaps beside the icons. */
-    html body .fi-sidebar:not([data-collapsed="true"]) .fi-sidebar-item-label,
-    html body .fi-sidebar:not([data-collapsed="true"]) .fi-sidebar-group-label {
+    html body .fi-sidebar.fi-sidebar-open .fi-sidebar-item-label,
+    html body .fi-sidebar.fi-sidebar-open .fi-sidebar-group-label {
         display: block !important;
         opacity: 1 !important;
         width: auto !important;
     }
 
-    html body .fi-sidebar:not([data-collapsed="true"]) .fi-sidebar-item-btn {
+    html body .fi-sidebar.fi-sidebar-open .fi-sidebar-item-btn {
         justify-content: flex-start !important;
         gap: 0.75rem !important;
         padding: 0.5rem 0.75rem !important;
     }
 
     /* Collapsed: icon-only, centred, no leftover label space */
-    html body .fi-sidebar[data-collapsed="true"] .fi-sidebar-item-btn {
+    html body .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-item-btn {
         justify-content: center !important;
         gap: 0 !important;
         padding: 0.5rem !important;
     }
 
-    html body .fi-sidebar[data-collapsed="true"] .fi-sidebar-item-label,
-    html body .fi-sidebar[data-collapsed="true"] .fi-sidebar-group-label,
-    html body .fi-sidebar[data-collapsed="true"] .vx-account-meta,
-    html body .fi-sidebar[data-collapsed="true"] .vx-account-logout span,
-    html body .fi-sidebar[data-collapsed="true"] .vx-channel-switcher {
+    html body .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-item-label,
+    html body .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-group-label,
+    html body .fi-sidebar:not(.fi-sidebar-open) .vx-account-meta,
+    html body .fi-sidebar:not(.fi-sidebar-open) .vx-account-logout span,
+    html body .fi-sidebar:not(.fi-sidebar-open) .vx-channel-switcher {
         display: none !important;
     }
 
-    html body .fi-sidebar[data-collapsed="true"] .vx-account {
+    html body .fi-sidebar:not(.fi-sidebar-open) .vx-account {
         padding: 0.5rem !important;
     }
 
-    html body .fi-sidebar[data-collapsed="true"] .vx-account-row {
+    html body .fi-sidebar:not(.fi-sidebar-open) .vx-account-row {
         justify-content: center !important;
     }
 }
@@ -3378,12 +3378,12 @@ html body .vx-account-logout svg {
 
 /* Collapsed rail: avatar and icon only, centred, nothing clipped */
 @media (min-width: 1024px) {
-    html body .fi-sidebar[data-collapsed="true"] .vx-account {
+    html body .fi-sidebar:not(.fi-sidebar-open) .vx-account {
         padding: 0.5rem 0.375rem !important;
     }
 
-    html body .fi-sidebar[data-collapsed="true"] .vx-account-row,
-    html body .fi-sidebar[data-collapsed="true"] .vx-account-logout {
+    html body .fi-sidebar:not(.fi-sidebar-open) .vx-account-row,
+    html body .fi-sidebar:not(.fi-sidebar-open) .vx-account-logout {
         justify-content: center !important;
         gap: 0 !important;
         padding: 0.5rem 0 !important;
@@ -3706,17 +3706,17 @@ html body .vx-channel-switcher {
 
 /* Collapsed rail: icons close together, not one per screenful */
 @media (min-width: 1024px) {
-    html body .fi-sidebar[data-collapsed="true"] .fi-sidebar-item-btn {
+    html body .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-item-btn {
         padding: 0.4375rem !important;
         margin: 0.0625rem 0 !important;
     }
 
-    html body .fi-sidebar[data-collapsed="true"] .fi-sidebar-group-btn {
+    html body .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-group-btn {
         padding: 0.375rem 0 !important;
         min-height: 0 !important;
     }
 
-    html body .fi-sidebar[data-collapsed="true"] .fi-sidebar-group + .fi-sidebar-group {
+    html body .fi-sidebar:not(.fi-sidebar-open) .fi-sidebar-group + .fi-sidebar-group {
         margin-top: 0 !important;
         padding-top: 0.125rem !important;
     }

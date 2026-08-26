@@ -105,6 +105,35 @@ class WhatnotBrowserLockTest extends TestCase
             ->assertExitCode(RefreshRecentWhatnotShows::SKIPPED_LOCKED);
     }
 
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function lockTakingCommands(): array
+    {
+        return [
+            'refresh-recent'  => ['whatnot:refresh-recent --limit=1'],
+            'sync-show-index' => ['whatnot:sync-show-index --enrich=1'],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('lockTakingCommands')]
+    public function test_a_locked_out_command_never_erases_the_real_holders_pid(string $command): void
+    {
+        // This was fixed once in refresh-recent and left standing in
+        // sync-show-index, which runs every ten minutes — so the bad state came
+        // back on a timer and looked like a fresh mystery each time. Any future
+        // command that takes this lock has to pass here too.
+        $this->holdTheLock();
+
+        $this->artisan($command);
+
+        $this->assertSame(
+            424242,
+            Cache::get('whatnot:browser:holder_pid'),
+            "{$command} erased the PID of the job that actually holds the lock",
+        );
+    }
+
     public function test_the_backfill_says_the_lock_is_why_rather_than_guessing(): void
     {
         $this->holdTheLock();

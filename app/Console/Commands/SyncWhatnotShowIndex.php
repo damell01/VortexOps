@@ -22,6 +22,8 @@ class SyncWhatnotShowIndex extends Command
 
     protected $description = 'Sync Current/Upcoming/Past Whatnot shows and incrementally enrich completed shows with analytics and shipments';
 
+    private bool $skippedForLock = false;
+
     public function handle(WhatnotScraper $scraper): int
     {
         $channel = WhatnotChannel::query()
@@ -70,6 +72,13 @@ class SyncWhatnotShowIndex extends Command
             ->all();
 
         $data = $this->scrape($enrichIds, $enrichLimit, (bool) $this->option('debug'));
+
+        // Skipped is not done. Returning SUCCESS here made a run that never
+        // started indistinguishable from one that found nothing to sync.
+        if ($this->skippedForLock) {
+            return RefreshRecentWhatnotShows::SKIPPED_LOCKED;
+        }
+
         if ($data === null) {
             return self::FAILURE;
         }
@@ -316,21 +325,41 @@ class SyncWhatnotShowIndex extends Command
         $process->setTimeout(900);
         $lock = Cache::lock('whatnot:browser', 1800);
 
+        // Only the process that actually took the lock may clean up after it.
+        // This runs every ten minutes, and its finally block cleared the holder
+        // PID whether or not it had the lock — so each time it queued behind
+        // another job it erased that job's record, leaving the lock "held with
+        // no holder PID". That is the state whatnot:unlock reports as an
+        // interrupted run, and this command was manufacturing it on a timer.
+        $held = false;
+
         try {
-            $lock->block(600);
+            // Say we are queued before going quiet: block() is silent, and a
+            // scheduled run waiting behind another job looked like a hung one.
+            if (! $lock->get()) {
+                WhatnotScraper::announceLockWait();
+                $lock->block((int) config('vortex.whatnot.browser_lock_wait', 1200));
+            }
+
+            $held = true;
             Cache::put('whatnot:browser:holder_pid', getmypid(), 1800);
             $process->run(function (string $type, string $buffer) use ($debug): void {
                 if ($debug && $type === Process::ERR) $this->output->write($buffer);
             });
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException) {
             $this->warn('Whatnot show sync skipped: another browser job is still running.');
-            return [];
+            $this->line('  <fg=gray>If nothing is actually running, the lock is stale — clear it with</>');
+            $this->line('  <fg=gray>php artisan whatnot:unlock.</>');
+            $this->skippedForLock = true;
+            return null;
         } catch (\Throwable $e) {
             $this->error('Whatnot production sync crashed: ' . $e->getMessage());
             return null;
         } finally {
-            Cache::forget('whatnot:browser:holder_pid');
-            try { $lock->release(); } catch (\Throwable) {}
+            if ($held) {
+                Cache::forget('whatnot:browser:holder_pid');
+                try { $lock->release(); } catch (\Throwable) {}
+            }
         }
 
         if (! $process->isSuccessful()) {

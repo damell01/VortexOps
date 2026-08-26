@@ -26,6 +26,9 @@ class WhatnotUnlockTest extends TestCase
     /** @var list<resource> */
     private array $spawned = [];
 
+    /** @var list<string> */
+    private array $profileFiles = [];
+
     protected function tearDown(): void
     {
         foreach ($this->spawned as $process) {
@@ -33,7 +36,12 @@ class WhatnotUnlockTest extends TestCase
             @proc_close($process);
         }
 
-        $this->spawned = [];
+        foreach ($this->profileFiles as $path) {
+            @unlink($path);
+        }
+
+        $this->spawned      = [];
+        $this->profileFiles = [];
 
         parent::tearDown();
     }
@@ -140,5 +148,50 @@ class WhatnotUnlockTest extends TestCase
         $this->artisan('whatnot:unlock')
             ->expectsOutputToContain('no holder PID was recorded')
             ->assertSuccessful();
+    }
+
+    public function test_chromes_own_stale_profile_lock_is_cleared_too(): void
+    {
+        // Two locks over one resource. Releasing only the cache lock let the
+        // next run start and then die at launch on "Failed to create a
+        // ProcessSingleton for your profile directory" — which reads like a
+        // broken install rather than the leftover of a killed run, and no
+        // amount of whatnot:unlock ever fixed it.
+        $lock = $this->profilePath('SingletonLock');
+        @symlink('srv1590821-999999999', $lock);   // a PID that cannot be alive
+
+        $this->artisan('whatnot:unlock')->assertSuccessful();
+
+        $this->assertFalse(is_link($lock), 'Chrome\'s stale profile lock was left behind');
+    }
+
+    public function test_a_profile_lock_held_by_a_live_chrome_is_left_alone(): void
+    {
+        // Deleting this one lets a second Chrome start against the same profile,
+        // which is how the saved Whatnot session gets corrupted.
+        $pid  = $this->spawn('vortexops-probe-chrome');
+        $lock = $this->profilePath('SingletonLock');
+        @symlink('srv1590821-' . $pid, $lock);
+
+        $this->artisan('whatnot:unlock')
+            ->expectsOutputToContain('Chrome still holds the profile')
+            ->assertSuccessful();
+
+        $this->assertTrue(is_link($lock), 'a profile lock held by a live Chrome was removed');
+    }
+
+    private function profilePath(string $name): string
+    {
+        $dir = storage_path('whatnot-browser-profile');
+
+        if (! is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $path = $dir . '/' . $name;
+        @unlink($path);
+        $this->profileFiles[] = $path;
+
+        return $path;
     }
 }

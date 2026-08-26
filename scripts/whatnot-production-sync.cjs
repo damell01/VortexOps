@@ -156,8 +156,32 @@ async function openDeepLink(page,href){
 }
 
 
+// Chrome refuses to open a profile that still carries another instance's lock,
+// and a run killed mid-flight (Ctrl+C, OOM, kill) leaves exactly that behind.
+// Every later run then dies at launch on "Failed to create a ProcessSingleton
+// for your profile directory" — including unattended scheduled ones, for ever,
+// until a human clears the files by hand.
+//
+// SingletonLock is a symlink whose target encodes hostname-pid. If that PID is
+// gone the lock is a leftover and clearing it is safe; if it is alive, leave it
+// and let Chrome refuse, because two instances on one profile corrupt it.
+function clearStaleProfileLock(dir){
+  for(const name of ['SingletonLock','SingletonSocket','SingletonCookie']){
+    const file=path.join(dir,name);
+    let target; try{target=fs.readlinkSync(file);}catch{continue;}
+    const pid=Number(/-(\d+)$/.exec(target)?.[1]);
+    if(pid&&fs.existsSync(`/proc/${pid}`)){
+      if(DEBUG)console.error(`[whatnot-prod] profile lock held by live PID ${pid}; leaving ${name} alone`);
+      return false;
+    }
+    try{fs.unlinkSync(file);if(DEBUG)console.error(`[whatnot-prod] cleared stale ${name} (recorded PID ${pid||'unknown'} is gone)`);}catch{}
+  }
+  return true;
+}
+
 (async()=>{
   const userDataDir=process.env.WHATNOT_USER_DATA_DIR||path.join(__dirname,'../storage/whatnot-browser-profile'); fs.mkdirSync(userDataDir,{recursive:true});
+  clearStaleProfileLock(userDataDir);
   const context=await chromium.launchPersistentContext(userDataDir,{headless:process.env.WHATNOT_HEADLESS!=='false',executablePath:findChromium(),args:['--no-sandbox','--no-zygote','--disable-dev-shm-usage','--disable-crash-reporter','--crash-dumps-dir=/tmp','--disable-gpu'],userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',viewport:{width:1280,height:900},locale:'en-US',timezoneId:'America/Chicago',extraHTTPHeaders:{'sec-ch-ua':'"Chromium";v="128", "Google Chrome";v="128", "Not-A.Brand";v="99"','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','Accept-Language':'en-US,en;q=0.9'}});
   await context.addInitScript(()=>{try{Object.defineProperty(navigator,'webdriver',{get:()=>undefined});}catch{}try{Object.defineProperty(navigator,'languages',{get:()=>['en-US','en']});}catch{}try{Object.defineProperty(navigator,'platform',{get:()=> 'Win32'});}catch{}try{if(!window.chrome)window.chrome={runtime:{}};}catch{}});
   const lsFile=path.join(__dirname,'../storage/whatnot-localstorage.json');if(fs.existsSync(lsFile)){try{const saved=JSON.parse(fs.readFileSync(lsFile,'utf8'));await context.addInitScript(entries=>{if(/whatnot\.com$/i.test(location.hostname)){try{for(const[k,v]of Object.entries(entries||{}))localStorage.setItem(k,v);}catch{}}},saved);}catch{}}

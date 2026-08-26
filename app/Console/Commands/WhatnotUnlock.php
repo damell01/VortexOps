@@ -58,7 +58,69 @@ class WhatnotUnlock extends Command
             ? "Lock released — holder PID {$pid} is not a running Whatnot job."
             : 'Lock released (no holder PID was recorded — it may have predated this tracking, or already been cleared).');
 
+        $this->clearChromeProfileLock();
+
         return self::SUCCESS;
+    }
+
+    /**
+     * Chrome keeps its own lock on the profile, and killing a run leaves it.
+     *
+     * There are two locks over the same resource. Releasing only the cache lock
+     * let the next run start and then fail at launch with "Failed to create a
+     * ProcessSingleton for your profile directory" — which reads like a broken
+     * install rather than the leftover it is, and no amount of whatnot:unlock
+     * fixed it. The files are only removed once we have already established
+     * that nothing is holding the profile.
+     */
+    private function clearChromeProfileLock(): void
+    {
+        $profile = storage_path('whatnot-browser-profile');
+        $removed = [];
+
+        foreach (['SingletonLock', 'SingletonSocket', 'SingletonCookie'] as $name) {
+            $path = $profile . '/' . $name;
+
+            // is_link first: SingletonLock is a dangling symlink whose target
+            // encodes hostname-pid, so file_exists() reports false for it.
+            if (! is_link($path) && ! file_exists($path)) {
+                continue;
+            }
+
+            if ($holder = $this->chromeProfileHolder($path)) {
+                $this->warn("Chrome still holds the profile (PID {$holder}) — left {$name} in place.");
+                $this->line('  <fg=gray>Stop that process before running a scrape, or the profile can be corrupted.</>');
+
+                return;
+            }
+
+            if (@unlink($path)) {
+                $removed[] = $name;
+            }
+        }
+
+        if ($removed !== []) {
+            $this->info('Cleared Chrome\'s stale profile lock (' . implode(', ', $removed) . ').');
+        }
+    }
+
+    /** The live PID recorded in a SingletonLock symlink, if there is one. */
+    private function chromeProfileHolder(string $path): ?int
+    {
+        if (! is_link($path)) {
+            return null;
+        }
+
+        // Target looks like "hostname-12345".
+        $target = @readlink($path);
+
+        if ($target === false || ! preg_match('/-(\d+)$/', $target, $matches)) {
+            return null;
+        }
+
+        $pid = (int) $matches[1];
+
+        return $this->pidIsAlive($pid) ? $pid : null;
     }
 
     private function pidIsAlive(int $pid): bool

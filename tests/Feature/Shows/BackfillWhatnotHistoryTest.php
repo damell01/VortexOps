@@ -51,13 +51,65 @@ class BackfillWhatnotHistoryTest extends TestCase
         return $show;
     }
 
-    public function test_a_show_with_both_stamps_is_not_outstanding(): void
+    /** Everything a completed show should have: the figures and a shipment sync. */
+    private function fullySynced(): array
     {
+        return [
+            'gross_revenue'            => 1200,
+            'completed_earnings'       => 900,
+            'buyers_count'             => 40,
+            'total_views'              => 900,
+            'last_analytics_synced_at' => now()->subDay(),
+            'last_shipments_synced_at' => now()->subDay(),
+        ];
+    }
+
+    public function test_a_show_with_its_figures_and_shipments_is_not_outstanding(): void
+    {
+        $channel = $this->channel('Vortex Cards', ['include_in_import' => true]);
+
+        $this->show($channel, $this->fullySynced());
+
+        $this->artisan('whatnot:backfill-history --dry-run')
+            ->expectsOutputToContain('Nothing outstanding')
+            ->assertSuccessful();
+    }
+
+    public function test_a_stamp_without_the_figures_is_still_outstanding(): void
+    {
+        // The stamp is only written by the two commands driving
+        // whatnot-production-sync; the figures also arrive with the show import.
+        // Counting the stamp reported 567 of 570 shows outstanding on a channel
+        // where a third already had every number.
         $channel = $this->channel('Vortex Cards', ['include_in_import' => true]);
 
         $this->show($channel, [
             'last_analytics_synced_at' => now()->subDay(),
             'last_shipments_synced_at' => now()->subDay(),
+        ]);
+
+        $this->artisan('whatnot:backfill-history --dry-run')
+            ->expectsOutputToContain('1 still missing analytics or shipments')
+            ->assertSuccessful();
+    }
+
+    public function test_figures_without_a_stamp_are_not_counted_as_missing(): void
+    {
+        // The other half: hundreds of shows had their numbers and no stamp, and
+        // no amount of scraping would ever have moved the count.
+        $channel = $this->channel('Vortex Cards', ['include_in_import' => true]);
+
+        $show = $this->show($channel, [
+            'gross_revenue'      => 1200,
+            'completed_earnings' => 900,
+            'buyers_count'       => 40,
+            'total_views'        => 900,
+        ]);
+
+        \App\Models\Shipment::create([
+            'show_id'  => $show->id,
+            'tracking' => 'TRACK-1',
+            'status'   => 'delivered',
         ]);
 
         $this->artisan('whatnot:backfill-history --dry-run')
@@ -69,9 +121,10 @@ class BackfillWhatnotHistoryTest extends TestCase
     {
         $channel = $this->channel('Vortex Cards', ['include_in_import' => true]);
 
-        // Shipments arrived, analytics never did — still a hole.
+        // Shipments arrived, analytics never did — still a hole, and the
+        // mirror image of it.
         $this->show($channel, ['last_shipments_synced_at' => now()->subDay()]);
-        $this->show($channel, ['last_analytics_synced_at' => now()->subDay()]);
+        $this->show($channel, array_merge($this->fullySynced(), ['last_shipments_synced_at' => null]));
 
         $this->artisan('whatnot:backfill-history --dry-run')
             ->expectsOutputToContain('2 still missing analytics or shipments')
@@ -85,6 +138,7 @@ class BackfillWhatnotHistoryTest extends TestCase
         $channel = $this->channel('Vortex Cards', ['include_in_import' => true]);
 
         $this->show($channel, ['show_date' => now()->addDay()->toDateString()]);
+        $this->show($channel, $this->fullySynced());
 
         $this->artisan('whatnot:backfill-history --dry-run')
             ->expectsOutputToContain('Nothing outstanding')

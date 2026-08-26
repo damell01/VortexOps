@@ -57,13 +57,9 @@ class SyncWhatnotShowIndex extends Command
             // stopped being selected — and if its shipments had not come with
             // them, nothing ever went back for them. Shipments are fetched on
             // the same visit, so including them here costs no extra scraping.
-            ->where(function ($q) {
-                $q->whereNull('gross_revenue')
-                    ->orWhereNull('completed_earnings')
-                    ->orWhereNull('buyers_count')
-                    ->orWhereNull('total_views')
-                    ->orWhereNull('last_shipments_synced_at');
-            })
+            ->where(fn ($q) => $q
+                ->missingAnalytics()
+                ->orWhere(fn ($inner) => $inner->missingShipments()))
             // Never-touched shows first, then newest. Without the first clause a
             // steady trickle of recent shows can keep the back catalogue at the
             // end of the queue indefinitely.

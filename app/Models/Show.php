@@ -452,6 +452,41 @@ class Show extends Model
         return $this->hasMany(ShippingSurcharge::class);
     }
 
+    /**
+     * The analytics figures a completed show should carry.
+     *
+     * Presence of the numbers, not of a timestamp. last_analytics_synced_at is
+     * only written by the two commands that drive whatnot-production-sync, while
+     * these columns are also filled by the show import — so hundreds of shows
+     * had their figures and no stamp, and every count keyed off the stamp
+     * reported them as never fetched.
+     */
+    public const ANALYTICS_COLUMNS = ['gross_revenue', 'completed_earnings', 'buyers_count', 'total_views'];
+
+    /** Shows still genuinely missing their analytics figures. */
+    public function scopeMissingAnalytics(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where(function ($q) {
+            foreach (self::ANALYTICS_COLUMNS as $column) {
+                $q->orWhereNull($column);
+            }
+        });
+    }
+
+    /**
+     * Shows whose shipments have never been fetched.
+     *
+     * A show can legitimately have no shipments at all, so rows alone cannot
+     * prove a fetch — but rows are proof that one happened, which is the half
+     * the stamp misses on everything imported before it was written.
+     */
+    public function scopeMissingShipments(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query
+            ->whereNull('last_shipments_synced_at')
+            ->whereDoesntHave('shipments');
+    }
+
     public function shipments(): HasMany
     {
         return $this->hasMany(Shipment::class);

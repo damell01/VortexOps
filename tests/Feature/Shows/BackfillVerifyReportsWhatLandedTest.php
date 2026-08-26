@@ -52,7 +52,13 @@ class BackfillVerifyReportsWhatLandedTest extends TestCase
 
     public function test_it_says_so_when_there_is_nothing_to_verify_against(): void
     {
+        // Nothing outstanding means the figures are in and the shipments have
+        // been fetched — not merely that a stamp exists.
         Show::query()->update([
+            'gross_revenue'            => 1200,
+            'completed_earnings'       => 900,
+            'buyers_count'             => 40,
+            'total_views'              => 900,
             'last_analytics_synced_at' => now(),
             'last_shipments_synced_at' => now(),
         ]);

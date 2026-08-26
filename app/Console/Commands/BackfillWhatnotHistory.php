@@ -161,8 +161,8 @@ class BackfillWhatnotHistory extends Command
     {
         $show = $this->pastShows($channel)
             ->where(fn ($query) => $query
-                ->whereNull('last_analytics_synced_at')
-                ->orWhereNull('last_shipments_synced_at'))
+                ->missingAnalytics()
+                ->orWhere(fn ($q) => $q->missingShipments()))
             ->orderByDesc('show_date')
             ->first();
 
@@ -275,13 +275,22 @@ class BackfillWhatnotHistory extends Command
         }
     }
 
-    /** Past shows on this channel with no analytics or no shipment sync on record. */
+    /**
+     * Past shows on this channel that are genuinely missing something.
+     *
+     * Counted from the figures and the shipment rows, not from
+     * last_analytics_synced_at. That stamp is only written by the two commands
+     * driving whatnot-production-sync, while the figures also arrive with the
+     * show import — so this reported 567 of 570 shows outstanding on a channel
+     * where roughly a third already had every number, and no amount of scraping
+     * would ever have moved it.
+     */
     private function outstanding(WhatnotChannel $channel): int
     {
         return $this->pastShows($channel)
             ->where(fn ($query) => $query
-                ->whereNull('last_analytics_synced_at')
-                ->orWhereNull('last_shipments_synced_at'))
+                ->missingAnalytics()
+                ->orWhere(fn ($q) => $q->missingShipments()))
             ->count();
     }
 

@@ -5,7 +5,6 @@ namespace App\Filament\Pages;
 use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Concerns\RespectsRoleVisibility;
 use App\Support\InventoryManual;
-use Filament\Actions\Action;
 use Filament\Pages\Page;
 
 /**
@@ -30,7 +29,11 @@ class Handbook extends Page
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-book-open';
     protected static ?string $navigationLabel = 'Handbook';
-    protected static ?int $navigationSort = 90;
+
+    // Top of the sidebar, above the groups, because the people who need it are
+    // the people who do not yet know where anything is. Buried under Settings
+    // it is a reference only someone who already knows the app would find.
+    protected static ?int $navigationSort = -10;
 
     /**
      * The two back-of-the-book pages, addressed the same way a section is so
@@ -60,7 +63,9 @@ class Handbook extends Page
 
     public static function getNavigationGroup(): ?string
     {
-        return 'Settings';
+        // Ungrouped on purpose: Filament renders ungrouped items above every
+        // group, which is where a manual belongs.
+        return null;
     }
 
     public function getView(): string
@@ -77,19 +82,6 @@ class Handbook extends Page
         return [
             'module'  => ['except' => 'inventory'],
             'section' => ['except' => null],
-        ];
-    }
-
-    protected function getHeaderActions(): array
-    {
-        return [
-            Action::make('pdf')
-                ->label('Download PDF')
-                ->icon('heroicon-o-arrow-down-tray')
-                ->color('gray')
-                ->url(route('export.inventory-manual-pdf'))
-                ->openUrlInNewTab()
-                ->visible(fn () => $this->module === 'inventory'),
         ];
     }
 

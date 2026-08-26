@@ -8,19 +8,64 @@
     $troubleshooting = \App\Filament\Pages\Handbook::TROUBLESHOOTING;
     $screenIndex     = \App\Filament\Pages\Handbook::SCREEN_INDEX;
 
+    $onSection = ! $searching && $this->section !== null && ! $this->onExtraPage();
+
     // One place for the two states a contents entry can be in.
     $entry = fn (bool $active) => $active
         ? 'bg-primary-600 text-white shadow-sm'
         : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800';
 @endphp
 
-<div class="space-y-4">
+<div class="space-y-5">
+
+    {{-- ── Masthead ─────────────────────────────────────────────────────────
+         Says what the thing is and how big it is before anyone clicks into
+         it, because the first question about a manual is always "is what I
+         need in here?". --}}
+    <section class="overflow-hidden rounded-2xl border border-primary-200 bg-gradient-to-br from-primary-50 via-white to-white dark:border-primary-500/20 dark:from-primary-500/10 dark:via-gray-900 dark:to-gray-900">
+        <div class="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
+            <div class="min-w-0">
+                <div class="text-[11px] font-bold uppercase tracking-[.14em] text-primary-600 dark:text-primary-400">
+                    {{ $this->modules()[$this->module]['label'] ?? 'Handbook' }}
+                </div>
+                <h2 class="mt-1 text-xl font-semibold text-gray-950 dark:text-white sm:text-2xl">
+                    How this module works, screen by screen
+                </h2>
+                <p class="mt-1.5 max-w-2xl text-sm leading-6 text-gray-500 dark:text-gray-400">
+                    Every screen, every button, and what each field on it is for — with a picture of the real
+                    thing, taken from this installation. The same material as the printed handbook.
+                </p>
+
+                <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                    <span><b class="text-gray-900 dark:text-white">{{ count($sections) }}</b> sections</span>
+                    <span><b class="text-gray-900 dark:text-white">{{ $this->totalSteps }}</b> walkthroughs</span>
+                    <span><b class="text-gray-900 dark:text-white">{{ count($this->troubleshooting()) }}</b> things that go wrong</span>
+                    <span><b class="text-gray-900 dark:text-white">{{ count($this->screenIndex()) }}</b> screens indexed</span>
+                </div>
+            </div>
+
+            @if ($this->module === 'inventory')
+                <div class="flex shrink-0 flex-col gap-2 sm:items-end">
+                    <button type="button" wire:click="openSection(0)"
+                            class="vx-plain inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500">
+                        Start at the beginning
+                        <x-heroicon-o-arrow-right class="h-4 w-4" />
+                    </button>
+                    <a href="{{ route('export.inventory-manual-pdf') }}" target="_blank" rel="noopener"
+                       class="inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3.5 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
+                        <x-heroicon-o-document-arrow-down class="h-4 w-4" />
+                        Printable PDF
+                    </a>
+                </div>
+            @endif
+        </div>
+    </section>
 
     {{-- ── Module switcher ───────────────────────────────────────────────────
          Inventory is the only one written. The rest are shown rather than
          hidden on purpose: knowing a handbook is coming is more useful than
          wondering whether one exists somewhere you have not looked. --}}
-    <div class="flex gap-1.5 overflow-x-auto rounded-xl border border-gray-200 bg-white p-1 dark:border-gray-700 dark:bg-gray-900">
+    <div class="flex gap-1.5 overflow-x-auto rounded-xl border border-gray-200 bg-white p-1 shadow-sm dark:border-gray-700 dark:bg-gray-900">
         @foreach ($this->modules() as $key => $module)
             <button type="button"
                     @if ($module['ready']) wire:click="selectModule('{{ $key }}')" @else disabled @endif
@@ -44,14 +89,14 @@
          which is the difference between "where do I set a reorder level" and
          having to guess which section it lives in. --}}
     <div class="relative">
-        <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input type="search"
                wire:model.live.debounce.350ms="search"
-               placeholder="Search the handbook — a field name, a screen, or what went wrong"
-               class="w-full rounded-xl border-gray-300 bg-white py-2.5 pl-9 pr-3 text-sm shadow-sm placeholder:text-gray-400 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+               placeholder="Search everything — a field name, a button, a screen, or what went wrong"
+               class="w-full rounded-xl border-gray-300 bg-white py-3 pl-10 pr-3 text-sm shadow-sm placeholder:text-gray-400 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
     </div>
 
-    <div class="grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)]">
+    <div class="grid gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
 
         {{-- ── Contents ────────────────────────────────────────────────────
              Hidden on a phone once you are reading something: a full contents
@@ -62,40 +107,36 @@
                 <div class="px-2 pb-1 text-[11px] font-bold uppercase tracking-[.12em] text-gray-400">Contents</div>
 
                 @foreach ($sections as $i => $section)
+                    @php
+                        $active = $this->section === $i && ! $searching;
+                    @endphp
                     <button type="button" wire:click="openSection({{ $i }})"
-                            class="vx-plain flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors {{ $entry($this->section === $i && ! $searching) }}">
-                        <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-bold {{ $this->section === $i && ! $searching ? 'bg-white/20' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' }}">
-                            {{ $i + 1 }}
-                        </span>
+                            class="vx-plain flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors {{ $entry($active) }}">
+                        <x-dynamic-component :component="$section['icon'] ?? 'heroicon-o-book-open'"
+                                             class="h-4 w-4 shrink-0 {{ $active ? 'text-white' : 'text-gray-400' }}" />
                         <span class="min-w-0 flex-1 truncate">{{ $section['title'] }}</span>
-                        <span class="shrink-0 text-[11px] {{ $this->section === $i && ! $searching ? 'text-white/70' : 'text-gray-400' }}">{{ count($section['steps']) }}</span>
+                        <span class="shrink-0 rounded px-1.5 text-[11px] {{ $active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' }}">
+                            {{ count($section['steps']) }}
+                        </span>
                     </button>
                 @endforeach
 
-                <div class="pt-2">
+                <div class="mt-2 space-y-1 border-t border-gray-200 pt-3 dark:border-gray-700">
                     <button type="button" wire:click="openSection({{ $troubleshooting }})"
-                            class="vx-plain flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors {{ $entry($this->section === $troubleshooting && ! $searching) }}">
+                            class="vx-plain flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors {{ $entry($this->section === $troubleshooting && ! $searching) }}">
                         <x-heroicon-o-lifebuoy class="h-4 w-4 shrink-0" />
                         <span class="min-w-0 flex-1 truncate">When something looks wrong</span>
                     </button>
                     <button type="button" wire:click="openSection({{ $screenIndex }})"
-                            class="vx-plain flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors {{ $entry($this->section === $screenIndex && ! $searching) }}">
+                            class="vx-plain flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-medium transition-colors {{ $entry($this->section === $screenIndex && ! $searching) }}">
                         <x-heroicon-o-list-bullet class="h-4 w-4 shrink-0" />
                         <span class="min-w-0 flex-1 truncate">Every screen</span>
                     </button>
                 </div>
-
-                @if ($this->module === 'inventory')
-                    <a href="{{ route('export.inventory-manual-pdf') }}" target="_blank" rel="noopener"
-                       class="mt-3 flex items-center gap-2 rounded-lg border border-gray-200 px-2.5 py-2 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800">
-                        <x-heroicon-o-document-arrow-down class="h-4 w-4 shrink-0" />
-                        <span class="min-w-0 flex-1 truncate">Printable version</span>
-                    </a>
-                @endif
             </div>
         </aside>
 
-        {{-- ── Content pane ────────────────────────────────────────────────- --}}
+        {{-- ── Content pane ─────────────────────────────────────────────────- --}}
         <div class="min-w-0 space-y-4">
 
             @if ($this->section !== null || $searching)
@@ -121,14 +162,14 @@
                         {{ Str::plural('step', $this->searchResultCount) }} of {{ $this->totalSteps }} mention “{{ $this->search }}”.
                     </p>
 
-                    @foreach ($open as $entryData)
+                    @foreach ($open as $result)
                         <div class="space-y-3">
-                            <button type="button" wire:click="openSection({{ $entryData['index'] }})"
+                            <button type="button" wire:click="openSection({{ $result['index'] }})"
                                     class="vx-plain text-xs font-bold uppercase tracking-[.12em] text-primary-600 hover:underline dark:text-primary-400">
-                                {{ $entryData['index'] + 1 }}. {{ $entryData['section']['title'] }}
+                                {{ $result['index'] + 1 }}. {{ $result['section']['title'] }}
                             </button>
 
-                            @foreach ($entryData['section']['steps'] as $step)
+                            @foreach ($result['section']['steps'] as $step)
                                 <x-handbook.step :step="$step" :image-base="$imageBase" />
                             @endforeach
                         </div>
@@ -137,14 +178,14 @@
 
             @elseif ($this->section === $troubleshooting)
                 {{-- ── Troubleshooting ─────────────────────────────────────- --}}
-                <div>
-                    <h2 class="text-lg font-semibold text-gray-950 dark:text-white">When something looks wrong</h2>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Each of these has one cause far more often than any other.</p>
-                </div>
+                <x-handbook.pane-heading
+                    icon="heroicon-o-lifebuoy"
+                    title="When something looks wrong"
+                    blurb="Each of these has one cause far more often than any other." />
 
-                <div class="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-700 dark:bg-gray-900">
+                <div class="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:divide-gray-800 dark:border-gray-700 dark:bg-gray-900">
                     @foreach ($this->troubleshooting() as [$question, $answer])
-                        <div class="grid gap-1 p-4 sm:grid-cols-[16rem_1fr] sm:gap-4">
+                        <div class="grid gap-1 p-4 sm:grid-cols-[17rem_1fr] sm:gap-4">
                             <div class="text-sm font-semibold text-gray-900 dark:text-white">{{ $question }}</div>
                             <div class="text-sm leading-6 text-gray-600 dark:text-gray-300">{{ $answer }}</div>
                         </div>
@@ -153,31 +194,32 @@
 
             @elseif ($this->section === $screenIndex)
                 {{-- ── Screen index ────────────────────────────────────────- --}}
-                <div>
-                    <h2 class="text-lg font-semibold text-gray-950 dark:text-white">Every screen, and what it is for</h2>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">For when you know what you want and only need to be told where it lives.</p>
-                </div>
+                <x-handbook.pane-heading
+                    icon="heroicon-o-list-bullet"
+                    title="Every screen, and what it is for"
+                    blurb="For when you know what you want and only need to be told where it lives." />
 
-                <div class="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-700 dark:bg-gray-900">
+                <div class="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:divide-gray-800 dark:border-gray-700 dark:bg-gray-900">
                     @foreach ($this->screenIndex() as [$screen, $purpose])
-                        <div class="grid gap-1 p-4 sm:grid-cols-[16rem_1fr] sm:gap-4">
+                        <div class="grid gap-1 p-4 sm:grid-cols-[17rem_1fr] sm:gap-4">
                             <div class="text-sm font-semibold text-gray-900 dark:text-white">{{ $screen }}</div>
                             <div class="text-sm leading-6 text-gray-600 dark:text-gray-300">{{ $purpose }}</div>
                         </div>
                     @endforeach
                 </div>
 
-            @elseif ($open !== [])
+            @elseif ($onSection && $open !== [])
                 {{-- ── One section, in order ───────────────────────────────- --}}
                 @php
                     $current = $open[0]['section'];
                 @endphp
-                <div>
-                    <h2 class="text-lg font-semibold text-gray-950 dark:text-white">
-                        {{ $open[0]['index'] + 1 }}. {{ $current['title'] }}
-                    </h2>
-                    <p class="mt-1 text-sm leading-6 text-gray-500 dark:text-gray-400">{!! $current['blurb'] !!}</p>
-                </div>
+
+                <x-handbook.pane-heading
+                    :icon="$current['icon'] ?? 'heroicon-o-book-open'"
+                    :number="$open[0]['index'] + 1"
+                    :title="$current['title']"
+                    :blurb="$current['blurb']"
+                    :count="count($current['steps'])" />
 
                 @foreach ($current['steps'] as $n => $step)
                     <x-handbook.step :step="$step" :number="$n + 1" :image-base="$imageBase" />
@@ -194,14 +236,19 @@
                 <div class="grid gap-3 sm:grid-cols-2">
                     @foreach ($sections as $i => $section)
                         <button type="button" wire:click="openSection({{ $i }})"
-                                class="vx-plain flex flex-col rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:border-primary-400 hover:shadow dark:border-gray-700 dark:bg-gray-900">
-                            <div class="flex items-center gap-2">
-                                <span class="flex h-6 w-6 items-center justify-center rounded-lg bg-primary-100 text-xs font-bold text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">{{ $i + 1 }}</span>
-                                <h3 class="text-sm font-semibold text-gray-950 dark:text-white">{{ $section['title'] }}</h3>
+                                class="vx-plain group flex flex-col rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-primary-400 hover:shadow-md dark:border-gray-700 dark:bg-gray-900">
+                            <div class="flex items-center gap-2.5">
+                                <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-100 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300">
+                                    <x-dynamic-component :component="$section['icon'] ?? 'heroicon-o-book-open'" class="h-4 w-4" />
+                                </span>
+                                <h3 class="text-sm font-semibold text-gray-950 dark:text-white">
+                                    {{ $i + 1 }}. {{ $section['title'] }}
+                                </h3>
                             </div>
-                            <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">{!! $section['blurb'] !!}</p>
-                            <div class="mt-3 text-[11px] font-medium uppercase tracking-wide text-primary-600 dark:text-primary-400">
-                                {{ count($section['steps']) }} {{ Str::plural('step', count($section['steps'])) }} →
+                            <p class="mt-2 flex-1 text-xs leading-5 text-gray-500 dark:text-gray-400">{!! $section['blurb'] !!}</p>
+                            <div class="mt-3 text-[11px] font-semibold uppercase tracking-wide text-primary-600 dark:text-primary-400">
+                                {{ count($section['steps']) }} {{ Str::plural('step', count($section['steps'])) }}
+                                <span class="inline-block transition-transform group-hover:translate-x-0.5">→</span>
                             </div>
                         </button>
                     @endforeach
@@ -227,7 +274,7 @@
                     <div>
                         @if ($prev)
                             <button type="button" wire:click="openSection({{ $prev[0] }})"
-                                    class="vx-plain flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                                    class="vx-plain flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
                                 <x-heroicon-o-arrow-left class="h-4 w-4 shrink-0" />
                                 <span class="max-w-[9rem] truncate sm:max-w-none">{{ $prev[1] }}</span>
                             </button>
@@ -236,7 +283,7 @@
                     <div>
                         @if ($next)
                             <button type="button" wire:click="openSection({{ $next[0] }})"
-                                    class="vx-plain flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+                                    class="vx-plain flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 shadow-sm transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800">
                                 <span class="max-w-[9rem] truncate sm:max-w-none">{{ $next[1] }}</span>
                                 <x-heroicon-o-arrow-right class="h-4 w-4 shrink-0" />
                             </button>

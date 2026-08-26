@@ -32,19 +32,45 @@ class InventoryManualPdfTest extends TestCase
 
         foreach (InventoryManual::sections() as $section) {
             foreach ($section['steps'] as $step) {
-                if (! $step['shot']) {
-                    continue;
-                }
+                // A long form is captured in parts, and a missing part 3 is as
+                // broken as a missing part 1.
+                $shots = array_filter(array_merge([$step['shot'] ?? null], $step['more'] ?? []));
 
-                $path = public_path(InventoryManual::IMAGE_DIR . '/' . $step['shot']);
+                foreach ($shots as $shot) {
+                    $path = public_path(InventoryManual::IMAGE_DIR . '/' . $shot);
 
-                if (! is_file($path)) {
-                    $missing[] = $step['shot'] . ' (' . $step['title'] . ')';
+                    if (! is_file($path)) {
+                        $missing[] = $shot . ' (' . $step['title'] . ')';
+                    }
                 }
             }
         }
 
         $this->assertSame([], $missing, "screenshots referenced but not on disk:\n" . implode("\n", $missing));
+    }
+
+    public function test_no_screenshot_sits_in_the_folder_unused(): void
+    {
+        // The other direction: a picture nobody references is a picture that
+        // was replaced and never deleted, and it is how a 40-file folder
+        // becomes a 90-file folder nobody dares tidy.
+        $referenced = [];
+
+        foreach (InventoryManual::sections() as $section) {
+            foreach ($section['steps'] as $step) {
+                foreach (array_filter(array_merge([$step['shot'] ?? null], $step['more'] ?? [])) as $shot) {
+                    $referenced[$shot] = true;
+                }
+            }
+        }
+
+        $onDisk = array_map('basename', glob(public_path(InventoryManual::IMAGE_DIR . '/*.png')) ?: []);
+
+        $this->assertSame(
+            [],
+            array_values(array_diff($onDisk, array_keys($referenced))),
+            'screenshots on disk that the handbook never shows',
+        );
     }
 
     public function test_every_step_shows_the_screen_it_describes(): void

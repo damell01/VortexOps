@@ -77,7 +77,7 @@
     }
 
     .shot { margin: 9px 0 0 14px; }
-    .shot img { width: 166mm; border: 0.5pt solid #d1d5db; }
+    .shot img { border: 0.5pt solid #d1d5db; }
 
     .fields {
         margin: 9px 0 0 14px; border: 0.5pt solid #e5e7eb;
@@ -162,7 +162,7 @@
         <p class="section-blurb">{!! $section['blurb'] !!}</p>
 
         @foreach ($section['steps'] as $n => $step)
-            <div class="step {{ empty($step['fields']) ? '' : 'step-long' }}">
+            <div class="step {{ empty($step['fields']) && empty($step['more']) ? '' : 'step-long' }}">
                 <div class="step-head">
                     <h3><span class="step-num">{{ $n + 1 }}.</span>{{ $step['title'] }}</h3>
                 </div>
@@ -193,9 +193,17 @@
                     <div class="note">{!! $step['note'] !!}</div>
                 @endif
 
-                @if ($step['shot'] && isset($images[$step['shot']]))
-                    <div class="shot"><img src="{{ $images[$step['shot']] }}" alt=""></div>
-                @endif
+                {{-- Width is computed per image so a tall screenshot is
+                     narrowed rather than clipped at the foot of a page. A long
+                     form is shown in parts, top to bottom. --}}
+                @foreach (array_filter(array_merge([$step['shot']], $step['more'] ?? [])) as $shot)
+                    @if (isset($images[$shot]))
+                        <div class="shot">
+                            <img src="{{ $images[$shot] }}" alt=""
+                                 style="width: {{ $imageWidths[$shot] ?? 166 }}mm">
+                        </div>
+                    @endif
+                @endforeach
             </div>
         @endforeach
     </div>

@@ -393,8 +393,10 @@ a.btn-icon {
         text-align: center !important;
     }
 
-    /* Button text truncation on mobile */
-    button, a[role="button"], .fi-btn {
+    /* Button text truncation on mobile. Same opt-out as the desktop rule: a
+       card that happens to be a button holds a paragraph, and ellipsising it
+       hides the half that says what the card is. */
+    button:not(.vx-plain), a[role="button"]:not(.vx-plain), .fi-btn {
         overflow: hidden !important;
         text-overflow: ellipsis !important;
         white-space: nowrap !important;

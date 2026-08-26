@@ -96,19 +96,39 @@ class ExportController extends Controller
         $sections = \App\Support\InventoryManual::sections();
 
         $images = [];
+        $widths = [];
+
+        // The printable text column is 178mm wide and about 257mm tall. dompdf
+        // does not move an image that overflows the page — it clips it — so a
+        // tall screenshot has to be narrowed until it fits rather than left to
+        // be cut in half at the foot of a page.
+        $maxWidthMm  = 166;
+        $maxHeightMm = 148;
 
         foreach ($sections as $section) {
             foreach ($section['steps'] as $step) {
-                $shot = $step['shot'] ?? null;
+                // A long form is captured in parts, so a step can carry more
+                // than one picture.
+                $shots = array_filter(array_merge([$step['shot'] ?? null], $step['more'] ?? []));
 
-                if (! $shot || isset($images[$shot])) {
-                    continue;
-                }
+                foreach ($shots as $shot) {
+                    if (isset($images[$shot])) {
+                        continue;
+                    }
 
-                $path = public_path(\App\Support\InventoryManual::IMAGE_DIR . '/' . $shot);
+                    $path = public_path(\App\Support\InventoryManual::IMAGE_DIR . '/' . $shot);
 
-                if (is_file($path)) {
+                    if (! is_file($path)) {
+                        continue;
+                    }
+
                     $images[$shot] = 'data:image/png;base64,' . base64_encode(file_get_contents($path));
+
+                    [$w, $h] = getimagesize($path) ?: [0, 0];
+
+                    $widths[$shot] = ($w > 0 && $h > 0)
+                        ? round(min($maxWidthMm, $maxHeightMm * $w / $h), 1)
+                        : $maxWidthMm;
                 }
             }
         }
@@ -121,6 +141,7 @@ class ExportController extends Controller
             'troubleshooting' => \App\Support\InventoryManual::troubleshooting(),
             'screenIndex'     => \App\Support\InventoryManual::screenIndex(),
             'images'          => $images,
+            'imageWidths'     => $widths,
             'generatedAt'     => now()->format('M j, Y'),
         ])->setPaper('a4');
 

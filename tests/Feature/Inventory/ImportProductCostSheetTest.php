@@ -75,7 +75,10 @@ class ImportProductCostSheetTest extends TestCase
         $this->assertSame('50.00', $gem->unit_cost);
         $this->assertSame('92.00', $gem->sale_price);
         $this->assertSame(42.0, $gem->marginPotential());
-        $this->assertStringContainsString('Sold as: Both', $gem->notes);
+        // Auction / BIN / Both has its own column now, rather than being
+        // appended to a notes field nobody can filter on.
+        $this->assertSame('Both', $gem->sold_as);
+        $this->assertSame('Auction', Product::where('name', 'Loose Packs')->firstOrFail()->sold_as);
         $this->assertTrue($gem->is_active);
 
         // No SKU in the sheet, so the model's own generator supplies one.

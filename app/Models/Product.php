@@ -77,6 +77,7 @@ class Product extends Model
         'year',
         'set_name',
         'product_type',
+        'sold_as',
         'configuration',
         'manufacturer',
         // General
@@ -208,6 +209,34 @@ class Product extends Model
      * "sells for exactly what it cost" are different facts, and a column that
      * shows $0.00 for both hides the one worth acting on.
      */
+    /**
+     * How this product is sold, as the cost sheet says it.
+     *
+     * The three the sheet uses, and nothing stops a fourth arriving — the
+     * column is free text so an unexpected value from a vendor's sheet is
+     * kept rather than dropped on the floor. These are what the pickers offer.
+     *
+     * @return array<string, string>
+     */
+    public static function soldAsOptions(): array
+    {
+        return [
+            'Auction' => 'Auction',
+            'BIN'     => 'Buy It Now',
+            'Both'    => 'Both',
+        ];
+    }
+
+    /** The label for whatever is stored, including a value we have never seen. */
+    public function soldAsLabel(): ?string
+    {
+        if (blank($this->sold_as)) {
+            return null;
+        }
+
+        return static::soldAsOptions()[$this->sold_as] ?? $this->sold_as;
+    }
+
     public function marginPotential(): ?float
     {
         $cost = $this->costBasis();

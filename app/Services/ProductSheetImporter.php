@@ -293,16 +293,11 @@ class ProductSheetImporter
             $attributes['sale_price'] = $row['sale_price'];
         }
 
-        // Auction / BIN / Both has no column of its own yet, and dropping it
-        // on import would lose the only record of it. A note keeps it against
-        // the product until it earns a field.
-        if (filled($row['sold_as'])) {
-            $note     = 'Sold as: ' . $row['sold_as'];
-            $existing = (string) ($product?->notes ?? '');
-
-            if (! str_contains($existing, $note)) {
-                $attributes['notes'] = trim($existing === '' ? $note : $existing . "\n" . $note);
-            }
+        // Auction / BIN / Both used to be appended to the notes field because
+        // there was nowhere else for it. It has its own column now, so it is
+        // filterable and reportable rather than a sentence in a text box.
+        if (filled($row['sold_as']) && ($product === null || blank($product->sold_as) || $overwrite)) {
+            $attributes['sold_as'] = $this->soldAs($row['sold_as']);
         }
 
         return $attributes;
@@ -322,6 +317,7 @@ class ProductSheetImporter
             'product_type' => 'Type',
             'unit_cost'    => 'Unit cost',
             'sale_price'   => 'Sale target',
+            'sold_as'      => 'Sold as',
             'notes'        => 'Note',
         ];
 
@@ -347,6 +343,24 @@ class ProductSheetImporter
         }
 
         return $changes;
+    }
+
+    /**
+     * Tidy the sheet's spelling of Auction / BIN / Both without rejecting a
+     * value nobody here has seen. A vendor writing "buy it now" should land on
+     * the same value as one writing "BIN"; a vendor writing something else
+     * entirely is kept as typed rather than dropped.
+     */
+    private function soldAs(string $value): string
+    {
+        $normalised = Str::of($value)->lower()->replace(['-', '_', '/'], ' ')->squish()->toString();
+
+        return match (true) {
+            in_array($normalised, ['auction', 'auctions', 'auction only'], true)       => 'Auction',
+            in_array($normalised, ['bin', 'b i n', 'buy it now', 'buynow'], true)      => 'BIN',
+            in_array($normalised, ['both', 'either', 'auction bin', 'bin auction'], true) => 'Both',
+            default                                                                    => trim($value),
+        };
     }
 
     private function text(mixed $value): ?string

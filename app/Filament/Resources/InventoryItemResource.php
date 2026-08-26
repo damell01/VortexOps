@@ -455,6 +455,22 @@ class InventoryItemResource extends Resource
                         ->searchable()
                         ->nullable()
                         ->placeholder('No preferred vendor'),
+                    // Free text underneath, so a value a vendor's sheet used
+                    // that nobody here has seen still appears in the picker
+                    // rather than being silently unselectable.
+                    Select::make('sold_as')
+                        ->label('Sold as')
+                        ->options(fn () => InventoryItem::soldAsOptions() + Cache::remember(
+                            'filter:item_sold_as',
+                            300,
+                            fn () => InventoryItem::whereNotNull('sold_as')
+                                ->distinct()->orderBy('sold_as')->pluck('sold_as', 'sold_as')->toArray(),
+                        ))
+                        ->getOptionLabelUsing(fn ($value) => $value)
+                        ->native(false)
+                        ->nullable()
+                        ->placeholder('Not set')
+                        ->helperText('How this normally goes out on stream — auction, buy it now, or both.'),
                 ]),
             ]);
     }
@@ -824,6 +840,13 @@ class InventoryItemResource extends Resource
                             ? number_format((int) ($record->stock_sum_quantity ?? 0)) . ' units • $' . number_format(((int) ($record->stock_sum_quantity ?? 0)) * ((float) ($record->average_cost ?? 0)), 2)
                             : '(' . number_format((float) $record->total_units_received, 0) . ' units received)'
                     ),
+                TextColumn::make('sold_as')
+                    ->label('Sold as')
+                    ->badge()
+                    ->color('gray')
+                    ->placeholder('—')
+                    ->sortable()
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('sale_price')
                     ->label('Sale Target')
                     ->money('USD')
@@ -976,6 +999,12 @@ class InventoryItemResource extends Resource
                             ->whereIn('inventory_location_id', $own)
                             ->where('quantity', '>', 0));
                     }),
+                SelectFilter::make('sold_as')
+                    ->label('Sold as')
+                    // Options come from the data as well as the known three,
+                    // so a value someone typed by hand is still filterable.
+                    ->options(fn () => InventoryItem::soldAsOptions() + InventoryItem::whereNotNull('sold_as')
+                        ->distinct()->orderBy('sold_as')->pluck('sold_as', 'sold_as')->toArray()),
                 // An item with no target cannot be judged at all — it is
                 // absent from every margin figure rather than showing badly
                 // in one, which is exactly how it stays missing.

@@ -21,6 +21,13 @@ function findChromium(){
   for(const p of ['/usr/bin/chromium','/usr/bin/chromium-browser','/usr/bin/google-chrome'])if(fs.existsSync(p))return p;
 }
 function isChallenge(text,title=''){ return /performing security verification|just a moment|verifying you are human|checking your browser|cf-chl|cf_chl|challenge-platform|ray id/i.test(`${title}\n${text}`); }
+
+// Exit codes, matching scripts/whatnot-scraper.cjs so callers can read either
+// script the same way. Everything here used to exit 1, so "the session lapsed"
+// and "the selectors moved" were indistinguishable — and the advice printed by
+// the PHP commands, which keys off these codes, could never be right.
+const EXIT = {GENERAL:1, SELECTORS:2, CHALLENGE:3, RATE_LIMITED:4};
+function fail(code,message){ const e=new Error(message); e.exitCode=code; return e; }
 async function bodyText(page){ return page.locator('body').innerText().catch(()=> ''); }
 async function state(page){ const text=await bodyText(page),title=await page.title().catch(()=> ''); return {url:page.url(),title,challenged:isChallenge(text,title)}; }
 async function shot(page,name){ if(DEBUG) await page.screenshot({path:`/tmp/whatnot-prod-${name}.png`,fullPage:false}).catch(()=>{}); }
@@ -179,16 +186,91 @@ function clearStaleProfileLock(dir){
   return true;
 }
 
+// Which saved session to bootstrap from, following whatnot-scraper.cjs:
+// whatnot-cookies.json is what a human imported, whatnot-live-cookies.json is
+// written from a live context on every successful cookie test and is usually
+// fresher, because Whatnot rotates the session as it is used.
+function resolveCookiesFile(){
+  if(process.env.WHATNOT_COOKIES_FILE)return process.env.WHATNOT_COOKIES_FILE;
+  const bootstrap=path.join(__dirname,'../storage/whatnot-cookies.json');
+  const live=path.join(__dirname,'../storage/whatnot-live-cookies.json');
+  const mtime=f=>{try{return fs.statSync(f).mtimeMs;}catch{return 0;}};
+  return mtime(live)>mtime(bootstrap)?live:bootstrap;
+}
+
+/**
+ * Put a saved session into the profile when the profile has none of its own.
+ *
+ * This script never loaded cookies at all — it trusted the persistent profile
+ * entirely. That works right up until the profile is new or gets rebuilt, at
+ * which point there is no session, Whatnot serves a signed-out page, and the
+ * only symptom is a Cloudflare challenge that looks like an IP problem.
+ *
+ * An established profile is left alone on purpose: its cookies are the ones
+ * Whatnot has been refreshing, and overwriting them with an older export is how
+ * a working session gets downgraded to a stale one.
+ */
+async function bootstrapCookies(context){
+  const file=resolveCookiesFile();
+  if(!fs.existsSync(file))return;
+
+  const existing=await context.cookies('https://www.whatnot.com').catch(()=>[]);
+  if(existing.length>0){
+    if(DEBUG)console.error(`[whatnot-prod] profile already has ${existing.length} whatnot.com cookies; leaving them alone`);
+    return;
+  }
+
+  try{
+    const sameSite={no_restriction:'None',strict:'Strict',lax:'Lax'};
+    const cookies=JSON.parse(fs.readFileSync(file,'utf8'))
+      .filter(c=>typeof c.name==='string'&&typeof c.value==='string')
+      .map(c=>({name:c.name,value:c.value,domain:c.domain||'.whatnot.com',path:c.path||'/',expires:c.expirationDate??c.expires??-1,httpOnly:Boolean(c.httpOnly),secure:Boolean(c.secure),sameSite:sameSite[(c.sameSite||'').toLowerCase()]||'Lax'}));
+
+    if(cookies.length===0)return;
+
+    await context.addCookies(cookies);
+
+    // cf_clearance proves a particular browser on a particular IP passed a
+    // challenge, and Cloudflare binds it to both. One that arrived in an
+    // imported file was earned somewhere else, and presenting a token that does
+    // not match the connection is worse than presenting none — it is what a
+    // replayed token looks like. This browser earns its own.
+    for(const edge of ['cf_clearance','__cf_bm','__cfruid'])await context.clearCookies({name:edge}).catch(()=>{});
+
+    if(DEBUG)console.error(`[whatnot-prod] bootstrapped ${cookies.length} session cookies from ${file} (profile had none)`);
+  }catch(e){
+    if(DEBUG)console.error(`[whatnot-prod] cookie file found but failed to load: ${e.message}`);
+  }
+}
+
 (async()=>{
   const userDataDir=process.env.WHATNOT_USER_DATA_DIR||path.join(__dirname,'../storage/whatnot-browser-profile'); fs.mkdirSync(userDataDir,{recursive:true});
   clearStaleProfileLock(userDataDir);
-  const context=await chromium.launchPersistentContext(userDataDir,{headless:process.env.WHATNOT_HEADLESS!=='false',executablePath:findChromium(),args:['--no-sandbox','--no-zygote','--disable-dev-shm-usage','--disable-crash-reporter','--crash-dumps-dir=/tmp','--disable-gpu'],userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',viewport:{width:1280,height:900},locale:'en-US',timezoneId:'America/Chicago',extraHTTPHeaders:{'sec-ch-ua':'"Chromium";v="128", "Google Chrome";v="128", "Not-A.Brand";v="99"','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','Accept-Language':'en-US,en;q=0.9'}});
+
+  // Cloudflare judges this server's datacenter address far harder than a
+  // residential one, and no amount of browser tuning changes an IP. The PHP
+  // caller has always put WHATNOT_PROXY in this process's environment and this
+  // script has always ignored it, so every run here went out on the bare server
+  // address while whatnot-scraper.cjs — the one that works — went through the
+  // proxy. That is the difference between a dashboard and a challenge.
+  const proxy=process.env.WHATNOT_PROXY||'';
+  if(proxy&&DEBUG)console.error(`[whatnot-prod] routing browser traffic through proxy: ${proxy}`);
+
+  const context=await chromium.launchPersistentContext(userDataDir,{headless:process.env.WHATNOT_HEADLESS!=='false',executablePath:findChromium(),args:['--no-sandbox','--no-zygote','--disable-dev-shm-usage','--disable-crash-reporter','--crash-dumps-dir=/tmp','--disable-gpu',...(proxy?[`--proxy-server=${proxy}`]:[])],userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',viewport:{width:1280,height:900},locale:'en-US',timezoneId:'America/Chicago',extraHTTPHeaders:{'sec-ch-ua':'"Chromium";v="128", "Google Chrome";v="128", "Not-A.Brand";v="99"','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','Accept-Language':'en-US,en;q=0.9'}});
   await context.addInitScript(()=>{try{Object.defineProperty(navigator,'webdriver',{get:()=>undefined});}catch{}try{Object.defineProperty(navigator,'languages',{get:()=>['en-US','en']});}catch{}try{Object.defineProperty(navigator,'platform',{get:()=> 'Win32'});}catch{}try{if(!window.chrome)window.chrome={runtime:{}};}catch{}});
   const lsFile=path.join(__dirname,'../storage/whatnot-localstorage.json');if(fs.existsSync(lsFile)){try{const saved=JSON.parse(fs.readFileSync(lsFile,'utf8'));await context.addInitScript(entries=>{if(/whatnot\.com$/i.test(location.hostname)){try{for(const[k,v]of Object.entries(entries||{}))localStorage.setItem(k,v);}catch{}}},saved);}catch{}}
+  await bootstrapCookies(context);
   const page=await context.newPage(); const out={current:[],upcoming:[],past:[],enriched:[],stages:{}};
   try{
-    const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});await page.waitForTimeout(2200);out.stages.home={status:resp?resp.status():null,...await state(page)};if(out.stages.home.challenged)throw new Error('Seller Hub home challenged');
-    if(!await clickShows(page))throw new Error('Could not reach Shows'); out.stages.shows=await state(page);
+    // Land on the public site before the Seller Hub, the way whatnot-scraper
+    // does. Going straight to /dashboard/home means the first request of the
+    // session is an authenticated one, which is the request Cloudflare is most
+    // interested in.
+    await page.goto('https://www.whatnot.com/',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);
+    await page.waitForTimeout(1500);
+
+    const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});await page.waitForTimeout(2200);out.stages.home={status:resp?resp.status():null,...await state(page)};if(out.stages.home.challenged)throw fail(EXIT.CHALLENGE,'Seller Hub home challenged — Cloudflare served a check instead of the dashboard'+(proxy?'':'. WHATNOT_PROXY is not set, so this went out on the bare server address'));
+    if(!await clickShows(page))throw fail(EXIT.SELECTORS,'Could not reach Shows'); out.stages.shows=await state(page);
 
     // A backfill asks for named shows that may sit hundreds of rows back. The
     // flat 30-pass cap reached only the newest few hundred and dropped the rest
@@ -203,13 +285,13 @@ function clearStaleProfileLock(dir){
       {name:'past',key:'past',passes:pastPasses,wanted:wantedPast},
     ]){
       const selected=await selectTab(page,spec.name);
-      if(!selected.ok)throw new Error(`Could not select ${spec.name} tab; states=${JSON.stringify(selected.states)}`);
+      if(!selected.ok)throw fail(EXIT.SELECTORS,`Could not select ${spec.name} tab; states=${JSON.stringify(selected.states)}`);
       if(selected.missing){out[spec.key]=[];if(DEBUG)console.error(`[whatnot-prod] ${spec.key}: tab absent, treating as 0 shows; states=${JSON.stringify(selected.states)}`);continue;}
       out[spec.key]=await loadTabAll(page,spec.key,spec.passes,spec.wanted);
       if(DEBUG)console.error(`[whatnot-prod] ${spec.key}: ${out[spec.key].length} unique show rows; states=${JSON.stringify(await tabStates(page))}`);
     }
     await shot(page,'past');
-    if(out.past.length===0)throw new Error('Past tab produced no show rows');
+    if(out.past.length===0)throw fail(EXIT.SELECTORS,'Past tab produced no show rows');
 
     let targets=[];
     if(ENRICH_IDS.length){
@@ -256,4 +338,4 @@ function clearStaleProfileLock(dir){
     }
     process.stdout.write(JSON.stringify(out)+'\n');
   } finally {await context.close().catch(()=>{});}
-})().catch(err=>{console.error(err?.stack||String(err));process.exit(1);});
+})().catch(err=>{console.error(err?.stack||String(err));process.exit(err?.exitCode||EXIT.GENERAL);});

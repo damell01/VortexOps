@@ -24,6 +24,9 @@ class RefreshRecentWhatnotShows extends Command
 
     private bool $skippedForLock = false;
 
+    /** The scraper's own exit code, so callers can tell a lapsed session from moved markup. */
+    private ?int $scraperExitCode = null;
+
     /**
      * The one channel a refresh run works on.
      *
@@ -73,7 +76,7 @@ class RefreshRecentWhatnotShows extends Command
         }
 
         if ($data === null) {
-            return self::FAILURE;
+            return $this->scraperExitCode ?: self::FAILURE;
         }
 
         $counts = [
@@ -296,6 +299,12 @@ class RefreshRecentWhatnotShows extends Command
         if (! $process->isSuccessful()) {
             $this->error('Recent Whatnot refresh failed with exit code ' . $process->getExitCode() . '.');
             if (trim($process->getErrorOutput()) !== '') $this->line(trim($process->getErrorOutput()));
+
+            // Carry the scraper's own code out to our caller. Flattening every
+            // failure to 1 is why "the session lapsed" and "the markup moved"
+            // produced identical advice, none of which fitted either.
+            $this->scraperExitCode = (int) $process->getExitCode();
+
             return null;
         }
 

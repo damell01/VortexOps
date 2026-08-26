@@ -110,9 +110,7 @@ class BackfillWhatnotHistory extends Command
             if ($exit !== self::SUCCESS) {
                 $this->newLine();
                 $this->error('The scraper stopped. Nothing further was attempted.');
-                $this->line('  <fg=gray>The scraper exit code is in the line above. 3 means the Whatnot session lapsed —</>');
-                $this->line('  <fg=gray>run php artisan whatnot:login. 4 means rate limited: leave it an hour, because</>');
-                $this->line('  <fg=gray>running it more often makes it worse.</>');
+                $this->explainExit($exit);
 
                 return self::FAILURE;
             }
@@ -204,8 +202,7 @@ class BackfillWhatnotHistory extends Command
 
         if ($exit !== self::SUCCESS) {
             $this->error('The scraper did not complete. Nothing was verified.');
-            $this->line('  <fg=gray>If it reported a challenge or a signed-out page, the session has lapsed:</>');
-            $this->line('  <fg=gray>php artisan whatnot:login --test, then php artisan whatnot:login.</>');
+            $this->explainExit($exit);
 
             return self::FAILURE;
         }
@@ -236,6 +233,46 @@ class BackfillWhatnotHistory extends Command
         $this->line('  <fg=gray>shows, the page markup has moved — check the enrich lines in the output above.</>');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Say what the scraper's exit code means and what to do about it.
+     *
+     * These codes only started arriving once the sync scraper stopped exiting 1
+     * for everything, so this advice used to be printed at a code that could
+     * never occur — a lapsed session and moved markup produced the same three
+     * lines, neither of which fitted.
+     */
+    private function explainExit(int $exit): void
+    {
+        match ($exit) {
+            3 => $this->explain('The Whatnot session is not being accepted.', [
+                'Cloudflare served a challenge instead of the dashboard. Check the session with',
+                'php artisan whatnot:login --test, and re-import cookies with php artisan whatnot:login.',
+                'If the session is good, this server\'s address is being judged: set WHATNOT_PROXY to a',
+                'residential SOCKS proxy, because no browser tuning changes an IP.',
+            ]),
+            4 => $this->explain('Rate limited.', [
+                'Leave it an hour. Running it more often makes it worse.',
+            ]),
+            2 => $this->explain('The Seller Hub markup has moved.', [
+                'The scraper reached Whatnot but could not find what it expected. Re-run with --debug',
+                'and update the selectors in scripts/whatnot-production-sync.cjs.',
+            ]),
+            default => $this->explain("The scraper exited with code {$exit}.", [
+                'Re-run with --debug for the stage-by-stage output.',
+            ]),
+        };
+    }
+
+    /** @param  list<string>  $lines */
+    private function explain(string $headline, array $lines): void
+    {
+        $this->line('  <fg=yellow>' . $headline . '</>');
+
+        foreach ($lines as $line) {
+            $this->line('  <fg=gray>' . $line . '</>');
+        }
     }
 
     /** Past shows on this channel with no analytics or no shipment sync on record. */

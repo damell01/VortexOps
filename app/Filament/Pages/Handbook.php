@@ -190,12 +190,61 @@ class Handbook extends Page
         return implode(' ', $parts);
     }
 
-    public function getSearchResultCountProperty(): int
+    /**
+     * The back-of-the-book pages, filtered by the same search.
+     *
+     * Left out of the search at first, which meant someone typing the symptom
+     * they were looking at — "a scan finds nothing" — got the steps that
+     * happen to mention scanning and not the troubleshooting entry written for
+     * exactly that. A search that skips the page written to answer the
+     * question is worse than no search.
+     *
+     * @return array<int, array{0: string, 1: string}>
+     */
+    public function matchedTroubleshooting(): array
+    {
+        return $this->matchingRows($this->troubleshooting());
+    }
+
+    /** @return array<int, array{0: string, 1: string}> */
+    public function matchedScreens(): array
+    {
+        return $this->matchingRows($this->screenIndex());
+    }
+
+    /**
+     * @param  array<int, array{0: string, 1: string}>  $rows
+     * @return array<int, array{0: string, 1: string}>
+     */
+    private function matchingRows(array $rows): array
+    {
+        $needle = trim(mb_strtolower($this->search));
+
+        if ($needle === '') {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $rows,
+            fn (array $row) => str_contains(mb_strtolower($row[0] . ' ' . $row[1]), $needle),
+        ));
+    }
+
+    /** Matching walkthroughs only — the number the results heading counts. */
+    public function getSearchStepCountProperty(): int
     {
         return array_sum(array_map(
             fn ($entry) => count($entry['section']['steps']),
             $this->visibleSections(),
         ));
+    }
+
+    /** Everything a search found, across all three kinds of page. */
+    public function getSearchResultCountProperty(): int
+    {
+        return $this->searchStepCount
+            + count($this->matchedTroubleshooting())
+            + count($this->matchedScreens());
     }
 
     public function getTotalStepsProperty(): int

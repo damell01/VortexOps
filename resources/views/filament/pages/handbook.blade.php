@@ -157,9 +157,24 @@
                         </p>
                     </x-guide.panel>
                 @else
+                    @php
+                        // Named so the summary can say what kind of thing was
+                        // found, rather than a bare number that could mean any
+                        // of three different pages.
+                        $symptoms = $this->matchedTroubleshooting();
+                        $screens  = $this->matchedScreens();
+
+                        $found = array_filter([
+                            $this->searchStepCount ? $this->searchStepCount . ' ' . Str::plural('walkthrough', $this->searchStepCount) : null,
+                            count($symptoms) ? count($symptoms) . ' ' . Str::plural('symptom', count($symptoms)) : null,
+                            count($screens) ? count($screens) . ' ' . Str::plural('screen', count($screens)) : null,
+                        ]);
+                    @endphp
+
                     <p class="text-sm text-gray-500 dark:text-gray-400">
                         <b class="text-gray-900 dark:text-white">{{ $this->searchResultCount }}</b>
-                        {{ Str::plural('step', $this->searchResultCount) }} of {{ $this->totalSteps }} mention “{{ $this->search }}”.
+                        {{ Str::plural('result', $this->searchResultCount) }} for “{{ $this->search }}”
+                        — {{ implode(', ', $found) }}.
                     </p>
 
                     @foreach ($open as $result)
@@ -174,6 +189,42 @@
                             @endforeach
                         </div>
                     @endforeach
+
+                    @if ($symptoms !== [])
+                        <div class="space-y-3">
+                            <button type="button" wire:click="openSection({{ $troubleshooting }})"
+                                    class="vx-plain text-xs font-bold uppercase tracking-[.12em] text-primary-600 hover:underline dark:text-primary-400">
+                                When something looks wrong
+                            </button>
+
+                            <div class="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:divide-gray-800 dark:border-gray-700 dark:bg-gray-900">
+                                @foreach ($symptoms as [$question, $answer])
+                                    <div class="grid gap-1 p-4 sm:grid-cols-[17rem_1fr] sm:gap-4">
+                                        <div class="text-sm font-semibold text-gray-900 dark:text-white">{{ $question }}</div>
+                                        <div class="text-sm leading-6 text-gray-600 dark:text-gray-300">{{ $answer }}</div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    @if ($screens !== [])
+                        <div class="space-y-3">
+                            <button type="button" wire:click="openSection({{ $screenIndex }})"
+                                    class="vx-plain text-xs font-bold uppercase tracking-[.12em] text-primary-600 hover:underline dark:text-primary-400">
+                                Every screen
+                            </button>
+
+                            <div class="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:divide-gray-800 dark:border-gray-700 dark:bg-gray-900">
+                                @foreach ($screens as [$screen, $purpose])
+                                    <div class="grid gap-1 p-4 sm:grid-cols-[17rem_1fr] sm:gap-4">
+                                        <div class="text-sm font-semibold text-gray-900 dark:text-white">{{ $screen }}</div>
+                                        <div class="text-sm leading-6 text-gray-600 dark:text-gray-300">{{ $purpose }}</div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 @endif
 
             @elseif ($this->section === $troubleshooting)

@@ -83,6 +83,41 @@ class HandbookPageTest extends TestCase
         $page->assertSee('Nothing matches');
     }
 
+    public function test_searching_a_symptom_finds_the_page_written_to_answer_it(): void
+    {
+        // The whole reason someone types into a handbook is that something is
+        // wrong in front of them. A search that skips the troubleshooting page
+        // is a search that misses the one page written for that moment.
+        $page = $this->page()->set('search', 'scan finds nothing');
+
+        $this->assertNotEmpty($page->instance()->matchedTroubleshooting());
+        $page->assertSee('That code is on no item', false);
+    }
+
+    public function test_searching_a_screen_name_finds_it_in_the_index(): void
+    {
+        $page = $this->page()->set('search', 'barcode printer');
+
+        $this->assertNotEmpty($page->instance()->matchedScreens());
+        $page->assertSee('Every screen');
+    }
+
+    public function test_the_result_count_covers_all_three_kinds_of_page(): void
+    {
+        $page     = $this->page()->set('search', 'barcode');
+        $instance = $page->instance();
+
+        $this->assertSame(
+            $instance->searchStepCount
+                + count($instance->matchedTroubleshooting())
+                + count($instance->matchedScreens()),
+            $instance->searchResultCount,
+        );
+
+        // And the three are genuinely different numbers, not one counted thrice.
+        $this->assertGreaterThan($instance->searchStepCount, $instance->searchResultCount);
+    }
+
     public function test_opening_a_section_clears_a_search(): void
     {
         // Otherwise the section you just clicked renders filtered down to the

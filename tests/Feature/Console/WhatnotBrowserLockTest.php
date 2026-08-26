@@ -3,6 +3,7 @@
 namespace Tests\Feature\Console;
 
 use App\Services\WhatnotScraper;
+use App\Support\WhatnotBrowserLock;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
@@ -27,8 +28,7 @@ class WhatnotBrowserLockTest extends TestCase
 
     protected function tearDown(): void
     {
-        Cache::lock('whatnot:browser')->forceRelease();
-        Cache::forget('whatnot:browser:holder_pid');
+        WhatnotBrowserLock::forceRelease();
 
         parent::tearDown();
     }
@@ -46,16 +46,38 @@ class WhatnotBrowserLockTest extends TestCase
         $this->assertSame('second', $this->scraper()->run(fn () => 'second'));
     }
 
-    public function test_it_records_and_clears_the_holder_pid(): void
+    public function test_the_holder_is_readable_while_the_lock_is_held_and_gone_after(): void
     {
+        // The holder used to live in a second cache key written just after the
+        // lock was taken — two facts that could disagree, and did: any job whose
+        // finally ran without ever having held the lock deleted the key
+        // belonging to the job that did, leaving it "held by nobody".
+        //
+        // It is now the lock's own owner token, so it cannot drift from the lock
+        // and nothing can erase it without releasing the lock.
         $seen = null;
 
         $this->scraper()->run(function () use (&$seen) {
-            $seen = Cache::get('whatnot:browser:holder_pid');
+            $seen = WhatnotBrowserLock::holder();
         });
 
-        $this->assertSame(getmypid(), $seen);
-        $this->assertNull(Cache::get('whatnot:browser:holder_pid'));
+        $this->assertSame(getmypid(), $seen['pid'] ?? null);
+        $this->assertSame(gethostname(), $seen['host'] ?? null);
+        $this->assertTrue($seen['alive'] ?? false);
+
+        $this->assertNull(WhatnotBrowserLock::holder());
+    }
+
+    public function test_a_lock_held_by_someone_else_still_names_its_holder(): void
+    {
+        // "Held but no holder recorded" was the symptom that sent people to
+        // whatnot:unlock over and over. There is no such state now: whoever
+        // holds it is written into the lock itself.
+        WhatnotBrowserLock::make(60)->get();
+
+        $holder = WhatnotBrowserLock::holder();
+
+        $this->assertSame(getmypid(), $holder['pid'] ?? null);
     }
 
     public function test_it_releases_the_lock_even_when_the_callback_throws(): void

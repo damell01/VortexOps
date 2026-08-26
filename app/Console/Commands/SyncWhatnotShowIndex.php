@@ -323,7 +323,7 @@ class SyncWhatnotShowIndex extends Command
 
         $process = new Process($command, base_path(), $env);
         $process->setTimeout(900);
-        $lock = Cache::lock('whatnot:browser', 1800);
+        $lock = \App\Support\WhatnotBrowserLock::make(1800);
 
         // Only the process that actually took the lock may clean up after it.
         // This runs every ten minutes, and its finally block cleared the holder
@@ -342,7 +342,6 @@ class SyncWhatnotShowIndex extends Command
             }
 
             $held = true;
-            Cache::put('whatnot:browser:holder_pid', getmypid(), 1800);
             $process->run(function (string $type, string $buffer) use ($debug): void {
                 if ($debug && $type === Process::ERR) $this->output->write($buffer);
             });
@@ -357,7 +356,6 @@ class SyncWhatnotShowIndex extends Command
             return null;
         } finally {
             if ($held) {
-                Cache::forget('whatnot:browser:holder_pid');
                 try { $lock->release(); } catch (\Throwable) {}
             }
         }

@@ -13,7 +13,8 @@ class WhatnotUnlock extends Command
 
     public function handle(): int
     {
-        $pid = Cache::get('whatnot:browser:holder_pid');
+        $holder = \App\Support\WhatnotBrowserLock::holder();
+        $pid    = $holder['pid'] ?? null;
 
         if ($pid && ! $this->option('force') && $this->pidIsAlive((int) $pid)) {
             $command = $this->commandLine((int) $pid);
@@ -51,8 +52,7 @@ class WhatnotUnlock extends Command
 
     private function release(mixed $pid): int
     {
-        Cache::lock('whatnot:browser')->forceRelease();
-        Cache::forget('whatnot:browser:holder_pid');
+        \App\Support\WhatnotBrowserLock::forceRelease();
 
         $this->info($pid
             ? "Lock released — holder PID {$pid} is not a running Whatnot job."
@@ -174,23 +174,7 @@ class WhatnotUnlock extends Command
 
     private function pidIsAlive(int $pid): bool
     {
-        // /proc/<pid> existence works across users (readable regardless of who
-        // owns the process, unlike posix_kill()'s permission-gated result) and
-        // this app only ever runs on Linux, so no portability fallback needed.
-        if (! is_dir("/proc/{$pid}")) {
-            return false;
-        }
-
-        // A process that has exited but not yet been reaped keeps its /proc
-        // entry, so existence alone counts a dead browser as a live one and
-        // leaves the lock refused for ever. Zombies hold no profile.
-        $status = @file_get_contents("/proc/{$pid}/status");
-
-        if ($status === false) {
-            return true;
-        }
-
-        return preg_match('/^State:\s*Z/m', $status) !== 1;
+        return \App\Support\WhatnotBrowserLock::pidIsAlive($pid);
     }
 
     /** The process's argv, space-separated, or null if it cannot be read. */

@@ -1057,7 +1057,7 @@ class WhatnotScraper
     {
         $waitSeconds ??= (int) config('vortex.whatnot.browser_lock_wait', 1200);
 
-        $lock = Cache::lock('whatnot:browser', 13800);
+        $lock = \App\Support\WhatnotBrowserLock::make();
 
         // Take it without blocking first, purely so we can say something when we
         // can't. block() is silent, so a run queued behind a lock left held by a
@@ -1090,12 +1090,10 @@ class WhatnotScraper
         // so the lock would otherwise sit "held" for its full TTL even though
         // nothing is actually running. Track the holder's PID so whatnot:unlock
         // can tell a genuinely stuck lock apart from a still-running one.
-        Cache::put('whatnot:browser:holder_pid', getmypid(), 13800);
 
         try {
             return $fn();
         } finally {
-            Cache::forget('whatnot:browser:holder_pid');
             $lock->release();
         }
     }
@@ -1109,15 +1107,16 @@ class WhatnotScraper
      */
     public static function announceLockWait(): void
     {
-        $holder = Cache::get('whatnot:browser:holder_pid');
-        $alive  = $holder && is_dir("/proc/{$holder}");
+        $holder = \App\Support\WhatnotBrowserLock::holder();
 
         $message = match (true) {
-            $alive  => "Waiting for the shared browser lock — PID {$holder} is still scraping. This one will start when that finishes.",
-            (bool) $holder => "The browser lock is held by PID {$holder}, which is no longer running — it is stale, and waiting will not clear it. "
+            $holder === null => 'The browser lock looks free but could not be taken — another job almost certainly '
+                . 'took it in the same instant. This one will start when that finishes.',
+            $holder['host'] !== gethostname() => "The browser lock is held by PID {$holder['pid']} on {$holder['host']}, "
+                . 'which is not this machine. Waiting is pointless here.',
+            $holder['alive'] => "Waiting for the shared browser lock — PID {$holder['pid']} is still scraping. This one will start when that finishes.",
+            default => "The browser lock is held by PID {$holder['pid']}, which is no longer running — it is stale, and waiting will not clear it. "
                 . 'Stop this and run `php artisan whatnot:unlock`.',
-            default => 'The browser lock is held but no holder PID was recorded, which is what an interrupted run leaves behind. '
-                . 'Waiting will not clear it — stop this and run `php artisan whatnot:unlock`.',
         };
 
         Log::channel('stack')->warning('WhatnotScraper ' . $message);

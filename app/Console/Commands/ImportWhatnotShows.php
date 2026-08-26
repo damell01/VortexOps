@@ -328,17 +328,19 @@ class ImportWhatnotShows extends Command
 
     private function cleanupStaleLock(): void
     {
-        $pid = \Illuminate\Support\Facades\Cache::get('whatnot:browser:holder_pid');
+        $holder = \App\Support\WhatnotBrowserLock::holder();
 
-        if ($pid && ! $this->pidIsAlive((int) $pid)) {
-            \Illuminate\Support\Facades\Cache::lock('whatnot:browser')->forceRelease();
-            \Illuminate\Support\Facades\Cache::forget('whatnot:browser:holder_pid');
-            $this->info("🔓 Cleaned up stale lock (PID {$pid} not alive)");
+        // Only clear a lock this machine's own dead process left behind. A
+        // holder on another host is not ours to judge, and a live one is doing
+        // real work.
+        if ($holder && $holder['host'] === gethostname() && ! $holder['alive']) {
+            \App\Support\WhatnotBrowserLock::forceRelease();
+            $this->info("🔓 Cleaned up stale lock (PID {$holder['pid']} not alive)");
         }
     }
 
     private function pidIsAlive(int $pid): bool
     {
-        return is_dir("/proc/{$pid}");
+        return \App\Support\WhatnotBrowserLock::pidIsAlive($pid);
     }
 }

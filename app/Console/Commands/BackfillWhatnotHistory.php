@@ -54,6 +54,17 @@ class BackfillWhatnotHistory extends Command
             $outstanding,
         ));
 
+        // One number cannot be acted on: missing figures and missing shipments
+        // need different things, and a catalogue whose figures are all in but
+        // whose shipments never were looks identical to one with nothing at all.
+        if ($outstanding > 0) {
+            $this->line(sprintf(
+                '  <fg=gray>%d missing figures · %d missing shipments</>',
+                (clone $this->pastShows($channel))->missingAnalytics()->count(),
+                (clone $this->pastShows($channel))->missingShipments()->count(),
+            ));
+        }
+
         $this->reportOtherChannels($channel);
 
         if ($outstanding === 0) {

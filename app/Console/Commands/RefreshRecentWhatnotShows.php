@@ -19,15 +19,27 @@ class RefreshRecentWhatnotShows extends Command
 
     protected $description = 'Refresh analytics and fully paginated shipments for recent completed Whatnot shows';
 
-    public function handle(WhatnotScraper $scraper): int
+    /**
+     * The one channel a refresh run works on.
+     *
+     * Public because whatnot:backfill-history has to count what is outstanding
+     * on the same channel this command will actually visit — counting across
+     * all of them would report a backlog that no number of runs can clear.
+     */
+    public static function targetChannel(): ?WhatnotChannel
     {
-        $channel = WhatnotChannel::query()
+        return WhatnotChannel::query()
             ->where('status', 'active')
             ->where('include_in_import', true)
             ->orderBy('id')
             ->first()
             ?? WhatnotChannel::query()->where('status', 'active')->orderBy('id')->first()
             ?? WhatnotChannel::query()->orderBy('id')->first();
+    }
+
+    public function handle(WhatnotScraper $scraper): int
+    {
+        $channel = self::targetChannel();
 
         if (! $channel) {
             $this->error('No Whatnot channel exists in VortexOps.');

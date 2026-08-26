@@ -7,7 +7,10 @@
     reference, warning, picture — and in the same order, so someone who has
     read the PDF is not learning a second document.
 --}}
-<article class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-gray-600">
+{{-- The anchor the in-section jump list points at. scroll-mt clears the sticky
+     topbar, which would otherwise land the heading underneath it. --}}
+<article @if ($number) id="step-{{ $number }}" data-handbook-step @endif
+         class="scroll-mt-24 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:hover:border-gray-600">
     <div class="flex items-start gap-3 p-4 sm:p-5">
         @if ($number)
             <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-600 text-xs font-bold text-white shadow-sm">
@@ -62,6 +65,17 @@
         // A long form is captured in parts, so a step can carry more than one
         // picture — shown top to bottom, the way you meet the form.
         $shots = array_values(array_filter(array_merge([$step['shot'] ?? null], $step['more'] ?? [])));
+
+        // Every image carries its real size, so the browser reserves the space
+        // before the file arrives. Without it, lazy-loaded screenshots grow the
+        // page as you scroll: the layout shifts under your eyes, and a jump to
+        // step 9 lands short because the destination moved while it travelled.
+        // Memoised per request — a section renders fifteen of these.
+        static $sizes = [];
+
+        foreach ($shots as $shot) {
+            $sizes[$shot] ??= @getimagesize(public_path(\App\Support\InventoryManual::IMAGE_DIR . '/' . $shot)) ?: [null, null];
+        }
     @endphp
 
     @if ($shots !== [])
@@ -71,7 +85,8 @@
                    title="Open the full-size screenshot"
                    class="group block">
                     <img src="{{ $imageBase }}/{{ $shot }}" alt="{{ $step['title'] }}" loading="lazy"
-                         class="w-full rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700">
+                         @if ($sizes[$shot][0]) width="{{ $sizes[$shot][0] }}" height="{{ $sizes[$shot][1] }}" @endif
+                         class="h-auto w-full rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700">
                     <span class="mt-2 flex items-center gap-1 text-[11px] font-medium text-gray-400 group-hover:text-primary-600 dark:group-hover:text-primary-400">
                         <x-heroicon-m-arrows-pointing-out class="h-3 w-3" />
                         @if (count($shots) > 1)

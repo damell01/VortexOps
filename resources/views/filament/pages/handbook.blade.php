@@ -103,7 +103,10 @@
              list above every section is a screen of scrolling before the first
              sentence. The Back button below brings it back. --}}
         <aside class="{{ ($this->section !== null || $searching) ? 'hidden lg:block' : '' }}">
-            <div class="space-y-1 lg:sticky lg:top-4">
+            {{-- Contents plus a fifteen-step jump list is taller than a laptop
+                 screen, and a sticky column that overflows simply hides its
+                 bottom half. It scrolls on its own instead. --}}
+            <div class="space-y-1 lg:sticky lg:top-4 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto lg:pr-1">
                 <div class="px-2 pb-1 text-[11px] font-bold uppercase tracking-[.12em] text-gray-400">Contents</div>
 
                 @foreach ($sections as $i => $section)
@@ -120,6 +123,13 @@
                         </span>
                     </button>
                 @endforeach
+
+                @if ($onSection && $open !== [])
+                    <x-handbook.jump-list
+                        :steps="$open[0]['section']['steps']"
+                        :section-key="$open[0]['index']"
+                        class="mt-3 space-y-0.5 border-t border-gray-200 pt-3 dark:border-gray-700" />
+                @endif
 
                 <div class="mt-2 space-y-1 border-t border-gray-200 pt-3 dark:border-gray-700">
                     <button type="button" wire:click="openSection({{ $troubleshooting }})"
@@ -271,6 +281,16 @@
                     :title="$current['title']"
                     :blurb="$current['blurb']"
                     :count="count($current['steps'])" />
+
+                <details class="rounded-xl border border-gray-200 bg-white shadow-sm lg:hidden dark:border-gray-700 dark:bg-gray-900">
+                    <summary class="cursor-pointer select-none px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-300">
+                        Jump to a step ({{ count($current['steps']) }})
+                    </summary>
+                    <x-handbook.jump-list
+                        :steps="$current['steps']"
+                        :section-key="'m' . $open[0]['index']"
+                        class="space-y-0.5 border-t border-gray-200 p-2 dark:border-gray-700" />
+                </details>
 
                 @foreach ($current['steps'] as $n => $step)
                     <x-handbook.step :step="$step" :number="$n + 1" :image-base="$imageBase" />

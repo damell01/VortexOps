@@ -129,6 +129,34 @@ class HandbookPageTest extends TestCase
             ->assertSet('section', 0);
     }
 
+    public function test_an_open_section_offers_a_jump_to_every_step_in_it(): void
+    {
+        // A fourteen-step section with a picture on each is a long scroll to
+        // reach step eleven, and a longer one to find your place again after
+        // you looked away at the screen it describes.
+        $sections = InventoryManual::sections();
+        $index    = array_search('The catalogue', array_column($sections, 'title'), true);
+
+        $page = $this->page()->call('openSection', $index);
+
+        $page->assertSee('In this section');
+
+        foreach ($sections[$index]['steps'] as $n => $step) {
+            // The anchor, and the step it lands on.
+            $page->assertSee('#step-' . ($n + 1), false);
+            $page->assertSee('id="step-' . ($n + 1) . '"', false);
+        }
+    }
+
+    public function test_the_jump_list_is_not_offered_where_there_is_nothing_to_jump_to(): void
+    {
+        $this->page()->assertDontSee('In this section');
+
+        $this->page()
+            ->call('openSection', Handbook::TROUBLESHOOTING)
+            ->assertDontSee('In this section');
+    }
+
     public function test_the_back_pages_render(): void
     {
         $this->page()

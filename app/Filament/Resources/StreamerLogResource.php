@@ -293,6 +293,9 @@ class StreamerLogResource extends Resource
                         'status' => $state,
                         'label' => StreamerLogEntry::statusLabels()[$state] ?? ucfirst(str_replace('_', ' ', $state)),
                     ])->render())
+                    ->description(fn (StreamerLogEntry $record) => $record->hasPendingRevisionRequest()
+                        ? 'Streamer asked to reopen: ' . ($record->revision_reason ?: 'no reason given')
+                        : null)
                     ->html(),
                 TextColumn::make('next_action')
                     ->label('Next Action')
@@ -353,6 +356,11 @@ class StreamerLogResource extends Resource
                     ->extraCellAttributes(['class' => 'vx-nowrap']),
             ])
             ->filters([
+                // A request buried in a list nobody filters is the same dead
+                // end the streamer was already in, one table further along.
+                \Filament\Tables\Filters\Filter::make('revision_requested')
+                    ->label('Streamer asked to reopen')
+                    ->query(fn (\Illuminate\Database\Eloquent\Builder $query) => $query->whereNotNull('revision_requested_at')),
                 SelectFilter::make('status')
                     ->options(StreamerLogEntry::statusLabels()),
                 SelectFilter::make('streamer_id')
@@ -477,6 +485,11 @@ class StreamerLogResource extends Resource
                             // Reopen it for editing.
                             'submitted_at'            => null,
                             'locked_at'               => null,
+                            // If the streamer asked for this, they have their
+                            // answer — leaving the flag up would keep it in the
+                            // "waiting to be reopened" list after reopening it.
+                            'revision_requested_at'   => null,
+                            'revision_reason'         => null,
                         ]);
 
                         Notification::make()

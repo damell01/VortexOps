@@ -2,7 +2,6 @@
     $summary = $this->summary;
     $lines = $this->lineItems;
     $whatnot = $this->whatnotReference;
-    $reconciliationWarnings = $this->reconciliationWarnings;
     $reportBlocked = $this->reportBlockedReason();
 @endphp
 
@@ -270,20 +269,29 @@
                                 </div>
                             </div>
 
-                            @if($reconciliationWarnings)
-                                <div class="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950/20 sm:mt-5 sm:p-4">
-                                    <div class="flex items-start gap-2.5">
-                                        <x-heroicon-m-information-circle class="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
-                                        <div>
-                                            <div class="text-xs font-semibold text-blue-900 dark:text-blue-100 sm:text-sm">Whatnot reference differences</div>
-                                            <div class="mt-1 space-y-1 text-[11px] leading-5 text-blue-700 dark:text-blue-300 sm:text-xs">
-                                                @foreach($reconciliationWarnings as $warning)<p>{{ $warning }}</p>@endforeach
-                                            </div>
-                                            <p class="mt-1.5 text-[10px] leading-4 text-blue-600 dark:text-blue-400">These do not block submission. Transactions and physical inventory units can legitimately differ.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endif
+                            {{-- Asked here, at the end, because this is the last
+                                 moment the person who ran the show is still
+                                 thinking about it — and hours before anybody
+                                 opens the shipment list. --}}
+                            <div class="mt-4 rounded-xl border border-gray-200 p-3 dark:border-gray-700 sm:mt-5 sm:p-4">
+                                <label class="flex items-start gap-2.5">
+                                    <input type="checkbox" wire:model.live="isSlowPack"
+                                           class="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-gray-600">
+                                    <span>
+                                        <span class="block text-xs font-semibold text-gray-900 dark:text-gray-100 sm:text-sm">
+                                            Flag this show as slow to pack
+                                        </span>
+                                        <span class="mt-0.5 block text-[11px] leading-4 text-gray-500 dark:text-gray-400 sm:text-xs">
+                                            Big boxes, awkward shapes, or a lot of small orders. Fulfillment sees this on the
+                                            shipment list and can plan the day around it.
+                                        </span>
+                                    </span>
+                                </label>
+
+                                <textarea wire:model.blur="fulfillmentNotes" rows="2"
+                                          placeholder="Anything fulfillment should know before they start — optional"
+                                          class="mt-3 w-full rounded-lg border-gray-300 text-xs dark:border-gray-600 dark:bg-gray-800 sm:text-sm"></textarea>
+                            </div>
 
                             {{-- Block form deliberately: an inline @ php(...) is collected by the same
                                  raw-block pass as @ php ... @ endphp and pairs with the next block's

@@ -61,7 +61,46 @@ class StreamerAnalytics extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Compare streamers side by side — revenue, margin, hours, and payout, over a date range you pick.';
+        return $this->restrictedToOwnFigures()
+            ? 'Your revenue, margin, hours and payout, over a date range you pick.'
+            : 'Compare streamers side by side — revenue, margin, hours, and payout, over a date range you pick.';
+    }
+
+    /**
+     * Whose numbers this person may see.
+     *
+     * The page can be granted to a streamer on Roles & Permissions, and until
+     * this existed that grant handed them the whole team's revenue, margin and
+     * payout — a comparison screen is only useful with everyone on it, which is
+     * exactly why it must not open by default.
+     *
+     * Admins and the owner see everyone. Anyone else sees themselves, and if
+     * they are not a streamer at all they see nothing rather than everything.
+     */
+    private function restrictedToOwnFigures(): bool
+    {
+        $user = auth()->user();
+
+        return ! ($user?->isAdmin() || $user?->isOwner());
+    }
+
+    /**
+     * The streamer ids this person may see, or null for "no restriction".
+     *
+     * An empty array is a real answer — a non-streamer with the page granted —
+     * and has to be told apart from null, or "see nothing" becomes "see all".
+     *
+     * @return array<int>|null
+     */
+    private function visibleStreamerIds(): ?array
+    {
+        if (! $this->restrictedToOwnFigures()) {
+            return null;
+        }
+
+        $own = auth()->user()?->streamer?->id;
+
+        return $own ? [$own] : [];
     }
 
     public string $dateFrom = '';
@@ -117,7 +156,13 @@ class StreamerAnalytics extends Page
 
     public function getStreamersListProperty(): Collection
     {
-        return Streamer::where('status', 'active')->inChannelContext()->orderBy('name')->get(['id', 'name']);
+        $query = Streamer::where('status', 'active')->inChannelContext()->orderBy('name');
+
+        if (($ids = $this->visibleStreamerIds()) !== null) {
+            $query->whereIn('id', $ids);
+        }
+
+        return $query->get(['id', 'name']);
     }
 
     private function cacheKey(string $section): string
@@ -166,6 +211,12 @@ class StreamerAnalytics extends Page
 
         if (! empty($this->selectedStreamers)) {
             $query->whereIn('id', $this->selectedStreamers);
+        }
+
+        // Applied last and unconditionally, so a hand-set selection cannot
+        // widen what the filter above narrowed.
+        if (($ids = $this->visibleStreamerIds()) !== null) {
+            $query->whereIn('id', $ids);
         }
 
         $priorGrossByStreamer = $this->priorPeriodGrossByStreamer($from, $to);
@@ -248,9 +299,15 @@ class StreamerAnalytics extends Page
         $priorTo  = $fromDate->copy()->subDay();
         $priorFrom = $priorTo->copy()->subDays($span);
 
-        return DB::table('show_streamer')
+        $query = DB::table('show_streamer')
             ->join('shows', 'show_streamer.show_id', '=', 'shows.id')
-            ->whereBetween('shows.show_date', [$priorFrom->toDateString(), $priorTo->copy()->endOfDay()->toDateTimeString()])
+            ->whereBetween('shows.show_date', [$priorFrom->toDateString(), $priorTo->copy()->endOfDay()->toDateTimeString()]);
+
+        if (($ids = $this->visibleStreamerIds()) !== null) {
+            $query->whereIn('show_streamer.streamer_id', $ids);
+        }
+
+        return $query
             ->groupBy('show_streamer.streamer_id')
             ->selectRaw('show_streamer.streamer_id, COALESCE(SUM(shows.gross_revenue), 0) as gross')
             ->pluck('gross', 'streamer_id')
@@ -278,6 +335,13 @@ class StreamerAnalytics extends Page
         $shows = Show::whereBetween('show_date', [$from, $toBound])
             ->inChannelContext()
             ->with('streamerLogEntry')
+            ->when(
+                $this->visibleStreamerIds() !== null,
+                // Without this the weekly table was every show in the business,
+                // which is the whole company's gross and net rather than one
+                // person's — the largest of the leaks on this page.
+                fn ($q) => $q->whereHas('streamers', fn ($s) => $s->whereIn('streamers.id', $this->visibleStreamerIds())),
+            )
             ->orderBy('show_date')
             ->get();
 

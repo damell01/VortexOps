@@ -118,6 +118,47 @@
                                     <span class="shrink-0 whitespace-nowrap text-xs font-semibold text-primary-600 dark:text-primary-400">{{ $show['action'] }} →</span>
                                 @endif
                               </div>
+
+                              {{-- Filed, past the edit window, and something is
+                                   wrong with it. Before this the only route was
+                                   to find an admin in person. --}}
+                              @if ($show['can_request_revision'] && $revisionFor !== $show['id'])
+                                  <button type="button" wire:click.prevent="askForChanges({{ $show['id'] }})"
+                                          class="vx-plain mt-2 text-[11px] font-medium text-gray-500 underline-offset-2 hover:underline dark:text-gray-400">
+                                      Need to change something?
+                                  </button>
+                              @endif
+
+                              @if ($revisionFor === $show['id'])
+                                  <div wire:click.prevent="" class="mt-2 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+                                      <label class="block text-[11px] font-semibold text-gray-700 dark:text-gray-200">
+                                          What needs changing?
+                                      </label>
+                                      <textarea wire:model="revisionReason" rows="2"
+                                                placeholder="e.g. I logged 3 of the wrong box"
+                                                class="mt-1.5 w-full rounded-lg border-gray-300 text-xs dark:border-gray-600 dark:bg-gray-800"></textarea>
+                                      <div class="mt-2 flex items-center gap-2">
+                                          <button type="button" wire:click.prevent="submitRevisionRequest"
+                                                  class="vx-plain rounded-lg bg-primary-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-primary-500">
+                                              Ask an admin to reopen it
+                                          </button>
+                                          <button type="button" wire:click.prevent="cancelRevisionRequest"
+                                                  class="vx-plain text-[11px] text-gray-500 hover:underline dark:text-gray-400">
+                                              Cancel
+                                          </button>
+                                      </div>
+                                  </div>
+                              @endif
+
+                              @if ($show['revision_requested'])
+                                  <p class="mt-2 text-[11px] leading-4 text-blue-700 dark:text-blue-300">
+                                      {{-- No inline @ if here: Blade leaves a directive that
+                                           directly follows a word character as literal text, and
+                                           its @ endif then compiles alone. --}}
+                                      You asked for this one to be reopened{{ $show['revision_reason'] ? ' — “' . $show['revision_reason'] . '”' : '' }}.
+                                      It stays as filed until an admin reopens it.
+                                  </p>
+                              @endif
                             </{{ $show['url'] ? 'a' : 'div' }}>
                         @endforeach
                     </div>

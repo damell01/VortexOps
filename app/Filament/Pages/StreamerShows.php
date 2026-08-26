@@ -182,6 +182,8 @@ class StreamerShows extends Page
                 => ['No report yet', 'warning', 'Add items'],
             $isDraft
                 => ['Draft saved', 'warning', 'Finish report'],
+            $entry->hasPendingRevisionRequest()
+                => ['Changes asked for', 'info', 'View report'],
             $entry->status === 'admin_approved'
                 => ['Approved', 'success', 'View report'],
             default
@@ -202,6 +204,90 @@ class StreamerShows extends Page
                 ? EndOfStreamForm::getUrl(['showId' => $show->id])
                 : null,
             'slow_pack' => (bool) $show->is_slow_pack,
+
+            // Filed, past the edit window, and nobody has asked yet — the one
+            // combination where a streamer is stuck with a wrong number and no
+            // way to say so.
+            'can_request_revision' => (bool) $entry?->canRequestRevision(),
+            'revision_requested'   => (bool) $entry?->hasPendingRevisionRequest(),
+            'revision_reason'      => $entry?->revision_reason,
         ];
+    }
+
+    /** The show whose revision box is open, if any. */
+    public ?int $revisionFor = null;
+
+    public string $revisionReason = '';
+
+    public function askForChanges(int $showId): void
+    {
+        $this->revisionFor    = $showId;
+        $this->revisionReason = '';
+    }
+
+    public function cancelRevisionRequest(): void
+    {
+        $this->revisionFor    = null;
+        $this->revisionReason = '';
+    }
+
+    public function submitRevisionRequest(): void
+    {
+        $show = $this->revisionFor
+            ? Show::with('streamerLogEntry')->find($this->revisionFor)
+            : null;
+
+        $entry = $show?->streamerLogEntry;
+
+        // Re-checked here rather than trusting the button: the page is a form
+        // like any other, and canRequestRevision() is the rule.
+        if (! $entry || ! $entry->canRequestRevision() || ! $this->ownsShow($show)) {
+            $this->cancelRevisionRequest();
+
+            return;
+        }
+
+        $entry->requestRevision($this->revisionReason);
+        $this->notifyAdminsOfRevisionRequest($show, $entry);
+
+        $this->groupsMemo = null;
+        $this->cancelRevisionRequest();
+
+        \Filament\Notifications\Notification::make()
+            ->title('Asked for changes')
+            ->body('An admin has been told. The report stays as filed until they reopen it.')
+            ->success()
+            ->send();
+    }
+
+    /** A streamer may only speak for their own shows. */
+    private function ownsShow(Show $show): bool
+    {
+        $streamerId = auth()->user()?->streamer?->id;
+
+        return $streamerId !== null && $show->streamers->contains('id', $streamerId);
+    }
+
+    private function notifyAdminsOfRevisionRequest(Show $show, \App\Models\StreamerLogEntry $entry): void
+    {
+        // Without this the request is a flag in a table nobody opens — the
+        // same dead end the streamer was already in, one row further on.
+        $admins = \App\Models\User::query()->get()
+            ->filter(fn ($user) => $user->isAdmin() || $user->isOwner());
+
+        if ($admins->isEmpty()) {
+            return;
+        }
+
+        \Filament\Notifications\Notification::make()
+            ->title('A streamer wants to change a filed report')
+            ->body(trim(($show->title ?? 'Show #' . $show->id) . ' — ' . ($entry->revision_reason ?: 'no reason given')))
+            ->warning()
+            ->actions([
+                \Filament\Notifications\Actions\Action::make('open')
+                    ->label('Open the report')
+                    ->url(\App\Filament\Resources\StreamerLogResource::getUrl('index')),
+            ])
+            ->sendToDatabase($admins);
     }
 }

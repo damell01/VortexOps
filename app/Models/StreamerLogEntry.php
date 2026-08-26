@@ -15,6 +15,7 @@ class StreamerLogEntry extends Model
         'total_due', 'total_paid', 'business_net_rev', 'gross_revenue', 'product_cost',
         'reviewed_by', 'reviewed_at', 'streamer_reviewed_at', 'fulfillment_reviewed_by',
         'fulfillment_reviewed_at', 'notes', 'draft_step', 'draft_saved_at', 'submitted_at', 'locked_at', 'edit_window_minutes',
+        'revision_requested_at', 'revision_reason',
         'approval_requested_at', 'approval_status', 'approval_notes',
     ];
 
@@ -42,6 +43,7 @@ class StreamerLogEntry extends Model
         'streamer_reviewed_at' => 'datetime',
         'submitted_at' => 'datetime',
         'locked_at' => 'datetime',
+        'revision_requested_at' => 'datetime',
         'approval_requested_at' => 'datetime',
         'fulfillment_reviewed_at' => 'datetime',
     ];
@@ -88,6 +90,49 @@ class StreamerLogEntry extends Model
     }
 
     public function isSubmitted(): bool { return $this->submitted_at !== null; }
+
+    /**
+     * The streamer asking for a filed report to be reopened.
+     *
+     * Not a status change: the report is still submitted and still counts.
+     * This is a flag on top of it saying somebody wants it back, which an
+     * admin answers with the Request Changes action they already have.
+     */
+    public function requestRevision(?string $reason = null): void
+    {
+        $this->update([
+            'revision_requested_at' => now(),
+            'revision_reason'       => filled($reason) ? trim($reason) : null,
+        ]);
+    }
+
+    public function hasPendingRevisionRequest(): bool
+    {
+        return $this->revision_requested_at !== null;
+    }
+
+    /** Cleared when the entry is reopened or approved — the question is answered either way. */
+    public function clearRevisionRequest(): void
+    {
+        if ($this->revision_requested_at === null) {
+            return;
+        }
+
+        $this->update(['revision_requested_at' => null, 'revision_reason' => null]);
+    }
+
+    /**
+     * Can this person ask for it back?
+     *
+     * Only once it is filed and past the point where they could simply edit
+     * it — while the edit window is open the answer is "just change it".
+     */
+    public function canRequestRevision(): bool
+    {
+        return $this->isSubmitted()
+            && ! $this->canStreamerEdit()
+            && ! $this->hasPendingRevisionRequest();
+    }
     public function isLocked(): bool { return $this->locked_at !== null; }
 
     public function canStreamerEdit(): bool
@@ -163,6 +208,9 @@ class StreamerLogEntry extends Model
             'reviewed_at' => now(),
             'locked_at' => now(),
             'approval_notes' => $combinedNote ?: null,
+            // Approving answers a pending "can I change this?" — with a no.
+            'revision_requested_at' => null,
+            'revision_reason' => null,
         ]);
 
         return $postingProblems;

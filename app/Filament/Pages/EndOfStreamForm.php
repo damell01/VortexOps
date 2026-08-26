@@ -40,6 +40,18 @@ class EndOfStreamForm extends Page implements HasForms
     public string $packagesOver500 = '';
     public string $logNotes = '';
 
+    /**
+     * Two fields that belong to the show rather than the log entry.
+     *
+     * The person who just ran the show knows whether it will be slow to pack —
+     * big boxes, awkward shapes, a hundred small orders — and they know it
+     * hours before the fulfillment team opens the shipment list. Asking them
+     * here costs one tap; finding out at the packing bench costs an afternoon.
+     */
+    public bool $isSlowPack = false;
+
+    public string $fulfillmentNotes = '';
+
     public string $search = '';
     public bool $showInventoryPicker = false;
     public bool $showManualItemForm = false;
@@ -533,27 +545,6 @@ class EndOfStreamForm extends Page implements HasForms
         ];
     }
 
-    /** Non-blocking comparisons between Whatnot reference totals and physical inventory reporting. */
-    public function getReconciliationWarningsProperty(): array
-    {
-        if (! $this->show) return [];
-
-        $summary = $this->summary;
-        $warnings = [];
-
-        if ($this->show->giveaways_count !== null && (int) $this->show->giveaways_count !== (int) $summary['giveaway']) {
-            $warnings[] = 'Whatnot shows ' . number_format((int) $this->show->giveaways_count)
-                . ' giveaways; this report contains ' . number_format((int) $summary['giveaway']) . ' giveaway inventory units.';
-        }
-
-        if ($this->show->units_sold !== null && (int) $this->show->units_sold !== (int) $summary['sold']) {
-            $warnings[] = 'Whatnot shows ' . number_format((int) $this->show->units_sold)
-                . ' orders/items sold; this report contains ' . number_format((int) $summary['sold']) . ' sold inventory units.';
-        }
-
-        return $warnings;
-    }
-
     public function addLineItem(int $inventoryItemId, int $quantity = 1, string $disposition = 'sold'): void
     {
         $entry = $this->logEntry();
@@ -673,6 +664,9 @@ class EndOfStreamForm extends Page implements HasForms
         $this->labelCount = (string) ($entry->label_count ?? '');
         $this->packagesOver500 = (string) ($entry->number_of_packages_over_500 ?? '');
         $this->logNotes = (string) ($entry->notes ?? '');
+
+        $this->isSlowPack       = (bool) ($this->show?->is_slow_pack ?? false);
+        $this->fulfillmentNotes = (string) ($this->show?->fulfillment_notes ?? '');
     }
 
     public function saveDetails(): void
@@ -689,6 +683,13 @@ class EndOfStreamForm extends Page implements HasForms
             'number_of_packages_over_500' => $this->packagesOver500 !== '' ? (int) $this->packagesOver500 : null,
             'notes' => $this->logNotes !== '' ? $this->logNotes : null,
         ]);
+
+        // These two live on the show, not the log entry, because fulfillment
+        // reads them off the shipment list without ever opening a report.
+        $this->show?->forceFill([
+            'is_slow_pack'      => $this->isSlowPack,
+            'fulfillment_notes' => $this->fulfillmentNotes !== '' ? $this->fulfillmentNotes : null,
+        ])->save();
 
         StreamerLogEntry::whereKey($entry->id)->update([
             'draft_step' => $this->step,

@@ -17,7 +17,14 @@ class StreamerAnalyticsTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->actingAs(User::factory()->create());
+
+        // These tests are about the arithmetic in the rows, which needs every
+        // streamer's row present — the page now shows a non-admin only their
+        // own figures, so it has to be opened by someone who sees everyone.
+        $this->actingAs(
+            User::firstWhere('email', config('app.owner_email'))
+                ?? User::factory()->create(['email' => config('app.owner_email')]),
+        );
     }
 
     private function rowFor(StreamerAnalytics $page, int $streamerId): ?array

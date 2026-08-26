@@ -50,7 +50,13 @@ Schedule::command('whatnot:refresh-recent --days=30 --limit=8')
     ->onSuccess(fn () => Setting::set('whatnot_last_recent_refresh_success_at', now()->toISOString()))
     ->onFailure(fn () => Setting::set('whatnot_last_recent_refresh_failure_at', now()->toISOString()));
 
-Schedule::command('whatnot:import-orders --new-only')
+// Bounded on purpose. Unbounded, this walked every show without orders and held
+// the browser lock for hours, re-taking it between shows faster than any other
+// job could win it — so whatnot:refresh-recent at :07 and :37 almost never got
+// a turn, and analytics went unfetched for half the catalogue. Fifteen an hour
+// still clears several hundred shows in a couple of days and leaves the lock
+// free in between.
+Schedule::command('whatnot:import-orders --new-only --limit=15')
     ->skip($whatnotPaused)
     ->cron('22 * * * *')
     ->name('whatnot-import-orders-backfill')

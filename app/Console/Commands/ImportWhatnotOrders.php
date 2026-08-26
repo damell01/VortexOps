@@ -13,6 +13,7 @@ class ImportWhatnotOrders extends Command
                             {--show=    : Show ID to import orders for (omit for all shows with a detail_url)}
                             {--recent   : Only shows from the last 30 days}
                             {--new-only : Only shows that have a detail_url but no orders imported yet}
+                            {--limit=   : Stop after this many shows (the scheduled backfill is bounded; a manual run is not)}
                             {--debug    : Save Playwright screenshots to /tmp for debugging selectors}';
 
     protected $description = 'Scrape order/lot data for completed Whatnot shows and store buyer + item details';
@@ -38,11 +39,32 @@ class ImportWhatnotOrders extends Command
             $query->where('show_date', '>=', now()->subDays(30)->toDateString());
         }
 
+        // An unbounded backfill takes the browser lock for every show it finds,
+        // one after another, for as long as that takes — hours, on a few hundred
+        // shows. Every other Whatnot job queues behind it, and because this one
+        // re-acquires the lock immediately on the next iteration, they lose the
+        // race practically every time. That is how whatnot:refresh-recent went
+        // months without a turn and half the catalogue ended up with no
+        // analytics. A scheduled run is bounded; a manual one still is not.
+        $outstanding = (clone $query)->count();
+
+        if ($limit = (int) $this->option('limit')) {
+            $query->limit($limit);
+        }
+
         $shows = $query->orderByDesc('show_date')->get();
 
         if ($shows->isEmpty()) {
             $this->warn('No shows found with a detail_url. Run `php artisan whatnot:import` first to populate show URLs.');
             return self::SUCCESS;
+        }
+
+        if ($limit && $outstanding > $shows->count()) {
+            $this->line(sprintf(
+                '  <fg=gray>%d of %d outstanding shows this run; the rest wait for the next one.</>',
+                $shows->count(),
+                $outstanding,
+            ));
         }
 
         $totalCreated = 0;

@@ -23,6 +23,9 @@ class ProductSheetImporter
     /** The worksheet the original workbook keeps its products on. */
     public const DEFAULT_SHEET = 'Product cost ref sheet';
 
+    /** What a file with only one sheet — a CSV — is called in the picker. */
+    public const SINGLE_SHEET = 'The whole file';
+
     /** How many rows a preview will render before it stops. */
     public const PREVIEW_LIMIT = 500;
 
@@ -46,7 +49,21 @@ class ProductSheetImporter
     {
         $reader = IOFactory::createReaderForFile($path);
 
+        // A CSV is one sheet by definition and its reader has no worksheet list
+        // to offer — only Xlsx, Xls, Ods, Xml and Gnumeric implement that. The
+        // call was a fatal, which the import screen reported as "that file
+        // could not be opened", pointing the blame at a perfectly good file.
+        if (! $this->hasWorksheets($reader)) {
+            return [self::SINGLE_SHEET];
+        }
+
         return array_values($reader->listWorksheetNames($path));
+    }
+
+    /** Whether this reader's format can hold more than one worksheet. */
+    private function hasWorksheets(object $reader): bool
+    {
+        return method_exists($reader, 'listWorksheetNames');
     }
 
     /**
@@ -56,20 +73,25 @@ class ProductSheetImporter
      */
     public function read(string $path, ?string $sheet = null): array
     {
-        $sheet     = $sheet ?: self::DEFAULT_SHEET;
-        $available = $this->sheetNames($path);
-
-        if (! in_array($sheet, $available, true)) {
-            throw new RuntimeException(sprintf(
-                'This file has no worksheet called "%s". It has: %s.',
-                $sheet,
-                implode(', ', $available) ?: 'nothing readable',
-            ));
-        }
-
         $reader = IOFactory::createReaderForFile($path);
         $reader->setReadDataOnly(true);
-        $reader->setLoadSheetsOnly([$sheet]);
+
+        // Nothing to choose and nothing to validate in a single-sheet file, and
+        // naming a sheet a CSV does not have would load no rows at all.
+        if ($this->hasWorksheets($reader)) {
+            $sheet     = $sheet ?: self::DEFAULT_SHEET;
+            $available = $this->sheetNames($path);
+
+            if (! in_array($sheet, $available, true)) {
+                throw new RuntimeException(sprintf(
+                    'This file has no worksheet called "%s". It has: %s.',
+                    $sheet,
+                    implode(', ', $available) ?: 'nothing readable',
+                ));
+            }
+
+            $reader->setLoadSheetsOnly([$sheet]);
+        }
 
         $raw = $reader->load($path)->getSheet(0)->toArray(null, false, false, false);
 

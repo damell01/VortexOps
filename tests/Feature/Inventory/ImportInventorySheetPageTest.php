@@ -69,6 +69,42 @@ class ImportInventorySheetPageTest extends TestCase
         return Livewire::actingAs($this->admin())->test(ImportInventorySheet::class);
     }
 
+    public function test_a_csv_upload_previews_the_same_way_a_workbook_does(): void
+    {
+        // The screen has always offered ".xlsx, .xls or .csv" and the upload
+        // rules have always accepted csv — but every test used a workbook, so
+        // nothing noticed that a CSV died on the worksheet list with
+        // "Call to undefined method ...Reader\Csv::listWorksheetNames()",
+        // shown as "That file could not be opened".
+        $csv = UploadedFile::fake()->createWithContent('cost-sheet.csv', <<<'CSV'
+        PRODUCT NAME,SKU,Type,Auction or BIN?,Cost,Sale price / Target
+        2026 Topps Chrome Hobby Box,TCH-2026,box,BIN,189.99,249.99
+        2026 Prizm Football Blaster,PZF-2026,box,Auction,24.50,39.99
+        CSV);
+
+        $page = $this->page()->set('upload', $csv);
+
+        $this->assertNull($page->get('error'), 'the CSV was rejected: ' . (string) $page->get('error'));
+        $this->assertSame(2, $page->get('summary')['create']);
+        $this->assertSame(0, Product::count());
+    }
+
+    public function test_importing_a_csv_writes_what_the_preview_promised(): void
+    {
+        $csv = UploadedFile::fake()->createWithContent('cost-sheet.csv', <<<'CSV'
+        PRODUCT NAME,SKU,Type,Auction or BIN?,Cost,Sale price / Target
+        2026 Topps Chrome Hobby Box,TCH-2026,box,BIN,189.99,249.99
+        CSV);
+
+        $this->page()->set('upload', $csv)->call('import');
+
+        $product = Product::firstWhere('sku', 'TCH-2026');
+
+        $this->assertNotNull($product);
+        $this->assertSame('BIN', $product->sold_as);
+        $this->assertEquals(189.99, (float) $product->unit_cost);
+    }
+
     public function test_it_previews_without_writing_anything(): void
     {
         $file = $this->workbook([

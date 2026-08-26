@@ -10,6 +10,7 @@ function loadPlaywright(){
   throw new Error('Playwright not found');
 }
 const { chromium } = loadPlaywright();
+const { launchWithProfileRecovery } = require('./lib/whatnot-browser.cjs');
 const DEBUG = process.env.WHATNOT_DEBUG === '1';
 const ENRICH_IDS = (process.env.WHATNOT_ENRICH_IDS || '').split(',').map(s=>s.trim()).filter(Boolean);
 const MAX_ENRICH = Math.max(0, Number(process.env.WHATNOT_ENRICH_LIMIT || 3));
@@ -163,28 +164,6 @@ async function openDeepLink(page,href){
 }
 
 
-// Chrome refuses to open a profile that still carries another instance's lock,
-// and a run killed mid-flight (Ctrl+C, OOM, kill) leaves exactly that behind.
-// Every later run then dies at launch on "Failed to create a ProcessSingleton
-// for your profile directory" — including unattended scheduled ones, for ever,
-// until a human clears the files by hand.
-//
-// SingletonLock is a symlink whose target encodes hostname-pid. If that PID is
-// gone the lock is a leftover and clearing it is safe; if it is alive, leave it
-// and let Chrome refuse, because two instances on one profile corrupt it.
-function clearStaleProfileLock(dir){
-  for(const name of ['SingletonLock','SingletonSocket','SingletonCookie']){
-    const file=path.join(dir,name);
-    let target; try{target=fs.readlinkSync(file);}catch{continue;}
-    const pid=Number(/-(\d+)$/.exec(target)?.[1]);
-    if(pid&&fs.existsSync(`/proc/${pid}`)){
-      if(DEBUG)console.error(`[whatnot-prod] profile lock held by live PID ${pid}; leaving ${name} alone`);
-      return false;
-    }
-    try{fs.unlinkSync(file);if(DEBUG)console.error(`[whatnot-prod] cleared stale ${name} (recorded PID ${pid||'unknown'} is gone)`);}catch{}
-  }
-  return true;
-}
 
 // Which saved session to bootstrap from, following whatnot-scraper.cjs:
 // whatnot-cookies.json is what a human imported, whatnot-live-cookies.json is
@@ -245,7 +224,6 @@ async function bootstrapCookies(context){
 
 (async()=>{
   const userDataDir=process.env.WHATNOT_USER_DATA_DIR||path.join(__dirname,'../storage/whatnot-browser-profile'); fs.mkdirSync(userDataDir,{recursive:true});
-  clearStaleProfileLock(userDataDir);
 
   // Cloudflare judges this server's datacenter address far harder than a
   // residential one, and no amount of browser tuning changes an IP. The PHP
@@ -256,7 +234,18 @@ async function bootstrapCookies(context){
   const proxy=process.env.WHATNOT_PROXY||'';
   if(proxy&&DEBUG)console.error(`[whatnot-prod] routing browser traffic through proxy: ${proxy}`);
 
-  const context=await chromium.launchPersistentContext(userDataDir,{headless:process.env.WHATNOT_HEADLESS!=='false',executablePath:findChromium(),args:['--no-sandbox','--no-zygote','--disable-dev-shm-usage','--disable-crash-reporter','--crash-dumps-dir=/tmp','--disable-gpu',...(proxy?[`--proxy-server=${proxy}`]:[])],userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',viewport:{width:1280,height:900},locale:'en-US',timezoneId:'America/Chicago',extraHTTPHeaders:{'sec-ch-ua':'"Chromium";v="128", "Google Chrome";v="128", "Not-A.Brand";v="99"','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','Accept-Language':'en-US,en;q=0.9'}});
+  // Launched the way whatnot-scraper.cjs launches, because that one reaches the
+  // Seller Hub from this machine every day and this one was being challenged on
+  // the same address, profile and cookies. launchPersistentContext() adds
+  // --remote-debugging-pipe and roughly thirty automation flags; the shared
+  // launcher spawns Chromium with a small deliberate set and attaches over CDP.
+  const context=await launchWithProfileRecovery(userDataDir,{
+    args:['--no-sandbox','--no-zygote','--disable-dev-shm-usage','--disable-crash-reporter','--crash-dumps-dir=/tmp','--disable-gpu'],
+    userAgent:'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+    viewport:{width:1280,height:900},
+    locale:'en-US',
+    extraHTTPHeaders:{'sec-ch-ua':'"Chromium";v="128", "Google Chrome";v="128", "Not-A.Brand";v="99"','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','Accept-Language':'en-US,en;q=0.9'},
+  },{chromium,chromiumPath:findChromium(),info:(...a)=>{if(DEBUG)console.error('[whatnot-prod]',...a);}});
   await context.addInitScript(()=>{try{Object.defineProperty(navigator,'webdriver',{get:()=>undefined});}catch{}try{Object.defineProperty(navigator,'languages',{get:()=>['en-US','en']});}catch{}try{Object.defineProperty(navigator,'platform',{get:()=> 'Win32'});}catch{}try{if(!window.chrome)window.chrome={runtime:{}};}catch{}});
   const lsFile=path.join(__dirname,'../storage/whatnot-localstorage.json');if(fs.existsSync(lsFile)){try{const saved=JSON.parse(fs.readFileSync(lsFile,'utf8'));await context.addInitScript(entries=>{if(/whatnot\.com$/i.test(location.hostname)){try{for(const[k,v]of Object.entries(entries||{}))localStorage.setItem(k,v);}catch{}}},saved);}catch{}}
   await bootstrapCookies(context);

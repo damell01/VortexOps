@@ -29,7 +29,8 @@ class BackfillWhatnotHistory extends Command
                             {--batches=20 : How many batches of 20 shows to work through}
                             {--sleep=20 : Seconds to wait between batches}
                             {--days=90 : Refresh window passed through to whatnot:refresh-recent}
-                            {--dry-run : Report what is outstanding and stop}';
+                            {--dry-run : Report what is outstanding and stop}
+                            {--verify : Take one show all the way through and report what actually landed}';
 
     protected $description = 'Backfill analytics and shipments for past Whatnot shows, in paced batches';
 
@@ -71,6 +72,10 @@ class BackfillWhatnotHistory extends Command
             return self::SUCCESS;
         }
 
+        if ($this->option('verify')) {
+            return $this->verify($channel);
+        }
+
         $batches = max(1, (int) $this->option('batches'));
         $sleep   = max(0, (int) $this->option('sleep'));
         $days    = (int) $this->option('days');
@@ -92,6 +97,15 @@ class BackfillWhatnotHistory extends Command
                 '--limit' => self::BATCH_SIZE,
                 '--days'  => $days,
             ]);
+
+            if ($exit === RefreshRecentWhatnotShows::SKIPPED_LOCKED) {
+                $this->newLine();
+                $this->error('Nothing was scraped: the browser lock is held, so no batch can start.');
+                $this->line('  <fg=gray>Another Whatnot job is running, or a previous one was killed before it could</>');
+                $this->line('  <fg=gray>release the lock. Check with php artisan whatnot:unlock, then run this again.</>');
+
+                return self::FAILURE;
+            }
 
             if ($exit !== self::SUCCESS) {
                 $this->newLine();
@@ -134,6 +148,92 @@ class BackfillWhatnotHistory extends Command
         }
 
         $this->line("  <fg=green>Done.</> <fg=gray>{$remaining} still outstanding — run it again to continue.</>");
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Take a single show all the way through and say what actually arrived.
+     *
+     * A backfill is hours of work on a session that may have lapsed and a page
+     * whose markup Whatnot can change without telling anyone. Finding that out
+     * on show 300 is expensive; finding it out on show 1 costs a minute.
+     */
+    private function verify(WhatnotChannel $channel): int
+    {
+        $show = $this->pastShows($channel)
+            ->where(fn ($query) => $query
+                ->whereNull('last_analytics_synced_at')
+                ->orWhereNull('last_shipments_synced_at'))
+            ->orderByDesc('show_date')
+            ->first();
+
+        if (! $show) {
+            $this->info('Nothing outstanding to verify against.');
+
+            return self::SUCCESS;
+        }
+
+        $this->newLine();
+        $this->line('  <fg=cyan>Verifying on one show:</> ' . ($show->title ?: $show->whatnot_show_id));
+        $this->line('  <fg=gray>' . $show->show_date?->toFormattedDateString() . ' · ' . $show->whatnot_show_id . '</>');
+        $this->newLine();
+
+        $shipmentsBefore = $show->shipments()->count();
+
+        // --debug so the scraper's own stage-by-stage narration reaches the
+        // terminal: whether the Seller Hub answered or served a challenge, how
+        // far the Past list scrolled, and per show whether analytics and
+        // shipments were read or failed.
+        $exit = $this->call('whatnot:refresh-recent', [
+            '--limit' => 1,
+            '--days'  => (int) $this->option('days'),
+            '--debug' => true,
+        ]);
+
+        $show->refresh();
+
+        $this->newLine();
+
+        if ($exit === RefreshRecentWhatnotShows::SKIPPED_LOCKED) {
+            $this->error('Nothing ran: the browser lock is held, so nothing was verified.');
+            $this->line('  <fg=gray>Run php artisan whatnot:unlock, then try this again.</>');
+
+            return self::FAILURE;
+        }
+
+        if ($exit !== self::SUCCESS) {
+            $this->error('The scraper did not complete. Nothing was verified.');
+            $this->line('  <fg=gray>If it reported a challenge or a signed-out page, the session has lapsed:</>');
+            $this->line('  <fg=gray>php artisan whatnot:login --test, then php artisan whatnot:login.</>');
+
+            return self::FAILURE;
+        }
+
+        $analytics = $show->last_analytics_synced_at !== null;
+        $shipments = $show->last_shipments_synced_at !== null;
+        $gained    = $show->shipments()->count() - $shipmentsBefore;
+
+        $mark = fn (bool $ok) => $ok ? '<fg=green>yes</>' : '<fg=red>no</>';
+
+        $this->table(['What', 'Arrived', 'Detail'], [
+            ['Analytics', $mark($analytics), $analytics
+                ? 'gross ' . ($show->gross_revenue ?? '—') . ', buyers ' . ($show->buyers_count ?? '—')
+                : 'no metrics were written'],
+            ['Shipments', $mark($shipments), $shipments
+                ? $show->shipments()->count() . ' rows on this show (' . ($gained >= 0 ? '+' : '') . $gained . ' this run)'
+                : 'no shipment sync was recorded'],
+        ]);
+
+        if ($analytics && $shipments) {
+            $this->info('Signed in and scraping. Safe to run the full backfill.');
+
+            return self::SUCCESS;
+        }
+
+        $this->warn('The scraper ran but did not fill everything on this show.');
+        $this->line('  <fg=gray>A show can legitimately have no shipments. If both are missing on several</>');
+        $this->line('  <fg=gray>shows, the page markup has moved — check the enrich lines in the output above.</>');
 
         return self::SUCCESS;
     }

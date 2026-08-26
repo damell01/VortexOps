@@ -83,13 +83,19 @@ async function extractRows(page,kind){
     return {live_id:id,title,date,time,kind,open_url:openUrl,shipments_url:shipments?.getAttribute('href')||null,analytics_url:analytics?.getAttribute('href')||null};
   }),kind).catch(()=>[]);
 }
-async function loadTabAll(page,kind,maxPasses=30,targetId=null){
+// wanted: ids we must reach before we can stop scrolling. The Past list is
+// infinite-scroll, so a show only exists in the DOM once we have scrolled far
+// enough back to it — stopping early does not return a short list, it silently
+// makes those shows unreachable. Scrolling stops as soon as every wanted id is
+// in hand, or the list stops growing, whichever comes first.
+async function loadTabAll(page,kind,maxPasses=30,wanted=null){
   await resetScroll(page);
+  const need=wanted&&wanted.size?new Set(wanted):null;
   const all=new Map(); let stable=0,prev=-1;
   for(let pass=0;pass<maxPasses;pass++){
     const rows=await extractRows(page,kind);
-    for(const row of rows)if(row.live_id)all.set(row.live_id,row);
-    if(targetId&&all.has(targetId))break;
+    for(const row of rows)if(row.live_id){all.set(row.live_id,row);if(need)need.delete(row.live_id);}
+    if(need&&need.size===0)break;
     if(all.size===prev)stable++; else stable=0;
     prev=all.size;
     if(stable>=3)break;
@@ -99,14 +105,10 @@ async function loadTabAll(page,kind,maxPasses=30,targetId=null){
       for(const el of els.slice(-5))el.scrollTop=el.scrollHeight;
     }).catch(()=>{});
     await page.waitForTimeout(1800);
+    if(DEBUG&&pass%10===9)console.error(`[whatnot-prod] ${kind}: pass ${pass+1}, ${all.size} rows loaded${need?`, ${need.size} still to reach`:''}`);
   }
+  if(DEBUG&&need&&need.size)console.error(`[whatnot-prod] ${kind}: gave up with ${need.size} requested show(s) never reached: ${[...need].join(', ')}`);
   return [...all.values()];
-}
-async function findRow(page,target){
-  const href=target.open_url;
-  const loc=page.locator('[data-testid="show-list-item"]').filter({has:page.locator(`a[href="${href}"]`)}).first();
-  if(await loc.count().catch(()=>0)){await loc.scrollIntoViewIfNeeded().catch(()=>{});return loc;}
-  return null;
 }
 function extractMetrics(text){
   const lines=text.split('\n').map(x=>x.trim()).filter(Boolean);
@@ -136,14 +138,23 @@ async function extractShipmentPage(page){
   }
   return {stats,rows:all};
 }
-async function restorePast(page,targetId){
-  if(!/\/dashboard\/lives(?:[/?#]|$)/.test(page.url())){await page.goBack({waitUntil:'domcontentloaded',timeout:15000}).catch(()=>null);await page.waitForTimeout(2200);}
-  if(!/\/dashboard\/lives(?:[/?#]|$)/.test(page.url()))await clickShows(page);
-  const selected=await selectTab(page,'past');
-  if(!selected.ok)return null;
-  const rows=await loadTabAll(page,'past',30,targetId);
-  return rows.find(r=>r.live_id===targetId)||null;
+// Navigate to a per-show page by the href its list row carried. Returns the
+// page state on arrival, or null if the navigation did not land somewhere that
+// looks like the requested URL — a redirect to the dashboard, a deleted show.
+async function openDeepLink(page,href){
+  let url; try{url=new URL(href,'https://www.whatnot.com').toString();}catch{return null;}
+  const resp=await page.goto(url,{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);
+  if(!resp)return null;
+  await page.waitForLoadState('networkidle',{timeout:8000}).catch(()=>{});
+  await page.waitForTimeout(1200);
+  const st=await state(page);
+  if(st.challenged)return st;
+  // Whatnot bounces an unrecognised or removed show back to a list page.
+  const wantedPath=new URL(url).pathname;
+  if(!page.url().includes(wantedPath)){if(DEBUG)console.error(`[whatnot-prod] deep link ${wantedPath} redirected to ${page.url()}`);return null;}
+  return st;
 }
+
 
 (async()=>{
   const userDataDir=process.env.WHATNOT_USER_DATA_DIR||path.join(__dirname,'../storage/whatnot-browser-profile'); fs.mkdirSync(userDataDir,{recursive:true});
@@ -155,15 +166,22 @@ async function restorePast(page,targetId){
     const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});await page.waitForTimeout(2200);out.stages.home={status:resp?resp.status():null,...await state(page)};if(out.stages.home.challenged)throw new Error('Seller Hub home challenged');
     if(!await clickShows(page))throw new Error('Could not reach Shows'); out.stages.shows=await state(page);
 
+    // A backfill asks for named shows that may sit hundreds of rows back. The
+    // flat 30-pass cap reached only the newest few hundred and dropped the rest
+    // before enrichment even began, so an old show could never be filled in no
+    // matter how many times the job ran.
+    const wantedPast=new Set(ENRICH_IDS);
+    const pastPasses=wantedPast.size?Math.max(30,Number(process.env.WHATNOT_PAST_PASSES||400)):30;
+
     for(const spec of [
       {name:'current',key:'current',passes:8},
       {name:'upcoming',key:'upcoming',passes:16},
-      {name:'past',key:'past',passes:30},
+      {name:'past',key:'past',passes:pastPasses,wanted:wantedPast},
     ]){
       const selected=await selectTab(page,spec.name);
       if(!selected.ok)throw new Error(`Could not select ${spec.name} tab; states=${JSON.stringify(selected.states)}`);
       if(selected.missing){out[spec.key]=[];if(DEBUG)console.error(`[whatnot-prod] ${spec.key}: tab absent, treating as 0 shows; states=${JSON.stringify(selected.states)}`);continue;}
-      out[spec.key]=await loadTabAll(page,spec.key,spec.passes);
+      out[spec.key]=await loadTabAll(page,spec.key,spec.passes,spec.wanted);
       if(DEBUG)console.error(`[whatnot-prod] ${spec.key}: ${out[spec.key].length} unique show rows; states=${JSON.stringify(await tabStates(page))}`);
     }
     await shot(page,'past');
@@ -184,36 +202,33 @@ async function restorePast(page,targetId){
     targets=targets.slice(0,MAX_ENRICH);
     if(DEBUG)console.error(`[whatnot-prod] enrichment targets: ${targets.length}/${ENRICH_IDS.length||MAX_ENRICH}`);
 
+    // Each row carries the href of its own Analytics and Shipments page, so go
+    // straight there. Clicking the links instead meant returning to the Past
+    // list and scrolling it from the top again — twice per show — which put the
+    // cost of a show in proportion to how old it was, and pushed whole batches
+    // of older shows past the caller's process timeout.
     for(const seed of targets){
-      let target=await restorePast(page,seed.live_id);
-      if(!target){if(DEBUG)console.error(`[whatnot-prod] enrich ${seed.live_id}: could not restore row`);continue;}
-      const item={live_id:target.live_id,analytics:null,shipments:null,availability:{analytics:!!target.analytics_url,shipments:!!target.shipments_url}};
+      const item={live_id:seed.live_id,analytics:null,shipments:null,availability:{analytics:!!seed.analytics_url,shipments:!!seed.shipments_url}};
+      let challenged=false;
 
-      if(target.shipments_url){
-        let row=await findRow(page,target);
-        if(row){
-          const link=row.locator('a',{hasText:/^View Shipments$/}).first();
-          if(await link.count().catch(()=>0)){
-            await link.click({timeout:8000}).catch(()=>null);await page.waitForTimeout(5500);
-            if(!(await state(page)).challenged)item.shipments=await extractShipmentPage(page);
-          }
-        }
+      if(seed.shipments_url){
+        const st=await openDeepLink(page,seed.shipments_url);
+        if(st&&st.challenged)challenged=true;
+        else if(st)item.shipments=await extractShipmentPage(page);
       }
 
-      if(target.analytics_url){
-        target=await restorePast(page,seed.live_id);
-        const row=target?await findRow(page,target):null;
-        if(row){
-          const link=row.locator('a',{hasText:/^See Analytics$/}).first();
-          if(await link.count().catch(()=>0)){
-            await link.click({timeout:8000}).catch(()=>null);await page.waitForTimeout(5500);
-            const st=await state(page);if(!st.challenged)item.analytics={url:st.url,metrics:extractMetrics(await bodyText(page))};
-          }
-        }
+      if(seed.analytics_url&&!challenged){
+        const st=await openDeepLink(page,seed.analytics_url);
+        if(st&&st.challenged)challenged=true;
+        else if(st)item.analytics={url:st.url,metrics:extractMetrics(await bodyText(page))};
       }
 
-      if(DEBUG)console.error(`[whatnot-prod] enrich ${seed.live_id}: analytics=${item.analytics?'ok':(item.availability.analytics?'failed':'n/a')} shipments=${item.shipments?'ok':(item.availability.shipments?'failed':'n/a')}`);
+      if(DEBUG)console.error(`[whatnot-prod] enrich ${seed.live_id}: analytics=${item.analytics?'ok':(item.availability.analytics?'failed':'n/a')} shipments=${item.shipments?'ok':(item.availability.shipments?'failed':'n/a')}${challenged?' CHALLENGED':''}`);
       out.enriched.push(item);
+
+      // A challenge mid-run means the session is being questioned. Carrying on
+      // collects nothing and deepens the block; stop and report what is done.
+      if(challenged){out.stages.enrich_challenged={live_id:seed.live_id,...await state(page)};break;}
     }
     process.stdout.write(JSON.stringify(out)+'\n');
   } finally {await context.close().catch(()=>{});}

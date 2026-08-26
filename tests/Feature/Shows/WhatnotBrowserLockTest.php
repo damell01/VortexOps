@@ -2,74 +2,99 @@
 
 namespace Tests\Feature\Shows;
 
-use App\Services\WhatnotScraper;
+use App\Console\Commands\RefreshRecentWhatnotShows;
+use App\Models\Show;
+use App\Models\WhatnotChannel;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
-use ReflectionMethod;
 use Tests\TestCase;
 
 /**
- * The shared browser lock serializes every Chromium-launching whatnot:* task so
- * concurrent runs can't corrupt the single persistent Chromium profile.
+ * What happens when the browser lock is already held.
+ *
+ * Only one Whatnot job may drive the browser at a time. Two things went wrong
+ * when a second one arrived:
+ *
+ * A run that timed out waiting still printed its completion table — twenty
+ * shows selected, zero of everything else — and exited SUCCESS. That reads
+ * exactly like a run that found nothing to do, so a backfill on top of it could
+ * only infer the truth from the outstanding count refusing to move.
+ *
+ * Worse, its `finally` block cleared `whatnot:browser:holder_pid` on the way
+ * out — a key belonging to the job that actually held the lock. That is how the
+ * lock ends up held with no recorded holder, the state whatnot:unlock exists to
+ * explain, and the second run caused it rather than finding it.
  */
 class WhatnotBrowserLockTest extends TestCase
 {
-    private function invokeLock(WhatnotScraper $scraper, callable $fn, int $wait): mixed
-    {
-        $method = new ReflectionMethod($scraper, 'withBrowserLock');
-        $method->setAccessible(true);
+    use RefreshDatabase;
 
-        return $method->invoke($scraper, $fn, $wait);
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $channel = WhatnotChannel::create([
+            'name'              => 'Vortex Breaks',
+            'status'            => 'active',
+            'include_in_import' => true,
+        ]);
+
+        Show::create([
+            'whatnot_channel_id' => $channel->id,
+            'whatnot_show_id'    => (string) str()->uuid(),
+            'title'              => 'Break #900',
+            'show_date'          => now()->subDays(5)->toDateString(),
+            'status'             => 'mapping',
+        ]);
     }
 
-    public function test_runs_the_callback_and_returns_its_value(): void
+    /** Hold the lock the way a running job does, and record its PID. */
+    private function holdTheLock(): void
     {
-        $result = $this->invokeLock(app(WhatnotScraper::class), fn () => 'ran-ok', 2);
-
-        $this->assertEquals('ran-ok', $result);
+        Cache::lock('whatnot:browser', 1800)->get();
+        Cache::put('whatnot:browser:holder_pid', 424242, 1800);
     }
 
-    public function test_releases_the_lock_after_the_callback_finishes(): void
+    public function test_a_locked_out_run_does_not_report_success(): void
     {
-        $scraper = app(WhatnotScraper::class);
+        $this->holdTheLock();
 
-        $this->invokeLock($scraper, fn () => 'first', 2);
-
-        // If the lock were still held this second call would time out and throw.
-        $result = $this->invokeLock($scraper, fn () => 'second', 2);
-        $this->assertEquals('second', $result);
+        $this->artisan('whatnot:refresh-recent --limit=1')
+            ->expectsOutputToContain('another browser job is still running')
+            ->assertExitCode(RefreshRecentWhatnotShows::SKIPPED_LOCKED);
     }
 
-    public function test_releases_the_lock_even_when_the_callback_throws(): void
+    public function test_a_locked_out_run_prints_no_completion_table(): void
     {
-        $scraper = app(WhatnotScraper::class);
+        // The zero-filled table was the misleading part: it looked like work.
+        $this->holdTheLock();
 
-        try {
-            $this->invokeLock($scraper, function () {
-                throw new \RuntimeException('boom');
-            }, 2);
-            $this->fail('expected the callback exception to propagate');
-        } catch (\RuntimeException $e) {
-            $this->assertEquals('boom', $e->getMessage());
-        }
-
-        // Lock must be free again despite the exception.
-        $result = $this->invokeLock($scraper, fn () => 'after-throw', 2);
-        $this->assertEquals('after-throw', $result);
+        $this->artisan('whatnot:refresh-recent --limit=1')
+            ->doesntExpectOutputToContain('Recent Whatnot refresh complete')
+            ->assertExitCode(RefreshRecentWhatnotShows::SKIPPED_LOCKED);
     }
 
-    public function test_throws_a_friendly_error_when_the_lock_is_already_held(): void
+    public function test_a_locked_out_run_leaves_the_real_holders_pid_alone(): void
     {
-        // Simulate another whatnot task already holding the shared browser lock.
-        $held = Cache::lock('whatnot:browser', 1800);
-        $this->assertTrue($held->get());
+        $this->holdTheLock();
 
-        try {
-            $this->expectException(\RuntimeException::class);
-            $this->expectExceptionMessageMatches('/shared Whatnot browser lock/');
+        $this->artisan('whatnot:refresh-recent --limit=1')
+            ->assertExitCode(RefreshRecentWhatnotShows::SKIPPED_LOCKED);
 
-            $this->invokeLock(app(WhatnotScraper::class), fn () => 'should-not-run', 1);
-        } finally {
-            $held->forceRelease();
-        }
+        $this->assertSame(
+            424242,
+            Cache::get('whatnot:browser:holder_pid'),
+            'the locked-out run erased the PID of the job that actually holds the lock',
+        );
+    }
+
+    public function test_the_backfill_says_the_lock_is_why_rather_than_guessing(): void
+    {
+        $this->holdTheLock();
+
+        $this->artisan('whatnot:backfill-history --batches=1 --sleep=0')
+            ->expectsOutputToContain('the browser lock is held')
+            ->expectsOutputToContain('whatnot:unlock')
+            ->assertFailed();
     }
 }

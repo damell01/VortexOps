@@ -19,6 +19,11 @@ class RefreshRecentWhatnotShows extends Command
 
     protected $description = 'Refresh analytics and fully paginated shipments for recent completed Whatnot shows';
 
+    /** Exit code meaning "nothing was attempted, try again shortly" — distinct from a broken scraper. */
+    public const SKIPPED_LOCKED = 75;
+
+    private bool $skippedForLock = false;
+
     /**
      * The one channel a refresh run works on.
      *
@@ -60,6 +65,13 @@ class RefreshRecentWhatnotShows extends Command
         $this->line('Refreshing ' . count($ids) . ' show(s): ' . implode(', ', $ids));
 
         $data = $this->scrape($ids, $debug);
+
+        // Skipped is not done. Reporting SUCCESS here printed a completion table
+        // of zeros, which reads exactly like a run that found nothing to do.
+        if ($this->skippedForLock) {
+            return self::SKIPPED_LOCKED;
+        }
+
         if ($data === null) {
             return self::FAILURE;
         }
@@ -248,21 +260,37 @@ class RefreshRecentWhatnotShows extends Command
         $process->setTimeout(1200);
         $lock = Cache::lock('whatnot:browser', 1800);
 
+        // Only the process that actually took the lock may clean up after it.
+        // Without this flag a run that timed out waiting still cleared the
+        // holder PID in its finally block, wiping the record belonging to the
+        // job that legitimately held the lock — which is precisely the "held but
+        // no holder PID" state whatnot:unlock exists to explain.
+        $held = false;
+
         try {
-            $lock->block(600);
+            // WhatnotScraper already reads this; this command had its own
+            // hardcoded 600, so a stale lock made every scheduled run sit for
+            // ten minutes before giving up — twice an hour, achieving nothing.
+            $lock->block((int) config('vortex.whatnot.browser_lock_wait', 1200));
+            $held = true;
             Cache::put('whatnot:browser:holder_pid', getmypid(), 1800);
             $process->run(function (string $type, string $buffer) use ($debug): void {
                 if ($debug && $type === Process::ERR) $this->output->write($buffer);
             });
         } catch (\Illuminate\Contracts\Cache\LockTimeoutException) {
             $this->warn('Recent Whatnot refresh skipped: another browser job is still running.');
-            return [];
+            $this->line('  <fg=gray>If nothing is actually running, the lock is stale — a run killed before it</>');
+            $this->line('  <fg=gray>could release it. Clear it with php artisan whatnot:unlock.</>');
+            $this->skippedForLock = true;
+            return null;
         } catch (\Throwable $e) {
             $this->error('Recent Whatnot refresh crashed: ' . $e->getMessage());
             return null;
         } finally {
-            Cache::forget('whatnot:browser:holder_pid');
-            try { $lock->release(); } catch (\Throwable) {}
+            if ($held) {
+                Cache::forget('whatnot:browser:holder_pid');
+                try { $lock->release(); } catch (\Throwable) {}
+            }
         }
 
         if (! $process->isSuccessful()) {

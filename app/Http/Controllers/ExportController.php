@@ -93,7 +93,9 @@ class ExportController extends Controller
      */
     public function inventoryManualPdf(Request $request)
     {
-        $sections = \App\Support\InventoryManual::sections();
+        // The printed copy is filtered the same way the screen is: whoever
+        // pressed the button gets the handbook for the app they have.
+        $sections = \App\Support\HandbookVisibility::sections(\App\Support\InventoryManual::sections());
 
         $images = [];
         $widths = [];
@@ -138,8 +140,8 @@ class ExportController extends Controller
             'subtitle'        => \App\Support\InventoryManual::subtitle(),
             'brand'           => \App\Models\Setting::get('brand_name', 'VortexOps'),
             'sections'        => $sections,
-            'troubleshooting' => \App\Support\InventoryManual::troubleshooting(),
-            'screenIndex'     => \App\Support\InventoryManual::screenIndex(),
+            'troubleshooting' => \App\Support\HandbookVisibility::troubleshooting(\App\Support\InventoryManual::troubleshooting()),
+            'screenIndex'     => \App\Support\HandbookVisibility::screens(\App\Support\InventoryManual::screenIndex()),
             'images'          => $images,
             'imageWidths'     => $widths,
             'generatedAt'     => now()->format('M j, Y'),

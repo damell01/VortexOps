@@ -42,6 +42,7 @@ class InventoryManual
                     [
                         'title' => 'Create your locations',
                         'where' => 'Inventory → Locations',
+                        'screen' => \App\Filament\Resources\InventoryLocationResource::class,
                         'body'  => [
                             'A location is a physical place stock can be: a shelf, a streamer\'s setup, the returns bin, the damaged pile.',
                             'Every screen that moves stock asks which location. There is no "unassigned" — stock is always somewhere.',
@@ -61,6 +62,7 @@ class InventoryManual
                     [
                         'title' => 'What a location record holds',
                         'where' => 'Inventory → Locations → New location',
+                        'screen' => \App\Filament\Resources\InventoryLocationResource::class,
                         'body'  => [
                             'Six fields, and the <b>type</b> is the one that matters: it decides which screens offer the location at all.',
                             'Mark Damaged only lists locations of type <b>Damaged</b>. Move to Returns only lists <b>Returned</b>. A streamer\'s own stock only appears under a <b>Streamer Inventory</b> location tied to them.',
@@ -80,6 +82,7 @@ class InventoryManual
                     [
                         'title' => 'Add your vendors',
                         'where' => 'Inventory → Vendors',
+                        'screen' => \App\Filament\Resources\VendorResource::class,
                         'body'  => [
                             'A vendor is who you buy from. Pallets are booked against one, which is how cost history ends up attributable.',
                             'You can add a vendor while creating a pallet, but doing it here first keeps the names consistent.',
@@ -97,6 +100,7 @@ class InventoryManual
                     [
                         'title' => 'What a vendor record holds',
                         'where' => 'Inventory → Vendors → New vendor',
+                        'screen' => \App\Filament\Resources\VendorResource::class,
                         'body'  => [
                             'Name is the only thing required. Everything else is there so the person chasing a delivery does not have to go looking for an email address in someone\'s inbox.',
                             '<b>Lead Time</b> is the one field that does work elsewhere: Product Insights uses it to say when to reorder, not just how much.',
@@ -125,6 +129,7 @@ class InventoryManual
                     [
                         'title' => 'Every button on the inventory screen',
                         'where' => 'Inventory → All Inventory',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'This is the screen most days start on, so it is worth knowing what each control is for before you need it in a hurry.',
                             'Across the top: <b>Quick Scan</b> for something already in your hand, <b>Receive Shipment</b> when a pallet has landed, <b>Quick Add</b> for a new item in twenty seconds, <b>Add Item</b> for the full form, and <b>More</b> for the exports.',
@@ -144,6 +149,7 @@ class InventoryManual
                     [
                         'title' => 'Find out whether it already exists',
                         'where' => 'Inventory → All Inventory',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'Search the name, SKU or barcode before creating anything. The search covers all three.',
                             'This is also the list you work from day to day: stock on hand, status, cost and sale target per item.',
@@ -168,6 +174,7 @@ class InventoryManual
                     [
                         'title' => 'Narrow the list when it gets long',
                         'where' => 'Inventory → All Inventory → Filters',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'Filters open in a dialog so you can see all of them at once. Set what you need and press <b>Apply filters</b>.',
                             'The useful ones: <b>Low Stock Only</b>, <b>Missing a sale target</b>, <b>Margin under 25%</b>, and <b>Location</b> when you want one shelf.',
@@ -191,6 +198,7 @@ class InventoryManual
                     [
                         'title' => 'Choose which columns you see',
                         'where' => 'Inventory → All Inventory → the columns button',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'The button beside Filters opens the column list. Everything switched off there still exists — it is just not on screen.',
                             'Worth turning on when you are doing money work: <b>Avg Cost</b>, <b>Sale Target</b>, <b>Margin Potential</b> and <b>Inventory Value</b>. Worth turning off when you are stocktaking: everything except name, location and quantity.',
@@ -214,6 +222,7 @@ class InventoryManual
                     [
                         'title' => 'Do something to many items at once',
                         'where' => 'Inventory → All Inventory → tick the rows',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'Ticking rows puts a bulk actions button at the bottom of the list. Two things live there: <b>Export</b> and <b>Delete</b>.',
                             'Export writes what you have selected, with the columns you currently have on, so filter and choose columns first and the export comes out right.',
@@ -230,6 +239,7 @@ class InventoryManual
                     [
                         'title' => 'Get the list out of the app',
                         'where' => 'Inventory → All Inventory → More',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             '<b>View report</b> opens the printable stock report on screen. <b>Download PDF</b> is that same report as a file. <b>Export to Excel</b> gives you the rows to work with in a spreadsheet.',
                             'All three follow the filters you have applied, so a filtered list exports as a filtered list.',
@@ -246,6 +256,7 @@ class InventoryManual
                     [
                         'title' => 'Add an item properly',
                         'where' => 'Inventory → All Inventory → Add Item',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'The full form: identity, costs, container settings, notes.',
                             '<b>List Unit Cost</b> is the fallback price used until real receipts exist. <b>Sale Price / Target</b> is what it should sell for.',
@@ -278,6 +289,7 @@ class InventoryManual
                     [
                         'title' => 'Or add one in twenty seconds',
                         'where' => 'Inventory → Quick Add',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'For when you have a box in one hand: name, cost, code, done.',
                             'Everything else can be filled in later by editing the item.',
@@ -299,6 +311,7 @@ class InventoryManual
                     [
                         'title' => 'Or add two hundred at once, from a spreadsheet',
                         'where' => 'Inventory → Import Sheet',
+                        'screen' => \App\Filament\Pages\ImportInventorySheet::class,
                         'body'  => [
                             'For a price list from a vendor, or the sheet the catalogue lived in before this app. Three steps: choose the file, read what it would do, then decide.',
                             'It matches every row against the catalogue first — by SKU where the sheet has one, by name otherwise — so a second import of the same sheet updates what the first one created instead of duplicating it.',
@@ -322,6 +335,7 @@ class InventoryManual
                     [
                         'title' => 'Edit an item',
                         'where' => 'Inventory → All Inventory → row menu → Edit',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'Change anything about the record itself: name, codes, costs, sale target, reorder level, notes.',
                             'Editing does <b>not</b> change how many you have. Quantities only move through receiving, transfers, adjustments and reconciliation — each of which records what changed and why.',
@@ -342,6 +356,7 @@ class InventoryManual
                     [
                         'title' => 'Search across everything at once',
                         'where' => 'Inventory → Inventory Search',
+                        'screen' => \App\Filament\Pages\InventorySearch::class,
                         'body'  => [
                             'One box that looks across items, locations and stock together, rather than filtering one list at a time.',
                             'Quickest way to answer "do we have any of these, anywhere?" without knowing which screen to be on.',
@@ -358,6 +373,7 @@ class InventoryManual
                     [
                         'title' => 'Give an item its extra codes',
                         'where' => 'Inventory → Product Identities',
+                        'screen' => \App\Filament\Resources\ProductIdentityResource::class,
                         'body'  => [
                             'An item can carry more than one code: the manufacturer\'s UPC, a vendor\'s own SKU, a case code and a singles code.',
                             'Every code listed here resolves to the same item when scanned, so a box labelled by the vendor and the same box labelled by the manufacturer both find it.',
@@ -377,6 +393,7 @@ class InventoryManual
                     [
                         'title' => 'Find items that got entered twice',
                         'where' => 'Inventory → Duplicate Detector',
+                        'screen' => \App\Filament\Pages\DuplicateProductDetector::class,
                         'body'  => [
                             'Compares names, SKUs and codes to surface records that are probably the same physical thing.',
                             'Two records for one product splits its stock and its cost in two, and nothing warns you it happened — this is how you catch it.',
@@ -395,6 +412,7 @@ class InventoryManual
                     [
                         'title' => 'Print labels for things that arrive without one',
                         'where' => 'Inventory → Barcode Printer',
+                        'screen' => \App\Filament\Pages\BarcodePrinter::class,
                         'body'  => [
                             'Generates printable barcode labels for any item.',
                             'For products that turn up with no scannable code, or a code so damaged the camera will not read it. Label it once and it scans forever after.',
@@ -411,6 +429,7 @@ class InventoryManual
                     [
                         'title' => 'Look at one item in full',
                         'where' => 'Inventory → All Inventory → row menu → View',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'Stock by location, receiving history, cost history and every movement against this item.',
                             'This is the screen to open when a number looks wrong — the history usually says why.',
@@ -436,6 +455,7 @@ class InventoryManual
                     [
                         'title' => 'The row menu — everything you can do to one item',
                         'where' => 'Inventory → All Inventory → ⋮',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             '<b>Add Stock</b> puts units into a location. <b>Transfer</b> moves them between locations. <b>Adjust</b> corrects a count with a reason.',
                             '<b>Scan Barcode</b> opens the camera and writes the code straight onto this item — see the scanning section.',
@@ -456,6 +476,7 @@ class InventoryManual
                     [
                         'title' => 'Add stock to a location',
                         'where' => 'row menu → Add Stock',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'Location and quantity are required; vendor and unit cost are optional but worth filling in.',
                             'The unit cost you enter blends into this item\'s weighted average. Leave it blank to add units without moving the average — which is what you want when correcting a count rather than recording a purchase.',
@@ -474,6 +495,7 @@ class InventoryManual
                     [
                         'title' => 'Correct or move stock — the screen behind "Move or correct stock"',
                         'where' => 'row menu → Move or correct stock',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'Two jobs on one screen, and the tabs at the top decide which you are doing. <b>Correct / remove</b> when the count is wrong — damaged, lost, used, given away. <b>Move stock</b> when the count is right and the item changed location.',
                             'The panel on the left lists every location holding this item with its quantity. Pick the one you are physically changing; the form on the right then talks about that location only.',
@@ -495,6 +517,7 @@ class InventoryManual
                     [
                         'title' => 'Mark stock damaged',
                         'where' => 'row menu → Mark Damaged',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'Damaged stock does not disappear — it moves to a damaged location, so it is out of sellable count but still on the books.',
                             'The second dropdown only offers locations of type <b>Damaged</b>. If it is empty, no such location exists yet; create one first.',
@@ -511,6 +534,7 @@ class InventoryManual
                     [
                         'title' => 'Send stock back to the vendor',
                         'where' => 'row menu → Move to Returns',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'The same shape as Mark Damaged, pointed at a <b>Returned</b> location instead.',
                             'Use it when something is going back rather than being written off. The stock stays visible in the returns location until it is resolved.',
@@ -527,6 +551,7 @@ class InventoryManual
                     [
                         'title' => 'Deleting an item, and when not to',
                         'where' => 'row menu → Delete',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'Delete asks to confirm, and then the record is gone.',
                             'Almost always the wrong tool. An item with stock or movement history should be made <b>Inactive</b> on its edit form instead: that hides it from pickers and the default list while keeping every number that ever referred to it.',
@@ -543,6 +568,7 @@ class InventoryManual
                     [
                         'title' => 'See what is inside a case',
                         'where' => 'row menu → Contents (containers only)',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'For an item marked as a container, this lists what one of them holds and how much of each is in stock.',
                             'Read-only. It is the answer to "what do I actually get if I open this?".',
@@ -558,6 +584,7 @@ class InventoryManual
                     [
                         'title' => 'Break a case into its contents',
                         'where' => 'row menu → Break Case (containers only)',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'Turns recorded contents into real stock: one case out, twelve boxes in, at the same location, in one movement.',
                             'The location dropdown only lists places actually holding the case, so you cannot break one where there is none.',
@@ -574,6 +601,7 @@ class InventoryManual
                     [
                         'title' => 'Add stock in a hurry',
                         'where' => 'Inventory → Quick Add Stock',
+                        'screen' => \App\Filament\Pages\QuickAddStock::class,
                         'body'  => [
                             'The same job as Add Stock, on its own screen and built for a phone — one item, one location, a number.',
                             'For putting a handful of units somewhere without navigating the catalogue first.',
@@ -590,6 +618,7 @@ class InventoryManual
                     [
                         'title' => 'Check what is where',
                         'where' => 'Inventory → Stock Levels',
+                        'screen' => \App\Filament\Resources\InventoryStockResource::class,
                         'body'  => [
                             'One row per item per location. The direct answer to "how many, and where?".',
                             'Look here straight after receiving. If a number is not where you expect, it is nearly always a location picked in haste.',
@@ -607,6 +636,7 @@ class InventoryManual
                     [
                         'title' => 'Transfer between locations',
                         'where' => 'Inventory → Stock Transfer',
+                        'screen' => \App\Filament\Pages\StockTransfer::class,
                         'body'  => [
                             'Pick the item, where it is coming from, where it is going and how many.',
                             'A transfer writes both sides — out of one location and into the other — so the totals stay right and the history says who moved it.',
@@ -625,6 +655,7 @@ class InventoryManual
                     [
                         'title' => 'Correct a count after a physical check',
                         'where' => 'Inventory → Reconciliation',
+                        'screen' => \App\Filament\Pages\InventoryReconciliation::class,
                         'body'  => [
                             'Record what you actually counted. The difference is written as an adjustment with the reason attached.',
                             'For a one-off correction, <b>Adjust</b> on the item is quicker; for a shelf or a full count, use this.',
@@ -642,6 +673,7 @@ class InventoryManual
                     [
                         'title' => 'See every change that has been made',
                         'where' => 'Inventory → Movement History',
+                        'screen' => \App\Filament\Resources\InventoryMovementResource::class,
                         'body'  => [
                             'What moved, when, who did it, from where to where, and why.',
                             'Nothing in the system changes a quantity without writing a row here. If a count changed and you do not know why, the answer is on this screen.',
@@ -672,6 +704,7 @@ class InventoryManual
                     [
                         'title' => 'Open the pallet list',
                         'where' => 'Inventory → Pallets',
+                        'screen' => \App\Filament\Resources\PalletResource::class,
                         'body'  => [
                             'Everything in progress and everything closed. Status tells you what still needs work.',
                             'You can also reach this from All Inventory → <b>Receive Shipment</b>.',
@@ -689,6 +722,7 @@ class InventoryManual
                     [
                         'title' => 'What the pallet list is telling you',
                         'where' => 'Inventory → Pallets',
+                        'screen' => \App\Filament\Resources\PalletResource::class,
                         'body'  => [
                             'The column worth reading is <b>Next Action</b>. It is not a status — it is the button for whatever this pallet needs next, so the list doubles as a to-do list.',
                             'The row menu carries the rest: <b>View</b> to open it, <b>Scanning Station</b> while it is being worked, <b>Edit</b> for the vendor and cost fields, and <b>Delete</b> for one raised by mistake.',
@@ -706,6 +740,7 @@ class InventoryManual
                     [
                         'title' => 'Stage the pallet',
                         'where' => 'Inventory → Pallets → New Pallet',
+                        'screen' => \App\Filament\Resources\PalletResource::class,
                         'body'  => [
                             'Vendor and PO number, then a line per product with what the paperwork says you should be getting: expected cases, units per case, unit cost.',
                             'Put the unit cost on the line if you know it — that is the number that becomes the item\'s weighted average when the line is received.',
@@ -732,6 +767,7 @@ class InventoryManual
                     [
                         'title' => 'Every button on a pallet\'s own screen',
                         'where' => 'Inventory → Pallets → open one',
+                        'screen' => \App\Filament\Resources\PalletResource::class,
                         'body'  => [
                             'The row of buttons across the top is the whole receiving workflow in the order you would use it.',
                             'The status strip underneath — Manifest Staged → Actively Receiving → All Received → Complete — is where this pallet is right now, and it is worth a glance before you touch anything.',
@@ -750,6 +786,7 @@ class InventoryManual
                     [
                         'title' => 'Type the manifest',
                         'where' => 'Pallet → Add Lines',
+                        'screen' => \App\Filament\Resources\PalletResource::class,
                         'body'  => [
                             'A grid built for typing rather than clicking: <b>Tab</b> moves across, <b>Enter</b> starts a new row, and empty rows are ignored.',
                             'The <b>Already stock this?</b> column is where a line gets linked to an item you already have. Leave it on "Something new" and the item is created when the line is received.',
@@ -771,6 +808,7 @@ class InventoryManual
                     [
                         'title' => 'Photograph the packing slip instead of typing it',
                         'where' => 'Pallet → Review Manifest → Import Packing Slip',
+                        'screen' => \App\Filament\Resources\PalletResource::class,
                         'body'  => [
                             'Four steps across the top — <b>Upload</b>, <b>Reading</b>, <b>Verify</b>, <b>Done</b> — and you only do two of them.',
                             'Take a photo of the slip that came with the pallet, or upload the PDF. It is read for you and every line comes back as a draft manifest line.',
@@ -788,6 +826,7 @@ class InventoryManual
                     [
                         'title' => 'Review the pallet before you start',
                         'where' => 'Inventory → Pallets → open one',
+                        'screen' => \App\Filament\Resources\PalletResource::class,
                         'body'  => [
                             'Lines, mappings, expected quantities and what has been received so far.',
                             'Fix a wrong mapping here rather than at the receiving station, where you will be holding a box.',
@@ -805,6 +844,7 @@ class InventoryManual
                     [
                         'title' => 'The manifest, line by line',
                         'where' => 'Pallet → Review Manifest',
+                        'screen' => \App\Filament\Resources\PalletResource::class,
                         'body'  => [
                             'Each staged line with what it is mapped to, what is expected and what has come in.',
                             'This is where an unmapped line is obvious. A line with no inventory item cannot be received, and this screen is where you fix that before anyone is standing at the pallet.',
@@ -825,6 +865,7 @@ class InventoryManual
                     [
                         'title' => 'Receive it — all at once, or box by box',
                         'where' => 'Inventory → Pallets → Receive',
+                        'screen' => \App\Filament\Resources\PalletResource::class,
                         'body'  => [
                             'The receiving station shows expected, received and remaining, with a progress bar per pallet.',
                             '<b>Receive All</b> on a line books the whole expected quantity in one action. Use it when you have counted the line and it matches the paperwork.',
@@ -847,6 +888,7 @@ class InventoryManual
                     [
                         'title' => 'Every button at the receiving station',
                         'where' => 'Pallet → Start receiving',
+                        'screen' => \App\Filament\Resources\PalletResource::class,
                         'body'  => [
                             'This is the screen someone stands at with a box in their hands, so nothing on it is more than one tap from where your eyes already are.',
                             'The three counters at the top — Expected, Received, Remaining — are the whole state of the pallet. The progress bar underneath is the same thing for someone walking past.',
@@ -868,6 +910,7 @@ class InventoryManual
                     [
                         'title' => 'Pause and hand over mid-pallet',
                         'where' => 'Receive Pallet → Pause — keep it open',
+                        'screen' => \App\Filament\Resources\PalletResource::class,
                         'body'  => [
                             'A pallet does not have to be finished in one go. Pausing keeps everything received so far and leaves the rest outstanding.',
                             'Each stint is recorded as a receiving session, so a pallet worked by two people over two days shows who did which part.',
@@ -887,6 +930,7 @@ class InventoryManual
                     [
                         'title' => 'Look back at what was received',
                         'where' => 'Inventory → Receiving History',
+                        'screen' => \App\Filament\Pages\ReceivingSessionsHistory::class,
                         'body'  => [
                             'Every session with a per-item breakdown, exportable as PDF.',
                             'This is the screen for "what actually came off that pallet?" weeks later, and for settling a disagreement with a vendor about a short delivery.',
@@ -902,6 +946,7 @@ class InventoryManual
                     [
                         'title' => 'The pallet\'s own history',
                         'where' => 'Inventory → Pallet Receiving History',
+                        'screen' => \App\Filament\Pages\PalletReceivingHistory::class,
                         'body'  => [
                             'The same events grouped by pallet rather than by session — how long each took, what was short, what was still outstanding when it closed.',
                         ],
@@ -919,6 +964,7 @@ class InventoryManual
                     [
                         'title' => 'Where every pallet stands right now',
                         'where' => 'Inventory → Pallet Status',
+                        'screen' => \App\Filament\Pages\PalletStatusDashboard::class,
                         'body'  => [
                             'One board for every pallet in flight: what is staged, what is being worked, what is finished but not closed.',
                             'The screen to open on a Monday. It answers "what is outstanding?" without opening pallets one at a time.',
@@ -936,6 +982,7 @@ class InventoryManual
                     [
                         'title' => 'Track a delivery that has not landed yet',
                         'where' => 'Inventory → Shipments',
+                        'screen' => \App\Filament\Resources\ShipmentResource::class,
                         'body'  => [
                             'Inbound shipments and their status, before they become a pallet you can receive.',
                             'Use it to see what is on its way and what is overdue.',
@@ -962,6 +1009,7 @@ class InventoryManual
                     [
                         'title' => 'The scan screen, and picking a mode',
                         'where' => 'Inventory → Quick Scan',
+                        'screen' => \App\Filament\Pages\InventoryScanner::class,
                         'body'  => [
                             'One screen, three modes, and the mode is the whole difference between reading and writing. Pick it before you scan anything.',
                             'The code box accepts a gun scan, a typed code or a camera capture. A gun submits by itself; typing needs the button; the camera needs the barcode to fill the frame.',
@@ -978,6 +1026,7 @@ class InventoryManual
                     [
                         'title' => 'Look up — read only',
                         'where' => 'Inventory → Quick Scan → Look Up',
+                        'screen' => \App\Filament\Pages\InventoryScanner::class,
                         'body'  => [
                             'Scan anything to see what it is, what it costs and where it is. Nothing changes.',
                             'The safe mode. Use it when you just want to know what is in your hand.',
@@ -996,6 +1045,7 @@ class InventoryManual
                     [
                         'title' => 'Add stock — puts units on a shelf',
                         'where' => 'Inventory → Quick Scan → Add Stock',
+                        'screen' => \App\Filament\Pages\InventoryScanner::class,
                         'body'  => [
                             'Scan, choose the location and quantity, confirm. Units go in.',
                             'For stock arriving outside a pallet — a small buy, something found in a cupboard.',
@@ -1013,6 +1063,7 @@ class InventoryManual
                     [
                         'title' => 'Receive — works a delivery off a pallet',
                         'where' => 'Inventory → Quick Scan → Receive',
+                        'screen' => \App\Filament\Pages\InventoryScanner::class,
                         'body'  => [
                             'Pick the pallet, then scan boxes. Each scan books a unit against the matching line.',
                             'The same station as the pallet\'s own Receive screen, reachable without going through the pallet first.',
@@ -1029,6 +1080,7 @@ class InventoryManual
                     [
                         'title' => 'Getting a UPC onto an item after the fact',
                         'where' => 'Inventory → All Inventory → row menu → Scan Barcode',
+                        'screen' => \App\Filament\Resources\InventoryItemResource::class,
                         'body'  => [
                             'This is the one for a pallet you have already received, where the items have no barcode on file yet.',
                             'Find the item, open its row menu, choose <b>Scan Barcode</b>, and scan the box. The code is written straight onto the item — no editing, no navigating to the field.',
@@ -1047,6 +1099,7 @@ class InventoryManual
                     [
                         'title' => 'Cases that contain other items',
                         'where' => 'Inventory → Quick Add (container scan)',
+                        'screen' => \App\Filament\Pages\QuickAddContainerScan::class,
                         'body'  => [
                             'Scan the case, then scan what is inside it, to record the contents once.',
                             'After that, <b>Break Case</b> on the item converts one case into its contents in a single action — one case out, twelve boxes in, at the same location.',
@@ -1071,6 +1124,7 @@ class InventoryManual
                     [
                         'title' => 'What the shelf is worth',
                         'where' => 'Inventory → Inventory Value',
+                        'screen' => \App\Filament\Pages\InventoryValueDashboard::class,
                         'body'  => [
                             'Everything on hand at weighted average cost, and the margin sitting in it at your sale targets.',
                             'Only as good as your receiving and your reports: cost enters at receiving, and leaves when a streamer\'s end-of-stream report is approved.',
@@ -1088,6 +1142,7 @@ class InventoryManual
                     [
                         'title' => 'What is not moving',
                         'where' => 'Inventory → Inventory Age',
+                        'screen' => \App\Filament\Pages\InventoryAge::class,
                         'body'  => [
                             'How long each item has been sitting, and what that capital is worth.',
                             'Dead stock is money on a shelf. This is the screen that tells you which shelf.',
@@ -1105,6 +1160,7 @@ class InventoryManual
                     [
                         'title' => 'The overview',
                         'where' => 'Inventory → Inventory Analytics',
+                        'screen' => \App\Filament\Pages\InventoryAnalytics::class,
                         'body'  => [
                             'Stock levels, values and movement trends over time in one place.',
                             'Where to start when the question is general rather than about one item.',
@@ -1124,6 +1180,7 @@ class InventoryManual
                     [
                         'title' => 'How individual products perform',
                         'where' => 'Inventory → Product Insights',
+                        'screen' => \App\Filament\Pages\ProductInsights::class,
                         'body'  => [
                             'Per-product history: what it cost over time, how it moved, what it made.',
                             'The screen to open before deciding whether to reorder something.',
@@ -1146,6 +1203,7 @@ class InventoryManual
                     [
                         'title' => 'How receiving itself is going',
                         'where' => 'Inventory → Receiving Analytics',
+                        'screen' => \App\Filament\Pages\ReceivingAnalytics::class,
                         'body'  => [
                             'Throughput, shortfalls and how long pallets take to work.',
                             'Useful for spotting a vendor who is consistently short, or a week where receiving fell behind.',
@@ -1165,6 +1223,7 @@ class InventoryManual
                     [
                         'title' => 'When a cost changed and why',
                         'where' => 'Inventory → Cost Adjustment History',
+                        'screen' => \App\Filament\Pages\CostAdjustmentHistory::class,
                         'body'  => [
                             'Every change to an item\'s cost, with what caused it.',
                             'The answer to "why did the average cost move?" — usually a receipt at a different price, and this says which one.',
@@ -1183,6 +1242,7 @@ class InventoryManual
                     [
                         'title' => 'Things reported missing',
                         'where' => 'Inventory → Missing Item Reports',
+                        'screen' => \App\Filament\Resources\MissingItemReportResource::class,
                         'body'  => [
                             'What people have flagged as unaccounted for, and whether it was resolved.',
                             'A pattern here is worth more than any single report — the same item going missing repeatedly is a process problem, not bad luck.',
@@ -1200,6 +1260,7 @@ class InventoryManual
                     [
                         'title' => 'Filing a missing item report',
                         'where' => 'Inventory → Missing Item Reports → Create',
+                        'screen' => \App\Filament\Resources\MissingItemReportResource::class,
                         'body'  => [
                             'This is about a delivery, not a shelf: it records what a pallet was supposed to contain and did not.',
                             'Filing one changes no count. It is the paperwork that sits behind a credit request, so the number and the explanation stay two separate things.',
@@ -1217,6 +1278,7 @@ class InventoryManual
                     [
                         'title' => 'How healthy the catalogue is',
                         'where' => 'Inventory → Product Health',
+                        'screen' => \App\Filament\Pages\ProductHealthDashboard::class,
                         'body'  => [
                             'Not about stock — about the records themselves: how many items have no barcode, no sale target, no known cost, no alias.',
                             'Each gap here becomes a scan that finds nothing or a margin figure that is not there. This is the screen that tells you which is worth an afternoon.',
@@ -1236,6 +1298,7 @@ class InventoryManual
                     [
                         'title' => 'The short version, inside the app',
                         'where' => 'Inventory → How It Works',
+                        'screen' => \App\Filament\Pages\InventoryGuide::class,
                         'body'  => [
                             'A one-page tour of the same module, arranged by job rather than by screen, with the setup state of your own install at the top.',
                             'Where this handbook is the reference, that page is the reminder — and it tells you when you have no locations, which is the one problem that makes every other screen look broken.',
@@ -1251,6 +1314,7 @@ class InventoryManual
                     [
                         'title' => 'Printable reports',
                         'where' => 'Inventory → Reports',
+                        'screen' => \App\Filament\Pages\InventoryReport::class,
                         'body'  => [
                             'Stock on hand, valuation and movement summaries, exportable as PDF or CSV.',
                             'Use these for a stock take or when someone outside the app needs the numbers.',
@@ -1276,22 +1340,22 @@ class InventoryManual
     public static function troubleshooting(): array
     {
         return [
-            ['A location dropdown is empty', 'No active locations exist, or none of the type that screen needs. Inventory → Locations.'],
-            ['A pallet line will not receive', 'It is not mapped to an inventory item yet. Map it on the pallet, or scan the box at the receiving station to map and receive in one step.'],
-            ['A scan finds nothing', 'That code is on no item. Find the item by name and use Scan Barcode on its row menu to attach the code, then scan again.'],
+            ['A location dropdown is empty', 'No active locations exist, or none of the type that screen needs. Inventory → Locations.', \App\Filament\Resources\InventoryLocationResource::class],
+            ['A pallet line will not receive', 'It is not mapped to an inventory item yet. Map it on the pallet, or scan the box at the receiving station to map and receive in one step.', \App\Filament\Resources\PalletResource::class],
+            ['A scan finds nothing', 'That code is on no item. Find the item by name and use Scan Barcode on its row menu to attach the code, then scan again.', \App\Filament\Resources\InventoryItemResource::class],
             ['A scan is slow or will not settle', 'Glare and curved boxes are the usual cause. Tilt the box out of the light and fill the frame with the barcode. Typing the code by hand always works.'],
-            ['The count is wrong', 'Do not edit the number. Use Adjust with a reason, or Reconciliation for a counted shelf, so the correction is recorded.'],
-            ['Stock is in the wrong place', 'Use Stock Transfer, not two adjustments. A transfer records both sides as one movement.'],
-            ['Margin shows nothing for an item', 'It has no sale target. Set one on the item, or find them all with the "Missing a sale target" filter.'],
-            ['Cost looks wrong after receiving', 'The weighted average moved because a receipt came in at a different unit cost. Cost Adjustment History says which receipt did it.'],
-            ['The same item appears twice', 'Two records were created for one product, which splits its stock and its cost. Inventory → Duplicate Detector finds them.'],
-            ['A vendor code will not scan', 'The item exists but that code is not on it. Add it under Product Identities — an item can carry a manufacturer UPC, a vendor SKU and a case code, and all of them resolve to it.'],
-            ['A box has no barcode at all', 'Inventory → Barcode Printer produces a label for it. Print it once and it scans forever after.'],
-            ['Half a pallet is received and the person went home', 'Nothing is lost. Pause keeps it open, and the next person picks it up — Receiving History shows who did which part.'],
-            ['Stock is on the shelf but the system says zero', 'Nothing was ever received for it, or it was received against a different item. Check Movement History for the item, then Duplicate Detector.'],
-            ['Break Case is not on the menu', 'The item is not marked as a container, or it has no contents recorded. Both are set on its edit form.'],
-            ['A quantity went the wrong way when I corrected it', 'Actual quantity now is what should remain, not the amount removed. Ten recorded, two gone, enter eight.'],
-            ['A pallet line says "Something new" but we already stock it', 'The line was never linked to the item. Link it on the manifest, or scan the box at the station — either way the stock lands on the record you already have instead of a second one.'],
+            ['The count is wrong', 'Do not edit the number. Use Adjust with a reason, or Reconciliation for a counted shelf, so the correction is recorded.', \App\Filament\Resources\InventoryItemResource::class],
+            ['Stock is in the wrong place', 'Use Stock Transfer, not two adjustments. A transfer records both sides as one movement.', \App\Filament\Pages\StockTransfer::class],
+            ['Margin shows nothing for an item', 'It has no sale target. Set one on the item, or find them all with the "Missing a sale target" filter.', \App\Filament\Resources\InventoryItemResource::class],
+            ['Cost looks wrong after receiving', 'The weighted average moved because a receipt came in at a different unit cost. Cost Adjustment History says which receipt did it.', \App\Filament\Pages\CostAdjustmentHistory::class],
+            ['The same item appears twice', 'Two records were created for one product, which splits its stock and its cost. Inventory → Duplicate Detector finds them.', \App\Filament\Pages\DuplicateProductDetector::class],
+            ['A vendor code will not scan', 'The item exists but that code is not on it. Add it under Product Identities — an item can carry a manufacturer UPC, a vendor SKU and a case code, and all of them resolve to it.', \App\Filament\Resources\ProductIdentityResource::class],
+            ['A box has no barcode at all', 'Inventory → Barcode Printer produces a label for it. Print it once and it scans forever after.', \App\Filament\Pages\BarcodePrinter::class],
+            ['Half a pallet is received and the person went home', 'Nothing is lost. Pause keeps it open, and the next person picks it up — Receiving History shows who did which part.', \App\Filament\Resources\PalletResource::class],
+            ['Stock is on the shelf but the system says zero', 'Nothing was ever received for it, or it was received against a different item. Check Movement History for the item, then Duplicate Detector.', \App\Filament\Resources\InventoryMovementResource::class],
+            ['Break Case is not on the menu', 'The item is not marked as a container, or it has no contents recorded. Both are set on its edit form.', \App\Filament\Resources\InventoryItemResource::class],
+            ['A quantity went the wrong way when I corrected it', 'Actual quantity now is what should remain, not the amount removed. Ten recorded, two gone, enter eight.', \App\Filament\Resources\InventoryItemResource::class],
+            ['A pallet line says "Something new" but we already stock it', 'The line was never linked to the item. Link it on the manifest, or scan the box at the station — either way the stock lands on the record you already have instead of a second one.', \App\Filament\Resources\PalletResource::class],
             ['A screen in this handbook is not in your sidebar', 'That is a role or a switched-off module, not a fault. Ask an admin — the Roles & Permissions screen decides it.'],
         ];
     }
@@ -1305,41 +1369,41 @@ class InventoryManual
     public static function screenIndex(): array
     {
         return [
-            ['All Inventory', 'The catalogue. Every item, its stock, cost and sale target. Most jobs start here.'],
-            ['Quick Add', 'Create an item fast: name, cost, code.'],
-            ['Import Sheet', 'Read a spreadsheet of products into the catalogue, after showing you every row it would touch.'],
-            ['Quick Add Stock', 'Put units into a location without going through the catalogue.'],
-            ['Quick Scan', 'Scan to look up, add stock, or receive against a pallet.'],
-            ['Inventory Search', 'Search items, locations and stock together.'],
-            ['Locations', 'The physical places stock can be. Admin only.'],
-            ['Vendors', 'Who you buy from. Pallets are booked against one.'],
-            ['Stock Levels', 'One row per item per location — how many, and where.'],
-            ['Move or correct stock', 'One item\'s own screen for correcting a count or moving it between locations, with its reason.'],
-            ['Stock Transfer', 'Move stock between locations. Records both sides.'],
-            ['Reconciliation', 'Record a physical count; the difference is written as an adjustment.'],
-            ['Movement History', 'Every change to every quantity, with who and why.'],
-            ['Pallets', 'Deliveries. Stage one, map its lines, receive it.'],
-            ['Manifest Lines', 'The typing grid for what a pallet should contain — one row per product.'],
-            ['Import Manifest', 'Reads a vendor spreadsheet into pallet lines instead of retyping it.'],
-            ['Pallet Status', 'Every pallet in flight on one board: staged, being worked, finished.'],
-            ['Receiving Sessions', 'Each stint of work at the receiving station.'],
-            ['Receiving History', 'What came off each pallet, per item, exportable.'],
-            ['Pallet Receiving History', 'The same events grouped by pallet.'],
-            ['Shipments', 'Inbound deliveries that have not become pallets yet.'],
-            ['Product Identities', 'The extra codes an item answers to.'],
-            ['Duplicate Detector', 'Finds records that are probably the same product.'],
-            ['Product Health', 'How complete the catalogue is: what has no barcode, no cost, no sale target.'],
-            ['Handbook', 'This handbook on screen, section by section, with a search across it.'],
-            ['How It Works', 'The one-page version, arranged by job, with your install\'s setup state at the top.'],
-            ['Barcode Printer', 'Labels for items that arrive without a scannable code.'],
-            ['Missing Item Reports', 'What has been flagged as unaccounted for.'],
-            ['Inventory Value', 'What is on the shelf at weighted average cost.'],
-            ['Inventory Age', 'How long things have been sitting, and what that is worth.'],
-            ['Inventory Analytics', 'Levels, values and trends over time.'],
-            ['Product Insights', 'One product\'s cost, movement and performance history.'],
-            ['Receiving Analytics', 'Throughput, shortfalls and how long pallets take.'],
-            ['Cost Adjustment History', 'Every change to an item\'s cost, and what caused it.'],
-            ['Reports', 'Printable stock, valuation and movement summaries.'],
+            ['All Inventory', 'The catalogue. Every item, its stock, cost and sale target. Most jobs start here.', \App\Filament\Resources\InventoryItemResource::class],
+            ['Quick Add', 'Create an item fast: name, cost, code.', \App\Filament\Resources\InventoryItemResource::class],
+            ['Import Sheet', 'Read a spreadsheet of products into the catalogue, after showing you every row it would touch.', \App\Filament\Pages\ImportInventorySheet::class],
+            ['Quick Add Stock', 'Put units into a location without going through the catalogue.', \App\Filament\Pages\QuickAddStock::class],
+            ['Quick Scan', 'Scan to look up, add stock, or receive against a pallet.', \App\Filament\Pages\InventoryScanner::class],
+            ['Inventory Search', 'Search items, locations and stock together.', \App\Filament\Pages\InventorySearch::class],
+            ['Locations', 'The physical places stock can be. Admin only.', \App\Filament\Resources\InventoryLocationResource::class],
+            ['Vendors', 'Who you buy from. Pallets are booked against one.', \App\Filament\Resources\VendorResource::class],
+            ['Stock Levels', 'One row per item per location — how many, and where.', \App\Filament\Resources\InventoryStockResource::class],
+            ['Move or correct stock', 'One item\'s own screen for correcting a count or moving it between locations, with its reason.', \App\Filament\Resources\InventoryItemResource::class],
+            ['Stock Transfer', 'Move stock between locations. Records both sides.', \App\Filament\Pages\StockTransfer::class],
+            ['Reconciliation', 'Record a physical count; the difference is written as an adjustment.', \App\Filament\Pages\InventoryReconciliation::class],
+            ['Movement History', 'Every change to every quantity, with who and why.', \App\Filament\Resources\InventoryMovementResource::class],
+            ['Pallets', 'Deliveries. Stage one, map its lines, receive it.', \App\Filament\Resources\PalletResource::class],
+            ['Manifest Lines', 'The typing grid for what a pallet should contain — one row per product.', \App\Filament\Resources\PalletResource::class],
+            ['Import Manifest', 'Reads a vendor spreadsheet into pallet lines instead of retyping it.', \App\Filament\Resources\PalletResource::class],
+            ['Pallet Status', 'Every pallet in flight on one board: staged, being worked, finished.', \App\Filament\Pages\PalletStatusDashboard::class],
+            ['Receiving Sessions', 'Each stint of work at the receiving station.', \App\Filament\Resources\ReceivingSessionResource::class],
+            ['Receiving History', 'What came off each pallet, per item, exportable.', \App\Filament\Pages\ReceivingSessionsHistory::class],
+            ['Pallet Receiving History', 'The same events grouped by pallet.', \App\Filament\Pages\PalletReceivingHistory::class],
+            ['Shipments', 'Inbound deliveries that have not become pallets yet.', \App\Filament\Resources\ShipmentResource::class],
+            ['Product Identities', 'The extra codes an item answers to.', \App\Filament\Resources\ProductIdentityResource::class],
+            ['Duplicate Detector', 'Finds records that are probably the same product.', \App\Filament\Pages\DuplicateProductDetector::class],
+            ['Product Health', 'How complete the catalogue is: what has no barcode, no cost, no sale target.', \App\Filament\Pages\ProductHealthDashboard::class],
+            ['Handbook', 'This handbook on screen, section by section, with a search across it.', \App\Filament\Pages\Handbook::class],
+            ['How It Works', 'The one-page version, arranged by job, with your install\'s setup state at the top.', \App\Filament\Pages\InventoryGuide::class],
+            ['Barcode Printer', 'Labels for items that arrive without a scannable code.', \App\Filament\Pages\BarcodePrinter::class],
+            ['Missing Item Reports', 'What has been flagged as unaccounted for.', \App\Filament\Resources\MissingItemReportResource::class],
+            ['Inventory Value', 'What is on the shelf at weighted average cost.', \App\Filament\Pages\InventoryValueDashboard::class],
+            ['Inventory Age', 'How long things have been sitting, and what that is worth.', \App\Filament\Pages\InventoryAge::class],
+            ['Inventory Analytics', 'Levels, values and trends over time.', \App\Filament\Pages\InventoryAnalytics::class],
+            ['Product Insights', 'One product\'s cost, movement and performance history.', \App\Filament\Pages\ProductInsights::class],
+            ['Receiving Analytics', 'Throughput, shortfalls and how long pallets take.', \App\Filament\Pages\ReceivingAnalytics::class],
+            ['Cost Adjustment History', 'Every change to an item\'s cost, and what caused it.', \App\Filament\Pages\CostAdjustmentHistory::class],
+            ['Reports', 'Printable stock, valuation and movement summaries.', \App\Filament\Pages\InventoryReport::class],
         ];
     }
 }

@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Filament\Concerns\RespectsRoleVisibility;
+use App\Support\HandbookVisibility;
 use App\Support\InventoryManual;
 use Filament\Pages\Page;
 
@@ -135,12 +136,20 @@ class Handbook extends Page
         $this->search  = '';
     }
 
-    /** @return array<int, array<string, mixed>> */
+    /**
+     * The sections this person can actually use.
+     *
+     * Filtered rather than shown-and-greyed: a walkthrough of a screen you
+     * cannot open is instructions for a button that is not there, which reads
+     * as a broken app rather than as somebody else's job.
+     *
+     * @return array<int, array<string, mixed>>
+     */
     public function allSections(): array
     {
         $source = $this->modules()[$this->module]['source'] ?? null;
 
-        return $source ? $source::sections() : [];
+        return $source ? HandbookVisibility::sections($source::sections()) : [];
     }
 
     /**
@@ -257,7 +266,7 @@ class Handbook extends Page
     {
         $source = $this->modules()[$this->module]['source'] ?? null;
 
-        return $source ? $source::troubleshooting() : [];
+        return $source ? HandbookVisibility::troubleshooting($source::troubleshooting()) : [];
     }
 
     /** @return array<int, array{0: string, 1: string}> */
@@ -265,7 +274,7 @@ class Handbook extends Page
     {
         $source = $this->modules()[$this->module]['source'] ?? null;
 
-        return $source ? $source::screenIndex() : [];
+        return $source ? HandbookVisibility::screens($source::screenIndex()) : [];
     }
 
     public function imageUrl(string $shot): string

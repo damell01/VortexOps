@@ -21,9 +21,15 @@ class HandbookPageTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * The handbook is filtered by what you can open, so most of these tests
+     * need someone who can open everything — otherwise they would be asserting
+     * against whichever screens a bare user happens to reach today.
+     */
     private function user(): User
     {
-        return User::factory()->create();
+        return (User::firstWhere('email', config('app.owner_email'))
+            ?? User::factory()->create(['email' => config('app.owner_email')]))->fresh();
     }
 
     private function page(): \Livewire\Features\SupportTesting\Testable
@@ -38,19 +44,23 @@ class HandbookPageTest extends TestCase
         $page->assertSet('section', null);
 
         // Every section is reachable from the first screen.
-        foreach (InventoryManual::sections() as $section) {
+        foreach ($page->instance()->allSections() as $section) {
             $page->assertSee($section['title']);
         }
     }
 
     public function test_a_section_shows_its_steps_and_screenshots(): void
     {
-        $sections = InventoryManual::sections();
+        // Read the sections off the component rather than the content class:
+        // the page shows what this person can open, and that is what should be
+        // asserted against.
+        $page     = $this->page();
+        $sections = $page->instance()->allSections();
         $index    = array_search('The catalogue', array_column($sections, 'title'), true);
 
         $this->assertNotFalse($index, 'the catalogue section has been renamed');
 
-        $page = $this->page()->call('openSection', $index)->assertOk();
+        $page->call('openSection', $index)->assertOk();
 
         foreach ($sections[$index]['steps'] as $step) {
             $page->assertSee($step['title']);
@@ -134,12 +144,11 @@ class HandbookPageTest extends TestCase
         // A fourteen-step section with a picture on each is a long scroll to
         // reach step eleven, and a longer one to find your place again after
         // you looked away at the screen it describes.
-        $sections = InventoryManual::sections();
+        $page     = $this->page();
+        $sections = $page->instance()->allSections();
         $index    = array_search('The catalogue', array_column($sections, 'title'), true);
 
-        $page = $this->page()->call('openSection', $index);
-
-        $page->assertSee('In this section');
+        $page->call('openSection', $index)->assertSee('In this section');
 
         foreach ($sections[$index]['steps'] as $n => $step) {
             // The anchor, and the step it lands on.
@@ -172,9 +181,8 @@ class HandbookPageTest extends TestCase
 
     public function test_reading_forwards_walks_into_the_back_pages(): void
     {
-        $last = count(InventoryManual::sections()) - 1;
-
         $page = $this->page();
+        $last = count($page->instance()->allSections()) - 1;
 
         $this->assertSame(
             [Handbook::TROUBLESHOOTING, 'When something looks wrong'],

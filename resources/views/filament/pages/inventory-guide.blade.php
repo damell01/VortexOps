@@ -201,7 +201,7 @@
 
     <x-guide.panel title="Three things, and they are not the same thing">
         <p class="mb-3">Almost every confusion in inventory comes from these being blurred together.</p>
-        <ul class="space-y-1.5">
+        <ul class="list-disc space-y-1.5 ps-5">
             <li><strong class="text-gray-900 dark:text-gray-100">Item</strong> — the product itself. "2025 Topps Chrome Hobby Box". Created once, ever.</li>
             <li><strong class="text-gray-900 dark:text-gray-100">Location</strong> — a place stock can sit. A shelf, a streamer's shelf, the damaged pile.</li>
             <li><strong class="text-gray-900 dark:text-gray-100">Stock</strong> — how many of an item are at a location. This is the number that moves.</li>

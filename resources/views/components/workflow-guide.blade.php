@@ -207,7 +207,7 @@
                         </span>
                         Managing Streams
                     </h3>
-                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400 ml-10">
+                    <ul class="ml-10 list-disc space-y-2 ps-4 text-sm text-gray-600 dark:text-gray-400">
                         <li><strong>Review Pending Shows:</strong> Check shows for accurate item mapping</li>
                         <li><strong>Approve Streamer Logs:</strong> Verify costs and approve for payout</li>
                         <li><strong>Handle Deductions:</strong> Review and approve cost deductions from streamers</li>
@@ -222,7 +222,7 @@
                         </span>
                         Managing Inventory
                     </h3>
-                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400 ml-10">
+                    <ul class="ml-10 list-disc space-y-2 ps-4 text-sm text-gray-600 dark:text-gray-400">
                         <li><strong>Receive Pallets:</strong> Log incoming inventory from vendors</li>
                         <li><strong>Set Reorder Levels:</strong> Configure low-stock alerts for items</li>
                         <li><strong>Control Access:</strong> Set which inventory locations each streamer can use</li>
@@ -238,7 +238,7 @@
                         </span>
                         Processing Payouts
                     </h3>
-                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400 ml-10">
+                    <ul class="ml-10 list-disc space-y-2 ps-4 text-sm text-gray-600 dark:text-gray-400">
                         <li><strong>Calculate Payouts:</strong> Generate payout records after show approval</li>
                         <li><strong>Review Amounts:</strong> Verify calculations match payout formulas</li>
                         <li><strong>Process Payments:</strong> Create payment batches and mark as paid</li>
@@ -253,7 +253,7 @@
                         </span>
                         Overseeing Fulfillment
                     </h3>
-                    <ul class="space-y-2 text-sm text-gray-600 dark:text-gray-400 ml-10">
+                    <ul class="ml-10 list-disc space-y-2 ps-4 text-sm text-gray-600 dark:text-gray-400">
                         <li><strong>Assign Fulfillment:</strong> Route shows to fulfillment team members</li>
                         <li><strong>Monitor Progress:</strong> Track packing and shipping status</li>
                         <li><strong>Handle Issues:</strong> Address fulfillment problems and exceptions</li>

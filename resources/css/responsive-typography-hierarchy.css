@@ -415,22 +415,21 @@ th {
 /* LIST ITEM STYLING */
 /* ═══════════════════════════════════════════════════════════════════ */
 
-/* Consistent list marker styling */
-ul {
-    list-style-type: disc;
-}
-
-ol {
-    list-style-type: decimal;
-}
-
-ul ul {
-    list-style-type: circle;
-}
-
-ul ul ul {
-    list-style-type: square;
-}
+/* No marker rules here, deliberately.
+ *
+ * There used to be `ul { list-style-type: disc }` and `ol { list-style-type:
+ * decimal }`, which read as harmless typography and was not. Almost every list
+ * in this app is a layout container, not prose: the sidebar, breadcrumbs,
+ * global search results, the end-of-stream step wizard, Filament's own
+ * `<ol class="fi-pagination-items">`. All of them got markers. Pagination
+ * rendered "1. 1  2. 2  3. 3"; the step wizard rendered "2. [2] Notes"; the
+ * first marker in a row of steps disappeared entirely because the container
+ * clipped it. Each site got patched with `list-style: none !important` in turn
+ * and the next list to be written started the cycle again.
+ *
+ * Tailwind's preflight already resets lists to no marker. A list that wants
+ * markers asks for them where it is written — `list-disc`, `list-decimal` —
+ * which is visible to whoever reads the markup and cannot reach anything else. */
 
 /* ═══════════════════════════════════════════════════════════════════ */
 /* BLOCKQUOTE STYLING */

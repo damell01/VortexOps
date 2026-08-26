@@ -51,8 +51,20 @@ echo "📦 Optimizing..."
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
-echo "✓ Application optimized"
+
+# Filament keeps its own cache of registered pages, resources and icons, and
+# it is not touched by view:cache or route:cache. A release that adds a page
+# — the Handbook, Import Sheet — has it missing from the sidebar until this
+# runs, which looks like the deploy silently skipped a file.
+php artisan filament:optimize-clear
+php artisan filament:optimize
+echo "✓ Application optimized (Laravel and Filament)"
 echo ""
+
+# Screenshots and other public files are served straight off disk, so a new
+# one is live as soon as it is pulled. Nothing to do for them — noted here
+# because the handbook's pictures are the thing most likely to look stale,
+# and a stale one means a browser cache, not a bad deploy.
 
 # Database
 echo "🗄️  Running migrations..."

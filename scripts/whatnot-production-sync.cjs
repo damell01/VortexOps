@@ -269,7 +269,7 @@ async function bootstrapCookies(context){
     await page.goto('https://www.whatnot.com/',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);
     await page.waitForTimeout(1500);
 
-    const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});await page.waitForTimeout(2200);out.stages.home={status:resp?resp.status():null,...await state(page)};if(out.stages.home.challenged)throw fail(EXIT.CHALLENGE,'Seller Hub home challenged — Cloudflare served a check instead of the dashboard'+(proxy?'':'. WHATNOT_PROXY is not set, so this went out on the bare server address'));
+    const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});await page.waitForTimeout(2200);out.stages.home={status:resp?resp.status():null,...await state(page)};if(out.stages.home.challenged)throw fail(EXIT.CHALLENGE,'Seller Hub home challenged — Cloudflare served a check instead of the dashboard'+(proxy?' (via proxy '+proxy+')':'')+'. whatnot-scraper.cjs reaching the same site from this machine would mean the address is fine and this launcher is the difference.');
     if(!await clickShows(page))throw fail(EXIT.SELECTORS,'Could not reach Shows'); out.stages.shows=await state(page);
 
     // A backfill asks for named shows that may sit hundreds of rows back. The

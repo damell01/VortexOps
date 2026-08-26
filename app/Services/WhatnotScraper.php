@@ -1069,7 +1069,7 @@ class WhatnotScraper
         // free, block() when it is not. block() after a successful get() would
         // spin against our own lock until the timeout.
         if (! $lock->get()) {
-            $this->announceLockWait();
+            self::announceLockWait();
 
             try {
                 // block() waits up to $waitSeconds for the lock, throwing on timeout.
@@ -1107,7 +1107,7 @@ class WhatnotScraper
      * opposite situations: one clears on its own in a minute, the other never
      * does and needs whatnot:unlock. Guessing wrong costs twenty minutes.
      */
-    private function announceLockWait(): void
+    public static function announceLockWait(): void
     {
         $holder = Cache::get('whatnot:browser:holder_pid');
         $alive  = $holder && is_dir("/proc/{$holder}");

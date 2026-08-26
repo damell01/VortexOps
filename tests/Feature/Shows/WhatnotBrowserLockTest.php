@@ -7,6 +7,7 @@ use App\Models\Show;
 use App\Models\WhatnotChannel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
 /**
@@ -86,6 +87,22 @@ class WhatnotBrowserLockTest extends TestCase
             Cache::get('whatnot:browser:holder_pid'),
             'the locked-out run erased the PID of the job that actually holds the lock',
         );
+    }
+
+    public function test_waiting_for_the_lock_is_announced_rather_than_silent(): void
+    {
+        // block() is silent for up to twenty minutes. A run queued behind
+        // another job looked exactly like one that had started and hung on
+        // "Refreshing 1 show(s)" — which is how it was actually reported.
+        Log::shouldReceive('channel')->andReturnSelf();
+        Log::shouldReceive('warning')
+            ->once()
+            ->withArgs(fn (string $message) => str_contains($message, 'browser lock'));
+
+        $this->holdTheLock();
+
+        $this->artisan('whatnot:refresh-recent --limit=1')
+            ->assertExitCode(RefreshRecentWhatnotShows::SKIPPED_LOCKED);
     }
 
     public function test_the_backfill_says_the_lock_is_why_rather_than_guessing(): void

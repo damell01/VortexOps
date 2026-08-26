@@ -271,10 +271,22 @@ class RefreshRecentWhatnotShows extends Command
         $held = false;
 
         try {
-            // WhatnotScraper already reads this; this command had its own
-            // hardcoded 600, so a stale lock made every scheduled run sit for
-            // ten minutes before giving up — twice an hour, achieving nothing.
-            $lock->block((int) config('vortex.whatnot.browser_lock_wait', 1200));
+            // Say we are queued before going quiet for up to twenty minutes.
+            // block() is silent, so a run waiting behind another job looked
+            // exactly like one that had started and hung on "Refreshing 1
+            // show(s)". WhatnotScraper has announced this for a while; this
+            // command blocked without a word.
+            if (! $lock->get()) {
+                WhatnotScraper::announceLockWait();
+
+                // WhatnotScraper already reads this; this command had its own
+                // hardcoded 600, so a stale lock made every scheduled run sit
+                // for ten minutes before giving up — twice an hour, achieving
+                // nothing. Locks are not reentrant, so only block() when get()
+                // did not already take it.
+                $lock->block((int) config('vortex.whatnot.browser_lock_wait', 1200));
+            }
+
             $held = true;
             Cache::put('whatnot:browser:holder_pid', getmypid(), 1800);
             $process->run(function (string $type, string $buffer) use ($debug): void {

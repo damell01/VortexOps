@@ -28,7 +28,10 @@ Schedule::command('activitylog:clean')
 
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
 
-Schedule::command('whatnot:sync-show-index --limit=200 --enrich=3')
+// enrich=6 rather than 3: this is the only job that fetches per-show analytics
+// and shipments, and at three a run it clears about 430 shows a day. Six halves
+// that without lengthening a run enough to matter — the cap is ten.
+Schedule::command('whatnot:sync-show-index --limit=200 --enrich=6')
     ->skip($whatnotPaused)
     ->cron('*/10 * * * *')
     ->name('whatnot-show-index')

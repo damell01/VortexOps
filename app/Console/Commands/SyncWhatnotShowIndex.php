@@ -52,12 +52,22 @@ class SyncWhatnotShowIndex extends Command
             ->where('whatnot_channel_id', $channel->id)
             ->whereNotNull('whatnot_show_id')
             ->whereDate('show_date', '<=', today())
+            // Missing analytics OR missing shipments. It used to ask only about
+            // the analytics columns, so the moment a show's figures arrived it
+            // stopped being selected — and if its shipments had not come with
+            // them, nothing ever went back for them. Shipments are fetched on
+            // the same visit, so including them here costs no extra scraping.
             ->where(function ($q) {
                 $q->whereNull('gross_revenue')
                     ->orWhereNull('completed_earnings')
                     ->orWhereNull('buyers_count')
-                    ->orWhereNull('total_views');
-            });
+                    ->orWhereNull('total_views')
+                    ->orWhereNull('last_shipments_synced_at');
+            })
+            // Never-touched shows first, then newest. Without the first clause a
+            // steady trickle of recent shows can keep the back catalogue at the
+            // end of the queue indefinitely.
+            ->orderByRaw('CASE WHEN last_analytics_synced_at IS NULL THEN 0 ELSE 1 END');
 
         if ($aliasIds !== []) {
             $enrichQuery->whereNotIn('whatnot_show_id', $aliasIds);
@@ -238,6 +248,13 @@ class SyncWhatnotShowIndex extends Command
                         '_analytics_metrics' => $metrics,
                         '_analytics_synced_at' => now()->toIso8601String(),
                     ]);
+                    // Record the fetch on the column, not only inside the JSON
+                    // blob. This job does the work every ten minutes and never
+                    // said so, so anything reading the stamp — dueShows(), the
+                    // backfill's outstanding count, the Ingestion page — saw
+                    // hundreds of shows as permanently unfetched while their
+                    // figures were sitting right there.
+                    $show->setAttribute('last_analytics_synced_at', now());
                     $show->last_synced_at = now();
                     $show->save();
                     $counts['analytics']++;
@@ -259,13 +276,13 @@ class SyncWhatnotShowIndex extends Command
                 }
 
                 $raw = is_array($show->raw_import_payload) ? $show->raw_import_payload : [];
-                $show->update([
-                    'raw_import_payload' => array_merge($raw, [
-                        '_shipment_stats' => $entry['shipments']['stats'] ?? [],
-                        '_shipments_synced_at' => now()->toIso8601String(),
-                    ]),
-                    'last_synced_at' => now(),
+                $show->raw_import_payload = array_merge($raw, [
+                    '_shipment_stats' => $entry['shipments']['stats'] ?? [],
+                    '_shipments_synced_at' => now()->toIso8601String(),
                 ]);
+                $show->setAttribute('last_shipments_synced_at', now());
+                $show->last_synced_at = now();
+                $show->save();
             }
 
             ShowIngestionLog::create([

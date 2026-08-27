@@ -305,24 +305,21 @@ class PayoutService
             ];
         }
 
-        // No report means no product cost, and gross revenue with a product
-        // cost of zero would pay a share of the whole till. Fall back to the
-        // old basis, labelled, rather than inventing a number: the sign-off
-        // gate names this show as unreported before the run can be finalised.
-        if (! $logEntry) {
-            $estimate = round((float) $show->whatnot_net * ($percentage / 100), 2);
-
-            return [
-                'earnings' => $estimate,
-                'note'     => "Profit share {$percentage}% of \$" . number_format((float) $show->whatnot_net, 2)
-                    . ' (estimated from Whatnot net — no show report filed, so product cost is unknown)',
-                'columns'  => [],
-            ];
-        }
-
-        $productCost = (float) ($logEntry->product_cost ?? 0);
-        $hoursWorked = $logEntry->hours_streamed !== null ? (float) $logEntry->hours_streamed : $hours;
-        $shipments   = $logEntry->number_of_shipments !== null
+        // One formula, the sheet's, whatever the report does or does not say.
+        // There was a second path here that valued an unreported show off
+        // whatnot_net instead — safer-looking, but it meant two shows in the
+        // same pay run could be worked out different ways with nothing on the
+        // screen to say which was which.
+        //
+        // A blank cell on the sheet is a zero, so a missing product cost is a
+        // zero here too. That reads as a show whose stock cost nothing, which
+        // is exactly what an unreported show looks like until somebody files
+        // it — and the sign-off gate names it before the run can be finalised.
+        $productCost = (float) ($logEntry?->product_cost ?? 0);
+        $hoursWorked = $logEntry?->hours_streamed !== null
+            ? (float) $logEntry->hours_streamed
+            : $hours;
+        $shipments   = $logEntry?->number_of_shipments !== null
             ? (int) $logEntry->number_of_shipments
             : (int) $show->shipments()->count();
 
@@ -336,7 +333,8 @@ class PayoutService
 
         return [
             'earnings' => $working['earnings'],
-            'note'     => ProfitShareFormula::explain($working),
+            'note'     => ProfitShareFormula::explain($working)
+                . ($logEntry ? '' : ' No show report filed, so product cost counted as $0.00.'),
             'columns'  => [
                 'product_cost'      => $working['product_cost'],
                 'hours_worked'      => $working['hours'],

@@ -168,20 +168,24 @@ class PayoutMatchesTheCalculationsSheetTest extends TestCase
         $this->assertSame(266.49, (float) $this->payoutFor($show)->calculated_payout);
     }
 
-    public function test_a_show_with_no_report_is_estimated_and_says_so(): void
+    public function test_a_show_with_no_report_uses_the_same_formula(): void
     {
-        // Gross with a product cost of zero would pay a share of the whole
-        // till, so it falls back to the old basis — labelled, and the sign-off
-        // gate names the show before the run can be finalised.
+        // A blank cell on the sheet is a zero, so a missing product cost is a
+        // zero here. One formula for every show in the run — the alternative
+        // was two shows worked out different ways with nothing on the screen
+        // to say which was which. The sign-off gate names this show before the
+        // run can be finalised.
         $show     = $this->signedShow();
         $streamer = $this->streamer();
         $show->streamers()->attach($streamer->id, ['is_primary' => true]);
 
         $payout = $this->payoutFor($show);
 
-        $this->assertSame(520.00, (float) $payout->calculated_payout);
-        $this->assertStringContainsString('no show report filed', $payout->calculation_notes);
-        $this->assertNull($payout->net_revenue_basis);
+        // Burden falls to hours only (4.45 × $80 = $356.00 — no shipments on
+        // this show), net 7371.10 − 0 − 356.00 = 7015.10, × 8% = 561.21.
+        $this->assertSame(561.21, (float) $payout->calculated_payout);
+        $this->assertSame('0.00', (string) $payout->product_cost);
+        $this->assertStringContainsString('No show report filed', $payout->calculation_notes);
     }
 
     public function test_a_non_primary_on_a_collab_still_gets_no_revenue_share(): void

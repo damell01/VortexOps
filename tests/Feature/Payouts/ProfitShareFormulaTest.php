@@ -19,11 +19,22 @@ class ProfitShareFormulaTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** The rates the Calculations tab uses, which is what these shows were paid on. */
+    /**
+     * The rates the Calculations tab uses. Seeded by migration, so this only
+     * restates what a fresh install already has — kept explicit in the tests
+     * that check the paperwork, so those numbers cannot drift with a setting.
+     */
     private function sheetRates(): void
     {
         Setting::set('payroll_burden_per_shipment', '2.10');
         Setting::set('payroll_burden_per_hour', '80.00');
+    }
+
+    /** An operation that has deliberately turned the burden off. */
+    private function noRates(): void
+    {
+        Setting::set('payroll_burden_per_shipment', '');
+        Setting::set('payroll_burden_per_hour', '');
     }
 
     /** The signed show from 8/13/26: Caylen Campbell, Free Storm Emeralda. */
@@ -68,8 +79,10 @@ class ProfitShareFormulaTest extends TestCase
 
     public function test_no_rate_set_means_no_burden(): void
     {
-        // A burden nobody configured is money coming off somebody's pay
-        // because of a constant in the source. Unset charges nothing.
+        // Cleared, not merely absent: the sheet's rates are seeded on install,
+        // so switching the burden off is something somebody chooses.
+        $this->noRates();
+
         $this->assertNull(ProfitShareFormula::ratePerShipment());
         $this->assertNull(ProfitShareFormula::ratePerHour());
         $this->assertFalse(ProfitShareFormula::hasBurden());
@@ -95,6 +108,7 @@ class ProfitShareFormulaTest extends TestCase
     {
         // An operation that pays per shipment but not for time gets exactly
         // that, rather than all or nothing.
+        $this->noRates();
         Setting::set('payroll_burden_per_shipment', '2.10');
 
         $this->assertTrue(ProfitShareFormula::hasBurden());
@@ -103,6 +117,8 @@ class ProfitShareFormulaTest extends TestCase
 
     public function test_the_working_says_so_when_no_burden_applies(): void
     {
+        $this->noRates();
+
         $explained = ProfitShareFormula::explain(
             ProfitShareFormula::forShow(7371.10, 3392.00, 4.45, 80, 8.0),
         );

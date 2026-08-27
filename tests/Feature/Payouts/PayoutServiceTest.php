@@ -64,7 +64,9 @@ class PayoutServiceTest extends TestCase
         $payouts = $this->service->calculateForShow($this->show);
 
         $this->assertCount(1, $payouts);
-        $this->assertEquals(315.00, (float) $payouts[0]->calculated_payout); // 900 * 0.35
+        // The calculations-sheet basis: gross 1000, no report so product cost
+        // 0, burden 2 hrs × $80 = 160, net 840. 840 * 0.35 = 294.
+        $this->assertEquals(294.00, (float) $payouts[0]->calculated_payout);
     }
 
     public function test_profit_share_with_tips(): void
@@ -78,8 +80,8 @@ class PayoutServiceTest extends TestCase
 
         $payouts = $this->service->calculateForShow($this->show);
 
-        // 900 * 0.35 + 50 tips = 365
-        $this->assertEquals(365.00, (float) $payouts[0]->calculated_payout);
+        // net 840 * 0.35 + 50 tips = 344
+        $this->assertEquals(344.00, (float) $payouts[0]->calculated_payout);
     }
 
     public function test_pwe_labels_payout(): void
@@ -145,12 +147,12 @@ class PayoutServiceTest extends TestCase
         $payouts = $this->service->calculateForShow($this->show);
 
         // hourly: 20 * 2 = 40
-        // profit: 900 * 0.10 = 90
+        // profit: net 840 * 0.10 = 84
         // tips: 50
-        // base: 40 + 90 + 50 = 180
-        // burden (10% of 180): 18
-        // total: 198
-        $this->assertEquals(198.00, (float) $payouts[0]->calculated_payout);
+        // base: 40 + 84 + 50 = 174
+        // burden (10% of 174): 17.40 — the per-person hybrid one, added
+        // total: 191.40
+        $this->assertEquals(191.40, (float) $payouts[0]->calculated_payout);
         $this->assertNotNull($payouts[0]->burden_rate_applied);
     }
 
@@ -167,11 +169,11 @@ class PayoutServiceTest extends TestCase
 
         $payouts = $this->service->calculateForShow($this->show);
 
-        // base: 900 * 0.40 = 360
-        // fee: 360 * 0.10 = 36
-        // net: 360 - 36 = 324
-        $this->assertEquals(324.00, (float) $payouts[0]->calculated_payout);
-        $this->assertEquals(36.00, (float) $payouts[0]->owner_fee_deducted);
+        // base: net 840 * 0.40 = 336
+        // fee: 336 * 0.10 = 33.60
+        // net: 336 - 33.60 = 302.40
+        $this->assertEquals(302.40, (float) $payouts[0]->calculated_payout);
+        $this->assertEquals(33.60, (float) $payouts[0]->owner_fee_deducted);
     }
 
     public function test_global_default_owner_fee_applies_when_streamer_has_no_override(): void
@@ -189,8 +191,8 @@ class PayoutServiceTest extends TestCase
         $payouts = $this->service->calculateForShow($this->show);
 
         // Same math as the explicit-override test above, but via the global default.
-        $this->assertEquals(324.00, (float) $payouts[0]->calculated_payout);
-        $this->assertEquals(36.00, (float) $payouts[0]->owner_fee_deducted);
+        $this->assertEquals(302.40, (float) $payouts[0]->calculated_payout);
+        $this->assertEquals(33.60, (float) $payouts[0]->owner_fee_deducted);
     }
 
     public function test_streamer_level_fee_override_wins_over_global_default(): void
@@ -210,8 +212,8 @@ class PayoutServiceTest extends TestCase
 
         $payouts = $this->service->calculateForShow($this->show);
 
-        // base: 900 * 0.40 = 360, minus the streamer's own $5 flat fee (not the 10% default)
-        $this->assertEquals(355.00, (float) $payouts[0]->calculated_payout);
+        // base: net 840 * 0.40 = 336, minus the streamer's own $5 flat fee (not the 10% default)
+        $this->assertEquals(331.00, (float) $payouts[0]->calculated_payout);
         $this->assertEquals(5.00, (float) $payouts[0]->owner_fee_deducted);
     }
 
@@ -222,7 +224,7 @@ class PayoutServiceTest extends TestCase
 
         $payouts = $this->service->calculateForShow($this->show);
 
-        $this->assertEquals(360.00, (float) $payouts[0]->calculated_payout);
+        $this->assertEquals(336.00, (float) $payouts[0]->calculated_payout);
         $this->assertEquals(0.0, (float) $payouts[0]->owner_fee_deducted);
     }
 
@@ -248,10 +250,10 @@ class PayoutServiceTest extends TestCase
 
         $this->assertCount(2, $payouts);
         // Collab shows don't auto-split revenue — the primary streamer gets
-        // the full share (900 * 0.50 = 450) and splitting with collaborators
+        // the full share (net 840 * 0.50 = 420) and splitting with collaborators
         // is handled manually outside VortexOps, so the non-primary streamer
         // gets $0 from this system.
-        $this->assertEquals(450.00, (float) $payouts[$s1->id]->calculated_payout);
+        $this->assertEquals(420.00, (float) $payouts[$s1->id]->calculated_payout);
         $this->assertEquals(0.00, (float) $payouts[$s2->id]->calculated_payout);
     }
 
@@ -269,7 +271,7 @@ class PayoutServiceTest extends TestCase
 
         $payouts = collect($this->service->calculateForShow($this->show))->keyBy('streamer_id');
 
-        $this->assertEquals(450.00, (float) $payouts[$s1->id]->calculated_payout);
+        $this->assertEquals(420.00, (float) $payouts[$s1->id]->calculated_payout);
         $this->assertEquals(0.00, (float) $payouts[$s2->id]->calculated_payout);
     }
 

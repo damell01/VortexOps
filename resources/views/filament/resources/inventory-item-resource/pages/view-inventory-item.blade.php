@@ -108,8 +108,40 @@
             </div>
             <div class="flex justify-between">
                 <span class="text-gray-500">Average Cost (WAC)</span>
-                <span class="font-bold text-gray-900 dark:text-gray-100">${{ number_format((float)$record->average_cost, 2) }}</span>
+                {{-- effectiveCost falls back to the list cost until receiving
+                     has earned a real weighted average, so a sheet-imported item
+                     does not read as costing nothing. --}}
+                <span class="font-bold text-gray-900 dark:text-gray-100">${{ number_format($record->effectiveCost(), 2) }}</span>
             </div>
+            <div class="flex justify-between">
+                <span class="text-gray-500">Sale Target</span>
+                <span class="font-medium text-gray-700 dark:text-gray-300">
+                    {{ $record->sale_price ? '$' . number_format((float) $record->sale_price, 2) : '—' }}
+                </span>
+            </div>
+            @php
+                // Margin against whichever cost the rest of the app values this
+                // item at — quoting a margin off a cost nothing else uses would
+                // be a different number from the one on every other screen.
+                $cost   = $record->effectiveCost();
+                $target = (float) ($record->sale_price ?? 0);
+                $margin = ($target > 0 && $cost > 0) ? $target - $cost : null;
+                $pct    = ($margin !== null && $target > 0) ? ($margin / $target) * 100 : null;
+            @endphp
+            @if ($margin !== null)
+            <div class="flex justify-between">
+                <span class="text-gray-500">Potential Margin</span>
+                <span class="font-medium {{ $margin >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400' }}">
+                    ${{ number_format($margin, 2) }}
+                    <span class="text-xs text-gray-500">({{ number_format($pct, 1) }}%)</span>
+                </span>
+            </div>
+            @elseif ($target > 0)
+            <div class="flex justify-between">
+                <span class="text-gray-500">Potential Margin</span>
+                <span class="text-xs text-gray-500">needs a cost</span>
+            </div>
+            @endif
             @php $activeLots = collect($lots)->where('status', 'active'); @endphp
             @if($activeLots->count() > 0)
             <div class="flex justify-between">

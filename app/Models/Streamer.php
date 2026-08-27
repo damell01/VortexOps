@@ -51,6 +51,7 @@ class Streamer extends Model
         'total_earnings_paid',
         'channel_routing_rules',
         'status',
+        'member_type',
         'notes',
     ];
 
@@ -208,6 +209,48 @@ class Streamer extends Model
         $changePct = (($lastWeekRevenue - $baselineAvg) / $baselineAvg) * 100;
 
         return $changePct <= -$thresholdPct;
+    }
+
+    /**
+     * What this person does, which is separate from how they are paid.
+     *
+     * Fulfillment staff carry exactly the same pay terms as streamers — the
+     * payout pipeline is keyed on streamer_id and every rate column already
+     * lives on this row — so the only thing that differs is the work. "Both"
+     * covers somebody who streams and also packs.
+     */
+    public static function memberTypeLabels(): array
+    {
+        return [
+            'streamer'    => 'Streamer',
+            'fulfillment' => 'Fulfillment',
+            'both'        => 'Streamer + Fulfillment',
+        ];
+    }
+
+    /** People who go on camera. */
+    public function scopeStreamers(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->whereIn('member_type', ['streamer', 'both']);
+    }
+
+    /** People who pack and ship. */
+    public function scopeFulfillment(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->whereIn('member_type', ['fulfillment', 'both']);
+    }
+
+    public function isFulfillment(): bool
+    {
+        return in_array($this->member_type, ['fulfillment', 'both'], true);
+    }
+
+    public function isStreamer(): bool
+    {
+        // Rows created before member_type existed are streamers; that is what
+        // the table held. Treating a null as neither would hide every one of
+        // them from the list they have always appeared in.
+        return in_array($this->member_type ?? 'streamer', ['streamer', 'both'], true);
     }
 
     public static function payoutTypeLabels(): array

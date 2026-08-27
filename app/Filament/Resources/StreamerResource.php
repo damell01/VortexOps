@@ -500,6 +500,17 @@ class StreamerResource extends Resource
 
             Section::make('Status & Notes')->columnSpanFull()->schema([
                 Grid::make(2)->schema([
+                    Select::make('member_type')
+                        ->label('Role')
+                        // Fulfillment staff are paid off exactly the same terms
+                        // as streamers — every rate column is on this record and
+                        // the payout pipeline already runs off it — so the only
+                        // thing this changes is where they are listed.
+                        ->helperText('Pay terms are the same either way. This decides which list they appear in.')
+                        ->options(Streamer::memberTypeLabels())
+                        ->required()
+                        ->default('streamer')
+                        ->native(false),
                     Select::make('status')
                         ->options(Streamer::statusLabels())
                         ->required()
@@ -544,6 +555,18 @@ class StreamerResource extends Resource
                     // The rate is the part you actually want to see; the type
                     // alone only names the scheme.
                     ->description(fn (Streamer $record) => static::termsSummary($record)),
+                TextColumn::make('member_type')
+                    ->label('Role')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => Streamer::memberTypeLabels()[$state] ?? 'Streamer')
+                    ->color(fn ($state) => match ($state) {
+                        'fulfillment' => 'info',
+                        'both'        => 'warning',
+                        default       => 'gray',
+                    })
+                    ->toggleable()
+                    ->extraCellAttributes(['class' => 'vx-col-tight'])
+                    ->extraHeaderAttributes(['class' => 'vx-col-tight']),
                 TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn ($state) => Streamer::statusLabels()[$state] ?? $state)

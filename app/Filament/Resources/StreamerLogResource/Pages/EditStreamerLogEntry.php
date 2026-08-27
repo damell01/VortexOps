@@ -127,15 +127,7 @@ class EditStreamerLogEntry extends EditRecord
                         ->rows(3),
                 ])
                 ->action(function (array $data) {
-                    // Clear submitted_at so streamer can resubmit
-                    $this->record->update([
-                        'submitted_at' => null,
-                        'reviewed_by' => null,
-                        'reviewed_at' => null,
-                        'locked_at' => null,
-                    ]);
-
-                    $this->record->rejectByAdmin($data['approval_notes']);
+                    $this->record->sendBackToStreamer($data['approval_notes']);
                     Notification::make()
                         ->title('Report rejected')
                         ->body('Report returned to streamer for revisions.')
@@ -145,21 +137,53 @@ class EditStreamerLogEntry extends EditRecord
                     $this->refresh();
                 });
 
+            // The answer to a streamer asking for their report back. It used to
+            // be invisible on an approved report, which is precisely where the
+            // question gets asked — the edit window has long closed by then —
+            // so the only way to grant one was Reject & Return: a fault on a
+            // report nobody had faulted, and its stock un-posted with it.
             $actions[] = Action::make('reopen_for_edit')
-                ->label('Reopen for Editing')
+                ->label(fn () => $this->record->hasPendingRevisionRequest() ? 'Approve Edit Request' : 'Reopen for Editing')
                 ->icon('heroicon-o-lock-open')
                 ->color('warning')
-                ->visible(fn () => $this->record->isLocked() && $this->record->approval_status === 'pending_approval')
+                ->badge(fn () => $this->record->hasPendingRevisionRequest() ? 'Requested' : null)
+                ->visible(fn () => ! $this->record->canStreamerEdit() && $this->record->isSubmitted())
                 ->requiresConfirmation()
-                ->modalHeading('Reopen for Editing')
-                ->modalDescription('This will allow the streamer to make changes again.')
+                ->modalHeading(fn () => $this->record->hasPendingRevisionRequest() ? 'Approve this edit request' : 'Reopen for editing')
+                ->modalDescription(fn () => trim(
+                    ($this->record->revision_reason ? "They said: “{$this->record->revision_reason}”\n\n" : '')
+                    . 'The report stays as filed and its stock stays posted — the streamer just gets the edit window back.'
+                ))
+                ->modalSubmitActionLabel('Reopen')
                 ->action(function () {
-                    $this->record->unlockReport();
-                    $this->record->update(['submitted_at' => now()]);
+                    $this->record->reopenForEditing();
                     Notification::make()
-                        ->title('Report unlocked')
-                        ->body('Streamer can now edit this report.')
-                        ->info()
+                        ->title('Report reopened')
+                        ->body('The streamer can edit it again and has been told.')
+                        ->success()
+                        ->send();
+                    $this->refresh();
+                });
+
+            // Turning a request down is an answer too. Without it the only way
+            // to clear one was to grant it.
+            $actions[] = Action::make('decline_edit_request')
+                ->label('Decline Edit Request')
+                ->icon('heroicon-o-hand-raised')
+                ->color('gray')
+                ->visible(fn () => $this->record->hasPendingRevisionRequest())
+                ->form([
+                    \Filament\Forms\Components\Textarea::make('reason')
+                        ->label('Why not? (the streamer sees this)')
+                        ->rows(3)
+                        ->required(),
+                ])
+                ->action(function (array $data) {
+                    $this->record->declineRevisionRequest($data['reason']);
+                    Notification::make()
+                        ->title('Edit request declined')
+                        ->body('The streamer has been told; the report stays as filed.')
+                        ->success()
                         ->send();
                     $this->refresh();
                 });

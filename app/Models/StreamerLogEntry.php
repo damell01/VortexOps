@@ -122,6 +122,24 @@ class StreamerLogEntry extends Model
     }
 
     /**
+     * Say no to a reopen request.
+     *
+     * The report is untouched — this only clears the question and tells the
+     * person who asked. Without it the only way to answer a request was to
+     * grant it, so a declined one stayed in the queue for good.
+     */
+    public function declineRevisionRequest(string $reason): void
+    {
+        $this->clearRevisionRequest();
+
+        $this->notifyStreamer(
+            'Your edit request was declined',
+            "{$this->show?->title} stays as filed.\n\nReason: {$reason}",
+            'warning',
+        );
+    }
+
+    /**
      * Can this person ask for it back?
      *
      * Only once it is filed and past the point where they could simply edit
@@ -260,10 +278,79 @@ class StreamerLogEntry extends Model
             'approval_notes' => $postingProblems === []
                 ? $this->approval_notes
                 : trim(($this->approval_notes ? $this->approval_notes . "\n" : '') . 'Inventory exceptions: ' . implode(' | ', $postingProblems)),
+            // Approving answers a pending "can I change this?" — with a no.
+            // Without this the request stayed up after it had been decided and
+            // the report sat in the reopen queue for good.
+            'revision_requested_at' => null,
+            'revision_reason' => null,
         ]);
 
         $this->notifyStreamer('✓ Show Report Approved', "Your show report for {$this->show?->title} has been approved.", 'success');
         return $postingProblems;
+    }
+
+    /**
+     * Send a filed report back so the streamer can change it.
+     *
+     * The one way back to editable, whether an admin spotted something or the
+     * streamer asked for it. This used to be five copies — two row actions, two
+     * bulk actions and a show page — each doing a slightly different subset,
+     * and the differences were the bugs: the bulk version left the report
+     * locked and still flagged as requested, so "Request changes" told the
+     * streamer to fix it and left them unable to.
+     *
+     * rejectByAdmin() is what returns the stock that was deducted on submission
+     * and tells the streamer; everything after it is the report becoming a
+     * draft again.
+     */
+    public function sendBackToStreamer(string $notes = ''): void
+    {
+        $this->rejectByAdmin($notes);
+
+        $this->update([
+            // 'pending' was indistinguishable from "never started", so the
+            // Changes Requested tab and tile were always empty.
+            'status'                  => 'changes_requested',
+            'streamer_reviewed_at'    => null,
+            'reviewed_by'             => null,
+            'reviewed_at'             => null,
+            'fulfillment_reviewed_by' => null,
+            'fulfillment_reviewed_at' => null,
+            'submitted_at'            => null,
+            'locked_at'               => null,
+            // If the streamer asked for this, they have their answer.
+            'revision_requested_at'   => null,
+            'revision_reason'         => null,
+        ]);
+    }
+
+    /**
+     * Grant a reopen request without calling it a correction.
+     *
+     * "Request Changes" is an admin telling a streamer something is wrong, and
+     * it returns the stock. A streamer asking for their own report back is a
+     * different thing: the report stands, the stock stays posted, and they get
+     * the edit window they had at submission. Answering one with the other put
+     * a rejection on a report nobody had faulted and un-posted its inventory.
+     */
+    public function reopenForEditing(?string $note = null): void
+    {
+        $this->update([
+            'approval_status'       => 'pending_approval',
+            'submitted_at'          => now(),
+            'locked_at'             => null,
+            'revision_requested_at' => null,
+            'revision_reason'       => null,
+            'approval_notes'        => filled($note)
+                ? trim(($this->approval_notes ? $this->approval_notes . "\n" : '') . $note)
+                : $this->approval_notes,
+        ]);
+
+        $this->notifyStreamer(
+            'Your show report is open again',
+            "You can edit {$this->show?->title} for the next " . ($this->edit_window_minutes ?? 120) . ' minutes.',
+            'success',
+        );
     }
 
     public function rejectByAdmin(string $notes = ''): void

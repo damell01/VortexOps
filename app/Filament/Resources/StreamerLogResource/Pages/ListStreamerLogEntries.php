@@ -46,6 +46,16 @@ class ListStreamerLogEntries extends ListRecords
                 'icon'  => 'heroicon-o-clock',
                 'tone'  => 'blue',
             ],
+            // A reopen request used to be a one-off database notification and a
+            // column. Miss the notification and the streamer is waiting on an
+            // answer nobody can see they asked for.
+            [
+                'label' => 'Edit Requests',
+                'value' => number_format($base()->whereNotNull('revision_requested_at')->count()),
+                'sub'   => 'Streamers asking to reopen',
+                'icon'  => 'heroicon-o-lock-open',
+                'tone'  => 'red',
+            ],
             [
                 'label' => 'Changes Requested',
                 'value' => number_format($base()->where('status', 'changes_requested')->count()),
@@ -99,6 +109,13 @@ class ListStreamerLogEntries extends ListRecords
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('status', 'streamer_reviewed'))
                 ->badge($count(fn ($q) => $q->where('status', 'streamer_reviewed')))
                 ->badgeColor('info'),
+
+            // Filed, locked, and the streamer has asked for it back. Waiting on
+            // an admin to say yes or no.
+            'edit_requested' => Tab::make('Edit Requests')
+                ->modifyQueryUsing(fn (Builder $query) => $query->whereNotNull('revision_requested_at'))
+                ->badge($count(fn ($q) => $q->whereNotNull('revision_requested_at')))
+                ->badgeColor('danger'),
 
             // Sent back by an admin; the streamer needs to revise and resubmit.
             'changes_requested' => Tab::make('Changes Requested')

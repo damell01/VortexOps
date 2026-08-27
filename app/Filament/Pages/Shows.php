@@ -242,14 +242,11 @@ class Shows extends Page
             return;
         }
 
-        $logEntry->update([
-            'status' => 'changes_requested',
-            'submitted_at' => null,
-            'reviewed_by' => null,
-            'reviewed_at' => null,
-            'locked_at' => null,
-        ]);
-        $logEntry->rejectByAdmin('Admin requested changes to your submission.');
+        // Was an update() followed by rejectByAdmin(), which sets status back
+        // to 'streamer_reviewed' — so the change request from this page landed
+        // the report in the state it was already in and the streamer saw no
+        // signal at all. sendBackToStreamer() does the two in the right order.
+        $logEntry->sendBackToStreamer('Admin requested changes to your submission.');
 
         Notification::make()
             ->title('Change request sent')

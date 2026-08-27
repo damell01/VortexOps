@@ -412,13 +412,18 @@ class StreamerLogResource extends Resource
                         && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
                     ->requiresConfirmation()
                     ->action(function (StreamerLogEntry $record): void {
-                        $record->status = 'admin_approved';
-                        $record->reviewed_by = auth()->id();
-                        $record->reviewed_at = now();
-                        $record->save();
+                        // Through the model, not inline. The inline version set
+                        // three columns and stopped: the report stayed unlocked,
+                        // approval_status stayed 'pending_approval', inventory
+                        // was never posted under the on_approval policy and the
+                        // streamer was never told. Approving from the edit page
+                        // did all four, so the same word meant two things
+                        // depending on which screen you were standing on.
+                        $problems = $record->approveByAdmin();
 
                         Notification::make()
                             ->title('Log entry approved')
+                            ->body($problems === [] ? null : 'Inventory exceptions: ' . implode(' | ', $problems))
                             ->success()
                             ->send();
                     }),
@@ -447,6 +452,53 @@ class StreamerLogResource extends Resource
                             ->send();
                     }),
 
+                // Answering a streamer's "can I have this back?" from the list,
+                // rather than opening each report to find the button.
+                Action::make('approve_edit_request')
+                    ->label('Approve Edit Request')
+                    ->icon('heroicon-o-lock-open')
+                    ->color('warning')
+                    ->visible(fn (StreamerLogEntry $record) => $record->hasPendingRevisionRequest()
+                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
+                    ->requiresConfirmation()
+                    ->modalHeading('Approve this edit request')
+                    ->modalDescription(fn (StreamerLogEntry $record) => trim(
+                        ($record->revision_reason ? "They said: “{$record->revision_reason}”\n\n" : '')
+                        . 'The report stays as filed and its stock stays posted — the streamer just gets the edit window back.'
+                    ))
+                    ->modalSubmitActionLabel('Reopen')
+                    ->action(function (StreamerLogEntry $record): void {
+                        $record->reopenForEditing();
+
+                        Notification::make()
+                            ->title('Report reopened')
+                            ->body('The streamer can edit it again and has been told.')
+                            ->success()
+                            ->send();
+                    }),
+
+                Action::make('decline_edit_request')
+                    ->label('Decline Edit Request')
+                    ->icon('heroicon-o-hand-raised')
+                    ->color('gray')
+                    ->visible(fn (StreamerLogEntry $record) => $record->hasPendingRevisionRequest()
+                        && (auth()->user()?->isAdmin() || auth()->user()?->isOwner()))
+                    ->form([
+                        \Filament\Forms\Components\Textarea::make('reason')
+                            ->label('Why not? (the streamer sees this)')
+                            ->rows(3)
+                            ->required(),
+                    ])
+                    ->action(function (StreamerLogEntry $record, array $data): void {
+                        $record->declineRevisionRequest($data['reason']);
+
+                        Notification::make()
+                            ->title('Edit request declined')
+                            ->body('The streamer has been told; the report stays as filed.')
+                            ->success()
+                            ->send();
+                    }),
+
                 // Send an already-reviewed/approved entry back to the streamer so
                 // they can edit it again (admins/owner only).
                 Action::make('send_back')
@@ -466,31 +518,7 @@ class StreamerLogResource extends Resource
                     ->modalDescription('Reopens this entry for editing and returns any stock that was deducted when it was submitted.')
                     ->modalSubmitActionLabel('Request Changes')
                     ->action(function (StreamerLogEntry $record, array $data): void {
-                        // rejectByAdmin() is what puts the deducted stock back
-                        // and notifies the streamer. The old inline update
-                        // skipped it, so sending an entry back silently left
-                        // its inventory deducted.
-                        $record->rejectByAdmin($data['notes']);
-
-                        $record->update([
-                            // 'pending' was indistinguishable from "never
-                            // started", so the Changes Requested tab and tile
-                            // were always empty and the streamer got no signal.
-                            'status'                  => 'changes_requested',
-                            'streamer_reviewed_at'    => null,
-                            'reviewed_by'             => null,
-                            'reviewed_at'             => null,
-                            'fulfillment_reviewed_by' => null,
-                            'fulfillment_reviewed_at' => null,
-                            // Reopen it for editing.
-                            'submitted_at'            => null,
-                            'locked_at'               => null,
-                            // If the streamer asked for this, they have their
-                            // answer — leaving the flag up would keep it in the
-                            // "waiting to be reopened" list after reopening it.
-                            'revision_requested_at'   => null,
-                            'revision_reason'         => null,
-                        ]);
+                        $record->sendBackToStreamer($data['notes']);
 
                         Notification::make()
                             ->title('Changes requested')
@@ -531,12 +559,7 @@ class StreamerLogResource extends Resource
                     ->action(function (Collection $records): void {
                         $approved = $records
                             ->filter(fn (StreamerLogEntry $record) => $record->status === 'streamer_reviewed')
-                            ->each(function (StreamerLogEntry $record): void {
-                                $record->status      = 'admin_approved';
-                                $record->reviewed_by = auth()->id();
-                                $record->reviewed_at = now();
-                                $record->save();
-                            })
+                            ->each(fn (StreamerLogEntry $record) => $record->approveByAdmin())
                             ->count();
 
                         $skipped = $records->count() - $approved;
@@ -567,18 +590,12 @@ class StreamerLogResource extends Resource
                     ->action(function (Collection $records, array $data): void {
                         $sent = $records
                             ->filter(fn (StreamerLogEntry $record) => in_array($record->status, ['streamer_reviewed', 'admin_approved'], true))
-                            ->each(function (StreamerLogEntry $record) use ($data): void {
-                                // rejectByAdmin() is what returns the deducted
-                                // stock and notifies the streamer.
-                                $record->rejectByAdmin($data['notes']);
-
-                                $record->update([
-                                    'status'               => 'changes_requested',
-                                    'streamer_reviewed_at' => null,
-                                    'reviewed_by'          => null,
-                                    'reviewed_at'          => null,
-                                ]);
-                            })
+                            // The same method the row action uses. This one used
+                            // to reset four columns of its own and leave
+                            // submitted_at and locked_at alone, so an entry sent
+                            // back in bulk told the streamer to fix it while
+                            // staying locked against them doing so.
+                            ->each(fn (StreamerLogEntry $record) => $record->sendBackToStreamer($data['notes']))
                             ->count();
 
                         $skipped = $records->count() - $sent;

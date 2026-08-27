@@ -11,6 +11,7 @@ function loadPlaywright(){
 }
 const { chromium } = loadPlaywright();
 const { launchWithProfileRecovery } = require('./lib/whatnot-browser.cjs');
+const { applyStealth } = require('./lib/whatnot-stealth.cjs');
 const DEBUG = process.env.WHATNOT_DEBUG === '1';
 const ENRICH_IDS = (process.env.WHATNOT_ENRICH_IDS || '').split(',').map(s=>s.trim()).filter(Boolean);
 const MAX_ENRICH = Math.max(0, Number(process.env.WHATNOT_ENRICH_LIMIT || 3));
@@ -368,7 +369,13 @@ async function bootstrapCookies(context){
     locale:'en-US',
     extraHTTPHeaders:{'sec-ch-ua':'"Chromium";v="128", "Google Chrome";v="128", "Not-A.Brand";v="99"','sec-ch-ua-mobile':'?0','sec-ch-ua-platform':'"Windows"','Accept-Language':'en-US,en;q=0.9'},
   },{chromium,chromiumPath:findChromium(),info:(...a)=>{if(DEBUG)console.error('[whatnot-prod]',...a);}});
-  await context.addInitScript(()=>{try{Object.defineProperty(navigator,'webdriver',{get:()=>undefined});}catch{}try{Object.defineProperty(navigator,'languages',{get:()=>['en-US','en']});}catch{}try{Object.defineProperty(navigator,'platform',{get:()=> 'Win32'});}catch{}try{if(!window.chrome)window.chrome={runtime:{}};}catch{}});
+  // The full fingerprint, not four fields of it. Masking webdriver, languages,
+  // navigator.platform and window.chrome while leaving userAgentData reporting
+  // Linux and WebGL reporting SwiftShader described a machine that cannot exist,
+  // and that inconsistency is what Cloudflare's challenge JS reads before
+  // declining to issue clearance — so the interstitial reloaded until the wait
+  // ran out. Shared with whatnot-scraper, which reaches the hub from here.
+  await applyStealth(context);
   const lsFile=path.join(__dirname,'../storage/whatnot-localstorage.json');if(fs.existsSync(lsFile)){try{const saved=JSON.parse(fs.readFileSync(lsFile,'utf8'));await context.addInitScript(entries=>{if(/whatnot\.com$/i.test(location.hostname)){try{for(const[k,v]of Object.entries(entries||{}))localStorage.setItem(k,v);}catch{}}},saved);}catch{}}
   await bootstrapCookies(context);
   await dropForeignClearance(context);

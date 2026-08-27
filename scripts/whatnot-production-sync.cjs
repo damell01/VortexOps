@@ -278,6 +278,39 @@ function resolveCookiesFile(){
  * Whatnot has been refreshing, and overwriting them with an older export is how
  * a working session gets downgraded to a stale one.
  */
+/**
+ * Drop a Cloudflare clearance this browser did not earn.
+ *
+ * cf_clearance proves a particular browser on a particular IP passed a
+ * challenge, and Cloudflare binds it to both. One that arrived in an imported
+ * cookie file was earned somewhere else, and presenting a token that does not
+ * match the connection is worse than presenting none — it is exactly what a
+ * replayed token looks like, and it is answered with a challenge.
+ *
+ * whatnot-scraper.cjs does this on every run, logs "dropped an imported
+ * cf_clearance", and is then served a plain 200. This script only did it on the
+ * bootstrap path, which is skipped whenever the profile already has cookies — so
+ * on a shared profile it kept offering the very token that earns the block.
+ *
+ * Cloudflare issues clearance for about an hour, so anything claiming days was
+ * imported. The expiry is enough to tell them apart without guessing.
+ */
+async function dropForeignClearance(context){
+  const cookies=await context.cookies('https://www.whatnot.com').catch(()=>[]);
+
+  const foreign=cookies.find(c=>c.name==='cf_clearance'
+    && c.expires>0
+    && (c.expires*1000-Date.now())>24*60*60*1000);
+
+  if(!foreign&&process.env.WHATNOT_DROP_CLEARANCE!=='1')return;
+
+  for(const name of ['cf_clearance','__cf_bm','__cfwaitingroom','cf_chl_2','cf_chl_prog','cf_chl_rc_i','cf_chl_rc_ni','cf_chl_rc_m']){
+    await context.clearCookies({name}).catch(()=>{});
+  }
+
+  console.error('[whatnot-prod] dropped an imported cf_clearance — its expiry says it was earned on another machine');
+}
+
 async function bootstrapCookies(context){
   const file=resolveCookiesFile();
   if(!fs.existsSync(file))return;
@@ -338,6 +371,7 @@ async function bootstrapCookies(context){
   await context.addInitScript(()=>{try{Object.defineProperty(navigator,'webdriver',{get:()=>undefined});}catch{}try{Object.defineProperty(navigator,'languages',{get:()=>['en-US','en']});}catch{}try{Object.defineProperty(navigator,'platform',{get:()=> 'Win32'});}catch{}try{if(!window.chrome)window.chrome={runtime:{}};}catch{}});
   const lsFile=path.join(__dirname,'../storage/whatnot-localstorage.json');if(fs.existsSync(lsFile)){try{const saved=JSON.parse(fs.readFileSync(lsFile,'utf8'));await context.addInitScript(entries=>{if(/whatnot\.com$/i.test(location.hostname)){try{for(const[k,v]of Object.entries(entries||{}))localStorage.setItem(k,v);}catch{}}},saved);}catch{}}
   await bootstrapCookies(context);
+  await dropForeignClearance(context);
   const page=await context.newPage(); const out={current:[],upcoming:[],past:[],enriched:[],stages:{}};
   try{
     // Land on the public site before the Seller Hub, the way whatnot-scraper

@@ -1160,6 +1160,11 @@ async function ensureSellerMode(page) {
 // The sidebar is opened from a nav/header button (profile avatar or hamburger).
 // Run with WHATNOT_DEBUG=1 to capture screenshots if the switch doesn't work.
 
+// How long a channel switch may take before the run continues without it. The
+// caller's process timeout is 315s; anything approaching that turns one stuck
+// switch into a lost run.
+const SWITCH_CHANNEL_TIMEOUT_MS = Number(process.env.WHATNOT_SWITCH_TIMEOUT_MS || 45000);
+
 async function switchToChannel(page, channelName) {
   if (!channelName) return;
   log(`switching to channel: "${channelName}"`);
@@ -3438,7 +3443,30 @@ async function extractLedgerFromPage(page) {
         info(`switchToChannel: already on target channel @${active} — no switch needed`);
       } else {
         info(`switchToChannel: active=@${active || '?'} target=@${CHANNEL_NAME} — switching`);
-        await switchToChannel(page, CHANNEL_NAME);
+
+        // Bounded, because this can hang.
+        //
+        // getActiveChannelUsername reads an a[href^="/user/"] that the current
+        // Seller Hub does not always render, so `active` comes back null and a
+        // switch is attempted every time — including when we are already on the
+        // right channel. When the avatar trigger then fails to open the drawer,
+        // the trigger sweep sits there until the caller's 315s process timeout
+        // kills the whole run. At roughly five minutes a show that turned a
+        // fifteen-show orders import into fifty-four minutes of holding the
+        // browser lock and importing nothing.
+        //
+        // Giving up on the switch is far cheaper than losing the run: shows are
+        // matched on their Whatnot id, which is unique across the account, so
+        // scraping from whichever channel is active still attaches the data to
+        // the right show.
+        const switched = await Promise.race([
+          switchToChannel(page, CHANNEL_NAME).then(() => true),
+          new Promise((resolve) => setTimeout(() => resolve(false), SWITCH_CHANNEL_TIMEOUT_MS)),
+        ]).catch(() => false);
+
+        if (!switched) {
+          info(`switchToChannel: gave up after ${Math.round(SWITCH_CHANNEL_TIMEOUT_MS / 1000)}s — continuing on the currently active channel`);
+        }
       }
     }
 

@@ -28,10 +28,25 @@ Schedule::command('activitylog:clean')
 
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
 
+/**
+ * Where a scheduled Whatnot run's output goes.
+ *
+ * Laravel discards a scheduled command's output unless it is told not to, and
+ * the scheduler here is a bare `while true; do schedule:run; sleep 60; done`
+ * with nowhere for stdout to land. So every one of these ran blind: a job could
+ * fail every ten minutes for a day — printing the exact reason each time — and
+ * the only visible symptom was data quietly not arriving.
+ *
+ * Appended rather than overwritten, because the interesting question is nearly
+ * always "when did this start failing", which needs the runs either side of it.
+ */
+$whatnotLog = storage_path('logs/whatnot-scheduler.log');
+
 // enrich=6 rather than 3: this is the only job that fetches per-show analytics
 // and shipments, and at three a run it clears about 430 shows a day. Six halves
 // that without lengthening a run enough to matter — the cap is ten.
 Schedule::command('whatnot:sync-show-index --limit=200 --enrich=6')
+    ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->cron('*/10 * * * *')
     ->name('whatnot-show-index')
@@ -40,12 +55,14 @@ Schedule::command('whatnot:sync-show-index --limit=200 --enrich=6')
     ->onFailure(fn () => Setting::set('whatnot_last_import_failure_at', now()->toISOString()));
 
 Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
+    ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->cron('1,11,21,31,41,51 * * * *')
     ->name('whatnot-show-alias-cleanup')
     ->withoutOverlapping(10);
 
 Schedule::command('whatnot:refresh-recent --days=30 --limit=8')
+    ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->cron('7,37 * * * *')
     ->name('whatnot-refresh-recent')
@@ -60,18 +77,21 @@ Schedule::command('whatnot:refresh-recent --days=30 --limit=8')
 // still clears several hundred shows in a couple of days and leaves the lock
 // free in between.
 Schedule::command('whatnot:import-orders --new-only --limit=15')
+    ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->cron('22 * * * *')
     ->name('whatnot-import-orders-backfill')
     ->withoutOverlapping(240);
 
 Schedule::command('whatnot:import-ledger --days=30')
+    ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->cron('52 4 * * *')
     ->name('whatnot-ledger-daily')
     ->withoutOverlapping(240);
 
 Schedule::command('whatnot:import-ledger --days=1825')
+    ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->cron('0 1 * * 0')
     ->name('whatnot-ledger-backfill-annual')

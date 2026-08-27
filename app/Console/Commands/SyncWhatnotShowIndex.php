@@ -48,8 +48,12 @@ class SyncWhatnotShowIndex extends Command
         $aliasMap = array_fill_keys($aliasIds, true);
 
         $enrichLimit = max(0, min(10, (int) $this->option('enrich')));
+        // Every imported channel, not just the one this run happens to attribute
+        // new rows to. One Seller Hub lists the whole account, so the data for
+        // the others is already in the same scrape — restricting it here left
+        // their shows permanently unfetched.
         $enrichQuery = Show::query()
-            ->where('whatnot_channel_id', $channel->id)
+            ->whereIn('whatnot_channel_id', WhatnotChannel::importedIds())
             ->whereNotNull('whatnot_show_id')
             ->whereDate('show_date', '<=', today())
             // Missing analytics OR missing shipments. It used to ask only about

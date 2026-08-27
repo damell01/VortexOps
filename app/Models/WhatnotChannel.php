@@ -25,6 +25,32 @@ class WhatnotChannel extends Model
         'include_in_import' => 'boolean',
     ];
 
+    /**
+     * The channels a scrape should keep up to date.
+     *
+     * One Whatnot login's Seller Hub lists every show on the account, so a
+     * single scrape already carries the data for all of them — restricting
+     * enrichment to one channel was arbitrary, and it left every other channel's
+     * shows permanently unfetched with nothing saying why.
+     *
+     * Falls back the way the rest of the importer does, so a database with no
+     * flags set still syncs rather than silently doing nothing.
+     *
+     * @return array<int, int>
+     */
+    public static function importedIds(): array
+    {
+        $active = static::query()->where('status', 'active');
+
+        $ids = (clone $active)->where('include_in_import', true)->pluck('id')->all();
+
+        if ($ids !== []) {
+            return $ids;
+        }
+
+        return $active->pluck('id')->all() ?: static::query()->pluck('id')->all();
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()->logAll()->logOnlyDirty();

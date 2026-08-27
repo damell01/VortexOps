@@ -12,9 +12,8 @@ use Tests\TestCase;
  *
  * The scraping itself needs a browser and a live session, so what is worth
  * pinning down here is the arithmetic around it: which shows count as
- * outstanding, and the fact that a refresh run only ever visits one channel —
- * a backlog on any other one would otherwise sit there for ever with nothing
- * saying why.
+ * outstanding, and that every channel marked for import is covered — enrichment
+ * used to be scoped to one of them, leaving the rest permanently unfetched.
  */
 class BackfillWhatnotHistoryTest extends TestCase
 {
@@ -145,21 +144,35 @@ class BackfillWhatnotHistoryTest extends TestCase
             ->assertSuccessful();
     }
 
-    public function test_a_backlog_on_another_channel_is_called_out(): void
+    public function test_every_imported_channel_is_counted_not_just_the_first(): void
     {
-        // A refresh run visits one channel. Without this the second channel's
-        // shows never fill and the command looks broken rather than scoped.
+        // One Whatnot login's Seller Hub lists the whole account, so a single
+        // scrape already carries every channel's data. Enrichment used to be
+        // scoped to one of them, which left the rest permanently unfetched.
         $primary = $this->channel('Vortex Cards', ['include_in_import' => true]);
-        $other   = $this->channel('Vortex Vintage', ['include_in_import' => false]);
+        $second  = $this->channel('Vortex Collects', ['include_in_import' => true]);
 
-        $this->show($primary, [
-            'last_analytics_synced_at' => now()->subDay(),
-            'last_shipments_synced_at' => now()->subDay(),
-        ]);
-        $this->show($other);
+        $this->show($primary, $this->fullySynced());
+        $this->show($second);
+
+        $this->artisan('whatnot:backfill-history --dry-run')
+            ->expectsOutputToContain('1 still missing analytics or shipments')
+            ->assertSuccessful();
+    }
+
+    public function test_a_channel_switched_out_of_imports_is_named(): void
+    {
+        // Nothing fetches its shows by design, which is invisible from the
+        // Ingestion page and looks exactly like a broken scrape.
+        $primary  = $this->channel('Vortex Cards', ['include_in_import' => true]);
+        $excluded = $this->channel('Vortex Vintage', ['include_in_import' => false]);
+
+        $this->show($primary);
+        $this->show($excluded);
 
         $this->artisan('whatnot:backfill-history --dry-run')
             ->expectsOutputToContain('Vortex Vintage')
+            ->expectsOutputToContain('include in import')
             ->assertSuccessful();
     }
 

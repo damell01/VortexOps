@@ -28,11 +28,11 @@ class RefreshRecentWhatnotShows extends Command
     private ?int $scraperExitCode = null;
 
     /**
-     * The one channel a refresh run works on.
+     * The channel new rows are attributed to when nothing else says otherwise.
      *
-     * Public because whatnot:backfill-history has to count what is outstanding
-     * on the same channel this command will actually visit — counting across
-     * all of them would report a backlog that no number of runs can clear.
+     * Enrichment covers every imported channel — see WhatnotChannel::importedIds
+     * — so this is only about where an unrecognised show lands, and about having
+     * something to name in the output.
      */
     public static function targetChannel(): ?WhatnotChannel
     {
@@ -58,7 +58,7 @@ class RefreshRecentWhatnotShows extends Command
         $days = max(1, min(90, (int) $this->option('days')));
         $debug = (bool) $this->option('debug');
 
-        $shows = $this->dueShows($channel->id, $days, $limit);
+        $shows = $this->dueShows($days, $limit);
         if ($shows->isEmpty()) {
             $this->info("No completed Whatnot shows are due for refresh in the last {$days} days.");
             return self::SUCCESS;
@@ -94,10 +94,10 @@ class RefreshRecentWhatnotShows extends Command
             $liveId = $this->liveId($entry);
             if (! $liveId) continue;
 
-            $show = Show::query()
-                ->where('whatnot_channel_id', $channel->id)
-                ->where('whatnot_show_id', $liveId)
-                ->first();
+            // Matched on the Whatnot id alone: it is unique across the account,
+            // and filtering by channel here threw away results for every show
+            // that belonged to a different one.
+            $show = Show::query()->where('whatnot_show_id', $liveId)->first();
             if (! $show) continue;
 
             $metrics = $entry['analytics']['metrics'] ?? null;
@@ -163,7 +163,7 @@ class RefreshRecentWhatnotShows extends Command
 
             ShowIngestionLog::create([
                 'show_id' => $show->id,
-                'whatnot_channel_id' => $channel->id,
+                'whatnot_channel_id' => $show->whatnot_channel_id,
                 'source' => 'whatnot_recent_refresh',
                 'status' => 'success',
                 'raw_payload' => [
@@ -171,7 +171,7 @@ class RefreshRecentWhatnotShows extends Command
                     'analytics' => $metrics,
                     'shipment_stats' => $entry['shipments']['stats'] ?? null,
                     'shipment_count' => is_array($shipmentRows) ? count($shipmentRows) : 0,
-                    '_channel_id' => $channel->id,
+                    '_channel_id' => $show->whatnot_channel_id,
                 ],
             ]);
         }
@@ -192,14 +192,14 @@ class RefreshRecentWhatnotShows extends Command
         return self::SUCCESS;
     }
 
-    private function dueShows(int $channelId, int $days, int $limit)
+    private function dueShows(int $days, int $limit)
     {
         $windowStart = today()->subDays($days);
         $recentCutoff = now()->subMinutes(30);
         $olderCutoff = now()->subHours(6);
 
         return Show::query()
-            ->where('whatnot_channel_id', $channelId)
+            ->whereIn('whatnot_channel_id', WhatnotChannel::importedIds())
             ->whereNotNull('whatnot_show_id')
             ->whereDate('show_date', '<=', today())
             ->where(function ($query) use ($windowStart, $recentCutoff, $olderCutoff) {

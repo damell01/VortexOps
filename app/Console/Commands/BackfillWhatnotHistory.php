@@ -48,8 +48,8 @@ class BackfillWhatnotHistory extends Command
 
         $this->newLine();
         $this->line(sprintf(
-            '  <fg=gray>%s —</> %d <fg=gray>past shows,</> <fg=yellow>%d</> <fg=gray>still missing analytics or shipments.</>',
-            $channel->name,
+            '  <fg=gray>%d channel(s) —</> %d <fg=gray>past shows,</> <fg=yellow>%d</> <fg=gray>still missing analytics or shipments.</>',
+            count(WhatnotChannel::importedIds()),
             $this->pastShows($channel)->count(),
             $outstanding,
         ));
@@ -65,7 +65,7 @@ class BackfillWhatnotHistory extends Command
             ));
         }
 
-        $this->reportOtherChannels($channel);
+        $this->reportExcludedChannels();
 
         if ($outstanding === 0) {
             $this->newLine();
@@ -159,6 +159,41 @@ class BackfillWhatnotHistory extends Command
         $this->line("  <fg=green>Done.</> <fg=gray>{$remaining} still outstanding — run it again to continue.</>");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Name any channel that is deliberately left out.
+     *
+     * Enrichment now covers every channel marked for import, so a channel whose
+     * shows never fill is one somebody switched off — which is invisible from
+     * the Ingestion page and looks exactly like a broken scrape.
+     */
+    private function reportExcludedChannels(): void
+    {
+        $excluded = WhatnotChannel::query()
+            ->whereNotIn('id', WhatnotChannel::importedIds())
+            ->get()
+            ->map(fn (WhatnotChannel $channel) => [
+                $channel->name,
+                Show::query()
+                    ->where('whatnot_channel_id', $channel->id)
+                    ->whereDate('show_date', '<=', today())
+                    ->count(),
+            ])
+            ->filter(fn (array $row) => $row[1] > 0);
+
+        if ($excluded->isEmpty()) {
+            return;
+        }
+
+        $this->newLine();
+        $this->warn('Not included in imports, so nothing fetches their shows:');
+
+        foreach ($excluded as [$name, $count]) {
+            $this->line("  <fg=gray>{$name}: {$count} past shows</>");
+        }
+
+        $this->line('  <fg=gray>Turn on "include in import" for a channel to have it kept up to date.</>');
     }
 
     /**
@@ -308,33 +343,9 @@ class BackfillWhatnotHistory extends Command
     private function pastShows(WhatnotChannel $channel)
     {
         return Show::query()
-            ->where('whatnot_channel_id', $channel->id)
+            ->whereIn('whatnot_channel_id', WhatnotChannel::importedIds())
             ->whereNotNull('whatnot_show_id')
             ->whereDate('show_date', '<=', today());
     }
 
-    /**
-     * A refresh run only ever visits one channel, so a backlog anywhere else
-     * would sit there for ever with nothing saying why. Say it once.
-     */
-    private function reportOtherChannels(WhatnotChannel $channel): void
-    {
-        $others = WhatnotChannel::query()->whereKeyNot($channel->id)->get()
-            ->map(fn (WhatnotChannel $other) => [$other->name, $this->outstanding($other)])
-            ->filter(fn (array $row) => $row[1] > 0);
-
-        if ($others->isEmpty()) {
-            return;
-        }
-
-        $this->newLine();
-        $this->warn('Other channels have outstanding shows that this command cannot reach:');
-
-        foreach ($others as [$name, $count]) {
-            $this->line("  <fg=gray>{$name}: {$count}</>");
-        }
-
-        $this->line('  <fg=gray>A refresh run works on one channel. Make the channel you want the only</>');
-        $this->line('  <fg=gray>active, included-in-import one, then run this again.</>');
-    }
 }

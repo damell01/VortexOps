@@ -30,8 +30,6 @@ class ListStreamers extends ListRecords
      * into two resources would have meant maintaining two copies of the payout
      * form, which is how two ways of computing the same pay end up disagreeing.
      *
-     * Somebody who does both appears under both tabs, because they are both.
-     *
      * @return array<string, Tab>
      */
     public function getTabs(): array

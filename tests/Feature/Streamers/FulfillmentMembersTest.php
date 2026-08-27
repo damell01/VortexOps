@@ -93,14 +93,16 @@ class FulfillmentMembersTest extends TestCase
         );
     }
 
-    public function test_somebody_who_does_both_appears_under_both(): void
+    public function test_the_two_roles_are_exclusive(): void
     {
-        $both = $this->member('both');
+        $streamer = $this->member('streamer');
+        $packer   = $this->member('fulfillment');
 
-        $this->assertContains($both->id, Streamer::query()->streamers()->pluck('id')->all());
-        $this->assertContains($both->id, Streamer::query()->fulfillment()->pluck('id')->all());
-        $this->assertTrue($both->isStreamer());
-        $this->assertTrue($both->isFulfillment());
+        $this->assertTrue($streamer->isStreamer());
+        $this->assertFalse($streamer->isFulfillment());
+
+        $this->assertTrue($packer->isFulfillment());
+        $this->assertFalse($packer->isStreamer());
     }
 
     public function test_existing_people_default_to_streamers(): void

@@ -216,41 +216,39 @@ class Streamer extends Model
      *
      * Fulfillment staff carry exactly the same pay terms as streamers — the
      * payout pipeline is keyed on streamer_id and every rate column already
-     * lives on this row — so the only thing that differs is the work. "Both"
-     * covers somebody who streams and also packs.
+     * lives on this row — so the only thing that differs is the work.
      */
     public static function memberTypeLabels(): array
     {
         return [
             'streamer'    => 'Streamer',
             'fulfillment' => 'Fulfillment',
-            'both'        => 'Streamer + Fulfillment',
         ];
     }
 
     /** People who go on camera. */
     public function scopeStreamers(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
-        return $query->whereIn('member_type', ['streamer', 'both']);
+        // Rows written before this column existed hold the default, but a null
+        // would strand somebody under no role at all — and the table held
+        // nothing but streamers, so that is what a missing value means.
+        return $query->where(fn ($q) => $q->where('member_type', 'streamer')->orWhereNull('member_type'));
     }
 
     /** People who pack and ship. */
     public function scopeFulfillment(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
-        return $query->whereIn('member_type', ['fulfillment', 'both']);
+        return $query->where('member_type', 'fulfillment');
     }
 
     public function isFulfillment(): bool
     {
-        return in_array($this->member_type, ['fulfillment', 'both'], true);
+        return $this->member_type === 'fulfillment';
     }
 
     public function isStreamer(): bool
     {
-        // Rows created before member_type existed are streamers; that is what
-        // the table held. Treating a null as neither would hide every one of
-        // them from the list they have always appeared in.
-        return in_array($this->member_type ?? 'streamer', ['streamer', 'both'], true);
+        return ($this->member_type ?? 'streamer') === 'streamer';
     }
 
     public static function payoutTypeLabels(): array

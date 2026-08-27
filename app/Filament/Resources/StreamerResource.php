@@ -45,6 +45,31 @@ class StreamerResource extends Resource
 
     protected static ?string $model = Streamer::class;
 
+    /**
+     * "Team", not "Streamers": the roster holds fulfillment staff too, on the
+     * same record and the same pay terms.
+     *
+     * The slug stays /admin/streamers deliberately — every existing link,
+     * bookmark and saved filter points there, and renaming a URL to match a
+     * label is a cost with no benefit.
+     */
+    protected static ?string $slug = 'streamers';
+
+    public static function getNavigationLabel(): string
+    {
+        return 'Team';
+    }
+
+    public static function getModelLabel(): string
+    {
+        return 'team member';
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return 'Team';
+    }
+
     public static function getNavigationIcon(): string|\BackedEnum|null
     {
         return 'heroicon-o-user-group';
@@ -559,11 +584,7 @@ class StreamerResource extends Resource
                     ->label('Role')
                     ->badge()
                     ->formatStateUsing(fn ($state) => Streamer::memberTypeLabels()[$state] ?? 'Streamer')
-                    ->color(fn ($state) => match ($state) {
-                        'fulfillment' => 'info',
-                        'both'        => 'warning',
-                        default       => 'gray',
-                    })
+                    ->color(fn ($state) => $state === 'fulfillment' ? 'info' : 'gray')
                     ->toggleable()
                     ->extraCellAttributes(['class' => 'vx-col-tight'])
                     ->extraHeaderAttributes(['class' => 'vx-col-tight']),

@@ -30,6 +30,66 @@ function isChallenge(text,title=''){ return /performing security verification|ju
 const EXIT = {GENERAL:1, SELECTORS:2, CHALLENGE:3, RATE_LIMITED:4};
 function fail(code,message){ const e=new Error(message); e.exitCode=code; return e; }
 async function bodyText(page){ return page.locator('body').innerText().catch(()=> ''); }
+
+const CHALLENGE_WAIT_MS = Number(process.env.WHATNOT_CHALLENGE_WAIT_MS || 45000);
+
+/**
+ * Body text, or null while the page is mid-navigation.
+ *
+ * The distinction is the whole point: the interstitial reloads itself, so
+ * evaluate() throws "execution context was destroyed" exactly when it is
+ * working. Returning '' there would read as an empty page and stop the wait one
+ * poll before it succeeded.
+ */
+async function readBodyText(page,max=2000){
+  try{
+    return await page.evaluate(m=>(document.body?(document.body.innerText||''):'').substring(0,m),max);
+  }catch{
+    return null;
+  }
+}
+
+/**
+ * Wait out a Cloudflare interstitial rather than calling it a failure.
+ *
+ * Cloudflare's managed challenge is not a wall — it runs a few seconds of JS,
+ * sets cf_clearance and reloads itself into the real page. This script
+ * navigated with waitUntil:'domcontentloaded' and read the DOM immediately, so
+ * it caught the interstitial mid-flight every single time and reported a bot
+ * challenge. whatnot-scraper.cjs hit exactly this and fixed it by waiting; that
+ * is why one of them reaches the Seller Hub from this machine and this one
+ * never did.
+ *
+ * Returns true when the page is real, false when the challenge outlasts the
+ * wait — at which point it genuinely is a wall and stopping is right.
+ */
+async function settleChallenge(page,timeoutMs=CHALLENGE_WAIT_MS){
+  let body=await readBodyText(page);
+  if(body!==null&&!isChallenge(body))return true;
+
+  const started=Date.now();
+  let announced=false;
+
+  while(Date.now()-started<timeoutMs){
+    await page.waitForTimeout(2000);
+    body=await readBodyText(page);
+
+    if(body===null)continue;               // reloading — that is the challenge working
+    if(!isChallenge(body)){
+      if(announced)console.error(`[whatnot-prod] challenge cleared after ${Math.round((Date.now()-started)/1000)}s`);
+      return true;
+    }
+
+    if(!announced){
+      console.error(`[whatnot-prod] cloudflare interstitial — waiting up to ${Math.round(timeoutMs/1000)}s for it to clear`);
+      announced=true;
+    }
+  }
+
+  if(!announced)return true;               // never actually saw a challenge
+  console.error(`[whatnot-prod] challenge did not clear within ${Math.round(timeoutMs/1000)}s`);
+  return false;
+}
 async function state(page){ const text=await bodyText(page),title=await page.title().catch(()=> ''); return {url:page.url(),title,challenged:isChallenge(text,title),text}; }
 
 /**
@@ -182,6 +242,8 @@ async function openDeepLink(page,href){
   if(!resp)return null;
   await page.waitForLoadState('networkidle',{timeout:8000}).catch(()=>{});
   await page.waitForTimeout(1200);
+  await settleChallenge(page);
+
   const st=await state(page);
   if(st.challenged)return st;
   // Whatnot bounces an unrecognised or removed show back to a list page.
@@ -284,8 +346,9 @@ async function bootstrapCookies(context){
     // interested in.
     await page.goto('https://www.whatnot.com/',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);
     await page.waitForTimeout(1500);
+    await settleChallenge(page);
 
-    const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});await page.waitForTimeout(2200);out.stages.home={status:resp?resp.status():null,...await state(page)};if(out.stages.home.challenged){await reportBlockingPage(page,'challenge-home');throw fail(EXIT.CHALLENGE,'Seller Hub home challenged — Cloudflare served a check instead of the dashboard'+(proxy?' (via proxy '+proxy+')':'')+'. whatnot-scraper.cjs reaching the same site from this machine would mean the address is fine and this launcher is the difference.');}
+    const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});await page.waitForTimeout(2200);await settleChallenge(page);out.stages.home={status:resp?resp.status():null,...await state(page)};if(out.stages.home.challenged){await reportBlockingPage(page,'challenge-home');throw fail(EXIT.CHALLENGE,'Seller Hub home challenged — Cloudflare served a check instead of the dashboard'+(proxy?' (via proxy '+proxy+')':'')+'. whatnot-scraper.cjs reaching the same site from this machine would mean the address is fine and the interstitial did not clear within the wait, so this is a real block rather than a page still loading.');}
     if(!await clickShows(page))throw fail(EXIT.SELECTORS,'Could not reach Shows'); out.stages.shows=await state(page);
 
     // A backfill asks for named shows that may sit hundreds of rows back. The

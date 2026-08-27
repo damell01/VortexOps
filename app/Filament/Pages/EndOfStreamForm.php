@@ -566,13 +566,20 @@ class EndOfStreamForm extends Page implements HasForms
                 'item_name' => $item->name,
                 'quantity' => max(1, $quantity),
                 'disposition' => $disposition,
-                'unit_cost' => $item->average_cost,
+                // Deliberately not stamped. The line reads the item's cost
+                // through effectiveUnitCost() until somebody types over it, so
+                // a cost that arrives later — a receipt, a corrected list price
+                // — reaches the report instead of leaving it on whatever the
+                // catalogue happened to say at the moment the line was added.
+                // Submitting freezes it; see submit().
+                'unit_cost' => null,
             ]);
         }
 
         // Deliberately leaves the picker open. Closing it on every add meant
         // reopening and re-searching for each line of a report that usually
         // has several; addStagedItems() closes it once the basket is in.
+        $this->syncProductCost();
         $this->touchDraft();
     }
 
@@ -592,6 +599,7 @@ class EndOfStreamForm extends Page implements HasForms
             'unit_cost' => $unitCost,
         ]);
 
+        $this->syncProductCost();
         $this->touchDraft();
     }
 
@@ -613,13 +621,32 @@ class EndOfStreamForm extends Page implements HasForms
     public function setLineQuantity(int $lineId, int $quantity): void
     {
         $this->logEntry()?->items()->find($lineId)?->update(['quantity' => max(1, $quantity)]);
+        $this->syncProductCost();
         $this->touchDraft();
     }
 
-    public function setLineCost(int $lineId, float $unitCost): void
+    /**
+     * Type over the catalogue's cost for one line.
+     *
+     * Emptying the box or entering zero is how you hand it back: the line goes
+     * to reading the item's cost again rather than being pinned at nothing.
+     */
+    public function setLineCost(int $lineId, ?float $unitCost): void
     {
-        $this->logEntry()?->items()->find($lineId)?->update(['unit_cost' => max(0, $unitCost)]);
+        $line = $this->logEntry()?->items()->find($lineId);
+        if (! $line) return;
+
+        $line->update([
+            'unit_cost' => ($unitCost !== null && $unitCost > 0) ? $unitCost : null,
+        ]);
+
+        $this->syncProductCost();
         $this->touchDraft();
+    }
+
+    public function clearLineCost(int $lineId): void
+    {
+        $this->setLineCost($lineId, null);
     }
 
     public function setLineDisposition(int $lineId, string $disposition): void
@@ -650,16 +677,83 @@ class EndOfStreamForm extends Page implements HasForms
     public function removeLineItem(int $lineId): void
     {
         $this->logEntry()?->items()->find($lineId)?->delete();
+        $this->syncProductCost();
         $this->touchDraft();
     }
 
+    /**
+     * Keep the report's product cost equal to what its lines currently cost.
+     *
+     * It used to be written only at submit, so every screen that reads
+     * product_cost off a draft — the pay run preview among them — saw either
+     * nothing or a figure from an earlier version of the report.
+     */
+    private function syncProductCost(): void
+    {
+        $entry = $this->logEntry();
+        if (! $entry) return;
+
+        $cost = $entry->items()->with('inventoryItem')->get()
+            ->sum(fn (StreamerLogItem $line) => $line->total_cost);
+
+        StreamerLogEntry::whereKey($entry->id)->update(['product_cost' => round((float) $cost, 2)]);
+    }
+
+    /**
+     * Hours, from the length Whatnot recorded for the show.
+     *
+     * show_duration is in minutes and is what the payout engine already falls
+     * back to for hourly streamers, so the report starts from the same number
+     * rather than from a blank box. Null when Whatnot has not told us yet —
+     * a suggestion of zero hours is worse than no suggestion.
+     */
+    private function suggestedHours(): ?float
+    {
+        $minutes = (int) ($this->show?->show_duration ?? 0);
+
+        return $minutes > 0 ? round($minutes / 60, 2) : null;
+    }
+
+    /** Shipments, counted from the show's own shipment list. */
+    private function suggestedShipments(): ?int
+    {
+        $count = (int) ($this->show?->shipments()->count() ?? 0);
+
+        return $count > 0 ? $count : null;
+    }
+
+    /**
+     * Both of these are burden inputs on the profit share, so they are filled
+     * in from what we already know and left editable. Whoever ran the show is
+     * the authority on how long it ran; the suggestion only saves them the
+     * typing, and typing over it sticks — reopening the report does not put
+     * the suggestion back over an answer they have already given.
+     */
     public function loadDetails(): void
     {
         $entry = $this->logEntry();
         if (! $entry) return;
 
-        $this->hoursStreamed = (string) ($entry->hours_streamed ?? '');
-        $this->shipments = (string) ($entry->number_of_shipments ?? '');
+        $this->hoursStreamed = (string) ($entry->hours_streamed ?? $this->suggestedHours() ?? '');
+        $this->shipments = (string) ($entry->number_of_shipments ?? $this->suggestedShipments() ?? '');
+
+        // Persisted straight away so the figure on screen is the figure the pay
+        // run reads, whether or not the streamer touches the field. Only the
+        // two columns, and only where they are still empty — the rest of the
+        // form has not been read out of the entry yet at this point.
+        $fill = array_filter([
+            'hours_streamed' => $entry->hours_streamed === null && $this->hoursStreamed !== ''
+                ? (float) $this->hoursStreamed
+                : null,
+            'number_of_shipments' => $entry->number_of_shipments === null && $this->shipments !== ''
+                ? (int) $this->shipments
+                : null,
+        ], fn ($value) => $value !== null);
+
+        if ($fill !== []) {
+            StreamerLogEntry::whereKey($entry->id)->update($fill);
+        }
+
         $this->pweCount = (string) ($entry->pwe_count ?? '');
         $this->labelCount = (string) ($entry->label_count ?? '');
         $this->packagesOver500 = (string) ($entry->number_of_packages_over_500 ?? '');
@@ -763,8 +857,19 @@ class EndOfStreamForm extends Page implements HasForms
         try {
             $this->saveDetails();
 
+            // Freeze the costs the report was filed on. Up to this point a
+            // line follows the catalogue, which is what you want while the
+            // report is still being written; afterwards it must not, or a
+            // receipt landing next week would quietly restate a show payroll
+            // has already been paid on.
+            foreach ($lines as $line) {
+                if ($line->costIsFromInventory()) {
+                    $line->forceFill(['unit_cost' => $line->effectiveUnitCost()])->save();
+                }
+            }
+
             $entry->update([
-                'product_cost' => $lines->sum(fn ($line) => $line->total_cost),
+                'product_cost' => round((float) $lines->sum(fn ($line) => $line->total_cost), 2),
                 'status' => 'streamer_reviewed',
             ]);
 

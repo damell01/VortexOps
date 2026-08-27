@@ -57,9 +57,50 @@ class StreamerLogItem extends Model
         return $this->belongsTo(InventoryLocation::class, 'inventory_location_id');
     }
 
+    /**
+     * What one of these costs the business.
+     *
+     * The catalogue is the source, not the keyboard: a matched line leaves
+     * unit_cost null and reads the item's effectiveCost() — the same figure the
+     * item screen, the tables and the value snapshots quote, which is the
+     * received weighted average once receiving has earned one and the list cost
+     * until then. Costs used to be stamped onto the line from average_cost at
+     * the moment it was added, so an item nobody had received yet stamped 0.00
+     * and the show's product cost — the number the profit share is calculated
+     * from — read as if the inventory had been free.
+     *
+     * A figure typed into the line still wins, because sometimes the person who
+     * ran the show knows something the catalogue does not. Zero is read as "no
+     * override" rather than "free": it is what the old stamping left behind on
+     * every un-received item, and a matched line that genuinely cost nothing is
+     * rare enough to be worth the trade.
+     */
+    public function effectiveUnitCost(): float
+    {
+        $typed = (float) ($this->unit_cost ?? 0);
+
+        if ($typed > 0) {
+            return $typed;
+        }
+
+        if ($this->inventory_item_id === null) {
+            return 0.0;
+        }
+
+        $this->loadMissing('inventoryItem');
+
+        return (float) ($this->inventoryItem?->effectiveCost() ?? 0.0);
+    }
+
+    /** Whether this line's cost is the catalogue's or somebody's correction. */
+    public function costIsFromInventory(): bool
+    {
+        return $this->inventory_item_id !== null && (float) ($this->unit_cost ?? 0) <= 0;
+    }
+
     public function getTotalCostAttribute(): float
     {
-        return (float) ($this->unit_cost ?? 0) * (int) $this->quantity;
+        return round($this->effectiveUnitCost() * (int) $this->quantity, 2);
     }
 
     public function isMatched(): bool

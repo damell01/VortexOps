@@ -206,12 +206,24 @@
                                                         @endforeach
                                                     </select>
                                                 </label>
-                                                <label class="text-xs sm:text-sm">
-                                                    <span class="mb-1 block text-gray-500">Unit Cost</span>
-                                                    <input type="number" min="0" step="0.01" inputmode="decimal" value="{{ $line->unit_cost }}"
-                                                        wire:change="setLineCost({{ $line->id }}, $event.target.value)"
-                                                        class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800" />
-                                                </label>
+                                                <div class="text-xs sm:text-sm">
+                                                    <label>
+                                                        <span class="mb-1 block text-gray-500">Unit Cost</span>
+                                                        <input type="number" min="0" step="0.01" inputmode="decimal" value="{{ number_format($line->effectiveUnitCost(), 2, '.', '') }}"
+                                                            wire:change="setLineCost({{ $line->id }}, $event.target.value)"
+                                                            class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800" />
+                                                    </label>
+                                                    @if ($line->costIsFromInventory())
+                                                        <span class="mt-1 block text-[10px] leading-4 text-gray-500 sm:text-xs">
+                                                            {{ $line->isMatched() ? 'From inventory' : 'Not in the catalogue — type the cost' }}
+                                                        </span>
+                                                    @else
+                                                        <button type="button" wire:click="clearLineCost({{ $line->id }})"
+                                                            class="mt-1 block text-[10px] leading-4 text-primary-600 underline hover:text-primary-500 dark:text-primary-400 sm:text-xs">
+                                                            Typed — use inventory cost
+                                                        </button>
+                                                    @endif
+                                                </div>
                                                 <div class="self-end text-right">
                                                     <div class="text-[10px] text-gray-500 sm:text-xs">Line Cost</div>
                                                     <div class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">${{ number_format($line->total_cost, 2) }}</div>
@@ -225,7 +237,36 @@
                     @endif
 
                     @if ($this->step === 2)
+                        {{-- Hours and shipments are what the profit share's
+                             burden is worked out from, so they are filled in
+                             from the show rather than asked for cold — and
+                             left editable, because the person who ran it knows
+                             when the recorded length is wrong. --}}
                         <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
+                            <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Time &amp; Shipments</h3>
+                            <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Filled in from the show. Change either one if it does not match what actually happened — what is here is what your pay is worked out from.</p>
+
+                            <div class="mt-4 grid grid-cols-2 gap-3 sm:mt-5">
+                                <label class="text-sm">
+                                    <span class="mb-1 block font-medium text-gray-700 dark:text-gray-200">Hours streamed</span>
+                                    <input type="number" min="0" step="0.01" inputmode="decimal" wire:model.blur="hoursStreamed"
+                                           class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800" />
+                                    <span class="mt-1 block text-[10px] leading-4 text-gray-500 sm:text-xs">
+                                        Show length on Whatnot: {{ $this->show?->show_duration ? number_format($this->show->show_duration / 60, 2) . ' hrs' : 'not recorded yet' }}
+                                    </span>
+                                </label>
+                                <label class="text-sm">
+                                    <span class="mb-1 block font-medium text-gray-700 dark:text-gray-200">Shipments</span>
+                                    <input type="number" min="0" step="1" inputmode="numeric" wire:model.blur="shipments"
+                                           class="w-full rounded-lg border-gray-300 dark:border-gray-600 dark:bg-gray-800" />
+                                    <span class="mt-1 block text-[10px] leading-4 text-gray-500 sm:text-xs">
+                                        Counted from this show's shipments: {{ number_format($whatnot['shipments'] ?? 0) }}
+                                    </span>
+                                </label>
+                            </div>
+                        </section>
+
+                        <section class="mt-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:mt-5 sm:rounded-2xl sm:p-5">
                             <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Show Notes</h3>
                             <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Only add what operations needs to know. Notes autosave while you type.</p>
                             <label class="mt-4 block text-sm sm:mt-5">

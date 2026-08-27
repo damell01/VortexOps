@@ -200,7 +200,7 @@ class StreamerLogResource extends Resource
                         ->label('Product Cost Total')
                         ->numeric()
                         ->prefix('$')
-                        ->helperText('Sum of wholesale costs for all items you sold (from your inventory records)')
+                        ->helperText('Added up from the report\'s items at their inventory cost. Type over it only to correct it — adding or removing an item recalculates it.')
                         ->extraAttributes(['data-validation' => json_encode(['min' => 0, 'minMessage' => 'Cost must be at least 0'])]),
                 ]),
             ]),

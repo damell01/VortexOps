@@ -28,11 +28,15 @@ class WhatnotSchedulePauseTest extends TestCase
         ));
     }
 
-    public function test_the_whatnot_jobs_are_all_guarded(): void
+    public function test_there_are_whatnot_jobs_to_guard(): void
     {
-        // Guards the group, not one job: adding a seventh whatnot schedule
-        // without ->skip() should fail this rather than quietly ignore the flag.
-        $this->assertCount(6, $this->whatnotEvents());
+        // A floor, not a fixed count. The two tests below already catch a new
+        // whatnot job added without ->skip(), because an unguarded one still
+        // appears here and fails to pause — so pinning the exact number added
+        // nothing except a failure every time the schedule legitimately changed.
+        // What they cannot catch is an empty list, which would let both pass
+        // while asserting nothing at all.
+        $this->assertNotEmpty($this->whatnotEvents());
     }
 
     public function test_they_run_by_default(): void

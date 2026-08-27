@@ -42,13 +42,15 @@ $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
  */
 $whatnotLog = storage_path('logs/whatnot-scheduler.log');
 
-// enrich=6 rather than 3: this is the only job that fetches per-show analytics
-// and shipments, and at three a run it clears about 430 shows a day. Six halves
-// that without lengthening a run enough to matter — the cap is ten.
-Schedule::command('whatnot:sync-show-index --limit=200 --enrich=6')
+// Every fifteen minutes, not ten. Every browser job queues behind one Chromium
+// profile, and the hour was oversubscribed: six of these plus two refresh-recent
+// plus a twenty-minute import-orders came to more browser time than an hour
+// holds, so runs sat waiting out their twenty-minute lock timeout and were
+// dropped. Five shows every fifteen minutes still clears about 480 a day.
+Schedule::command('whatnot:sync-show-index --limit=200 --enrich=5')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
-    ->cron('*/10 * * * *')
+    ->cron('0,15,30,45 * * * *')
     ->name('whatnot-show-index')
     ->withoutOverlapping(20)
     ->onSuccess(fn () => Setting::set('whatnot_last_import_success_at', now()->toISOString()))
@@ -61,22 +63,18 @@ Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->name('whatnot-show-alias-cleanup')
     ->withoutOverlapping(10);
 
-Schedule::command('whatnot:refresh-recent --days=30 --limit=8')
-    ->appendOutputTo($whatnotLog)
-    ->skip($whatnotPaused)
-    ->cron('7,37 * * * *')
-    ->name('whatnot-refresh-recent')
-    ->withoutOverlapping(30)
-    ->onSuccess(fn () => Setting::set('whatnot_last_recent_refresh_success_at', now()->toISOString()))
-    ->onFailure(fn () => Setting::set('whatnot_last_recent_refresh_failure_at', now()->toISOString()));
+// whatnot:refresh-recent is deliberately not scheduled any more. It and
+// sync-show-index now select on the same definition of "missing" and enrich the
+// same way through the same script, so running both only doubled the contention
+// for the browser without fetching anything the other would not have. The
+// command stays for driving a refresh by hand.
 
 // Bounded on purpose. Unbounded, this walked every show without orders and held
-// the browser lock for hours, re-taking it between shows faster than any other
-// job could win it — so whatnot:refresh-recent at :07 and :37 almost never got
-// a turn, and analytics went unfetched for half the catalogue. Fifteen an hour
-// still clears several hundred shows in a couple of days and leaves the lock
-// free in between.
-Schedule::command('whatnot:import-orders --new-only --limit=15')
+// the browser lock for hours. Fifteen took about twenty minutes — a third of
+// every hour, during which nothing else could scrape — so eight, at roughly ten
+// minutes, leaves room for the other jobs. It still clears a couple of hundred
+// shows a day.
+Schedule::command('whatnot:import-orders --new-only --limit=8')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->cron('22 * * * *')

@@ -15,6 +15,11 @@ use App\Models\Setting;
  *     net rev  = gross revenue − product cost − burden
  *     earnings = net rev × the streamer's profit share %
  *
+ * Each half of the burden applies only where its rate has been set in
+ * Settings. Set neither and there is no burden: net revenue is simply gross
+ * minus product cost. The rates below are what the sheet used and what the
+ * settings page suggests — they are not applied until somebody saves them.
+ *
  * Worked against the paperwork it came from:
  *
  *     80 × $2.10 + 4.45 × $80              = $524.00
@@ -32,23 +37,66 @@ use App\Models\Setting;
  */
 class ProfitShareFormula
 {
-    public const DEFAULT_PER_SHIPMENT = 2.10;
-    public const DEFAULT_PER_HOUR     = 80.00;
+    /**
+     * The rates on the sheet this came from, offered as the starting point on
+     * the settings page. Suggestions, not defaults — nothing applies them until
+     * somebody saves them; see ratePerShipment().
+     */
+    public const SUGGESTED_PER_SHIPMENT = 2.10;
+    public const SUGGESTED_PER_HOUR     = 80.00;
 
-    public static function ratePerShipment(): float
+    /**
+     * A rate that has been set, or null.
+     *
+     * Null and zero are the same answer here — don't charge for this — and an
+     * unset rate must not quietly fall back to the sheet's number. A burden
+     * nobody configured is money coming off somebody's pay because of a
+     * constant in the source, which is the situation the settings page exists
+     * to end.
+     */
+    private static function rate(string $key): ?float
     {
-        return (float) Setting::get('payroll_burden_per_shipment', self::DEFAULT_PER_SHIPMENT);
+        $raw = Setting::get($key);
+
+        if ($raw === null || trim((string) $raw) === '') {
+            return null;
+        }
+
+        $value = (float) $raw;
+
+        return $value > 0 ? $value : null;
     }
 
-    public static function ratePerHour(): float
+    public static function ratePerShipment(): ?float
     {
-        return (float) Setting::get('payroll_burden_per_hour', self::DEFAULT_PER_HOUR);
+        return self::rate('payroll_burden_per_shipment');
     }
 
-    /** What the show costs the business in shipping and time before any share. */
+    public static function ratePerHour(): ?float
+    {
+        return self::rate('payroll_burden_per_hour');
+    }
+
+    /** Whether a burden is charged at all. */
+    public static function hasBurden(): bool
+    {
+        return self::ratePerShipment() !== null || self::ratePerHour() !== null;
+    }
+
+    /**
+     * What the show costs the business in shipping and time before any share.
+     *
+     * Each half is charged only if its rate is set, so an operation that pays
+     * per shipment but not for time gets exactly that, and one that has set
+     * neither has no burden deducted at all.
+     */
     public static function burden(float $shipments, float $hours): float
     {
-        return round($shipments * self::ratePerShipment() + $hours * self::ratePerHour(), 2);
+        return round(
+            $shipments * (self::ratePerShipment() ?? 0.0)
+            + $hours * (self::ratePerHour() ?? 0.0),
+            2,
+        );
     }
 
     /**
@@ -70,7 +118,7 @@ class ProfitShareFormula
      * it was reached is one payroll has to recompute by hand to trust.
      *
      * @param  float  $percentage  Whole percent, as it is stored on the streamer (8 means 8%).
-     * @return array{shipments:float,hours:float,rate_per_shipment:float,rate_per_hour:float,burden:float,gross_revenue:float,product_cost:float,net_revenue:float,percentage:float,earnings:float}
+     * @return array{shipments:float,hours:float,rate_per_shipment:?float,rate_per_hour:?float,burden:float,gross_revenue:float,product_cost:float,net_revenue:float,percentage:float,earnings:float}
      */
     public static function forShow(
         float $grossRevenue,
@@ -96,23 +144,50 @@ class ProfitShareFormula
         ];
     }
 
-    /** The working, in the order a person reads it. */
+    /**
+     * The working, in the order a person reads it.
+     *
+     * With no burden configured the burden sentence is left out rather than
+     * printed as a row of zeros — a line saying "× $0.00" reads like a rate
+     * somebody got wrong, not like a charge that does not apply here.
+     */
     public static function explain(array $working): string
     {
-        return sprintf(
-            'Burden %s shipments × $%s + %s hrs × $%s = $%s. '
-            . 'Net rev $%s − $%s − $%s = $%s. Share %s%% = $%s.',
-            rtrim(rtrim(number_format($working['shipments'], 2), '0'), '.'),
-            number_format($working['rate_per_shipment'], 2),
-            rtrim(rtrim(number_format($working['hours'], 2), '0'), '.'),
-            number_format($working['rate_per_hour'], 2),
-            number_format($working['burden'], 2),
-            number_format($working['gross_revenue'], 2),
-            number_format($working['product_cost'], 2),
-            number_format($working['burden'], 2),
-            number_format($working['net_revenue'], 2),
-            rtrim(rtrim(number_format($working['percentage'], 2), '0'), '.'),
-            number_format($working['earnings'], 2),
-        );
+        $number = fn (float $value): string => rtrim(rtrim(number_format($value, 2), '0'), '.');
+
+        $parts = [];
+
+        if ($working['burden'] > 0 || $working['rate_per_shipment'] !== null || $working['rate_per_hour'] !== null) {
+            $components = [];
+
+            if ($working['rate_per_shipment'] !== null) {
+                $components[] = sprintf('%s shipments × $%s', $number($working['shipments']), number_format($working['rate_per_shipment'], 2));
+            }
+
+            if ($working['rate_per_hour'] !== null) {
+                $components[] = sprintf('%s hrs × $%s', $number($working['hours']), number_format($working['rate_per_hour'], 2));
+            }
+
+            $parts[] = 'Burden ' . implode(' + ', $components) . ' = $' . number_format($working['burden'], 2) . '.';
+            $parts[] = sprintf(
+                'Net rev $%s − $%s − $%s = $%s.',
+                number_format($working['gross_revenue'], 2),
+                number_format($working['product_cost'], 2),
+                number_format($working['burden'], 2),
+                number_format($working['net_revenue'], 2),
+            );
+        } else {
+            $parts[] = 'No burden configured.';
+            $parts[] = sprintf(
+                'Net rev $%s − $%s = $%s.',
+                number_format($working['gross_revenue'], 2),
+                number_format($working['product_cost'], 2),
+                number_format($working['net_revenue'], 2),
+            );
+        }
+
+        $parts[] = sprintf('Share %s%% = $%s.', $number($working['percentage']), number_format($working['earnings'], 2));
+
+        return implode(' ', $parts);
     }
 }

@@ -19,9 +19,18 @@ class ProfitShareFormulaTest extends TestCase
 {
     use RefreshDatabase;
 
+    /** The rates the Calculations tab uses, which is what these shows were paid on. */
+    private function sheetRates(): void
+    {
+        Setting::set('payroll_burden_per_shipment', '2.10');
+        Setting::set('payroll_burden_per_hour', '80.00');
+    }
+
     /** The signed show from 8/13/26: Caylen Campbell, Free Storm Emeralda. */
     public function test_it_reproduces_the_signed_paperwork_exactly(): void
     {
+        $this->sheetRates();
+
         $working = ProfitShareFormula::forShow(
             grossRevenue: 7371.10,
             productCost:  3392.00,
@@ -42,6 +51,8 @@ class ProfitShareFormulaTest extends TestCase
         // had to correct by hand every week.
         $naive = round((7371.10 - 3392.00) * 0.08, 2);
 
+        $this->sheetRates();
+
         $this->assertSame(318.33, $naive);
         $this->assertNotSame($naive, ProfitShareFormula::forShow(7371.10, 3392.00, 4.45, 80, 8.0)['earnings']);
     }
@@ -55,10 +66,49 @@ class ProfitShareFormulaTest extends TestCase
         $this->assertSame(230.00, ProfitShareFormula::burden(10, 2));
     }
 
-    public function test_it_falls_back_to_the_sheets_rates_when_nothing_is_set(): void
+    public function test_no_rate_set_means_no_burden(): void
     {
-        $this->assertSame(2.10, ProfitShareFormula::ratePerShipment());
-        $this->assertSame(80.00, ProfitShareFormula::ratePerHour());
+        // A burden nobody configured is money coming off somebody's pay
+        // because of a constant in the source. Unset charges nothing.
+        $this->assertNull(ProfitShareFormula::ratePerShipment());
+        $this->assertNull(ProfitShareFormula::ratePerHour());
+        $this->assertFalse(ProfitShareFormula::hasBurden());
+        $this->assertSame(0.0, ProfitShareFormula::burden(80, 4.45));
+
+        // Gross minus product cost, and the percentage on that.
+        $working = ProfitShareFormula::forShow(7371.10, 3392.00, 4.45, 80, 8.0);
+
+        $this->assertSame(3979.10, $working['net_revenue']);
+        $this->assertSame(318.33, $working['earnings']);
+    }
+
+    public function test_a_blank_or_zero_rate_is_the_same_as_unset(): void
+    {
+        Setting::set('payroll_burden_per_shipment', '');
+        Setting::set('payroll_burden_per_hour', '0');
+
+        $this->assertFalse(ProfitShareFormula::hasBurden());
+        $this->assertSame(0.0, ProfitShareFormula::burden(80, 4.45));
+    }
+
+    public function test_one_rate_can_be_charged_without_the_other(): void
+    {
+        // An operation that pays per shipment but not for time gets exactly
+        // that, rather than all or nothing.
+        Setting::set('payroll_burden_per_shipment', '2.10');
+
+        $this->assertTrue(ProfitShareFormula::hasBurden());
+        $this->assertSame(168.00, ProfitShareFormula::burden(80, 4.45));
+    }
+
+    public function test_the_working_says_so_when_no_burden_applies(): void
+    {
+        $explained = ProfitShareFormula::explain(
+            ProfitShareFormula::forShow(7371.10, 3392.00, 4.45, 80, 8.0),
+        );
+
+        $this->assertStringContainsString('No burden configured', $explained);
+        $this->assertStringNotContainsString('$0.00', $explained);
     }
 
     public function test_a_show_that_lost_money_says_so(): void
@@ -66,6 +116,8 @@ class ProfitShareFormulaTest extends TestCase
         // Not floored at zero. Whether a loss reduces somebody's pay is a
         // decision for whoever reviews the pay run, and hiding it behind a
         // break-even reading takes that decision away from them.
+        $this->sheetRates();
+
         $working = ProfitShareFormula::forShow(1000.00, 2000.00, 5, 20, 8.0);
 
         $this->assertLessThan(0, $working['net_revenue']);
@@ -74,6 +126,8 @@ class ProfitShareFormulaTest extends TestCase
 
     public function test_the_working_reads_as_a_person_would_check_it(): void
     {
+        $this->sheetRates();
+
         $explained = ProfitShareFormula::explain(
             ProfitShareFormula::forShow(7371.10, 3392.00, 4.45, 80, 8.0),
         );

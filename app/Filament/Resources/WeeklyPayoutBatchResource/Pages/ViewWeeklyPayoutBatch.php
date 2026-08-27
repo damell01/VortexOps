@@ -38,16 +38,42 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                     'preview' => app(PayoutService::class)->previewFinalization($this->record),
                 ])),
 
+            // The last point at which an unapproved report can still be looked
+            // at, so it says what is outstanding rather than closing the week
+            // over it quietly. Overridable, because payroll has to be able to
+            // close a week a streamer never filed for — but the override is
+            // deliberate and it is written onto the pay run.
             Action::make('finalize')
                 ->label('Finalize Pay Run')
                 ->icon('heroicon-o-lock-closed')
                 ->color('warning')
                 ->visible(fn () => $this->record->status === 'draft')
                 ->requiresConfirmation()
-                ->modalDescription('Finalizing locks the payout amounts and marks all streamer payouts as approved. This cannot be undone.')
+                ->modalHeading('Finalize this pay run')
+                ->modalDescription(function () {
+                    $problems = app(PayoutService::class)->signOffProblems($this->record);
+
+                    if ($problems === []) {
+                        return 'Every show in this run has an approved report. Finalizing locks the payout amounts and marks all streamer payouts as approved. This cannot be undone.';
+                    }
+
+                    return count($problems) . ' report(s) are not signed off yet:'
+                        . "\n\n• " . implode("\n• ", $problems)
+                        . "\n\nFinalizing anyway locks the amounts as they stand and records this on the pay run. It cannot be undone.";
+                })
+                ->modalSubmitActionLabel(fn () => app(PayoutService::class)->signOffProblems($this->record) === []
+                    ? 'Finalize'
+                    : 'Finalize anyway')
                 ->action(function () {
-                    app(PayoutService::class)->finalizeBatch($this->record);
-                    Notification::make()->title('Pay run finalized.')->success()->send();
+                    $problems = app(PayoutService::class)->signOffProblems($this->record);
+
+                    app(PayoutService::class)->finalizeBatch($this->record, force: true);
+
+                    Notification::make()
+                        ->title('Pay run finalized.')
+                        ->body($problems === [] ? null : count($problems) . ' report(s) were not signed off; noted on the pay run.')
+                        ->success()
+                        ->send();
                 }),
 
             Action::make('mark_submitted')

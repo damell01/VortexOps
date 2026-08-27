@@ -6,6 +6,7 @@ use App\Models\Payout;
 use App\Models\Setting;
 use App\Models\Show;
 use App\Models\Streamer;
+use App\Models\StreamerLogEntry;
 use App\Models\WeeklyPayoutBatch;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -544,12 +545,82 @@ class PayoutService
         ];
     }
 
-    public function finalizeBatch(WeeklyPayoutBatch $batch): void
+    /**
+     * What is not signed off yet in the shows this pay run covers.
+     *
+     * Finalizing approves every payout in the batch and moves the money into
+     * each streamer's balance, and it cannot be undone — so it is the last
+     * point at which an unapproved report can still be looked at. It used to
+     * check only that the batch was a draft, which meant a week could be
+     * signed off and paid while its reports were still being argued about.
+     *
+     * A list rather than a refusal, because whoever runs payroll has to be
+     * able to close a week a streamer never filed for. finalizeBatch() blocks
+     * on it unless it is told to go ahead anyway.
+     *
+     * @return array<int,string>
+     */
+    public function signOffProblems(WeeklyPayoutBatch $batch): array
     {
-        DB::transaction(function () use ($batch) {
+        $entries = StreamerLogEntry::query()
+            ->whereIn('show_id', $batch->payouts()->whereNotNull('show_id')->pluck('show_id')->unique())
+            ->with('show')
+            ->get();
+
+        $showIds = $batch->payouts()->whereNotNull('show_id')->pluck('show_id')->unique();
+        $problems = [];
+
+        foreach ($showIds->diff($entries->pluck('show_id')) as $showId) {
+            $title = Show::whereKey($showId)->value('title') ?? "Show #{$showId}";
+            $problems[] = "{$title} — no show report was ever filed.";
+        }
+
+        foreach ($entries as $entry) {
+            $title = $entry->show?->title ?? "Show #{$entry->show_id}";
+
+            if ($entry->hasPendingRevisionRequest()) {
+                $problems[] = "{$title} — the streamer has asked to reopen this report.";
+                continue;
+            }
+
+            if ($entry->status !== 'admin_approved') {
+                $problems[] = "{$title} — the report is "
+                    . (StreamerLogEntry::statusLabels()[$entry->status] ?? $entry->status)
+                    . ', not approved.';
+                continue;
+            }
+
+            if ($entry->needsFulfillmentReview()) {
+                $problems[] = "{$title} — still waiting on fulfillment review.";
+            }
+        }
+
+        return $problems;
+    }
+
+    public function finalizeBatch(WeeklyPayoutBatch $batch, bool $force = false): void
+    {
+        $problems = $this->signOffProblems($batch);
+
+        if ($problems !== [] && ! $force) {
+            throw new \RuntimeException(
+                'This pay run is not signed off yet: ' . implode(' ', $problems),
+            );
+        }
+
+        DB::transaction(function () use ($batch, $problems, $force) {
             $locked = WeeklyPayoutBatch::lockForUpdate()->findOrFail($batch->id);
             if ($locked->status !== 'draft') {
                 throw new \RuntimeException('Only draft batches can be finalized.');
+            }
+
+            // Recorded on the batch rather than only in the activity log: a
+            // week closed over open reports is the one somebody asks about
+            // months later, and the answer should be on the pay run itself.
+            if ($problems !== [] && $force) {
+                $batch->notes = trim(($batch->notes ? $batch->notes . "\n" : '')
+                    . 'Finalized with ' . count($problems) . ' report(s) not signed off: '
+                    . implode(' ', $problems));
             }
 
             $this->applyLoanRepayments($batch);

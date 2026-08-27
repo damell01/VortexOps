@@ -128,7 +128,9 @@ class WeeklyBatchTest extends TestCase
         $this->assertEquals('draft', $batch->fresh()->status);
 
         // The previewed net equals what finalizing actually produces.
-        $this->service->finalizeBatch($batch);
+        // force: these cover the batch mechanics — loans, totals, balances —
+        // not the sign-off gate, and their shows carry no report.
+        $this->service->finalizeBatch($batch, force: true);
         $this->assertEqualsWithDelta($preview['net'], (float) $batch->fresh()->total_payout, 0.01);
     }
 
@@ -158,7 +160,9 @@ class WeeklyBatchTest extends TestCase
         $this->assertEqualsWithDelta(200.0, (float) $loan->fresh()->remaining_balance, 0.01);
 
         // After the real finalize, the net matches the preview and the loan is now paid down.
-        $this->service->finalizeBatch($batch);
+        // force: these cover the batch mechanics — loans, totals, balances —
+        // not the sign-off gate, and their shows carry no report.
+        $this->service->finalizeBatch($batch, force: true);
         $this->assertEqualsWithDelta($preview['net'], (float) $batch->fresh()->total_payout, 0.01);
         $this->assertEqualsWithDelta(200.0 - $preview['loan'], (float) $loan->fresh()->remaining_balance, 0.01);
     }
@@ -171,7 +175,9 @@ class WeeklyBatchTest extends TestCase
         $this->service->calculateForShow($show);
 
         $batch = $this->service->createWeeklyBatch(now()->toDateString());
-        $this->service->finalizeBatch($batch);
+        // force: these cover the batch mechanics — loans, totals, balances —
+        // not the sign-off gate, and their shows carry no report.
+        $this->service->finalizeBatch($batch, force: true);
 
         $batch->refresh();
 
@@ -187,7 +193,9 @@ class WeeklyBatchTest extends TestCase
         $this->service->calculateForShow($show);
 
         $batch = $this->service->createWeeklyBatch(now()->toDateString());
-        $this->service->finalizeBatch($batch);
+        // force: these cover the batch mechanics — loans, totals, balances —
+        // not the sign-off gate, and their shows carry no report.
+        $this->service->finalizeBatch($batch, force: true);
 
         $expectedPayout = $batch->payouts()->first()->calculated_payout;
         $streamer->refresh();
@@ -242,6 +250,8 @@ class WeeklyBatchTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessageMatches('/Only draft/');
 
-        $this->service->finalizeBatch($batch);
+        // force: these cover the batch mechanics — loans, totals, balances —
+        // not the sign-off gate, and their shows carry no report.
+        $this->service->finalizeBatch($batch, force: true);
     }
 }

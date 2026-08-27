@@ -30,7 +30,34 @@ function isChallenge(text,title=''){ return /performing security verification|ju
 const EXIT = {GENERAL:1, SELECTORS:2, CHALLENGE:3, RATE_LIMITED:4};
 function fail(code,message){ const e=new Error(message); e.exitCode=code; return e; }
 async function bodyText(page){ return page.locator('body').innerText().catch(()=> ''); }
-async function state(page){ const text=await bodyText(page),title=await page.title().catch(()=> ''); return {url:page.url(),title,challenged:isChallenge(text,title)}; }
+async function state(page){ const text=await bodyText(page),title=await page.title().catch(()=> ''); return {url:page.url(),title,challenged:isChallenge(text,title),text}; }
+
+/**
+ * Show what Whatnot actually served instead of only naming it a challenge.
+ *
+ * "Challenged" covers a Cloudflare interstitial, a signed-out page and a consent
+ * wall alike, and telling them apart from the outside is guesswork — which is
+ * how several plausible causes got ruled in and back out again. The page's own
+ * title and first lines say which it is; the screenshot settles it.
+ *
+ * Printed unconditionally, not under --debug: by the time anyone thinks to
+ * re-run with a flag, the session has usually moved on.
+ */
+async function reportBlockingPage(page,label){
+  const st=await state(page);
+  const shotPath=`/tmp/whatnot-prod-${label}.png`;
+
+  await page.screenshot({path:shotPath,fullPage:false}).catch(()=>{});
+
+  const lines=(st.text||'').split('\n').map(x=>x.trim()).filter(Boolean).slice(0,8);
+
+  console.error(`[whatnot-prod] blocked at ${st.url}`);
+  console.error(`[whatnot-prod]   title: ${st.title||'(none)'}`);
+  for(const line of lines)console.error(`[whatnot-prod]   > ${line}`);
+  console.error(`[whatnot-prod]   screenshot: ${shotPath}`);
+
+  return st;
+}
 async function shot(page,name){ if(DEBUG) await page.screenshot({path:`/tmp/whatnot-prod-${name}.png`,fullPage:false}).catch(()=>{}); }
 
 async function clickShows(page){
@@ -258,7 +285,7 @@ async function bootstrapCookies(context){
     await page.goto('https://www.whatnot.com/',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);
     await page.waitForTimeout(1500);
 
-    const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});await page.waitForTimeout(2200);out.stages.home={status:resp?resp.status():null,...await state(page)};if(out.stages.home.challenged)throw fail(EXIT.CHALLENGE,'Seller Hub home challenged — Cloudflare served a check instead of the dashboard'+(proxy?' (via proxy '+proxy+')':'')+'. whatnot-scraper.cjs reaching the same site from this machine would mean the address is fine and this launcher is the difference.');
+    const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});await page.waitForTimeout(2200);out.stages.home={status:resp?resp.status():null,...await state(page)};if(out.stages.home.challenged){await reportBlockingPage(page,'challenge-home');throw fail(EXIT.CHALLENGE,'Seller Hub home challenged — Cloudflare served a check instead of the dashboard'+(proxy?' (via proxy '+proxy+')':'')+'. whatnot-scraper.cjs reaching the same site from this machine would mean the address is fine and this launcher is the difference.');}
     if(!await clickShows(page))throw fail(EXIT.SELECTORS,'Could not reach Shows'); out.stages.shows=await state(page);
 
     // A backfill asks for named shows that may sit hundreds of rows back. The

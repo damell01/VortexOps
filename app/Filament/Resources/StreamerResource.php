@@ -219,7 +219,7 @@ class StreamerResource extends Resource
     {
         return $schema->components([
             Section::make('Scorecard')
-                ->description('Performance across every show this streamer was on.')
+                ->description('Performance across every show this team member was on.')
                 ->icon('heroicon-o-trophy')
                 ->visible(fn ($record) => $record?->exists && $record->scorecard()['has_data'])
                 ->columnSpanFull()
@@ -246,7 +246,7 @@ class StreamerResource extends Resource
                 ]),
 
             Section::make('Basic Information')
-                ->description('Streamer name, contact info, and assigned channel.')
+                ->description('Name, contact info, and assigned channel.')
                 ->columnSpanFull()->schema([
                 Grid::make(3)->schema([
                     TextInput::make('name')
@@ -265,20 +265,20 @@ class StreamerResource extends Resource
                         ->relationship('channel', 'name')
                         ->searchable()
                         ->preload()
-                        ->helperText('Primary channel this streamer is attributed to for stats and analytics.'),
+                        ->helperText('Primary channel this team member is attributed to for stats and analytics.'),
                 ]),
             ]),
 
             // Not model attributes — CreateStreamer pulls these out before the
             // Streamer row is saved and creates the linked User in afterCreate.
             Section::make('Login Account')
-                ->description('Optionally create a login so this streamer can sign in and see their own shows, payouts, and inventory.')
+                ->description('Optionally create a login so this person can sign in and see their own shows, payouts, and inventory.')
                 ->columnSpanFull()
                 ->visible(fn (string $operation): bool => $operation === 'create')
                 ->schema([
                     Grid::make(3)->schema([
                         Toggle::make('create_login')
-                            ->label('Create a login for this streamer')
+                            ->label('Create a login for this team member')
                             ->live()
                             ->inline(false),
                         TextInput::make('login_email')
@@ -288,7 +288,7 @@ class StreamerResource extends Resource
                             ->unique(table: 'users', column: 'email')
                             ->visible(fn (Get $get): bool => (bool) $get('create_login'))
                             ->required(fn (Get $get): bool => (bool) $get('create_login'))
-                            ->helperText('The email the streamer will sign in with.'),
+                            ->helperText('The email they will sign in with.'),
                         TextInput::make('login_password')
                             ->label('Password')
                             ->password()
@@ -301,7 +301,7 @@ class StreamerResource extends Resource
                 ]),
 
             Section::make('Payout Configuration')
-                ->description('Set how this streamer is paid — payout type, rates, and payment cadence.')
+                ->description('Set how this team member is paid — payout type, rates, and payment cadence.')
                 ->columnSpanFull()->schema([
                 Grid::make(3)->schema([
                     Select::make('payout_type')
@@ -362,7 +362,7 @@ class StreamerResource extends Resource
                 // and the formula below is assembled for you. Still a plain editable
                 // textarea underneath — nothing stops hand-editing it directly.
                 Section::make('Formula Builder')
-                    ->description('Tick the pieces that make up this streamer\'s pay — the formula below fills in automatically. You can still edit it by hand after.')
+                    ->description('Tick the pieces that make up this person\'s pay — the formula below fills in automatically. You can still edit it by hand after.')
                     ->visible(fn (Get $get) => $get('payout_type') === 'custom_formula')
                     ->schema([
                         Grid::make(3)->schema([
@@ -436,7 +436,7 @@ class StreamerResource extends Resource
                 ]),
 
             Section::make('Vortex Fee')
-                ->description('Leave blank to use the global default set in Settings → Vortex Fee. Set a type here to override it for just this streamer.')
+                ->description('Leave blank to use the global default set in Settings → Vortex Fee. Set a type here to override it for just this person.')
                 ->columnSpanFull()->schema([
                 Grid::make(3)->schema([
                     Select::make('owner_fee_type')
@@ -492,7 +492,7 @@ class StreamerResource extends Resource
                 ]),
 
             Section::make('Inventory Access Control')
-                ->description('Control which inventory locations this streamer can access when mapping items. Leave empty to allow access to all locations.')
+                ->description('Control which inventory locations this team member can access when mapping items. Leave empty to allow access to all locations.')
                 ->collapsed()
                 ->columnSpanFull()
                 ->schema([
@@ -643,7 +643,7 @@ class StreamerResource extends Resource
             ->emptyStateHeading('No streamers yet')
             ->emptyStateDescription('Add the people you run breaks with — their payout terms, channel routing, and inventory location.')
             ->emptyStateActions([
-                \Filament\Actions\CreateAction::make()->label('Add your first streamer'),
+                \Filament\Actions\CreateAction::make()->label('Add your first team member'),
             ])
             ->filters([
                 SelectFilter::make('status')

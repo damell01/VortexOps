@@ -41,12 +41,13 @@ class EmptyStateTest extends TestCase
             ->assertSee('Import from Whatnot');
     }
 
-    public function test_streamers_list_shows_create_cta_when_empty(): void
+    public function test_team_list_shows_create_cta_when_empty(): void
     {
+        // "Team", not "Streamers": half the roster packs shipments.
         Livewire::test(ListStreamers::class)
             ->loadTable()
-            ->assertSee('No streamers yet')
-            ->assertSee('Add your first streamer');
+            ->assertSee('No team members yet')
+            ->assertSee('Add your first team member');
     }
 
     public function test_vendors_list_shows_create_cta_when_empty(): void

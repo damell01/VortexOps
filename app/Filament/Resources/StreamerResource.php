@@ -640,7 +640,7 @@ class StreamerResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->emptyStateIcon('heroicon-o-user-group')
-            ->emptyStateHeading('No streamers yet')
+            ->emptyStateHeading('No team members yet')
             ->emptyStateDescription('Add the people you run breaks with — their payout terms, channel routing, and inventory location.')
             ->emptyStateActions([
                 \Filament\Actions\CreateAction::make()->label('Add your first team member'),

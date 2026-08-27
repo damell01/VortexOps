@@ -96,6 +96,36 @@
             @endif
         </div>
 
+        {{-- ── Profit Share Working ─────────────────────────────────────────────
+             The inputs the share was worked out from, stored on the payout when
+             it was calculated. Without these, checking an amount against the
+             calculations sheet meant opening the show report and redoing the
+             arithmetic by hand. Hidden where there is no share behind the
+             payout — a package rate has no net revenue to show. --}}
+        @if ($payout->net_revenue_basis !== null)
+            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+                <div class="px-5 py-3.5 border-b border-gray-100 dark:border-gray-800">
+                    <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Profit Share Working</h2>
+                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">As the numbers stood when this payout was calculated.</p>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 divide-x divide-y sm:divide-y-0 divide-gray-100 dark:divide-gray-800">
+                    @foreach ([
+                        ['label' => 'Product Cost', 'value' => '$' . number_format((float) $payout->product_cost, 2)],
+                        ['label' => 'Hours',        'value' => rtrim(rtrim(number_format((float) $payout->hours_worked, 2), '0'), '.') . ' hrs'],
+                        ['label' => 'Shipments',    'value' => number_format((int) $payout->shipments_count)],
+                        ['label' => 'Burden',       'value' => (float) $payout->burden_amount > 0 ? '$' . number_format((float) $payout->burden_amount, 2) : 'None set'],
+                        ['label' => 'Net Revenue',  'value' => '$' . number_format((float) $payout->net_revenue_basis, 2)],
+                    ] as $item)
+                        <div class="px-5 py-4">
+                            <p class="text-xs font-medium text-gray-400 uppercase tracking-wide">{{ $item['label'] }}</p>
+                            <p class="mt-1.5 text-lg font-bold text-gray-900 dark:text-gray-100 tabular-nums">{{ $item['value'] }}</p>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
         {{-- ── Routing Information ──────────────────────────────────────────── --}}
         @if ($payout->routing_bank_label || $payout->streamer?->channel_routing_rules)
             <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">

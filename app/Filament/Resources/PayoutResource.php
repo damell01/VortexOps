@@ -192,6 +192,41 @@ class PayoutResource extends Resource
                         ->label('How It Was Calculated')
                         ->content(fn (Payout $record): string => $record->calculation_notes ?: '—'),
                 ]),
+
+            // The inputs behind a profit share, so the amount can be checked
+            // against the calculations sheet without reopening the report and
+            // redoing the arithmetic. Hidden on payouts with no share behind
+            // them — a package rate has no net revenue to show.
+            Section::make('Profit Share Working')
+                ->description('The numbers this share was worked out from, as they stood when the payout was calculated.')
+                ->columnSpanFull()
+                ->visible(fn (Payout $record): bool => $record->net_revenue_basis !== null)
+                ->schema([
+                    Grid::make(3)->schema([
+                        Placeholder::make('product_cost')
+                            ->label('Product Cost')
+                            ->content(fn (Payout $record): string => '$' . number_format((float) $record->product_cost, 2)),
+                        Placeholder::make('hours_worked')
+                            ->label('Hours')
+                            ->content(fn (Payout $record): string => rtrim(rtrim(number_format((float) $record->hours_worked, 2), '0'), '.') . ' hrs'),
+                        Placeholder::make('shipments_count')
+                            ->label('Shipments')
+                            ->content(fn (Payout $record): string => number_format((int) $record->shipments_count)),
+                        Placeholder::make('burden_amount')
+                            ->label('Burden')
+                            ->content(fn (Payout $record): string => (float) $record->burden_amount > 0
+                                ? '$' . number_format((float) $record->burden_amount, 2)
+                                : 'None configured'),
+                        Placeholder::make('net_revenue_basis')
+                            ->label('Net Revenue')
+                            ->content(fn (Payout $record): string => '$' . number_format((float) $record->net_revenue_basis, 2)),
+                        Placeholder::make('share_percentage')
+                            ->label('Their Share')
+                            ->content(fn (Payout $record): string => $record->streamer?->payout_percentage !== null
+                                ? rtrim(rtrim(number_format((float) $record->streamer->payout_percentage, 2), '0'), '.') . '%'
+                                : '—'),
+                    ]),
+                ]),
         ]);
     }
 

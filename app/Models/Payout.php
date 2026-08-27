@@ -39,6 +39,11 @@ class Payout extends Model
         'weekly_payout_batch_id',
         'payout_type',
         'gross_show_revenue',
+        'product_cost',
+        'hours_worked',
+        'shipments_count',
+        'burden_amount',
+        'net_revenue_basis',
         'owner_fee_deducted',
         'loan_repayment_deducted',
         'tips_included',
@@ -54,6 +59,11 @@ class Payout extends Model
 
     protected $casts = [
         'gross_show_revenue'      => 'decimal:2',
+        'product_cost'            => 'decimal:2',
+        'hours_worked'            => 'decimal:2',
+        'shipments_count'         => 'integer',
+        'burden_amount'           => 'decimal:2',
+        'net_revenue_basis'       => 'decimal:2',
         'owner_fee_deducted'      => 'decimal:2',
         'loan_repayment_deducted' => 'decimal:2',
         'tips_included'           => 'decimal:2',

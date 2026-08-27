@@ -8,6 +8,7 @@ use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
 use App\Models\WeeklyPayoutBatch;
+use App\Support\ProfitShareFormula;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -87,22 +88,28 @@ class PayoutService
         $labelCount = 0;
         $burdenRateApplied = null;
 
+        // A show has exactly one report — streamer_log_entries.show_id is
+        // unique — so on a collab both people's payouts read the same product
+        // cost and hours. That is the schema's decision, not this method's.
         $logEntry = $show->relationLoaded('streamerLogEntry')
             ? $show->getRelation('streamerLogEntry')
             : $show->streamerLogEntry()->first();
 
+        $share = null;
+
         switch ($streamer->payout_type) {
             case 'profit_share':
-                $pct              = (float) $streamer->payout_percentage / 100;
-                $calculatedPayout = round($streamerShare * $pct, 2);
+                $share            = $this->profitShareWorking($show, $streamer, $logEntry, $hours, $isPrimary || $streamerCount <= 1);
+                $calculatedPayout = $share['earnings'];
                 $notPrimaryNote   = $streamerCount > 1 && ! $isPrimary
                     ? ' — non-primary on collab show, revenue share goes to the primary streamer; split manually outside VortexOps'
                     : '';
+
+                $calculationNotes = $share['note'] . $notPrimaryNote;
+
                 if ($streamer->include_tips) {
-                    $calculatedPayout += $tipShare;
-                    $calculationNotes  = "Profit share {$streamer->payout_percentage}% of \${$streamerShare} + \${$tipShare} tips{$notPrimaryNote}";
-                } else {
-                    $calculationNotes = "Profit share {$streamer->payout_percentage}% of \${$streamerShare}{$notPrimaryNote}";
+                    $calculatedPayout = round($calculatedPayout + $tipShare, 2);
+                    $calculationNotes .= " + \${$tipShare} tips";
                 }
                 break;
 
@@ -163,8 +170,14 @@ class PayoutService
 
             case 'hybrid':
                 // Hourly base + tips share + profit share component, with optional burden rate.
+                //
+                // The profit component reads the same basis as a plain
+                // profit_share payout. It used to be worked out off whatnot_net
+                // while profit_share used the calculations sheet, so the same
+                // words on two people's records paid two different formulas.
                 $hourlyBase   = $hours > 0 ? round((float) ($streamer->hourly_rate ?? 0) * $hours, 2) : 0;
-                $profitComp   = round($streamerShare * ((float) ($streamer->payout_percentage ?? 0) / 100), 2);
+                $share        = $this->profitShareWorking($show, $streamer, $logEntry, $hours, $isPrimary || $streamerCount <= 1);
+                $profitComp   = $share['earnings'];
                 $base         = $hourlyBase + $profitComp + ($streamer->include_tips ? $tipShare : 0);
 
                 if ($streamer->burden_rate_type && (float) ($streamer->burden_rate_value ?? 0) > 0) {
@@ -230,6 +243,13 @@ class PayoutService
         return [
             'payout_type'          => $streamer->payout_type,
             'gross_show_revenue'   => $grossRevenue,
+            // The inputs the share was worked out from, so the payout can show
+            // its working without anybody reopening the report to re-do it.
+            'product_cost'         => $share['columns']['product_cost']      ?? null,
+            'hours_worked'         => $share['columns']['hours_worked']      ?? null,
+            'shipments_count'      => $share['columns']['shipments_count']   ?? null,
+            'burden_amount'        => $share['columns']['burden_amount']     ?? null,
+            'net_revenue_basis'    => $share['columns']['net_revenue_basis'] ?? null,
             'owner_fee_deducted'   => $ownerFeeDeducted,
             'tips_included'        => $streamer->include_tips ? $tipShare : 0,
             'pwe_count'            => $pweCount > 0 ? $pweCount : null,
@@ -249,6 +269,84 @@ class PayoutService
      *
      * @return array{0: ?string, 1: float, 2: bool}
      */
+    /**
+     * A profit-share payout, worked out the way the calculations sheet does.
+     *
+     * Until this existed the payout engine paid `whatnot_net × percentage` —
+     * Whatnot's own net, with no product cost and no burden — while every
+     * streamer filled in a sheet that subtracts both. The two disagreed by
+     * about 15% on the show the formula was lifted from, and payroll corrected
+     * it by hand every week.
+     *
+     * The inputs come from the streamer's own show report, because that is
+     * where a person actually establishes what a show cost and how long it
+     * ran. Hours fall back to the show's recorded length and shipments to its
+     * shipment list, which is what the report pre-fills them from anyway.
+     *
+     * @param  bool  $countsTowardShare  False for a non-primary streamer on a
+     *                                   collab show — the revenue share goes to
+     *                                   the primary and is split outside here.
+     * @return array{earnings:float,note:string,columns:array<string,float|int|null>}
+     */
+    private function profitShareWorking(
+        Show $show,
+        Streamer $streamer,
+        ?StreamerLogEntry $logEntry,
+        float $hours,
+        bool $countsTowardShare,
+    ): array {
+        $percentage = (float) ($streamer->payout_percentage ?? 0);
+
+        if (! $countsTowardShare) {
+            return [
+                'earnings' => 0.0,
+                'note'     => "Profit share {$percentage}% of \$0.00",
+                'columns'  => [],
+            ];
+        }
+
+        // No report means no product cost, and gross revenue with a product
+        // cost of zero would pay a share of the whole till. Fall back to the
+        // old basis, labelled, rather than inventing a number: the sign-off
+        // gate names this show as unreported before the run can be finalised.
+        if (! $logEntry) {
+            $estimate = round((float) $show->whatnot_net * ($percentage / 100), 2);
+
+            return [
+                'earnings' => $estimate,
+                'note'     => "Profit share {$percentage}% of \$" . number_format((float) $show->whatnot_net, 2)
+                    . ' (estimated from Whatnot net — no show report filed, so product cost is unknown)',
+                'columns'  => [],
+            ];
+        }
+
+        $productCost = (float) ($logEntry->product_cost ?? 0);
+        $hoursWorked = $logEntry->hours_streamed !== null ? (float) $logEntry->hours_streamed : $hours;
+        $shipments   = $logEntry->number_of_shipments !== null
+            ? (int) $logEntry->number_of_shipments
+            : (int) $show->shipments()->count();
+
+        $working = ProfitShareFormula::forShow(
+            grossRevenue: (float) $show->gross_revenue,
+            productCost:  $productCost,
+            hours:        $hoursWorked,
+            shipments:    $shipments,
+            percentage:   $percentage,
+        );
+
+        return [
+            'earnings' => $working['earnings'],
+            'note'     => ProfitShareFormula::explain($working),
+            'columns'  => [
+                'product_cost'      => $working['product_cost'],
+                'hours_worked'      => $working['hours'],
+                'shipments_count'   => (int) $working['shipments'],
+                'burden_amount'     => $working['burden'],
+                'net_revenue_basis' => $working['net_revenue'],
+            ],
+        ];
+    }
+
     private function defaultOwnerFee(): array
     {
         $type = Setting::get('default_owner_fee_type', '');

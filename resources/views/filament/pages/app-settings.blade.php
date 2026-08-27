@@ -1006,6 +1006,59 @@
             </div>
         </div>
 
+        {{-- ── Streamer Profit Share ───────────────────────────────────────── --}}
+        <div wire:key="section-burden" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+
+            <button type="button" @click="open = !open"
+                class="w-full px-6 py-4 flex items-center gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                <x-heroicon-o-calculator class="h-5 w-5 text-violet-500 shrink-0" />
+                <div class="flex-1 min-w-0">
+                    <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Streamer Profit Share</h2>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">The burden rate deducted before a streamer's percentage is applied</p>
+                </div>
+                <span :class="open ? 'rotate-90' : ''" class="shrink-0 transition-transform duration-200"><x-heroicon-o-chevron-right class="h-4 w-4 text-gray-400" /></span>
+            </button>
+
+            <div x-show="open" class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 space-y-4">
+
+                {{-- The formula in full. It lived only inside a spreadsheet cell,
+                     so nobody who had not read its formulas knew a burden rate
+                     was being deducted at all, let alone what the rates were. --}}
+                <div class="rounded-lg bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 p-4 text-sm">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">How a show's profit share is worked out</p>
+                    <div class="font-mono text-xs leading-6 text-gray-700 dark:text-gray-300">
+                        <div>burden&nbsp;&nbsp;&nbsp;= (shipments &times; ${{ number_format((float) $payroll_burden_per_shipment, 2) }}) + (hours &times; ${{ number_format((float) $payroll_burden_per_hour, 2) }})</div>
+                        <div>net rev&nbsp;&nbsp;= gross revenue &minus; product cost &minus; burden</div>
+                        <div>earnings = net rev &times; the streamer's profit share %</div>
+                    </div>
+                    <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                        The percentage is set per person on their Team record. Only the burden rates are global,
+                        because every streamer fills in the same calculations sheet after a show.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Burden per Shipment ($)</label>
+                        <input wire:model.blur="payroll_burden_per_shipment" type="number" step="0.01" min="0" placeholder="2.10"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Deducted per shipment on the show (default $2.10)</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Burden per Hour ($)</label>
+                        <input wire:model.blur="payroll_burden_per_hour" type="number" step="0.01" min="0" placeholder="80.00"
+                            class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 outline-none transition-colors">
+                        <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">Deducted per hour worked on the show (default $80.00)</p>
+                    </div>
+                </div>
+
+                <p class="text-xs text-gray-400 dark:text-gray-500">
+                    Changing these affects future calculations only. Shows already included in a finalised pay run
+                    keep the rates they were worked out with.
+                </p>
+            </div>
+        </div>
+
         {{-- ── Vortex Fee (default) ────────────────────────────────────────── --}}
         <div wire:key="section-owner-fee" x-data="{ open: false }" class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
 

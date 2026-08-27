@@ -109,6 +109,21 @@ class AppSettings extends Page
     // ── Shipping Surcharge ───────────────────────────────────────────────────
 
     public string $shipping_surcharge_rate      = '4.00';
+
+    /**
+     * The burden rate the streamer profit-share formula deducts.
+     *
+     * Taken from the Calculations tab everybody uses after a show, where cell
+     * H998 reads ROUND(shipments * 2.1 + 80 * hours, 2) and the cell beside it
+     * is labelled "Burden Rate". Global rather than per person because that one
+     * sheet is what every streamer fills in.
+     *
+     * Exposed here so the rate can be changed without editing code — the
+     * spreadsheet's constants were invisible to everyone who was not reading
+     * its formulas.
+     */
+    public string $payroll_burden_per_shipment = '2.10';
+    public string $payroll_burden_per_hour     = '80.00';
     public string $shipping_surcharge_threshold = '500.00';
 
     // ── Vortex Fee (default) ─────────────────────────────────────────────────
@@ -219,6 +234,8 @@ class AppSettings extends Page
         $this->show_report_review_policy     = (string) Setting::get('show_report_review_policy', 'required');
 
         $this->shipping_surcharge_rate      = Setting::get('shipping_surcharge_rate', '4.00');
+        $this->payroll_burden_per_shipment  = Setting::get('payroll_burden_per_shipment', '2.10');
+        $this->payroll_burden_per_hour      = Setting::get('payroll_burden_per_hour', '80.00');
         $this->shipping_surcharge_threshold = Setting::get('shipping_surcharge_threshold', '500.00');
 
         $defaultOwnerFeeType = Setting::get('default_owner_fee_type', '');
@@ -338,6 +355,8 @@ class AppSettings extends Page
             'show_inventory_posting_policy'    => 'required|in:on_submit,clean_only,on_approval',
             'show_report_review_policy'        => 'required|in:required,exceptions_only,auto',
             'shipping_surcharge_rate'          => 'required|numeric|min:0',
+            'payroll_burden_per_shipment'      => 'required|numeric|min:0',
+            'payroll_burden_per_hour'          => 'required|numeric|min:0',
             'shipping_surcharge_threshold'     => 'required|numeric|min:0',
             'default_owner_fee_type'           => 'nullable|in:percentage,flat',
             'default_owner_fee_value'          => 'nullable|numeric|min:0',
@@ -388,6 +407,8 @@ class AppSettings extends Page
         Setting::set('show_report_review_policy',     $this->show_report_review_policy);
 
         Setting::set('shipping_surcharge_rate',      $this->shipping_surcharge_rate);
+        Setting::set('payroll_burden_per_shipment',  $this->payroll_burden_per_shipment);
+        Setting::set('payroll_burden_per_hour',      $this->payroll_burden_per_hour);
         Setting::set('shipping_surcharge_threshold', $this->shipping_surcharge_threshold);
 
         Setting::set('default_owner_fee_type',              $this->default_owner_fee_type ?? '');

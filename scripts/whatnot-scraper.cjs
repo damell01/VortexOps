@@ -1172,11 +1172,26 @@ async function switchToChannel(page, channelName) {
   await debugShot(page, 'role-switch-01-pre');
   info('switchToChannel: current URL before switch:', page.url());
 
-  // The role switcher is reached by clicking, not by goto(), so the wrapper on
-  // page.goto() never sees it. Without this the drawer hunt runs against a
-  // verification page and reports the switcher as missing — which is what the
-  // "controls: [Cloudflare, Privacy]" dump in the logs actually was.
-  await settleChallenge(page);
+  // Do not let challenge detection consume the entire channel-switch budget.
+  // On a healthy rendered Seller Hub, page.evaluate() has occasionally stalled
+  // here even though the DOM is already usable. First inspect body text through
+  // a locator with its own timeout; only invoke the longer challenge waiter when
+  // the page positively looks like a Cloudflare interstitial.
+  const switchBody = await page.locator('body').innerText({ timeout: 3000 }).catch(() => null);
+  if (switchBody !== null && isChallengePage(switchBody.substring(0, 2000))) {
+    info('switchToChannel: Cloudflare interstitial detected before role switch');
+    const challengeResult = await Promise.race([
+      settleChallenge(page, { timeoutMs: 6000, fatal: false }),
+      new Promise((resolve) => setTimeout(() => resolve(false), 7000)),
+    ]);
+    if (!challengeResult) {
+      throw new Error(`CHANNEL_SWITCH_CHALLENGE: requested=@${channelName} could not clear verification`);
+    }
+  } else if (switchBody === null) {
+    info('switchToChannel: body inspection timed out; continuing with bounded DOM selectors');
+  } else {
+    info('switchToChannel: Seller Hub body is usable; skipping redundant challenge wait');
+  }
 
   // Confirmed July 2026 (real markup): no id at all — it's an h4 with class ogVNN
   // reading "Switch Role", inside a div.eCoev[role="presentation"] menu row.
@@ -1394,16 +1409,35 @@ async function switchToChannel(page, channelName) {
 // channel, so for any other channel we must still switch even though seller mode
 // is already active.
 async function getActiveChannelUsername(page) {
-  return page.evaluate(() => {
-    for (const a of document.querySelectorAll('a[href^="/user/"]')) {
-      const text = (a.textContent || '').trim();
-      if (text.startsWith('@')) {
-        const m = (a.getAttribute('href') || '').match(/^\/user\/([^/?#]+)/);
-        if (m) return m[1];
-      }
+  // Prefer identity links in seller navigation, but do not require the visible
+  // text to start with @. Whatnot's current dashboard sometimes renders only an
+  // avatar/name while keeping the /user/<username> href.
+  const navUser = await page.locator(
+    'header a[href^="/user/"], nav a[href^="/user/"], aside a[href^="/user/"]'
+  ).first().getAttribute('href', { timeout: 2000 }).catch(() => null);
+  if (navUser) {
+    const m = navUser.match(/^\/user\/([^/?#]+)/);
+    if (m) return m[1];
+  }
+
+  // Fallback to any /user/ anchor whose own text names the account. Avoid an
+  // unbounded page.evaluate() here: a wedged renderer must not eat the switch
+  // timeout and hide where the failure actually occurred.
+  const links = page.locator('a[href^="/user/"]');
+  const count = Math.min(await links.count().catch(() => 0), 30);
+  for (let i = 0; i < count; i++) {
+    const a = links.nth(i);
+    const href = await a.getAttribute('href', { timeout: 1000 }).catch(() => null);
+    if (!href) continue;
+    const m = href.match(/^\/user\/([^/?#]+)/);
+    if (!m) continue;
+    const text = (await a.innerText({ timeout: 1000 }).catch(() => '')).trim();
+    if (text.startsWith('@') || normalizeChannelKey(text) === normalizeChannelKey(m[1])) {
+      return m[1];
     }
-    return null;
-  }).catch(() => null);
+  }
+
+  return null;
 }
 
 // Normalize a channel name/username for comparison: lowercase, strip @, spaces,
@@ -1419,8 +1453,8 @@ async function waitForActiveChannel(page, expectedChannel, timeoutMs = 12000) {
   const started = Date.now();
   let lastSeen = null;
 
-  await settleChallenge(page);
-
+  // switchToChannel already checked for an interstitial. Do not perform another
+  // unbounded challenge read here; verification itself is intentionally bounded.
   while (Date.now() - started < timeoutMs) {
     lastSeen = await getActiveChannelUsername(page);
 

@@ -33,7 +33,7 @@ class ListInventoryItems extends ListRecords
         return match ($this->stockHealth) {
             'out' => $query->havingRaw('COALESCE(stock_sum_quantity, 0) <= 0'),
             'low' => $query->whereNotNull('reorder_level')->havingRaw('COALESCE(stock_sum_quantity, 0) > 0 AND stock_sum_quantity <= products.reorder_level'),
-            'in' => $query->havingRaw('COALESCE(stock_sum_quantity, 0) > 0')->where(fn ($q) => $q->whereNull('reorder_level')->orWhereColumn('stock_sum_quantity', '>', 'products.reorder_level')),
+            'in' => $query->havingRaw('COALESCE(stock_sum_quantity, 0) > 0 AND (products.reorder_level IS NULL OR stock_sum_quantity > products.reorder_level)'),
             default => $query,
         };
     }
@@ -98,7 +98,7 @@ class ListInventoryItems extends ListRecords
             ActionGroup::make([
                 Action::make('view-report')->label('View report')->icon('heroicon-o-eye')->url(route('export.inventory-pdf'))->openUrlInNewTab(),
                 Action::make('export-pdf')->label('Download PDF')->icon('heroicon-o-document-arrow-down')->url(route('export.inventory-pdf').'?download=1')->openUrlInNewTab(),
-                Action::make('export-excel')->label('Export to Excel')->icon('heroicon-o-table-cells')->url(route('export.inventory-items'))->openUrlInNewTab(),
+                Action::make('export-excel')->label('Export to Excel')->icon('heroicon-o-table-cells')->url(route('export.inventory.items'))->openUrlInNewTab(),
             ])->label('More')->icon('heroicon-o-ellipsis-horizontal')->button()->color('gray')->visible($canExport),
         ];
     }

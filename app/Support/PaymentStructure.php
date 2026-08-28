@@ -6,14 +6,12 @@ use App\Models\Setting;
 use App\Models\Streamer;
 
 /**
- * Resolves the effective pay terms for a team member.
+ * Resolves and applies default compensation for Streamer and Fulfillment team
+ * members while preserving field-level individual overrides.
  *
- * Team defaults live in Settings as JSON. Individual records keep their
- * existing rate columns, but only fields explicitly named in
- * compensation_override_fields replace the team default. A null override list
- * means "legacy member": use the row exactly as it existed before payment
- * structures were introduced so deploying this feature cannot silently change
- * anybody's pay.
+ * Legacy rows keep compensation_override_fields=null and remain untouched until
+ * an admin explicitly opts them into a team structure. Once adopted, [] means
+ * inherit everything and named fields are the only individual overrides.
  */
 class PaymentStructure
 {
@@ -47,11 +45,9 @@ class PaymentStructure
         }
 
         $decoded = json_decode((string) $raw, true);
-        if (! is_array($decoded)) {
-            return [];
-        }
-
-        return array_intersect_key($decoded, array_flip(self::FIELDS));
+        return is_array($decoded)
+            ? array_intersect_key($decoded, array_flip(self::FIELDS))
+            : [];
     }
 
     public static function saveDefaults(string $memberType, array $values): void
@@ -65,14 +61,83 @@ class PaymentStructure
 
         Setting::set(self::settingKey($memberType), json_encode($payload));
 
+        // Materialize effective defaults into opted-in rows. This lets the
+        // existing PayoutService continue using the same proven columns/formula
+        // path, while the structure page remains the source of future defaults.
+        self::members($memberType)
+            ->whereNotNull('compensation_override_fields')
+            ->get()
+            ->each(function (Streamer $member) use ($payload) {
+                $overrides = is_array($member->compensation_override_fields)
+                    ? $member->compensation_override_fields
+                    : [];
+                $changes = [];
+                foreach ($payload as $field => $value) {
+                    if (! in_array($field, $overrides, true)) {
+                        $changes[$field] = $value;
+                    }
+                }
+                if ($changes !== []) {
+                    $member->update($changes);
+                }
+            });
+
         activity('payment_structure')
+            ->causedBy(auth()->user())
             ->withProperties(['member_type' => $memberType, 'values' => $payload])
             ->log(ucfirst($memberType) . ' payment structure updated');
     }
 
-    /**
-     * @return array{member_type:string,structure:string,defaults:array<string,mixed>,overrides:array<string,mixed>,effective:array<string,mixed>,legacy:bool,version:string}
-     */
+    public static function adoptDefaults(Streamer $member): void
+    {
+        $memberType = $member->isFulfillment() ? 'fulfillment' : 'streamer';
+        $defaults = self::defaults($memberType);
+        $changes = ['compensation_override_fields' => []];
+        foreach ($defaults as $field => $value) {
+            $changes[$field] = $value;
+        }
+        $member->update($changes);
+
+        activity('payment_structure')
+            ->causedBy(auth()->user())
+            ->performedOn($member)
+            ->withProperties(['member_type' => $memberType])
+            ->log('Team member adopted payment structure defaults');
+    }
+
+    /** @param array<string,mixed> $overrides */
+    public static function saveOverrides(Streamer $member, array $overrides): void
+    {
+        $allowed = array_intersect_key($overrides, array_flip(self::FIELDS));
+        $fields = array_keys($allowed);
+        $changes = ['compensation_override_fields' => array_values($fields)];
+
+        foreach ($allowed as $field => $value) {
+            $changes[$field] = self::normalize($field, $value);
+        }
+
+        $defaults = self::defaults($member->isFulfillment() ? 'fulfillment' : 'streamer');
+        foreach ($defaults as $field => $value) {
+            if (! in_array($field, $fields, true)) {
+                $changes[$field] = $value;
+            }
+        }
+
+        $member->update($changes);
+
+        activity('payment_structure')
+            ->causedBy(auth()->user())
+            ->performedOn($member)
+            ->withProperties(['overrides' => $allowed])
+            ->log('Individual compensation overrides updated');
+    }
+
+    public static function resetOverrides(Streamer $member): void
+    {
+        self::adoptDefaults($member);
+    }
+
+    /** @return array{member_type:string,structure:string,defaults:array<string,mixed>,overrides:array<string,mixed>,effective:array<string,mixed>,legacy:bool,version:string} */
     public static function resolve(Streamer $member): array
     {
         $memberType = $member->isFulfillment() ? 'fulfillment' : 'streamer';
@@ -85,17 +150,15 @@ class PaymentStructure
             $row[$field] = self::normalize($field, $member->getAttribute($field));
         }
 
-        // Until an admin deliberately opts a legacy record into inheritance,
-        // the row remains authoritative. This is the safest migration behavior.
         if ($legacy || $defaults === []) {
             return [
                 'member_type' => $memberType,
-                'structure'   => ucfirst($memberType) . ' Payment Structure',
-                'defaults'    => $defaults,
-                'overrides'   => $row,
-                'effective'   => $row,
-                'legacy'      => $legacy,
-                'version'     => self::VERSION,
+                'structure' => ucfirst($memberType) . ' Payment Structure',
+                'defaults' => $defaults,
+                'overrides' => $row,
+                'effective' => $row,
+                'legacy' => $legacy,
+                'version' => self::VERSION,
             ];
         }
 
@@ -109,10 +172,6 @@ class PaymentStructure
         foreach ($overrides as $field => $value) {
             $effective[$field] = $value;
         }
-
-        // A structure may intentionally omit optional fields. Preserve the
-        // model/database fallback rather than turning an omitted value into an
-        // accidental null calculation input.
         foreach (self::FIELDS as $field) {
             if (! array_key_exists($field, $effective)) {
                 $effective[$field] = $row[$field];
@@ -121,12 +180,12 @@ class PaymentStructure
 
         return [
             'member_type' => $memberType,
-            'structure'   => ucfirst($memberType) . ' Payment Structure',
-            'defaults'    => $defaults,
-            'overrides'   => $overrides,
-            'effective'   => $effective,
-            'legacy'      => false,
-            'version'     => self::VERSION,
+            'structure' => ucfirst($memberType) . ' Payment Structure',
+            'defaults' => $defaults,
+            'overrides' => $overrides,
+            'effective' => $effective,
+            'legacy' => false,
+            'version' => self::VERSION,
         ];
     }
 
@@ -135,16 +194,21 @@ class PaymentStructure
         return self::resolve($member)['effective'][$field] ?? $fallback;
     }
 
+    private static function members(string $memberType)
+    {
+        return $memberType === 'fulfillment'
+            ? Streamer::query()->where('member_type', 'fulfillment')
+            : Streamer::query()->where(fn ($q) => $q->where('member_type', 'streamer')->orWhereNull('member_type'));
+    }
+
     private static function normalize(string $field, mixed $value): mixed
     {
         if (in_array($field, ['payout_percentage', 'package_rate', 'hourly_rate', 'pwe_rate', 'label_rate', 'burden_rate_value'], true)) {
             return $value === null || $value === '' ? null : (float) $value;
         }
-
         if ($field === 'include_tips') {
             return (bool) $value;
         }
-
         return $value;
     }
 }

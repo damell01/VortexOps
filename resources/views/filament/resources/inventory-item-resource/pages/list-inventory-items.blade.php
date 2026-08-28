@@ -16,8 +16,16 @@
 <div class="space-y-3 sm:space-y-5 vx-inventory-list" data-vx-page="inventory-center">
  <div class="vx-inventory-mobile-intro sm:hidden"><h2 class="text-2xl font-bold text-gray-950 dark:text-white">Inventory</h2><p class="mt-1 text-sm text-gray-500">Track and manage your inventory items.</p></div>
  <section class="vx-inventory-desktop-tools overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"><div class="p-5"><div class="text-xs font-bold uppercase tracking-[.12em] text-primary-600">Inventory Center</div><h2 class="mt-1 text-xl font-semibold">What are you trying to do?</h2><p class="mt-1 text-sm text-gray-500">Search first when checking stock. Scan, add, receive, or manage locations from here.</p></div></section>
- <div class="vx-health-grid">@foreach($this->getStats() as $stat)<button type="button" wire:click="filterStock({{$stat['key'] ? "'{$stat['key']}'" : 'null'}})" class="vx-health {{ $stockHealth === $stat['key'] ? 'active' : '' }}"><strong>{{$stat['value']}}</strong><span>{{$stat['label']}}</span></button>@endforeach</div>
- @if($stockHealth)<div class="flex items-center justify-between rounded-xl border border-primary-800/40 bg-primary-950/20 px-4 py-2 text-sm"><span>Showing <strong>{{match($stockHealth){'in'=>'In Stock','low'=>'Low Stock','out'=>'Out of Stock'}}</strong> items</span><button wire:click="filterStock(null)" class="font-bold text-primary-400">Show all</button></div>@endif
- <section class="vx-inventory-items-panel overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"><div class="hidden border-b border-gray-100 px-5 py-3 dark:border-gray-800 sm:block"><h2 class="text-base font-semibold">Inventory Items</h2><p class="mt-0.5 text-xs text-gray-500">Search by item name, SKU, or barcode.</p></div><div class="p-1 sm:p-2">{{$this->table}}</div></section>
+ <div class="vx-health-grid">
+  @foreach($this->getStats() as $stat)
+   @if($stat['key'])
+    <button type="button" wire:click="filterStock('{{ $stat['key'] }}')" class="vx-health {{ $stockHealth === $stat['key'] ? 'active' : '' }}"><strong>{{ $stat['value'] }}</strong><span>{{ $stat['label'] }}</span></button>
+   @else
+    <button type="button" wire:click="filterStock(null)" class="vx-health {{ $stockHealth === $stat['key'] ? 'active' : '' }}"><strong>{{ $stat['value'] }}</strong><span>{{ $stat['label'] }}</span></button>
+   @endif
+  @endforeach
+ </div>
+ @if($stockHealth)<div class="flex items-center justify-between rounded-xl border border-primary-800/40 bg-primary-950/20 px-4 py-2 text-sm"><span>Showing <strong>{{ match($stockHealth) { 'in' => 'In Stock', 'low' => 'Low Stock', 'out' => 'Out of Stock' } }}</strong> items</span><button wire:click="filterStock(null)" class="font-bold text-primary-400">Show all</button></div>@endif
+ <section class="vx-inventory-items-panel overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"><div class="hidden border-b border-gray-100 px-5 py-3 dark:border-gray-800 sm:block"><h2 class="text-base font-semibold">Inventory Items</h2><p class="mt-0.5 text-xs text-gray-500">Search by item name, SKU, or barcode.</p></div><div class="p-1 sm:p-2">{{ $this->table }}</div></section>
 </div>
 </x-filament-panels::page>

@@ -77,26 +77,11 @@ class AdminModules
         ];
     }
 
-    // ── Module-level gating ───────────────────────────────────────────────────
-    //
-    // This is the only global on/off switch — a disabled module hides its pages
-    // from navigation and blocks their routes for everyone, including the
-    // owner. Anything finer-grained (which specific page a given role can see
-    // within an enabled module) is handled per-role by NavVisibility, edited on
-    // the Roles & Permissions page — there is deliberately no second,
-    // module-level "features" toggle competing with it.
-
-    /**
-     * @return array<int, string>
-     */
     public static function defaultEnabledSlugs(): array
     {
         return ['streams', 'payouts', 'inventory', 'purchasing', 'shipments', 'operations', 'reporting'];
     }
 
-    /**
-     * @return array<int, string>
-     */
     public static function enabledSlugs(): array
     {
         if (static::$memoizedSlugs !== null) {
@@ -114,7 +99,6 @@ class AdminModules
         }
 
         $decoded = json_decode($raw, true);
-
         if (! is_array($decoded)) {
             return static::$memoizedSlugs = static::defaultEnabledSlugs();
         }
@@ -127,16 +111,10 @@ class AdminModules
         return in_array($slug, static::enabledSlugs(), true);
     }
 
-    /**
-     * @param  array<int, string>  $slugs
-     * @return array<int, string>
-     */
     public static function normalizeEnabledSlugs(array $slugs): array
     {
-        $normalized = $slugs;
         $valid = array_keys(static::definitions());
-
-        return array_values(array_unique(array_intersect($valid, $normalized)));
+        return array_values(array_unique(array_intersect($valid, $slugs)));
     }
 
     public static function flushMemo(): void
@@ -144,13 +122,6 @@ class AdminModules
         static::$memoizedSlugs = null;
     }
 
-    /**
-     * Quick-select presets for a phased rollout — one click to jump the enabled
-     * module set to a known stage instead of hand-checking boxes each time.
-     * Slugs are normalized against definitions() at read time by the caller.
-     *
-     * @return array<string, array{label: string, description: string, slugs: array<int,string>}>
-     */
     public static function presets(): array
     {
         return [
@@ -172,56 +143,48 @@ class AdminModules
         ];
     }
 
-    // ── Navigation helpers ────────────────────────────────────────────────────
-
-    /**
-     * @return array<int, string>
-     */
     public static function visibleNavigationGroups(): array
     {
-        $groups = count(static::visibleOperationalGroups()) <= 1
+        // A saved Navigation Manager layout becomes the presentation order.
+        // Defaults are appended so newly-added code pages/groups never disappear.
+        $custom = collect(NavLayout::config()['groups'] ?? [])
+            ->sortBy('sort')
+            ->pluck('label')
+            ->filter()
+            ->values()
+            ->all();
+
+        $defaults = count(static::visibleOperationalGroups()) <= 1
             ? []
             : static::visibleOperationalGroups();
 
-        $groups[] = 'Settings';
-
-        return array_values(array_unique($groups));
+        $groups = array_values(array_unique(array_merge($custom, $defaults, ['Settings'])));
+        return $groups;
     }
 
     public static function navigationGroupFor(string $slug): string|\UnitEnum|null
     {
         $definition = static::definitions()[$slug] ?? null;
-
         if (! $definition) {
             return null;
         }
-
         if (count(static::visibleOperationalGroups()) <= 1) {
             return null;
         }
-
         return $definition['group'];
     }
 
-    /**
-     * @return array<int, string>
-     */
     public static function visibleOperationalGroups(): array
     {
         $groups = [];
-
         foreach (static::definitions() as $slug => $definition) {
             if (static::isEnabled($slug)) {
                 $groups[] = $definition['group'];
             }
         }
-
         return array_values(array_unique($groups));
     }
 
-    /**
-     * @return array<string, string>
-     */
     public static function labels(): array
     {
         return array_map(

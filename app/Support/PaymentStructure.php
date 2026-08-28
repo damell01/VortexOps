@@ -61,27 +61,6 @@ class PaymentStructure
 
         Setting::set(self::settingKey($memberType), json_encode($payload));
 
-        // Materialize effective defaults into opted-in rows. This lets the
-        // existing PayoutService continue using the same proven columns/formula
-        // path, while the structure page remains the source of future defaults.
-        self::members($memberType)
-            ->whereNotNull('compensation_override_fields')
-            ->get()
-            ->each(function (Streamer $member) use ($payload) {
-                $overrides = is_array($member->compensation_override_fields)
-                    ? $member->compensation_override_fields
-                    : [];
-                $changes = [];
-                foreach ($payload as $field => $value) {
-                    if (! in_array($field, $overrides, true)) {
-                        $changes[$field] = $value;
-                    }
-                }
-                if ($changes !== []) {
-                    $member->update($changes);
-                }
-            });
-
         activity('payment_structure')
             ->causedBy(auth()->user())
             ->withProperties(['member_type' => $memberType, 'values' => $payload])
@@ -90,18 +69,12 @@ class PaymentStructure
 
     public static function adoptDefaults(Streamer $member): void
     {
-        $memberType = $member->isFulfillment() ? 'fulfillment' : 'streamer';
-        $defaults = self::defaults($memberType);
-        $changes = ['compensation_override_fields' => []];
-        foreach ($defaults as $field => $value) {
-            $changes[$field] = $value;
-        }
-        $member->update($changes);
+        $member->update(['compensation_override_fields' => []]);
 
         activity('payment_structure')
             ->causedBy(auth()->user())
             ->performedOn($member)
-            ->withProperties(['member_type' => $memberType])
+            ->withProperties(['member_type' => $member->isFulfillment() ? 'fulfillment' : 'streamer'])
             ->log('Team member adopted payment structure defaults');
     }
 
@@ -109,21 +82,9 @@ class PaymentStructure
     public static function saveOverrides(Streamer $member, array $overrides): void
     {
         $allowed = array_intersect_key($overrides, array_flip(self::FIELDS));
-        $fields = array_keys($allowed);
-        $changes = ['compensation_override_fields' => array_values($fields)];
-
-        foreach ($allowed as $field => $value) {
-            $changes[$field] = self::normalize($field, $value);
-        }
-
-        $defaults = self::defaults($member->isFulfillment() ? 'fulfillment' : 'streamer');
-        foreach ($defaults as $field => $value) {
-            if (! in_array($field, $fields, true)) {
-                $changes[$field] = $value;
-            }
-        }
-
-        $member->update($changes);
+        $member->forceFill([
+            'compensation_override_fields' => array_values(array_keys($allowed)),
+        ] + $allowed)->save();
 
         activity('payment_structure')
             ->causedBy(auth()->user())
@@ -147,7 +108,10 @@ class PaymentStructure
 
         $row = [];
         foreach (self::FIELDS as $field) {
-            $row[$field] = self::normalize($field, $member->getAttribute($field));
+            // Read the stored per-person value without invoking the effective
+            // compensation accessors. Those accessors call back into this
+            // resolver, so getRawOriginal() is the deliberate recursion break.
+            $row[$field] = self::normalize($field, $member->getRawOriginal($field));
         }
 
         if ($legacy || $defaults === []) {
@@ -192,13 +156,6 @@ class PaymentStructure
     public static function effective(Streamer $member, string $field, mixed $fallback = null): mixed
     {
         return self::resolve($member)['effective'][$field] ?? $fallback;
-    }
-
-    private static function members(string $memberType)
-    {
-        return $memberType === 'fulfillment'
-            ? Streamer::query()->where('member_type', 'fulfillment')
-            : Streamer::query()->where(fn ($q) => $q->where('member_type', 'streamer')->orWhereNull('member_type'));
     }
 
     private static function normalize(string $field, mixed $value): mixed

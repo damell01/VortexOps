@@ -6,6 +6,7 @@ use App\Models\WhatnotChannel;
 use App\Services\WhatnotScraper;
 use App\Services\WhatnotSyncEngine;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
@@ -20,7 +21,7 @@ use Illuminate\Support\Facades\Log;
  * parallel channel scrapes because every scraper process shares the same saved
  * Whatnot browser profile/session.
  */
-class ProcessWhatnotChannelsJob implements ShouldQueue
+class ProcessWhatnotChannelsJob implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -30,11 +31,21 @@ class ProcessWhatnotChannelsJob implements ShouldQueue
     // catch up. The browser layer has its own tighter per-process timeouts.
     public int $timeout = 14400;
 
+    // The scheduler can fire again while a slow four-channel cycle is still in
+    // progress. Keep a single pipeline queued/running instead of stacking a
+    // second copy behind it. Laravel releases this lock when the job finishes.
+    public int $uniqueFor = 18000;
+
     public function __construct(
         public readonly string $type = 'incremental',
         public readonly int $ledgerDays = 30,
         public readonly int $shipmentLimit = 50,
     ) {}
+
+    public function uniqueId(): string
+    {
+        return 'whatnot-sequential-channel-pipeline';
+    }
 
     public function handle(WhatnotSyncEngine $engine, WhatnotScraper $scraper): void
     {

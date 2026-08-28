@@ -45,7 +45,8 @@ class PayRunBackfill extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        $user = auth()->user();
+        return ($user?->isAdmin() || $user?->isOwner()) ?? false;
     }
 
     public function getView(): string
@@ -76,6 +77,15 @@ class PayRunBackfill extends Page
 
     public function applySafe(PayRunAutomationService $automation): void
     {
+        if ($this->member_type !== '') {
+            Notification::make()
+                ->title('Clear Team Type before applying')
+                ->body('Streamer/Fulfillment filters are comparison-only. Safe Backfill writes the complete weekly Draft Pay Run.')
+                ->warning()
+                ->send();
+            return;
+        }
+
         $this->preview($automation);
 
         $changed = 0;
@@ -86,15 +96,11 @@ class PayRunBackfill extends Page
                 continue;
             }
 
-            $automation->syncWeek($row['week_start']);
+            $automation->syncWeek($row['week_start'], true);
             $changed++;
         }
 
-        $this->results = $automation->previewRange(
-            $this->from_date,
-            $this->to_date,
-            $this->member_type ?: null,
-        );
+        $this->results = $automation->previewRange($this->from_date, $this->to_date);
 
         Notification::make()
             ->title('Safe backfill complete')

@@ -47,15 +47,32 @@ class ListInventoryItems extends ListRecords
     public function getStats(): array
     {
         if ($this->statsMemo !== null) return $this->statsMemo;
-        $items = InventoryItemResource::getEloquentQuery()->get(['products.id','products.reorder_level']);
-        $total=$items->count();$out=0;$low=0;
-        foreach($items as $item){$on=(float)($item->stock_sum_quantity??0);if($on<=0)$out++;elseif($item->reorder_level!==null&&$on<=(float)$item->reorder_level)$low++;}
-        $in=$total-$out-$low;
-        return $this->statsMemo=[
-            ['key'=>null,'label'=>'All Items','value'=>number_format($total),'icon'=>'heroicon-o-cube','tone'=>'purple'],
-            ['key'=>'in','label'=>'In Stock','value'=>number_format($in),'icon'=>'heroicon-o-check-circle','tone'=>'green'],
-            ['key'=>'low','label'=>'Low Stock','value'=>number_format($low),'icon'=>'heroicon-o-exclamation-circle','tone'=>'amber'],
-            ['key'=>'out','label'=>'Out of Stock','value'=>number_format($out),'icon'=>'heroicon-o-x-circle','tone'=>'red'],
+
+        $items = InventoryItemResource::getEloquentQuery()->get(['products.id', 'products.reorder_level']);
+        $total = $items->count();
+        $out = 0;
+        $low = 0;
+
+        foreach ($items as $item) {
+            $onHand = (float) ($item->stock_sum_quantity ?? 0);
+
+            if ($onHand <= 0) {
+                $out++;
+            } elseif ($item->reorder_level !== null && $onHand <= (float) $item->reorder_level) {
+                $low++;
+            }
+        }
+
+        $in = $total - $out - $low;
+        $percentage = fn (int $count): string => $total > 0
+            ? number_format(($count / $total) * 100, 1) . '%'
+            : '0.0%';
+
+        return $this->statsMemo = [
+            ['key' => null, 'label' => 'All Items', 'value' => number_format($total), 'percentage' => $total > 0 ? '100%' : '0%', 'icon' => 'heroicon-o-cube', 'tone' => 'purple'],
+            ['key' => 'in', 'label' => 'In Stock', 'value' => number_format($in), 'percentage' => $percentage($in), 'icon' => 'heroicon-o-check-circle', 'tone' => 'green'],
+            ['key' => 'low', 'label' => 'Low Stock', 'value' => number_format($low), 'percentage' => $percentage($low), 'icon' => 'heroicon-o-exclamation-circle', 'tone' => 'amber'],
+            ['key' => 'out', 'label' => 'Out of Stock', 'value' => number_format($out), 'percentage' => $percentage($out), 'icon' => 'heroicon-o-x-circle', 'tone' => 'red'],
         ];
     }
 

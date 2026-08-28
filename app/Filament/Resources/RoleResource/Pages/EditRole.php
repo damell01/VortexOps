@@ -11,6 +11,8 @@ class EditRole extends EditRecord
 {
     protected static string $resource = RoleResource::class;
 
+    protected string $view = 'filament.resources.role-resource.pages.edit-role';
+
     protected function mutateFormDataBeforeFill(array $data): array
     {
         $data['page_perms'] = RoleResource::pagePermsFormState(
@@ -21,22 +23,36 @@ class EditRole extends EditRecord
         return $data;
     }
 
+    public function accessSummary(): array
+    {
+        $state = $this->data['page_perms'] ?? RoleResource::pagePermsFormState(
+            $this->record->name,
+            NavVisibility::readonlyForRole($this->record->name),
+        );
+        $manage = $view = $hidden = 0;
+
+        foreach ($state as $entry) {
+            if (! ($entry['visible'] ?? true)) {
+                $hidden++;
+            } elseif (! ($entry['editable'] ?? true)) {
+                $view++;
+            } else {
+                $manage++;
+            }
+        }
+
+        return compact('manage', 'view', 'hidden');
+    }
+
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        // Same as CreateRole::mutateFormDataBeforeCreate() — page_perms is
-        // virtual, persisted via NavVisibility in afterSave(), and must never
-        // reach Model::update() on Role's wide-open mass assignment.
         unset($data['page_perms']);
-
         return $data;
     }
 
     protected function afterSave(): void
     {
         [$hidden, $readonly, $visible] = RoleResource::pagePermsToLists($this->data['page_perms'] ?? []);
-
-        // The visible list is what governs; the hidden list is still written so
-        // anything reading it directly keeps working.
         NavVisibility::setVisibleForRole($this->record->name, $visible);
         NavVisibility::setHiddenForRole($this->record->name, $hidden);
         NavVisibility::setReadonlyForRole($this->record->name, $readonly);
@@ -45,8 +61,7 @@ class EditRole extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make()
-                ->visible(fn () => ! RoleResource::isCoreRole($this->record->name)),
+            DeleteAction::make()->visible(fn () => ! RoleResource::isCoreRole($this->record->name)),
         ];
     }
 }

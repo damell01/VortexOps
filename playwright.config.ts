@@ -1,16 +1,17 @@
 import { defineConfig } from '@playwright/test';
+import { existsSync } from 'node:fs';
 
-const CHROMIUM = {
-    executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-};
+const bundledPath = '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
+const launchOptions = existsSync(bundledPath)
+    ? { executablePath: bundledPath, args: ['--no-sandbox', '--disable-setuid-sandbox'] }
+    : { args: ['--no-sandbox', '--disable-setuid-sandbox'] };
 
 export default defineConfig({
     testDir: './tests/Browser',
     timeout: 900_000,
     use: {
         baseURL: 'http://127.0.0.1:8000',
-        launchOptions: CHROMIUM,
+        launchOptions,
         video: 'on',
         screenshot: 'on',
     },

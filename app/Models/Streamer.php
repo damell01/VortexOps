@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\AuditsUpdates;
+use App\Models\Concerns\ResolvesCompensationAttributes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Cache;
@@ -11,7 +12,7 @@ use Spatie\Activitylog\Models\Concerns\LogsActivity;
 
 class Streamer extends Model
 {
-    use LogsActivity, AuditsUpdates;
+    use LogsActivity, AuditsUpdates, ResolvesCompensationAttributes;
 
     protected static array $doNotRecordEvents = ['updated'];
 

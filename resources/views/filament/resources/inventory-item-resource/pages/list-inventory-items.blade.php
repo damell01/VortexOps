@@ -1,80 +1,21 @@
 <x-filament-panels::page>
-    {{-- Camera scans arrive as a window event carrying only the code. The
-         page already knows which item it opened the camera for, so it is the
-         only thing that can pair the two — and it only forwards a scan while
-         a capture is actually in flight, so a scan meant for something else
-         is never written to a product. --}}
-    <div
-        x-data
-        x-on:barcode-scanned.window="
-            if ($wire.barcodeScanTargetId) {
-                $wire.saveScannedBarcode($event.detail.value);
-            }
-        "
-    ></div>
-
-    <div class="space-y-3 sm:space-y-5" data-vx-page="inventory-center">
-        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
-            <div class="p-4 sm:p-5">
-                <div class="text-[10px] font-bold uppercase tracking-[.12em] text-primary-600 sm:text-xs">Inventory Center</div>
-                <h2 class="mt-1 text-lg font-semibold text-gray-950 dark:text-white sm:text-xl">What are you trying to do?</h2>
-                <p class="mt-1 max-w-3xl text-xs leading-5 text-gray-500 dark:text-gray-400 sm:text-sm">Search first when you are checking stock. Use Quick Scan for something in your hand, Quick Add for a simple new item, and Receive Shipment when inventory arrived on a pallet.</p>
-            </div>
-
-            <div class="grid grid-cols-2 gap-px bg-gray-100 dark:bg-gray-800 sm:grid-cols-4">
-                @php
-                    $user = auth()->user();
-                    $canReceive = $user?->isAdmin() || $user?->isOwner();
-                @endphp
-
-                <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('quick-add') }}" class="group bg-white p-3 hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800/70 sm:p-4">
-                    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-950/40 sm:h-9 sm:w-9">
-                        <x-heroicon-o-bolt class="h-4 w-4 sm:h-5 sm:w-5" />
-                    </div>
-                    <div class="mt-2 text-xs font-semibold text-gray-950 dark:text-white sm:text-sm">Quick Add</div>
-                    <div class="mt-0.5 text-[10px] leading-4 text-gray-500 sm:text-xs">Add a simple item fast.</div>
-                </a>
-
-                @if($canReceive)
-                    <a href="{{ \App\Filament\Pages\InventoryScanner::getUrl() }}" class="group bg-white p-3 hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800/70 sm:p-4">
-                        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-950/40 sm:h-9 sm:w-9">
-                            <x-heroicon-o-qr-code class="h-4 w-4 sm:h-5 sm:w-5" />
-                        </div>
-                        <div class="mt-2 text-xs font-semibold text-gray-950 dark:text-white sm:text-sm">Quick Scan</div>
-                        <div class="mt-0.5 text-[10px] leading-4 text-gray-500 sm:text-xs">Look up or add stock by barcode.</div>
-                    </a>
-
-                    <a href="{{ \App\Filament\Resources\PalletResource::getUrl('index') }}" class="group bg-white p-3 hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800/70 sm:p-4">
-                        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 sm:h-9 sm:w-9">
-                            <x-heroicon-o-inbox-arrow-down class="h-4 w-4 sm:h-5 sm:w-5" />
-                        </div>
-                        <div class="mt-2 text-xs font-semibold text-gray-950 dark:text-white sm:text-sm">Receive Shipment</div>
-                        <div class="mt-0.5 text-[10px] leading-4 text-gray-500 sm:text-xs">Open a pallet and scan it in.</div>
-                    </a>
-                @endif
-
-                <a href="{{ \App\Filament\Resources\InventoryLocationResource::getUrl('index') }}" class="group bg-white p-3 hover:bg-gray-50 dark:bg-gray-900 dark:hover:bg-gray-800/70 sm:p-4">
-                    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 sm:h-9 sm:w-9">
-                        <x-heroicon-o-map-pin class="h-4 w-4 sm:h-5 sm:w-5" />
-                    </div>
-                    <div class="mt-2 text-xs font-semibold text-gray-950 dark:text-white sm:text-sm">Locations</div>
-                    <div class="mt-0.5 text-[10px] leading-4 text-gray-500 sm:text-xs">See where stock is stored.</div>
-                </a>
-            </div>
-        </section>
-
-        <div>
-            <x-kpi-row :stats="$this->getStats()" />
-        </div>
-
-        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl">
-            <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:px-5">
-                <h2 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Inventory Items</h2>
-                <p class="mt-0.5 text-[11px] leading-4 text-gray-500 dark:text-gray-400 sm:text-xs">Search by item name, SKU, or barcode. Open an item for stock by location, history, transfer, adjustment, and case/container details.</p>
-            </div>
-            <div class="p-1 sm:p-2">
-                {{ $this->table }}
-            </div>
-        </section>
-    </div>
+<style>
+@media(max-width:640px){
+  body:has(.vx-inventory-list) .fi-page-header{display:none!important}.vx-inventory-desktop-tools,.vx-inventory-kpis{display:none!important}.vx-inventory-items-panel{border:0!important;background:transparent!important;box-shadow:none!important}.vx-inventory-items-panel>div{padding:0!important}
+  body:has(.vx-inventory-list) nav.fi-topbar{background:rgba(7,12,22,.96)!important;border-bottom:1px solid rgba(255,255,255,.06)!important;backdrop-filter:blur(18px);box-shadow:none!important}
+  body:has(.vx-inventory-list) nav.fi-topbar svg{color:#e8e8f0!important}body:has(.vx-inventory-list) nav.fi-topbar .fi-icon-btn:hover{background:rgba(124,58,237,.18)!important}
+  body:has(.vx-inventory-list) .fi-modal-window{border:1px solid rgba(255,255,255,.1)!important;border-radius:28px 28px 0 0!important;background:#10151f!important;box-shadow:0 -20px 70px rgba(0,0,0,.5)!important}
+  body:has(.vx-inventory-list) .fi-modal-header{border-bottom:1px solid rgba(255,255,255,.06)!important;background:transparent!important}.dark .vx-inventory-mobile-intro{color:#fff}
+  body:has(.vx-inventory-list) .fi-ta{background:transparent!important}body:has(.vx-inventory-list) .fi-ta-ctn{border-radius:16px!important;border-color:rgba(255,255,255,.09)!important;overflow:hidden!important}
+  body:has(.vx-inventory-list) .fi-ta-row{border-bottom:1px solid rgba(255,255,255,.07)!important}body:has(.vx-inventory-list) .fi-ta-header-toolbar{padding:12px 0!important;gap:10px!important}
+  body:has(.vx-inventory-list) .fi-ta-search-field{min-width:0!important;flex:1!important}body:has(.vx-inventory-list) .fi-ta-filters-trigger{border:1px solid rgb(124 58 237)!important;border-radius:10px!important;color:#c4b5fd!important}
+}
+</style>
+<div x-data x-on:barcode-scanned.window="if ($wire.barcodeScanTargetId) $wire.saveScannedBarcode($event.detail.value)"></div>
+<div class="space-y-3 sm:space-y-5 vx-inventory-list" data-vx-page="inventory-center">
+    <div class="vx-inventory-mobile-intro sm:hidden"><h2 class="text-2xl font-bold text-gray-950 dark:text-white">Inventory</h2><p class="mt-1 text-sm text-gray-500">Track and manage your inventory items.</p></div>
+    <section class="vx-inventory-desktop-tools overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl"><div class="p-4 sm:p-5"><div class="text-[10px] font-bold uppercase tracking-[.12em] text-primary-600 sm:text-xs">Inventory Center</div><h2 class="mt-1 text-lg font-semibold sm:text-xl">What are you trying to do?</h2><p class="mt-1 text-xs text-gray-500 sm:text-sm">Search first when checking stock. Scan, add, receive, or manage locations from here.</p></div><div class="grid grid-cols-2 gap-px bg-gray-100 dark:bg-gray-800 sm:grid-cols-4">@php $user=auth()->user();$canReceive=$user?->isAdmin()||$user?->isOwner();@endphp<a href="{{\App\Filament\Resources\InventoryItemResource::getUrl('quick-add')}}" class="bg-white p-3 dark:bg-gray-900 sm:p-4"><x-heroicon-o-bolt class="h-5 w-5 text-primary-600"/><div class="mt-2 text-sm font-semibold">Quick Add</div></a>@if($canReceive)<a href="{{\App\Filament\Pages\InventoryScanner::getUrl()}}" class="bg-white p-3 dark:bg-gray-900 sm:p-4"><x-heroicon-o-qr-code class="h-5 w-5 text-primary-600"/><div class="mt-2 text-sm font-semibold">Quick Scan</div></a><a href="{{\App\Filament\Resources\PalletResource::getUrl('index')}}" class="bg-white p-3 dark:bg-gray-900 sm:p-4"><x-heroicon-o-inbox-arrow-down class="h-5 w-5 text-primary-600"/><div class="mt-2 text-sm font-semibold">Receive Shipment</div></a>@endif<a href="{{\App\Filament\Resources\InventoryLocationResource::getUrl('index')}}" class="bg-white p-3 dark:bg-gray-900 sm:p-4"><x-heroicon-o-map-pin class="h-5 w-5 text-primary-600"/><div class="mt-2 text-sm font-semibold">Locations</div></a></div></section>
+    <div class="vx-inventory-kpis"><x-kpi-row :stats="$this->getStats()" /></div>
+    <section class="vx-inventory-items-panel overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl"><div class="hidden border-b border-gray-100 px-5 py-3 dark:border-gray-800 sm:block"><h2 class="text-base font-semibold">Inventory Items</h2><p class="mt-0.5 text-xs text-gray-500">Search by item name, SKU, or barcode.</p></div><div class="p-1 sm:p-2">{{$this->table}}</div></section>
+</div>
 </x-filament-panels::page>

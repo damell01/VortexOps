@@ -41,7 +41,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
           cache: npm
 
       - name: Install frontend dependencies
@@ -59,21 +59,34 @@ jobs:
           php artisan migrate:fresh --seed --force
           npm run build
 
-      - name: Start application
+      - name: Capture payroll screenshots
         shell: bash
         run: |
+          set -euo pipefail
           php artisan serve --host=127.0.0.1 --port=8000 > /tmp/vortexops-payroll-screenshots.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+          READY=0
           for i in {1..30}; do
             if curl -fsS http://127.0.0.1:8000/admin/login >/dev/null; then
-              exit 0
+              READY=1
+              break
             fi
             sleep 2
           done
-          cat /tmp/vortexops-payroll-screenshots.log
-          exit 1
 
-      - name: Capture payroll screenshots
-        run: npx playwright test tests/Browser/payroll-screenshot.spec.ts --project=desktop
+          if [ "$READY" -ne 1 ]; then
+            echo "Laravel server never became ready"
+            cat /tmp/vortexops-payroll-screenshots.log
+            exit 1
+          fi
+
+          if ! npx playwright test tests/Browser/payroll-screenshot.spec.ts --project=desktop; then
+            echo "--- Laravel server log ---"
+            cat /tmp/vortexops-payroll-screenshots.log
+            exit 1
+          fi
 
       - name: Update README payroll section
         shell: bash

@@ -49,8 +49,8 @@ class PaymentStructures extends Page
 
     private function structureState(string $type, array $fallback): array { return array_merge($fallback, PaymentStructure::defaults($type)); }
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-banknotes'; }
-    public static function getNavigationGroup(): string|\UnitEnum|null { return 'Settings'; }
-    public static function getNavigationSort(): ?int { return 2; }
+    public static function getNavigationGroup(): string|\UnitEnum|null { return 'Payroll'; }
+    public static function getNavigationSort(): ?int { return 20; }
     public static function canAccess(): bool { $u = auth()->user(); return ($u?->isAdmin() || $u?->isOwner()) ?? false; }
     public function getView(): string { return 'filament.pages.payment-structures'; }
 

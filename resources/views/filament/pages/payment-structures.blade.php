@@ -1,6 +1,10 @@
 <x-filament-panels::page>
-@php $types=\App\Models\Streamer::payoutTypeLabels(); $pct=(float)($streamer['payout_percentage']??0); $ship=(float)$streamer_burden_per_shipment; $hour=(float)$streamer_burden_per_hour; @endphp
+@php $pct=(float)($streamer['payout_percentage']??0); $ship=(float)$streamer_burden_per_shipment; $hour=(float)$streamer_burden_per_hour; @endphp
 <div class="space-y-6">
+    <div>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Configure how streamers are paid. Team members inherit these defaults unless they have an individual override.</p>
+    </div>
+
     <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <div class="flex flex-wrap items-start justify-between gap-4"><div><p class="text-xs font-bold uppercase tracking-[.16em] text-primary-500">Streamer payment structure</p><h2 class="mt-1 text-xl font-bold">Profit Share</h2><p class="mt-1 max-w-2xl text-sm text-gray-500">This is the same calculation used by the Streamer Log spreadsheet. Change the three numbers below and the formula updates automatically.</p></div><span class="rounded-full bg-primary-50 px-3 py-1 text-xs font-bold text-primary-700 dark:bg-primary-950/40 dark:text-primary-300">Weekly · team default</span></div>
         <div class="mt-6 grid gap-4 md:grid-cols-3">
@@ -14,7 +18,7 @@
 
     <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <h2 class="text-lg font-bold">Individual Streamer Override</h2><p class="mt-1 text-sm text-gray-500">Pick a streamer and customize only their profit-share rate or give that person a completely custom formula.</p>
-        <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">@foreach($this->members->where('member_type','streamer') as $member) @php $pay=$member->effectiveCompensation(); @endphp <button wire:click="editMember({{$member->id}})" class="rounded-xl border border-gray-200 p-4 text-left transition hover:border-primary-500 dark:border-gray-700"><div class="font-bold">{{$member->name}}</div><div class="mt-1 text-xs text-gray-500">{{number_format((float)($pay['effective']['payout_percentage']??0),2)}}% @if(count($pay['overrides']??[])) · Custom @else · Team default @endif</div></button>@endforeach</div>
+        <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">@foreach($this->members->where('member_type','streamer') as $member) @php $pay=$member->effectiveCompensation(); @endphp <button wire:click="editMember({{$member->id}})" class="rounded-xl border border-gray-200 p-4 text-left transition hover:border-primary-500 dark:border-gray-700"><div class="font-bold">{{$member->name}}</div><div class="mt-1 text-xs text-gray-500">{{number_format((float)($pay['effective']['payout_percentage']??0),2)}}% @if(count($pay['overrides']??[])) · Custom Override @else · Using Team Default @endif</div></button>@endforeach</div>
         @if($editing_member_id) @php $editingMember=\App\Models\Streamer::find($editing_member_id); @endphp
         <div class="mt-5 rounded-xl border-2 border-primary-300 p-5 dark:border-primary-800"><div class="flex items-center justify-between"><div><div class="text-xs font-bold uppercase text-primary-600">Customize streamer</div><div class="text-lg font-bold">{{$editingMember?->name}}</div></div><button wire:click="closeMemberEditor" class="text-sm text-gray-500">Close</button></div>
             <div class="mt-4 grid gap-4 md:grid-cols-2"><label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.payout_percentage">Override Profit Share %</span><input wire:model="member_override_values.payout_percentage" type="number" step=".01" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 dark:bg-gray-800"></label><label class="rounded-lg border p-3"><span class="flex gap-2 text-sm font-bold"><input type="checkbox" wire:model="member_override_enabled.custom_payout_formula">Use Custom Formula</span><textarea wire:model="member_override_values.custom_payout_formula" rows="3" class="mt-2 w-full rounded-lg border-gray-300 bg-gray-50 font-mono text-sm dark:bg-gray-800" placeholder="Only for this streamer"></textarea></label></div>
@@ -22,7 +26,15 @@
         </div>@endif
     </div>
 
-    <details class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900"><summary class="cursor-pointer text-lg font-bold">Fulfillment Payment Structure</summary><p class="mt-1 text-sm text-gray-500">Fulfillment stays separate because its exact hourly/PWE/label rules can differ.</p><div class="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4"><label class="text-sm font-semibold">Method<select wire:model="fulfillment.payout_type" class="mt-1 w-full rounded-lg border-gray-300 bg-gray-50 dark:bg-gray-800">@foreach($types as $v=>$n)<option value="{{$v}}">{{$n}}</option>@endforeach</select></label><label class="text-sm font-semibold">Hourly Rate<input wire:model="fulfillment.hourly_rate" type="number" step=".01" class="mt-1 w-full rounded-lg border-gray-300 bg-gray-50 dark:bg-gray-800"></label><label class="text-sm font-semibold">PWE Rate<input wire:model="fulfillment.pwe_rate" type="number" step=".01" class="mt-1 w-full rounded-lg border-gray-300 bg-gray-50 dark:bg-gray-800"></label><label class="text-sm font-semibold">Label Rate<input wire:model="fulfillment.label_rate" type="number" step=".01" class="mt-1 w-full rounded-lg border-gray-300 bg-gray-50 dark:bg-gray-800"></label></div></details>
+    <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-6 dark:border-gray-700 dark:bg-gray-900/60">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-2"><h2 class="text-lg font-bold">Fulfillment Payment Structure</h2><span class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">Coming Soon</span></div>
+                <p class="mt-2 max-w-2xl text-sm text-gray-500">Fulfillment pay will live on this same Payment Structures page. We’ll add the final hourly, PWE, label, or other fulfillment rules once that workflow is finalized.</p>
+            </div>
+            <div class="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900">No fulfillment settings are required yet.</div>
+        </div>
+    </div>
 
     <details class="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-900"><summary class="cursor-pointer text-lg font-bold">Pay Run Automation</summary><div class="mt-4 grid gap-3 md:grid-cols-3"><label class="rounded-lg border p-4 text-sm font-bold"><input class="mr-2" type="checkbox" wire:model="payroll_auto_setup_enabled">Automatic weekly setup</label><label class="rounded-lg border p-4 text-sm font-bold"><input class="mr-2" type="checkbox" wire:model="payroll_auto_recalculate_drafts">Recalculate drafts</label><label class="rounded-lg border p-4 text-sm font-bold"><input class="mr-2" type="checkbox" wire:model="payroll_include_zero_activity">Include no-activity members</label></div></details>
     <div class="flex justify-end"><button wire:click="save" class="rounded-xl bg-primary-600 px-6 py-3 text-sm font-bold text-white shadow-lg">Save Payment Structure</button></div>

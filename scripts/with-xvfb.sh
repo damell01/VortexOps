@@ -12,6 +12,14 @@
 
 set -e
 
+# A channel switch starts by checking whether a Cloudflare interstitial is on
+# screen. That check can itself consume the normal 45-second challenge budget.
+# Giving the *whole* switch the same 45 seconds meant it timed out before the
+# role picker ever got a chance to open. Keep the challenge budget as-is, but
+# give the switch enough room to finish after it.
+: "${WHATNOT_SWITCH_TIMEOUT_MS:=90000}"
+export WHATNOT_SWITCH_TIMEOUT_MS
+
 # Find a display nobody is using. Xvfb takes the lock file, so its absence is
 # the check — starting on a taken number fails outright rather than sharing.
 DISPLAY_NUM=""
@@ -34,9 +42,19 @@ fi
 Xvfb ":${DISPLAY_NUM}" -screen 0 1280x1024x24 -nolisten tcp >/dev/null 2>&1 &
 XVFB_PID=$!
 
+# Keep a copy of stderr while streaming it unchanged to the caller. This gives
+# the wrapper one important safety job: if the scraper explicitly says it gave
+# up switching channels, do NOT let a successful exit cause Laravel to import
+# whichever channel happened to remain active.
+TMP_DIR="$(mktemp -d /tmp/vortex-whatnot-xvfb.XXXXXX)"
+STDERR_LOG="${TMP_DIR}/stderr.log"
+STDERR_PIPE="${TMP_DIR}/stderr.pipe"
+mkfifo "$STDERR_PIPE"
+
 cleanup() {
     kill "$XVFB_PID" 2>/dev/null || true
     wait "$XVFB_PID" 2>/dev/null || true
+    rm -rf "$TMP_DIR" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
@@ -49,11 +67,21 @@ while [ "$i" -lt 50 ]; do
     sleep 0.1
 done
 
-# No redirection: the command's stdout and stderr stay exactly as it wrote them,
-# which is the entire point of this script existing.
+# Tee stderr through a FIFO so live progress remains live, stdout remains pure
+# JSON, and we can inspect the finished diagnostic stream before returning the
+# child's status to PHP.
+tee "$STDERR_LOG" < "$STDERR_PIPE" >&2 &
+TEE_PID=$!
+
 set +e
-DISPLAY=":${DISPLAY_NUM}" "$@"
+DISPLAY=":${DISPLAY_NUM}" "$@" 2> "$STDERR_PIPE"
 STATUS=$?
+wait "$TEE_PID"
 set -e
+
+if grep -Eq 'switchToChannel: gave up after|switchToChannel: WARNING — channel .* not found|Switch Role not found' "$STDERR_LOG"; then
+    echo "CHANNEL_SWITCH_FAILED: requested Whatnot channel was not activated; refusing to import data from the currently active channel." >&2
+    exit 1
+fi
 
 exit "$STATUS"

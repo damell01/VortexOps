@@ -16,7 +16,6 @@ class NavigationManager extends Page
     protected static ?string $title = 'Navigation Manager';
     protected static ?string $navigationLabel = 'Navigation Manager';
     protected static ?string $slug = 'navigation-manager';
-    protected static string $view = 'filament.pages.navigation-manager';
 
     public string $tab = 'layout';
     public string $selectedRole = '';
@@ -52,6 +51,11 @@ class NavigationManager extends Page
     {
         $user = auth()->user();
         return ($user?->isOwner() || $user?->isSuperAdmin()) ?? false;
+    }
+
+    public function getView(): string
+    {
+        return 'filament.pages.navigation-manager';
     }
 
     public function getSubheading(): ?string
@@ -134,7 +138,6 @@ class NavigationManager extends Page
             return;
         }
 
-        // Empty explicit maps return the role to the app's built-in fallback rules.
         $visibleMap = NavVisibility::visibleByRole();
         unset($visibleMap[$this->selectedRole]);
         \App\Models\Setting::set('role_visible_nav', json_encode($visibleMap));
@@ -180,7 +183,6 @@ class NavigationManager extends Page
             $this->layoutItems[$siblingClass]['sort'] = ($i + 1) * 10;
         }
 
-        // Remove it from its old group by normalizing that group's sort too.
         foreach ($this->layoutGroups as $g) {
             $label = $g['label'];
             $classes = collect($this->layoutItems)
@@ -284,7 +286,6 @@ class NavigationManager extends Page
             $group = is_string($group) && trim($group) !== '' ? trim($group) : 'General';
             $label = is_string($label) && trim($label) !== '' ? trim($label) : class_basename($class);
 
-            // Account/security utility pages are not part of the business sidebar builder.
             if (in_array($class, [EditProfile::class, TwoFactorAuth::class, TwoFactorVerify::class], true)) {
                 continue;
             }
@@ -340,7 +341,6 @@ class NavigationManager extends Page
                     ? (in_array($class, $readonly, true) ? 'view' : 'manage')
                     : 'hidden';
             } else {
-                // Before a role has an explicit allow-list, display its legacy configuration without changing it.
                 $state = in_array($class, $hidden, true)
                     ? 'hidden'
                     : (in_array($class, $readonly, true) ? 'view' : 'manage');

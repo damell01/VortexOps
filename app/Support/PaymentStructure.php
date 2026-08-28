@@ -61,8 +61,11 @@ class PaymentStructure
 
         Setting::set(self::settingKey($memberType), json_encode($payload));
 
-        activity('payment_structure')
-            ->causedBy(auth()->user())
+        $activity = activity('payment_structure');
+        if ($user = auth()->user()) {
+            $activity->causedBy($user);
+        }
+        $activity
             ->withProperties(['member_type' => $memberType, 'values' => $payload])
             ->log(ucfirst($memberType) . ' payment structure updated');
     }
@@ -71,9 +74,11 @@ class PaymentStructure
     {
         $member->update(['compensation_override_fields' => []]);
 
-        activity('payment_structure')
-            ->causedBy(auth()->user())
-            ->performedOn($member)
+        $activity = activity('payment_structure')->performedOn($member);
+        if ($user = auth()->user()) {
+            $activity->causedBy($user);
+        }
+        $activity
             ->withProperties(['member_type' => $member->isFulfillment() ? 'fulfillment' : 'streamer'])
             ->log('Team member adopted payment structure defaults');
     }
@@ -86,9 +91,11 @@ class PaymentStructure
             'compensation_override_fields' => array_values(array_keys($allowed)),
         ] + $allowed)->save();
 
-        activity('payment_structure')
-            ->causedBy(auth()->user())
-            ->performedOn($member)
+        $activity = activity('payment_structure')->performedOn($member);
+        if ($user = auth()->user()) {
+            $activity->causedBy($user);
+        }
+        $activity
             ->withProperties(['overrides' => $allowed])
             ->log('Individual compensation overrides updated');
     }

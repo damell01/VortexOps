@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\ProcessWhatnotChannelsJob;
 use App\Jobs\WorkerHeartbeat;
 use App\Models\Setting;
 use Illuminate\Foundation\Inspiring;
@@ -38,14 +39,16 @@ Schedule::command('activitylog:clean')
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
 $whatnotLog = storage_path('logs/whatnot-scheduler.log');
 
-Schedule::command('whatnot:sync-show-index --limit=200 --enrich=5')
-    ->appendOutputTo($whatnotLog)
+// One queued job owns the normal Whatnot cycle. It processes every enabled
+// channel in order and does not start the next channel until the current one has
+// finished shows/analytics/orders, shipment refresh, and its rolling ledger.
+// This replaces separate overlapping scheduled scrapes that could all contend
+// for the same persistent Whatnot browser profile.
+Schedule::job(new ProcessWhatnotChannelsJob(type: 'incremental', ledgerDays: 30, shipmentLimit: 50))
     ->skip($whatnotPaused)
-    ->cron('0,15,30,45 * * * *')
-    ->name('whatnot-show-index')
-    ->withoutOverlapping(20)
-    ->onSuccess(fn () => Setting::set('whatnot_last_import_success_at', now()->toISOString()))
-    ->onFailure(fn () => Setting::set('whatnot_last_import_failure_at', now()->toISOString()));
+    ->hourlyAt(5)
+    ->name('whatnot-sequential-channel-pipeline')
+    ->withoutOverlapping(240);
 
 Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->appendOutputTo($whatnotLog)
@@ -54,20 +57,8 @@ Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->name('whatnot-show-alias-cleanup')
     ->withoutOverlapping(10);
 
-Schedule::command('whatnot:import-orders --new-only --limit=8')
-    ->appendOutputTo($whatnotLog)
-    ->skip($whatnotPaused)
-    ->cron('22 * * * *')
-    ->name('whatnot-import-orders-backfill')
-    ->withoutOverlapping(240);
-
-Schedule::command('whatnot:import-ledger --days=30')
-    ->appendOutputTo($whatnotLog)
-    ->skip($whatnotPaused)
-    ->cron('52 4 * * *')
-    ->name('whatnot-ledger-daily')
-    ->withoutOverlapping(240);
-
+// Keep the deep historical ledger backfill separate from the normal rolling
+// 30-day pipeline. It is intentionally infrequent and idempotent.
 Schedule::command('whatnot:import-ledger --days=1825')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)

@@ -4,7 +4,6 @@ namespace App\Filament\Pages;
 
 use App\Models\Setting;
 use App\Models\Streamer;
-use App\Support\AdminModules;
 use App\Support\PaymentStructure;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -19,34 +18,26 @@ class PaymentStructures extends Page
 
     public array $streamer = [];
     public array $fulfillment = [];
-
     public bool $payroll_auto_setup_enabled = false;
     public bool $payroll_auto_recalculate_drafts = true;
     public bool $payroll_include_zero_activity = false;
 
+    public ?int $editing_member_id = null;
+    public array $member_override_enabled = [];
+    public array $member_override_values = [];
+
     public function mount(): void
     {
         $this->streamer = $this->structureState('streamer', [
-            'payout_type' => 'profit_share',
-            'payout_cadence' => 'weekly',
-            'payout_percentage' => null,
-            'package_rate' => null,
-            'hourly_rate' => null,
-            'pwe_rate' => null,
-            'label_rate' => null,
-            'include_tips' => true,
+            'payout_type' => 'profit_share', 'payout_cadence' => 'weekly',
+            'payout_percentage' => null, 'package_rate' => null, 'hourly_rate' => null,
+            'pwe_rate' => null, 'label_rate' => null, 'include_tips' => true,
             'custom_payout_formula' => null,
         ]);
-
         $this->fulfillment = $this->structureState('fulfillment', [
-            'payout_type' => 'pwe_labels',
-            'payout_cadence' => 'weekly',
-            'payout_percentage' => null,
-            'package_rate' => null,
-            'hourly_rate' => null,
-            'pwe_rate' => null,
-            'label_rate' => null,
-            'include_tips' => false,
+            'payout_type' => 'pwe_labels', 'payout_cadence' => 'weekly',
+            'payout_percentage' => null, 'package_rate' => null, 'hourly_rate' => null,
+            'pwe_rate' => null, 'label_rate' => null, 'include_tips' => false,
             'custom_payout_formula' => null,
         ]);
 
@@ -60,53 +51,29 @@ class PaymentStructures extends Page
         return array_merge($fallback, PaymentStructure::defaults($type));
     }
 
-    public static function getNavigationIcon(): string|\BackedEnum|null
-    {
-        return 'heroicon-o-banknotes';
-    }
-
-    public static function getNavigationGroup(): string|\UnitEnum|null
-    {
-        return 'Settings';
-    }
-
-    public static function getNavigationSort(): ?int
-    {
-        return 2;
-    }
-
-    public static function canAccess(): bool
-    {
-        return auth()->user()?->isAdmin() ?? false;
-    }
-
-    public function getView(): string
-    {
-        return 'filament.pages.payment-structures';
-    }
+    public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-banknotes'; }
+    public static function getNavigationGroup(): string|\UnitEnum|null { return 'Settings'; }
+    public static function getNavigationSort(): ?int { return 2; }
+    public static function canAccess(): bool { return auth()->user()?->isAdmin() ?? false; }
+    public function getView(): string { return 'filament.pages.payment-structures'; }
 
     public function save(): void
     {
-        $this->validate([
-            'streamer.payout_type' => 'required|in:' . implode(',', array_keys(Streamer::payoutTypeLabels())),
-            'streamer.payout_cadence' => 'required|in:weekly,monthly',
-            'streamer.payout_percentage' => 'nullable|numeric|min:0|max:100',
-            'streamer.package_rate' => 'nullable|numeric|min:0',
-            'streamer.hourly_rate' => 'nullable|numeric|min:0',
-            'streamer.pwe_rate' => 'nullable|numeric|min:0',
-            'streamer.label_rate' => 'nullable|numeric|min:0',
-            'streamer.include_tips' => 'boolean',
-            'streamer.custom_payout_formula' => 'nullable|string|max:1000',
-            'fulfillment.payout_type' => 'required|in:' . implode(',', array_keys(Streamer::payoutTypeLabels())),
-            'fulfillment.payout_cadence' => 'required|in:weekly,monthly',
-            'fulfillment.payout_percentage' => 'nullable|numeric|min:0|max:100',
-            'fulfillment.package_rate' => 'nullable|numeric|min:0',
-            'fulfillment.hourly_rate' => 'nullable|numeric|min:0',
-            'fulfillment.pwe_rate' => 'nullable|numeric|min:0',
-            'fulfillment.label_rate' => 'nullable|numeric|min:0',
-            'fulfillment.include_tips' => 'boolean',
-            'fulfillment.custom_payout_formula' => 'nullable|string|max:1000',
-        ]);
+        $rules = [];
+        foreach (['streamer', 'fulfillment'] as $type) {
+            $rules += [
+                "$type.payout_type" => 'required|in:' . implode(',', array_keys(Streamer::payoutTypeLabels())),
+                "$type.payout_cadence" => 'required|in:weekly,monthly',
+                "$type.payout_percentage" => 'nullable|numeric|min:0|max:100',
+                "$type.package_rate" => 'nullable|numeric|min:0',
+                "$type.hourly_rate" => 'nullable|numeric|min:0',
+                "$type.pwe_rate" => 'nullable|numeric|min:0',
+                "$type.label_rate" => 'nullable|numeric|min:0',
+                "$type.include_tips" => 'boolean',
+                "$type.custom_payout_formula" => 'nullable|string|max:1000',
+            ];
+        }
+        $this->validate($rules);
 
         PaymentStructure::saveDefaults('streamer', $this->streamer);
         PaymentStructure::saveDefaults('fulfillment', $this->fulfillment);
@@ -125,9 +92,7 @@ class PaymentStructures extends Page
             $total = (clone $query)->count();
             $legacy = (clone $query)->whereNull('compensation_override_fields')->count();
             $custom = (clone $query)->whereNotNull('compensation_override_fields')
-                ->whereRaw('JSON_LENGTH(compensation_override_fields) > 0')
-                ->count();
-
+                ->whereRaw('JSON_LENGTH(compensation_override_fields) > 0')->count();
             $stats[$type] = [
                 'total' => $total,
                 'custom' => $custom,
@@ -135,7 +100,60 @@ class PaymentStructures extends Page
                 'legacy' => $legacy,
             ];
         }
-
         return $stats;
+    }
+
+    public function getMembersProperty()
+    {
+        return Streamer::query()->orderBy('member_type')->orderBy('name')->get();
+    }
+
+    public function editMember(int $id): void
+    {
+        $member = Streamer::findOrFail($id);
+        $resolved = PaymentStructure::resolve($member);
+        $this->editing_member_id = $id;
+        $this->member_override_enabled = [];
+        $this->member_override_values = [];
+
+        foreach (['payout_type','payout_cadence','payout_percentage','hourly_rate','pwe_rate','label_rate','package_rate','include_tips','custom_payout_formula'] as $field) {
+            $this->member_override_enabled[$field] = ! $resolved['legacy'] && array_key_exists($field, $resolved['overrides']);
+            $this->member_override_values[$field] = $resolved['effective'][$field] ?? null;
+        }
+    }
+
+    public function closeMemberEditor(): void
+    {
+        $this->editing_member_id = null;
+        $this->member_override_enabled = [];
+        $this->member_override_values = [];
+    }
+
+    public function adoptDefaults(int $id): void
+    {
+        $member = Streamer::findOrFail($id);
+        PaymentStructure::adoptDefaults($member);
+        Notification::make()->title($member->name . ' now inherits team defaults')->success()->send();
+    }
+
+    public function saveMemberOverrides(): void
+    {
+        $member = Streamer::findOrFail($this->editing_member_id);
+        $overrides = [];
+        foreach ($this->member_override_enabled as $field => $enabled) {
+            if ($enabled) {
+                $overrides[$field] = $this->member_override_values[$field] ?? null;
+            }
+        }
+        PaymentStructure::saveOverrides($member, $overrides);
+        $this->closeMemberEditor();
+        Notification::make()->title('Individual compensation saved')->success()->send();
+    }
+
+    public function resetMemberOverrides(int $id): void
+    {
+        $member = Streamer::findOrFail($id);
+        PaymentStructure::resetOverrides($member);
+        Notification::make()->title('Overrides removed; team defaults restored')->success()->send();
     }
 }

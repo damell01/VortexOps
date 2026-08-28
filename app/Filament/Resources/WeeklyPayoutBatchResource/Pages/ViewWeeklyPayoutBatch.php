@@ -4,6 +4,7 @@ namespace App\Filament\Resources\WeeklyPayoutBatchResource\Pages;
 
 use App\Filament\Resources\WeeklyPayoutBatchResource;
 use App\Services\AdpExportService;
+use App\Services\PayRunAutomationService;
 use App\Services\PayoutService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -26,6 +27,39 @@ class ViewWeeklyPayoutBatch extends ViewRecord
             DeleteAction::make()
                 ->visible(fn () => $this->record->status === 'draft'),
 
+            Action::make('recalculate')
+                ->label('Recalculate Pay Run')
+                ->icon('heroicon-o-arrow-path')
+                ->color('gray')
+                ->visible(fn () => $this->record->status === 'draft')
+                ->requiresConfirmation()
+                ->modalDescription('Refresh this Draft from the same calculation path used by automatic payroll setup. Finalized history is never recalculated.')
+                ->action(function () {
+                    $result = app(PayRunAutomationService::class)->syncWeek($this->record->week_start);
+                    $this->record->refresh();
+
+                    Notification::make()
+                        ->title('Pay Run recalculated')
+                        ->body(count($result['warnings']) . ' readiness warning(s). Weekly total: $' . number_format((float) $this->record->total_payout, 2))
+                        ->success()
+                        ->send();
+                }),
+
+            Action::make('validate_run')
+                ->label('Validate')
+                ->icon('heroicon-o-shield-check')
+                ->color('info')
+                ->visible(fn () => $this->record->status === 'draft')
+                ->modalHeading('Pay Run readiness')
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Close')
+                ->modalDescription(function () {
+                    $problems = app(PayoutService::class)->signOffProblems($this->record);
+                    return $problems === []
+                        ? 'Ready for review — all show reports in this weekly Pay Run are signed off.'
+                        : "Needs attention:\n\n• " . implode("\n• ", $problems);
+                }),
+
             Action::make('preview')
                 ->label('Preview Pay Run')
                 ->icon('heroicon-o-eye')
@@ -38,11 +72,6 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                     'preview' => app(PayoutService::class)->previewFinalization($this->record),
                 ])),
 
-            // The last point at which an unapproved report can still be looked
-            // at, so it says what is outstanding rather than closing the week
-            // over it quietly. Overridable, because payroll has to be able to
-            // close a week a streamer never filed for — but the override is
-            // deliberate and it is written onto the pay run.
             Action::make('finalize')
                 ->label('Finalize Pay Run')
                 ->icon('heroicon-o-lock-closed')
@@ -54,7 +83,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                     $problems = app(PayoutService::class)->signOffProblems($this->record);
 
                     if ($problems === []) {
-                        return 'Every show in this run has an approved report. Finalizing locks the payout amounts and marks all streamer payouts as approved. This cannot be undone.';
+                        return 'Every show in this run has an approved report. Finalizing locks the payout amounts and marks all payouts as approved. This cannot be undone.';
                     }
 
                     return count($problems) . ' report(s) are not signed off yet:'
@@ -95,7 +124,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                 ->requiresConfirmation()
                 ->action(function () {
                     app(PayoutService::class)->markBatchPaid($this->record);
-                    Notification::make()->title('Pay run marked as paid — streamer balances updated.')->success()->send();
+                    Notification::make()->title('Pay run marked as paid — team balances updated.')->success()->send();
                     $this->refreshFormData(['status']);
                 }),
 

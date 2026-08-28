@@ -57,7 +57,7 @@ jobs:
         run: php artisan view:cache
 
       - name: Run tests
-        run: php artisan test --parallel
+        run: php artisan test
         env:
           APP_ENV: testing
           DB_CONNECTION: sqlite

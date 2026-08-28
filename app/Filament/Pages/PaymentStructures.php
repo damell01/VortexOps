@@ -54,7 +54,11 @@ class PaymentStructures extends Page
     public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-banknotes'; }
     public static function getNavigationGroup(): string|\UnitEnum|null { return 'Settings'; }
     public static function getNavigationSort(): ?int { return 2; }
-    public static function canAccess(): bool { return auth()->user()?->isAdmin() ?? false; }
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+        return ($user?->isAdmin() || $user?->isOwner()) ?? false;
+    }
     public function getView(): string { return 'filament.pages.payment-structures'; }
 
     public function save(): void
@@ -88,15 +92,16 @@ class PaymentStructures extends Page
     {
         $stats = [];
         foreach (['streamer', 'fulfillment'] as $type) {
-            $query = $type === 'fulfillment' ? Streamer::fulfillment() : Streamer::streamers();
-            $total = (clone $query)->count();
-            $legacy = (clone $query)->whereNull('compensation_override_fields')->count();
-            $custom = (clone $query)->whereNotNull('compensation_override_fields')
-                ->whereRaw('JSON_LENGTH(compensation_override_fields) > 0')->count();
+            $members = ($type === 'fulfillment' ? Streamer::fulfillment() : Streamer::streamers())
+                ->get(['id', 'compensation_override_fields']);
+
+            $legacy = $members->filter(fn (Streamer $member) => $member->compensation_override_fields === null)->count();
+            $custom = $members->filter(fn (Streamer $member) => is_array($member->compensation_override_fields) && count($member->compensation_override_fields) > 0)->count();
+
             $stats[$type] = [
-                'total' => $total,
+                'total' => $members->count(),
                 'custom' => $custom,
-                'inheriting' => max(0, $total - $custom - $legacy),
+                'inheriting' => max(0, $members->count() - $custom - $legacy),
                 'legacy' => $legacy,
             ];
         }

@@ -45,11 +45,13 @@ return [
         // Example: socks5://127.0.0.1:1080
         'proxy' => env('WHATNOT_PROXY'),
 
-        // Null means "leave it to the scraper's own default" so the env var
-        // still works when set in the shell rather than in .env.
-        'headless' => env('WHATNOT_HEADLESS') === null
-            ? null
-            : filter_var(env('WHATNOT_HEADLESS'), FILTER_VALIDATE_BOOLEAN),
+        // Default to a windowed Chromium session. The production command runner
+        // automatically supplies a private Xvfb display when cron/queue has no
+        // DISPLAY, so this works unattended too. Headless remains available as
+        // an explicit opt-in, but the live Whatnot test showed its analytics
+        // navigation being challenged while the authenticated Seller Hub itself
+        // was healthy.
+        'headless' => filter_var(env('WHATNOT_HEADLESS', false), FILTER_VALIDATE_BOOLEAN),
     ],
 
 ];

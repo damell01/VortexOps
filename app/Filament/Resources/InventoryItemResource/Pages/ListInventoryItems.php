@@ -41,7 +41,7 @@ class ListInventoryItems extends ListRecords
     public function filterStock(?string $status): void
     {
         $this->stockHealth = $this->stockHealth === $status ? null : $status;
-        $this->resetTablePage();
+        $this->resetPage();
     }
 
     public function getStats(): array

@@ -11,11 +11,13 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Livewire\Attributes\Url;
 
 class ListInventoryItems extends ListRecords
 {
     protected static string $resource = InventoryItemResource::class;
     protected ?array $statsMemo = null;
+    #[Url(as: 'stock')]
     public ?string $stockHealth = null;
     public ?int $barcodeScanTargetId = null;
     public ?string $barcodeScanTargetName = null;

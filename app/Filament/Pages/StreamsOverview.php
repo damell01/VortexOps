@@ -45,7 +45,7 @@ class StreamsOverview extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Shows, submissions, shipments, imports, and the work that needs attention.';
+        return 'Shows, submissions, revenue, shipments, and recent activity in one place.';
     }
 
     public function getView(): string
@@ -69,16 +69,22 @@ class StreamsOverview extends Page
     public function streamSnapshot(): array
     {
         $base = $this->scopedShowsQuery();
-        $total30 = (clone $base)->whereDate('show_date', '>=', now()->subDays(30)->toDateString())->count();
+        $from = now()->subDays(30)->toDateString();
+        $to = today()->toDateString();
+
+        $total30 = (clone $base)->whereDate('show_date', '>=', $from)->count();
         $upcoming = (clone $base)->whereDate('show_date', '>', today())->count();
         $needsSubmission = (clone $base)
             ->whereDate('show_date', '<=', today())
             ->whereDoesntHave('streamerLogEntry')
             ->whereNotIn('status', ['closed', 'cancelled'])
             ->count();
-        $revenue30 = (float) (clone $base)
-            ->whereBetween('show_date', [now()->subDays(30)->toDateString(), today()->toDateString()])
+        $grossRevenue30 = (float) (clone $base)
+            ->whereBetween('show_date', [$from, $to])
             ->sum('gross_revenue');
+        $netRevenue30 = (float) (clone $base)
+            ->whereBetween('show_date', [$from, $to])
+            ->sum('whatnot_net');
 
         $openShipments = (int) (clone $base)
             ->withCount([
@@ -87,7 +93,19 @@ class StreamsOverview extends Page
             ->get()
             ->sum('open_shipments_count');
 
-        return compact('total30', 'upcoming', 'needsSubmission', 'revenue30', 'openShipments');
+        return compact('total30', 'upcoming', 'needsSubmission', 'grossRevenue30', 'netRevenue30', 'openShipments');
+    }
+
+    #[Computed]
+    public function upcomingShows(): Collection
+    {
+        return $this->scopedShowsQuery()
+            ->whereDate('show_date', '>', today())
+            ->with('streamers')
+            ->orderBy('show_date')
+            ->orderBy('start_time')
+            ->limit(5)
+            ->get();
     }
 
     #[Computed]
@@ -115,6 +133,17 @@ class StreamsOverview extends Page
             ->with('streamers')
             ->orderByDesc('show_date')
             ->limit(5)
+            ->get();
+    }
+
+    #[Computed]
+    public function recentActivity(): Collection
+    {
+        return $this->scopedShowsQuery()
+            ->with(['streamers', 'streamerLogEntry'])
+            ->whereNotNull('status_changed_at')
+            ->orderByDesc('status_changed_at')
+            ->limit(6)
             ->get();
     }
 

@@ -257,6 +257,25 @@ A Kanban view of shows moving through the ops pipeline (Pending Review → Mappi
 | ![Payout detail](tests/Browser/screenshots/desktop/21-payout-detail.png) | ![Payout detail](tests/Browser/screenshots/mobile/21-payout-detail.png) |
 | ![Weekly pay runs](tests/Browser/screenshots/desktop/22-weekly-pay-runs.png) | ![Weekly pay runs](tests/Browser/screenshots/mobile/22-weekly-pay-runs.png) |
 
+<!-- payroll-automation-screenshots -->
+#### Payment Structures, Automation & Backfill
+
+Payroll now uses two default compensation structures — **Streamer** and **Fulfillment** — with field-level individual overrides. Streamer show earnings roll into the existing weekly Pay Run, while fulfillment can use the existing hourly/PWE/label/custom-formula inputs. Draft Pay Runs can be created and recalculated automatically, and the historical backfill page supports a read-only dry run before any missing/Draft records are created or recalculated.
+
+| Payment Structures | Individual Override |
+|---|---|
+| ![Payment Structures](tests/Browser/screenshots/payroll/payment-structures.png) | ![Individual compensation override](tests/Browser/screenshots/payroll/payment-structures-individual-override.png) |
+
+| Backfill Setup | Backfill Preview |
+|---|---|
+| ![Pay Run Backfill](tests/Browser/screenshots/payroll/pay-run-backfill-empty.png) | ![Historical Pay Run comparison](tests/Browser/screenshots/payroll/pay-run-backfill-preview.png) |
+
+| Weekly Pay Runs | Weekly Pay Run Detail |
+|---|---|
+| ![Automated weekly Pay Runs](tests/Browser/screenshots/payroll/weekly-pay-runs.png) | ![Weekly earnings breakdown](tests/Browser/screenshots/payroll/weekly-pay-run-detail.png) |
+
+The implementation specification and safety rules are documented in [`docs/PAYROLL_AUTOMATION_SPEC.md`](docs/PAYROLL_AUTOMATION_SPEC.md).
+
 #### Payout Grouping & Summaries
 
 The Payouts table supports **three grouping modes** via the Group select: by Streamer, by Pay Week, or by Status. Groups are collapsible. The table also shows **column totals** — a Sum summary row at the bottom for Gross Revenue and Total Payouts across the current filtered view.

@@ -10,10 +10,8 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
- * One calculation path for scheduled, manual and backfill pay-run setup.
- *
- * This service deliberately operates only on Draft data. Finalized/submitted/
- * paid payroll is historical truth and is never silently recalculated.
+ * Shared setup/recalculation path for scheduled, manual and backfill Pay Runs.
+ * Finalized/submitted/paid payroll is never silently changed.
  */
 class PayRunAutomationService
 {
@@ -22,32 +20,28 @@ class PayRunAutomationService
     }
 
     /**
-     * Ensure a Monday-Sunday Draft batch exists and refresh every eligible show
-     * contribution in that week. Safe to call repeatedly.
-     *
      * @return array{batch:WeeklyPayoutBatch,created:bool,shows_scanned:int,payouts_attached:int,warnings:array<int,string>}
      */
-    public function syncWeek(string|Carbon $weekStart): array
+    public function syncWeek(string|Carbon $weekStart, bool $recalculate = true): array
     {
         $start = $weekStart instanceof Carbon
             ? $weekStart->copy()->startOfWeek(Carbon::MONDAY)
             : Carbon::parse($weekStart)->startOfWeek(Carbon::MONDAY);
         $end = $start->copy()->endOfWeek(Carbon::SUNDAY);
 
-        return DB::transaction(function () use ($start, $end) {
+        return DB::transaction(function () use ($start, $end, $recalculate) {
             $batch = WeeklyPayoutBatch::whereDate('week_start', $start->toDateString())
                 ->whereDate('week_end', $end->toDateString())
-                ->orderBy('id')
-                ->first();
+                ->orderBy('id')->first();
 
             $created = false;
             if (! $batch) {
                 $batch = WeeklyPayoutBatch::create([
                     'week_start' => $start->toDateString(),
-                    'week_end'   => $end->toDateString(),
-                    'status'     => 'draft',
+                    'week_end' => $end->toDateString(),
+                    'status' => 'draft',
                     'created_by' => auth()->id(),
-                    'notes'      => 'Created automatically by Pay Run setup.',
+                    'notes' => 'Created automatically by Pay Run setup.',
                 ]);
                 $created = true;
             }
@@ -65,20 +59,21 @@ class PayRunAutomationService
             $warnings = [];
             $showCount = 0;
 
-            $shows = Show::query()
-                ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
-                ->whereNotIn('status', ['cancelled'])
-                ->with(['streamers', 'streamerLogEntry'])
-                ->get();
+            if ($recalculate) {
+                $shows = Show::query()
+                    ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
+                    ->whereNotIn('status', ['cancelled'])
+                    ->with(['streamers', 'streamerLogEntry'])
+                    ->get();
 
-            foreach ($shows as $show) {
-                if ($show->streamers->isEmpty()) {
-                    $warnings[] = ($show->title ?: "Show #{$show->id}") . ' has no team member assigned.';
-                    continue;
+                foreach ($shows as $show) {
+                    if ($show->streamers->isEmpty()) {
+                        $warnings[] = ($show->title ?: "Show #{$show->id}") . ' has no team member assigned.';
+                        continue;
+                    }
+                    $showCount++;
+                    $this->payouts->calculateForShow($show);
                 }
-
-                $showCount++;
-                $this->payouts->calculateForShow($show);
             }
 
             $attached = Payout::query()
@@ -88,7 +83,6 @@ class PayRunAutomationService
                 ->update(['weekly_payout_batch_id' => $batch->id]);
 
             $batch->recalculateTotal();
-
             foreach ($this->payouts->signOffProblems($batch) as $problem) {
                 $warnings[] = $problem;
             }
@@ -106,7 +100,13 @@ class PayRunAutomationService
         });
     }
 
-    /** @return array<int,array<string,mixed>> */
+    /**
+     * True dry-run validation. The live PayoutService is executed inside a DB
+     * transaction and rolled back, so Preview tests the same formula path that
+     * production uses without persisting the recalculated payout rows.
+     *
+     * @return array<int,array<string,mixed>>
+     */
     public function previewRange(string|Carbon $from, string|Carbon $to, ?string $memberType = null): array
     {
         $start = Carbon::parse($from)->startOfWeek(Carbon::MONDAY);
@@ -114,45 +114,76 @@ class PayRunAutomationService
         $rows = [];
 
         for ($cursor = $start->copy(); $cursor->lte($end); $cursor->addWeek()) {
+            $weekStart = $cursor->copy();
             $weekEnd = $cursor->copy()->endOfWeek(Carbon::SUNDAY);
-            $batch = WeeklyPayoutBatch::whereDate('week_start', $cursor->toDateString())
+            $batch = WeeklyPayoutBatch::whereDate('week_start', $weekStart->toDateString())
                 ->whereDate('week_end', $weekEnd->toDateString())
-                ->orderBy('id')
-                ->first();
+                ->orderBy('id')->first();
 
-            $existing = $batch?->payouts()
-                ->when($memberType, fn ($q) => $q->whereHas('streamer', fn ($m) => $memberType === 'fulfillment'
+            $memberFilter = function ($q) use ($memberType) {
+                if (! $memberType) {
+                    return;
+                }
+                $q->whereHas('streamer', fn ($m) => $memberType === 'fulfillment'
                     ? $m->where('member_type', 'fulfillment')
-                    : $m->where(fn ($x) => $x->where('member_type', 'streamer')->orWhereNull('member_type'))))
-                ->sum('calculated_payout') ?? 0;
+                    : $m->where(fn ($x) => $x->where('member_type', 'streamer')->orWhereNull('member_type')));
+            };
 
-            $showIds = Show::query()
-                ->whereBetween('show_date', [$cursor->toDateString(), $weekEnd->toDateString()])
+            $existingQuery = $batch?->payouts();
+            if ($existingQuery && $memberType) {
+                $memberFilter($existingQuery);
+            }
+            $existing = $existingQuery?->sum('calculated_payout') ?? 0;
+
+            $shows = Show::query()
+                ->whereBetween('show_date', [$weekStart->toDateString(), $weekEnd->toDateString()])
                 ->whereNotIn('status', ['cancelled'])
                 ->when($memberType, fn ($q) => $q->whereHas('streamers', fn ($m) => $memberType === 'fulfillment'
                     ? $m->where('member_type', 'fulfillment')
                     : $m->where(fn ($x) => $x->where('member_type', 'streamer')->orWhereNull('member_type'))))
-                ->pluck('id');
+                ->with(['streamers', 'streamerLogEntry'])
+                ->get();
 
-            $calculated = Payout::query()
-                ->whereIn('show_id', $showIds)
-                ->when($memberType, fn ($q) => $q->whereHas('streamer', fn ($m) => $memberType === 'fulfillment'
-                    ? $m->where('member_type', 'fulfillment')
-                    : $m->where(fn ($x) => $x->where('member_type', 'streamer')->orWhereNull('member_type'))))
-                ->sum('calculated_payout');
+            $calculated = 0.0;
+            $errors = [];
+
+            DB::beginTransaction();
+            try {
+                foreach ($shows as $show) {
+                    try {
+                        foreach ($this->payouts->calculateForShow($show) as $payout) {
+                            if ($memberType === 'fulfillment' && ! $payout->streamer?->isFulfillment()) {
+                                continue;
+                            }
+                            if ($memberType === 'streamer' && $payout->streamer?->isFulfillment()) {
+                                continue;
+                            }
+                            $calculated += (float) $payout->calculated_payout;
+                        }
+                    } catch (\Throwable $e) {
+                        $errors[] = ($show->title ?: "Show #{$show->id}") . ': ' . $e->getMessage();
+                    }
+                }
+            } finally {
+                DB::rollBack();
+            }
+
+            $difference = round($calculated - (float) $existing, 2);
+            $result = $errors !== []
+                ? 'FORMULA ERROR'
+                : (! $batch ? 'MISSING PAY RUN' : (abs($difference) < 0.005 ? 'MATCH' : 'DIFFERENCE'));
 
             $rows[] = [
-                'week_start' => $cursor->toDateString(),
+                'week_start' => $weekStart->toDateString(),
                 'week_end' => $weekEnd->toDateString(),
                 'batch_id' => $batch?->id,
                 'batch_status' => $batch?->status,
-                'shows_found' => $showIds->count(),
+                'shows_found' => $shows->count(),
                 'existing_amount' => round((float) $existing, 2),
-                'calculated_amount' => round((float) $calculated, 2),
-                'difference' => round((float) $calculated - (float) $existing, 2),
-                'result' => ! $batch
-                    ? 'MISSING PAY RUN'
-                    : (abs((float) $calculated - (float) $existing) < 0.005 ? 'MATCH' : 'DIFFERENCE'),
+                'calculated_amount' => round($calculated, 2),
+                'difference' => $difference,
+                'result' => $result,
+                'warnings' => $errors,
                 'read_only' => $batch && $batch->status !== 'draft',
             ];
         }

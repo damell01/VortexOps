@@ -33,7 +33,7 @@ class ListInventoryItems extends ListRecords
         return match ($this->stockHealth) {
             'out' => $query->havingRaw('COALESCE(stock_sum_quantity, 0) <= 0'),
             'low' => $query->whereNotNull('reorder_level')->havingRaw('COALESCE(stock_sum_quantity, 0) > 0 AND stock_sum_quantity <= products.reorder_level'),
-            'in' => $query->havingRaw('COALESCE(stock_sum_quantity, 0) > 0')->where(fn ($q) => $q->whereNull('reorder_level')->orWhereColumn('stock_sum_quantity', '>', 'products.reorder_level')),
+            'in' => $query->havingRaw('COALESCE(stock_sum_quantity, 0) > 0 AND (products.reorder_level IS NULL OR stock_sum_quantity > products.reorder_level)'),
             default => $query,
         };
     }

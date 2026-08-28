@@ -13,9 +13,6 @@ class Streamer extends Model
 {
     use LogsActivity, AuditsUpdates;
 
-    // AuditsUpdates records the real diff (all changed fields); LogsActivity's
-    // empty "updated" entry is suppressed. Balance increments use the query
-    // builder (no model events), so they don't create audit noise here.
     protected static array $doNotRecordEvents = ['updated'];
 
     protected static function booted(): void
@@ -52,6 +49,7 @@ class Streamer extends Model
         'channel_routing_rules',
         'status',
         'member_type',
+        'compensation_override_fields',
         'notes',
     ];
 
@@ -68,6 +66,7 @@ class Streamer extends Model
         'total_earnings_due'           => 'decimal:2',
         'total_earnings_paid'          => 'decimal:2',
         'channel_routing_rules'        => 'array',
+        'compensation_override_fields' => 'array',
     ];
 
     public function getActivitylogOptions(): LogOptions
@@ -80,13 +79,11 @@ class Streamer extends Model
         return $this->belongsTo(User::class);
     }
 
-    /** Primary channel this streamer is attributed to for stats/analytics. */
     public function channel(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(WhatnotChannel::class, 'whatnot_channel_id');
     }
 
-    /** Limit to the admin's currently active channel (App\Support\ChannelContext), if any. */
     public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return \App\Support\ChannelContext::isScoped()
@@ -131,14 +128,17 @@ class Streamer extends Model
         return max(0, (float) $this->total_earnings_due - (float) $this->total_earnings_paid);
     }
 
-    /**
-     * A performance snapshot across every show this streamer was on: how many
-     * shows, total gross they drove, the margin their shows contributed, and
-     * their average order rating. Margin sums each show's P&L margin; the whole
-     * streamer's payouts already flow into those per-show margins.
-     *
-     * @return array{shows:int, gross:float, margin:float, avg_rating:?float, rated_shows:int, has_data:bool}
-     */
+    /** @return array{member_type:string,structure:string,defaults:array,overrides:array,effective:array,legacy:bool,version:string} */
+    public function effectiveCompensation(): array
+    {
+        return \App\Support\PaymentStructure::resolve($this);
+    }
+
+    public function compensationValue(string $field, mixed $fallback = null): mixed
+    {
+        return \App\Support\PaymentStructure::effective($this, $field, $fallback);
+    }
+
     public function scorecard(): array
     {
         $shows = $this->shows()->get([
@@ -171,7 +171,6 @@ class Streamer extends Model
         ];
     }
 
-    /** Gross revenue for a single completed calendar week (Mon–Sun) starting on $weekStart. */
     private function weekRevenue(\Illuminate\Support\Carbon $weekStart): float
     {
         return (float) $this->shows()
@@ -180,13 +179,6 @@ class Streamer extends Model
             ->sum('shows.gross_revenue');
     }
 
-    /**
-     * True when this streamer's most recently completed week is down at least
-     * $thresholdPct from the average of the 3 completed weeks before it — a
-     * quick "worth a check-in" signal, not a hard judgment. Requires both the
-     * recent week and the baseline to have real revenue, so a streamer who
-     * simply didn't stream a given week (0 baseline) never false-positives.
-     */
     public function isPerformanceTrendingDown(float $thresholdPct = 30.0): bool
     {
         $lastWeekStart = now()->copy()->subWeek()->startOfWeek();
@@ -211,13 +203,6 @@ class Streamer extends Model
         return $changePct <= -$thresholdPct;
     }
 
-    /**
-     * What this person does, which is separate from how they are paid.
-     *
-     * Fulfillment staff carry exactly the same pay terms as streamers — the
-     * payout pipeline is keyed on streamer_id and every rate column already
-     * lives on this row — so the only thing that differs is the work.
-     */
     public static function memberTypeLabels(): array
     {
         return [
@@ -226,16 +211,11 @@ class Streamer extends Model
         ];
     }
 
-    /** People who go on camera. */
     public function scopeStreamers(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
-        // Rows written before this column existed hold the default, but a null
-        // would strand somebody under no role at all — and the table held
-        // nothing but streamers, so that is what a missing value means.
         return $query->where(fn ($q) => $q->where('member_type', 'streamer')->orWhereNull('member_type'));
     }
 
-    /** People who pack and ship. */
     public function scopeFulfillment(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return $query->where('member_type', 'fulfillment');

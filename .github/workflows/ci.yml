@@ -27,7 +27,7 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
           extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_sqlite,sqlite3,zip
           coverage: none
 
@@ -57,7 +57,7 @@ jobs:
         run: php artisan view:cache
 
       - name: Run tests
-        run: php artisan test --parallel
+        run: php artisan test
         env:
           APP_ENV: testing
           DB_CONNECTION: sqlite
@@ -90,7 +90,7 @@ jobs:
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.3'
+          php-version: '8.4'
           extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_mysql,zip
           coverage: none
 

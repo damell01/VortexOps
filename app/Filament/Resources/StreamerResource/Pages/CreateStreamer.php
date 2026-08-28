@@ -13,14 +13,11 @@ class CreateStreamer extends CreateRecord
 {
     protected static string $resource = StreamerResource::class;
 
-    /** @var array{email: string, password: string}|null login details pulled off the form */
+    /** @var array{email: string, password: string}|null */
     private ?array $loginData = null;
 
     protected function mutateFormDataBeforeCreate(array $data): array
     {
-        // The Login Account fields aren't Streamer attributes — pull them off
-        // before the row is saved, then create the linked User in afterCreate
-        // (the first point a streamer id exists to link against).
         if (! empty($data['create_login']) && ! empty($data['login_email']) && ! empty($data['login_password'])) {
             $this->loginData = [
                 'email'    => $data['login_email'],
@@ -29,6 +26,10 @@ class CreateStreamer extends CreateRecord
         }
 
         unset($data['create_login'], $data['login_email'], $data['login_password']);
+
+        // New people inherit their role Payment Structure. Existing rows stay
+        // legacy-safe until an admin deliberately opts them into inheritance.
+        $data['compensation_override_fields'] = [];
 
         return $data;
     }

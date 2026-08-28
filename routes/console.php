@@ -16,6 +16,15 @@ Schedule::command('db:backup')->dailyAt('02:00');
 Schedule::command('health:check --notify')->everyThirtyMinutes();
 Schedule::command('workflow:notify-state')->everyFifteenMinutes()->name('workflow-state-notifications')->withoutOverlapping(10);
 
+// Payroll setup is intentionally frequent and idempotent. A completed show or
+// corrected report can therefore reach the current Draft Pay Run without a
+// payroll admin opening the screen. The command itself checks the admin setting
+// before it writes anything and never changes finalized/submitted/paid weeks.
+Schedule::command('payroll:sync-pay-runs')
+    ->hourly()
+    ->name('payroll-sync-current-week')
+    ->withoutOverlapping(15);
+
 Schedule::command('model:prune', ['--model' => [\App\Models\AiInteraction::class]])
     ->dailyAt('03:00')
     ->name('prune-ai-interactions')
@@ -27,26 +36,8 @@ Schedule::command('activitylog:clean')
     ->withoutOverlapping();
 
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
-
-/**
- * Where a scheduled Whatnot run's output goes.
- *
- * Laravel discards a scheduled command's output unless it is told not to, and
- * the scheduler here is a bare `while true; do schedule:run; sleep 60; done`
- * with nowhere for stdout to land. So every one of these ran blind: a job could
- * fail every ten minutes for a day — printing the exact reason each time — and
- * the only visible symptom was data quietly not arriving.
- *
- * Appended rather than overwritten, because the interesting question is nearly
- * always "when did this start failing", which needs the runs either side of it.
- */
 $whatnotLog = storage_path('logs/whatnot-scheduler.log');
 
-// Every fifteen minutes, not ten. Every browser job queues behind one Chromium
-// profile, and the hour was oversubscribed: six of these plus two refresh-recent
-// plus a twenty-minute import-orders came to more browser time than an hour
-// holds, so runs sat waiting out their twenty-minute lock timeout and were
-// dropped. Five shows every fifteen minutes still clears about 480 a day.
 Schedule::command('whatnot:sync-show-index --limit=200 --enrich=5')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
@@ -63,17 +54,6 @@ Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->name('whatnot-show-alias-cleanup')
     ->withoutOverlapping(10);
 
-// whatnot:refresh-recent is deliberately not scheduled any more. It and
-// sync-show-index now select on the same definition of "missing" and enrich the
-// same way through the same script, so running both only doubled the contention
-// for the browser without fetching anything the other would not have. The
-// command stays for driving a refresh by hand.
-
-// Bounded on purpose. Unbounded, this walked every show without orders and held
-// the browser lock for hours. Fifteen took about twenty minutes — a third of
-// every hour, during which nothing else could scrape — so eight, at roughly ten
-// minutes, leaves room for the other jobs. It still clears a couple of hundred
-// shows a day.
 Schedule::command('whatnot:import-orders --new-only --limit=8')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)

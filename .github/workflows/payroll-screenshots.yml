@@ -1,0 +1,147 @@
+name: Payroll UI Screenshots
+
+on:
+  pull_request:
+    branches:
+      - Dev
+    paths:
+      - 'app/**'
+      - 'resources/**'
+      - 'database/**'
+      - 'routes/**'
+      - 'tests/Browser/payroll-screenshot.spec.ts'
+      - 'playwright.config.ts'
+      - '.github/workflows/payroll-screenshots.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  screenshots:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: bcmath,exif,gd,intl,pcntl,pdo,pdo_sqlite,sqlite3,zip
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress --optimize-autoloader
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Prepare application
+        shell: bash
+        run: |
+          cp .env.example .env
+          touch database/database.sqlite
+          php artisan key:generate
+          php artisan migrate:fresh --seed --force
+          npm run build
+
+      - name: Capture payroll screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+          php artisan serve --host=127.0.0.1 --port=8000 > /tmp/vortexops-payroll-screenshots.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+
+          READY=0
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8000/admin/login >/dev/null; then
+              READY=1
+              break
+            fi
+            sleep 2
+          done
+
+          if [ "$READY" -ne 1 ]; then
+            echo "Laravel server never became ready"
+            cat /tmp/vortexops-payroll-screenshots.log
+            exit 1
+          fi
+
+          if ! npx playwright test tests/Browser/payroll-screenshot.spec.ts --project=desktop; then
+            echo "--- Laravel server log ---"
+            cat /tmp/vortexops-payroll-screenshots.log
+            exit 1
+          fi
+
+      - name: Update README payroll section
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('README.md')
+          text = path.read_text()
+          marker = '<!-- payroll-automation-screenshots -->'
+          if marker not in text:
+              anchor = '#### Payout Grouping & Summaries'
+              section = '''<!-- payroll-automation-screenshots -->
+          #### Payment Structures, Automation & Backfill
+
+          Payroll now uses two default compensation structures — **Streamer** and **Fulfillment** — with field-level individual overrides. Streamer show earnings roll into the existing weekly Pay Run, while fulfillment can use the existing hourly/PWE/label/custom-formula inputs. Draft Pay Runs can be created and recalculated automatically, and the historical backfill page supports a read-only dry run before any missing/Draft records are created or recalculated.
+
+          | Payment Structures | Individual Override |
+          |---|---|
+          | ![Payment Structures](tests/Browser/screenshots/payroll/payment-structures.png) | ![Individual compensation override](tests/Browser/screenshots/payroll/payment-structures-individual-override.png) |
+
+          | Backfill Setup | Backfill Preview |
+          |---|---|
+          | ![Pay Run Backfill](tests/Browser/screenshots/payroll/pay-run-backfill-empty.png) | ![Historical Pay Run comparison](tests/Browser/screenshots/payroll/pay-run-backfill-preview.png) |
+
+          | Weekly Pay Runs | Weekly Pay Run Detail |
+          |---|---|
+          | ![Automated weekly Pay Runs](tests/Browser/screenshots/payroll/weekly-pay-runs.png) | ![Weekly earnings breakdown](tests/Browser/screenshots/payroll/weekly-pay-run-detail.png) |
+
+          The implementation specification and safety rules are documented in [`docs/PAYROLL_AUTOMATION_SPEC.md`](docs/PAYROLL_AUTOMATION_SPEC.md).
+
+          '''
+              if anchor in text:
+                  text = text.replace(anchor, section + anchor, 1)
+              else:
+                  text += '\n\n' + section
+              path.write_text(text)
+          PY
+
+      - name: Upload screenshots artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: payroll-ui-screenshots
+          path: tests/Browser/screenshots/payroll/*.png
+          if-no-files-found: error
+
+      - name: Commit refreshed screenshots and README to PR branch
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md tests/Browser/screenshots/payroll/*.png
+          if git diff --cached --quiet; then
+            echo "Screenshots and README are already current."
+            exit 0
+          fi
+          git commit -m "Refresh payroll UI screenshots [payroll screenshots]"
+          git push origin HEAD:${{ github.head_ref }}

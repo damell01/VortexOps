@@ -124,7 +124,7 @@ class InventoryOverview extends Page
     public function inventoryUrl(?string $stock = null): string
     {
         $url = InventoryItemResource::getUrl('index');
-        return $stock ? $url . '?stockHealth=' . urlencode($stock) : $url;
+        return $stock ? $url . '?stock=' . urlencode($stock) : $url;
     }
 
     public function itemUrl(int $id): string

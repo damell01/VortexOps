@@ -98,7 +98,7 @@ class ListInventoryItems extends ListRecords
             ActionGroup::make([
                 Action::make('view-report')->label('View report')->icon('heroicon-o-eye')->url(route('export.inventory-pdf'))->openUrlInNewTab(),
                 Action::make('export-pdf')->label('Download PDF')->icon('heroicon-o-document-arrow-down')->url(route('export.inventory-pdf').'?download=1')->openUrlInNewTab(),
-                Action::make('export-excel')->label('Export to Excel')->icon('heroicon-o-table-cells')->url(route('export.inventory.items'))->openUrlInNewTab(),
+                Action::make('export-excel')->label('Export to Excel')->icon('heroicon-o-table-cells')->url(route('export.inventory-items'))->openUrlInNewTab(),
             ])->label('More')->icon('heroicon-o-ellipsis-horizontal')->button()->color('gray')->visible($canExport),
         ];
     }

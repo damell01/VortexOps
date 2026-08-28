@@ -17,7 +17,23 @@ class Payout extends Model
     protected static function booted(): void
     {
         static::saving(function (Payout $payout) {
-            if (! $payout->streamer_id || ($payout->exists && $payout->getOriginal('status') !== 'draft')) {
+            if ($payout->exists && $payout->getOriginal('status') !== 'draft') {
+                $financialFields = [
+                    'streamer_id', 'show_id', 'payout_type', 'gross_show_revenue',
+                    'product_cost', 'hours_worked', 'shipments_count', 'burden_amount',
+                    'net_revenue_basis', 'owner_fee_deducted', 'loan_repayment_deducted',
+                    'tips_included', 'pwe_count', 'label_count', 'burden_rate_applied',
+                    'calculated_payout', 'compensation_snapshot', 'calculation_version',
+                ];
+
+                if (collect($financialFields)->contains(fn (string $field) => $payout->isDirty($field))) {
+                    throw new \RuntimeException('Finalized payout calculations are historical and cannot be recalculated.');
+                }
+
+                return;
+            }
+
+            if (! $payout->streamer_id) {
                 return;
             }
 

@@ -12,21 +12,18 @@ class Payout extends Model
 {
     use LogsActivity, AuditsUpdates;
 
-    // LogsActivity's auto-diff stores empty properties on activitylog v5.0.0, so
-    // AuditsUpdates records the real old → new diff for updates; LogsActivity is
-    // told not to also emit an empty "updated" entry.
     protected static array $doNotRecordEvents = ['updated'];
 
     /** @return array<int,string> */
     public function auditableFields(): array
     {
-        return ['status', 'calculated_payout', 'weekly_payout_batch_id'];
+        return ['status', 'calculated_payout', 'weekly_payout_batch_id', 'calculation_version'];
     }
 
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['status', 'calculated_payout', 'weekly_payout_batch_id'])
+            ->logOnly(['status', 'calculated_payout', 'weekly_payout_batch_id', 'calculation_version'])
             ->logOnlyDirty()
             ->dontLogEmptyChanges()
             ->useLogName('payout');
@@ -53,6 +50,8 @@ class Payout extends Model
         'routing_bank_label',
         'calculated_payout',
         'calculation_notes',
+        'compensation_snapshot',
+        'calculation_version',
         'status',
         'shipping_surcharge_deducted',
     ];
@@ -69,9 +68,10 @@ class Payout extends Model
         'tips_included'           => 'decimal:2',
         'burden_rate_applied'     => 'decimal:4',
         'calculated_payout'       => 'decimal:2',
-        'pwe_count'                   => 'integer',
-        'label_count'                 => 'integer',
+        'pwe_count'               => 'integer',
+        'label_count'             => 'integer',
         'shipping_surcharge_deducted' => 'decimal:2',
+        'compensation_snapshot'   => 'array',
     ];
 
     public function show(): BelongsTo
@@ -94,7 +94,6 @@ class Payout extends Model
         return $this->belongsTo(WhatnotChannel::class, 'whatnot_channel_id');
     }
 
-    /** Limit to the admin's currently active channel (App\Support\ChannelContext), if any. */
     public function scopeInChannelContext(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
     {
         return \App\Support\ChannelContext::isScoped()

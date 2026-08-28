@@ -1160,9 +1160,9 @@ async function ensureSellerMode(page) {
 // The sidebar is opened from a nav/header button (profile avatar or hamburger).
 // Run with WHATNOT_DEBUG=1 to capture screenshots if the switch doesn't work.
 
-// How long a channel switch may take before the run continues without it. The
-// caller's process timeout is 315s; anything approaching that turns one stuck
-// switch into a lost run.
+// How long a channel switch may take before we fail the requested channel.
+// Never continue scraping after this timeout: doing so can attribute the active
+// channel's data to a different requested channel.
 const SWITCH_CHANNEL_TIMEOUT_MS = Number(process.env.WHATNOT_SWITCH_TIMEOUT_MS || 45000);
 
 async function switchToChannel(page, channelName) {
@@ -1308,7 +1308,10 @@ async function switchToChannel(page, channelName) {
     }, channelName).catch(() => []);
     info('switchToChannel: role/channel text hits:', JSON.stringify(hits));
     await debugShot(page, 'role-switch-no-switch-role');
-    return;
+    const current = await getActiveChannelUsername(page);
+    throw new Error(
+      `CHANNEL_SWITCH_FAILED: could not find "Switch Role". requested=@${channelName} active=@${current || '?'}`
+    );
   }
   await page.waitForTimeout(2000);
   await debugShot(page, 'role-switch-03-role-list');
@@ -1360,7 +1363,10 @@ async function switchToChannel(page, channelName) {
     await debugShot(page, 'role-switch-failed-channel');
     info(`switchToChannel: WARNING — channel "${channelName}" not found among switch-role buttons or in role list`);
     info('switchToChannel: role list text was:', roleListText.substring(0, 300));
-    return;
+    const current = await getActiveChannelUsername(page);
+    throw new Error(
+      `CHANNEL_SWITCH_FAILED: requested channel "${channelName}" was not found in the role picker. active=@${current || '?'}`
+    );
   }
 
   info(`switchToChannel: clicking channel option`);
@@ -1368,16 +1374,17 @@ async function switchToChannel(page, channelName) {
     await target.evaluate(el => el.click()).catch(() => {});
   });
 
-  // Wait for the role switch to take effect: the nav re-renders and "Seller Hub" appears.
-  // Use waitForFunction instead of a fixed delay so we don't over-wait.
-  await page.waitForFunction(
-    () => document.body.innerText.includes('Seller Hub'),
-    { timeout: 6000 }
-  ).catch(() => {
-    info('switchToChannel: Seller Hub not found after channel click (may need more time or click was wrong element)');
-  });
-  await debugShot(page, 'role-switch-04-done');
-  info('switchToChannel: done, URL now:', page.url());
+  // Clicking a role is not success. Only the requested @username becoming
+  // active is success; generic Seller Hub text only proves seller mode.
+  const verifiedChannel = await waitForActiveChannel(
+    page,
+    channelName,
+    Math.min(SWITCH_CHANNEL_TIMEOUT_MS, 12000),
+  );
+
+  await debugShot(page, 'role-switch-04-verified');
+  info(`switchToChannel: VERIFIED requested=@${channelName} active=@${verifiedChannel} URL=${page.url()}`);
+  return verifiedChannel;
 }
 
 // ── Detect the currently-active seller channel ────────────────────────────────
@@ -1403,6 +1410,32 @@ async function getActiveChannelUsername(page) {
 // and punctuation so "Vortex Breaks", "@vortexbreaks", "vortex_breaks" all match.
 function normalizeChannelKey(s) {
   return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// Wait until Whatnot's seller nav proves the requested account is active.
+// If the nav cannot prove identity, fail closed rather than risk cross-channel data.
+async function waitForActiveChannel(page, expectedChannel, timeoutMs = 12000) {
+  const expected = normalizeChannelKey(expectedChannel);
+  const started = Date.now();
+  let lastSeen = null;
+
+  await settleChallenge(page);
+
+  while (Date.now() - started < timeoutMs) {
+    lastSeen = await getActiveChannelUsername(page);
+
+    if (lastSeen && normalizeChannelKey(lastSeen) === expected) {
+      info(`channel verification PASSED: requested=@${expectedChannel} active=@${lastSeen}`);
+      return lastSeen;
+    }
+
+    await page.waitForTimeout(500);
+  }
+
+  throw new Error(
+    `CHANNEL_SWITCH_VERIFICATION_FAILED: requested=@${expectedChannel} ` +
+    `but active=@${lastSeen || '?'} after ${timeoutMs}ms`
+  );
 }
 
 // ── Extract all metric cards from the current analytics page view ─────────────
@@ -3444,30 +3477,29 @@ async function extractLedgerFromPage(page) {
       } else {
         info(`switchToChannel: active=@${active || '?'} target=@${CHANNEL_NAME} — switching`);
 
-        // Bounded, because this can hang.
-        //
-        // getActiveChannelUsername reads an a[href^="/user/"] that the current
-        // Seller Hub does not always render, so `active` comes back null and a
-        // switch is attempted every time — including when we are already on the
-        // right channel. When the avatar trigger then fails to open the drawer,
-        // the trigger sweep sits there until the caller's 315s process timeout
-        // kills the whole run. At roughly five minutes a show that turned a
-        // fifteen-show orders import into fifty-four minutes of holding the
-        // browser lock and importing nothing.
-        //
-        // Giving up on the switch is far cheaper than losing the run: shows are
-        // matched on their Whatnot id, which is unique across the account, so
-        // scraping from whichever channel is active still attaches the data to
-        // the right show.
-        const switched = await Promise.race([
-          switchToChannel(page, CHANNEL_NAME).then(() => true),
-          new Promise((resolve) => setTimeout(() => resolve(false), SWITCH_CHANNEL_TIMEOUT_MS)),
-        ]).catch(() => false);
-
-        if (!switched) {
-          info(`switchToChannel: gave up after ${Math.round(SWITCH_CHANNEL_TIMEOUT_MS / 1000)}s — continuing on the currently active channel`);
-        }
+        // Bound the switch, but fail this requested channel if it cannot be
+        // verified. Continuing on whichever account happens to be active is the
+        // exact cross-channel contamination path this guard is preventing.
+        await Promise.race([
+          switchToChannel(page, CHANNEL_NAME),
+          new Promise((_, reject) => setTimeout(
+            () => reject(new Error(
+              `CHANNEL_SWITCH_TIMEOUT: requested=@${CHANNEL_NAME} exceeded ${SWITCH_CHANNEL_TIMEOUT_MS}ms`
+            )),
+            SWITCH_CHANNEL_TIMEOUT_MS,
+          )),
+        ]);
       }
+
+      // Absolute safety boundary: no scraping starts until the requested seller
+      // identity is proven, even if switchToChannel changes again in the future.
+      const verified = await getActiveChannelUsername(page);
+      if (!verified || normalizeChannelKey(verified) !== normalizeChannelKey(CHANNEL_NAME)) {
+        throw new Error(
+          `CHANNEL_CONTEXT_MISMATCH: refusing to scrape. requested=@${CHANNEL_NAME} active=@${verified || '?'}`
+        );
+      }
+      info(`CHANNEL_CONTEXT_VERIFIED requested=@${CHANNEL_NAME} active=@${verified}`);
     }
 
     // ── Mode: path-probe ─────────────────────────────────────────────────────

@@ -2089,25 +2089,40 @@ function clearStaleSingletonLock(userDataDir) {
  * next launch, so a rebuild costs a re-login at worst, never data.
  */
 async function launchWithProfileRecovery(userDataDir, opts = {}) {
+  const isStartupFailure = (e) => /died during startup|exited before DevTools listener was ready|Timed out waiting for Chromium DevTools listener/i.test(e?.message || '');
+
   try {
     return await launchPersistentContextViaCdp(userDataDir, opts);
-  } catch (e) {
-    if (!/died during startup/.test(e.message || '')) throw e;
+  } catch (firstError) {
+    if (!isStartupFailure(firstError)) throw firstError;
 
-    const fs = require('fs');
-    const quarantine = userDataDir + '.broken';
+    info('chromium startup failed once — cleaning stale profile processes and retrying the same profile');
+    killStaleProcessesForProfile(userDataDir);
+    clearStaleSingletonLock(userDataDir);
+    await new Promise(r => setTimeout(r, 1200));
 
     try {
-      fs.rmSync(quarantine, { recursive: true, force: true });   // keep only the latest
-      fs.renameSync(userDataDir, quarantine);
-      info('chromium would not start on this profile — moved it to', quarantine);
-      info('starting a clean profile; the session re-loads from the cookie file');
-    } catch (moveError) {
-      info('could not move the profile aside:', moveError.message);
-      throw e;
-    }
+      return await launchPersistentContextViaCdp(userDataDir, opts);
+    } catch (secondError) {
+      if (!isStartupFailure(secondError)) throw secondError;
 
-    return await launchPersistentContextViaCdp(userDataDir, opts);
+      const fs = require('fs');
+      const quarantine = userDataDir + '.broken';
+
+      try {
+        fs.rmSync(quarantine, { recursive: true, force: true });
+        if (fs.existsSync(userDataDir)) {
+          fs.renameSync(userDataDir, quarantine);
+          info('chromium failed twice on this profile — moved it to', quarantine);
+        }
+        info('starting a clean profile; the session re-loads from the cookie file');
+      } catch (moveError) {
+        info('could not move the profile aside:', moveError.message);
+        throw secondError;
+      }
+
+      return await launchPersistentContextViaCdp(userDataDir, opts);
+    }
   }
 }
 
@@ -2195,7 +2210,7 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
     }
     function onExit(code, signal) {
       cleanup();
-      reject(new Error(`Chromium exited before DevTools listener was ready (code=${code} signal=${signal})`));
+      reject(new Error(`Chromium exited before DevTools listener was ready (code=${code} signal=${signal}). stderr: ${buf.trim().slice(-1200) || '(empty)'}`));
     }
     function onError(err) {
       cleanup();

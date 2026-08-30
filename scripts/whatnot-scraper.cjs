@@ -1237,39 +1237,73 @@ async function switchToChannel(page, channelName) {
   ];
 
   let drawerOpened = false;
-  // Try each fixed selector, plus a sweep over every aria-haspopup button, and
-  // after each click check specifically for the Switch Role anchor appearing.
-  const triggerHandles = [];
-  for (const sel of avatarTriggers) {
-    const h = await page.locator(sel).first().elementHandle().catch(() => null);
-    if (h) triggerHandles.push({ sel, h });
-  }
-  for (const extra of await page.$$('button[aria-haspopup], [role="button"][aria-haspopup]').catch(() => [])) {
-    triggerHandles.push({ sel: 'sweep:aria-haspopup', h: extra });
-  }
-  for (const { sel, h: trigger } of triggerHandles) {
-    if (!trigger || !await trigger.isVisible().catch(() => false)) continue;
-    info('switchToChannel: clicking avatar/nav trigger:', sel);
-    await trigger.click().catch(async () => {
-      await trigger.evaluate(el => el.click()).catch(() => {});
-    });
-    await page.waitForTimeout(1500);
-    // Check if drawer is open: Switch Role element in DOM OR "Switch Role" text visible.
-    // Don't require viewport — it may be below the fold in a tall sidebar.
-    const btnAfterClick = await page.$(SWITCH_ROLE_SEL).catch(() => null);
-    const textAfterClick = await page.getByText('Switch Role', { exact: false }).first().isVisible().catch(() => false);
-    if (btnAfterClick || textAfterClick) {
-      info('switchToChannel: drawer opened after clicking', sel, '— Switch Role found in DOM');
-      drawerOpened = true;
-      break;
+
+  // Try the drawer twice. Whatnot's profile trigger occasionally ignores the first
+  // synthetic click even though the Seller Hub is otherwise healthy. On the second
+  // attempt, reset to the stable Seller Hub route and rebuild fresh element handles;
+  // stale handles from the first render must never be re-used after navigation.
+  for (let drawerAttempt = 1; drawerAttempt <= 2 && !drawerOpened; drawerAttempt++) {
+    if (drawerAttempt > 1) {
+      info(`switchToChannel: drawer attempt ${drawerAttempt}/2 — resetting Seller Hub before retry`);
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.goto(URLs.sellerHub, { waitUntil: 'domcontentloaded', timeout: 12000 }).catch(() => {});
+      await page.waitForTimeout(1000);
+      await debugShot(page, `role-switch-01-retry-${drawerAttempt}`);
     }
-    // Dismiss and try next trigger
-    await page.keyboard.press('Escape').catch(() => {});
-    await page.waitForTimeout(500);
+
+    // Try each fixed selector, plus a sweep over every aria-haspopup button, and
+    // after each click check specifically for the Switch Role anchor appearing.
+    const triggerHandles = [];
+    const seenTriggers = new Set();
+    for (const sel of avatarTriggers) {
+      const h = await page.locator(sel).first().elementHandle().catch(() => null);
+      if (h) triggerHandles.push({ sel, h });
+    }
+    for (const extra of await page.$$('button[aria-haspopup], [role="button"][aria-haspopup]').catch(() => [])) {
+      triggerHandles.push({ sel: 'sweep:aria-haspopup', h: extra });
+    }
+
+    for (const { sel, h: trigger } of triggerHandles) {
+      if (!trigger || !await trigger.isVisible().catch(() => false)) continue;
+
+      // A single DOM element may match several selectors above. Avoid clicking the
+      // same element repeatedly during one attempt; that can open then immediately
+      // close a menu and make the switcher look flaky.
+      const triggerKey = await trigger.evaluate((el) => {
+        const tag = el.tagName || '';
+        const aria = el.getAttribute('aria-label') || '';
+        const testid = el.getAttribute('data-testid') || '';
+        const src = el.getAttribute('src') || '';
+        const text = (el.innerText || el.textContent || '').trim().substring(0, 80);
+        return [tag, aria, testid, src, text].join('|');
+      }).catch(() => sel);
+      if (seenTriggers.has(triggerKey)) continue;
+      seenTriggers.add(triggerKey);
+
+      info(`switchToChannel: drawer attempt ${drawerAttempt}/2 clicking avatar/nav trigger:`, sel);
+      await trigger.click({ force: true, timeout: 4000 }).catch(async () => {
+        await trigger.evaluate(el => el.click()).catch(() => {});
+      });
+      await page.waitForTimeout(900);
+
+      // Check if drawer is open: Switch Role element in DOM OR "Switch Role" text visible.
+      // Don't require viewport — it may be below the fold in a tall sidebar.
+      const btnAfterClick = await page.$(SWITCH_ROLE_SEL).catch(() => null);
+      const textAfterClick = await page.getByText('Switch Role', { exact: false }).first().isVisible().catch(() => false);
+      if (btnAfterClick || textAfterClick) {
+        info(`switchToChannel: drawer opened on attempt ${drawerAttempt}/2 after clicking`, sel, '— Switch Role found in DOM');
+        drawerOpened = true;
+        break;
+      }
+
+      // Dismiss and try the next distinct trigger.
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(250);
+    }
   }
 
   if (!drawerOpened) {
-    info('switchToChannel: no avatar trigger opened the drawer — trying to JS-click Switch Role directly');
+    info('switchToChannel: both drawer attempts failed — checking for Switch Role directly before failing closed');
   }
 
   // Step 2 — click Switch Role (by ID if available, then by text, then JS-click)

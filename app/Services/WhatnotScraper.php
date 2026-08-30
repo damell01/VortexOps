@@ -569,8 +569,18 @@ class WhatnotScraper
         try {
             $shipmentsByShow = $this->fetchShipmentsForShows($sources, $channelUsername, $debug);
         } catch (\Throwable $e) {
-            // Shipment refresh is best-effort — never blow up the caller over it.
-            Log::error('WhatnotScraper: shipments refresh failed — ' . $e->getMessage());
+            // Ordinary shipment misses remain best-effort, but a channel/context
+            // failure must propagate. Otherwise the pipeline can report a clean
+            // zero-update shipment step after scraping the wrong seller or failing
+            // to verify the requested seller at all.
+            $message = $e->getMessage();
+            if (str_contains($message, 'CHANNEL_SWITCH_')
+                || str_contains($message, 'CHANNEL_CONTEXT_MISMATCH')
+                || str_contains($message, 'CHANNEL_SWITCH_FAILED')) {
+                throw $e;
+            }
+
+            Log::error('WhatnotScraper: shipments refresh failed — ' . $message);
             return ['updated' => 0, 'skipped_shows' => $shows->count()];
         }
 
@@ -677,17 +687,20 @@ class WhatnotScraper
                 }
             }
 
-            if (! $process->isSuccessful() || empty($stdout)) {
-                Log::warning("WhatnotScraper {$mode} produced no usable output", [
-                    'exit' => $process->getExitCode(),
-                ]);
+            $this->throwForExitCode((int) $process->getExitCode(), $stderr, $process->getCommandLine());
+
+            if (! $process->isSuccessful()) {
+                $message = $stderr ?: "Scraper exited with code {$process->getExitCode()}";
+                throw new \RuntimeException("Whatnot {$mode} scraper failed: {$message}");
+            }
+
+            if (empty($stdout)) {
                 return [];
             }
 
             $data = json_decode($stdout, true);
             if (json_last_error() !== JSON_ERROR_NONE || ! is_array($data)) {
-                Log::warning("WhatnotScraper {$mode} returned invalid JSON", ['error' => json_last_error_msg()]);
-                return [];
+                throw new \RuntimeException("Whatnot {$mode} scraper returned invalid JSON: " . json_last_error_msg());
             }
 
             $map = [];
@@ -741,17 +754,20 @@ class WhatnotScraper
                 }
             }
 
-            if (!$process->isSuccessful() || empty($stdout)) {
-                Log::warning("WhatnotScraper {$mode} produced no usable output", [
-                    'exit' => $process->getExitCode(),
-                ]);
+            $this->throwForExitCode((int) $process->getExitCode(), $stderr, $process->getCommandLine());
+
+            if (! $process->isSuccessful()) {
+                $message = $stderr ?: "Scraper exited with code {$process->getExitCode()}";
+                throw new \RuntimeException("Whatnot {$mode} scraper failed: {$message}");
+            }
+
+            if (empty($stdout)) {
                 return [];
             }
 
             $data = json_decode($stdout, true);
-            if (json_last_error() !== JSON_ERROR_NONE || !is_array($data)) {
-                Log::warning("WhatnotScraper {$mode} returned invalid JSON", ['error' => json_last_error_msg()]);
-                return [];
+            if (json_last_error() !== JSON_ERROR_NONE || ! is_array($data)) {
+                throw new \RuntimeException("Whatnot {$mode} scraper returned invalid JSON: " . json_last_error_msg());
             }
 
             $map = [];
@@ -796,14 +812,20 @@ class WhatnotScraper
             }
         }
 
-        if (! $process->isSuccessful() || empty($stdout)) {
+        $this->throwForExitCode((int) $process->getExitCode(), $stderr, $process->getCommandLine());
+
+        if (! $process->isSuccessful()) {
+            $message = $stderr ?: "Scraper exited with code {$process->getExitCode()}";
+            throw new \RuntimeException("Whatnot ledger scraper failed: {$message}");
+        }
+
+        if (empty($stdout)) {
             return [];
         }
 
         $data = json_decode($stdout, true);
         if (json_last_error() !== JSON_ERROR_NONE || ! is_array($data)) {
-            Log::warning('WhatnotScraper ledger returned invalid JSON', ['error' => json_last_error_msg()]);
-            return [];
+            throw new \RuntimeException('Whatnot ledger scraper returned invalid JSON: ' . json_last_error_msg());
         }
 
         return $data;

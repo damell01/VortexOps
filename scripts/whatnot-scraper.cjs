@@ -1163,7 +1163,7 @@ async function ensureSellerMode(page) {
 // How long a channel switch may take before we fail the requested channel.
 // Never continue scraping after this timeout: doing so can attribute the active
 // channel's data to a different requested channel.
-const SWITCH_CHANNEL_TIMEOUT_MS = Number(process.env.WHATNOT_SWITCH_TIMEOUT_MS || 45000);
+const SWITCH_CHANNEL_TIMEOUT_MS = Number(process.env.WHATNOT_SWITCH_TIMEOUT_MS || 75000);
 
 async function switchToChannel(page, channelName) {
   if (!channelName) return;

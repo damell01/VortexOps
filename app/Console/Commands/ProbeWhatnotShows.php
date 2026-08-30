@@ -34,9 +34,8 @@ class ProbeWhatnotShows extends Command
 
         // Important: do NOT set WHATNOT_CHANNEL_NAME unless the caller explicitly
         // asks for one. The persisted browser session is already authenticated as
-        // a seller, and role/channel switching is currently the operation hanging
-        // on the VPS. For the probe we want to prove show retrieval independently
-        // from account switching.
+        // a seller, and role/channel switching is intentionally tested only when
+        // --channel is supplied.
         if ($channel) {
             $env['WHATNOT_CHANNEL_NAME'] = (string) $channel->whatnot_username;
         }
@@ -68,7 +67,24 @@ class ProbeWhatnotShows extends Command
         $this->line('Mode: shows (analytics page bypassed; channel switch bypassed unless --channel is supplied)');
         $this->newLine();
 
-        $process = new Process([$node, $script], base_path(), $env);
+        // Match WhatnotScraper::commandLine(): headed Chromium needs an X display.
+        // Artisan probes should be just as reliable under cron/SSH as scheduled
+        // scraper jobs, so automatically use the repository wrapper when DISPLAY
+        // is unavailable instead of making the operator remember xvfb-run.
+        $command = [$node, $script];
+        $headed = ($env['WHATNOT_HEADLESS'] ?? 'true') === 'false';
+        $display = $env['DISPLAY'] ?? getenv('DISPLAY');
+        $hasDisplay = $display !== false && $display !== null && $display !== '';
+
+        if ($headed && ! $hasDisplay) {
+            $wrapper = base_path('scripts/with-xvfb.sh');
+            if (is_readable($wrapper)) {
+                $command = ['/bin/sh', $wrapper, $node, $script];
+                $this->line('Headed mode: using scripts/with-xvfb.sh automatically.');
+            }
+        }
+
+        $process = new Process($command, base_path(), $env);
         $process->setTimeout(300);
         $process->run(function (string $type, string $buffer): void {
             if ($type === Process::ERR) {

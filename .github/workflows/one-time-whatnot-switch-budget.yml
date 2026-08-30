@@ -1,0 +1,41 @@
+name: One-time Whatnot switch retry budget
+
+on:
+  push:
+    branches: [Dev]
+    paths:
+      - '.github/workflows/one-time-whatnot-switch-budget.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Dev
+          fetch-depth: 0
+      - name: Patch retry budget
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/whatnot-scraper.cjs')
+          s = p.read_text()
+          old = "const SWITCH_CHANNEL_TIMEOUT_MS = Number(process.env.WHATNOT_SWITCH_TIMEOUT_MS || 45000);"
+          new = "const SWITCH_CHANNEL_TIMEOUT_MS = Number(process.env.WHATNOT_SWITCH_TIMEOUT_MS || 75000);"
+          if s.count(old) != 1:
+              raise SystemExit(f'expected one switch timeout default, found {s.count(old)}')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          node --check scripts/whatnot-scraper.cjs
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/whatnot-scraper.cjs
+          git commit -m 'fix(scraper): allow bounded retry time for channel switching'
+          git push origin HEAD:Dev

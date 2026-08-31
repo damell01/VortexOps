@@ -1257,7 +1257,7 @@ async function switchToChannel(page, channelName) {
         }
 
         if (switchedRoleRedirectSeen) {
-          await page.goto(URLs.sellerHub, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch((e) => {
+          await page.goto(URLS.sellerHub, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch((e) => {
             info('switchToChannel: clean Seller Hub reload after role switch failed:', e.message);
           });
           await page.waitForTimeout(1200);
@@ -1332,7 +1332,7 @@ async function switchToChannel(page, channelName) {
     if (drawerAttempt > 1) {
       info(`switchToChannel: drawer attempt ${drawerAttempt}/2 — resetting Seller Hub before retry`);
       await page.keyboard.press('Escape').catch(() => {});
-      await page.goto(URLs.sellerHub, { waitUntil: 'domcontentloaded', timeout: 12000 }).catch(() => {});
+      await page.goto(URLS.sellerHub, { waitUntil: 'domcontentloaded', timeout: 12000 }).catch(() => {});
       await page.waitForTimeout(1000);
       await debugShot(page, `role-switch-01-retry-${drawerAttempt}`);
     }

@@ -3599,7 +3599,12 @@ async function extractLedgerFromPage(page) {
       // valid, which used to stop channel switching before it even had a chance to
       // run. A redirect from / to /login is still decisive evidence of an expired
       // session; otherwise channel-specific runs verify the requested role directly.
-      await page.goto(URLS.home, { waitUntil: 'domcontentloaded', timeout: 20000 });
+      // Use the account analytics shell for the authenticated preflight.
+      // Both /dashboard/home and / are currently Cloudflare-challenged on this
+      // server even with a valid imported session, while /account/analytics is
+      // the already-established route used by the working historical analytics
+      // scraper and is outside the challenged /dashboard surface.
+      await page.goto('https://www.whatnot.com/account/analytics', { waitUntil: 'domcontentloaded', timeout: 20000 });
       await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
 
       // Not just "did goto resolve" — see confirmSellerHub. The answer this

@@ -1,0 +1,46 @@
+name: One-time fix Whatnot Chromium home
+
+on:
+  push:
+    branches:
+      - Dev
+    paths:
+      - .github/workflows/one-time-fix-whatnot-crashpad-home.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Dev
+          fetch-depth: 0
+
+      - name: Patch Chromium runtime home
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/whatnot-scraper.cjs')
+          text = path.read_text()
+          old = """  const child = spawn(CHROMIUM_PATH, chromeArgs, {\n    env: { ...process.env, HOME: '/tmp', ...extraEnv },\n    stdio: ['ignore', 'ignore', 'pipe'],\n"""
+          new = """  // Chromium/Crashpad needs a real writable HOME/XDG tree. Forcing HOME=/tmp\n  // makes chrome_crashpad_handler abort before DevTools starts under the\n  // www-data queue user (\"--database is required\"). Keep this state beside\n  // the persistent browser profile so scheduled jobs and manual probes launch\n  // with the same writable runtime environment.\n  const path = require('path');\n  const fs = require('fs');\n  const browserHome = process.env.WHATNOT_BROWSER_HOME || path.join(path.dirname(userDataDir), 'whatnot-browser-home');\n  const xdgConfigHome = process.env.XDG_CONFIG_HOME || path.join(browserHome, '.config');\n  const xdgCacheHome = process.env.XDG_CACHE_HOME || path.join(browserHome, '.cache');\n  fs.mkdirSync(xdgConfigHome, { recursive: true });\n  fs.mkdirSync(xdgCacheHome, { recursive: true });\n\n  const child = spawn(CHROMIUM_PATH, chromeArgs, {\n    env: {\n      ...process.env,\n      HOME: browserHome,\n      XDG_CONFIG_HOME: xdgConfigHome,\n      XDG_CACHE_HOME: xdgCacheHome,\n      ...extraEnv,\n    },\n    stdio: ['ignore', 'ignore', 'pipe'],\n"""
+          if old not in text:
+              raise SystemExit('Expected Chromium spawn block not found; refusing unrelated edit')
+          text = text.replace(old, new, 1)
+          path.write_text(text)
+          PY
+
+      - name: Validate scraper syntax
+        run: node --check scripts/whatnot-scraper.cjs
+
+      - name: Commit fix to Dev
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/whatnot-scraper.cjs
+          git commit -m "fix(scraper): give Chromium a writable runtime home"
+          git push origin Dev

@@ -1191,14 +1191,21 @@ async function switchToChannel(page, channelName) {
   // the page positively looks like a Cloudflare interstitial.
   const switchBody = await page.locator('body').innerText({ timeout: 3000 }).catch(() => null);
   if (switchBody !== null && isChallengePage(switchBody.substring(0, 2000))) {
-    info('switchToChannel: Cloudflare interstitial detected before role switch');
+    // The auth preflight may have just cleared a Cloudflare challenge, but the
+    // interstitial DOM can linger for a few seconds while the navigation token
+    // settles. Six seconds was too short in production (the same challenge
+    // cleared after ~12s immediately beforehand), so give the switcher a bounded
+    // but realistic window before failing the requested channel.
+    const switchChallengeWaitMs = Number(process.env.WHATNOT_SWITCH_CHALLENGE_WAIT_MS || 20000);
+    info(`switchToChannel: Cloudflare interstitial detected before role switch — waiting up to ${Math.round(switchChallengeWaitMs / 1000)}s`);
     const challengeResult = await Promise.race([
-      settleChallenge(page, { timeoutMs: 6000, fatal: false }),
-      new Promise((resolve) => setTimeout(() => resolve(false), 7000)),
+      settleChallenge(page, { timeoutMs: switchChallengeWaitMs, fatal: false }),
+      new Promise((resolve) => setTimeout(() => resolve(false), switchChallengeWaitMs + 1000)),
     ]);
     if (!challengeResult) {
-      throw new Error(`CHANNEL_SWITCH_CHALLENGE: requested=@${channelName} could not clear verification`);
+      throw new Error(`CHANNEL_SWITCH_CHALLENGE: requested=@${channelName} could not clear verification within ${Math.round(switchChallengeWaitMs / 1000)}s`);
     }
+    await page.waitForTimeout(500);
   } else if (switchBody === null) {
     info('switchToChannel: body inspection timed out; continuing with bounded DOM selectors');
   } else {

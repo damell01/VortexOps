@@ -2061,6 +2061,14 @@ class WhatnotScraper
         if ($email)    $env['WHATNOT_EMAIL']    = $email;
         if ($password) $env['WHATNOT_PASSWORD'] = $password;
 
+        // Explicit scraper overrides supplied to the Artisan process must be
+        // forwarded to the child Node process. Symfony Process is constructed
+        // with this curated env array, so values such as WHATNOT_COOKIES_FILE
+        // do not otherwise survive from the shell into whatnot-scraper.cjs.
+        if (($cookiesFile = getenv('WHATNOT_COOKIES_FILE')) !== false && $cookiesFile !== '') {
+            $env['WHATNOT_COOKIES_FILE'] = $cookiesFile;
+        }
+
         return $env;
     }
 

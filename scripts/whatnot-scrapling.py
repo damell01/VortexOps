@@ -1,0 +1,258 @@
+from __future__ import annotations
+
+import json
+import os
+import re
+import sys
+from datetime import date
+from pathlib import Path
+from typing import Any
+
+from scrapling.fetchers import DynamicSession
+
+BASE = "https://www.whatnot.com"
+MODE = os.getenv("WHATNOT_MODE", "analytics").strip()
+CHANNEL = os.getenv("WHATNOT_CHANNEL_NAME", "").strip()
+PROFILE = os.getenv("WHATNOT_USER_DATA_DIR", "").strip()
+CHROME = os.getenv("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH", "").strip()
+HEADLESS = os.getenv("WHATNOT_HEADLESS", "false").lower() != "false"
+LIMIT = max(1, min(500, int(os.getenv("WHATNOT_LIMIT", "50"))))
+START_UUID = os.getenv("WHATNOT_START_UUID", "").strip()
+UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.I)
+
+
+def info(message: str) -> None:
+    print(f"[whatnot:scrapling] {message}", file=sys.stderr, flush=True)
+
+
+def fail(message: str, code: int = 1) -> None:
+    print(message, file=sys.stderr, flush=True)
+    raise SystemExit(code)
+
+
+def norm(value: str | None) -> str:
+    return re.sub(r"[^a-z0-9]", "", (value or "").lower())
+
+
+def active_username(page) -> str | None:
+    for selector in [
+        'button:has(svg[aria-label="Current account"]) img.z-avatar-image[alt]',
+        'img.z-avatar-image[alt][width="40"][height="40"]:visible',
+    ]:
+        try:
+            alt = page.locator(selector).first.get_attribute("alt", timeout=1200)
+            if alt:
+                return alt
+        except Exception:
+            pass
+    for selector in ['header a[href^="/user/"]', 'nav a[href^="/user/"]', 'aside a[href^="/user/"]']:
+        try:
+            href = page.locator(selector).first.get_attribute("href", timeout=1200)
+            m = re.match(r"^/user/([^/?#]+)", href or "")
+            if m:
+                return m.group(1)
+        except Exception:
+            pass
+    return None
+
+
+def check_login(page) -> None:
+    if re.search(r"/(login|signin|auth)(/|\?|$)", page.url, re.I):
+        fail(f"LOGIN_REQUIRED: saved Whatnot session redirected to login. CURRENT_URL: {page.url}", 3)
+
+
+def ensure_channel(page, requested: str) -> str:
+    if not requested:
+        fail("CHANNEL_CONTEXT_MISMATCH: WHATNOT_CHANNEL_NAME is required", 3)
+    current = active_username(page)
+    if current and norm(current) == norm(requested):
+        info(f"CHANNEL_CONTEXT_VERIFIED requested=@{requested} active=@{current}")
+        return current
+
+    try:
+        page.locator("#team-invite-profile-menu-anchor").first.click(timeout=5000, force=True)
+        page.locator("#team-invite-switch-role-anchor").first.click(timeout=5000, force=True)
+    except Exception as exc:
+        fail(f"CHANNEL_SWITCH_FAILED: could not open role picker for @{requested}: {exc}", 3)
+
+    target = None
+    try:
+        exact = page.locator(f'button:has(img.z-avatar-image[alt="{requested.lower()}"])').first
+        if exact.is_visible(timeout=1500):
+            target = exact
+    except Exception:
+        pass
+    if target is None:
+        buttons = page.locator('button[formaction="/api/v1/auth/switch-role"]')
+        for index in range(min(buttons.count(), 30)):
+            candidate = buttons.nth(index)
+            try:
+                if norm(requested) in norm(candidate.inner_text(timeout=1000)):
+                    target = candidate
+                    break
+            except Exception:
+                pass
+    if target is None:
+        fail(f"CHANNEL_SWITCH_FAILED: @{requested} was not present in role picker", 3)
+    try:
+        target.click(timeout=5000, force=True)
+        page.wait_for_timeout(1000)
+        page.goto(f"{BASE}/dashboard/home", wait_until="domcontentloaded", timeout=20000)
+    except Exception:
+        pass
+
+    verified = None
+    for _ in range(15):
+        verified = active_username(page)
+        if verified and norm(verified) == norm(requested):
+            info(f"CHANNEL_CONTEXT_VERIFIED requested=@{requested} active=@{verified}")
+            return verified
+        page.wait_for_timeout(500)
+    fail(f"CHANNEL_CONTEXT_MISMATCH: refusing to scrape. requested=@{requested} active=@{verified or '?'}", 3)
+    return ""
+
+
+def prepare(page) -> str:
+    check_login(page)
+    return ensure_channel(page, CHANNEL)
+
+
+def extract_show(page) -> dict[str, Any]:
+    raw = page.evaluate("""
+    () => {
+      const title=document.querySelector('h1,h2')?.textContent?.trim()||null;
+      const text=document.body?.innerText||'';
+      const labels={};
+      const wanted=['Gross Revenue','Estimated Earnings','Completed Earnings','Units Sold','Orders','Buyers','First Time Buyers','Returning Buyers','Shares','Show Duration','Max Concurrent Viewers','Total Views','Average Order Value','Avg Order Value','Giveaway Spend','Giveaways'];
+      for(const label of wanted){
+        const node=[...document.querySelectorAll('*')].find(el=>el.childElementCount===0&&(el.textContent||'').trim().toLowerCase()===label.toLowerCase());
+        if(!node)continue;
+        let p=node.parentElement;
+        for(let i=0;p&&i<5;i++,p=p.parentElement){
+          const vals=[...p.querySelectorAll('*')].filter(el=>el!==node&&el.childElementCount===0).map(el=>(el.textContent||'').trim()).filter(v=>v&&v.length<80&&v!==label);
+          const value=vals.find(v=>/^[-+$]?[$]?\d[\d,.]*(?:%|k|m|h|min)?$/i.test(v));
+          if(value){labels[label]=value;break;}
+        }
+      }
+      const id=(location.href.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)||[])[0]||null;
+      return {title,text:text.substring(0,2500),labels,live_id:id,url:location.href};
+    }
+    """)
+    labels = raw.get("labels") or {}
+    dm = re.search(r"(\d{1,2})/(\d{1,2})/(20\d\d)", raw.get("text") or "")
+    show_date = f"{dm.group(3)}-{int(dm.group(1)):02d}-{int(dm.group(2)):02d}" if dm else None
+
+    def money(v):
+        try: return float(re.sub(r"[^0-9.-]", "", str(v))) if v is not None else None
+        except ValueError: return None
+    def integer(v):
+        s = re.sub(r"[^0-9]", "", str(v or "")); return int(s) if s else None
+
+    duration = labels.get("Show Duration") or ""
+    hm = re.search(r"(\d+)\s*h", duration, re.I); mm = re.search(r"(\d+)\s*m", duration, re.I)
+    duration_minutes = ((int(hm.group(1))*60 if hm else 0)+(int(mm.group(1)) if mm else 0)) if duration else None
+    return {
+        "title": raw.get("title"), "show_date": show_date, "whatnot_live_id": raw.get("live_id"),
+        "detail_url": f"{BASE}/dashboard/live/{raw.get('live_id')}" if raw.get("live_id") else raw.get("url"),
+        "gross_revenue": money(labels.get("Gross Revenue")), "whatnot_net": money(labels.get("Estimated Earnings")),
+        "completed_earnings": money(labels.get("Completed Earnings")), "units_sold": integer(labels.get("Units Sold") or labels.get("Orders")),
+        "buyers_count": integer(labels.get("Buyers")), "first_time_buyers": integer(labels.get("First Time Buyers")),
+        "returning_buyers": integer(labels.get("Returning Buyers")), "shares_count": integer(labels.get("Shares")),
+        "show_duration": duration_minutes, "max_concurrent_viewers": integer(labels.get("Max Concurrent Viewers")),
+        "total_views": integer(labels.get("Total Views")), "avg_order_value": money(labels.get("Average Order Value") or labels.get("Avg Order Value")),
+        "giveaway_spend": money(labels.get("Giveaway Spend")), "giveaways_count": integer(labels.get("Giveaways")),
+    }
+
+
+def analytics(session: DynamicSession):
+    if not UUID_RE.fullmatch(START_UUID):
+        fail("ANALYTICS_SEED_REQUIRED: WHATNOT_START_UUID is required")
+    rows=[]; seen=set(); today=date.today().isoformat()
+    target=f"{BASE}/account/analytics?tab=livestream&live_id={START_UUID}&start_dt=2019-01-01&end_dt={today}"
+    def action(page):
+        prepare(page); page.goto(target, wait_until="domcontentloaded", timeout=30000); page.wait_for_timeout(1000)
+        for _ in range(LIMIT):
+            check_login(page); row=extract_show(page); key=row.get("whatnot_live_id") or f"{row.get('title')}|{row.get('show_date')}"
+            if key in seen: break
+            seen.add(key); rows.append(row)
+            older=page.get_by_text(re.compile(r"see older show", re.I)).first
+            try:
+                if not older.is_visible(timeout=1200): break
+                older.click(timeout=4000); page.wait_for_timeout(900)
+            except Exception: break
+    session.fetch(f"{BASE}/dashboard/home", page_action=action, timeout=60000, network_idle=False, google_search=False)
+    info(f"analytics: collected {len(rows)} show(s)"); return rows
+
+
+def extract_orders(page):
+    return page.evaluate("""() => { const price=s=>{if(!s)return null;const v=parseFloat(s.replace(/[^0-9.]/g,''));return Number.isFinite(v)?v:null}; const out=[]; for(const tr of document.querySelectorAll('tbody[data-testid="orders-table-body"] tr, tr[data-testid^="orders-"]')){const t=[...tr.querySelectorAll(':scope > td')];if(t.length<6)continue;const c=t[0], title=c.querySelector('span[title],strong'), oid=(c.innerText||'').match(/Order\s*#\s*(\d+)/i), qty=parseInt((t[3]?.innerText||'').replace(/[^0-9]/g,''),10);out.push({order_id:oid?oid[1]:null,buyer:(t[2]?.innerText||'').trim()||null,item_name:title?(title.getAttribute('title')||title.textContent||'').trim():null,lot_number:null,quantity:Number.isFinite(qty)?qty:1,unit_price:price(t[5]?.innerText||''),total_price:price(t[5]?.innerText||''),net_earnings:price(t[7]?.innerText||''),sales_channel:(t[4]?.innerText||'').trim()||null,status:(t[6]?.innerText||'').trim()||'completed',raw_text:(tr.innerText||'').replace(/\s+/g,' ').trim().substring(0,400)});} return out;}""")
+
+
+def extract_shipments(page):
+    return page.evaluate("""() => { const out=[];for(const tr of document.querySelectorAll('tr[data-testid^="shipments-"]')){const main=tr.innerText||'',detail=tr.nextElementSibling?.tagName==='TR'?(tr.nextElementSibling.innerText||''):'',text=main+'\n'+detail,oid=text.match(/Order\s*#\s*(\d+)/i);if(!oid)continue;const buyer=tr.querySelector('a[href*="/dashboard/inbox"]'),weight=text.match(/(\d+(?:\.\d+)?)\s*oz\b/i),dims=text.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*in\b/i),carrier=text.match(/\b(USPS|UPS|FedEx|DHL)\b\s*([A-Za-z\d\s\-/]*[A-Za-z\d])?/i),tracking=text.match(/(?:tracking\s*#?|label\s*#?)\s*([0-9]{12,})/i);let st=null;if(/ready\s*to\s*ship/i.test(text))st='ready_to_ship';else if(/label\s*created/i.test(text))st='label_created';else if(/delivered/i.test(text))st='delivered';else if(/returned/i.test(text))st='returned';else if(/packed/i.test(text))st='packed';else if(/shipped/i.test(text))st='shipped';else if(/in\s*transit/i.test(text))st='in_transit';out.push({order_id:oid[1],buyer:buyer?(buyer.textContent||'').trim():null,item_name:null,lot_number:null,quantity:1,unit_price:null,total_price:null,status:'completed',raw_text:main.replace(/\s+/g,' ').trim().substring(0,400),weight_oz:weight?parseFloat(weight[1]):null,box_length_in:dims?parseFloat(dims[1]):null,box_width_in:dims?parseFloat(dims[2]):null,box_height_in:dims?parseFloat(dims[3]):null,shipping_carrier:carrier?carrier[1].toUpperCase():null,shipping_service:carrier&&carrier[2]?carrier[2].trim():null,shipping_status_scraped:st,tracking_number:tracking?tracking[1]:null});}return out;}""")
+
+
+def batch(session: DynamicSession, shipments=False):
+    source_file=os.getenv("WHATNOT_ORDER_SOURCES_FILE","").strip()
+    if not source_file or not Path(source_file).exists(): fail("WHATNOT_ORDER_SOURCES_FILE is required")
+    sources=json.loads(Path(source_file).read_text()); output=[]
+    def action(page):
+        prepare(page)
+        for idx,source in enumerate(sources,1):
+            lid=source.get("live_id"); key=source.get("show_key")
+            if not lid: output.append({"show_key":key,"live_id":None,"order_count":0,"orders":[]}); continue
+            page.goto(f"{BASE}/dashboard/{'shipments' if shipments else 'orders'}?source={lid}",wait_until="domcontentloaded",timeout=30000);page.wait_for_timeout(900)
+            found={}
+            for _ in range(40):
+                if shipments:
+                    try: page.locator('button[aria-label="Expand All"]').first.click(timeout=1000);page.wait_for_timeout(300)
+                    except Exception: pass
+                for row in (extract_shipments(page) if shipments else extract_orders(page)):
+                    found[str(row.get("order_id") or len(found))]=row
+                advanced=page.evaluate("""() => {const s=document.querySelector('svg[aria-label="Next page"]');const b=s?s.closest('button'):document.querySelector('button[aria-label="Next page"]');if(b&&!b.disabled&&b.getAttribute('aria-disabled')!=='true'){b.click();return true}return false}""")
+                if not advanced: break
+                page.wait_for_timeout(700)
+            rows=list(found.values());info(f"{'shipments' if shipments else 'orders'}-batch: [{idx}/{len(sources)}] {key} -> {len(rows)} row(s)");output.append({"show_key":key,"live_id":lid,"order_count":len(rows),"orders":rows})
+    session.fetch(f"{BASE}/dashboard/home",page_action=action,timeout=60000,network_idle=False,google_search=False);return output
+
+
+def ledger(session: DynamicSession):
+    start=os.getenv("WHATNOT_LEDGER_FROM","").strip();end=os.getenv("WHATNOT_LEDGER_TO","").strip();output=[]
+    def action(page):
+        prepare(page);page.goto(f"{BASE}/dashboard/ledger/overview",wait_until="domcontentloaded",timeout=30000);page.wait_for_timeout(900)
+        if start and end:
+            try: page.get_by_text(re.compile(r"edit dates",re.I)).first.click(timeout=3000)
+            except Exception: pass
+            try:
+                inputs=page.locator('input[type="date"]')
+                if inputs.count()>=2:
+                    inputs.nth(inputs.count()-2).fill(start);inputs.nth(inputs.count()-1).fill(end);page.get_by_role("button",name=re.compile(r"^update$",re.I)).click(timeout=3000);page.wait_for_timeout(1500)
+            except Exception: pass
+        seen={}
+        for _ in range(60):
+            rows=page.evaluate("""() => [...document.querySelectorAll('table tbody tr')].map(tr=>{const c=[...tr.querySelectorAll(':scope > td')].map(td=>(td.innerText||'').trim());if(c.length<6)return null;const link=tr.querySelector('a[href*="/dashboard/orders/"]'),oid=(c[3]||'').match(/(\d+)/),lid=(c[2]||'').match(/(\d+)/);return {created_date:c[0]||null,amount:c[1]||null,listing_id:lid?lid[1]:null,order_id:oid?oid[1]:null,order_hash:link?(link.getAttribute('href')||'').split('/').pop():null,message:c[4]||null,status:c[5]||null,transaction_type:c[6]||null,completed_date:c[7]||null}}).filter(Boolean)""")
+            for row in rows: seen['|'.join(str(row.get(k) or '') for k in ('order_id','listing_id','created_date','amount','transaction_type'))]=row
+            advanced=page.evaluate("""() => {const s=document.querySelector('svg[aria-label="Next page"]');const b=s?s.closest('button'):document.querySelector('button[aria-label="Next page"]');if(b&&!b.disabled&&b.getAttribute('aria-disabled')!=='true'){b.click();return true}return false}""")
+            if not advanced: break
+            page.wait_for_timeout(700)
+        output.extend(seen.values())
+    session.fetch(f"{BASE}/dashboard/home",page_action=action,timeout=60000,network_idle=False,google_search=False);info(f"ledger: extracted {len(output)} entries");return output
+
+
+def main():
+    if not PROFILE: fail("WHATNOT_USER_DATA_DIR is required")
+    if not CHROME: fail("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH is required")
+    Path(PROFILE).mkdir(parents=True,exist_ok=True)
+    info(f"engine=Scrapling DynamicSession mode={MODE} profile={PROFILE}")
+    # This uses the installed Chrome and the existing authenticated persistent
+    # profile. It intentionally does not enable Scrapling's challenge-solving,
+    # fingerprint-masking, or proxy-rotation features.
+    with DynamicSession(headless=HEADLESS,real_chrome=True,executable_path=CHROME,user_data_dir=PROFILE,disable_resources=False,google_search=False,locale="en-US") as session:
+        if MODE == 'analytics': result=analytics(session)
+        elif MODE == 'orders-batch': result=batch(session,False)
+        elif MODE == 'shipments-batch': result=batch(session,True)
+        elif MODE == 'ledger': result=ledger(session)
+        else: fail(f"SCRAPLING_MODE_UNSUPPORTED: {MODE}")
+    json.dump(result,sys.stdout,separators=(',',':'));sys.stdout.write('\n')
+
+if __name__=='__main__': main()

@@ -1,0 +1,46 @@
+name: One-time fix Whatnot URLS case
+
+on:
+  push:
+    branches:
+      - Dev
+    paths:
+      - .github/workflows/one-time-fix-whatnot-urls-case.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Dev
+          fetch-depth: 0
+
+      - name: Fix lowercase URLs references
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/whatnot-scraper.cjs')
+          text = path.read_text()
+          count = text.count('URLs.')
+          if count == 0:
+              raise SystemExit('No lowercase URLs. references found; refusing to make an unrelated change')
+          text = text.replace('URLs.', 'URLS.')
+          path.write_text(text)
+          print(f'Replaced {count} lowercase URLs. reference(s)')
+          PY
+
+      - name: Validate scraper syntax
+        run: node --check scripts/whatnot-scraper.cjs
+
+      - name: Commit fix to Dev
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/whatnot-scraper.cjs
+          git commit -m "fix(scraper): correct seller hub URL constant casing"
+          git push origin Dev

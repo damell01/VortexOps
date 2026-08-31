@@ -32,9 +32,18 @@ class WhatnotLogin extends Command
                 : $this->importCookieFile($scraper, $importFile, $cookiesFile);
         }
 
-        // ── Test existing cookies ─────────────────────────────────────────────
-        if ($this->option('test') || $scraper->hasCookieFile()) {
-            return $this->testExistingCookies($scraper, $cookiesFile);
+        // `--test` is deliberately read-only: callers asking only for a check
+        // should never have credentials used behind their back.
+        if ($this->option('test')) {
+            return $this->testExistingCookies($scraper, $cookiesFile, allowRenewal: false);
+        }
+
+        // A stale cookie file used to make this command return FAILURE before
+        // the credential-renewal path below was ever reached. Normal login now
+        // tests the saved session first and, only when it is clearly expired,
+        // renews it automatically when credentials are configured.
+        if ($scraper->hasCookieFile()) {
+            return $this->testExistingCookies($scraper, $cookiesFile, allowRenewal: true);
         }
 
         // ── No cookies yet — show the full setup guide ────────────────────────
@@ -99,16 +108,9 @@ class WhatnotLogin extends Command
             $domain = $c['domain'] ?? '.whatnot.com';
             if (! str_contains($domain, 'whatnot.com')) return null;
 
-            // Cloudflare's edge tokens are deliberately not carried across.
-            //
-            // cf_clearance is proof that a particular browser, on a particular
-            // IP, passed a challenge — Cloudflare binds it to both. Exported
-            // from a laptop and replayed from a server it cannot be honoured,
-            // and presenting a clearance token that does not match the
-            // connection is worse than presenting none: it is exactly what a
-            // replayed token looks like. The server has to earn its own.
-            // The cf_chl_* pair record a challenge already in progress on
-            // another machine, which is a state this browser is not in.
+            // Cloudflare edge/challenge cookies are connection-specific state,
+            // not Whatnot account authentication. Do not persist them as part
+            // of the reusable application session bootstrap.
             if (in_array(strtolower($c['name']), [
                 'cf_clearance', '__cf_bm', '__cfwaitingroom',
                 'cf_chl_2', 'cf_chl_prog', 'cf_chl_rc_i', 'cf_chl_rc_ni', 'cf_chl_rc_m',
@@ -151,10 +153,10 @@ class WhatnotLogin extends Command
             return self::SUCCESS;
         }
 
-        return $this->testExistingCookies($scraper, $cookiesFile);
+        return $this->testExistingCookies($scraper, $cookiesFile, allowRenewal: false);
     }
 
-    private function testExistingCookies(WhatnotScraper $scraper, string $cookiesFile): int
+    private function testExistingCookies(WhatnotScraper $scraper, string $cookiesFile, bool $allowRenewal = false): int
     {
         if (! $scraper->hasCookieFile()) {
             $this->warn('No cookie file found at: ' . $cookiesFile);
@@ -173,9 +175,30 @@ class WhatnotLogin extends Command
             $this->line('  <comment>php artisan whatnot:sync</comment>                — run incremental sync');
             return self::SUCCESS;
         } catch (\RuntimeException $e) {
-            $this->error('✗ Cookie test failed: ' . $e->getMessage());
+            $message = $e->getMessage();
+            $this->error('✗ Cookie test failed: ' . $message);
             $this->line('');
-            $this->line('Your session has likely expired. Export fresh cookies from Chrome:');
+
+            // A Seller Hub challenge is not evidence that the Whatnot account
+            // session expired. Re-running credential login here would only
+            // replace a potentially-valid session and start another challenged
+            // navigation. Report that state distinctly and stop.
+            if ($this->isBrowserChallenge($message)) {
+                $this->warn('The saved Whatnot session could not be verified because Seller Hub was challenged.');
+                $this->line('Authentication was not classified as expired, so credentials were not re-submitted.');
+                return self::FAILURE;
+            }
+
+            if ($allowRenewal && $this->isExpiredSessionFailure($message) && $this->hasConfiguredCredentials()) {
+                $this->warn('Saved Whatnot session is expired. Renewing it with configured credentials…');
+                return $this->renewFromCredentials($scraper, $cookiesFile);
+            }
+
+            if ($this->isExpiredSessionFailure($message)) {
+                $this->line('Your Whatnot session has expired. Export fresh cookies from Chrome:');
+            } else {
+                $this->line('The saved session could not be verified. If it has expired, export fresh cookies from Chrome:');
+            }
             $this->line('  1. Log into <comment>whatnot.com</comment> in Chrome');
             $this->line('  2. Install <comment>Cookie-Editor</comment> extension');
             $this->line('  3. Click Cookie-Editor → Export → <comment>Export as JSON</comment>');
@@ -185,14 +208,44 @@ class WhatnotLogin extends Command
         }
     }
 
+    private function renewFromCredentials(WhatnotScraper $scraper, string $cookiesFile): int
+    {
+        try {
+            $count = $scraper->dumpSessionCookies();
+            $this->info("✓ Credential renewal succeeded — {$count} cookies saved to {$cookiesFile}");
+            $this->line('The renewed session will be used by the next scraper run.');
+            return self::SUCCESS;
+        } catch (\RuntimeException $e) {
+            $this->error('✗ Credential renewal failed: ' . $e->getMessage());
+            return self::FAILURE;
+        }
+    }
+
+    private function hasConfiguredCredentials(): bool
+    {
+        return (bool) config('vortex.whatnot.email') && (bool) config('vortex.whatnot.password');
+    }
+
+    private function isBrowserChallenge(string $message): bool
+    {
+        return (bool) preg_match('/BOT_CHALLENGE|Cloudflare|challenge did not clear|verification page/i', $message);
+    }
+
+    private function isExpiredSessionFailure(string $message): bool
+    {
+        return (bool) preg_match(
+            '/redirected to login|auth-required|cookies? (?:are )?(?:missing|expired|invalid)|session (?:has )?(?:lapsed|expired)|AUTH_REQUIRED/i',
+            $message,
+        );
+    }
+
     private function showSetupGuide(WhatnotScraper $scraper, string $cookiesFile): int
     {
         $this->line('');
         $this->line('<fg=yellow;options=bold>Whatnot Authentication Setup</>');
         $this->line('<fg=gray>─────────────────────────────────────────────────</>');
         $this->line('');
-        $this->line('Whatnot blocks automated logins. The fix: export session');
-        $this->line('cookies from your real Chrome browser — just once.');
+        $this->line('Whatnot authentication can be bootstrapped from a saved browser session.');
         $this->line('');
         $this->line('<options=bold>Step 1 — Install Cookie-Editor</>');
         $this->line('  Chrome Web Store → search "Cookie-Editor" by cgagnier');
@@ -222,23 +275,13 @@ class WhatnotLogin extends Command
         $this->line('  <comment>php artisan whatnot:import --discover</comment>');
         $this->line('');
         $this->line('<fg=gray>Cookies are saved to: ' . $cookiesFile . '</>');
-        $this->line('<fg=gray>They typically stay valid for 30–90 days. Re-run this command</>');
-        $this->line('<fg=gray>when sync starts failing to refresh them.</>');
+        $this->line('<fg=gray>Re-run this command when sync starts failing to refresh them.</>');
         $this->line('');
 
-        // Check if credentials are set — offer to try form login as a bonus step
-        if (config('vortex.whatnot.email') && config('vortex.whatnot.password')) {
-            $this->line('<fg=gray>WHATNOT_EMAIL/PASSWORD are set. Trying headless login first…</>');
-            try {
-                $count = $scraper->dumpSessionCookies();
-                $this->info("✓ Headless login succeeded — {$count} cookies saved to {$cookiesFile}");
-                $this->line('Run <comment>php artisan whatnot:login --test</comment> to verify, then');
-                $this->line('<comment>php artisan whatnot:import --discover</comment> to map API endpoints.');
-                return self::SUCCESS;
-            } catch (\RuntimeException $e) {
-                $this->warn('Headless login failed (expected if Kasada is blocking): ' . $e->getMessage());
-                $this->line('Follow the manual cookie export steps above instead.');
-            }
+        // Check if credentials are set — try form login as a convenience path.
+        if ($this->hasConfiguredCredentials()) {
+            $this->line('<fg=gray>WHATNOT_EMAIL/PASSWORD are set. Trying credential login first…</>');
+            return $this->renewFromCredentials($scraper, $cookiesFile);
         }
 
         return self::SUCCESS;

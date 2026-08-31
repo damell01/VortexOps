@@ -1,0 +1,10 @@
+{
+  "api_url": "https://YOUR-VORTEXOPS-DOMAIN.com/api",
+  "api_token": "PASTE_SCRAPER_API_TOKEN_HERE",
+  "show_limit": 50,
+  "order_batch_size": 10,
+  "ledger_days": 31,
+  "channels": [],
+  "chrome_path": "",
+  "profile_dir": ""
+}

@@ -3300,6 +3300,7 @@ async function extractLedgerFromPage(page) {
       '--no-zygote',
       '--disable-dev-shm-usage',
       '--disable-crash-reporter',
+      '--disable-breakpad',
       '--crash-dumps-dir=/tmp',
       '--disable-gpu',
     ],

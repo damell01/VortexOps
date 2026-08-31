@@ -1,0 +1,54 @@
+name: One-time fix Whatnot channel challenge wait
+
+on:
+  push:
+    branches:
+      - Dev
+    paths:
+      - .github/workflows/one-time-fix-channel-challenge-wait.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Dev
+          fetch-depth: 0
+
+      - name: Patch channel switch challenge wait
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/whatnot-scraper.cjs')
+          text = path.read_text()
+
+          old = """  if (switchBody !== null && isChallengePage(switchBody.substring(0, 2000))) {\n    info('switchToChannel: Cloudflare interstitial detected before role switch');\n    const challengeResult = await Promise.race([\n      settleChallenge(page, { timeoutMs: 6000, fatal: false }),\n      new Promise((resolve) => setTimeout(() => resolve(false), 7000)),\n    ]);\n    if (!challengeResult) {\n      throw new Error(`CHANNEL_SWITCH_CHALLENGE: requested=@${channelName} could not clear verification`);\n    }\n"""
+
+          new = """  if (switchBody !== null && isChallengePage(switchBody.substring(0, 2000))) {\n    // The auth preflight may have just cleared a Cloudflare challenge, but the\n    // interstitial DOM can linger for a few seconds while the navigation token\n    // settles. Six seconds was too short in production (the same challenge\n    // cleared after ~12s immediately beforehand), so give the switcher a bounded\n    // but realistic window before failing the requested channel.\n    const switchChallengeWaitMs = Number(process.env.WHATNOT_SWITCH_CHALLENGE_WAIT_MS || 20000);\n    info(`switchToChannel: Cloudflare interstitial detected before role switch — waiting up to ${Math.round(switchChallengeWaitMs / 1000)}s`);\n    const challengeResult = await Promise.race([\n      settleChallenge(page, { timeoutMs: switchChallengeWaitMs, fatal: false }),\n      new Promise((resolve) => setTimeout(() => resolve(false), switchChallengeWaitMs + 1000)),\n    ]);\n    if (!challengeResult) {\n      throw new Error(`CHANNEL_SWITCH_CHALLENGE: requested=@${channelName} could not clear verification within ${Math.round(switchChallengeWaitMs / 1000)}s`);\n    }\n    await page.waitForTimeout(500);\n"""
+
+          if old not in text:
+              raise SystemExit('Expected switch challenge block not found; refusing to patch')
+
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+          node --check scripts/whatnot-scraper.cjs
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          if git diff --quiet -- scripts/whatnot-scraper.cjs; then
+            echo "No patch needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/whatnot-scraper.cjs
+          git commit -m "fix(scraper): allow challenge to settle before role switch"
+          git push origin Dev

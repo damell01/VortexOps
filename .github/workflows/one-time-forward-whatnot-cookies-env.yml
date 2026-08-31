@@ -1,6 +1,9 @@
 name: One-time forward WHATNOT_COOKIES_FILE
 
 on:
+  push:
+    branches:
+      - Dev
   workflow_dispatch:
 
 permissions:

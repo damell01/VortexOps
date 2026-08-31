@@ -179,26 +179,37 @@ class WhatnotLogin extends Command
             $this->error('✗ Cookie test failed: ' . $message);
             $this->line('');
 
-            // A Seller Hub challenge is not evidence that the Whatnot account
-            // session expired. Re-running credential login here would only
-            // replace a potentially-valid session and start another challenged
-            // navigation. Report that state distinctly and stop.
+            // Explicit authentication evidence wins over incidental challenge
+            // wording in diagnostics. A cookie-test that actually landed on
+            // /login, or reported auth-required/expired cookies, is an expired
+            // Whatnot session even if the diagnostic text also mentions what a
+            // challenge would mean in other cases.
+            if ($this->isExpiredSessionFailure($message)) {
+                if ($allowRenewal && $this->hasConfiguredCredentials()) {
+                    $this->warn('Saved Whatnot session is expired. Renewing it with configured credentials…');
+                    return $this->renewFromCredentials($scraper, $cookiesFile);
+                }
+
+                $this->line('Your Whatnot session has expired. Export fresh cookies from Chrome:');
+                $this->line('  1. Log into <comment>whatnot.com</comment> in Chrome');
+                $this->line('  2. Install <comment>Cookie-Editor</comment> extension');
+                $this->line('  3. Click Cookie-Editor → Export → <comment>Export as JSON</comment>');
+                $this->line('  4. Save the file, then run:');
+                $this->line('     <comment>php artisan whatnot:login --cookie-file=/path/to/cookies.json</comment>');
+                return self::FAILURE;
+            }
+
+            // A Seller Hub challenge without explicit login/expiry evidence is
+            // not proof that the Whatnot account session expired. Re-running
+            // credential login here would only replace a potentially-valid
+            // session and start another challenged navigation.
             if ($this->isBrowserChallenge($message)) {
                 $this->warn('The saved Whatnot session could not be verified because Seller Hub was challenged.');
                 $this->line('Authentication was not classified as expired, so credentials were not re-submitted.');
                 return self::FAILURE;
             }
 
-            if ($allowRenewal && $this->isExpiredSessionFailure($message) && $this->hasConfiguredCredentials()) {
-                $this->warn('Saved Whatnot session is expired. Renewing it with configured credentials…');
-                return $this->renewFromCredentials($scraper, $cookiesFile);
-            }
-
-            if ($this->isExpiredSessionFailure($message)) {
-                $this->line('Your Whatnot session has expired. Export fresh cookies from Chrome:');
-            } else {
-                $this->line('The saved session could not be verified. If it has expired, export fresh cookies from Chrome:');
-            }
+            $this->line('The saved session could not be verified. If it has expired, export fresh cookies from Chrome:');
             $this->line('  1. Log into <comment>whatnot.com</comment> in Chrome');
             $this->line('  2. Install <comment>Cookie-Editor</comment> extension');
             $this->line('  3. Click Cookie-Editor → Export → <comment>Export as JSON</comment>');

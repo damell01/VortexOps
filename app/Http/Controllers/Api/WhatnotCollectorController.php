@@ -14,60 +14,49 @@ class WhatnotCollectorController extends Controller
 {
     public function bootstrap(): JsonResponse
     {
-        $channels = WhatnotChannel::query()
+        $query = WhatnotChannel::query()
             ->where('status', 'active')
-            ->where('include_in_import', true)
-            ->orderBy('id')
-            ->get()
-            ->map(function (WhatnotChannel $channel) {
-                $recent = Show::query()
-                    ->where('whatnot_channel_id', $channel->id)
-                    ->whereNotNull('detail_url')
-                    ->orderByDesc('show_date')
-                    ->limit(25)
-                    ->get(['id', 'whatnot_show_id', 'detail_url', 'show_date', 'last_synced_at']);
+            ->orderBy('id');
 
-                $latestLiveId = null;
-                foreach ($recent as $show) {
-                    if ($show->whatnot_show_id && preg_match('/^[0-9a-f-]{36}$/i', (string) $show->whatnot_show_id)) {
-                        $latestLiveId = strtolower((string) $show->whatnot_show_id);
-                        break;
-                    }
-                    if (preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', (string) $show->detail_url, $match)) {
-                        $latestLiveId = strtolower($match[0]);
-                        break;
-                    }
+        $preferred = (clone $query)->where('include_in_import', true)->get();
+        $sourceChannels = $preferred->isNotEmpty() ? $preferred : $query->get();
+
+        $channels = $sourceChannels->map(function (WhatnotChannel $channel) {
+            $recent = Show::query()
+                ->where('whatnot_channel_id', $channel->id)
+                ->whereNotNull('detail_url')
+                ->orderByDesc('show_date')
+                ->limit(25)
+                ->get(['id', 'whatnot_show_id', 'detail_url', 'show_date', 'last_synced_at']);
+
+            $latestLiveId = null;
+            foreach ($recent as $show) {
+                if ($show->whatnot_show_id && preg_match('/^[0-9a-f-]{36}$/i', (string) $show->whatnot_show_id)) {
+                    $latestLiveId = strtolower((string) $show->whatnot_show_id);
+                    break;
                 }
+                if (preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', (string) $show->detail_url, $match)) {
+                    $latestLiveId = strtolower($match[0]);
+                    break;
+                }
+            }
 
-                return [
-                    'id' => $channel->id,
-                    'name' => $channel->name,
-                    'whatnot_username' => $channel->whatnot_username,
-                    'latest_live_id' => $latestLiveId,
-                    'latest_show_date' => optional($recent->first()?->show_date)->toDateString(),
-                    'last_synced_at' => optional($recent->first()?->last_synced_at)->toIso8601String(),
-                ];
-            })
-            ->values();
+            $latest = $recent->first();
+            $earliestDate = Show::query()
+                ->where('whatnot_channel_id', $channel->id)
+                ->whereNotNull('show_date')
+                ->min('show_date');
 
-        // Preserve the existing import fallback: if no channels have the flag
-        // enabled, return all active channels instead of making the collector a
-        // silent no-op.
-        if ($channels->isEmpty()) {
-            $channels = WhatnotChannel::query()
-                ->where('status', 'active')
-                ->orderBy('id')
-                ->get()
-                ->map(fn (WhatnotChannel $channel) => [
-                    'id' => $channel->id,
-                    'name' => $channel->name,
-                    'whatnot_username' => $channel->whatnot_username,
-                    'latest_live_id' => null,
-                    'latest_show_date' => null,
-                    'last_synced_at' => null,
-                ])
-                ->values();
-        }
+            return [
+                'id' => $channel->id,
+                'name' => $channel->name,
+                'whatnot_username' => $channel->whatnot_username,
+                'latest_live_id' => $latestLiveId,
+                'latest_show_date' => $latest?->show_date?->toDateString(),
+                'earliest_show_date' => $earliestDate ? (string) $earliestDate : null,
+                'last_synced_at' => $latest?->last_synced_at?->toIso8601String(),
+            ];
+        })->values();
 
         return response()->json([
             'ok' => true,
@@ -76,21 +65,19 @@ class WhatnotCollectorController extends Controller
             'collector' => [
                 'protocol_version' => 1,
                 'max_bundle_bytes' => 7_000_000,
+                'max_shows_per_bundle' => 5_000,
             ],
         ]);
     }
 
     public function import(Request $request, WhatnotDesktopIngestor $ingestor): JsonResponse
     {
-        // Keep comfortably below the common 8 MB PHP/nginx request ceiling so a
-        // historical backfill fails clearly on the desktop instead of being
-        // truncated somewhere before Laravel sees it.
         $contentLength = (int) $request->server('CONTENT_LENGTH', 0);
         if ($contentLength > 7_000_000) {
             return response()->json([
                 'ok' => false,
                 'error' => 'COLLECTOR_BUNDLE_TOO_LARGE',
-                'message' => 'Collector bundle exceeds 7 MB. Reduce batch_size and retry.',
+                'message' => 'Collector bundle exceeds 7 MB. Reduce batch size and retry.',
             ], 413);
         }
 
@@ -100,7 +87,7 @@ class WhatnotCollectorController extends Controller
             'computer_name' => ['nullable', 'string', 'max:150'],
             'requested_channel_username' => ['required', 'string', 'max:100'],
             'verified_channel_username' => ['required', 'string', 'max:100'],
-            'shows' => ['present', 'array', 'max:500'],
+            'shows' => ['present', 'array', 'max:5000'],
             'orders_by_live_id' => ['present', 'array'],
             'shipments_by_live_id' => ['present', 'array'],
             'ledger' => ['present', 'array', 'max:10000'],

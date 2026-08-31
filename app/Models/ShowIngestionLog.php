@@ -39,14 +39,6 @@ class ShowIngestionLog extends Model
         ];
     }
 
-    /**
-     * Every source string the importers actually write.
-     *
-     * The filter used to offer "Whatnot" and "Manual". Three of the four real
-     * sources were missing from it and "manual" was never written by anything,
-     * so filtering by source could only ever narrow to one of four kinds of
-     * row or to none at all.
-     */
     public static function sourceLabels(): array
     {
         return [
@@ -62,19 +54,68 @@ class ShowIngestionLog extends Model
         return static::sourceLabels()[$this->source] ?? $this->source;
     }
 
-    /**
-     * What this row means, in a sentence someone can act on.
-     *
-     * A log line reading "whatnot_spa_enrichment / success" says nothing about
-     * what changed. The payload knows — how many orders came back, whether
-     * shipments were attached — so say that instead.
-     */
+    public static function failureTypeLabels(): array
+    {
+        return [
+            'browser_startup' => 'Browser startup failed',
+            'channel_switch'  => 'Channel switch failed',
+            'cloudflare'      => 'Cloudflare blocked navigation',
+            'auth_session'    => 'Authentication/session issue',
+            'no_shows'        => 'No shows returned',
+            'show_import'     => 'Show import failed',
+            'scraper'         => 'Scraper failed',
+        ];
+    }
+
+    public function failureType(): ?string
+    {
+        if ($this->status !== 'failed') {
+            return null;
+        }
+
+        $error = strtolower((string) $this->error_message);
+
+        return match (true) {
+            str_contains($error, 'chromium exited before devtools listener was ready'),
+            str_contains($error, 'chromium startup failed'),
+            str_contains($error, 'died during startup'),
+            str_contains($error, 'sigtrap') => 'browser_startup',
+
+            str_contains($error, 'channel_switch_'),
+            str_contains($error, 'channel_context_mismatch'),
+            str_contains($error, 'channel switch') => 'channel_switch',
+
+            str_contains($error, 'cloudflare'),
+            str_contains($error, 'security verification'),
+            str_contains($error, '__cf_chl_'),
+            str_contains($error, '403 get /dashboard') => 'cloudflare',
+
+            str_contains($error, 'login'),
+            str_contains($error, 'authentication'),
+            str_contains($error, 'session expired'),
+            str_contains($error, 'not authenticated') => 'auth_session',
+
+            str_contains($error, 'zero shows'),
+            str_contains($error, 'no shows'),
+            str_contains($error, 'returned 0 shows') => 'no_shows',
+
+            $this->show_id !== null => 'show_import',
+            default => 'scraper',
+        };
+    }
+
+    public function failureTypeLabel(): ?string
+    {
+        $type = $this->failureType();
+
+        return $type ? (static::failureTypeLabels()[$type] ?? $type) : null;
+    }
+
     public function summary(): string
     {
         if ($this->status === 'failed') {
-            return $this->show_id
-                ? 'Import failed for this show'
-                : 'Import failed before a show could be identified';
+            return $this->failureTypeLabel()
+                ?? ($this->show_id ? 'Show import failed' : 'Scraper failed');
         }
 
         $payload = is_array($this->raw_payload) ? $this->raw_payload : [];
@@ -90,7 +131,6 @@ class ShowIngestionLog extends Model
     private function enrichmentSummary(array $payload): string
     {
         $parts = [];
-
         $analytics = $payload['analytics'] ?? null;
 
         if (is_array($analytics)) {

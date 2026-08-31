@@ -15,8 +15,7 @@ class WhatnotBrowserLogin extends Command
 
     public function handle(): int
     {
-        $chrome = (string) (config('vortex.whatnot.chromium_executable_path')
-            ?: env('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH')
+        $chrome = (string) (config('vortex.whatnot.playwright_chromium_executable')
             ?: '/usr/bin/google-chrome-stable');
 
         if (! is_file($chrome) || ! is_executable($chrome)) {
@@ -28,6 +27,11 @@ class WhatnotBrowserLogin extends Command
         if (! is_dir($profile) && ! @mkdir($profile, 0775, true) && ! is_dir($profile)) {
             $this->error("Unable to create browser profile directory: {$profile}");
             return self::FAILURE;
+        }
+
+        $home = storage_path('whatnot-browser-home');
+        if (! is_dir($home)) {
+            @mkdir($home, 0775, true);
         }
 
         $port = (int) $this->option('port');
@@ -48,8 +52,6 @@ class WhatnotBrowserLogin extends Command
             return self::FAILURE;
         }
 
-        // Stale Chrome singleton files can survive an unclean scraper exit and
-        // prevent the exact same persistent profile from opening manually.
         foreach (['SingletonLock', 'SingletonCookie', 'SingletonSocket'] as $name) {
             $path = $profile . DIRECTORY_SEPARATOR . $name;
             if (is_link($path) || is_file($path)) {
@@ -64,11 +66,16 @@ class WhatnotBrowserLogin extends Command
         $this->line("URL:     {$url}");
         $this->newLine();
         $this->warn('This command does not type, submit, or automate your Whatnot credentials.');
-        $this->line('Chrome DevTools is bound to 127.0.0.1 only so it is not exposed publicly.');
+        $this->line('Chrome DevTools is bound to 127.0.0.1 only; it is not exposed publicly.');
         $this->line("DevTools port: {$port}");
         $this->newLine();
+        $this->line('If this VPS has a GUI/VNC session, use that to complete the login normally.');
+        $this->line('Otherwise, tunnel the DevTools port from your computer:');
+        $this->line("  ssh -L {$port}:127.0.0.1:{$port} root@YOUR_SERVER");
+        $this->line('Then open chrome://inspect/#devices in Chrome and add localhost:' . $port . '.');
+        $this->newLine();
         $this->line('Keep this command running while you complete the login manually.');
-        $this->line('When you are signed in, close the Chrome window (or press Ctrl-C here).');
+        $this->line('When you are signed in, close the remote Chrome window (or press Ctrl-C here).');
         $this->newLine();
 
         $process = new Process([
@@ -85,27 +92,16 @@ class WhatnotBrowserLogin extends Command
             '--new-window',
             $url,
         ], base_path(), [
-            'HOME' => storage_path('whatnot-browser-home'),
+            'HOME' => $home,
             'TZ' => 'America/Chicago',
         ]);
 
-        // A manual login can reasonably take several minutes. No timeout here;
-        // the operator closes Chrome or interrupts this command when finished.
         $process->setTimeout(null);
         $process->setIdleTimeout(null);
 
         $exit = $process->run(function (string $type, string $buffer): void {
-            // Preserve Chrome/Xvfb diagnostics without trying to interpret them.
             $this->output->write($buffer);
         });
-
-        // The profile itself is authoritative after a manual login. Remove the
-        // bootstrap marker so a later explicit cookie import can still take
-        // effect instead of being mistaken for already-loaded state.
-        $marker = storage_path('whatnot-cookies.json.loaded-mtime');
-        if (is_file($marker)) {
-            @unlink($marker);
-        }
 
         if ($exit !== 0 && $exit !== 130 && $exit !== 143) {
             $this->error("Chrome exited with code {$exit}.");
@@ -113,7 +109,7 @@ class WhatnotBrowserLogin extends Command
         }
 
         $this->newLine();
-        $this->info('Manual browser session closed. Test the saved session with:');
+        $this->info('Manual browser session closed. Test the saved profile session with:');
         $this->line('  php artisan whatnot:login --test');
 
         return self::SUCCESS;

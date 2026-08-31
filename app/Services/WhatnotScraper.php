@@ -29,7 +29,7 @@ class WhatnotScraper
 
     public function __construct()
     {
-        $this->scriptPath = base_path('scripts/whatnot-scraper.cjs');
+        $this->scriptPath = base_path('scripts/whatnot-runner.cjs');
         $this->nodeBin    = config('vortex.whatnot.node_bin', 'node');
     }
 

@@ -30,6 +30,8 @@ class ProbeWhatnotShows extends Command
             'WHATNOT_MODE' => 'shows',
             'WHATNOT_LIMIT' => (string) $limit,
             'WHATNOT_DEBUG' => $this->option('debug') ? '1' : '0',
+            'WHATNOT_BROWSER_BACKEND' => (string) config('vortex.whatnot.browser_backend', 'local'),
+            'STEEL_BASE_URL' => (string) config('vortex.whatnot.steel_base_url', 'http://127.0.0.1:3000'),
         ];
 
         // Important: do NOT set WHATNOT_CHANNEL_NAME unless the caller explicitly
@@ -67,16 +69,16 @@ class ProbeWhatnotShows extends Command
         $this->line('Mode: shows (analytics page bypassed; channel switch bypassed unless --channel is supplied)');
         $this->newLine();
 
-        // Match WhatnotScraper::commandLine(): headed Chromium needs an X display.
-        // Artisan probes should be just as reliable under cron/SSH as scheduled
-        // scraper jobs, so automatically use the repository wrapper when DISPLAY
-        // is unavailable instead of making the operator remember xvfb-run.
+        // Match WhatnotScraper::commandLine(): only the legacy local backend needs
+        // an X display in headed mode. Steel owns its browser process, so wrapping
+        // a Steel probe in Xvfb is unnecessary and obscures which backend ran.
         $command = [$node, $script];
+        $backend = strtolower($env['WHATNOT_BROWSER_BACKEND'] ?? 'local');
         $headed = ($env['WHATNOT_HEADLESS'] ?? 'true') === 'false';
         $display = $env['DISPLAY'] ?? getenv('DISPLAY');
         $hasDisplay = $display !== false && $display !== null && $display !== '';
 
-        if ($headed && ! $hasDisplay) {
+        if ($backend === 'local' && $headed && ! $hasDisplay) {
             $wrapper = base_path('scripts/with-xvfb.sh');
             if (is_readable($wrapper)) {
                 $command = ['/bin/sh', $wrapper, $node, $script];
@@ -97,9 +99,8 @@ class ProbeWhatnotShows extends Command
 
         if (! $process->isSuccessful()) {
             $this->error('Show-list probe failed with exit code ' . $process->getExitCode() . '.');
-            if ($stderr !== '') {
-                $this->line($stderr);
-            }
+            // stderr is already streamed live by the callback above. Do not print
+            // the captured buffer a second time on failure.
             return self::FAILURE;
         }
 

@@ -1,0 +1,25 @@
+name: Restore WhatnotScraper service
+
+on:
+  push:
+    branches: [Dev]
+    paths:
+      - .github/workflows/restore-whatnot-service.yml
+
+permissions:
+  contents: write
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Dev
+          fetch-depth: 0
+      - name: Revert incomplete service replacement
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git revert ff2555f795ebf32f5d463a8502b87a624b979941 --no-edit
+          git push origin HEAD:Dev

@@ -1,0 +1,39 @@
+name: Apply Whatnot native browser cleanup
+
+on:
+  push:
+    branches: [Dev]
+    paths:
+      - 'scripts/apply-whatnot-native-browser-cleanup.py'
+      - '.github/workflows/apply-whatnot-native-browser-cleanup.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Dev
+        uses: actions/checkout@v4
+        with:
+          ref: Dev
+          fetch-depth: 0
+
+      - name: Apply targeted scraper patch
+        run: python3 scripts/apply-whatnot-native-browser-cleanup.py
+
+      - name: Validate JavaScript
+        run: |
+          node --check scripts/whatnot-scraper.cjs
+          git diff --check
+
+      - name: Commit scraper change and remove temporary patch files
+        run: |
+          rm -f scripts/apply-whatnot-native-browser-cleanup.py
+          rm -f .github/workflows/apply-whatnot-native-browser-cleanup.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix(scraper): use native Chrome identity and factual diagnostics'
+          git push origin Dev

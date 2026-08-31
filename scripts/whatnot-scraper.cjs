@@ -1026,6 +1026,18 @@ async function performLogin(page, email, password) {
 // Throws if buyer mode is detected but can't be exited.
 
 async function ensureSellerMode(page) {
+  // For a channel-scoped run, do not navigate to Seller Hub merely to prove
+  // seller mode. The role picker on the already-authenticated Whatnot shell is
+  // enough to establish seller context, and switchToChannel verifies the active
+  // username before any scrape is allowed to continue. This keeps attribution
+  // fail-closed while avoiding an unnecessary /dashboard/home Cloudflare gate.
+  if (CHANNEL_NAME) {
+    info(`ensureSellerMode: channel requested — switching directly from current authenticated page to @${CHANNEL_NAME}`);
+    await switchToChannel(page, CHANNEL_NAME);
+    global._sellerModeActive = true;
+    return;
+  }
+
   const pageText = await page.evaluate(() =>
     (document.body.innerText || '').substring(0, 600)
   ).catch(() => '');
@@ -3582,7 +3594,12 @@ async function extractLedgerFromPage(page) {
     // If we have a cookie file, attempt a fast cookie-auth check before trying form login.
     // This skips the Kasada-blocked login page entirely on subsequent runs.
     if (hasCookieFile && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe' && MODE !== 'api-discover') {
-      await page.goto(URLS.sellerHub, { waitUntil: 'domcontentloaded', timeout: 20000 });
+      // Validate the restored session on the public Whatnot shell first. Seller Hub
+      // itself can be Cloudflare-challenged even when the authenticated session is
+      // valid, which used to stop channel switching before it even had a chance to
+      // run. A redirect from / to /login is still decisive evidence of an expired
+      // session; otherwise channel-specific runs verify the requested role directly.
+      await page.goto(URLS.home, { waitUntil: 'domcontentloaded', timeout: 20000 });
       await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
 
       // Not just "did goto resolve" — see confirmSellerHub. The answer this

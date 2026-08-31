@@ -11,6 +11,7 @@ const APP_DIR = process.env.LOCALAPPDATA
   ? path.join(process.env.LOCALAPPDATA, 'VortexOps', 'WhatnotCollector')
   : path.join(os.homedir(), '.vortexops', 'whatnot-collector');
 const DEFAULT_PROFILE = path.join(APP_DIR, 'ChromeProfile');
+const LOCK_FILE = path.join(APP_DIR, 'collector.lock');
 
 function detectChrome() {
   const candidates = [
@@ -19,6 +20,33 @@ function detectChrome() {
     process.env.LOCALAPPDATA && path.join(process.env.LOCALAPPDATA, 'Google', 'Chrome', 'Application', 'chrome.exe'),
   ].filter(Boolean);
   return candidates.find((candidate) => fs.existsSync(candidate)) || '';
+}
+
+function processAlive(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; }
+  catch (e) { return e.code === 'EPERM'; }
+}
+
+function acquireLock() {
+  fs.mkdirSync(APP_DIR, { recursive: true });
+  if (fs.existsSync(LOCK_FILE)) {
+    let existing = null;
+    try { existing = JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8')); } catch {}
+    if (existing?.pid && processAlive(Number(existing.pid))) {
+      console.error(`A Whatnot sync/login is already using the dedicated browser profile (PID ${existing.pid}).`);
+      process.exit(1);
+    }
+    fs.rmSync(LOCK_FILE, { force: true });
+  }
+  fs.writeFileSync(LOCK_FILE, JSON.stringify({ pid: process.pid, mode: 'manual-login', started_at: new Date().toISOString() }), { flag: 'wx' });
+}
+
+function releaseLock() {
+  try {
+    const current = JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8'));
+    if (Number(current?.pid) === process.pid) fs.rmSync(LOCK_FILE, { force: true });
+  } catch {}
 }
 
 let config = {};
@@ -35,6 +63,7 @@ if (!chrome || !fs.existsSync(chrome)) {
 }
 
 fs.mkdirSync(profile, { recursive: true });
+acquireLock();
 
 console.log('============================================================');
 console.log(' VortexOps Whatnot Login');
@@ -61,10 +90,16 @@ const child = spawn(chrome, [
 });
 
 child.on('error', (e) => {
+  releaseLock();
   console.error('Could not start Chrome:', e.message);
   process.exitCode = 1;
 });
 
 child.on('close', () => {
+  releaseLock();
   console.log('Dedicated Chrome closed. The Whatnot session is saved in the collector profile.');
 });
+
+process.on('SIGINT', () => { releaseLock(); process.exit(130); });
+process.on('SIGTERM', () => { releaseLock(); process.exit(143); });
+process.on('exit', releaseLock);

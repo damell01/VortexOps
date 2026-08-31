@@ -3470,11 +3470,15 @@ async function extractLedgerFromPage(page) {
     // Someone running whatnot:login means "use this now", so the bootstrap file
     // keeps that power. A machine-written dump of state we already have does
     // not, and is only reached for when the profile has nothing at all.
+    const _isServerLiveSnapshot = _cookiesFile.endsWith('whatnot-live-cookies.json');
     const _isHumanImport = Boolean(process.env.WHATNOT_COOKIES_FILE)
       || _cookiesFile.endsWith('whatnot-cookies.json');
 
+    // A server-generated live snapshot is trusted state from this exact browser/IP.
+    // Reload it when it is newer than the marker so a stale persistent profile can
+    // recover without falling all the way back to the older human export.
     const _shouldLoad = _existingCookies.length === 0
-      || (_isHumanImport && _fileMtimeMs > _lastLoadedMtimeMs);
+      || ((_isHumanImport || _isServerLiveSnapshot) && _fileMtimeMs > _lastLoadedMtimeMs);
 
     if (!_shouldLoad) {
       info('persistent profile already has', _existingCookies.length, 'whatnot.com cookies and bootstrap file is unchanged — skipping to preserve session refresh');
@@ -3499,18 +3503,17 @@ async function extractLedgerFromPage(page) {
           _bootstrappedFromFile = true;
           _fs.writeFileSync(_cookiesLoadedMarker, String(_fileMtimeMs));
 
-          // Drop Cloudflare's edge tokens whenever a bootstrap file is loaded.
-          //
-          // cf_clearance proves a particular browser on a particular IP passed
-          // a challenge, and Cloudflare binds it to both. One exported from a
-          // laptop cannot be honoured here, and offering a clearance token that
-          // does not match the connection is worse than offering none — it is
-          // what a replayed token looks like. This browser must earn its own.
-          //
-          // Only on the bootstrap path: a clearance this profile earned for
-          // itself is the thing we most want to keep.
-          for (const _edgeCookie of CLOUDFLARE_EDGE_COOKIES) {
-            await context.clearCookies({ name: _edgeCookie }).catch(() => {});
+          // Human/browser exports come from a different machine, so their Cloudflare
+          // edge tokens must not be replayed here. whatnot-live-cookies.json is
+          // different: it is written by this server's own live Chromium context,
+          // so its cf_clearance and related edge state belong to this exact IP/browser
+          // and are the state we need to preserve when recovering a stale profile.
+          if (!_isServerLiveSnapshot) {
+            for (const _edgeCookie of CLOUDFLARE_EDGE_COOKIES) {
+              await context.clearCookies({ name: _edgeCookie }).catch(() => {});
+            }
+          } else {
+            info('preserving server-earned Cloudflare state from', _cookiesFile);
           }
           info('loaded', _cookies.length, 'session cookies from', _cookiesFile, _existingCookies.length === 0 ? '(first run)' : '(file re-exported since last load)');
         }
@@ -3538,7 +3541,7 @@ async function extractLedgerFromPage(page) {
       && (c.expires * 1000 - Date.now()) > 24 * 60 * 60 * 1000))
     .catch(() => null);
 
-  if (_importedClearance || process.env.WHATNOT_DROP_CLEARANCE === '1') {
+  if ((!_isServerLiveSnapshot && _importedClearance) || process.env.WHATNOT_DROP_CLEARANCE === '1') {
     for (const _edgeCookie of CLOUDFLARE_EDGE_COOKIES) {
       await context.clearCookies({ name: _edgeCookie }).catch(() => {});
     }

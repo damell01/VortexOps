@@ -1,0 +1,41 @@
+name: One-time forward WHATNOT_COOKIES_FILE
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Dev
+      - name: Patch WhatnotScraper baseEnv
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('app/Services/WhatnotScraper.php')
+          text = path.read_text()
+          old = """        if ($email)    $env['WHATNOT_EMAIL']    = $email;\n        if ($password) $env['WHATNOT_PASSWORD'] = $password;\n\n        return $env;\n"""
+          new = """        if ($email)    $env['WHATNOT_EMAIL']    = $email;\n        if ($password) $env['WHATNOT_PASSWORD'] = $password;\n\n        // Explicit scraper overrides supplied to the Artisan process must be\n        // forwarded to the child Node process. Symfony Process is constructed\n        // with this curated env array, so values such as WHATNOT_COOKIES_FILE\n        // do not otherwise survive from the shell into whatnot-scraper.cjs.\n        if (($cookiesFile = getenv('WHATNOT_COOKIES_FILE')) !== false && $cookiesFile !== '') {\n            $env['WHATNOT_COOKIES_FILE'] = $cookiesFile;\n        }\n\n        return $env;\n"""
+          if old not in text:
+              raise SystemExit('Expected baseEnv block not found; refusing to patch')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          php -l app/Services/WhatnotScraper.php
+      - name: Commit patch
+        shell: bash
+        run: |
+          if git diff --quiet -- app/Services/WhatnotScraper.php; then
+            echo "No patch needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/Services/WhatnotScraper.php
+          git commit -m "fix(scraper): forward explicit cookie file override"
+          git push origin Dev

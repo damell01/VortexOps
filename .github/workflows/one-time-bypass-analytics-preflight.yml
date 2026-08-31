@@ -5,6 +5,7 @@ on:
     branches: [Dev]
     paths:
       - '.github/workflows/one-time-bypass-analytics-preflight.yml'
+      - '.github/trigger-preflight-patch.txt'
 
 permissions:
   contents: write

@@ -10,11 +10,10 @@ if errorlevel 1 (
   exit /b 1
 )
 
-set "NODEEXE="
-for /f "delims=" %%N in ('where node') do if not defined NODEEXE set "NODEEXE=%%N"
-set "COLLECTOR=%~dp0collector.cjs"
-set "TASKCMD=\"%NODEEXE%\" \"%COLLECTOR%\""
-
+echo ============================================================
+echo  VortexOps Automatic Whatnot Sync
+echo ============================================================
+echo.
 echo This installs a Windows Task Scheduler job named:
 echo   VortexOps Whatnot Collector
 echo.
@@ -22,7 +21,7 @@ echo It runs every hour while this Windows account is logged in.
 echo The dedicated Whatnot Chrome profile must already be logged in.
 echo.
 
-schtasks /Create /F /TN "VortexOps Whatnot Collector" /SC HOURLY /MO 1 /TR "%TASKCMD%" /RL LIMITED
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0install-task.ps1"
 if errorlevel 1 (
   echo.
   echo Could not create the scheduled task.
@@ -33,5 +32,6 @@ if errorlevel 1 (
 echo.
 echo Automatic hourly sync is installed.
 echo You can still run "Sync Whatnot.bat" manually at any time.
+echo Scheduled output is written to desktop-collector\logs\scheduled-sync.log.
 echo.
 pause

@@ -519,13 +519,9 @@ function describeChallengeShape() {
 // page. The scraper navigated with waitUntil:'domcontentloaded' and read the DOM
 // immediately, so it caught that interstitial mid-flight every time and called
 // it a missing page. Waiting is the whole fix.
-// Cloudflare's own cookies, none of which travel between machines.
-//
-// cf_clearance and __cf_bm are bound to the IP and User-Agent that earned them,
-// so one exported from a laptop cannot be honoured from a server — and offering
-// a clearance token that does not match the connection is what a replayed token
-// looks like. The cf_chl_* pair record a challenge already in progress
-// elsewhere, which is a state this browser is not in.
+// Cloudflare edge/challenge cookies are connection-specific state rather than
+// Whatnot account-authentication state. Their presence does not prove that the
+// current browser context completed or will pass a challenge.
 const CLOUDFLARE_EDGE_COOKIES = [
   'cf_clearance',
   '__cf_bm',
@@ -702,12 +698,9 @@ async function restoreLocalStorage(page) {
 /**
  * Report whether this profile holds a Cloudflare clearance cookie.
  *
- * cf_clearance is what a browser receives for passing a challenge, and it is
- * bound to the IP and User-Agent that earned it — which is why one exported
- * from a laptop is worthless on a server. Its presence is the only direct
- * measure of whether the browser has ever actually got through: without it,
- * every run starts the fight from scratch. With it, the fight is already won
- * and stays won until it expires.
+ * cf_clearance is one piece of Cloudflare edge state. Its presence tells us
+ * that a clearance cookie exists in this context, but not where it originated
+ * or whether Cloudflare will accept it for the current request.
  */
 async function reportClearance(context) {
   try {
@@ -715,7 +708,7 @@ async function reportClearance(context) {
     const clearance = cookies.find((c) => c.name === 'cf_clearance');
 
     if (!clearance) {
-      info('cf_clearance: absent — this profile has never passed a Cloudflare challenge');
+      info('cf_clearance: absent in the current browser context');
       return false;
     }
 
@@ -725,16 +718,12 @@ async function reportClearance(context) {
 
     info('cf_clearance: present, expires in', minutes === null ? 'session' : minutes + ' min');
 
-    // Cloudflare issues clearance for the order of an hour. A token good for
-    // months did not come from a challenge this profile passed — it came in
-    // with an imported session, and it is bound to the address and user agent
-    // that earned it, so from here it is at best ignored. Reported because
-    // "cf_clearance: present" otherwise reads as reassurance.
+    // An unusually long expiry is useful as a diagnostic hint, but expiry alone
+    // cannot prove where a cookie originated.
     if (minutes !== null && minutes > 24 * 60) {
       info(
-        'cf_clearance: that expiry is far longer than Cloudflare issues, so this token was almost',
-        'certainly imported rather than earned here. It is bound to the address that earned it.',
-        'Drop it with WHATNOT_DROP_CLEARANCE=1 to make this profile face the challenge on its own.',
+        'cf_clearance: unusually long expiry; treating it as saved edge state rather than',
+        'proof that this current browser context completed a Cloudflare challenge.',
       );
     }
 
@@ -782,6 +771,61 @@ function navPath(url) {
  * carry the status — a 403 on the document is the second shape — and the
  * commit line shows where the frame actually ended up, redirects included.
  */
+async function reportNativeBrowserDiagnostics(page) {
+  if (process.env.WHATNOT_BROWSER_DIAGNOSTICS !== '1') return;
+
+  try {
+    const runtime = await page.evaluate(() => ({
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      webdriver: navigator.webdriver,
+      language: navigator.language,
+      languages: Array.from(navigator.languages || []),
+      uaDataPlatform: navigator.userAgentData?.platform ?? null,
+      uaDataMobile: navigator.userAgentData?.mobile ?? null,
+      uaDataBrands: navigator.userAgentData?.brands ?? null,
+      screen: {
+        width: screen.width,
+        height: screen.height,
+        availWidth: screen.availWidth,
+        availHeight: screen.availHeight,
+        colorDepth: screen.colorDepth,
+        pixelDepth: screen.pixelDepth,
+      },
+      viewport: {
+        innerWidth: window.innerWidth,
+        innerHeight: window.innerHeight,
+        devicePixelRatio: window.devicePixelRatio,
+      },
+    }));
+
+    info('[browser-diag] executable:', CHROMIUM_PATH);
+    info('[browser-diag] runtime:', JSON.stringify(runtime));
+  } catch (e) {
+    info('[browser-diag] runtime inspection failed:', e.message);
+  }
+
+  page.on('request', async (request) => {
+    try {
+      if (!request.isNavigationRequest()) return;
+      if (request.frame() !== page.mainFrame()) return;
+      if (!request.url().includes('whatnot.com')) return;
+
+      const headers = await request.allHeaders();
+      info('[browser-diag] navigation headers:', JSON.stringify({
+        url: navPath(request.url()),
+        userAgent: headers['user-agent'] || null,
+        secChUa: headers['sec-ch-ua'] || null,
+        secChUaPlatform: headers['sec-ch-ua-platform'] || null,
+        secChUaMobile: headers['sec-ch-ua-mobile'] || null,
+        acceptLanguage: headers['accept-language'] || null,
+      }));
+    } catch {
+      // Diagnostics must never affect scraper behavior.
+    }
+  });
+}
+
 function installNavigationLogging(page) {
   page.on('response', (response) => {
     try {
@@ -2622,7 +2666,6 @@ async function runWsExploreStandalone(cookiesFilePath) {
   const tempContext = await launchPersistentContextViaCdp(tempDir, {
     args: ['--no-sandbox', '--no-zygote', '--disable-dev-shm-usage', '--disable-gpu',
            '--disable-crash-reporter', '--crash-dumps-dir=/tmp'],
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
     viewport:  { width: 1280, height: 900 },
   });
   try {
@@ -3431,17 +3474,14 @@ async function extractLedgerFromPage(page) {
       '--crash-dumps-dir=/tmp',
       '--disable-gpu',
     ],
-    // Realistic Chrome/Windows UA — no "HeadlessChrome" in the string
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+    // Let the installed Chrome executable report its own UA and Client Hints.
+    // Hard-coding another Chrome version/platform makes diagnostics describe a
+    // browser we are not actually running.
     viewport:  { width: 1280, height: 900 },
     locale:    'en-US',
     env:       { TZ: 'America/Chicago' },
-    // Client Hints headers must match the UA — inconsistency is a detection signal
     extraHTTPHeaders: {
-      'sec-ch-ua':          '"Chromium";v="128", "Google Chrome";v="128", "Not-A.Brand";v="99"',
-      'sec-ch-ua-mobile':   '?0',
-      'sec-ch-ua-platform': '"Windows"',
-      'Accept-Language':    'en-US,en;q=0.9',
+      'Accept-Language': 'en-US,en;q=0.9',
     },
     // NOTE: discover mode previously passed serviceWorkers: 'block' here (so
     // fetch() calls hit the real network instead of the SW cache, which
@@ -3459,91 +3499,8 @@ async function extractLedgerFromPage(page) {
     ? await launchSteelContext(browserOptions)
     : await launchWithProfileRecovery(USER_DATA_DIR, browserOptions);
 
-  // Mask automation signals that trigger bot detection on sites like Whatnot.
-  // navigator.webdriver = true is the primary signal headless Chrome sets.
-  // Steel already manages its own coherent browser fingerprint; only apply the
-  // legacy local-browser shims to the local backend.
-  if (BROWSER_BACKEND !== 'steel') {
-    await context.addInitScript(() => {
-    // Core: webdriver flag
-    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-
-    // Chrome-specific object that headless Chrome doesn't set by default
-    if (!window.chrome) window.chrome = { runtime: {} };
-
-    // Realistic plugin list
-    Object.defineProperty(navigator, 'plugins', {
-      get: () => {
-        const arr = [{ name: 'Chrome PDF Plugin' }, { name: 'Chrome PDF Viewer' }, { name: 'Native Client' }];
-        arr.item = i => arr[i];
-        arr.namedItem = n => arr.find(p => p.name === n) || null;
-        arr.refresh = () => {};
-        return arr;
-      },
-    });
-
-    Object.defineProperty(navigator, 'languages', { get: () => ['en-US', 'en'] });
-
-    // Screen dimensions matching the viewport (headless can leave these at 0)
-    try {
-      Object.defineProperty(screen, 'availWidth',  { get: () => 1920 });
-      Object.defineProperty(screen, 'availHeight', { get: () => 1040 });
-    } catch (_) {}
-
-    // Permissions API — headless denies notifications, real browsers default to "default"
-    try {
-      const origQuery = window.navigator.permissions.query.bind(window.navigator.permissions);
-      window.navigator.permissions.query = (params) => {
-        if (params && params.name === 'notifications') {
-          return Promise.resolve({ state: 'default', onchange: null });
-        }
-        return origQuery(params);
-      };
-    } catch (_) {}
-
-    // WebGL — headless reports "SwiftShader", which is detectable.
-    //
-    // The replacement has to agree with the User-Agent. These strings used to
-    // say "Intel Iris OpenGL Engine", which is what macOS Chrome reports, on a
-    // browser whose UA and Client Hints both claim Windows. A real Windows
-    // Chrome reports an ANGLE/Direct3D string, so the old pair described a
-    // machine that cannot exist.
-    try {
-      const getParam = WebGLRenderingContext.prototype.getParameter;
-      WebGLRenderingContext.prototype.getParameter = function (parameter) {
-        if (parameter === 37446) return 'Google Inc. (Intel)';   // UNMASKED_VENDOR_WEBGL
-        if (parameter === 37445) {                               // UNMASKED_RENDERER_WEBGL
-          return 'ANGLE (Intel, Intel(R) UHD Graphics 620 (0x00003E9B) Direct3D11 vs_5_0 ps_5_0, D3D11)';
-        }
-        return getParam.call(this, parameter);
-      };
-    } catch (_) {}
-
-    // navigator.platform and userAgentData were left alone, so they reported
-    // the truth — Linux — while the UA, the Client Hints headers and the WebGL
-    // strings all claimed something else. Three operating systems in one
-    // fingerprint is a stronger signal than any single unusual value, because
-    // no real machine produces it.
-    try {
-      Object.defineProperty(navigator, 'platform', { get: () => 'Win32' });
-    } catch (_) {}
-
-    try {
-      if (navigator.userAgentData) {
-        Object.defineProperty(navigator.userAgentData, 'platform', { get: () => 'Windows' });
-      }
-    } catch (_) {}
-
-    // A screen exactly the size of the viewport is not a shape real windows
-    // take — there is always browser chrome and usually a taskbar.
-    try {
-      Object.defineProperty(screen, 'width',  { get: () => 1920 });
-      Object.defineProperty(screen, 'height', { get: () => 1080 });
-      Object.defineProperty(screen, 'colorDepth', { get: () => 24 });
-      Object.defineProperty(screen, 'pixelDepth', { get: () => 24 });
-    } catch (_) {}
-    });
-  }
+  // Use Chrome's native browser properties. Do not rewrite navigator, WebGL,
+  // platform, plugins, permissions, screen values, or Client Hints.
 
   // ── Bootstrap session cookies (one-time first-run setup + manual re-auth) ────
   // Export cookies from your logged-in browser (Cookie-Editor extension → Export
@@ -3676,13 +3633,14 @@ async function extractLedgerFromPage(page) {
       await context.clearCookies({ name: _edgeCookie }).catch(() => {});
     }
     info(_importedClearance
-      ? 'dropped an imported cf_clearance — its expiry says it was earned on another machine'
+      ? 'dropped saved cf_clearance with an unusually long expiry; origin is not inferred'
       : 'dropped Cloudflare edge cookies on request (WHATNOT_DROP_CLEARANCE=1)');
   }
 
   const page = await context.newPage();
   installChallengeHandling(page);
   installNavigationLogging(page);
+  await reportNativeBrowserDiagnostics(page);
   await reportClearance(context);
 
   // Only after a bootstrap: an established profile already has its own, and

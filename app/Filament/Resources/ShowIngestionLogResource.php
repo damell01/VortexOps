@@ -38,22 +38,17 @@ class ShowIngestionLogResource extends Resource
         $count = ShowIngestionLog::where('status', 'failed')
             ->where('created_at', '>=', now()->subDays(7))
             ->count();
+
         return $count > 0 ? (string) $count : null;
     }
 
     public static function getNavigationBadgeColor(): ?string { return 'danger'; }
 
-    public static function canCreate(): bool         { return false; }
-    public static function canEdit($r): bool         { return false; }
-    public static function canDelete($r): bool       { return auth()->user()?->isOwner() ?? false; }
-    public static function canDeleteAny(): bool      { return auth()->user()?->isOwner() ?? false; }
+    public static function canCreate(): bool    { return false; }
+    public static function canEdit($r): bool    { return false; }
+    public static function canDelete($r): bool  { return auth()->user()?->isOwner() ?? false; }
+    public static function canDeleteAny(): bool { return auth()->user()?->isOwner() ?? false; }
 
-    /**
-     * Admin-only. These are scraper run records — every channel's imports,
-     * with raw error messages attached — and the query is deliberately not
-     * scoped to anyone. HasModuleAccess admits any signed-in user by default,
-     * which put them in front of streamers.
-     */
     protected static function passesModuleAccessCheck(): bool
     {
         return auth()->user()?->isAdmin() ?? false;
@@ -72,6 +67,10 @@ class ShowIngestionLogResource extends Resource
                     ->label('What happened')
                     ->content(fn ($record) => $record?->summary() ?? '—'),
 
+                \Filament\Forms\Components\Placeholder::make('failure_type')
+                    ->label('Failure type')
+                    ->content(fn ($record) => $record?->failureTypeLabel() ?? '—'),
+
                 \Filament\Forms\Components\Placeholder::make('source')
                     ->label('What ran')
                     ->content(fn ($record) => $record?->sourceLabel() ?? '—'),
@@ -89,7 +88,7 @@ class ShowIngestionLogResource extends Resource
                     ->content(fn ($record) => $record?->show?->title ?? 'No show linked'),
 
                 \Filament\Forms\Components\Placeholder::make('error_message')
-                    ->label('Error Message')
+                    ->label('Full error message')
                     ->content(fn ($record) => $record?->error_message ?? '—'),
 
                 \Filament\Forms\Components\Placeholder::make('raw_payload')
@@ -110,9 +109,6 @@ class ShowIngestionLogResource extends Resource
             ->emptyStateDescription('Whatnot import runs are logged here with their results.')
             ->emptyStateIcon('heroicon-o-arrow-down-tray')
             ->columns([
-                // Relative first, exact underneath: "12 minutes ago" answers
-                // the question this page exists for, and the timestamp is
-                // still there for anyone correlating against a log file.
                 TextColumn::make('created_at')
                     ->label('When')
                     ->since()
@@ -124,25 +120,23 @@ class ShowIngestionLogResource extends Resource
                     ->label('Channel')
                     ->badge()
                     ->color('gray')
-                    // Before this column existed the answer lived in a JSON
-                    // key, and failures — which carry no show to join through
-                    // — had no answer at all.
                     ->placeholder('Unknown')
                     ->sortable(),
 
-                // What happened, in words. A row reading
-                // "whatnot_spa_enrichment / success" says nothing about what
-                // changed; the payload knows, so the model says it.
                 TextColumn::make('summary')
                     ->label('What happened')
                     ->getStateUsing(fn (ShowIngestionLog $record) => $record->summary())
-                    // The error goes here rather than in a column of its own.
-                    // A separate column is a dash on every healthy row, and on
-                    // a phone — where the table stacks into cards — that is a
-                    // labelled empty line under every single record.
-                    ->description(fn (ShowIngestionLog $record) => filled($record->error_message)
-                        ? \Illuminate\Support\Str::limit($record->error_message, 120)
-                        : $record->sourceLabel())
+                    ->description(function (ShowIngestionLog $record): string {
+                        if ($record->status !== 'failed') {
+                            return $record->sourceLabel();
+                        }
+
+                        $error = trim((string) $record->error_message);
+
+                        return $error !== ''
+                            ? \Illuminate\Support\Str::limit($error, 90)
+                            : 'Open the record for failure details';
+                    })
                     ->color(fn (ShowIngestionLog $record) => $record->status === 'failed' ? 'danger' : null)
                     ->tooltip(fn (ShowIngestionLog $record) => $record->error_message)
                     ->wrap(),
@@ -162,7 +156,6 @@ class ShowIngestionLogResource extends Resource
                     ->badge()
                     ->formatStateUsing(fn ($state) => ShowIngestionLog::statusLabels()[$state] ?? $state)
                     ->color(fn ($state) => StatusColor::for($state)),
-
             ])
             ->defaultSort('created_at', 'desc')
             ->striped()
@@ -189,9 +182,6 @@ class ShowIngestionLogResource extends Resource
                     ->label('Outcome')
                     ->options(ShowIngestionLog::statusLabels()),
 
-                // Every source the importers actually write. The old list
-                // offered "Whatnot" and "Manual" — three of the four real
-                // values were missing, and nothing has ever written "manual".
                 SelectFilter::make('source')
                     ->label('What ran')
                     ->options(ShowIngestionLog::sourceLabels())
@@ -201,21 +191,20 @@ class ShowIngestionLogResource extends Resource
                     ->label('Problems only')
                     ->query(fn (Builder $query) => $query->where('status', '!=', 'success')),
 
+                Filter::make('hide_old_failures')
+                    ->label('Hide failures older than 24h')
+                    ->query(fn (Builder $query) => $query->where(function (Builder $query): void {
+                        $query->where('status', '!=', 'failed')
+                            ->orWhere('created_at', '>=', now()->subDay());
+                    })),
+
                 Filter::make('created_at')
                     ->label('Date range')
                     ->form([
                         DatePicker::make('from')->label('From'),
                         DatePicker::make('until')->label('Until'),
                     ])
-                    // $query, not $q: Filament injects the table's builder by
-                    // parameter *name*. Named anything else it falls through to
-                    // resolving Builder from the container, so the constraints
-                    // land on a throwaway query and the filter does nothing —
-                    // which is exactly what this one did.
                     ->query(fn (Builder $query, array $data) => $query
-                        // ?? null: the rendered form always supplies both keys,
-                        // but a filter restored from the session or a URL need
-                        // not, and an undefined index here is a 500 on the page.
                         ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '>=', $d))
                         ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('created_at', '<=', $d))
                     )

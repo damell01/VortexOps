@@ -3617,7 +3617,7 @@ async function extractLedgerFromPage(page) {
       // server even with a valid imported session, while /account/analytics is
       // the already-established route used by the working historical analytics
       // scraper and is outside the challenged /dashboard surface.
-      await page.goto('https://www.whatnot.com/account/analytics', { waitUntil: 'domcontentloaded', timeout: 20000 });
+      await page.goto('https://www.whatnot.com/dashboard/home', { waitUntil: 'domcontentloaded', timeout: 20000 });
       await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});
 
       // Not just "did goto resolve" — see confirmSellerHub. The answer this

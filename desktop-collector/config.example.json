@@ -4,6 +4,9 @@
   "show_limit": 50,
   "order_batch_size": 10,
   "ledger_days": 31,
+  "full_history_max_batches": 10,
+  "historical_ledger_from": "",
+  "headless": true,
   "channels": [],
   "chrome_path": "",
   "profile_dir": ""

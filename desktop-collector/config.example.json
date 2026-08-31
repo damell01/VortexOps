@@ -8,6 +8,7 @@
   "historical_ledger_from": "",
   "headless": true,
   "channels": [],
+  "python_path": "python",
   "chrome_path": "",
   "profile_dir": ""
 }

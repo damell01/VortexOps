@@ -1193,9 +1193,44 @@ async function switchToChannel(page, channelName) {
     info('switchToChannel: Seller Hub body is usable; skipping redundant challenge wait');
   }
 
-  // Confirmed July 2026 (real markup): no id at all — it's an h4 with class ogVNN
-  // reading "Switch Role", inside a div.eCoev[role="presentation"] menu row.
+  // Current Whatnot UI exposes everything we need directly: the active profile
+  // avatar has alt="<username>", Switch Role has a stable id, and each role row
+  // contains img.z-avatar-image[alt="<username>"]. Use that exact path first
+  // instead of enumerating a dozen generic profile/menu selectors.
   const SWITCH_ROLE_SEL = '#team-invite-switch-role-anchor, div.eCoev h4.ogVNN';
+  const activeBeforeDirect = await getActiveChannelUsername(page);
+  if (activeBeforeDirect) {
+    const profileSelector = `img.z-avatar-image[alt="${activeBeforeDirect}"][width="40"][height="40"]`;
+    const profileAvatar = page.locator(profileSelector).first();
+    if (await profileAvatar.isVisible({ timeout: 1500 }).catch(() => false)) {
+      info(`switchToChannel: direct path clicking active profile avatar alt="${activeBeforeDirect}"`);
+      await profileAvatar.click({ force: true, timeout: 3000 }).catch(async () => {
+        await profileAvatar.evaluate(el => el.click()).catch(() => {});
+      });
+
+      const directSwitchRole = page.locator('#team-invite-switch-role-anchor').first();
+      if (await directSwitchRole.isVisible({ timeout: 4000 }).catch(() => false)) {
+        info('switchToChannel: direct path clicking #team-invite-switch-role-anchor');
+        await directSwitchRole.click({ force: true, timeout: 3000 });
+
+        const directTarget = page.locator(`button:has(img.z-avatar-image[alt="${channelName.toLowerCase()}"])`).first();
+        if (await directTarget.isVisible({ timeout: 5000 }).catch(() => false)) {
+          info(`switchToChannel: direct path clicking target role @${channelName}`);
+          await directTarget.click({ force: true, timeout: 3000 });
+
+          const verifiedDirect = await waitForActiveChannel(page, channelName, Math.min(SWITCH_CHANNEL_TIMEOUT_MS, 15000));
+          await debugShot(page, 'role-switch-04-verified-direct');
+          info(`switchToChannel: VERIFIED requested=@${channelName} active=@${verifiedDirect} URL=${page.url()} (direct path)`);
+          return verifiedDirect;
+        }
+
+        info(`switchToChannel: direct path could not find target role @${channelName}; falling back to generic role-picker logic`);
+        await page.keyboard.press('Escape').catch(() => {});
+      } else {
+        info('switchToChannel: direct profile click did not expose Switch Role; falling back to generic trigger scan');
+      }
+    }
+  }
 
   // The Switch Role button is inside the profile drawer — invisible until
   // the avatar button in the top-nav is clicked. Try the avatar first, then
@@ -1257,7 +1292,7 @@ async function switchToChannel(page, channelName) {
     const triggerHandles = [];
     const seenTriggers = new Set();
     for (const sel of avatarTriggers) {
-      const h = await page.locator(sel).first().elementHandle().catch(() => null);
+      const h = await page.locator(sel).first().elementHandle({ timeout: 1200 }).catch(() => null);
       if (h) triggerHandles.push({ sel, h });
     }
     for (const extra of await page.$$('button[aria-haspopup], [role="button"][aria-haspopup]').catch(() => [])) {

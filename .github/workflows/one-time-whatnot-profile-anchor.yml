@@ -1,0 +1,30 @@
+name: One-time Whatnot profile anchor
+
+on:
+  push:
+    branches: [Dev]
+    paths:
+      - '.github/workflows/one-time-whatnot-profile-anchor.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Dev
+          fetch-depth: 0
+      - name: Patch exact profile anchor path
+        run: |
+          python3 .github/scripts/patch-whatnot-profile-anchor.py
+          node --check scripts/whatnot-scraper.cjs
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/whatnot-scraper.cjs
+          git commit -m 'fix(scraper): click exact Whatnot profile menu anchor'
+          git push origin HEAD:Dev

@@ -3452,6 +3452,10 @@ async function extractLedgerFromPage(page) {
   // An explicit WHATNOT_COOKIES_FILE still wins: someone naming a file means it.
   const _cookiesFile = resolveCookiesFile();
   const _cookiesLoadedMarker = _cookiesFile + '.loaded-mtime';
+  // This distinction is also needed after the bootstrap block when deciding
+  // whether an existing cf_clearance belongs to this server or came from a
+  // human import, so keep it in the outer scope.
+  const _isServerLiveSnapshot = _cookiesFile.endsWith('whatnot-live-cookies.json');
   if (_fs.existsSync(_cookiesFile)) {
     const _fileMtimeMs = _fs.statSync(_cookiesFile).mtimeMs;
     const _lastLoadedMtimeMs = _fs.existsSync(_cookiesLoadedMarker)
@@ -3470,7 +3474,6 @@ async function extractLedgerFromPage(page) {
     // Someone running whatnot:login means "use this now", so the bootstrap file
     // keeps that power. A machine-written dump of state we already have does
     // not, and is only reached for when the profile has nothing at all.
-    const _isServerLiveSnapshot = _cookiesFile.endsWith('whatnot-live-cookies.json');
     const _isHumanImport = Boolean(process.env.WHATNOT_COOKIES_FILE)
       || _cookiesFile.endsWith('whatnot-cookies.json');
 

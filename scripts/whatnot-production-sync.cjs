@@ -381,15 +381,17 @@ async function bootstrapCookies(context){
   await dropForeignClearance(context);
   const page=await context.newPage(); const out={current:[],upcoming:[],past:[],enriched:[],stages:{}};
   try{
-    // Land on the public site before the Seller Hub, the way whatnot-scraper
-    // does. Going straight to /dashboard/home means the first request of the
-    // session is an authenticated one, which is the request Cloudflare is most
-    // interested in.
-    await page.goto('https://www.whatnot.com/',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);
-    await page.waitForTimeout(1500);
+    // Match the working multi-channel scraper: go directly to Seller Hub.
+    // The public-home warmup was triggering Cloudflare before historical enrichment.
+    const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);
+    await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});
+    await page.waitForTimeout(2200);
     await settleChallenge(page);
-
-    const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});await page.waitForTimeout(2200);await settleChallenge(page);out.stages.home={status:resp?resp.status():null,...await state(page)};if(out.stages.home.challenged){await reportBlockingPage(page,'challenge-home');throw fail(EXIT.CHALLENGE,'Seller Hub home challenged — Cloudflare served a check instead of the dashboard'+(proxy?' (via proxy '+proxy+')':'')+'. whatnot-scraper.cjs reaching the same site from this machine would mean the address is fine and the interstitial did not clear within the wait, so this is a real block rather than a page still loading.');}
+    out.stages.home={status:resp?resp.status():null,...await state(page)};
+    if(out.stages.home.challenged){
+      await reportBlockingPage(page,'challenge-home');
+      throw fail(EXIT.CHALLENGE,'Seller Hub home challenged — Cloudflare served a check instead of the dashboard'+(proxy?' (via proxy '+proxy+')':'')+'.');
+    }
     if(!await clickShows(page))throw fail(EXIT.SELECTORS,'Could not reach Shows'); out.stages.shows=await state(page);
 
     // A backfill asks for named shows that may sit hundreds of rows back. The

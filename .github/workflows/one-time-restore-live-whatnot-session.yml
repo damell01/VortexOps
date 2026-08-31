@@ -1,0 +1,65 @@
+name: One-time restore live Whatnot session
+
+on:
+  push:
+    branches:
+      - Dev
+    paths:
+      - .github/workflows/one-time-restore-live-whatnot-session.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Dev
+          fetch-depth: 0
+
+      - name: Patch live-session bootstrap handling
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/whatnot-scraper.cjs')
+          text = path.read_text()
+
+          old1 = """    const _isHumanImport = Boolean(process.env.WHATNOT_COOKIES_FILE)\n      || _cookiesFile.endsWith('whatnot-cookies.json');\n\n    const _shouldLoad = _existingCookies.length === 0\n      || (_isHumanImport && _fileMtimeMs > _lastLoadedMtimeMs);\n"""
+          new1 = """    const _isServerLiveSnapshot = _cookiesFile.endsWith('whatnot-live-cookies.json');\n    const _isHumanImport = Boolean(process.env.WHATNOT_COOKIES_FILE)\n      || _cookiesFile.endsWith('whatnot-cookies.json');\n\n    // A server-generated live snapshot is trusted state from this exact browser/IP.\n    // Reload it when it is newer than the marker so a stale persistent profile can\n    // recover without falling all the way back to the older human export.\n    const _shouldLoad = _existingCookies.length === 0\n      || ((_isHumanImport || _isServerLiveSnapshot) && _fileMtimeMs > _lastLoadedMtimeMs);\n"""
+          if old1 not in text:
+              raise SystemExit('Expected cookie load decision block not found; refusing to patch')
+          text = text.replace(old1, new1, 1)
+
+          old2 = """          // Drop Cloudflare's edge tokens whenever a bootstrap file is loaded.\n          //\n          // cf_clearance proves a particular browser on a particular IP passed\n          // a challenge, and Cloudflare binds it to both. One exported from a\n          // laptop cannot be honoured here, and offering a clearance token that\n          // does not match the connection is worse than offering none — it is\n          // what a replayed token looks like. This browser must earn its own.\n          //\n          // Only on the bootstrap path: a clearance this profile earned for\n          // itself is the thing we most want to keep.\n          for (const _edgeCookie of CLOUDFLARE_EDGE_COOKIES) {\n            await context.clearCookies({ name: _edgeCookie }).catch(() => {});\n          }\n"""
+          new2 = """          // Human/browser exports come from a different machine, so their Cloudflare\n          // edge tokens must not be replayed here. whatnot-live-cookies.json is\n          // different: it is written by this server's own live Chromium context,\n          // so its cf_clearance and related edge state belong to this exact IP/browser\n          // and are the state we need to preserve when recovering a stale profile.\n          if (!_isServerLiveSnapshot) {\n            for (const _edgeCookie of CLOUDFLARE_EDGE_COOKIES) {\n              await context.clearCookies({ name: _edgeCookie }).catch(() => {});\n            }\n          } else {\n            info('preserving server-earned Cloudflare state from', _cookiesFile);\n          }\n"""
+          if old2 not in text:
+              raise SystemExit('Expected bootstrap Cloudflare strip block not found; refusing to patch')
+          text = text.replace(old2, new2, 1)
+
+          old3 = """  if (_importedClearance || process.env.WHATNOT_DROP_CLEARANCE === '1') {\n"""
+          new3 = """  if ((!_isServerLiveSnapshot && _importedClearance) || process.env.WHATNOT_DROP_CLEARANCE === '1') {\n"""
+          if old3 not in text:
+              raise SystemExit('Expected imported clearance guard not found; refusing to patch')
+          text = text.replace(old3, new3, 1)
+
+          path.write_text(text)
+          PY
+
+          node --check scripts/whatnot-scraper.cjs
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          if git diff --quiet -- scripts/whatnot-scraper.cjs; then
+            echo "No patch needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/whatnot-scraper.cjs
+          git commit -m "fix(scraper): restore server live session state"
+          git push origin Dev

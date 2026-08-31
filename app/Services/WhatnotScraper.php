@@ -973,6 +973,9 @@ class WhatnotScraper
             $env['WHATNOT_HEADLESS'] = $headless ? 'true' : 'false';
         }
 
+        $env['WHATNOT_BROWSER_BACKEND'] = (string) config('vortex.whatnot.browser_backend', 'local');
+        $env['STEEL_BASE_URL'] = (string) config('vortex.whatnot.steel_base_url', 'http://127.0.0.1:3000');
+
         $process = new Process($this->commandLine($env), null, $env);
         $process->setTimeout($timeout);
         return $process;

@@ -13,6 +13,11 @@ return [
         // file returns null the moment the config is cached.
         'cookies_file' => env('WHATNOT_COOKIES_FILE'),
 
+        // Browser runtime: local keeps the existing VPS Chromium path; steel
+        // connects Playwright to the self-hosted Steel service over CDP.
+        'browser_backend' => env('WHATNOT_BROWSER_BACKEND', 'local'),
+        'steel_base_url'  => env('STEEL_BASE_URL', 'http://127.0.0.1:3000'),
+
         'playwright_browsers_path'         => env('PLAYWRIGHT_BROWSERS_PATH'),
         'playwright_chromium_executable'   => env('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'),
 

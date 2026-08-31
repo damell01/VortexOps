@@ -204,6 +204,8 @@ const DEBUG          = process.env.WHATNOT_DEBUG === '1';
 const LIMIT          = parseInt(process.env.WHATNOT_LIMIT || '50', 10);
 const MODE           = process.env.WHATNOT_MODE || 'analytics';
 const CHANNEL_NAME   = (process.env.WHATNOT_CHANNEL_NAME || '').trim();
+const BROWSER_BACKEND = (process.env.WHATNOT_BROWSER_BACKEND || 'local').trim().toLowerCase();
+const STEEL_BASE_URL  = (process.env.STEEL_BASE_URL || 'http://127.0.0.1:3000').trim().replace(/\/+$/, '');
 
 // A livestream UUID to start the analytics walk from, supplied by the caller.
 //
@@ -2212,6 +2214,110 @@ function clearStaleSingletonLock(userDataDir) {
  * it is still there. The session is re-bootstrapped from the cookie file on the
  * next launch, so a rebuild costs a re-login at worst, never data.
  */
+
+async function launchSteelContext(opts = {}) {
+  if (typeof fetch !== 'function') {
+    throw new Error('STEEL_BACKEND_UNAVAILABLE: Node 18+ is required because the Steel backend uses fetch()');
+  }
+
+  const baseUrl = STEEL_BASE_URL;
+  info(`browser backend: steel (${baseUrl})`);
+
+  const createBody = {
+    headless: true,
+    dimensions: { width: 1920, height: 1080 },
+    inactivityTimeout: 120000,
+  };
+
+  if (process.env.WHATNOT_PROXY) {
+    createBody.proxyUrl = process.env.WHATNOT_PROXY;
+  }
+
+  const createController = new AbortController();
+  const createTimer = setTimeout(() => createController.abort(), 20000);
+  let response;
+  try {
+    response = await fetch(`${baseUrl}/v1/sessions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createBody),
+      signal: createController.signal,
+    });
+  } finally {
+    clearTimeout(createTimer);
+  }
+
+  const raw = await response.text();
+  if (!response.ok) {
+    throw new Error(`STEEL_SESSION_CREATE_FAILED: HTTP ${response.status} ${raw.substring(0, 500)}`);
+  }
+
+  let session;
+  try {
+    session = JSON.parse(raw);
+  } catch {
+    throw new Error(`STEEL_SESSION_CREATE_FAILED: invalid JSON from ${baseUrl}/v1/sessions`);
+  }
+
+  const sessionId = session.id || session.sessionId || session.session_id;
+  let websocketUrl = session.websocketUrl || session.websocket_url || session.wsUrl || session.ws_url;
+  if (!sessionId || !websocketUrl) {
+    throw new Error(`STEEL_SESSION_CREATE_FAILED: response missing id/websocketUrl: ${raw.substring(0, 500)}`);
+  }
+
+  try {
+    const apiUrl = new URL(baseUrl);
+    const ws = new URL(websocketUrl);
+    if (['localhost', '0.0.0.0', '127.0.0.1'].includes(ws.hostname)) {
+      ws.hostname = apiUrl.hostname;
+    }
+    if (!ws.port && apiUrl.port) ws.port = apiUrl.port;
+    ws.protocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+    websocketUrl = ws.toString();
+  } catch (e) {
+    throw new Error(`STEEL_SESSION_CREATE_FAILED: invalid websocketUrl ${websocketUrl}: ${e.message}`);
+  }
+
+  info(`steel session created: ${sessionId}`);
+
+  let browser;
+  try {
+    browser = await chromium.connectOverCDP(websocketUrl, { timeout: 20000 });
+  } catch (e) {
+    await fetch(`${baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/release`, { method: 'POST' }).catch(() => {});
+    throw new Error(`STEEL_CDP_CONNECT_FAILED: ${e.message}`);
+  }
+
+  const contexts = browser.contexts();
+  const context = contexts[0] || await browser.newContext({
+    viewport: opts.viewport || { width: 1280, height: 900 },
+    locale: opts.locale || 'en-US',
+  });
+
+  // Steel owns the browser fingerprint. Do not replay the local launcher's
+  // hard-coded UA/client-hint fingerprint into Steel's different Chrome build.
+  let closed = false;
+  const steelClose = async () => {
+    if (closed) return;
+    closed = true;
+    try { await browser.close(); } catch {}
+    try {
+      await fetch(`${baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/release`, { method: 'POST' });
+    } catch {}
+  };
+
+  try {
+    Object.defineProperty(context, 'close', {
+      configurable: true,
+      value: steelClose,
+    });
+  } catch {
+    context.close = steelClose;
+  }
+
+  return context;
+}
+
 async function launchWithProfileRecovery(userDataDir, opts = {}) {
   const isStartupFailure = (e) => /died during startup|exited before DevTools listener was ready|Timed out waiting for Chromium DevTools listener/i.test(e?.message || '');
 
@@ -3313,7 +3419,7 @@ async function extractLedgerFromPage(page) {
   require('fs').mkdirSync(USER_DATA_DIR, { recursive: true });
   info('browser profile dir:', USER_DATA_DIR);
 
-  const context = liveContext = await launchWithProfileRecovery(USER_DATA_DIR, {
+  const browserOptions = {
     args: [
       '--no-sandbox',
       '--no-zygote',
@@ -3341,11 +3447,22 @@ async function extractLedgerFromPage(page) {
     // option with no equivalent once the context already exists — connectOverCDP
     // attaches to a context Chromium created itself — so discover mode may miss
     // some SW-cached responses now. Every other mode is unaffected.
-  });
+  };
+
+  if (!['local', 'steel'].includes(BROWSER_BACKEND)) {
+    throw new Error(`UNKNOWN_BROWSER_BACKEND: ${BROWSER_BACKEND} (expected local or steel)`);
+  }
+
+  const context = liveContext = BROWSER_BACKEND === 'steel'
+    ? await launchSteelContext(browserOptions)
+    : await launchWithProfileRecovery(USER_DATA_DIR, browserOptions);
 
   // Mask automation signals that trigger bot detection on sites like Whatnot.
   // navigator.webdriver = true is the primary signal headless Chrome sets.
-  await context.addInitScript(() => {
+  // Steel already manages its own coherent browser fingerprint; only apply the
+  // legacy local-browser shims to the local backend.
+  if (BROWSER_BACKEND !== 'steel') {
+    await context.addInitScript(() => {
     // Core: webdriver flag
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
 
@@ -3423,7 +3540,8 @@ async function extractLedgerFromPage(page) {
       Object.defineProperty(screen, 'colorDepth', { get: () => 24 });
       Object.defineProperty(screen, 'pixelDepth', { get: () => 24 });
     } catch (_) {}
-  });
+    });
+  }
 
   // ── Bootstrap session cookies (one-time first-run setup + manual re-auth) ────
   // Export cookies from your logged-in browser (Cookie-Editor extension → Export

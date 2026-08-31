@@ -1,7 +1,10 @@
 name: one-time-bypass-analytics-preflight
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [Dev]
+    paths:
+      - '.github/workflows/one-time-bypass-analytics-preflight.yml'
 
 permissions:
   contents: write

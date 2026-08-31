@@ -2226,7 +2226,7 @@ async function launchSteelContext(opts = {}) {
   const createBody = {
     // Match the headed browser mode that has historically worked best for Whatnot.
     // Steel owns the display/browser process inside its container.
-    headless: false,
+    headless: true,
     dimensions: { width: 1920, height: 1080 },
     inactivityTimeout: 120000,
   };

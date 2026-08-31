@@ -135,6 +135,7 @@ class WhatnotLogin extends Command
         }
 
         file_put_contents($cookiesFile, json_encode(array_values($cookies), JSON_PRETTY_PRINT));
+        $this->invalidateLoadedMarker($cookiesFile);
         $this->info('Imported ' . count($cookies) . ' cookies → ' . $cookiesFile);
 
         // A session cookie is the whole point of the export. Saying so here beats
@@ -223,12 +224,22 @@ class WhatnotLogin extends Command
     {
         try {
             $count = $scraper->dumpSessionCookies();
+            $this->invalidateLoadedMarker($cookiesFile);
             $this->info("✓ Credential renewal succeeded — {$count} cookies saved to {$cookiesFile}");
-            $this->line('The renewed session will be used by the next scraper run.');
+            $this->line('The renewed session will be force-loaded by the next scraper run.');
             return self::SUCCESS;
         } catch (\RuntimeException $e) {
             $this->error('✗ Credential renewal failed: ' . $e->getMessage());
             return self::FAILURE;
+        }
+    }
+
+    private function invalidateLoadedMarker(string $cookiesFile): void
+    {
+        $marker = $cookiesFile . '.loaded-mtime';
+
+        if (is_file($marker)) {
+            @unlink($marker);
         }
     }
 

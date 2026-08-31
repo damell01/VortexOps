@@ -1,9 +1,11 @@
-name: One-time forward WHATNOT_COOKIES_FILE
+name: One-time patch Whatnot auth preflight
 
 on:
   push:
     branches:
       - Dev
+    paths:
+      - .github/workflows/one-time-forward-whatnot-cookies-env.yml
   workflow_dispatch:
 
 permissions:
@@ -16,29 +18,39 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: Dev
-      - name: Patch WhatnotScraper baseEnv
+      - name: Patch Whatnot auth preflight
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          path = Path('app/Services/WhatnotScraper.php')
+
+          path = Path('scripts/whatnot-scraper.cjs')
           text = path.read_text()
-          old = """        if ($email)    $env['WHATNOT_EMAIL']    = $email;\n        if ($password) $env['WHATNOT_PASSWORD'] = $password;\n\n        return $env;\n"""
-          new = """        if ($email)    $env['WHATNOT_EMAIL']    = $email;\n        if ($password) $env['WHATNOT_PASSWORD'] = $password;\n\n        // Explicit scraper overrides supplied to the Artisan process must be\n        // forwarded to the child Node process. Symfony Process is constructed\n        // with this curated env array, so values such as WHATNOT_COOKIES_FILE\n        // do not otherwise survive from the shell into whatnot-scraper.cjs.\n        if (($cookiesFile = getenv('WHATNOT_COOKIES_FILE')) !== false && $cookiesFile !== '') {\n            $env['WHATNOT_COOKIES_FILE'] = $cookiesFile;\n        }\n\n        return $env;\n"""
-          if old not in text:
-              raise SystemExit('Expected baseEnv block not found; refusing to patch')
-          path.write_text(text.replace(old, new, 1))
+
+          old_auth = """    if (hasCookieFile && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe' && MODE !== 'api-discover') {\n      await page.goto(URLS.sellerHub, { waitUntil: 'domcontentloaded', timeout: 20000 });\n      await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});\n"""
+          new_auth = """    if (hasCookieFile && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe' && MODE !== 'api-discover') {\n      // Validate the restored session on the public Whatnot shell first. Seller Hub\n      // itself can be Cloudflare-challenged even when the authenticated session is\n      // valid, which used to stop channel switching before it even had a chance to\n      // run. A redirect from / to /login is still decisive evidence of an expired\n      // session; otherwise channel-specific runs verify the requested role directly.\n      await page.goto(URLS.home, { waitUntil: 'domcontentloaded', timeout: 20000 });\n      await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});\n"""
+          if old_auth not in text:
+              raise SystemExit('Expected cookie-auth Seller Hub preflight block not found; refusing to patch')
+          text = text.replace(old_auth, new_auth, 1)
+
+          old_ensure = """async function ensureSellerMode(page) {\n  const pageText = await page.evaluate(() =>\n"""
+          new_ensure = """async function ensureSellerMode(page) {\n  // For a channel-scoped run, do not navigate to Seller Hub merely to prove\n  // seller mode. The role picker on the already-authenticated Whatnot shell is\n  // enough to establish seller context, and switchToChannel verifies the active\n  // username before any scrape is allowed to continue. This keeps attribution\n  // fail-closed while avoiding an unnecessary /dashboard/home Cloudflare gate.\n  if (CHANNEL_NAME) {\n    info(`ensureSellerMode: channel requested — switching directly from current authenticated page to @${CHANNEL_NAME}`);\n    await switchToChannel(page, CHANNEL_NAME);\n    global._sellerModeActive = true;\n    return;\n  }\n\n  const pageText = await page.evaluate(() =>\n"""
+          if old_ensure not in text:
+              raise SystemExit('Expected ensureSellerMode function start not found; refusing to patch')
+          text = text.replace(old_ensure, new_ensure, 1)
+
+          path.write_text(text)
           PY
-          php -l app/Services/WhatnotScraper.php
+          node --check scripts/whatnot-scraper.cjs
       - name: Commit patch
         shell: bash
         run: |
-          if git diff --quiet -- app/Services/WhatnotScraper.php; then
+          if git diff --quiet -- scripts/whatnot-scraper.cjs; then
             echo "No patch needed"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/Services/WhatnotScraper.php
-          git commit -m "fix(scraper): forward explicit cookie file override"
+          git add scripts/whatnot-scraper.cjs
+          git commit -m "fix(scraper): bypass challenged seller hub auth preflight"
           git push origin Dev

@@ -1,9 +1,9 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title VortexOps Whatnot Sync
+title VortexOps Whatnot Sync - Scrapling
 
-node collector.cjs
+node scrapling_collector.cjs
 set EXITCODE=%ERRORLEVEL%
 
 echo.

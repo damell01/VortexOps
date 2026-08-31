@@ -1,0 +1,45 @@
+name: One-time add Chromium disable-breakpad
+
+on:
+  push:
+    branches:
+      - Dev
+    paths:
+      - .github/workflows/one-time-add-disable-breakpad.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Dev
+          fetch-depth: 0
+
+      - name: Patch Chromium args
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('scripts/whatnot-scraper.cjs')
+          text = path.read_text()
+          old = """      '--disable-crash-reporter',\n      '--crash-dumps-dir=/tmp',\n      '--disable-gpu',\n"""
+          new = """      '--disable-crash-reporter',\n      '--disable-breakpad',\n      '--crash-dumps-dir=/tmp',\n      '--disable-gpu',\n"""
+          if old not in text:
+              raise SystemExit('Expected Chromium args block not found; refusing unrelated edit')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+      - name: Validate scraper syntax
+        run: node --check scripts/whatnot-scraper.cjs
+
+      - name: Commit fix to Dev
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scripts/whatnot-scraper.cjs
+          git commit -m "fix(scraper): disable Chromium breakpad on VPS"
+          git push origin Dev

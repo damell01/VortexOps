@@ -3512,6 +3512,13 @@ async function extractLedgerFromPage(page) {
     require('path').join(__dirname, '../storage/whatnot-cookies.json');
   const hasCookieFile = require('fs').existsSync(_cookiesFilePath);
 
+  // dump-cookies is the credential-renewal path. It must never report a
+  // successful renewal unless credentials are actually available to establish
+  // (or confirm) an authenticated session first.
+  if (MODE === 'dump-cookies' && (!email || !password)) {
+    exitAfterStderr('Error: WHATNOT_EMAIL and WHATNOT_PASSWORD are required for credential renewal.\n', 1);
+  }
+
   // Credentials are only required when we don't have a session cookie file
   // and we're not in a mode that only tests cookies.
   if (!hasCookieFile && !email && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe' && MODE !== 'api-discover') {
@@ -3765,9 +3772,17 @@ async function extractLedgerFromPage(page) {
   });
 
   try {
+    // Credential renewal used to skip performLogin entirely: dump-cookies was
+    // excluded from both auth branches below, so it simply dumped whatever
+    // stale cookies happened to be in the persistent profile and PHP called
+    // that a successful renewal. Make renewal establish/confirm auth first.
+    if (MODE === 'dump-cookies') {
+      info('dump-cookies: establishing authenticated session with configured credentials');
+      await performLogin(page, email, password);
+    }
     // If we have a cookie file, attempt a fast cookie-auth check before trying form login.
     // This skips the Kasada-blocked login page entirely on subsequent runs.
-    if (hasCookieFile && MODE !== 'cookie-test' && MODE !== 'dump-cookies' && MODE !== 'path-probe' && MODE !== 'api-discover') {
+    else if (hasCookieFile && MODE !== 'cookie-test' && MODE !== 'path-probe' && MODE !== 'api-discover') {
       // Validate the restored session on the public Whatnot shell first. Seller Hub
       // itself can be Cloudflare-challenged even when the authenticated session is
       // valid, which used to stop channel switching before it even had a chance to
@@ -4437,13 +4452,50 @@ async function extractLedgerFromPage(page) {
     }
 
     // ── Mode: dump-cookies ────────────────────────────────────────────────────
-    // Dump the current Playwright context cookies for whatnot.com to stdout as JSON.
-    // Used after a successful login to persist the session.
+    // Export only after performLogin above has established/confirmed auth. Save
+    // localStorage at the same moment so the next process restores one coherent
+    // session snapshot instead of cookies from now plus localStorage from an
+    // older run. Cookie values remain JSON-only on stdout; diagnostics log names
+    // and metadata only.
     if (MODE === 'dump-cookies') {
       const cookies = await context.cookies('https://www.whatnot.com');
-      process.stdout.write(JSON.stringify(cookies, null, 2) + '\n');
-      info('dump-cookies: dumped', cookies.length, 'cookies');
-      process.exit(0);
+
+      try {
+        const ls = await page.evaluate(() => {
+          const out = {};
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            out[k] = localStorage.getItem(k);
+          }
+          return out;
+        });
+        const lsFile = require('path').join(__dirname, '../storage/whatnot-localstorage.json');
+        require('fs').writeFileSync(lsFile, JSON.stringify(ls));
+        info('dump-cookies: saved localStorage (' + Object.keys(ls).length + ' keys) →', lsFile);
+      } catch (e) {
+        info('dump-cookies: localStorage save skipped:', e.message);
+      }
+
+      if (process.env.WHATNOT_BROWSER_DIAGNOSTICS === '1') {
+        const metadata = cookies.map((c) => ({
+          name: c.name,
+          domain: c.domain,
+          path: c.path,
+          expires: c.expires,
+          httpOnly: c.httpOnly,
+          secure: c.secure,
+          sameSite: c.sameSite,
+        }));
+        info('[browser-diag] dump-cookies metadata:', JSON.stringify(metadata));
+      }
+
+      info('dump-cookies: authenticated export contains', cookies.length, 'cookies');
+      // Let Chrome flush its persistent profile before exiting; process.exit()
+      // immediately after reading cookies could leave the on-disk profile behind
+      // the JSON snapshot we just returned.
+      await context.close().catch(() => {});
+      writeJsonAndExit(cookies);
+      return;
     }
 
     // ── Mode: test ───────────────────────────────────────────────────────────

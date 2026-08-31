@@ -46,3 +46,6 @@ tests/Browser/output/
 # second survives a stash or a reset.
 /storage/whatnot-*.json
 /storage/whatnot-*.json.loaded-mtime
+
+# Desktop collector configuration contains the VortexOps API bearer token.
+/desktop-collector/config.json

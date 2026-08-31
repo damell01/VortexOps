@@ -1195,7 +1195,7 @@ async function switchToChannel(page, channelName) {
 
   // Confirmed July 2026 (real markup): no id at all — it's an h4 with class ogVNN
   // reading "Switch Role", inside a div.eCoev[role="presentation"] menu row.
-  const SWITCH_ROLE_SEL = 'div.eCoev h4.ogVNN';
+  const SWITCH_ROLE_SEL = '#team-invite-switch-role-anchor, div.eCoev h4.ogVNN';
 
   // The Switch Role button is inside the profile drawer — invisible until
   // the avatar button in the top-nav is clicked. Try the avatar first, then
@@ -1217,6 +1217,7 @@ async function switchToChannel(page, channelName) {
     // <img alt="avatar" src="..."> with no wrapping button/aria-label/data-testid —
     // none of the selectors below matched it. Click the image directly; the click
     // bubbles to whatever handler (self or ancestor) opens the drawer.
+    'img.z-avatar-image[alt][width="40"][height="40"]',
     'img[alt="avatar"]',
     'button:has([style*="--avatar-size"])',
     '[data-testid*="avatar"]',
@@ -1380,13 +1381,21 @@ async function switchToChannel(page, channelName) {
   const targetKey = channelName.replace(/[^a-z0-9]/gi, '').toLowerCase();
 
   let target = null;
-  const roleButtons = await page.$$(SWITCH_ROLE_BUTTON_SEL).catch(() => []);
-  for (const btn of roleButtons) {
-    const btnText = await btn.innerText().catch(() => '');
-    if (btnText.replace(/[^a-z0-9]/gi, '').toLowerCase().includes(targetKey)) {
-      info(`switchToChannel: found channel option matching "${channelName}" (button text: ${btnText.replace(/\s+/g, ' ').trim()})`);
-      target = btn;
-      break;
+  const exactAvatar = page.locator(`button:has(img.z-avatar-image[alt="${channelName.toLowerCase()}"])`).first();
+  if (await exactAvatar.isVisible().catch(() => false)) {
+    info(`switchToChannel: found exact role button by avatar alt="${channelName.toLowerCase()}"`);
+    target = exactAvatar;
+  }
+
+  if (!target) {
+    const roleButtons = await page.$$(SWITCH_ROLE_BUTTON_SEL).catch(() => []);
+    for (const btn of roleButtons) {
+      const btnText = await btn.innerText().catch(() => '');
+      if (btnText.replace(/[^a-z0-9]/gi, '').toLowerCase().includes(targetKey)) {
+        info(`switchToChannel: found channel option matching "${channelName}" (button text: ${btnText.replace(/\s+/g, ' ').trim()})`);
+        target = btn;
+        break;
+      }
     }
   }
 
@@ -1443,6 +1452,17 @@ async function switchToChannel(page, channelName) {
 // channel, so for any other channel we must still switch even though seller mode
 // is already active.
 async function getActiveChannelUsername(page) {
+  const currentRole = page.locator('button:has(svg[aria-label="Current account"]) img.z-avatar-image[alt]').first();
+  const currentRoleAlt = await currentRole.getAttribute('alt', { timeout: 1000 }).catch(() => null);
+  if (currentRoleAlt) return currentRoleAlt;
+
+  const visibleAvatars = page.locator('img.z-avatar-image[alt][width="40"][height="40"]:visible');
+  const visibleAvatarCount = Math.min(await visibleAvatars.count().catch(() => 0), 10);
+  if (visibleAvatarCount === 1) {
+    const alt = await visibleAvatars.first().getAttribute('alt', { timeout: 1000 }).catch(() => null);
+    if (alt) return alt;
+  }
+
   // Prefer identity links in seller navigation, but do not require the visible
   // text to start with @. Whatnot's current dashboard sometimes renders only an
   // avatar/name while keeping the /user/<username> href.

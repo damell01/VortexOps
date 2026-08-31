@@ -2289,8 +2289,27 @@ async function launchPersistentContextViaCdp(userDataDir, opts = {}) {
     'about:blank',
   ];
 
+  // Chromium/Crashpad needs a real writable HOME/XDG tree. Forcing HOME=/tmp
+  // makes chrome_crashpad_handler abort before DevTools starts under the
+  // www-data queue user ("--database is required"). Keep this state beside
+  // the persistent browser profile so scheduled jobs and manual probes launch
+  // with the same writable runtime environment.
+  const path = require('path');
+  const fs = require('fs');
+  const browserHome = process.env.WHATNOT_BROWSER_HOME || path.join(path.dirname(userDataDir), 'whatnot-browser-home');
+  const xdgConfigHome = process.env.XDG_CONFIG_HOME || path.join(browserHome, '.config');
+  const xdgCacheHome = process.env.XDG_CACHE_HOME || path.join(browserHome, '.cache');
+  fs.mkdirSync(xdgConfigHome, { recursive: true });
+  fs.mkdirSync(xdgCacheHome, { recursive: true });
+
   const child = spawn(CHROMIUM_PATH, chromeArgs, {
-    env: { ...process.env, HOME: '/tmp', ...extraEnv },
+    env: {
+      ...process.env,
+      HOME: browserHome,
+      XDG_CONFIG_HOME: xdgConfigHome,
+      XDG_CACHE_HOME: xdgCacheHome,
+      ...extraEnv,
+    },
     stdio: ['ignore', 'ignore', 'pipe'],
     // Make this process the leader of its own process group so killAndWait()
     // can signal the whole Chromium tree (renderer/utility/GPU helper

@@ -1,0 +1,66 @@
+name: One-time backfill Seller Hub fix
+
+on:
+  push:
+    branches: [Dev]
+    paths:
+      - '.github/workflows/one-time-backfill-seller-hub-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: Dev
+          fetch-depth: 0
+
+      - name: Patch production sync entry navigation
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/whatnot-production-sync.cjs')
+          s = p.read_text()
+          old = r'''    // Land on the public site before the Seller Hub, the way whatnot-scraper
+    // does. Going straight to /dashboard/home means the first request of the
+    // session is an authenticated one, which is the request Cloudflare is most
+    // interested in.
+    await page.goto('https://www.whatnot.com/',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);
+    await page.waitForTimeout(1500);
+    await settleChallenge(page);
+
+    const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});await page.waitForTimeout(2200);await settleChallenge(page);out.stages.home={status:resp?resp.status():null,...await state(page)};if(out.stages.home.challenged){await reportBlockingPage(page,'challenge-home');throw fail(EXIT.CHALLENGE,'Seller Hub home challenged — Cloudflare served a check instead of the dashboard'+(proxy?' (via proxy '+proxy+')':'')+'. whatnot-scraper.cjs reaching the same site from this machine would mean the address is fine and the interstitial did not clear within the wait, so this is a real block rather than a page still loading.');}
+'''
+          new = r'''    // Use the same first navigation that the working multi-channel scraper uses.
+    // The old backfill script warmed up on https://www.whatnot.com/ first; on this
+    // VPS that public-page hop is enough to put the following authenticated Seller
+    // Hub request into a Cloudflare challenge loop. whatnot-scraper.cjs goes
+    // straight to /dashboard/home with this same persistent profile and succeeds.
+    const resp=await page.goto('https://www.whatnot.com/dashboard/home',{waitUntil:'domcontentloaded',timeout:30000}).catch(()=>null);
+    await page.waitForLoadState('networkidle',{timeout:7000}).catch(()=>{});
+    await page.waitForTimeout(2200);
+    await settleChallenge(page);
+    out.stages.home={status:resp?resp.status():null,...await state(page)};
+    if(out.stages.home.challenged){
+      await reportBlockingPage(page,'challenge-home');
+      throw fail(EXIT.CHALLENGE,'Seller Hub home challenged — Cloudflare served a check instead of the dashboard'+(proxy?' (via proxy '+proxy+')':'')+'.');
+    }
+'''
+          if s.count(old) != 1:
+              raise SystemExit(f'expected one entry navigation block, found {s.count(old)}')
+          p.write_text(s.replace(old,new,1))
+          PY
+          node --check scripts/whatnot-production-sync.cjs
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add scripts/whatnot-production-sync.cjs
+          git commit -m 'fix(backfill): use working Seller Hub entry path'
+          git push origin HEAD:Dev

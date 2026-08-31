@@ -32,7 +32,7 @@ if errorlevel 1 goto :failed
 
 echo.
 echo Installing Scrapling browser dependencies...
-python -m scrapling install
+scrapling install
 if errorlevel 1 (
   echo Scrapling's dependency installer returned an error.
   echo The collector still uses your installed Google Chrome, but the Python Playwright runtime must be available.

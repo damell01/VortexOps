@@ -9,13 +9,15 @@ const scraplingModes = new Set(['analytics', 'orders-batch', 'shipments-batch', 
 
 if (backend === 'scrapling' && scraplingModes.has(mode)) {
   const python = String(process.env.WHATNOT_PYTHON_BIN || 'python3').trim();
-  const script = path.join(__dirname, 'whatnot-scrapling.py');
+  const script = path.join(__dirname, 'whatnot-scrapling-stealth.py');
   const env = {
     ...process.env,
     WHATNOT_USER_DATA_DIR: process.env.WHATNOT_USER_DATA_DIR || path.resolve(__dirname, '..', 'storage', 'whatnot-browser-profile'),
+    WHATNOT_SCRAPLING_DIAGNOSTICS_DIR:
+      process.env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR || path.resolve(__dirname, '..', 'storage', 'logs', 'whatnot-scrapling'),
   };
 
-  process.stderr.write(`[whatnot] browser backend: scrapling (mode=${mode})\n`);
+  process.stderr.write(`[whatnot] browser backend: scrapling-stealth (mode=${mode})\n`);
   const result = spawnSync(python, [script], {
     env,
     cwd: path.resolve(__dirname, '..'),
@@ -30,7 +32,7 @@ if (backend === 'scrapling' && scraplingModes.has(mode)) {
 }
 
 if (backend === 'scrapling') {
-  process.stderr.write(`[whatnot] Scrapling does not yet replace mode=${mode}; using the existing Node scraper for this utility/auth mode.\n`);
+  process.stderr.write(`[whatnot] Scrapling does not replace mode=${mode}; using the existing Node scraper for this utility/auth mode.\n`);
   process.env.WHATNOT_BROWSER_BACKEND = 'local';
 }
 

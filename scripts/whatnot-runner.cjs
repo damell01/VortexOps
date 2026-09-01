@@ -101,7 +101,7 @@ function ensurePersistentBrowser() {
 
   const starter = path.join(__dirname, 'whatnot-browser-start.sh');
   if (!fs.existsSync(starter)) {
-    process.stderr.write('[whatnot] browser auto-start helper is missing; continuing with normal local launch\n');
+    process.stderr.write('[whatnot] ATTACHED_BROWSER_UNAVAILABLE: browser auto-start helper is missing; refusing to launch a second Chromium against the shared profile\n');
     return;
   }
 
@@ -118,17 +118,17 @@ function ensurePersistentBrowser() {
   });
 
   if (result.error) {
-    process.stderr.write(`[whatnot] browser auto-start failed to execute: ${result.error.message}\n`);
+    process.stderr.write(`[whatnot] ATTACHED_BROWSER_UNAVAILABLE: browser auto-start failed to execute: ${result.error.message}\n`);
     return;
   }
 
   if (result.status !== 0) {
-    process.stderr.write(`[whatnot] browser auto-start exited ${result.status}; continuing with normal local launch\n`);
+    process.stderr.write(`[whatnot] ATTACHED_BROWSER_UNAVAILABLE: browser auto-start exited ${result.status}; refusing local fallback against the shared profile\n`);
     return;
   }
 
   if (!localCdpAvailable()) {
-    process.stderr.write('[whatnot] browser auto-start returned success but CDP is still unavailable; continuing with normal local launch\n');
+    process.stderr.write('[whatnot] ATTACHED_BROWSER_UNAVAILABLE: browser auto-start returned success but CDP is still unavailable; refusing local fallback against the shared profile\n');
   }
 }
 
@@ -175,6 +175,17 @@ function runPlaywright(reason = '') {
   if (localCdpAvailable()) {
     process.stderr.write('[whatnot] persistent Chromium became available before launch; attaching instead of starting a second browser\n');
     return runAttachedBrowser();
+  }
+
+  // The shared Whatnot profile belongs exclusively to the persistent browser on
+  // loopback CDP. Never let Playwright launch its own Chromium with this profile:
+  // doing so steals SingletonLock and creates an untracked random CDP port.
+  const sharedProfile = path.resolve(projectRoot, 'storage', 'whatnot-browser-profile');
+  const requestedProfile = path.resolve(childEnv.WHATNOT_USER_DATA_DIR || sharedProfile);
+  if (requestedProfile === sharedProfile && String(childEnv.WHATNOT_CHANNEL_ISOLATE || '0').trim() !== '1') {
+    const suffix = reason ? ` fallback_reason=${reason}` : '';
+    process.stderr.write(`[whatnot] ATTACHED_BROWSER_UNAVAILABLE: persistent Chromium is not reachable on loopback CDP; refusing playwright-local launch against shared profile${suffix}\n`);
+    return { status: 1, error: null };
   }
 
   const script = path.join(__dirname, 'whatnot-scraper.cjs');

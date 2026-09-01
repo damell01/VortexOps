@@ -78,18 +78,28 @@ if [ -z "$CHROME" ] && [ -f "${PROJECT_ROOT}/storage/chromium-path.txt" ]; then
   fi
 fi
 
+# Prefer the browser revision installed for this project's Playwright version.
+# This avoids accidentally starting an old shared Chromium build from /opt that
+# no longer matches node_modules/playwright.
+if [ -z "$CHROME" ] && command -v node >/dev/null 2>&1; then
+  CANDIDATE="$(cd "$PROJECT_ROOT" && node -e 'try { const { chromium } = require("playwright"); process.stdout.write(chromium.executablePath()); } catch (_) {}' 2>/dev/null || true)"
+  if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE" ]; then
+    CHROME="$CANDIDATE"
+  fi
+fi
+
+# Fallback to Playwright cache installations, newest revision first.
 if [ -z "$CHROME" ]; then
-  for CANDIDATE in \
-    /root/.cache/ms-playwright/chromium-*/chrome-linux64/chrome \
-    /opt/pw-browsers/chromium-*/chrome-linux/chrome \
-    /opt/pw-browsers/chromium-*/chrome-linux64/chrome; do
-    for MATCH in $CANDIDATE; do
-      if [ -x "$MATCH" ]; then
-        CHROME="$MATCH"
-        break 2
-      fi
-    done
-  done
+  CANDIDATE="$(find /root/.cache/ms-playwright -maxdepth 3 -type f -path '*/chromium-*/chrome-linux64/chrome' -perm -111 -printf '%p\n' 2>/dev/null | sort -V | tail -1)"
+  if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE" ]; then
+    CHROME="$CANDIDATE"
+  fi
+fi
+
+# System Chrome/Chromium are fallbacks only. Do not prefer stale shared
+# Playwright browser directories over the revision required by this project.
+if [ -z "$CHROME" ] && command -v google-chrome-stable >/dev/null 2>&1; then
+  CHROME="$(command -v google-chrome-stable)"
 fi
 
 if [ -z "$CHROME" ] && command -v google-chrome >/dev/null 2>&1; then
@@ -104,6 +114,9 @@ if [ -z "$CHROME" ] || [ ! -x "$CHROME" ]; then
   log "[whatnot-browser] ERROR: no Chromium executable found"
   exit 1
 fi
+
+CHROME_VERSION="$($CHROME --version 2>/dev/null | head -1 || true)"
+log "[whatnot-browser] selected browser=${CHROME}${CHROME_VERSION:+ version=${CHROME_VERSION}}"
 
 # Do not start a second Chromium against the shared profile. If a browser exists
 # but CDP is unhealthy, surface that condition instead of deleting locks or

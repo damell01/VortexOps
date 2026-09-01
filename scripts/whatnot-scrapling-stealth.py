@@ -289,7 +289,7 @@ def run_whatnot() -> None:
             disable_resources=False,
             google_search=False,
             locale="en-US",
-            solve_cloudflare=False,
+            solve_cloudflare=True,
             block_webrtc=False,
             hide_canvas=False,
         ) as session:

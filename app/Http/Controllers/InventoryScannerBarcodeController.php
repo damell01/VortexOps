@@ -64,17 +64,20 @@ class InventoryScannerBarcodeController extends Controller
         ]);
 
         $barcode = trim($data['barcode']);
-        $type = $data['type'] ?? 'barcode';
+        $type = $data['type'] ?? ProductIdentity::TYPE_BARCODE;
         $item = InventoryItem::findOrFail($data['product_id']);
 
         $this->assertBarcodeAvailable($barcode, $item->id);
 
         DB::transaction(function () use ($item, $barcode, $type, $request): void {
+            // Keep the original product columns useful for old screens/imports.
+            // The identity table is the source for additional UPCs/barcodes.
             if (blank($item->barcode) && blank($item->upc)) {
-                $item->update([$type === 'upc' ? 'upc' : 'barcode' => $barcode]);
+                $column = $type === ProductIdentity::TYPE_UPC ? 'upc' : 'barcode';
+                $item->update([$column => $barcode]);
             }
 
-            ProductIdentity::firstOrCreate(
+            $identity = ProductIdentity::firstOrCreate(
                 [
                     'product_id' => $item->id,
                     'vendor_id' => null,
@@ -89,6 +92,16 @@ class InventoryScannerBarcodeController extends Controller
                     'confirmed_at' => now(),
                 ],
             );
+
+            if (! $identity->wasRecentlyCreated) {
+                $identity->update([
+                    'times_confirmed' => max(1, (int) $identity->times_confirmed),
+                    'last_confirmed_at' => now(),
+                    'auto_confidence' => 1,
+                    'confirmed_by' => $request->user()->id,
+                    'confirmed_at' => now(),
+                ]);
+            }
         });
 
         return response()->json([
@@ -109,13 +122,15 @@ class InventoryScannerBarcodeController extends Controller
         ]);
 
         $barcode = trim($data['barcode']);
-        $type = $data['type'] ?? 'barcode';
+        $type = $data['type'] ?? ProductIdentity::TYPE_BARCODE;
         $this->assertBarcodeAvailable($barcode);
 
         $item = DB::transaction(function () use ($data, $barcode, $type, $request) {
+            $column = $type === ProductIdentity::TYPE_UPC ? 'upc' : 'barcode';
+
             $item = InventoryItem::create([
                 'name' => trim($data['name']),
-                $type === 'upc' ? 'upc' : 'barcode' => $barcode,
+                $column => $barcode,
                 'is_active' => true,
             ]);
 
@@ -194,7 +209,7 @@ class InventoryScannerBarcodeController extends Controller
             ->where(function ($q) use ($barcode) {
                 $q->where('barcode', $barcode)->orWhere('upc', $barcode);
             })
-            ->when($allowedProductId, fn ($q) => $q->whereKeyNot($allowedProductId))
+            ->when($allowedProductId !== null, fn ($q) => $q->where('id', '!=', $allowedProductId))
             ->first(['id', 'name']);
 
         if ($columnOwner) {
@@ -206,7 +221,7 @@ class InventoryScannerBarcodeController extends Controller
         $identityOwner = ProductIdentity::query()
             ->whereIn('type', ProductIdentity::SCANNABLE_TYPES)
             ->where('value', $barcode)
-            ->when($allowedProductId, fn ($q) => $q->where('product_id', '!=', $allowedProductId))
+            ->when($allowedProductId !== null, fn ($q) => $q->where('product_id', '!=', $allowedProductId))
             ->with('product:id,name')
             ->first();
 

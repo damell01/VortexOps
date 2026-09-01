@@ -123,6 +123,24 @@ function runScrapling() {
   });
 }
 
+function runAttachedBrowser() {
+  const script = path.join(__dirname, 'whatnot-attached-runner.cjs');
+  const env = {
+    ...childEnv,
+    WHATNOT_BROWSER_BACKEND: 'local',
+    WHATNOT_ATTACH_EXISTING_BROWSER: '1',
+    WHATNOT_ATTACH_CDP_URL: childEnv.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222',
+  };
+  process.stderr.write(
+    `[whatnot] browser backend: attached-manual-chromium (mode=${mode}, cdp=${env.WHATNOT_ATTACH_CDP_URL})\n`,
+  );
+  return spawnSync(process.execPath, [script, ...process.argv.slice(2)], {
+    env,
+    cwd: projectRoot,
+    stdio: 'inherit',
+  });
+}
+
 function runPlaywright(reason = '') {
   const script = path.join(__dirname, 'whatnot-scraper.cjs');
   const env = { ...childEnv, WHATNOT_BROWSER_BACKEND: 'local' };
@@ -151,7 +169,7 @@ if (backend === 'http-health') {
   exitFor(runHttpHealth(), 'HTTP health adapter');
 }
 
-if (httpPreflightEnabled) {
+if (httpPreflightEnabled && backend !== 'attached') {
   const preflight = runHttpHealth();
   const preflightStatus = preflight.status == null ? 1 : preflight.status;
   if (preflight.error) {
@@ -161,6 +179,15 @@ if (httpPreflightEnabled) {
     process.stderr.write(`[whatnot] HTTP preflight reported exit=${preflightStatus}; browser run ${httpPreflightStrict ? 'stopped' : 'will continue'}\n`);
     if (httpPreflightStrict) process.exit(preflightStatus);
   }
+}
+
+// Attached mode borrows a Chromium instance the user already opened and
+// authenticated manually. It does not launch a replacement browser and it does
+// not add any challenge-solving behavior; the normal scraper still stops on a
+// detected challenge and still verifies the requested seller channel.
+if (backend === 'attached') {
+  const attachedResult = runAttachedBrowser();
+  exitFor(attachedResult, 'Attached browser runner');
 }
 
 if (backend === 'scrapling' && scraplingModes.has(mode)) {

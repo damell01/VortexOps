@@ -104,6 +104,11 @@ class AppServiceProvider extends ServiceProvider
             fn (): \Illuminate\Contracts\View\View => view('filament.mobile-polish'),
         );
 
+        FilamentView::registerRenderHook(
+            'panels::body.end',
+            fn (): \Illuminate\Contracts\View\View => view('filament.inventory-scanner-mobile'),
+        );
+
         $listener = new LogAuthActivity();
         Event::listen(Login::class,         [$listener, 'handleLogin']);
         Event::listen(Logout::class,        [$listener, 'handleLogout']);

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Controllers\InventoryScannerBarcodeController;
 use App\Listeners\LogAuthActivity;
 use App\Models\DeductionRequest;
 use App\Models\Payout;
@@ -30,6 +31,7 @@ use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -80,6 +82,17 @@ class AppServiceProvider extends ServiceProvider
         // and the custom pages that build their own tables go through the same
         // Table::make(), so they pick this up as well.
         Table::configureUsing(fn (Table $table) => TableFilterPresentation::apply($table));
+
+        // Scanner-only helper endpoints. They intentionally live behind the web
+        // auth/session middleware and the controller also verifies admin/owner
+        // access before reading or changing product identities.
+        Route::middleware('web')->prefix('inventory-scanner-api')->group(function (): void {
+            Route::get('/items', [InventoryScannerBarcodeController::class, 'search']);
+            Route::post('/barcodes/attach', [InventoryScannerBarcodeController::class, 'attach']);
+            Route::post('/items/create', [InventoryScannerBarcodeController::class, 'create']);
+            Route::get('/items/{item}/barcodes', [InventoryScannerBarcodeController::class, 'listForItem']);
+            Route::delete('/barcodes/{identity}', [InventoryScannerBarcodeController::class, 'remove']);
+        });
 
         FilamentView::registerRenderHook(
             'panels::body.start',

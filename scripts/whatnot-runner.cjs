@@ -83,8 +83,11 @@ function runHttpHealth() {
 
 function runScrapling() {
   const python = String(childEnv.WHATNOT_PYTHON_BIN || 'python3').trim();
-  const script = path.join(__dirname, 'whatnot-scrapling-stealth.py');
-  process.stderr.write(`[whatnot] browser backend: scrapling-stealth (mode=${mode})\n`);
+  // Use the ordinary DynamicSession implementation. The older
+  // whatnot-scrapling-stealth.py wrapper is intentionally not selected by the
+  // application runner because it exposes anti-bot challenge-solving options.
+  const script = path.join(__dirname, 'whatnot-scrapling.py');
+  process.stderr.write(`[whatnot] browser backend: scrapling-dynamic (mode=${mode})\n`);
   return spawnSync(python, [script], {
     env: childEnv,
     cwd: projectRoot,

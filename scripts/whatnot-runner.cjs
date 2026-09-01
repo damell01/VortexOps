@@ -11,6 +11,7 @@ const scraplingModes = new Set(['analytics', 'orders-batch', 'shipments-batch', 
 const fallbackEnabled = String(process.env.WHATNOT_SCRAPER_FALLBACK || '1').trim() !== '0';
 const httpPreflightEnabled = String(process.env.WHATNOT_HTTP_PREFLIGHT || '0').trim() === '1';
 const httpPreflightStrict = String(process.env.WHATNOT_HTTP_PREFLIGHT_STRICT || '0').trim() === '1';
+const autoBrowserEnabled = String(process.env.WHATNOT_AUTO_BROWSER || '1').trim() !== '0';
 
 function normalizeChannel(value) {
   return String(value || '').trim().replace(/^@+/, '').toLowerCase();
@@ -94,14 +95,54 @@ function localCdpAvailable() {
   }
 }
 
+function ensurePersistentBrowser() {
+  if (!autoBrowserEnabled || backend !== 'local' || localCdpAvailable()) return;
+  if (process.platform !== 'linux') return;
+
+  const starter = path.join(__dirname, 'whatnot-browser-start.sh');
+  if (!fs.existsSync(starter)) {
+    process.stderr.write('[whatnot] browser auto-start helper is missing; continuing with normal local launch\n');
+    return;
+  }
+
+  process.stderr.write('[whatnot] no attached Chromium detected; starting the persistent shared browser\n');
+  const result = spawnSync('/bin/bash', [starter], {
+    env: {
+      ...childEnv,
+      WHATNOT_PROJECT_ROOT: projectRoot,
+      WHATNOT_ATTACH_CDP_URL: childEnv.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222',
+    },
+    cwd: projectRoot,
+    stdio: 'inherit',
+    timeout: 30000,
+  });
+
+  if (result.error) {
+    process.stderr.write(`[whatnot] browser auto-start failed to execute: ${result.error.message}\n`);
+    return;
+  }
+
+  if (result.status !== 0) {
+    process.stderr.write(`[whatnot] browser auto-start exited ${result.status}; continuing with normal local launch\n`);
+    return;
+  }
+
+  if (!localCdpAvailable()) {
+    process.stderr.write('[whatnot] browser auto-start returned success but CDP is still unavailable; continuing with normal local launch\n');
+  }
+}
+
+// Production uses one long-lived, human-authenticated browser profile for every
+// Whatnot channel. Start it automatically when needed, then always attach to it.
+// This is session/browser lifecycle automation only; it does not solve, suppress,
+// or manipulate any site verification. Challenge detection remains in the scraper.
+ensurePersistentBrowser();
+
 // A live browser on our loopback CDP port owns the shared profile. Never start
-// another Chromium against that profile: the normal launcher's stale-lock
-// recovery can terminate the human-owned browser. Borrow the already-running
-// browser instead. This is browser ownership/session reuse only; challenge
-// detection and channel verification remain in the scraper.
+// another Chromium against that profile: borrow the already-running browser.
 if (backend === 'local' && localCdpAvailable()) {
   backend = 'attached';
-  process.stderr.write('[whatnot] live manual Chromium detected on local CDP; auto-selecting attached mode (will not launch/kill Chromium)\n');
+  process.stderr.write('[whatnot] persistent Chromium detected on local CDP; auto-selecting attached mode (will not launch/kill Chromium)\n');
 }
 
 function runHttpHealth() {
@@ -126,15 +167,13 @@ function runAttachedBrowser() {
     WHATNOT_ATTACH_EXISTING_BROWSER: '1',
     WHATNOT_ATTACH_CDP_URL: childEnv.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222',
   };
-  process.stderr.write(`[whatnot] browser backend: attached-manual-chromium (mode=${mode}, cdp=${env.WHATNOT_ATTACH_CDP_URL})\n`);
+  process.stderr.write(`[whatnot] browser backend: attached-persistent-chromium (mode=${mode}, cdp=${env.WHATNOT_ATTACH_CDP_URL})\n`);
   return spawnSync(process.execPath, [script, ...process.argv.slice(2)], { env, cwd: projectRoot, stdio: 'inherit' });
 }
 
 function runPlaywright(reason = '') {
-  // Last safety gate: if a manual browser appeared after startup, refuse to
-  // launch a competing Chromium and attach instead.
   if (localCdpAvailable()) {
-    process.stderr.write('[whatnot] manual Chromium became available before launch; attaching instead of starting a second browser\n');
+    process.stderr.write('[whatnot] persistent Chromium became available before launch; attaching instead of starting a second browser\n');
     return runAttachedBrowser();
   }
 

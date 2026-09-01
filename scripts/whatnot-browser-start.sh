@@ -12,6 +12,7 @@ LOG_DIR="${WHATNOT_BROWSER_LOG_DIR:-${PROJECT_ROOT}/storage/logs}"
 BROWSER_LOG="${LOG_DIR}/whatnot-browser.log"
 XVFB_LOG="${LOG_DIR}/whatnot-xvfb.log"
 START_URL="${WHATNOT_BROWSER_START_URL:-https://www.whatnot.com/dashboard/home}"
+LEGACY_STALE_BROWSER="/opt/pw-browsers/chrome-linux/chrome"
 
 mkdir -p "$PROFILE_DIR" "$LOG_DIR"
 
@@ -69,13 +70,13 @@ if ! pgrep -f "Xvfb ${DISPLAY_VALUE}( |$)" >/dev/null 2>&1; then
   done
 fi
 
+# An explicit environment override remains the highest-priority operator choice,
+# except for the known stale Chromium 133 path that has repeatedly SIGTRAPed on
+# this host.
 CHROME="${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-}"
-
-if [ -z "$CHROME" ] && [ -f "${PROJECT_ROOT}/storage/chromium-path.txt" ]; then
-  CANDIDATE="$(tr -d '\r\n' < "${PROJECT_ROOT}/storage/chromium-path.txt")"
-  if [ -x "$CANDIDATE" ]; then
-    CHROME="$CANDIDATE"
-  fi
+if [ "$CHROME" = "$LEGACY_STALE_BROWSER" ]; then
+  log "[whatnot-browser] ignoring known stale browser override ${CHROME}"
+  CHROME=""
 fi
 
 # Prefer the browser revision installed for this project's Playwright package.
@@ -84,8 +85,19 @@ fi
 # 133 instead of its installed Chrome-for-Testing 151 revision.
 if [ -z "$CHROME" ] && command -v node >/dev/null 2>&1; then
   CANDIDATE="$(cd "$PROJECT_ROOT" && env -u PLAYWRIGHT_BROWSERS_PATH node -e 'try { const { chromium } = require("playwright"); process.stdout.write(chromium.executablePath()); } catch (_) {}' 2>/dev/null || true)"
-  if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE" ]; then
+  if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE" ] && [ "$CANDIDATE" != "$LEGACY_STALE_BROWSER" ]; then
     CHROME="$CANDIDATE"
+  fi
+fi
+
+# A saved path is only a fallback. This file may outlive Playwright upgrades, so
+# it must never override the browser revision currently required by the project.
+if [ -z "$CHROME" ] && [ -f "${PROJECT_ROOT}/storage/chromium-path.txt" ]; then
+  CANDIDATE="$(tr -d '\r\n' < "${PROJECT_ROOT}/storage/chromium-path.txt")"
+  if [ -x "$CANDIDATE" ] && [ "$CANDIDATE" != "$LEGACY_STALE_BROWSER" ]; then
+    CHROME="$CANDIDATE"
+  elif [ "$CANDIDATE" = "$LEGACY_STALE_BROWSER" ]; then
+    log "[whatnot-browser] ignoring stale saved browser path ${CANDIDATE}"
   fi
 fi
 
@@ -128,6 +140,11 @@ fi
 
 if [ -z "$CHROME" ] || [ ! -x "$CHROME" ]; then
   log "[whatnot-browser] ERROR: no compatible Chromium executable found"
+  exit 1
+fi
+
+if [ "$CHROME" = "$LEGACY_STALE_BROWSER" ]; then
+  log "[whatnot-browser] ERROR: refusing known stale Chromium 133 executable ${CHROME}"
   exit 1
 fi
 

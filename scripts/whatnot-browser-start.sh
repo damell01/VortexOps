@@ -23,11 +23,29 @@ log() {
 }
 
 cdp_ready() {
-  curl -fsS --max-time 2 "${CDP_URL}/json/version" >/dev/null 2>&1
+  local body
+  body="$(curl -fsS --max-time 2 "${CDP_URL}/json/version" 2>/dev/null)" || return 1
+  printf '%s' "$body" | grep -q '"webSocketDebuggerUrl"' || return 1
 }
 
-if cdp_ready; then
-  log "[whatnot-browser] Chromium already available at ${CDP_URL}"
+browser_owns_profile() {
+  pgrep -af -- "--user-data-dir=${PROFILE_DIR}" >/dev/null 2>&1
+}
+
+stable_cdp_ready() {
+  # Chrome can briefly expose /json/version and then exit during startup. Require
+  # three consecutive healthy responses while the profile-owning process remains
+  # alive before declaring the persistent browser ready.
+  for _ in 1 2 3; do
+    cdp_ready || return 1
+    browser_owns_profile || return 1
+    sleep 1
+  done
+  return 0
+}
+
+if stable_cdp_ready; then
+  log "[whatnot-browser] Chromium already available and stable at ${CDP_URL}"
   exit 0
 fi
 
@@ -90,8 +108,8 @@ fi
 # Do not start a second Chromium against the shared profile. If a browser exists
 # but CDP is unhealthy, surface that condition instead of deleting locks or
 # killing a possibly human-owned session.
-if pgrep -af "${PROFILE_DIR}" >/dev/null 2>&1; then
-  log "[whatnot-browser] ERROR: a Chromium process already owns ${PROFILE_DIR}, but CDP ${CDP_URL} is unavailable"
+if browser_owns_profile; then
+  log "[whatnot-browser] ERROR: a Chromium process already owns ${PROFILE_DIR}, but CDP ${CDP_URL} is unavailable or unstable"
   exit 1
 fi
 
@@ -106,14 +124,24 @@ nohup env DISPLAY="$DISPLAY_VALUE" "$CHROME" \
   --window-size=1365,900 \
   "$START_URL" \
   >>"$BROWSER_LOG" 2>&1 &
+BROWSER_PID=$!
 
 for _ in $(seq 1 40); do
-  if cdp_ready; then
-    log "[whatnot-browser] Chromium ready at ${CDP_URL}"
+  if ! kill -0 "$BROWSER_PID" 2>/dev/null && ! browser_owns_profile; then
+    log "[whatnot-browser] ERROR: Chromium exited during startup; see ${BROWSER_LOG}"
+    exit 1
+  fi
+
+  if stable_cdp_ready; then
+    log "[whatnot-browser] Chromium ready and stable at ${CDP_URL}"
     exit 0
   fi
   sleep 0.5
 done
 
-log "[whatnot-browser] ERROR: Chromium did not expose CDP within 20 seconds"
+if ! browser_owns_profile; then
+  log "[whatnot-browser] ERROR: Chromium exited before CDP became stable; see ${BROWSER_LOG}"
+else
+  log "[whatnot-browser] ERROR: Chromium did not expose stable CDP within the startup window"
+fi
 exit 1

@@ -104,6 +104,26 @@ const triggerSweepInjected = `    const popupTriggers = page.locator('button[ari
 
 source = source.replace(triggerSweepMarker, triggerSweepInjected);
 
+// The role switch itself can verify successfully before the Seller Hub finishes
+// re-rendering the active profile control. The final fail-closed guard must wait
+// for that identity to become readable instead of treating a transient null as a
+// different channel. It still fails if the requested identity cannot be proven
+// within the bounded verification window.
+const channelContextMarker = `      const verified = await getActiveChannelUsername(page);`;
+
+if (!source.includes(channelContextMarker)) {
+  process.stderr.write(
+    '[whatnot] attached-browser shim could not find the final channel-context verification in whatnot-scraper.cjs. ' +
+    'The scraper changed; update the attached-mode channel verification shim before using it.\n',
+  );
+  process.exit(2);
+}
+
+source = source.replace(
+  channelContextMarker,
+  `      const verified = await waitForActiveChannel(page, CHANNEL_NAME, 15000);`,
+);
+
 // Make attach mode explicit to the transformed scraper. The endpoint itself is
 // already validated as loopback above.
 process.env.WHATNOT_ATTACH_EXISTING_BROWSER = '1';

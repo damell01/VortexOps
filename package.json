@@ -6,7 +6,8 @@
         "build": "vite build",
         "dev": "vite",
         "whatnot:run": "node scripts/whatnot-runner.cjs",
-        "whatnot:multi": "node scripts/whatnot-multi-runner.cjs"
+        "whatnot:multi": "node scripts/whatnot-multi-runner.cjs",
+        "whatnot:http-health": "WHATNOT_BROWSER_BACKEND=http-health node scripts/whatnot-runner.cjs"
     },
     "devDependencies": {
         "@playwright/test": "^1.62.1",

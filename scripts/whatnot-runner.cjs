@@ -40,7 +40,19 @@ function scopedEnvironment() {
     env.WHATNOT_CHANNEL_NAME = channel;
   }
 
-  const isolate = channel && String(env.WHATNOT_CHANNEL_ISOLATE || '1').trim() !== '0';
+  // Reuse the human-authenticated persistent browser profile by default.
+  //
+  // Whatnot authentication belongs to the signed-in team member, not to an
+  // individual seller channel. Creating a fresh profile for every requested
+  // channel threw away the manually-established Google session and forced each
+  // channel back through login/bootstrap. Channel attribution does not depend on
+  // profile isolation: whatnot-scraper.cjs verifies the requested active
+  // @username after every role switch and fails closed if it cannot prove it.
+  //
+  // Per-channel browser profiles remain available as an explicit diagnostic or
+  // isolation mode with WHATNOT_CHANNEL_ISOLATE=1.
+  const isolate = Boolean(channel)
+    && String(env.WHATNOT_CHANNEL_ISOLATE || '0').trim() === '1';
   const configuredRoot = env.WHATNOT_STATE_DIR
     ? path.resolve(projectRoot, env.WHATNOT_STATE_DIR)
     : path.resolve(projectRoot, 'storage', 'whatnot-channels');
@@ -54,15 +66,31 @@ function scopedEnvironment() {
     fs.mkdirSync(env.WHATNOT_USER_DATA_DIR, { recursive: true });
     fs.mkdirSync(env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR, { recursive: true });
     console.error(
-      `[whatnot] CHANNEL_SCOPE requested=@${channel} state=${path.relative(projectRoot, channelRoot)}`,
+      `[whatnot] CHANNEL_SCOPE requested=@${channel} session=isolated state=${path.relative(projectRoot, channelRoot)}`,
     );
   } else {
-    env.WHATNOT_USER_DATA_DIR =
-      env.WHATNOT_USER_DATA_DIR || path.resolve(projectRoot, 'storage', 'whatnot-browser-profile');
-    env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR =
-      env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR || path.resolve(projectRoot, 'storage', 'logs', 'whatnot-scrapling');
-    env.WHATNOT_HTTP_DIAGNOSTICS_DIR =
-      env.WHATNOT_HTTP_DIAGNOSTICS_DIR || path.resolve(projectRoot, 'storage', 'logs', 'whatnot-http');
+    const sharedProfile = path.resolve(projectRoot, 'storage', 'whatnot-browser-profile');
+    env.WHATNOT_USER_DATA_DIR = env.WHATNOT_USER_DATA_DIR || sharedProfile;
+
+    // Keep diagnostics separated by requested channel even though authentication
+    // state is shared. This makes a failed switch easy to diagnose without
+    // sacrificing the persistent session that a human already authenticated.
+    if (channel) {
+      const channelRoot = path.join(configuredRoot, channel);
+      env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR =
+        env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR || path.join(channelRoot, 'diagnostics');
+      env.WHATNOT_HTTP_DIAGNOSTICS_DIR =
+        env.WHATNOT_HTTP_DIAGNOSTICS_DIR || path.join(channelRoot, 'diagnostics');
+      fs.mkdirSync(env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR, { recursive: true });
+      console.error(
+        `[whatnot] CHANNEL_SCOPE requested=@${channel} session=shared-persistent profile=${path.relative(projectRoot, env.WHATNOT_USER_DATA_DIR)}`,
+      );
+    } else {
+      env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR =
+        env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR || path.resolve(projectRoot, 'storage', 'logs', 'whatnot-scrapling');
+      env.WHATNOT_HTTP_DIAGNOSTICS_DIR =
+        env.WHATNOT_HTTP_DIAGNOSTICS_DIR || path.resolve(projectRoot, 'storage', 'logs', 'whatnot-http');
+    }
   }
 
   return env;

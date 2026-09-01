@@ -78,26 +78,42 @@ if [ -z "$CHROME" ] && [ -f "${PROJECT_ROOT}/storage/chromium-path.txt" ]; then
   fi
 fi
 
-# Prefer the browser revision installed for this project's Playwright version.
-# This avoids accidentally starting an old shared Chromium build from /opt that
-# no longer matches node_modules/playwright.
+# Prefer the browser revision installed for this project's Playwright package.
+# Ignore a globally configured PLAYWRIGHT_BROWSERS_PATH while resolving it: an
+# old /opt browser cache previously caused Playwright 1.62.1 to select Chromium
+# 133 instead of its installed Chrome-for-Testing 151 revision.
 if [ -z "$CHROME" ] && command -v node >/dev/null 2>&1; then
-  CANDIDATE="$(cd "$PROJECT_ROOT" && node -e 'try { const { chromium } = require("playwright"); process.stdout.write(chromium.executablePath()); } catch (_) {}' 2>/dev/null || true)"
+  CANDIDATE="$(cd "$PROJECT_ROOT" && env -u PLAYWRIGHT_BROWSERS_PATH node -e 'try { const { chromium } = require("playwright"); process.stdout.write(chromium.executablePath()); } catch (_) {}' 2>/dev/null || true)"
   if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE" ]; then
     CHROME="$CANDIDATE"
   fi
 fi
 
-# Fallback to Playwright cache installations, newest revision first.
+# Fallback to Playwright cache installations, newest revision first. Search the
+# invoking user's cache and the known root cache because the browser helper may
+# be started manually by root or by the application user.
 if [ -z "$CHROME" ]; then
-  CANDIDATE="$(find /root/.cache/ms-playwright -maxdepth 3 -type f -path '*/chromium-*/chrome-linux64/chrome' -perm -111 -printf '%p\n' 2>/dev/null | sort -V | tail -1)"
+  for CACHE_ROOT in "${HOME:-}/.cache/ms-playwright" /root/.cache/ms-playwright; do
+    [ -n "$CACHE_ROOT" ] || continue
+    CANDIDATE="$(find "$CACHE_ROOT" -maxdepth 3 -type f -path '*/chromium-*/chrome-linux64/chrome' -perm -111 -printf '%p\n' 2>/dev/null | sort -V | tail -1)"
+    if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE" ]; then
+      CHROME="$CANDIDATE"
+      break
+    fi
+  done
+fi
+
+# Prefer versioned shared Playwright installs over the legacy unversioned
+# /opt/pw-browsers/chrome-linux directory.
+if [ -z "$CHROME" ]; then
+  CANDIDATE="$(find /opt/pw-browsers -maxdepth 3 -type f \( -path '*/chromium-*/chrome-linux64/chrome' -o -path '*/chromium-*/chrome-linux/chrome' \) -perm -111 -printf '%p\n' 2>/dev/null | sort -V | tail -1)"
   if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE" ]; then
     CHROME="$CANDIDATE"
   fi
 fi
 
-# System Chrome/Chromium are fallbacks only. Do not prefer stale shared
-# Playwright browser directories over the revision required by this project.
+# System Chrome/Chromium are fallbacks only. The known stale unversioned
+# /opt/pw-browsers/chrome-linux/chrome is intentionally not selected.
 if [ -z "$CHROME" ] && command -v google-chrome-stable >/dev/null 2>&1; then
   CHROME="$(command -v google-chrome-stable)"
 fi
@@ -111,7 +127,7 @@ if [ -z "$CHROME" ] && command -v chromium >/dev/null 2>&1; then
 fi
 
 if [ -z "$CHROME" ] || [ ! -x "$CHROME" ]; then
-  log "[whatnot-browser] ERROR: no Chromium executable found"
+  log "[whatnot-browser] ERROR: no compatible Chromium executable found"
   exit 1
 fi
 

@@ -9,6 +9,8 @@ const backend = String(process.env.WHATNOT_BROWSER_BACKEND || 'local').trim().to
 const mode = String(process.env.WHATNOT_MODE || 'analytics').trim();
 const scraplingModes = new Set(['analytics', 'orders-batch', 'shipments-batch', 'ledger']);
 const fallbackEnabled = String(process.env.WHATNOT_SCRAPER_FALLBACK || '1').trim() !== '0';
+const httpPreflightEnabled = String(process.env.WHATNOT_HTTP_PREFLIGHT || '0').trim() === '1';
+const httpPreflightStrict = String(process.env.WHATNOT_HTTP_PREFLIGHT_STRICT || '0').trim() === '1';
 
 function normalizeChannel(value) {
   return String(value || '')
@@ -48,6 +50,7 @@ function scopedEnvironment() {
     env.WHATNOT_USER_DATA_DIR = path.join(channelRoot, 'browser-profile');
     env.WHATNOT_COOKIES_FILE = path.join(channelRoot, 'cookies.json');
     env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR = path.join(channelRoot, 'diagnostics');
+    env.WHATNOT_HTTP_DIAGNOSTICS_DIR = path.join(channelRoot, 'diagnostics');
     fs.mkdirSync(env.WHATNOT_USER_DATA_DIR, { recursive: true });
     fs.mkdirSync(env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR, { recursive: true });
     console.error(
@@ -58,12 +61,25 @@ function scopedEnvironment() {
       env.WHATNOT_USER_DATA_DIR || path.resolve(projectRoot, 'storage', 'whatnot-browser-profile');
     env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR =
       env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR || path.resolve(projectRoot, 'storage', 'logs', 'whatnot-scrapling');
+    env.WHATNOT_HTTP_DIAGNOSTICS_DIR =
+      env.WHATNOT_HTTP_DIAGNOSTICS_DIR || path.resolve(projectRoot, 'storage', 'logs', 'whatnot-http');
   }
 
   return env;
 }
 
 const childEnv = scopedEnvironment();
+
+function runHttpHealth() {
+  const python = String(childEnv.WHATNOT_PYTHON_BIN || 'python3').trim();
+  const script = path.join(__dirname, 'whatnot-http-health.py');
+  process.stderr.write(`[whatnot] http session health preflight (mode=${mode})\n`);
+  return spawnSync(python, [script], {
+    env: childEnv,
+    cwd: projectRoot,
+    stdio: 'inherit',
+  });
+}
 
 function runScrapling() {
   const python = String(childEnv.WHATNOT_PYTHON_BIN || 'python3').trim();
@@ -96,17 +112,39 @@ function exitFor(result, label) {
   process.exit(result.status == null ? 1 : result.status);
 }
 
+// Optional requests-level session-health check. This only measures normal HTTP
+// session state and records diagnostics; it does not solve or manipulate an
+// anti-bot challenge. By default it is advisory so a browser session that is
+// healthier than plain HTTP is still allowed to run.
+if (backend === 'http-health') {
+  exitFor(runHttpHealth(), 'HTTP health adapter');
+}
+
+if (httpPreflightEnabled) {
+  const preflight = runHttpHealth();
+  const preflightStatus = preflight.status == null ? 1 : preflight.status;
+  if (preflight.error) {
+    process.stderr.write(`[whatnot] HTTP preflight failed to start: ${preflight.error.message}\n`);
+    if (httpPreflightStrict) process.exit(1);
+  } else if (preflightStatus !== 0) {
+    process.stderr.write(`[whatnot] HTTP preflight reported exit=${preflightStatus}; browser run ${httpPreflightStrict ? 'stopped' : 'will continue'}\n`);
+    if (httpPreflightStrict) process.exit(preflightStatus);
+  }
+}
+
 if (backend === 'scrapling' && scraplingModes.has(mode)) {
   const scraplingResult = runScrapling();
   const status = scraplingResult.status == null ? 1 : scraplingResult.status;
 
   if (status === 0) process.exit(0);
 
-  // Exit code 3 is reserved by the Scrapling scraper for login/channel-context
-  // failures. Never retry those with another backend: doing so could mask an
-  // account mismatch. Other backend/challenge failures may fall back to the
-  // existing Playwright scraper, which performs its own channel verification.
-  if (fallbackEnabled && status !== 3) {
+  // Fail closed for auth/channel mismatch (3), rate limiting (4), and an
+  // explicitly detected anti-bot challenge (5). Switching engines after any of
+  // those conditions could hide the real failure or turn fallback into challenge
+  // circumvention. Ordinary runtime/selector/start failures may still fall back
+  // to the existing Playwright scraper, which performs its own channel checks.
+  const terminalStatuses = new Set([3, 4, 5]);
+  if (fallbackEnabled && !terminalStatuses.has(status)) {
     const reason = scraplingResult.error
       ? 'scrapling-start-failure'
       : `scrapling-exit-${status}`;

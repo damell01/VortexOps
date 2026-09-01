@@ -145,9 +145,13 @@ const CHROMIUM_PATH = (() => {
     if (!fs.existsSync(base)) return null;
     // Check direct paths first — Playwright may install without a version subdirectory
     // (e.g. PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers → binary at base/chrome-linux/chrome)
-    for (const bin of ['chrome-linux64/headless_shell', 'chrome-linux64/chrome',
-                        'chrome-linux/headless_shell', 'chrome-linux/chrome',
-                        'headless_shell', 'chrome']) {
+    // Prefer the full 'chrome' binary over 'headless_shell' — headless_shell is a
+    // stripped test-only build with a more distinguishable network/protocol
+    // fingerprint than full Chrome even when full Chrome is also launched with
+    // headless: true. Only falls back to headless_shell if full Chrome isn't installed.
+    for (const bin of ['chrome-linux64/chrome', 'chrome-linux64/headless_shell',
+                        'chrome-linux/chrome', 'chrome-linux/headless_shell',
+                        'chrome', 'headless_shell']) {
       const full = `${base}/${bin}`;
       if (fs.existsSync(full)) return full;
     }
@@ -158,9 +162,9 @@ const CHROMIUM_PATH = (() => {
         .sort().reverse();
     } catch { return null; }
     for (const dir of dirs) {
-      for (const bin of ['chrome-linux64/headless_shell', 'chrome-linux64/chrome',
-                          'chrome-linux/headless_shell', 'chrome-linux/chrome',
-                          'headless_shell', 'chrome']) {
+      for (const bin of ['chrome-linux64/chrome', 'chrome-linux64/headless_shell',
+                          'chrome-linux/chrome', 'chrome-linux/headless_shell',
+                          'chrome', 'headless_shell']) {
         const full = `${base}/${dir}/${bin}`;
         if (fs.existsSync(full)) return full;
       }

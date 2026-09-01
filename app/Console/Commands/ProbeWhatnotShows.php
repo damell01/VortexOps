@@ -25,12 +25,21 @@ class ProbeWhatnotShows extends Command
         }
 
         $limit = max(1, (int) $this->option('limit'));
+        $configuredBackend = strtolower((string) config('vortex.whatnot.browser_backend', 'local'));
+
+        // If a human-owned Chromium is already exposing the local CDP endpoint,
+        // always borrow it for this diagnostic probe. This command must never
+        // launch another Chromium against the same persistent profile because
+        // the launcher's stale-lock recovery can terminate the manual browser.
+        $cdpUrl = 'http://127.0.0.1:9222';
+        $backend = $this->localCdpAvailable() ? 'attached' : $configuredBackend;
 
         $env = [
             'WHATNOT_MODE' => 'shows',
             'WHATNOT_LIMIT' => (string) $limit,
             'WHATNOT_DEBUG' => $this->option('debug') ? '1' : '0',
-            'WHATNOT_BROWSER_BACKEND' => (string) config('vortex.whatnot.browser_backend', 'local'),
+            'WHATNOT_BROWSER_BACKEND' => $backend,
+            'WHATNOT_ATTACH_CDP_URL' => $cdpUrl,
             'STEEL_BASE_URL' => (string) config('vortex.whatnot.steel_base_url', 'http://127.0.0.1:3000'),
         ];
 
@@ -47,7 +56,6 @@ class ProbeWhatnotShows extends Command
             'WHATNOT_PASSWORD' => config('vortex.whatnot.password'),
             'PLAYWRIGHT_BROWSERS_PATH' => config('vortex.whatnot.playwright_browsers_path'),
             'PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH' => config('vortex.whatnot.playwright_chromium_executable'),
-            'WHATNOT_PROXY' => config('vortex.whatnot.proxy'),
         ] as $key => $value) {
             if ($value !== null && $value !== '') {
                 $env[$key] = (string) $value;
@@ -59,7 +67,7 @@ class ProbeWhatnotShows extends Command
         }
 
         $node = config('vortex.whatnot.node_bin', 'node');
-        $script = base_path('scripts/whatnot-scraper.cjs');
+        $script = base_path('scripts/whatnot-runner.cjs');
 
         if ($channel) {
             $this->info("Probing {$channel->name} (@{$channel->whatnot_username}) for {$limit} show(s)…");
@@ -67,26 +75,16 @@ class ProbeWhatnotShows extends Command
             $this->info("Probing the seller channel already active in the saved Whatnot session for {$limit} show(s)…");
         }
         $this->line('Mode: shows (analytics page bypassed; channel switch bypassed unless --channel is supplied)');
-        $this->newLine();
 
-        // Match WhatnotScraper::commandLine(): only the legacy local backend needs
-        // an X display in headed mode. Steel owns its browser process, so wrapping
-        // a Steel probe in Xvfb is unnecessary and obscures which backend ran.
-        $command = [$node, $script];
-        $backend = strtolower($env['WHATNOT_BROWSER_BACKEND'] ?? 'local');
-        $headed = ($env['WHATNOT_HEADLESS'] ?? 'true') === 'false';
-        $display = $env['DISPLAY'] ?? getenv('DISPLAY');
-        $hasDisplay = $display !== false && $display !== null && $display !== '';
-
-        if ($backend === 'local' && $headed && ! $hasDisplay) {
-            $wrapper = base_path('scripts/with-xvfb.sh');
-            if (is_readable($wrapper)) {
-                $command = ['/bin/sh', $wrapper, $node, $script];
-                $this->line('Headed mode: using scripts/with-xvfb.sh automatically.');
-            }
+        if ($backend === 'attached') {
+            $this->line('Attached mode: existing Chromium detected on 127.0.0.1:9222; this probe will not launch or stop Chromium.');
         }
 
-        $process = new Process($command, base_path(), $env);
+        $this->newLine();
+
+        // Always use the central runner. It owns backend selection and the
+        // attached-browser path. Do not call whatnot-scraper.cjs directly here.
+        $process = new Process([$node, $script], base_path(), $env);
         $process->setTimeout(300);
         $process->run(function (string $type, string $buffer): void {
             if ($type === Process::ERR) {
@@ -95,12 +93,9 @@ class ProbeWhatnotShows extends Command
         });
 
         $stdout = trim($process->getOutput());
-        $stderr = trim($process->getErrorOutput());
 
         if (! $process->isSuccessful()) {
             $this->error('Show-list probe failed with exit code ' . $process->getExitCode() . '.');
-            // stderr is already streamed live by the callback above. Do not print
-            // the captured buffer a second time on failure.
             return self::FAILURE;
         }
 
@@ -136,6 +131,20 @@ class ProbeWhatnotShows extends Command
         $this->line(json_encode($rows[0], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         return self::SUCCESS;
+    }
+
+    private function localCdpAvailable(): bool
+    {
+        $errno = 0;
+        $errstr = '';
+        $socket = @stream_socket_client('tcp://127.0.0.1:9222', $errno, $errstr, 0.25);
+
+        if (! is_resource($socket)) {
+            return false;
+        }
+
+        fclose($socket);
+        return true;
     }
 
     private function resolveChannel(mixed $value): ?WhatnotChannel

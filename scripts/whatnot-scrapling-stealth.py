@@ -290,8 +290,8 @@ def run_whatnot() -> None:
             google_search=False,
             locale="en-US",
             solve_cloudflare=True,
-            block_webrtc=False,
-            hide_canvas=False,
+            block_webrtc=True,
+            hide_canvas=True,
         ) as session:
             last_error: ChallengeBlocked | None = None
             for attempt in range(1, RETRIES + 2):

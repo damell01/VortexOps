@@ -52,9 +52,29 @@ if (!source.includes(marker)) {
   process.exit(2);
 }
 
-const injected = `async function launchPersistentContextViaCdp(userDataDir, opts = {}) {\n  if (process.env.WHATNOT_ATTACH_EXISTING_BROWSER === '1') {\n    const endpoint = String(process.env.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222').trim();\n    info('attaching to existing Chromium over local CDP:', endpoint);\n\n    let browser;\n    try {\n      browser = await chromium.connectOverCDP(endpoint, { timeout: 15000 });\n    } catch (e) {\n      throw new Error(\n        'ATTACHED_BROWSER_UNAVAILABLE: could not connect to ' + endpoint + '. ' +\n        'Start the manual Chromium session with a local remote-debugging port first. ' +\n        'Original error: ' + e.message\n      );\n    }\n\n    const contexts = browser.contexts();\n    if (contexts.length === 0) {\n      throw new Error('ATTACHED_BROWSER_UNAVAILABLE: Chromium exposed no browser context.');\n    }\n\n    const context = contexts[0];\n    const pages = context.pages();\n    info('attached browser connected; existing pages=' + pages.length);\n\n    // The human-owned browser must remain alive after an Artisan command ends.\n    // The normal scraper closes a context it created itself in finally/blocked\n    // paths, so make close() a no-op for this borrowed default context. Refuse\n    // attached mode if Playwright ever makes that method non-overridable rather\n    // than risking closing the human browser unexpectedly.\n    try {\n      Object.defineProperty(context, 'close', {\n        configurable: true,\n        value: async () => {\n          info('attached browser: leaving the human-owned Chromium session open');\n        },\n      });\n    } catch (e) {\n      throw new Error('ATTACHED_BROWSER_UNAVAILABLE: could not protect borrowed Chromium from context.close(): ' + e.message);\n    }\n\n    return context;\n  }\n\n  const { spawn } = require('child_process');`;
+const injected = `async function launchPersistentContextViaCdp(userDataDir, opts = {}) {\n  if (process.env.WHATNOT_ATTACH_EXISTING_BROWSER === '1') {\n    const endpoint = String(process.env.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222').trim();\n    info('attaching to existing Chromium over local CDP:', endpoint);\n\n    let browser;\n    let firstAttachError = null;\n    try {\n      browser = await chromium.connectOverCDP(endpoint, { timeout: 30000 });\n    } catch (e) {\n      firstAttachError = e;\n      info('attached browser: first CDP attach attempt did not settle; retrying once after 2s');\n      await new Promise((resolve) => setTimeout(resolve, 2000));\n      try {\n        browser = await chromium.connectOverCDP(endpoint, { timeout: 30000 });\n      } catch (retryError) {\n        throw new Error(\n          'ATTACHED_BROWSER_UNAVAILABLE: could not connect to ' + endpoint + ' after two bounded attempts. ' +\n          'The browser may be starting, overloaded, or unavailable. ' +\n          'First error: ' + firstAttachError.message + ' | Retry error: ' + retryError.message\n        );\n      }\n    }\n\n    const contexts = browser.contexts();\n    if (contexts.length === 0) {\n      throw new Error('ATTACHED_BROWSER_UNAVAILABLE: Chromium exposed no browser context.');\n    }\n\n    const context = contexts[0];\n    const pages = context.pages();\n    info('attached browser connected; existing pages=' + pages.length);\n\n    // The human-owned browser must remain alive after an Artisan command ends.\n    // The normal scraper closes a context it created itself in finally/blocked\n    // paths, so make close() a no-op for this borrowed default context. Refuse\n    // attached mode if Playwright ever makes that method non-overridable rather\n    // than risking closing the human browser unexpectedly.\n    try {\n      Object.defineProperty(context, 'close', {\n        configurable: true,\n        value: async () => {\n          info('attached browser: leaving the human-owned Chromium session open');\n        },\n      });\n    } catch (e) {\n      throw new Error('ATTACHED_BROWSER_UNAVAILABLE: could not protect borrowed Chromium from context.close(): ' + e.message);\n    }\n\n    return context;\n  }\n\n  const { spawn } = require('child_process');`;
 
 source = source.replace(marker, injected);
+
+// In attached mode the browser context survives between scraper processes. The
+// main scraper normally creates a fresh page on every invocation and relies on
+// context.close() to clean it up. Because attached mode deliberately makes
+// context.close() a no-op, that leaked one tab/renderer tree per shows, orders,
+// shipments, ledger, and channel run until Chrome became overloaded enough that
+// connectOverCDP itself timed out. Reuse the existing Whatnot tab instead.
+const pageMarker = `  const page = await context.newPage();`;
+
+if (!source.includes(pageMarker)) {
+  process.stderr.write(
+    '[whatnot] attached-browser shim could not find the main page creation in whatnot-scraper.cjs. ' +
+    'The scraper changed; update the attached-mode page reuse shim before using it.\n',
+  );
+  process.exit(2);
+}
+
+const pageInjected = `  const attachedPages = process.env.WHATNOT_ATTACH_EXISTING_BROWSER === '1'\n    ? context.pages().filter((candidate) => !candidate.isClosed())\n    : [];\n  const page = attachedPages.find((candidate) => candidate.url().includes('whatnot.com'))\n    || attachedPages[0]\n    || await context.newPage();\n  if (process.env.WHATNOT_ATTACH_EXISTING_BROWSER === '1') {\n    info('attached browser: reusing persistent page; open_pages=' + context.pages().length + ' url=' + page.url());\n  }`;
+
+source = source.replace(pageMarker, pageInjected);
 
 // The current Seller Hub exposes stable ids for the two controls involved in a
 // role change. The profile button may arrive a little after the dashboard shell,

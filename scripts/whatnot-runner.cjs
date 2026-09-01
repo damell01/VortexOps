@@ -5,7 +5,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const projectRoot = path.resolve(__dirname, '..');
-const backend = String(process.env.WHATNOT_BROWSER_BACKEND || 'local').trim().toLowerCase();
+let backend = String(process.env.WHATNOT_BROWSER_BACKEND || 'local').trim().toLowerCase();
 const mode = String(process.env.WHATNOT_MODE || 'analytics').trim();
 const scraplingModes = new Set(['analytics', 'orders-batch', 'shipments-batch', 'ledger']);
 const fallbackEnabled = String(process.env.WHATNOT_SCRAPER_FALLBACK || '1').trim() !== '0';
@@ -13,10 +13,7 @@ const httpPreflightEnabled = String(process.env.WHATNOT_HTTP_PREFLIGHT || '0').t
 const httpPreflightStrict = String(process.env.WHATNOT_HTTP_PREFLIGHT_STRICT || '0').trim() === '1';
 
 function normalizeChannel(value) {
-  return String(value || '')
-    .trim()
-    .replace(/^@+/, '')
-    .toLowerCase();
+  return String(value || '').trim().replace(/^@+/, '').toLowerCase();
 }
 
 function channelFromArgs() {
@@ -40,17 +37,6 @@ function scopedEnvironment() {
     env.WHATNOT_CHANNEL_NAME = channel;
   }
 
-  // Reuse the human-authenticated persistent browser profile by default.
-  //
-  // Whatnot authentication belongs to the signed-in team member, not to an
-  // individual seller channel. Creating a fresh profile for every requested
-  // channel threw away the manually-established Google session and forced each
-  // channel back through login/bootstrap. Channel attribution does not depend on
-  // profile isolation: whatnot-scraper.cjs verifies the requested active
-  // @username after every role switch and fails closed if it cannot prove it.
-  //
-  // Per-channel browser profiles remain available as an explicit diagnostic or
-  // isolation mode with WHATNOT_CHANNEL_ISOLATE=1.
   const isolate = Boolean(channel)
     && String(env.WHATNOT_CHANNEL_ISOLATE || '0').trim() === '1';
   const configuredRoot = env.WHATNOT_STATE_DIR
@@ -65,31 +51,20 @@ function scopedEnvironment() {
     env.WHATNOT_HTTP_DIAGNOSTICS_DIR = path.join(channelRoot, 'diagnostics');
     fs.mkdirSync(env.WHATNOT_USER_DATA_DIR, { recursive: true });
     fs.mkdirSync(env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR, { recursive: true });
-    console.error(
-      `[whatnot] CHANNEL_SCOPE requested=@${channel} session=isolated state=${path.relative(projectRoot, channelRoot)}`,
-    );
+    console.error(`[whatnot] CHANNEL_SCOPE requested=@${channel} session=isolated state=${path.relative(projectRoot, channelRoot)}`);
   } else {
     const sharedProfile = path.resolve(projectRoot, 'storage', 'whatnot-browser-profile');
     env.WHATNOT_USER_DATA_DIR = env.WHATNOT_USER_DATA_DIR || sharedProfile;
 
-    // Keep diagnostics separated by requested channel even though authentication
-    // state is shared. This makes a failed switch easy to diagnose without
-    // sacrificing the persistent session that a human already authenticated.
     if (channel) {
       const channelRoot = path.join(configuredRoot, channel);
-      env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR =
-        env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR || path.join(channelRoot, 'diagnostics');
-      env.WHATNOT_HTTP_DIAGNOSTICS_DIR =
-        env.WHATNOT_HTTP_DIAGNOSTICS_DIR || path.join(channelRoot, 'diagnostics');
+      env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR = env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR || path.join(channelRoot, 'diagnostics');
+      env.WHATNOT_HTTP_DIAGNOSTICS_DIR = env.WHATNOT_HTTP_DIAGNOSTICS_DIR || path.join(channelRoot, 'diagnostics');
       fs.mkdirSync(env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR, { recursive: true });
-      console.error(
-        `[whatnot] CHANNEL_SCOPE requested=@${channel} session=shared-persistent profile=${path.relative(projectRoot, env.WHATNOT_USER_DATA_DIR)}`,
-      );
+      console.error(`[whatnot] CHANNEL_SCOPE requested=@${channel} session=shared-persistent profile=${path.relative(projectRoot, env.WHATNOT_USER_DATA_DIR)}`);
     } else {
-      env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR =
-        env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR || path.resolve(projectRoot, 'storage', 'logs', 'whatnot-scrapling');
-      env.WHATNOT_HTTP_DIAGNOSTICS_DIR =
-        env.WHATNOT_HTTP_DIAGNOSTICS_DIR || path.resolve(projectRoot, 'storage', 'logs', 'whatnot-http');
+      env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR = env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR || path.resolve(projectRoot, 'storage', 'logs', 'whatnot-scrapling');
+      env.WHATNOT_HTTP_DIAGNOSTICS_DIR = env.WHATNOT_HTTP_DIAGNOSTICS_DIR || path.resolve(projectRoot, 'storage', 'logs', 'whatnot-http');
     }
   }
 
@@ -98,29 +73,49 @@ function scopedEnvironment() {
 
 const childEnv = scopedEnvironment();
 
+function localCdpAvailable() {
+  const endpoint = String(childEnv.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222').trim();
+  let parsed;
+  try { parsed = new URL(endpoint); } catch { return false; }
+  const host = (parsed.hostname || '').toLowerCase();
+  if (!['127.0.0.1', 'localhost', '::1'].includes(host)) return false;
+
+  const healthUrl = endpoint.replace(/\/$/, '') + '/json/version';
+  const result = spawnSync('curl', ['-fsS', '--max-time', '2', healthUrl], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+  });
+  if (result.status !== 0) return false;
+  try {
+    const data = JSON.parse(result.stdout || '{}');
+    return Boolean(data.webSocketDebuggerUrl);
+  } catch {
+    return false;
+  }
+}
+
+// A live browser on our loopback CDP port owns the shared profile. Never start
+// another Chromium against that profile: the normal launcher's stale-lock
+// recovery can terminate the human-owned browser. Borrow the already-running
+// browser instead. This is browser ownership/session reuse only; challenge
+// detection and channel verification remain in the scraper.
+if (backend === 'local' && localCdpAvailable()) {
+  backend = 'attached';
+  process.stderr.write('[whatnot] live manual Chromium detected on local CDP; auto-selecting attached mode (will not launch/kill Chromium)\n');
+}
+
 function runHttpHealth() {
   const python = String(childEnv.WHATNOT_PYTHON_BIN || 'python3').trim();
   const script = path.join(__dirname, 'whatnot-http-health.py');
   process.stderr.write(`[whatnot] http session health preflight (mode=${mode})\n`);
-  return spawnSync(python, [script], {
-    env: childEnv,
-    cwd: projectRoot,
-    stdio: 'inherit',
-  });
+  return spawnSync(python, [script], { env: childEnv, cwd: projectRoot, stdio: 'inherit' });
 }
 
 function runScrapling() {
   const python = String(childEnv.WHATNOT_PYTHON_BIN || 'python3').trim();
-  // Use the ordinary DynamicSession implementation. The older
-  // whatnot-scrapling-stealth.py wrapper is intentionally not selected by the
-  // application runner because it exposes anti-bot challenge-solving options.
   const script = path.join(__dirname, 'whatnot-scrapling.py');
   process.stderr.write(`[whatnot] browser backend: scrapling-dynamic (mode=${mode})\n`);
-  return spawnSync(python, [script], {
-    env: childEnv,
-    cwd: projectRoot,
-    stdio: 'inherit',
-  });
+  return spawnSync(python, [script], { env: childEnv, cwd: projectRoot, stdio: 'inherit' });
 }
 
 function runAttachedBrowser() {
@@ -131,26 +126,23 @@ function runAttachedBrowser() {
     WHATNOT_ATTACH_EXISTING_BROWSER: '1',
     WHATNOT_ATTACH_CDP_URL: childEnv.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222',
   };
-  process.stderr.write(
-    `[whatnot] browser backend: attached-manual-chromium (mode=${mode}, cdp=${env.WHATNOT_ATTACH_CDP_URL})\n`,
-  );
-  return spawnSync(process.execPath, [script, ...process.argv.slice(2)], {
-    env,
-    cwd: projectRoot,
-    stdio: 'inherit',
-  });
+  process.stderr.write(`[whatnot] browser backend: attached-manual-chromium (mode=${mode}, cdp=${env.WHATNOT_ATTACH_CDP_URL})\n`);
+  return spawnSync(process.execPath, [script, ...process.argv.slice(2)], { env, cwd: projectRoot, stdio: 'inherit' });
 }
 
 function runPlaywright(reason = '') {
+  // Last safety gate: if a manual browser appeared after startup, refuse to
+  // launch a competing Chromium and attach instead.
+  if (localCdpAvailable()) {
+    process.stderr.write('[whatnot] manual Chromium became available before launch; attaching instead of starting a second browser\n');
+    return runAttachedBrowser();
+  }
+
   const script = path.join(__dirname, 'whatnot-scraper.cjs');
   const env = { ...childEnv, WHATNOT_BROWSER_BACKEND: 'local' };
   const suffix = reason ? ` fallback_reason=${reason}` : '';
   process.stderr.write(`[whatnot] browser backend: playwright-local (mode=${mode})${suffix}\n`);
-  return spawnSync(process.execPath, [script, ...process.argv.slice(2)], {
-    env,
-    cwd: projectRoot,
-    stdio: 'inherit',
-  });
+  return spawnSync(process.execPath, [script, ...process.argv.slice(2)], { env, cwd: projectRoot, stdio: 'inherit' });
 }
 
 function exitFor(result, label) {
@@ -161,13 +153,7 @@ function exitFor(result, label) {
   process.exit(result.status == null ? 1 : result.status);
 }
 
-// Optional requests-level session-health check. This only measures normal HTTP
-// session state and records diagnostics; it does not solve or manipulate an
-// anti-bot challenge. By default it is advisory so a browser session that is
-// healthier than plain HTTP is still allowed to run.
-if (backend === 'http-health') {
-  exitFor(runHttpHealth(), 'HTTP health adapter');
-}
+if (backend === 'http-health') exitFor(runHttpHealth(), 'HTTP health adapter');
 
 if (httpPreflightEnabled && backend !== 'attached') {
   const preflight = runHttpHealth();
@@ -181,43 +167,23 @@ if (httpPreflightEnabled && backend !== 'attached') {
   }
 }
 
-// Attached mode borrows a Chromium instance the user already opened and
-// authenticated manually. It does not launch a replacement browser and it does
-// not add any challenge-solving behavior; the normal scraper still stops on a
-// detected challenge and still verifies the requested seller channel.
-if (backend === 'attached') {
-  const attachedResult = runAttachedBrowser();
-  exitFor(attachedResult, 'Attached browser runner');
-}
+if (backend === 'attached') exitFor(runAttachedBrowser(), 'Attached browser runner');
 
 if (backend === 'scrapling' && scraplingModes.has(mode)) {
   const scraplingResult = runScrapling();
   const status = scraplingResult.status == null ? 1 : scraplingResult.status;
-
   if (status === 0) process.exit(0);
 
-  // Fail closed for auth/channel mismatch (3), rate limiting (4), and an
-  // explicitly detected anti-bot challenge (5). Switching engines after any of
-  // those conditions could hide the real failure or turn fallback into challenge
-  // circumvention. Ordinary runtime/selector/start failures may still fall back
-  // to the existing Playwright scraper, which performs its own channel checks.
   const terminalStatuses = new Set([3, 4, 5]);
   if (fallbackEnabled && !terminalStatuses.has(status)) {
-    const reason = scraplingResult.error
-      ? 'scrapling-start-failure'
-      : `scrapling-exit-${status}`;
-    const playwrightResult = runPlaywright(reason);
-    exitFor(playwrightResult, 'Playwright fallback');
+    const reason = scraplingResult.error ? 'scrapling-start-failure' : `scrapling-exit-${status}`;
+    exitFor(runPlaywright(reason), 'Playwright fallback');
   }
-
   exitFor(scraplingResult, 'Scrapling runner');
 }
 
 if (backend === 'scrapling') {
-  process.stderr.write(
-    `[whatnot] Scrapling does not replace mode=${mode}; using the existing Node scraper for this utility/auth mode.\n`,
-  );
+  process.stderr.write(`[whatnot] Scrapling does not replace mode=${mode}; using the existing Node scraper for this utility/auth mode.\n`);
 }
 
-const localResult = runPlaywright();
-exitFor(localResult, 'Playwright runner');
+exitFor(runPlaywright(), 'Playwright runner');

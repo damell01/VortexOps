@@ -88,7 +88,19 @@ Or pass already-loaded relations explicitly (see `ReceivingService::creditStock(
 
 ## Whatnot scraper
 
-Playwright/Node.js script (`scripts/whatnot-scraper.cjs`) — no public API exists.
+`WhatnotScraper.php` always calls `scripts/whatnot-runner.cjs` — the single entry
+point for every mode. The runner reads `WHATNOT_BROWSER_BACKEND` and dispatches:
+
+- `local` (default) → `scripts/whatnot-scraper.cjs`, the original Playwright/Node
+  scraper — no public Whatnot API exists, so this is DOM scraping.
+- `scrapling` → `scripts/whatnot-scrapling.py` (Python/Playwright), but only for
+  the modes it currently supports (`analytics`, `orders-batch`, `shipments-batch`,
+  `ledger`); anything else still falls back to `local` automatically.
+
+Both backends drive the **same** persistent Chromium profile
+(`storage/whatnot-browser-profile` for the Python backend; the Node backend keeps
+its own cookie/profile handling) behind the **same** shared browser lock
+(`WhatnotScraper::withBrowserLock()`) — never run both concurrently by hand.
 
 ```bash
 php artisan whatnot:import              # uses WHATNOT_LIMIT (default 50)
@@ -96,10 +108,54 @@ php artisan whatnot:import --debug      # saves screenshots to /tmp/whatnot-debu
 php artisan whatnot:import --channel=1
 ```
 
-Exit codes: `0` = success JSON on stdout, `1` = auth/nav error, `2` = selector miss.  
-When exit code 2, update the `SELECTORS` object at the top of `scripts/whatnot-scraper.cjs`.
+Exit codes (shared contract across both backends): `0` success (JSON on stdout),
+`1` misc runtime failure, `2` selector/page-layout miss, `3` auth required
+(login or a Cloudflare/anti-bot challenge), `4` rate limited.
+When exit code 2 on the local backend, update the `SELECTORS` object at the top of
+`scripts/whatnot-scraper.cjs`.
 
 Required env vars: `WHATNOT_EMAIL`, `WHATNOT_PASSWORD`.
+
+### Scrapling backend (`WHATNOT_BROWSER_BACKEND=scrapling`)
+
+`scripts/whatnot-scrapling.py` uses Playwright's Python API directly (a plain,
+unmodified Chromium — no stealth/fingerprint patching, no CAPTCHA/Turnstile
+solving). Every navigation goes through `safe_goto()` → `classify_page()`, which
+returns `AUTHENTICATED | LOGIN_REQUIRED | CHALLENGE_REQUIRED | RATE_LIMITED |
+UNEXPECTED_PAGE`. Anything but `AUTHENTICATED` **stops the run** (exit 3/2/4) —
+this backend detects challenges, it does not attempt to get past them. A
+`CHALLENGE_REQUIRED` or `LOGIN_REQUIRED` stop means a human opens the profile
+headed (`WHATNOT_HEADLESS=false`) and clears it by hand.
+
+Before any data is returned, `verify_channel_context()` reads the active seller
+username straight off the loaded page and fails closed (exit 3) if it can't
+positively match the requested channel — it never infers the seller from the
+requested name.
+
+**Extraction is intentionally not ported yet.** Session/auth/channel-verification
+are implemented and are the safety-relevant part of this backend, so those came
+first. The four mode functions (`mode_analytics`, `mode_orders_batch`,
+`mode_shipments_batch`, `mode_ledger`) currently just exit 1 with a message
+pointing at the equivalent extractor in `whatnot-scraper.cjs` — porting Whatnot's
+empirically-tuned DOM heuristics blind, without a live authenticated session to
+validate against, risks silently corrupting revenue/payout data. Port and
+validate one mode at a time, headed, before trusting it:
+
+```bash
+python3 -m pip install -r requirements-whatnot-scrapling.txt
+python3 -m playwright install chromium
+
+WHATNOT_BROWSER_BACKEND=scrapling
+WHATNOT_PYTHON_BIN=python3
+WHATNOT_HEADLESS=false   # keep headed until a mode is validated
+```
+
+Staged rollout: (1) session/profile startup → (2) `/dashboard/home` reached
+authenticated → (3) channel verified → (4) `analytics` with `WHATNOT_LIMIT=1` →
+(5) raise the limit → (6) one `orders-batch` show → (7) one `ledger` window →
+(8) a normal scheduled import. Roll back to `WHATNOT_BROWSER_BACKEND=local` (or
+just omit the var) at any point — the Node scraper is unaffected and stays the
+default.
 
 ---
 

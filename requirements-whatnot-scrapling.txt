@@ -1,0 +1,12 @@
+# Dependencies for scripts/whatnot-scrapling.py (WHATNOT_BROWSER_BACKEND=scrapling).
+#
+# Install separately from the PHP/Node app on the VPS:
+#   python3 -m pip install -r requirements-whatnot-scrapling.txt
+#   python3 -m playwright install chromium
+#
+# This backend uses Playwright's own sync API directly — plain, unmodified
+# Chromium, no stealth/fingerprint-patching, no CAPTCHA/Turnstile solving.
+# It shares the persistent profile and Chromium binary conventions used by
+# scripts/whatnot-scraper.cjs; keep this pinned close to that script's
+# @playwright/test version in package.json.
+playwright==1.50.0

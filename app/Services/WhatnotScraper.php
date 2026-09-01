@@ -19,7 +19,12 @@ class WhatnotScraper
 
     public function __construct()
     {
-        $this->scriptPath = base_path('scripts/whatnot-scraper.cjs');
+        // whatnot-runner.cjs is the single entry point for every mode — it
+        // decides (via WHATNOT_BROWSER_BACKEND, set in baseEnv()) whether to
+        // run the existing Node/Playwright scraper or the Python/Scrapling
+        // backend and forwards stdout/stderr/exit code untouched, so nothing
+        // below this constructor needs to know which one actually ran.
+        $this->scriptPath = base_path('scripts/whatnot-runner.cjs');
         $this->nodeBin    = config('vortex.whatnot.node_bin', 'node');
     }
 
@@ -1114,6 +1119,12 @@ class WhatnotScraper
         $password = config('vortex.whatnot.password');
         if ($email)    $env['WHATNOT_EMAIL']    = $email;
         if ($password) $env['WHATNOT_PASSWORD'] = $password;
+
+        // Read by scripts/whatnot-runner.cjs to pick the browser backend.
+        // 'local' (default) is a no-op — same Node scraper as before this var existed.
+        $env['WHATNOT_BROWSER_BACKEND'] = config('vortex.whatnot.browser_backend', 'local');
+        $env['WHATNOT_PYTHON_BIN']      = config('vortex.whatnot.python_bin', 'python3');
+        $env['WHATNOT_HEADLESS']        = config('vortex.whatnot.headless', true) ? '1' : '0';
 
         return $env;
     }

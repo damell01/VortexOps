@@ -32,6 +32,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsqlite3-dev \
     libzip-dev \
     poppler-utils \
+    python3 \
+    python3-venv \
     unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" \
@@ -49,7 +51,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && sed -ri "s!/var/www/html!${APACHE_DOCUMENT_ROOT}!g" /etc/apache2/sites-available/*.conf /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf \
     && rm -rf /var/lib/apt/lists/*
 
-# Node.js 22 + Playwright + Chromium — required for the Whatnot scraper
+# Node.js 22 + Playwright + Chromium — required for the Whatnot scraper.
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
@@ -57,6 +59,15 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && npx playwright install chromium --with-deps \
     && rm -rf /var/lib/apt/lists/* \
     && node -e "const {chromium}=require('playwright-core'); require('fs').writeFileSync('/opt/pw-browsers/.chromium-path', chromium.executablePath())"
+
+# Isolate the optional Scrapling backend in its own Python environment. It reuses
+# the Chromium installation above through PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH.
+COPY requirements-whatnot-scrapling.txt /tmp/requirements-whatnot-scrapling.txt
+RUN python3 -m venv /opt/whatnot-scrapling-venv \
+    && /opt/whatnot-scrapling-venv/bin/pip install --no-cache-dir --upgrade pip \
+    && /opt/whatnot-scrapling-venv/bin/pip install --no-cache-dir -r /tmp/requirements-whatnot-scrapling.txt \
+    && rm -f /tmp/requirements-whatnot-scrapling.txt
+ENV WHATNOT_PYTHON_BIN=/opt/whatnot-scrapling-venv/bin/python
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY --from=vendor /app/vendor ./vendor

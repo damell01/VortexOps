@@ -63,10 +63,10 @@ source = source.replace(marker, injected);
 // controls, so it opened the site navigation instead of the account/profile
 // control and never reached Switch Role.
 //
-// In attached mode, add compact text-only buttons to the existing trigger sweep.
-// The main scraper still verifies that clicking one actually reveals Switch Role;
-// otherwise it dismisses it and keeps searching. Channel verification remains
-// fail-closed after the target is selected.
+// In attached mode, replace the ElementHandle-array sweeps with Locator count/nth
+// iteration. Attached CDP has twice produced "(intermediate value) is not iterable"
+// at the first page.$$ for..of loop, before any trigger was clicked. Locator-based
+// iteration avoids relying on the returned value being directly iterable.
 const triggerSweepMarker = `    for (const extra of await page.$$('button[aria-haspopup], [role="button"][aria-haspopup]').catch(() => [])) {\n      triggerHandles.push({ sel: 'sweep:aria-haspopup', h: extra });\n    }`;
 
 if (!source.includes(triggerSweepMarker)) {
@@ -77,7 +77,7 @@ if (!source.includes(triggerSweepMarker)) {
   process.exit(2);
 }
 
-const triggerSweepInjected = `    for (const extra of await page.$$('button[aria-haspopup], [role="button"][aria-haspopup]').catch(() => [])) {\n      triggerHandles.push({ sel: 'sweep:aria-haspopup', h: extra });\n    }\n\n    // Current Seller Hub profile/avatar control can be a plain button containing\n    // only the user's initial and no aria-haspopup/profile label. Avoid a for..of\n    // directly over page.$$ here: attached CDP runs have returned a non-iterable\n    // intermediate value on this path. Locator count/nth keeps the sweep bounded\n    // and deterministic.\n    const compactButtons = page.locator('button');\n    const compactCount = Math.min(await compactButtons.count().catch(() => 0), 80);\n    for (let compactIndex = 0; compactIndex < compactCount; compactIndex++) {\n      const compact = compactButtons.nth(compactIndex);\n      const compactLabel = await compact.evaluate((el) =>\n        (el.getAttribute('aria-label') || el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ')\n      ).catch(() => '');\n      if (!/^[A-Za-z0-9]{1,3}$/.test(compactLabel)) continue;\n      const compactHandle = await compact.elementHandle({ timeout: 1000 }).catch(() => null);\n      if (!compactHandle) continue;\n      triggerHandles.push({ sel: 'sweep:compact-avatar[' + compactLabel + ']', h: compactHandle });\n    }`;
+const triggerSweepInjected = `    const popupTriggers = page.locator('button[aria-haspopup], [role="button"][aria-haspopup]');\n    const popupCount = Math.min(await popupTriggers.count().catch(() => 0), 40);\n    for (let popupIndex = 0; popupIndex < popupCount; popupIndex++) {\n      const popupHandle = await popupTriggers.nth(popupIndex).elementHandle({ timeout: 1000 }).catch(() => null);\n      if (popupHandle) triggerHandles.push({ sel: 'sweep:aria-haspopup', h: popupHandle });\n    }\n\n    // Current Seller Hub profile/avatar control can be a plain button containing\n    // only the user's initial and no aria-haspopup/profile label.\n    const compactButtons = page.locator('button');\n    const compactCount = Math.min(await compactButtons.count().catch(() => 0), 80);\n    for (let compactIndex = 0; compactIndex < compactCount; compactIndex++) {\n      const compact = compactButtons.nth(compactIndex);\n      const compactLabel = await compact.evaluate((el) =>\n        (el.getAttribute('aria-label') || el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ')\n      ).catch(() => '');\n      if (!/^[A-Za-z0-9]{1,3}$/.test(compactLabel)) continue;\n      const compactHandle = await compact.elementHandle({ timeout: 1000 }).catch(() => null);\n      if (!compactHandle) continue;\n      triggerHandles.push({ sel: 'sweep:compact-avatar[' + compactLabel + ']', h: compactHandle });\n    }`;
 
 source = source.replace(triggerSweepMarker, triggerSweepInjected);
 

@@ -233,7 +233,7 @@ def validate_owned_test_target(url: str) -> None:
         )
     if parsed.scheme not in {"http", "https"} or not host:
         legacy.fail("TEST_TARGET_URL must be an http(s) URL.", 2)
-    if host == "whatnot.com" or host.endswith(".whatnot.com"):
+    if host == "awhatnot.com" or host.endswith(".awhatnot.com"):
         legacy.fail("Owned-site test mode refuses whatnot.com targets.", 2)
 
 

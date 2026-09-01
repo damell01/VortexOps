@@ -15,17 +15,24 @@ START_URL="${WHATNOT_BROWSER_START_URL:-https://www.whatnot.com/dashboard/home}"
 
 mkdir -p "$PROFILE_DIR" "$LOG_DIR"
 
+# IMPORTANT: this helper is launched by whatnot-runner.cjs, whose stdout is the
+# scraper's machine-readable JSON result. Keep every lifecycle/status message on
+# stderr so an automatic browser start can never corrupt that JSON payload.
+log() {
+  echo "$*" >&2
+}
+
 cdp_ready() {
   curl -fsS --max-time 2 "${CDP_URL}/json/version" >/dev/null 2>&1
 }
 
 if cdp_ready; then
-  echo "[whatnot-browser] Chromium already available at ${CDP_URL}"
+  log "[whatnot-browser] Chromium already available at ${CDP_URL}"
   exit 0
 fi
 
 if ! command -v Xvfb >/dev/null 2>&1; then
-  echo "[whatnot-browser] ERROR: Xvfb is required but not installed" >&2
+  log "[whatnot-browser] ERROR: Xvfb is required but not installed"
   exit 1
 fi
 
@@ -76,7 +83,7 @@ if [ -z "$CHROME" ] && command -v chromium >/dev/null 2>&1; then
 fi
 
 if [ -z "$CHROME" ] || [ ! -x "$CHROME" ]; then
-  echo "[whatnot-browser] ERROR: no Chromium executable found" >&2
+  log "[whatnot-browser] ERROR: no Chromium executable found"
   exit 1
 fi
 
@@ -84,11 +91,11 @@ fi
 # but CDP is unhealthy, surface that condition instead of deleting locks or
 # killing a possibly human-owned session.
 if pgrep -af "${PROFILE_DIR}" >/dev/null 2>&1; then
-  echo "[whatnot-browser] ERROR: a Chromium process already owns ${PROFILE_DIR}, but CDP ${CDP_URL} is unavailable" >&2
+  log "[whatnot-browser] ERROR: a Chromium process already owns ${PROFILE_DIR}, but CDP ${CDP_URL} is unavailable"
   exit 1
 fi
 
-echo "[whatnot-browser] starting Chromium display=${DISPLAY_VALUE} cdp=${CDP_URL} profile=${PROFILE_DIR}"
+log "[whatnot-browser] starting Chromium display=${DISPLAY_VALUE} cdp=${CDP_URL} profile=${PROFILE_DIR}"
 
 nohup env DISPLAY="$DISPLAY_VALUE" "$CHROME" \
   --no-sandbox \
@@ -102,11 +109,11 @@ nohup env DISPLAY="$DISPLAY_VALUE" "$CHROME" \
 
 for _ in $(seq 1 40); do
   if cdp_ready; then
-    echo "[whatnot-browser] Chromium ready at ${CDP_URL}"
+    log "[whatnot-browser] Chromium ready at ${CDP_URL}"
     exit 0
   fi
   sleep 0.5
 done
 
-echo "[whatnot-browser] ERROR: Chromium did not expose CDP within 20 seconds" >&2
+log "[whatnot-browser] ERROR: Chromium did not expose CDP within 20 seconds"
 exit 1

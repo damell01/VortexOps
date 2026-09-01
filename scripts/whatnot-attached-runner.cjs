@@ -56,6 +56,31 @@ const injected = `async function launchPersistentContextViaCdp(userDataDir, opts
 
 source = source.replace(marker, injected);
 
+// Whatnot's current Seller Hub no longer exposes the old profile trigger ids on
+// this account. The live UI instead shows a compact avatar button whose visible
+// label is the signed-in user's initial (for example "D"), beside a separate
+// "Open menu" button. The generic switcher was only trying menu/aria-haspopup
+// controls, so it opened the site navigation instead of the account/profile
+// control and never reached Switch Role.
+//
+// In attached mode, add compact text-only buttons to the existing trigger sweep.
+// The main scraper still verifies that clicking one actually reveals Switch Role;
+// otherwise it dismisses it and keeps searching. Channel verification remains
+// fail-closed after the target is selected.
+const triggerSweepMarker = `    for (const extra of await page.$$('button[aria-haspopup], [role="button"][aria-haspopup]').catch(() => [])) {\n      triggerHandles.push({ sel: 'sweep:aria-haspopup', h: extra });\n    }`;
+
+if (!source.includes(triggerSweepMarker)) {
+  process.stderr.write(
+    '[whatnot] attached-browser shim could not find the profile trigger sweep in whatnot-scraper.cjs. ' +
+    'The scraper changed; update the attached-mode channel-switch shim before using it.\n',
+  );
+  process.exit(2);
+}
+
+const triggerSweepInjected = `    for (const extra of await page.$$('button[aria-haspopup], [role="button"][aria-haspopup]').catch(() => [])) {\n      triggerHandles.push({ sel: 'sweep:aria-haspopup', h: extra });\n    }\n\n    // Current Seller Hub profile/avatar control can be a plain button containing\n    // only the user's initial and no aria-haspopup/profile label. Include only\n    // short alphanumeric buttons so we do not blindly click ordinary actions.\n    for (const compact of await page.$$('button').catch(() => [])) {\n      const compactLabel = await compact.evaluate((el) =>\n        (el.getAttribute('aria-label') || el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ')\n      ).catch(() => '');\n      if (!/^[A-Za-z0-9]{1,3}$/.test(compactLabel)) continue;\n      triggerHandles.push({ sel: 'sweep:compact-avatar[' + compactLabel + ']', h: compact });\n    }`;
+
+source = source.replace(triggerSweepMarker, triggerSweepInjected);
+
 // Make attach mode explicit to the transformed scraper. The endpoint itself is
 // already validated as loopback above.
 process.env.WHATNOT_ATTACH_EXISTING_BROWSER = '1';

@@ -57,6 +57,11 @@ if (invalid.length) {
 const runner = path.join(__dirname, 'whatnot-runner.cjs');
 const results = [];
 
+// All roles belong to the same authenticated Whatnot account/team context, so
+// process them serially in one shared persistent Chromium session. The scraper
+// verifies the requested active role before each scrape and fails closed if the
+// role cannot be proven. Per-channel profile isolation would prevent that role
+// switcher state from being shared and was the source of stale channels.
 for (const channel of channels) {
   console.error(`[whatnot:multi] START requested=@${channel}`);
 
@@ -66,7 +71,8 @@ for (const channel of channels) {
     env: {
       ...process.env,
       WHATNOT_CHANNEL_NAME: channel,
-      WHATNOT_CHANNEL_ISOLATE: '1',
+      WHATNOT_CHANNEL_ISOLATE: '0',
+      WHATNOT_AUTO_BROWSER: process.env.WHATNOT_AUTO_BROWSER || '1',
     },
   });
 

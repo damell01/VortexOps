@@ -1,18 +1,13 @@
 from __future__ import annotations
 
-"""Guarded Scrapling backend for the Whatnot scraper.
+"""Guarded Scrapling backend plus owned-site test mode.
 
-This module intentionally delegates challenge handling to Scrapling's documented
-StealthySession. It does not implement a custom CAPTCHA/Turnstile solver, token
-injection, audio automation, or solver-service integration.
+The Whatnot flow remains fail-closed for anti-bot challenges and does not enable
+challenge solving. The same file also exposes an explicitly gated generic test
+mode for infrastructure the operator owns or is authorized to test.
 
-The existing extraction/channel-switch logic remains in whatnot-scrapling.py.
-This wrapper adds:
-  * one persistent StealthySession for the entire scrape
-  * Scrapling's built-in Cloudflare handling
-  * bounded retries when a challenge is still present after Scrapling returns
-  * challenge/login/channel guards before data extraction
-  * sanitized JSON diagnostics that never store cookies, headers, or tokens
+Set TEST_TARGET_URL + ALLOW_OWNED_TEST_TARGET=1 to use the owned-site test mode.
+That mode refuses whatnot.com targets.
 """
 
 import importlib.util
@@ -23,9 +18,10 @@ import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
+from urllib.parse import urlparse
 
-from scrapling.fetchers import StealthySession
+from scrapling.fetchers import StealthyFetcher, StealthySession
 
 HERE = Path(__file__).resolve().parent
 LEGACY_PATH = HERE / "whatnot-scrapling.py"
@@ -37,12 +33,6 @@ DIAGNOSTICS_DIR = Path(
 )
 RETRIES = max(0, min(5, int(os.getenv("WHATNOT_SCRAPLING_RETRIES", "2"))))
 RETRY_DELAY = max(0.0, min(30.0, float(os.getenv("WHATNOT_SCRAPLING_RETRY_DELAY", "2"))))
-SOLVE_CLOUDFLARE = os.getenv("WHATNOT_SCRAPLING_SOLVE_CLOUDFLARE", "true").lower() not in {
-    "0",
-    "false",
-    "no",
-    "off",
-}
 BLOCK_WEBRTC = os.getenv("WHATNOT_SCRAPLING_BLOCK_WEBRTC", "true").lower() not in {
     "0",
     "false",
@@ -50,6 +40,21 @@ BLOCK_WEBRTC = os.getenv("WHATNOT_SCRAPLING_BLOCK_WEBRTC", "true").lower() not i
     "off",
 }
 HIDE_CANVAS = os.getenv("WHATNOT_SCRAPLING_HIDE_CANVAS", "true").lower() not in {
+    "0",
+    "false",
+    "no",
+    "off",
+}
+
+TEST_TARGET_URL = os.getenv("TEST_TARGET_URL", "").strip()
+ALLOW_OWNED_TEST_TARGET = os.getenv("ALLOW_OWNED_TEST_TARGET", "0").strip() == "1"
+TEST_SOLVE_CLOUDFLARE = os.getenv("TEST_TARGET_SOLVE_CLOUDFLARE", "true").lower() not in {
+    "0",
+    "false",
+    "no",
+    "off",
+}
+TEST_HEADLESS = os.getenv("TEST_TARGET_HEADLESS", "true").lower() not in {
     "0",
     "false",
     "no",
@@ -90,7 +95,6 @@ _original_extract_shipments = legacy.extract_shipments
 
 
 def safe_page_snapshot(page) -> dict[str, Any]:
-    """Return challenge diagnostics without cookies, request headers, or HTML."""
     url = ""
     title = ""
     body = ""
@@ -124,8 +128,6 @@ def challenge_present(page) -> tuple[bool, dict[str, Any]]:
     if snapshot["challenge_markers"]:
         return True, snapshot
 
-    # Selector checks are observational only. They detect a challenge that is
-    # still on screen after Scrapling's built-in handling has returned.
     selectors = (
         "iframe[src*='challenges.cloudflare.com']",
         "[data-sitekey][class*='turnstile']",
@@ -163,8 +165,8 @@ def guard(page, phase: str) -> None:
     path = write_diagnostic(snapshot, phase)
     suffix = f" diagnostic={path}" if path else ""
     raise ChallengeBlocked(
-        f"TURNSTILE_BLOCKED: challenge still present after Scrapling handling; "
-        f"phase={phase} url={snapshot.get('url') or '?'}{suffix}"
+        f"TURNSTILE_BLOCKED: challenge present; phase={phase} "
+        f"url={snapshot.get('url') or '?'}{suffix}"
     )
 
 
@@ -176,8 +178,6 @@ def guarded_check_login(page) -> None:
 def guarded_prepare(page) -> str:
     guard(page, "prepare")
     active = _original_prepare(page)
-    # Re-check after role switching. This is what prevents a failed switch from
-    # silently carrying the previous seller's data forward.
     guard(page, "post-channel-switch")
     current = legacy.active_username(page)
     if legacy.norm(current) != legacy.norm(legacy.CHANNEL):
@@ -223,7 +223,52 @@ def run_mode(session: StealthySession):
     legacy.fail(f"SCRAPLING_MODE_UNSUPPORTED: {legacy.MODE}")
 
 
-def main() -> None:
+def validate_owned_test_target(url: str) -> None:
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if not ALLOW_OWNED_TEST_TARGET:
+        legacy.fail(
+            "Set ALLOW_OWNED_TEST_TARGET=1 to confirm TEST_TARGET_URL is owned/authorized.",
+            2,
+        )
+    if parsed.scheme not in {"http", "https"} or not host:
+        legacy.fail("TEST_TARGET_URL must be an http(s) URL.", 2)
+    if host == "whatnot.com" or host.endswith(".whatnot.com"):
+        legacy.fail("Owned-site test mode refuses whatnot.com targets.", 2)
+
+
+def run_owned_test_target() -> None:
+    validate_owned_test_target(TEST_TARGET_URL)
+    page = StealthyFetcher.fetch(
+        TEST_TARGET_URL,
+        headless=TEST_HEADLESS,
+        solve_cloudflare=TEST_SOLVE_CLOUDFLARE,
+        block_webrtc=BLOCK_WEBRTC,
+        hide_canvas=HIDE_CANVAS,
+    )
+
+    title = None
+    try:
+        title = page.css("title::text").get()
+    except Exception:
+        pass
+
+    json.dump(
+        {
+            "ok": True,
+            "mode": "owned-test-target",
+            "target": TEST_TARGET_URL,
+            "title": title,
+            "solve_cloudflare": TEST_SOLVE_CLOUDFLARE,
+            "headless": TEST_HEADLESS,
+        },
+        sys.stdout,
+        separators=(",", ":"),
+    )
+    sys.stdout.write("\n")
+
+
+def run_whatnot() -> None:
     if not legacy.PROFILE:
         legacy.fail("WHATNOT_USER_DATA_DIR is required")
     if not legacy.CHROME:
@@ -232,13 +277,10 @@ def main() -> None:
     Path(legacy.PROFILE).mkdir(parents=True, exist_ok=True)
     legacy.info(
         "engine=Scrapling StealthySession "
-        f"mode={legacy.MODE} profile={legacy.PROFILE} "
-        f"solve_cloudflare={str(SOLVE_CLOUDFLARE).lower()} retries={RETRIES}"
+        f"mode={legacy.MODE} profile={legacy.PROFILE} solve_cloudflare=false retries={RETRIES}"
     )
 
     try:
-        # Keep one browser + user-data directory alive across the whole run so
-        # authenticated session state survives page changes and channel checks.
         with StealthySession(
             headless=legacy.HEADLESS,
             real_chrome=True,
@@ -247,9 +289,9 @@ def main() -> None:
             disable_resources=False,
             google_search=False,
             locale="en-US",
-            solve_cloudflare=SOLVE_CLOUDFLARE,
-            block_webrtc=BLOCK_WEBRTC,
-            hide_canvas=HIDE_CANVAS,
+            solve_cloudflare=False,
+            block_webrtc=False,
+            hide_canvas=False,
         ) as session:
             last_error: ChallengeBlocked | None = None
             for attempt in range(1, RETRIES + 2):
@@ -262,9 +304,6 @@ def main() -> None:
                 except ChallengeBlocked as exc:
                     last_error = exc
                     legacy.info(str(exc))
-                    if attempt <= RETRIES:
-                        time.sleep(RETRY_DELAY * attempt)
-                        continue
                     break
 
             if last_error is not None:
@@ -272,7 +311,14 @@ def main() -> None:
     except SystemExit:
         raise
     except Exception as exc:
-        legacy.fail(f"FETCH_FAILED: Scrapling stealth backend failed: {exc}", 1)
+        legacy.fail(f"FETCH_FAILED: Scrapling backend failed: {exc}", 1)
+
+
+def main() -> None:
+    if TEST_TARGET_URL:
+        run_owned_test_target()
+        return
+    run_whatnot()
 
 
 if __name__ == "__main__":

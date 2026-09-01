@@ -56,17 +56,40 @@ const injected = `async function launchPersistentContextViaCdp(userDataDir, opts
 
 source = source.replace(marker, injected);
 
-// Whatnot's current Seller Hub no longer exposes the old profile trigger ids on
-// this account. The live UI instead shows a compact avatar button whose visible
-// label is the signed-in user's initial (for example "D"), beside a separate
-// "Open menu" button. The generic switcher was only trying menu/aria-haspopup
-// controls, so it opened the site navigation instead of the account/profile
-// control and never reached Switch Role.
-//
-// In attached mode, replace the ElementHandle-array sweeps with Locator count/nth
-// iteration. Attached CDP has twice produced "(intermediate value) is not iterable"
-// at the first page.$$ for..of loop, before any trigger was clicked. Locator-based
-// iteration avoids relying on the returned value being directly iterable.
+// The current Seller Hub exposes stable ids for the two controls involved in a
+// role change. The profile button may arrive a little after the dashboard shell,
+// so in attached mode wait for the exact visible control instead of immediately
+// falling into the generic hamburger/menu scan.
+const profileMarker = `  const directProfileButton = page.locator('#team-invite-profile-menu-anchor').first();\n  if (await directProfileButton.isVisible({ timeout: 2500 }).catch(() => false)) {`;
+
+if (!source.includes(profileMarker)) {
+  process.stderr.write(
+    '[whatnot] attached-browser shim could not find the direct profile-control path in whatnot-scraper.cjs. ' +
+    'The scraper changed; update the attached-mode channel-switch shim before using it.\n',
+  );
+  process.exit(2);
+}
+
+const profileInjected = `  const directProfileButton = page.locator('button#team-invite-profile-menu-anchor:visible, button:has(img.z-avatar-image[alt]):visible').first();\n  await directProfileButton.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});\n  if (await directProfileButton.isVisible().catch(() => false)) {`;
+
+source = source.replace(profileMarker, profileInjected);
+
+const switchRoleMarker = `    const directSwitchRole = page.locator('#team-invite-switch-role-anchor').first();\n    if (await directSwitchRole.isVisible({ timeout: 5000 }).catch(() => false)) {`;
+
+if (!source.includes(switchRoleMarker)) {
+  process.stderr.write(
+    '[whatnot] attached-browser shim could not find the direct Switch Role path in whatnot-scraper.cjs. ' +
+    'The scraper changed; update the attached-mode channel-switch shim before using it.\n',
+  );
+  process.exit(2);
+}
+
+const switchRoleInjected = `    const directSwitchRole = page.locator('button#team-invite-switch-role-anchor:visible').first();\n    await directSwitchRole.waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});\n    if (await directSwitchRole.isVisible().catch(() => false)) {`;
+
+source = source.replace(switchRoleMarker, switchRoleInjected);
+
+// Keep the generic fallback safe for attached CDP too. Locator count/nth avoids
+// relying on ElementHandle arrays being directly iterable in this environment.
 const triggerSweepMarker = `    for (const extra of await page.$$('button[aria-haspopup], [role="button"][aria-haspopup]').catch(() => [])) {\n      triggerHandles.push({ sel: 'sweep:aria-haspopup', h: extra });\n    }`;
 
 if (!source.includes(triggerSweepMarker)) {
@@ -77,7 +100,7 @@ if (!source.includes(triggerSweepMarker)) {
   process.exit(2);
 }
 
-const triggerSweepInjected = `    const popupTriggers = page.locator('button[aria-haspopup], [role="button"][aria-haspopup]');\n    const popupCount = Math.min(await popupTriggers.count().catch(() => 0), 40);\n    for (let popupIndex = 0; popupIndex < popupCount; popupIndex++) {\n      const popupHandle = await popupTriggers.nth(popupIndex).elementHandle({ timeout: 1000 }).catch(() => null);\n      if (popupHandle) triggerHandles.push({ sel: 'sweep:aria-haspopup', h: popupHandle });\n    }\n\n    // Current Seller Hub profile/avatar control can be a plain button containing\n    // only the user's initial and no aria-haspopup/profile label.\n    const compactButtons = page.locator('button');\n    const compactCount = Math.min(await compactButtons.count().catch(() => 0), 80);\n    for (let compactIndex = 0; compactIndex < compactCount; compactIndex++) {\n      const compact = compactButtons.nth(compactIndex);\n      const compactLabel = await compact.evaluate((el) =>\n        (el.getAttribute('aria-label') || el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ')\n      ).catch(() => '');\n      if (!/^[A-Za-z0-9]{1,3}$/.test(compactLabel)) continue;\n      const compactHandle = await compact.elementHandle({ timeout: 1000 }).catch(() => null);\n      if (!compactHandle) continue;\n      triggerHandles.push({ sel: 'sweep:compact-avatar[' + compactLabel + ']', h: compactHandle });\n    }`;
+const triggerSweepInjected = `    const popupTriggers = page.locator('button[aria-haspopup], [role="button"][aria-haspopup]');\n    const popupCount = Math.min(await popupTriggers.count().catch(() => 0), 40);\n    for (let popupIndex = 0; popupIndex < popupCount; popupIndex++) {\n      const popupHandle = await popupTriggers.nth(popupIndex).elementHandle({ timeout: 1000 }).catch(() => null);\n      if (popupHandle) triggerHandles.push({ sel: 'sweep:aria-haspopup', h: popupHandle });\n    }\n\n    // Current Seller Hub profile/avatar control can also be represented by the\n    // nested user-initial button in diagnostics. Keep it as a last-resort fallback\n    // after the exact stable profile id path above.\n    const compactButtons = page.locator('button');\n    const compactCount = Math.min(await compactButtons.count().catch(() => 0), 80);\n    for (let compactIndex = 0; compactIndex < compactCount; compactIndex++) {\n      const compact = compactButtons.nth(compactIndex);\n      const compactLabel = await compact.evaluate((el) =>\n        (el.getAttribute('aria-label') || el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ')\n      ).catch(() => '');\n      if (!/^[A-Za-z0-9]{1,3}$/.test(compactLabel)) continue;\n      const compactHandle = await compact.elementHandle({ timeout: 1000 }).catch(() => null);\n      if (!compactHandle) continue;\n      triggerHandles.push({ sel: 'sweep:compact-avatar[' + compactLabel + ']', h: compactHandle });\n    }`;
 
 source = source.replace(triggerSweepMarker, triggerSweepInjected);
 

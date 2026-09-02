@@ -19,13 +19,9 @@
             <h1>Edit Inventory Item</h1>
             <p>Update the product, barcode, pricing, case contents, and reorder settings. Stock quantity changes stay in Move / Correct Stock.</p>
         </div>
-        <form wire:submit="save">
+        <x-filament-panels::form wire:submit="save">
             {{ $this->form }}
-            <div class="fi-form-actions mt-6 flex flex-wrap gap-3">
-                @foreach ($this->getCachedFormActions() as $action)
-                    {{ $action }}
-                @endforeach
-            </div>
-        </form>
+            <x-filament-panels::form.actions :actions="$this->getCachedFormActions()" />
+        </x-filament-panels::form>
     </div>
 </x-filament-panels::page>

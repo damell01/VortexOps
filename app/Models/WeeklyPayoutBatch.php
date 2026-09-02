@@ -36,7 +36,7 @@ class WeeklyPayoutBatch extends Model
             }
 
             $overlap = static::query()
-                ->when($batch->exists, fn (Builder $query) => $query->whereKeyNot($batch->getKey()))
+                ->when($batch->exists, fn (Builder $query) => $query->where($batch->getKeyName(), '!=', $batch->getKey()))
                 ->whereDate('week_start', '<=', $end)
                 ->whereDate('week_end', '>=', $start)
                 ->first(['id', 'week_start', 'week_end', 'status']);
@@ -108,7 +108,7 @@ class WeeklyPayoutBatch extends Model
     public static function overlapping(string $start, string $end, ?int $exceptId = null): ?self
     {
         return static::query()
-            ->when($exceptId, fn (Builder $query) => $query->whereKeyNot($exceptId))
+            ->when($exceptId, fn (Builder $query) => $query->where((new static())->getKeyName(), '!=', $exceptId))
             ->whereDate('week_start', '<=', $end)
             ->whereDate('week_end', '>=', $start)
             ->orderBy('week_start')

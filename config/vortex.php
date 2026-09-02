@@ -35,6 +35,11 @@ return [
         'playwright_browsers_path'         => env('PLAYWRIGHT_BROWSERS_PATH'),
         'playwright_chromium_executable'   => env('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'),
 
+        // Hard upper bound for one scraper subprocess. Commands should catch the
+        // timeout and fail the affected run cleanly instead of bubbling a Symfony
+        // ProcessTimedOutException through Artisan.
+        'process_timeout' => (int) env('WHATNOT_PROCESS_TIMEOUT', 300),
+
         // How long a run waits for the shared browser lock before giving up.
         'browser_lock_wait' => (int) env('WHATNOT_BROWSER_LOCK_WAIT', 1200),
 

@@ -45,8 +45,12 @@ function scopedEnvironment() {
     fs.mkdirSync(env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR, { recursive: true });
     console.error(`[whatnot] CHANNEL_SCOPE requested=@${channel} session=isolated state=${path.relative(projectRoot, channelRoot)}`);
   } else {
-    const sharedProfile = path.resolve(projectRoot, 'storage', 'whatnot-browser-profile');
+    // Never share the production Scrapling profile with the legacy :9222 Chrome.
+    // That browser may remain installed for diagnostics/rollback, but it cannot
+    // hold the same Chrome user-data directory while Scrapling owns its browser.
+    const sharedProfile = path.resolve(projectRoot, 'storage', 'whatnot-scrapling-profile');
     env.WHATNOT_USER_DATA_DIR = env.WHATNOT_USER_DATA_DIR || sharedProfile;
+    fs.mkdirSync(env.WHATNOT_USER_DATA_DIR, { recursive: true });
     if (channel) {
       const channelRoot = path.join(configuredRoot, channel);
       env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR = env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR || path.join(channelRoot, 'diagnostics');
@@ -95,8 +99,6 @@ if (httpPreflightEnabled && backend !== 'attached') { const p=runHttpHealth(); c
 if (scraplingModes.has(mode)) {
   const result=runScraplingStealthy(); const status=result.status==null?1:result.status;
   if(status===0) process.exit(0);
-  // Auth, channel-context, and anti-bot challenge failures must never silently
-  // fall back to another browser engine because that could scrape the wrong account.
   if(fallbackEnabled && !new Set([3,4,5]).has(status)) exitFor(runPlaywright(),'Playwright fallback');
   exitFor(result,'Scrapling StealthySession runner');
 }

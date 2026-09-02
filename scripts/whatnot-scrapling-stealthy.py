@@ -130,6 +130,53 @@ def click_first_visible(page, selectors: list[str]) -> bool:
     return False
 
 
+def enter_field_value(node, value: str, label: str) -> None:
+    """Enter a normal form value and verify the browser accepted it.
+
+    Some React-controlled forms can visually expose an input while ignoring a
+    programmatic fill during hydration. Prefer real key events, then verify the
+    DOM value without ever logging the credential itself.
+    """
+    try:
+        node.click(timeout=3000)
+    except Exception:
+        pass
+    try:
+        node.fill("")
+    except Exception:
+        pass
+
+    typed = False
+    try:
+        node.press_sequentially(value, delay=25)
+        typed = True
+    except Exception:
+        try:
+            node.type(value, delay=25)
+            typed = True
+        except Exception:
+            pass
+
+    if not typed:
+        try:
+            node.fill(value)
+        except Exception:
+            stop(f"LOGIN_FORM_CHANGED: unable to enter the Whatnot {label} field", 3)
+
+    try:
+        accepted = str(node.input_value(timeout=1500) or "")
+    except Exception:
+        accepted = ""
+    if accepted != value:
+        try:
+            node.fill(value)
+            accepted = str(node.input_value(timeout=1500) or "")
+        except Exception:
+            accepted = ""
+    if accepted != value:
+        stop(f"LOGIN_FORM_CHANGED: Whatnot {label} field did not retain the entered value", 3)
+
+
 def login_state_summary(page) -> str:
     """Return safe form diagnostics without exposing field values or credentials."""
     parts: list[str] = []
@@ -216,21 +263,23 @@ def ensure_authenticated(page) -> None:
         )
 
     email_selectors = [
+        'input[name="identifier"]',
         'input[type="email"]',
         'input[name="email"]',
         'input[name="username"]',
-        'input[autocomplete="email"]',
-        'input[autocomplete="username"]',
+        'input[autocomplete~="email"]',
+        'input[autocomplete~="username"]',
         'input[placeholder*="email" i]',
         'input[placeholder*="username" i]',
     ]
     password_selectors = [
-        'input[type="password"]',
         'input[name="password"]',
+        'input[type="password"]',
         'input[autocomplete="current-password"]',
         'input[placeholder*="password" i]',
     ]
     continue_selectors = [
+        'form button[type="submit"]',
         'button[type="submit"]',
         'button:has-text("Continue")',
         'button:has-text("Next")',
@@ -252,7 +301,7 @@ def ensure_authenticated(page) -> None:
     log("AUTH_BOOTSTRAP state=login-required action=credential-login")
 
     if email is not None:
-        email.fill(EMAIL)
+        enter_field_value(email, EMAIL, "email/username")
 
     if password is None:
         advanced = click_first_visible(page, continue_selectors)
@@ -287,11 +336,12 @@ def ensure_authenticated(page) -> None:
                 3,
             )
 
-    password.fill(PASSWORD)
+    enter_field_value(password, PASSWORD, "password")
 
     submitted = click_first_visible(
         page,
         [
+            'form button[type="submit"]',
             'button[type="submit"]',
             'button:has-text("Log in")',
             'button:has-text("Login")',
@@ -309,8 +359,6 @@ def ensure_authenticated(page) -> None:
         log("AUTH_DIAGNOSTIC " + login_state_summary(page))
         stop("LOGIN_FORM_CHANGED: unable to submit Whatnot login form", 3)
 
-    # Give client-side auth/redirect logic time to settle. A fixed 2.5 second wait
-    # was too aggressive and could label a slow SPA redirect as a failed login.
     try:
         page.wait_for_load_state("networkidle", timeout=5000)
     except Exception:

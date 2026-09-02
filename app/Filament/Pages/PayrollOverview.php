@@ -79,6 +79,9 @@ class PayrollOverview extends Page
             foreach ($show->getAttribute('workflow_state')['blockers'] ?? [] as $blocker) {
                 $warnings[] = $show->title . ': ' . $blocker;
             }
+            foreach ($show->getAttribute('payrun_problems') ?? [] as $problem) {
+                $warnings[] = $problem;
+            }
         }
 
         if (! $run) {
@@ -131,11 +134,12 @@ class PayrollOverview extends Page
 
         return $shows->filter(function (Show $show) use ($filter): bool {
             $key = $show->getAttribute('workflow_state')['key'] ?? '';
+            $hasPayRunProblems = ($show->getAttribute('payrun_problems') ?? []) !== [];
 
             return match ($filter) {
-                'blocked' => ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true),
-                'ready' => $key === 'payroll_ready',
-                'in_run' => $key === 'payroll',
+                'blocked' => $hasPayRunProblems || ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true),
+                'ready' => ! $hasPayRunProblems && $key === 'payroll_ready',
+                'in_run' => ! $hasPayRunProblems && $key === 'payroll',
                 'paid' => $key === 'paid',
                 default => $key === $filter,
             };
@@ -145,14 +149,19 @@ class PayrollOverview extends Page
     public function workflowBreakdown(): array
     {
         $shows = $this->allCurrentWeekShows();
-        $keys = $shows->map(fn (Show $show) => $show->getAttribute('workflow_state')['key'] ?? '')->countBy();
 
         return [
             'all' => $shows->count(),
-            'blocked' => $shows->filter(fn (Show $show) => ! in_array($show->getAttribute('workflow_state')['key'] ?? '', ['payroll_ready', 'payroll', 'paid'], true))->count(),
-            'ready' => (int) ($keys['payroll_ready'] ?? 0),
-            'in_run' => (int) ($keys['payroll'] ?? 0),
-            'paid' => (int) ($keys['paid'] ?? 0),
+            'blocked' => $shows->filter(function (Show $show): bool {
+                $key = $show->getAttribute('workflow_state')['key'] ?? '';
+                return ($show->getAttribute('payrun_problems') ?? []) !== []
+                    || ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true);
+            })->count(),
+            'ready' => $shows->filter(fn (Show $show) => ($show->getAttribute('payrun_problems') ?? []) === []
+                && ($show->getAttribute('workflow_state')['key'] ?? '') === 'payroll_ready')->count(),
+            'in_run' => $shows->filter(fn (Show $show) => ($show->getAttribute('payrun_problems') ?? []) === []
+                && ($show->getAttribute('workflow_state')['key'] ?? '') === 'payroll')->count(),
+            'paid' => $shows->filter(fn (Show $show) => ($show->getAttribute('workflow_state')['key'] ?? '') === 'paid')->count(),
         ];
     }
 
@@ -162,6 +171,15 @@ class PayrollOverview extends Page
         $state = $show->getAttribute('workflow_state');
         $key = $state['key'] ?? '';
         $log = $show->streamerLogEntry;
+        $payRunProblems = $show->getAttribute('payrun_problems') ?? [];
+
+        if ($payRunProblems !== [] && $this->currentPayRun()) {
+            return [
+                'label' => 'Recalculate Run',
+                'url' => WeeklyPayoutBatchResource::getUrl('view', ['record' => $this->currentPayRun()]),
+                'tone' => 'warning',
+            ];
+        }
 
         if (in_array($key, ['streamer_log', 'admin_review'], true) && $log) {
             return [
@@ -208,8 +226,16 @@ class PayrollOverview extends Page
         $shows = $this->allCurrentWeekShows();
         return [
             'shows' => $shows->count(),
-            'ready' => $shows->filter(fn (Show $show) => in_array($show->getAttribute('workflow_state')['key'], ['payroll_ready', 'payroll', 'paid'], true))->count(),
-            'review' => $shows->filter(fn (Show $show) => ! in_array($show->getAttribute('workflow_state')['key'], ['payroll_ready', 'payroll', 'paid'], true))->count(),
+            'ready' => $shows->filter(function (Show $show): bool {
+                $key = $show->getAttribute('workflow_state')['key'] ?? '';
+                return ($show->getAttribute('payrun_problems') ?? []) === []
+                    && in_array($key, ['payroll_ready', 'payroll', 'paid'], true);
+            })->count(),
+            'review' => $shows->filter(function (Show $show): bool {
+                $key = $show->getAttribute('workflow_state')['key'] ?? '';
+                return ($show->getAttribute('payrun_problems') ?? []) !== []
+                    || ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true);
+            })->count(),
             'show_payroll' => (float) $shows->sum(fn (Show $show) => (float) ($show->getAttribute('pnl_summary')['payouts'] ?? 0)),
         ];
     }
@@ -229,6 +255,9 @@ class PayrollOverview extends Page
         $start = $run?->week_start ?? now()->startOfWeek();
         $end = $run?->week_end ?? now()->endOfWeek();
         $workflow = app(ShowWorkflowService::class);
+        $payRunProblems = $run && $run->status === 'draft'
+            ? app(PayRunReadinessService::class)->problems($run)
+            : [];
 
         return Show::query()
             ->inChannelContext()
@@ -245,9 +274,16 @@ class PayrollOverview extends Page
             ->withSum('payouts', 'calculated_payout')
             ->orderByDesc('show_date')
             ->get()
-            ->map(function (Show $show) use ($workflow) {
+            ->map(function (Show $show) use ($workflow, $payRunProblems) {
                 $show->setAttribute('workflow_state', $workflow->stateFor($show));
                 $show->setAttribute('pnl_summary', $show->profitAndLoss());
+
+                $prefix = ($show->title ?: "Show #{$show->id}") . ' — ';
+                $show->setAttribute('payrun_problems', array_values(array_filter(
+                    $payRunProblems,
+                    fn (string $problem) => str_starts_with($problem, $prefix)
+                )));
+
                 return $show;
             });
     }

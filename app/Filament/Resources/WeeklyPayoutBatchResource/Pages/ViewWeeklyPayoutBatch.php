@@ -43,14 +43,25 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                 ->color('gray')
                 ->visible(fn () => $this->record->status === 'draft')
                 ->requiresConfirmation()
-                ->modalDescription('Refresh this Draft from the same calculation path used by automatic payroll setup. Finalized history is never recalculated.')
+                ->modalHeading('Recalculate this draft Pay Run')
+                ->modalDescription('Re-evaluates every show in this week. Only payroll-ready shows stay in the draft; newly blocked shows are removed from the run until fixed. Finalized history is never recalculated.')
                 ->action(function () {
                     $result = app(PayRunAutomationService::class)->syncWeek($this->record->week_start);
                     $this->record->refresh();
 
+                    $parts = [
+                        $result['shows_scanned'] . ' eligible show(s)',
+                        $result['payouts_attached'] . ' payout(s) added',
+                    ];
+                    if (($result['payouts_detached'] ?? 0) > 0) {
+                        $parts[] = $result['payouts_detached'] . ' blocked payout(s) removed';
+                    }
+                    $parts[] = count($result['warnings']) . ' warning(s)';
+                    $parts[] = 'total $' . number_format((float) $this->record->total_payout, 2);
+
                     Notification::make()
                         ->title('Pay Run recalculated')
-                        ->body(count($result['warnings']) . ' readiness warning(s). Weekly total: $' . number_format((float) $this->record->total_payout, 2))
+                        ->body(implode(' · ', $parts))
                         ->success()
                         ->send();
                 }),
@@ -66,7 +77,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                 ->modalDescription(function () {
                     $problems = app(PayRunReadinessService::class)->problems($this->record);
                     return $problems === []
-                        ? 'Ready to finalize — show reports, fulfillment, inventory inputs and payout calculations are signed off.'
+                        ? 'Ready to finalize — show reports, fulfillment, inventory inputs and payout calculations are signed off and current.'
                         : "Needs attention:\n\n• " . implode("\n• ", $problems);
                 }),
 
@@ -93,7 +104,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                     $problems = app(PayRunReadinessService::class)->problems($this->record);
 
                     if ($problems === []) {
-                        return 'This weekly Pay Run is fully signed off. Finalizing locks the payout amounts and marks all payouts as approved. This cannot be undone.';
+                        return 'This weekly Pay Run is fully signed off and current. Finalizing locks the payout amounts and marks all payouts as approved. This cannot be undone.';
                     }
 
                     return 'This Pay Run cannot be finalized yet. Resolve these items first:'
@@ -106,7 +117,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                     if ($problems !== []) {
                         Notification::make()
                             ->title('Pay Run is not ready to finalize')
-                            ->body(count($problems) . ' blocker(s) still need attention. Use Resolve Blockers to jump to the weekly show board.')
+                            ->body(count($problems) . ' blocker(s) still need attention. Resolve them and recalculate the Pay Run before finalizing.')
                             ->danger()
                             ->persistent()
                             ->send();

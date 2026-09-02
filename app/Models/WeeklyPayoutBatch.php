@@ -20,6 +20,13 @@ class WeeklyPayoutBatch extends Model
     protected static function booted(): void
     {
         static::saving(function (WeeklyPayoutBatch $batch): void {
+            // Existing legacy data may already contain an overlap. Do not make
+            // unrelated updates (totals/status/notes) impossible; enforce the
+            // guard when a Pay Run is created or its date range is changed.
+            if ($batch->exists && ! $batch->isDirty(['week_start', 'week_end'])) {
+                return;
+            }
+
             if (! $batch->week_start || ! $batch->week_end) {
                 return;
             }

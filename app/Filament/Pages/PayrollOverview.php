@@ -41,15 +41,15 @@ class PayrollOverview extends Page
         $weekStart = now()->startOfWeek()->toDateString();
         $weekEnd = now()->endOfWeek()->toDateString();
 
+        // Only return a batch that actually covers the current week. Falling
+        // back to the latest historical batch makes an old pay run look active
+        // and can place this week's shows under the wrong dates.
         return WeeklyPayoutBatch::query()
             ->withCount('payouts')
-            ->where(function ($query) use ($weekStart, $weekEnd) {
-                $query->whereBetween('week_start', [$weekStart, $weekEnd])
-                    ->orWhereBetween('week_end', [$weekStart, $weekEnd]);
-            })
+            ->whereDate('week_start', '<=', $weekEnd)
+            ->whereDate('week_end', '>=', $weekStart)
             ->latest('week_start')
-            ->first()
-            ?? WeeklyPayoutBatch::query()->withCount('payouts')->latest('week_start')->first();
+            ->first();
     }
 
     public function needsAttention(): array
@@ -82,7 +82,7 @@ class PayrollOverview extends Page
         }
 
         if (! $run) {
-            $warnings[] = 'No pay run exists yet. Create the weekly run when payroll is ready for review.';
+            $warnings[] = 'No pay run exists for the current week. Create it only after the shows you intend to pay are payroll-ready.';
             return array_values(array_unique($warnings));
         }
 
@@ -145,7 +145,7 @@ class PayrollOverview extends Page
                 'streamerLogEntry.streamer',
                 'fulfillmentUsers',
                 'payouts.batch',
-                'latestDeductionRequest.lines',
+                'latestDeductionRequest.lines.inventoryItem',
             ])
             ->withSum('payouts', 'calculated_payout')
             ->orderByDesc('show_date')

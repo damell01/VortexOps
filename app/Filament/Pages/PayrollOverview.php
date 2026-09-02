@@ -6,7 +6,7 @@ use App\Models\Payout;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WeeklyPayoutBatch;
-use App\Services\PayoutService;
+use App\Services\PayRunReadinessService;
 use App\Services\ShowWorkflowService;
 use BackedEnum;
 use Filament\Pages\Page;
@@ -87,17 +87,8 @@ class PayrollOverview extends Page
         }
 
         if ($run->status === 'draft') {
-            foreach (app(PayoutService::class)->signOffProblems($run) as $problem) {
+            foreach (app(PayRunReadinessService::class)->problems($run) as $problem) {
                 $warnings[] = $problem;
-            }
-
-            $draftWithoutAmount = $run->payouts()
-                ->where('status', 'draft')
-                ->whereNull('calculated_payout')
-                ->count();
-
-            if ($draftWithoutAmount > 0) {
-                $warnings[] = $draftWithoutAmount . ' payout entry/entries do not have a calculated amount yet.';
             }
         }
 
@@ -143,6 +134,7 @@ class PayrollOverview extends Page
             ->with([
                 'streamers',
                 'streamerLogEntry.streamer',
+                'streamerLogEntry.items.inventoryItem',
                 'fulfillmentUsers',
                 'payouts.batch',
                 'latestDeductionRequest.lines.inventoryItem',

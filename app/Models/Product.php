@@ -114,16 +114,26 @@ class Product extends Model
      */
     public static function findByScan(string $code): ?static
     {
-        return static::where('barcode', $code)
+        $direct = static::where('barcode', $code)
             ->orWhere('sku', $code)
             ->orWhere('upc', $code)
-            ->first()
-            // fall through to identity table for vendor SKUs / aliases
-            ?? ProductIdentity::where('value', $code)
-                ->whereIn('type', ['barcode', 'upc', 'vendor_sku', 'manufacturer_sku'])
-                ->with('product')
-                ->first()
-                ?->product;
+            ->first();
+
+        if ($direct) {
+            return $direct;
+        }
+
+        // Fall through to the identity table for vendor SKUs / aliases / extra
+        // barcodes. ProductIdentity::product() is a plain belongsTo(Product::class)
+        // — not late-static-bound — so it always hands back a Product instance.
+        // Re-fetch through static::find() instead of using that relation directly,
+        // or InventoryItem::findByScan() would return a Product where its ?static
+        // return type demands an InventoryItem, which is a TypeError.
+        $identity = ProductIdentity::where('value', $code)
+            ->whereIn('type', ['barcode', 'upc', 'vendor_sku', 'manufacturer_sku'])
+            ->first();
+
+        return $identity ? static::find($identity->product_id) : null;
     }
 
     /**

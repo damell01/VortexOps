@@ -29,6 +29,7 @@ class ListInventoryItems extends ListRecords
     #[Url(as: 'q')]
     public string $catalogSearch = '';
 
+    public int $catalogLimit = 40;
     public ?int $barcodeScanTargetId = null;
     public ?string $barcodeScanTargetName = null;
 
@@ -50,8 +51,7 @@ class ListInventoryItems extends ListRecords
         };
     }
 
-    #[Computed]
-    public function catalogItems(): Collection
+    private function catalogQuery(): \Illuminate\Database\Eloquent\Builder
     {
         $query = InventoryItemResource::getEloquentQuery()
             ->with(['stock.location'])
@@ -78,14 +78,43 @@ class ListInventoryItems extends ListRecords
             };
         }
 
-        return $query->limit(80)->get();
+        return $query;
+    }
+
+    #[Computed]
+    public function catalogItems(): Collection
+    {
+        return $this->catalogQuery()->limit($this->catalogLimit)->get();
+    }
+
+    #[Computed]
+    public function catalogTotal(): int
+    {
+        // The stock filters use HAVING aliases, so count the resulting IDs
+        // instead of relying on a direct aggregate that MySQL can reject.
+        return $this->catalogQuery()
+            ->reorder()
+            ->get(['products.id'])
+            ->count();
+    }
+
+    public function loadMoreCatalog(): void
+    {
+        $this->catalogLimit += 40;
+        unset($this->catalogItems, $this->catalogTotal);
+    }
+
+    private function resetCatalogWindow(): void
+    {
+        $this->catalogLimit = 40;
+        unset($this->catalogItems, $this->catalogTotal);
     }
 
     public function filterStock(?string $status): void
     {
         $this->stockHealth = $this->stockHealth === $status ? null : $status;
         $this->resetPage();
-        unset($this->catalogItems);
+        $this->resetCatalogWindow();
     }
 
     public function setViewMode(string $mode): void
@@ -95,13 +124,13 @@ class ListInventoryItems extends ListRecords
 
     public function updatedCatalogSearch(): void
     {
-        unset($this->catalogItems);
+        $this->resetCatalogWindow();
     }
 
     public function clearCatalogSearch(): void
     {
         $this->catalogSearch = '';
-        unset($this->catalogItems);
+        $this->resetCatalogWindow();
     }
 
     public function getStats(): array

@@ -17,6 +17,10 @@ class StreamerLogItem extends Model
 {
     use HasFactory;
 
+    public const FULFILLMENT_PENDING = 'pending';
+    public const FULFILLMENT_FULFILLED = 'fulfilled';
+    public const FULFILLMENT_NOT_FULFILLED = 'not_fulfilled';
+
     public const DISPOSITIONS = [
         'sold' => 'Sold',
         'giveaway' => 'Giveaway',
@@ -34,12 +38,17 @@ class StreamerLogItem extends Model
         'inventory_location_id',
         'deducted_quantity',
         'notes',
+        'fulfillment_status',
+        'fulfillment_note',
+        'fulfilled_by',
+        'fulfilled_at',
     ];
 
     protected $casts = [
         'quantity'          => 'integer',
         'deducted_quantity' => 'integer',
         'unit_cost'         => 'decimal:2',
+        'fulfilled_at'      => 'datetime',
     ];
 
     public function logEntry(): BelongsTo
@@ -55,6 +64,33 @@ class StreamerLogItem extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(InventoryLocation::class, 'inventory_location_id');
+    }
+
+    public function fulfilledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'fulfilled_by');
+    }
+
+    public function fulfillmentStatus(): string
+    {
+        return $this->fulfillment_status ?: self::FULFILLMENT_PENDING;
+    }
+
+    public function isFulfillmentReviewed(): bool
+    {
+        return in_array($this->fulfillmentStatus(), [
+            self::FULFILLMENT_FULFILLED,
+            self::FULFILLMENT_NOT_FULFILLED,
+        ], true);
+    }
+
+    public static function fulfillmentStatusLabels(): array
+    {
+        return [
+            self::FULFILLMENT_PENDING => 'Pending',
+            self::FULFILLMENT_FULFILLED => 'Fulfilled',
+            self::FULFILLMENT_NOT_FULFILLED => 'Not Fulfilled',
+        ];
     }
 
     /**

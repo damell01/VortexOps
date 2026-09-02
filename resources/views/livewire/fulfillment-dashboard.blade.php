@@ -4,19 +4,19 @@
             <div>
                 <div class="text-[10px] font-bold uppercase tracking-[.12em] text-primary-600 sm:text-xs">Fulfillment Workstation</div>
                 <h2 class="mt-1 text-lg font-semibold text-gray-950 dark:text-white sm:text-xl">{{ $show->title }}</h2>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 sm:text-sm">{{ $show->primaryStreamer()?->name ?? 'Unassigned streamer' }} · {{ $show->show_date?->format('M j, Y') }}</p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ $show->primaryStreamer()?->name ?? 'Unassigned streamer' }} · {{ $show->show_date?->format('M j, Y') }}</p>
             </div>
             <div class="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
                 Assigned: <span class="font-semibold text-gray-950 dark:text-white">{{ $assignedUsers->pluck('name')->join(', ') ?: 'Unassigned' }}</span>
             </div>
         </div>
 
-        <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+        <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
             @foreach([
-                ['Pending Pack',$pendingPackingCount,'amber'],
-                ['Packed',$packedCount,'blue'],
-                ['Shipped',$shippedCount,'indigo'],
-                ['Delivered',$deliveredOrderCount,'green'],
+                ['Logged Items',$allLines->count(),'gray'],
+                ['Pending Review',$pendingCount,'amber'],
+                ['Fulfilled',$fulfilledCount,'green'],
+                ['Not Fulfilled',$notFulfilledCount,'red'],
                 ['Open Shipments',$shipmentStats['open'],'blue'],
                 ['Shipping Spend','$'.number_format($shipmentStats['shipping_cost'],2),'gray'],
             ] as [$label,$value,$tone])
@@ -31,65 +31,84 @@
     <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
-                <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Packing Queue</h3>
-                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Search a buyer, item, order or tracking number, then work one line or several at once.</p>
+                <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Streamer-Logged Items</h3>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Review what the streamer logged against this show. There is no buyer or Whatnot-order mapping required.</p>
             </div>
             <div class="flex flex-col gap-2 sm:flex-row">
-                <input wire:model.live.debounce.250ms="search" type="search" placeholder="Search buyer, item, order…" class="min-h-11 min-w-0 rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800 sm:w-64" />
+                <input wire:model.live.debounce.250ms="search" type="search" placeholder="Search item, SKU, barcode…" class="min-h-11 min-w-0 rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800 sm:w-64" />
                 <div class="flex gap-1.5 overflow-x-auto">
-                    @foreach(['all' => 'All', 'pending' => 'Pending', 'label_created' => 'Label', 'packed' => 'Packed', 'shipped' => 'Shipped', 'delivered' => 'Delivered'] as $status => $label)
+                    @foreach(['all' => 'All', 'pending' => 'Pending', 'fulfilled' => 'Fulfilled', 'not_fulfilled' => 'Not Fulfilled'] as $status => $label)
                         <button type="button" wire:click="$set('filterStatus', '{{ $status }}')" class="min-h-11 shrink-0 rounded-lg px-3 text-xs font-semibold {{ $filterStatus === $status ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200' }}">{{ $label }}</button>
                     @endforeach
                 </div>
             </div>
         </div>
 
-        @if(count($selectedOrders) > 0)
+        @if($pendingCount > 0)
             <div class="mt-3 flex flex-col gap-2 rounded-xl border border-primary-200 bg-primary-50 p-3 dark:border-primary-900 dark:bg-primary-950/20 sm:flex-row sm:items-center sm:justify-between">
-                <div class="text-sm font-semibold text-primary-800 dark:text-primary-200">{{ count($selectedOrders) }} line(s) selected</div>
-                <div class="flex gap-2">
-                    <button wire:click="clearSelection" class="min-h-10 rounded-lg border border-primary-200 px-3 text-xs font-semibold text-primary-700 dark:border-primary-800 dark:text-primary-200">Clear</button>
-                    <button wire:click="bulkMarkPacked" class="min-h-10 rounded-lg bg-primary-600 px-4 text-xs font-semibold text-white">Mark Selected Packed</button>
+                <div>
+                    <div class="text-sm font-semibold text-primary-800 dark:text-primary-200">{{ $pendingCount }} item line(s) still need review</div>
+                    <div class="mt-0.5 text-xs text-primary-700/80 dark:text-primary-300/80">If everything for the show was fulfilled cleanly, finish the pending items at once.</div>
                 </div>
+                <button wire:click="markAllFulfilled" wire:confirm="Mark every pending logged item as fulfilled?" class="min-h-11 rounded-lg bg-primary-600 px-4 text-xs font-semibold text-white">Mark All Pending Fulfilled</button>
             </div>
         @endif
 
         <div class="mt-4 space-y-2.5">
-            @forelse($orders as $order)
-                @php $packable = in_array($order->shipping_status, [null, '', 'pending', 'label_created'], true); @endphp
+            @forelse($lines as $line)
+                @php
+                    $item = $line->inventoryItem;
+                    $status = $line->fulfillmentStatus();
+                    $badge = match($status) {
+                        'fulfilled' => 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-300',
+                        'not_fulfilled' => 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-300',
+                        default => 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300',
+                    };
+                @endphp
                 <article class="rounded-xl border border-gray-200 p-3 dark:border-gray-700 sm:p-4">
-                    <div class="flex items-start gap-3">
-                        @if($packable)
-                            <input type="checkbox" wire:model.live="selectedOrders" value="{{ $order->id }}" class="mt-1 h-5 w-5 rounded border-gray-300 text-primary-600" />
-                        @else
-                            <div class="mt-1 h-5 w-5 shrink-0"></div>
-                        @endif
+                    <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div class="min-w-0 flex-1">
-                            <div class="flex items-start justify-between gap-3">
+                            <div class="flex flex-wrap items-start justify-between gap-2">
                                 <div class="min-w-0">
-                                    <div class="text-sm font-semibold text-gray-950 dark:text-white">{{ $order->item_name ?? 'Unknown Item' }}</div>
-                                    <div class="mt-0.5 text-[10px] text-gray-500 sm:text-xs">Buyer: {{ $order->buyer_display_name ?? $order->buyer_username ?? 'Unknown' }} · Qty {{ $order->quantity ?? 1 }} @if($order->lot_number)· Lot {{ $order->lot_number }}@endif</div>
+                                    <div class="text-sm font-semibold text-gray-950 dark:text-white">{{ $line->item_name ?: $item?->name ?: 'Logged Inventory Item' }}</div>
+                                    <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 sm:text-xs">
+                                        <span>Qty {{ number_format((float) $line->quantity, 0) }}</span>
+                                        <span>{{ $line->dispositionLabel() }}</span>
+                                        @if($item?->sku)<span>SKU {{ $item->sku }}</span>@endif
+                                        @if($line->location?->name)<span>{{ $line->location->name }}</span>@endif
+                                        @if($item?->barcode)<span>Barcode {{ $item->barcode }}</span>@elseif($item?->upc)<span>UPC {{ $item->upc }}</span>@endif
+                                    </div>
                                 </div>
-                                <span class="shrink-0 rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200">{{ $statusLabels[$order->shipping_status] ?? ucfirst(str_replace('_',' ', $order->shipping_status ?: 'pending')) }}</span>
+                                <span class="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold {{ $badge }}">{{ \App\Models\StreamerLogItem::fulfillmentStatusLabels()[$status] ?? ucfirst(str_replace('_',' ', $status)) }}</span>
                             </div>
 
                             <div class="mt-3">
-                                @if($packable)
-                                    <button wire:click="markAsPacked({{ $order->id }})" class="min-h-10 rounded-lg bg-primary-600 px-4 text-xs font-semibold text-white">Mark Packed</button>
-                                @elseif($order->shipping_status === 'packed')
-                                    <form wire:submit="markAsShipped({{ $order->id }}, $event.target.elements.tracking.value)" class="flex flex-col gap-2 sm:flex-row">
-                                        <input name="tracking" type="text" placeholder="Tracking number" class="min-h-11 min-w-0 flex-1 rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800" />
-                                        <button type="submit" class="min-h-11 rounded-lg bg-green-600 px-4 text-sm font-semibold text-white">Mark Shipped</button>
-                                    </form>
-                                @elseif(in_array($order->shipping_status, ['shipped','delivered'], true))
-                                    <div class="text-xs text-green-700 dark:text-green-300">{{ ucfirst($order->shipping_status) }}{{ $order->tracking_number ? ' · '.$order->tracking_number : '' }}</div>
-                                @endif
+                                <label class="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Fulfillment note</label>
+                                <input wire:model.defer="notes.{{ $line->id }}" type="text" placeholder="Optional note; add a reason for issues" class="mt-1 min-h-11 w-full rounded-lg border-gray-300 text-sm dark:border-gray-600 dark:bg-gray-800" />
                             </div>
+
+                            @if($line->fulfilled_at)
+                                <div class="mt-2 text-[10px] text-gray-500">Reviewed {{ $line->fulfilled_at->format('M j, g:i A') }}{{ $line->fulfilledBy?->name ? ' by '.$line->fulfilledBy->name : '' }}</div>
+                            @endif
+                        </div>
+
+                        <div class="flex shrink-0 flex-wrap gap-2 lg:w-48 lg:flex-col">
+                            <button wire:click="markFulfilled({{ $line->id }})" class="min-h-11 flex-1 rounded-lg bg-green-600 px-4 text-xs font-semibold text-white lg:flex-none">Fulfilled</button>
+                            <button wire:click="markNotFulfilled({{ $line->id }})" class="min-h-11 flex-1 rounded-lg bg-red-600 px-4 text-xs font-semibold text-white lg:flex-none">Not Fulfilled</button>
+                            @if($status !== 'pending')
+                                <button wire:click="resetFulfillment({{ $line->id }})" class="min-h-11 flex-1 rounded-lg border border-gray-300 px-4 text-xs font-semibold text-gray-700 dark:border-gray-600 dark:text-gray-200 lg:flex-none">Reset</button>
+                            @endif
                         </div>
                     </div>
                 </article>
             @empty
-                <div class="rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500 dark:border-gray-700">No order rows match the current search and status.</div>
+                <div class="rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500 dark:border-gray-700">
+                    @if(!$report)
+                        No streamer log exists for this show yet.
+                    @else
+                        No logged items match the current search and status.
+                    @endif
+                </div>
             @endforelse
         </div>
     </section>
@@ -97,7 +116,7 @@
     <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
         <div class="mb-3">
             <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Whatnot Shipment Feed</h3>
-            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Imported shipment status is shown separately from the internal packing queue.</p>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Shipment data stays visible for show context only. It is not mapped to the logged inventory items above.</p>
         </div>
         @if($shipments->isEmpty())
             <div class="rounded-xl border border-dashed border-gray-300 p-7 text-center text-xs text-gray-500 dark:border-gray-700">No Whatnot shipment rows have been imported for this show yet.</div>
@@ -121,13 +140,9 @@
         @endif
     </section>
 
-    @if($pendingPackingCount > 0)
+    @if($pendingCount > 0)
         <div class="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 px-3 pb-[max(.65rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_24px_rgba(15,23,42,.08)] backdrop-blur dark:border-gray-700 dark:bg-gray-900/95 sm:hidden">
-            @if(count($selectedOrders) > 0)
-                <button type="button" wire:click="bulkMarkPacked" class="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white">Mark {{ count($selectedOrders) }} Selected Packed</button>
-            @else
-                <button type="button" wire:click="markNextAsPacked" class="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white">Mark Next Packed · {{ $pendingPackingCount }} left</button>
-            @endif
+            <button type="button" wire:click="markAllFulfilled" wire:confirm="Mark every pending logged item as fulfilled?" class="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-primary-600 px-4 text-sm font-semibold text-white">Mark All Pending Fulfilled · {{ $pendingCount }} left</button>
         </div>
     @endif
 </div>

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\WeeklyPayoutBatchResource\Pages;
 use App\Filament\Resources\WeeklyPayoutBatchResource;
 use App\Services\AdpExportService;
 use App\Services\PayRunAutomationService;
+use App\Services\PayRunReadinessService;
 use App\Services\PayoutService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -54,9 +55,9 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                 ->modalSubmitAction(false)
                 ->modalCancelActionLabel('Close')
                 ->modalDescription(function () {
-                    $problems = app(PayoutService::class)->signOffProblems($this->record);
+                    $problems = app(PayRunReadinessService::class)->problems($this->record);
                     return $problems === []
-                        ? 'Ready for review — all show reports in this weekly Pay Run are signed off.'
+                        ? 'Ready to finalize — show reports, fulfillment, inventory inputs and payout calculations are signed off.'
                         : "Needs attention:\n\n• " . implode("\n• ", $problems);
                 }),
 
@@ -80,27 +81,33 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                 ->requiresConfirmation()
                 ->modalHeading('Finalize this pay run')
                 ->modalDescription(function () {
-                    $problems = app(PayoutService::class)->signOffProblems($this->record);
+                    $problems = app(PayRunReadinessService::class)->problems($this->record);
 
                     if ($problems === []) {
-                        return 'Every show in this run has an approved report. Finalizing locks the payout amounts and marks all payouts as approved. This cannot be undone.';
+                        return 'This weekly Pay Run is fully signed off. Finalizing locks the payout amounts and marks all payouts as approved. This cannot be undone.';
                     }
 
-                    return count($problems) . ' report(s) are not signed off yet:'
-                        . "\n\n• " . implode("\n• ", $problems)
-                        . "\n\nFinalizing anyway locks the amounts as they stand and records this on the pay run. It cannot be undone.";
+                    return 'This Pay Run cannot be finalized yet. Resolve these items first:'
+                        . "\n\n• " . implode("\n• ", $problems);
                 })
-                ->modalSubmitActionLabel(fn () => app(PayoutService::class)->signOffProblems($this->record) === []
-                    ? 'Finalize'
-                    : 'Finalize anyway')
+                ->modalSubmitActionLabel('Finalize')
                 ->action(function () {
-                    $problems = app(PayoutService::class)->signOffProblems($this->record);
+                    $problems = app(PayRunReadinessService::class)->problems($this->record);
 
-                    app(PayoutService::class)->finalizeBatch($this->record, force: true);
+                    if ($problems !== []) {
+                        Notification::make()
+                            ->title('Pay Run is not ready to finalize')
+                            ->body(count($problems) . ' blocker(s) still need attention. Use Validate to review them.')
+                            ->danger()
+                            ->persistent()
+                            ->send();
+                        return;
+                    }
+
+                    app(PayoutService::class)->finalizeBatch($this->record);
 
                     Notification::make()
                         ->title('Pay run finalized.')
-                        ->body($problems === [] ? null : count($problems) . ' report(s) were not signed off; noted on the pay run.')
                         ->success()
                         ->send();
                 }),

@@ -7,7 +7,7 @@ use App\Models\ProductIdentity;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class InventoryImportService
 {
@@ -34,8 +34,10 @@ class InventoryImportService
 
     public function preview(string $path): array
     {
-        $sheets = Excel::toArray([], $path);
-        $sheet = collect($sheets)->first(fn ($rows) => ! empty($rows)) ?? [];
+        $workbook = IOFactory::load($path);
+        $sheet = $workbook->getActiveSheet()->toArray(null, true, true, false);
+        $workbook->disconnectWorksheets();
+        unset($workbook);
 
         if (count($sheet) < 2) {
             return ['headers' => [], 'rows' => [], 'summary' => $this->emptySummary(), 'warnings' => ['The spreadsheet does not contain any data rows.']];
@@ -58,6 +60,8 @@ class InventoryImportService
 
             $reviewRows[] = $this->classifyRow($mapped, $index + 2);
         }
+
+        $reviewRows = $this->markSheetDuplicates($reviewRows);
 
         return [
             'headers' => $recognized,
@@ -100,7 +104,7 @@ class InventoryImportService
                             throw new \RuntimeException('The matched inventory item no longer exists.');
                         }
 
-                        $item->update($this->cleanUpdateData($item, $data));
+                        $item->update($this->cleanUpdateData($data));
                         $this->syncIdentities($item, $data);
                         $result['updated']++;
                     }
@@ -123,11 +127,13 @@ class InventoryImportService
                 continue;
             }
 
-            $query = InventoryItem::query();
             if ($field === 'sku') {
-                $match = $query->where('sku', $value)->first();
+                $match = InventoryItem::query()->where('sku', $value)->first();
             } else {
-                $match = $query->where('barcode', $value)->orWhere('upc', $value)->first();
+                $match = InventoryItem::query()
+                    ->where(fn ($query) => $query->where('barcode', $value)->orWhere('upc', $value))
+                    ->first();
+
                 $match ??= ProductIdentity::query()
                     ->whereIn('type', ProductIdentity::SCANNABLE_TYPES)
                     ->where('value', $value)
@@ -148,13 +154,16 @@ class InventoryImportService
                 'data' => $data,
                 'existing_id' => null,
                 'existing_name' => null,
+                'changes' => [],
             ];
         }
 
         $match = $matches->first();
 
         if (! $match && filled($data['name'] ?? null)) {
-            $match = InventoryItem::query()->whereRaw('LOWER(name) = ?', [Str::lower(trim($data['name']))])->first();
+            $match = InventoryItem::query()
+                ->whereRaw('LOWER(name) = ?', [Str::lower(trim((string) $data['name']))])
+                ->first();
         }
 
         if ($match) {
@@ -177,6 +186,7 @@ class InventoryImportService
                 'data' => $data,
                 'existing_id' => null,
                 'existing_name' => null,
+                'changes' => [],
             ];
         }
 
@@ -189,6 +199,45 @@ class InventoryImportService
             'existing_name' => null,
             'changes' => [],
         ];
+    }
+
+    private function markSheetDuplicates(array $rows): array
+    {
+        $seen = [];
+
+        foreach ($rows as $index => $row) {
+            if (($row['status'] ?? null) !== 'new') {
+                continue;
+            }
+
+            $keys = [];
+            foreach (['sku', 'barcode', 'upc'] as $field) {
+                $value = trim((string) ($row['data'][$field] ?? ''));
+                if ($value !== '') {
+                    $keys[] = $field . ':' . Str::lower($value);
+                }
+            }
+
+            if ($keys === [] && filled($row['data']['name'] ?? null)) {
+                $keys[] = 'name:' . Str::lower(trim((string) $row['data']['name']));
+            }
+
+            foreach ($keys as $key) {
+                if (isset($seen[$key])) {
+                    $rows[$index]['status'] = 'conflict';
+                    $rows[$index]['reason'] = 'Duplicate identifier appears elsewhere in this spreadsheet (row ' . $seen[$key] . ').';
+                    $firstIndex = collect($rows)->search(fn ($candidate) => ($candidate['sheet_row'] ?? null) === $seen[$key]);
+                    if ($firstIndex !== false && ($rows[$firstIndex]['status'] ?? null) === 'new') {
+                        $rows[$firstIndex]['status'] = 'conflict';
+                        $rows[$firstIndex]['reason'] = 'Duplicate identifier appears elsewhere in this spreadsheet (row ' . $row['sheet_row'] . ').';
+                    }
+                } else {
+                    $seen[$key] = $row['sheet_row'];
+                }
+            }
+        }
+
+        return $rows;
     }
 
     private function matchReason(InventoryItem $item, array $data): string
@@ -222,7 +271,7 @@ class InventoryImportService
         return $clean;
     }
 
-    private function cleanUpdateData(InventoryItem $item, array $data): array
+    private function cleanUpdateData(array $data): array
     {
         $clean = Arr::only($data, array_diff(self::IMPORTABLE_FIELDS, ['sku', 'barcode', 'upc']));
         return array_filter($clean, fn ($value) => $value !== null && $value !== '');

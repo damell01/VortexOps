@@ -11,6 +11,11 @@ class EditShow extends EditRecord
 {
     protected static string $resource = ShowResource::class;
 
+    public function getView(): string
+    {
+        return 'filament.resources.show-resource.pages.edit-show';
+    }
+
     protected function resolveRecord(int|string $key): Show
     {
         return Show::with([

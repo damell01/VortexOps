@@ -8,7 +8,6 @@ use App\Filament\Resources\ShowResource;
 use App\Services\WhatnotScraper;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
-use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -31,12 +30,6 @@ class ViewShow extends ViewRecord
 
     protected function getHeaderWidgets(): array
     {
-        // ShowItemReconciliationWidget is deliberately not here. It compared
-        // Whatnot's item count against the streamer log and showed the
-        // difference — a number that mostly measured giveaways and promos
-        // Whatnot has no order for, so it read as a discrepancy on nights
-        // where nothing was wrong. The shipment count is the count that
-        // matters and it lives in the metrics above.
         return [
             \App\Filament\Widgets\ShowMetricsWidget::class,
             \App\Filament\Widgets\ShowPipelineStatusWidget::class,
@@ -67,6 +60,14 @@ class ViewShow extends ViewRecord
             && $this->record->streamers->contains('id', $user->streamer->id)
         );
 
+        $shipments = Action::make('shipments')
+            ->label(fn () => 'Shipments (' . $this->record->shipments->count() . ')')
+            ->icon('heroicon-o-truck')
+            ->color('info')
+            ->url(fn () => ShipmentResource::getUrl('index', [
+                'tableFilters[show_id][value]' => $this->record->id,
+            ]));
+
         return [
             Action::make('show_report')
                 ->label(function (): string {
@@ -81,16 +82,21 @@ class ViewShow extends ViewRecord
                 ->visible(fn (): bool => ! in_array($this->record->status, ['cancelled'], true) && ($isAdmin || $isAssignedStreamer))
                 ->url(fn () => \App\Filament\Pages\EndOfStreamForm::getUrl(['showId' => $this->record->id])),
 
-            Action::make('shipments')
-                ->label(fn () => 'Shipments (' . $this->record->shipments->count() . ')')
-                ->icon('heroicon-o-truck')
-                ->color('info')
-                ->visible(fn (): bool => $isAdmin || $isAssignedStreamer)
-                ->url(fn () => ShipmentResource::getUrl('index', [
-                    'tableFilters[show_id][value]' => $this->record->id,
-                ])),
+            $shipments->visible(fn (): bool => $isAssignedStreamer && ! $isAdmin),
 
             ActionGroup::make([
+                Action::make('shipments_admin')
+                    ->label(fn () => 'Shipments (' . $this->record->shipments->count() . ')')
+                    ->icon('heroicon-o-truck')
+                    ->url(fn () => ShipmentResource::getUrl('index', [
+                        'tableFilters[show_id][value]' => $this->record->id,
+                    ])),
+
+                Action::make('edit_show')
+                    ->label('Edit Show')
+                    ->icon('heroicon-o-pencil-square')
+                    ->url(fn () => ShowResource::getUrl('edit', ['record' => $this->record])),
+
                 Action::make('inventory_breakdown')
                     ->label('Inventory Breakdown')
                     ->icon('heroicon-o-chart-bar-square')
@@ -99,7 +105,7 @@ class ViewShow extends ViewRecord
                 Action::make('review_approval')
                     ->label('Review Approval')
                     ->icon('heroicon-o-clipboard-document-check')
-                    ->visible(fn (): bool => $isAdmin && in_array($this->record->status, ['pending_approval', 'reconciled', 'closed'], true))
+                    ->visible(fn (): bool => in_array($this->record->status, ['pending_approval', 'reconciled', 'closed'], true))
                     ->url(fn () => DeductionRequestResource::getUrl('index', [
                         'tableFilters[show_id][value]' => $this->record->id,
                     ])),
@@ -107,7 +113,7 @@ class ViewShow extends ViewRecord
                 Action::make('detect_streamer')
                     ->label(fn () => $this->record->streamers->isEmpty() ? 'Detect Streamer' : 'Re-detect Streamer')
                     ->icon('heroicon-o-user-circle')
-                    ->visible(fn (): bool => $isAdmin && ! in_array($this->record->status, ['cancelled', 'closed'], true))
+                    ->visible(fn (): bool => ! in_array($this->record->status, ['cancelled', 'closed'], true))
                     ->action(function (): void {
                         $suggestions = $this->record->detectStreamers();
                         if (empty($suggestions)) {
@@ -122,25 +128,10 @@ class ViewShow extends ViewRecord
                         $this->record->load('streamers');
                     }),
 
-                // "Map Items Manually" used to sit here. It walked the
-                // Whatnot orders and wrote a deduction line per lot — "Lot
-                // #42", "Lot #42 — Item #42" — which is not information
-                // anybody wanted: Whatnot names a lot whether or not a human
-                // did, so most lines were a number restating itself.
-                //
-                // It also fed nothing. Inventory is posted from the streamer's
-                // End of Stream report, where the actual items are recorded by
-                // the person who held them; these lines were a parallel list
-                // for someone to reconcile by hand against that one. The
-                // totals worth having off Whatnot — items sold, giveaways —
-                // are on the metrics strip above, which is where a count
-                // belongs.
-
                 Action::make('import_items_sold')
                     ->label(fn () => $this->record->orders->count() > 0 ? 'Items Sold (' . $this->record->orders->count() . ')' : 'Import Items Sold')
                     ->icon('heroicon-o-shopping-cart')
-                    ->visible(fn (): bool => $isAdmin
-                        && (bool) $this->record->detail_url
+                    ->visible(fn (): bool => (bool) $this->record->detail_url
                         && \App\Services\FeatureFlagService::enabled('whatnot_import'))
                     ->requiresConfirmation()
                     ->action(function (): void {
@@ -160,14 +151,13 @@ class ViewShow extends ViewRecord
                 Action::make('export_pdf')
                     ->label('Export P&L PDF')
                     ->icon('heroicon-o-document-arrow-down')
-                    ->visible(fn (): bool => $isAdmin)
                     ->url(fn () => route('export.show-pl-pdf', ['show' => $this->record->id]))
                     ->openUrlInNewTab(),
 
                 Action::make('close_show')
                     ->label('Close Show')
                     ->icon('heroicon-o-lock-closed')
-                    ->visible(fn (): bool => $isAdmin && $this->record->status === 'reconciled')
+                    ->visible(fn (): bool => $this->record->status === 'reconciled')
                     ->requiresConfirmation()
                     ->action(fn () => $this->record->update(['status' => 'closed'])),
 
@@ -175,7 +165,7 @@ class ViewShow extends ViewRecord
                     ->label('Cancel Show')
                     ->icon('heroicon-o-x-circle')
                     ->color('danger')
-                    ->visible(fn (): bool => $isAdmin && ! in_array($this->record->status, ['closed', 'cancelled'], true))
+                    ->visible(fn (): bool => ! in_array($this->record->status, ['closed', 'cancelled'], true))
                     ->requiresConfirmation()
                     ->action(fn () => $this->record->update(['status' => 'cancelled'])),
             ])
@@ -184,8 +174,6 @@ class ViewShow extends ViewRecord
                 ->button()
                 ->color('gray')
                 ->visible(fn (): bool => $isAdmin),
-
-            EditAction::make()->visible(fn (): bool => $isAdmin),
         ];
     }
 }

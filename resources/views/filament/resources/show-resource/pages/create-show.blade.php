@@ -1,34 +1,47 @@
 @php use Filament\Support\Enums\MaxWidth; @endphp
 
 <x-filament-panels::page>
-    <!-- Livewire modal component -->
+    <style>
+        #create-show-form{max-width:1100px;margin:0 auto}
+        @media(max-width:640px){
+            body:has(#create-show-form) .fi-page-header{margin-bottom:.75rem!important}
+            body:has(#create-show-form) .fi-page-header-heading{font-size:1.45rem!important;line-height:1.2!important}
+            #create-show-form{max-width:none;margin:0;padding-bottom:5.5rem}
+            #create-show-form .fi-section{border-radius:.85rem!important;margin-bottom:.7rem!important;overflow:hidden}
+            #create-show-form .fi-section-header{padding:.85rem!important}#create-show-form .fi-section-content{padding:.85rem!important}
+            #create-show-form .fi-sc-grid,#create-show-form [style*="grid-template-columns"]{grid-template-columns:minmax(0,1fr)!important}
+            #create-show-form .fi-fo-field-wrp,#create-show-form .fi-fo-component-ctn>*{min-width:0!important;grid-column:1/-1!important}
+            #create-show-form input,#create-show-form select,#create-show-form textarea,#create-show-form button[role="combobox"]{font-size:16px!important;min-height:46px!important}
+            #create-show-form .fi-fo-repeater-item{border-radius:.8rem!important}#create-show-form .fi-fo-repeater-item-content{padding:.75rem!important}
+            #create-show-form .fi-wizard-header{overflow-x:auto!important;-webkit-overflow-scrolling:touch}#create-show-form .fi-wizard-steps{min-width:max-content!important}
+            body:has(#create-show-form) .fi-form-actions{position:sticky!important;bottom:0!important;z-index:30!important;margin-inline:-1rem!important;padding:.65rem 1rem max(.65rem,env(safe-area-inset-bottom))!important;border-top:1px solid rgb(229 231 235)!important;background:rgba(255,255,255,.96)!important;backdrop-filter:blur(16px)}
+            .dark body:has(#create-show-form) .fi-form-actions{border-color:rgb(55 65 81)!important;background:rgba(17,24,39,.96)!important}
+            body:has(#create-show-form) .fi-form-actions .fi-btn{min-height:48px!important;flex:1!important}
+        }
+    </style>
+
     @livewire('show-items-modal', ['showId' => null], key('show-items-modal'))
 
-    <!-- Main form content -->
     <div id="create-show-form">
         {{ $this->form }}
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Initialize modal handler - dispatch event to all Livewire components
             window.openShowItemsModalHandler = function() {
                 Livewire.dispatch('openShowItemsModal');
             };
 
-            // Close modal on Escape key
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
                     Livewire.dispatch('closeShowItemsModal');
                 }
             });
 
-            // Handle items selected from modal via Livewire event
             Livewire.on('itemsSelected', (payload) => {
                 let items = [];
                 let locationId = null;
 
-                // Handle different payload formats from Livewire
                 if (Array.isArray(payload) && payload.length > 0) {
                     const data = payload[0];
                     items = data.items || [];
@@ -44,14 +57,11 @@
             });
 
             function addItemsToRepeater(items, locationId) {
-                // Wait for DOM to be ready
                 setTimeout(() => {
                     items.forEach((item) => {
-                        // Click the add button to create a new row
                         const addBtn = document.querySelector('button[wire\\:click*="addAction"][wire\\:click*="inventory_items"]');
 
                         if (!addBtn) {
-                            // Alternative: find by aria-label or text content
                             const buttons = Array.from(document.querySelectorAll('button'));
                             const addButton = buttons.find(btn =>
                                 btn.textContent.includes('Add item') ||
@@ -65,7 +75,6 @@
                             addBtn.click();
                         }
 
-                        // After a short delay, fill in the new row
                         setTimeout(() => {
                             fillLastRepeaterRow(item, locationId);
                         }, 150);
@@ -74,11 +83,9 @@
             }
 
             function fillLastRepeaterRow(item, locationId) {
-                // Find all repeater rows (they typically have data-repeater-index or similar)
                 const rows = document.querySelectorAll('[data-form-repeater-item]');
 
                 if (rows.length === 0) {
-                    // Try alternative selector
                     const containers = document.querySelectorAll('.fi-repeater-item, [class*="repeater"]');
                     if (containers.length > 0) {
                         const lastRow = containers[containers.length - 1];
@@ -92,13 +99,9 @@
             }
 
             function populateRowFields(row, item, locationId) {
-                // Find input fields in this row
                 const inputs = row.querySelectorAll('input[type="number"], input[type="text"], select');
 
                 if (inputs.length >= 3) {
-                    // Usually: product_id (select), location (select), quantity, cost
-                    // Find the right inputs by their placeholder or nearby labels
-
                     const productSelect = row.querySelector('select') || inputs[0];
                     const locationSelect = Array.from(inputs).find(inp => inp.tagName === 'SELECT' && inp !== productSelect);
                     const quantityInput = row.querySelector('input[wire\\:model*="quantity"]') || inputs[inputs.length - 2];

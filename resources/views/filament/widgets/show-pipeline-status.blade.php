@@ -11,6 +11,15 @@
 @endphp
 
 <x-filament-widgets::widget>
+    <style>
+        @media(max-width:640px){
+            .vx-show-stage-action{width:100%!important;min-height:48px!important}
+            .vx-show-flow{display:flex!important;overflow-x:auto!important;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;gap:1px!important;background:transparent!important;padding:.65rem!important}
+            .vx-show-flow>div{min-width:128px;scroll-snap-align:start;border:1px solid rgb(229 231 235);border-radius:.7rem;padding:.75rem!important}.dark .vx-show-flow>div{border-color:rgb(55 65 81)}
+            .vx-show-financials{grid-template-columns:1fr 1fr!important}.vx-show-financials>div{min-height:72px}
+            .vx-show-detail-kpis{grid-template-columns:1fr 1fr!important;gap:.5rem!important}.vx-show-detail-kpis>div{border-radius:.7rem;background:rgb(249 250 251);padding:.75rem}.dark .vx-show-detail-kpis>div{background:rgb(31 41 55)}
+        }
+    </style>
     <div class="space-y-3 sm:space-y-4">
         <section class="rounded-xl border p-4 sm:rounded-2xl sm:p-5 {{ $toneClasses }}">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -27,11 +36,11 @@
                     @endif
                 </div>
                 @if($payRun)
-                    <a href="{{ \App\Filament\Pages\PayrollOverview::getUrl() }}" class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-500">Open Pay Run</a>
+                    <a href="{{ \App\Filament\Pages\PayrollOverview::getUrl() }}" class="vx-show-stage-action inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-500">Open Pay Run</a>
                 @elseif(in_array($state['key'], ['streamer_log','admin_review'], true))
-                    <a href="{{ \App\Filament\Pages\EndOfStreamForm::getUrl(['showId' => $show->id]) }}" class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-500">Open Show Report</a>
+                    <a href="{{ \App\Filament\Pages\EndOfStreamForm::getUrl(['showId' => $show->id]) }}" class="vx-show-stage-action inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-500">Open Show Report</a>
                 @elseif(in_array($state['key'], ['fulfillment','payroll_ready'], true))
-                    <a href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('view', ['record' => $show]) }}" class="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-500">Open Fulfillment</a>
+                    <a href="{{ \App\Filament\Resources\FulfillmentResource::getUrl('view', ['record' => $show]) }}" class="vx-show-stage-action inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-500">Open Fulfillment</a>
                 @endif
             </div>
         </section>
@@ -41,7 +50,7 @@
                 <h3 class="text-sm font-semibold text-gray-950 dark:text-white sm:text-base">Show → Payroll Flow</h3>
                 <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">One status line across streamer logging, admin approval, fulfillment and payroll.</p>
             </div>
-            <div class="grid grid-cols-2 gap-px bg-gray-100 dark:bg-gray-800 sm:grid-cols-4 xl:grid-cols-7">
+            <div class="vx-show-flow grid grid-cols-2 gap-px bg-gray-100 dark:bg-gray-800 sm:grid-cols-4 xl:grid-cols-7">
                 @foreach($steps as $index => $step)
                     @php $stepNumber = $index + 1; $done = $currentStep > $stepNumber; $active = $currentStep === $stepNumber; @endphp
                     <div class="bg-white px-3 py-3 dark:bg-gray-900 sm:p-4">
@@ -62,7 +71,7 @@
                 </div>
                 @if($payRun)<span class="rounded-full bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-200">Pay Run #{{ $payRun->id }}</span>@endif
             </div>
-            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+            <div class="vx-show-financials grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
                 @foreach([
                     ['Gross Sales', $pnl['gross'] ?? 0],
                     ['Whatnot Net', $pnl['net'] ?? 0],
@@ -84,7 +93,7 @@
         </section>
 
         <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900 sm:rounded-2xl sm:p-5">
-            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div class="vx-show-detail-kpis grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <div><div class="text-[10px] uppercase tracking-wide text-gray-500">Report Units</div><div class="mt-1 text-lg font-semibold">{{ number_format($reportUnits) }}</div></div>
                 <div><div class="text-[10px] uppercase tracking-wide text-gray-500">Inventory Issues</div><div class="mt-1 text-lg font-semibold">{{ number_format($inventoryIssues) }}</div></div>
                 <div><div class="text-[10px] uppercase tracking-wide text-gray-500">Open Shipments</div><div class="mt-1 text-lg font-semibold">{{ number_format($openShipmentCount) }}</div></div>

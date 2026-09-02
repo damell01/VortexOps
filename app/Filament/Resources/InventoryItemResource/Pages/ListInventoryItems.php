@@ -11,20 +11,30 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\CreateAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Illuminate\Support\Collection;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
 
 class ListInventoryItems extends ListRecords
 {
     protected static string $resource = InventoryItemResource::class;
     protected ?array $statsMemo = null;
+
     #[Url(as: 'stock')]
     public ?string $stockHealth = null;
+
+    #[Url(as: 'view')]
+    public string $viewMode = 'catalog';
+
+    #[Url(as: 'q')]
+    public string $catalogSearch = '';
+
     public ?int $barcodeScanTargetId = null;
     public ?string $barcodeScanTargetName = null;
 
     public function getView(): string { return 'filament.resources.inventory-item-resource.pages.list-inventory-items'; }
-    public function getTitle(): string { return 'Inventory'; }
-    public function getSubheading(): ?string { return 'Track and manage your inventory items.'; }
+    public function getTitle(): string { return 'All Inventory'; }
+    public function getSubheading(): ?string { return 'Browse inventory visually, check stock fast, or switch to the detailed table when you need it.'; }
     public function getBreadcrumbs(): array { return []; }
 
     protected function getTableQuery(): ?\Illuminate\Database\Eloquent\Builder
@@ -40,10 +50,58 @@ class ListInventoryItems extends ListRecords
         };
     }
 
+    #[Computed]
+    public function catalogItems(): Collection
+    {
+        $query = InventoryItemResource::getEloquentQuery()
+            ->with(['stock.location'])
+            ->orderBy('name');
+
+        if (filled($this->catalogSearch)) {
+            $term = '%' . trim($this->catalogSearch) . '%';
+            $query->where(function ($search) use ($term) {
+                $search->where('name', 'like', $term)
+                    ->orWhere('sku', 'like', $term)
+                    ->orWhere('barcode', 'like', $term)
+                    ->orWhere('upc', 'like', $term)
+                    ->orWhere('brand', 'like', $term)
+                    ->orWhere('category', 'like', $term);
+            });
+        }
+
+        if ($this->stockHealth) {
+            $query = match ($this->stockHealth) {
+                'out' => $query->havingRaw('COALESCE(stock_sum_quantity, 0) <= 0'),
+                'low' => $query->whereNotNull('reorder_level')->havingRaw('COALESCE(stock_sum_quantity, 0) > 0 AND stock_sum_quantity <= products.reorder_level'),
+                'in' => $query->havingRaw('COALESCE(stock_sum_quantity, 0) > 0 AND (products.reorder_level IS NULL OR stock_sum_quantity > products.reorder_level)'),
+                default => $query,
+            };
+        }
+
+        return $query->limit(80)->get();
+    }
+
     public function filterStock(?string $status): void
     {
         $this->stockHealth = $this->stockHealth === $status ? null : $status;
         $this->resetPage();
+        unset($this->catalogItems);
+    }
+
+    public function setViewMode(string $mode): void
+    {
+        $this->viewMode = in_array($mode, ['catalog', 'table'], true) ? $mode : 'catalog';
+    }
+
+    public function updatedCatalogSearch(): void
+    {
+        unset($this->catalogItems);
+    }
+
+    public function clearCatalogSearch(): void
+    {
+        $this->catalogSearch = '';
+        unset($this->catalogItems);
     }
 
     public function getStats(): array
@@ -82,6 +140,7 @@ class ListInventoryItems extends ListRecords
     {
         $product=Product::find($productId);if(!$product)return;$this->barcodeScanTargetId=$product->getKey();$this->barcodeScanTargetName=$product->name;$this->dispatch('open-camera-scanner',title:'Scan barcode',helper:$product->name);
     }
+
     public function saveScannedBarcode(string $barcode): void
     {
         $barcode=trim($barcode);$product=$this->barcodeScanTargetId?Product::find($this->barcodeScanTargetId):null;$this->barcodeScanTargetId=null;$name=$this->barcodeScanTargetName;$this->barcodeScanTargetName=null;if($barcode===''||!$product)return;

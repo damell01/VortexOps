@@ -11,6 +11,11 @@ class EditInventoryItem extends EditRecord
 {
     protected static string $resource = InventoryItemResource::class;
 
+    public function getView(): string
+    {
+        return 'filament.resources.inventory-item-resource.pages.edit-inventory-item';
+    }
+
     public function mount(string|int $record): void
     {
         $this->record = $this->resolveRecord($record);

@@ -7,6 +7,7 @@ use App\Models\Show;
 use App\Models\ShowChangeLog;
 use App\Models\StreamerLogEntry;
 use App\Models\User;
+use App\Services\AI\Ops\AiOpsDispatcher;
 use Filament\Notifications\Notification;
 
 class ShowObserver
@@ -69,6 +70,15 @@ class ShowObserver
                     'gross_revenue' => $show->gross_revenue,
                 ]);
             }
+
+            // This only writes an AiTask row and dispatches to the dedicated AI
+            // queue. No Ollama health check/model call happens in this request.
+            // The completed summary is read later from the database.
+            app(AiOpsDispatcher::class)->dispatch(
+                scope: 'show',
+                sourceId: $show->id,
+                triggeredBy: auth()->id(),
+            );
         }
 
         $this->notifyApprovedShowAnalyticsChange($show);

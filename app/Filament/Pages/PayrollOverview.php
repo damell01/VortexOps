@@ -2,6 +2,10 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Resources\FulfillmentResource;
+use App\Filament\Resources\ShowResource;
+use App\Filament\Resources\StreamerLogResource;
+use App\Filament\Resources\WeeklyPayoutBatchResource;
 use App\Models\Payout;
 use App\Models\Show;
 use App\Models\Streamer;
@@ -33,7 +37,7 @@ class PayrollOverview extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Current weekly payroll, show-by-show calculations, exceptions, rates and pay run history in one place.';
+        return 'Current weekly payroll, show-by-show calculations, blockers and resolution actions in one place.';
     }
 
     public function currentPayRun(): ?WeeklyPayoutBatch
@@ -41,9 +45,6 @@ class PayrollOverview extends Page
         $weekStart = now()->startOfWeek()->toDateString();
         $weekEnd = now()->endOfWeek()->toDateString();
 
-        // Only return a batch that actually covers the current week. Falling
-        // back to the latest historical batch makes an old pay run look active
-        // and can place this week's shows under the wrong dates.
         return WeeklyPayoutBatch::query()
             ->withCount('payouts')
             ->whereDate('week_start', '<=', $weekEnd)
@@ -74,15 +75,14 @@ class PayrollOverview extends Page
             $warnings[] = $membersMissingStructure . ' active team member(s) need a payment structure reviewed.';
         }
 
-        foreach ($this->currentWeekShows() as $show) {
-            $state = $show->getAttribute('workflow_state');
-            foreach ($state['blockers'] ?? [] as $blocker) {
+        foreach ($this->allCurrentWeekShows() as $show) {
+            foreach ($show->getAttribute('workflow_state')['blockers'] ?? [] as $blocker) {
                 $warnings[] = $show->title . ': ' . $blocker;
             }
         }
 
         if (! $run) {
-            $warnings[] = 'No pay run exists for the current week. Create it only after the shows you intend to pay are payroll-ready.';
+            $warnings[] = 'No pay run exists for the current week. Create it after the shows you intend to pay are payroll-ready.';
             return array_values(array_unique($warnings));
         }
 
@@ -122,6 +122,109 @@ class PayrollOverview extends Page
 
     public function currentWeekShows(): Collection
     {
+        $shows = $this->allCurrentWeekShows();
+        $filter = request()->string('workflow')->toString();
+
+        if ($filter === '' || $filter === 'all') {
+            return $shows;
+        }
+
+        return $shows->filter(function (Show $show) use ($filter): bool {
+            $key = $show->getAttribute('workflow_state')['key'] ?? '';
+
+            return match ($filter) {
+                'blocked' => ! in_array($key, ['payroll_ready', 'payroll', 'paid'], true),
+                'ready' => $key === 'payroll_ready',
+                'in_run' => $key === 'payroll',
+                'paid' => $key === 'paid',
+                default => $key === $filter,
+            };
+        })->values();
+    }
+
+    public function workflowBreakdown(): array
+    {
+        $shows = $this->allCurrentWeekShows();
+        $keys = $shows->map(fn (Show $show) => $show->getAttribute('workflow_state')['key'] ?? '')->countBy();
+
+        return [
+            'all' => $shows->count(),
+            'blocked' => $shows->filter(fn (Show $show) => ! in_array($show->getAttribute('workflow_state')['key'] ?? '', ['payroll_ready', 'payroll', 'paid'], true))->count(),
+            'ready' => (int) ($keys['payroll_ready'] ?? 0),
+            'in_run' => (int) ($keys['payroll'] ?? 0),
+            'paid' => (int) ($keys['paid'] ?? 0),
+        ];
+    }
+
+    /** @return array{label:string,url:string,tone:string} */
+    public function showResolution(Show $show): array
+    {
+        $state = $show->getAttribute('workflow_state');
+        $key = $state['key'] ?? '';
+        $log = $show->streamerLogEntry;
+
+        if (in_array($key, ['streamer_log', 'admin_review'], true) && $log) {
+            return [
+                'label' => $key === 'admin_review' ? 'Review Log' : 'Open Log',
+                'url' => StreamerLogResource::getUrl('edit', ['record' => $log]),
+                'tone' => 'warning',
+            ];
+        }
+
+        if ($key === 'fulfillment') {
+            return [
+                'label' => 'Resolve Fulfillment',
+                'url' => FulfillmentResource::getUrl('view', ['record' => $show]),
+                'tone' => 'primary',
+            ];
+        }
+
+        if ($key === 'payroll' && $show->payouts->first(fn (Payout $p) => $p->batch)?->batch) {
+            $batch = $show->payouts->first(fn (Payout $p) => $p->batch)?->batch;
+            return [
+                'label' => 'Open Pay Run',
+                'url' => WeeklyPayoutBatchResource::getUrl('view', ['record' => $batch]),
+                'tone' => 'primary',
+            ];
+        }
+
+        if ($key === 'payroll_ready' && $this->currentPayRun()) {
+            return [
+                'label' => 'Review Pay Run',
+                'url' => WeeklyPayoutBatchResource::getUrl('view', ['record' => $this->currentPayRun()]),
+                'tone' => 'success',
+            ];
+        }
+
+        return [
+            'label' => in_array($key, ['payroll_review'], true) ? 'Fix Show Inputs' : 'Open Show',
+            'url' => ShowResource::getUrl('view', ['record' => $show]),
+            'tone' => $key === 'payroll_review' ? 'warning' : 'gray',
+        ];
+    }
+
+    public function readinessSummary(): array
+    {
+        $shows = $this->allCurrentWeekShows();
+        return [
+            'shows' => $shows->count(),
+            'ready' => $shows->filter(fn (Show $show) => in_array($show->getAttribute('workflow_state')['key'], ['payroll_ready', 'payroll', 'paid'], true))->count(),
+            'review' => $shows->filter(fn (Show $show) => ! in_array($show->getAttribute('workflow_state')['key'], ['payroll_ready', 'payroll', 'paid'], true))->count(),
+            'show_payroll' => (float) $shows->sum(fn (Show $show) => (float) ($show->getAttribute('pnl_summary')['payouts'] ?? 0)),
+        ];
+    }
+
+    public function recentPayRuns(): Collection
+    {
+        return WeeklyPayoutBatch::query()
+            ->withCount('payouts')
+            ->latest('week_start')
+            ->limit(6)
+            ->get();
+    }
+
+    private function allCurrentWeekShows(): Collection
+    {
         $run = $this->currentPayRun();
         $start = $run?->week_start ?? now()->startOfWeek();
         $end = $run?->week_end ?? now()->endOfWeek();
@@ -147,25 +250,5 @@ class PayrollOverview extends Page
                 $show->setAttribute('pnl_summary', $show->profitAndLoss());
                 return $show;
             });
-    }
-
-    public function readinessSummary(): array
-    {
-        $shows = $this->currentWeekShows();
-        return [
-            'shows' => $shows->count(),
-            'ready' => $shows->filter(fn (Show $show) => in_array($show->getAttribute('workflow_state')['key'], ['payroll_ready', 'payroll', 'paid'], true))->count(),
-            'review' => $shows->filter(fn (Show $show) => ! in_array($show->getAttribute('workflow_state')['key'], ['payroll_ready', 'payroll', 'paid'], true))->count(),
-            'show_payroll' => (float) $shows->sum(fn (Show $show) => (float) ($show->getAttribute('pnl_summary')['payouts'] ?? 0)),
-        ];
-    }
-
-    public function recentPayRuns(): Collection
-    {
-        return WeeklyPayoutBatch::query()
-            ->withCount('payouts')
-            ->latest('week_start')
-            ->limit(6)
-            ->get();
     }
 }

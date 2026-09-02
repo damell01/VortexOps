@@ -2,136 +2,138 @@
 
 namespace App\Livewire;
 
+use App\Models\DeductionRequestLine;
 use App\Models\Show;
-use App\Models\WhatnotShowOrder;
-use Illuminate\Database\Eloquent\Builder;
 use Livewire\Component;
-use Livewire\WithFileUploads;
 
 class FulfillmentDashboard extends Component
 {
-    use WithFileUploads;
-
     public Show $show;
     public string $filterStatus = 'all';
     public string $search = '';
-    public array $selectedOrders = [];
-    public array $uploadedLabels = [];
+    public array $notes = [];
 
     public function mount(Show $show): void
     {
         $this->show = $show;
     }
 
-    public function markAsPacked(WhatnotShowOrder $order): void
+    public function markFulfilled(DeductionRequestLine $line): void
     {
-        abort_unless((int) $order->show_id === (int) $this->show->id, 403);
+        $this->authorizeLine($line);
 
-        if (! $order->shipping_status || in_array($order->shipping_status, ['pending', 'label_created'], true)) {
-            $order->update(['shipping_status' => 'packed']);
-            $this->selectedOrders = array_values(array_diff($this->selectedOrders, [$order->id, (string) $order->id]));
-            $this->dispatch('notify', message: 'Order marked as packed');
-        }
+        $line->update([
+            'fulfillment_status' => DeductionRequestLine::FULFILLMENT_FULFILLED,
+            'fulfillment_note' => filled($this->notes[$line->id] ?? null) ? trim($this->notes[$line->id]) : null,
+            'fulfilled_by' => auth()->id(),
+            'fulfilled_at' => now(),
+        ]);
+
+        $this->dispatch('notify', message: 'Item marked fulfilled');
     }
 
-    public function bulkMarkPacked(): void
+    public function markNotFulfilled(DeductionRequestLine $line): void
     {
-        $ids = collect($this->selectedOrders)->map(fn ($id) => (int) $id)->filter()->unique()->values();
-        if ($ids->isEmpty()) return;
+        $this->authorizeLine($line);
+        $note = trim((string) ($this->notes[$line->id] ?? ''));
 
-        $count = $this->show->orders()
-            ->whereIn('id', $ids)
-            ->where(function (Builder $q) {
-                $q->whereNull('shipping_status')
-                    ->orWhereIn('shipping_status', ['', 'pending', 'label_created']);
-            })
-            ->update(['shipping_status' => 'packed']);
+        $line->update([
+            'fulfillment_status' => DeductionRequestLine::FULFILLMENT_NOT_FULFILLED,
+            'fulfillment_note' => $note !== '' ? $note : 'Not fulfilled',
+            'fulfilled_by' => auth()->id(),
+            'fulfilled_at' => now(),
+        ]);
 
-        $this->selectedOrders = [];
-        $this->dispatch('notify', message: "{$count} order line(s) marked packed");
+        $this->dispatch('notify', message: 'Item marked not fulfilled');
     }
 
-    public function markNextAsPacked(): void
+    public function resetFulfillment(DeductionRequestLine $line): void
     {
-        $order = $this->show->orders()
-            ->where(function ($q) {
-                $q->whereNull('shipping_status')
-                    ->orWhereIn('shipping_status', ['', 'pending', 'label_created']);
-            })
-            ->orderByRaw('COALESCE(lot_number, 999999)')
-            ->orderBy('id')
-            ->first();
+        $this->authorizeLine($line);
 
-        if (! $order) {
-            $this->dispatch('notify', message: 'No unpacked order lines remain');
+        $line->update([
+            'fulfillment_status' => null,
+            'fulfillment_note' => null,
+            'fulfilled_by' => null,
+            'fulfilled_at' => null,
+        ]);
+
+        unset($this->notes[$line->id]);
+        $this->dispatch('notify', message: 'Fulfillment status reset');
+    }
+
+    public function markAllFulfilled(): void
+    {
+        $request = $this->show->latestDeductionRequest()->first();
+        if (! $request) {
             return;
         }
 
-        $this->markAsPacked($order);
+        $request->lines()
+            ->where(function ($query) {
+                $query->whereNull('fulfillment_status')
+                    ->orWhere('fulfillment_status', DeductionRequestLine::FULFILLMENT_PENDING);
+            })
+            ->update([
+                'fulfillment_status' => DeductionRequestLine::FULFILLMENT_FULFILLED,
+                'fulfilled_by' => auth()->id(),
+                'fulfilled_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        $this->dispatch('notify', message: 'All pending logged items marked fulfilled');
     }
 
-    public function markAsShipped(WhatnotShowOrder $order, string $trackingNumber): void
+    protected function authorizeLine(DeductionRequestLine $line): void
     {
-        abort_unless((int) $order->show_id === (int) $this->show->id, 403);
+        $belongsToShow = $line->request()
+            ->where('show_id', $this->show->id)
+            ->exists();
 
-        $trackingNumber = trim($trackingNumber);
-        if ($trackingNumber === '') return;
-
-        $order->update([
-            'shipping_status' => 'shipped',
-            'tracking_number' => $trackingNumber,
-        ]);
-
-        $this->dispatch('notify', message: "Order marked as shipped with tracking: {$trackingNumber}");
-    }
-
-    public function uploadLabel(WhatnotShowOrder $order, $file): void
-    {
-        abort_unless((int) $order->show_id === (int) $this->show->id, 403);
-        if (! $file) return;
-
-        $path = $file->store('shipping-labels', 'public');
-        $order->update(['tracking_number' => $path]);
-        $this->dispatch('notify', message: 'Shipping label uploaded');
-    }
-
-    public function clearSelection(): void
-    {
-        $this->selectedOrders = [];
+        abort_unless($belongsToShow, 403);
     }
 
     public function render()
     {
-        $orders = $this->show->orders()
-            ->when($this->filterStatus !== 'all', function ($q) {
-                if ($this->filterStatus === 'pending') {
-                    $q->where(function ($pending) {
-                        $pending->whereNull('shipping_status')->orWhereIn('shipping_status', ['', 'pending']);
-                    });
-                } else {
-                    $q->where('shipping_status', $this->filterStatus);
-                }
-            })
-            ->when(filled($this->search), function ($q) {
-                $term = '%' . trim($this->search) . '%';
-                $q->where(function ($search) use ($term) {
-                    $search->where('buyer_username', 'like', $term)
-                        ->orWhere('buyer_display_name', 'like', $term)
-                        ->orWhere('item_name', 'like', $term)
-                        ->orWhere('whatnot_order_id', 'like', $term)
-                        ->orWhere('tracking_number', 'like', $term);
-                });
-            })
-            ->orderByRaw('COALESCE(lot_number, 999999)')
-            ->orderBy('id')
-            ->limit(200)
-            ->get();
+        $request = $this->show->latestDeductionRequest()
+            ->with(['lines.inventoryItem', 'lines.location', 'lines.fulfilledBy'])
+            ->first();
 
-        $allOrders = $this->show->orders()->get(['id', 'shipping_status']);
-        $pendingPackingCount = $allOrders->filter(fn ($order) => in_array($order->shipping_status, [null, '', 'pending', 'label_created'], true))->count();
-        $packedCount = $allOrders->where('shipping_status', 'packed')->count();
-        $shippedCount = $allOrders->where('shipping_status', 'shipped')->count();
-        $deliveredOrderCount = $allOrders->where('shipping_status', 'delivered')->count();
+        $lines = $request?->lines ?? collect();
+
+        if ($this->filterStatus !== 'all') {
+            $lines = $lines->filter(function (DeductionRequestLine $line) {
+                return $line->fulfillmentStatus() === $this->filterStatus;
+            });
+        }
+
+        if (filled($this->search)) {
+            $needle = mb_strtolower(trim($this->search));
+            $lines = $lines->filter(function (DeductionRequestLine $line) use ($needle) {
+                $item = $line->inventoryItem;
+                $haystack = implode(' ', array_filter([
+                    $item?->name,
+                    $item?->sku,
+                    $item?->barcode,
+                    $item?->upc,
+                    $line->raw_description,
+                    $line->location?->name,
+                ]));
+
+                return str_contains(mb_strtolower($haystack), $needle);
+            });
+        }
+
+        $allLines = $request?->lines ?? collect();
+        $pendingCount = $allLines->filter(fn (DeductionRequestLine $line) => ! $line->isFulfillmentReviewed())->count();
+        $fulfilledCount = $allLines->filter(fn (DeductionRequestLine $line) => $line->fulfillmentStatus() === DeductionRequestLine::FULFILLMENT_FULFILLED)->count();
+        $notFulfilledCount = $allLines->filter(fn (DeductionRequestLine $line) => $line->fulfillmentStatus() === DeductionRequestLine::FULFILLMENT_NOT_FULFILLED)->count();
+
+        foreach ($allLines as $line) {
+            if (! array_key_exists($line->id, $this->notes) && filled($line->fulfillment_note)) {
+                $this->notes[$line->id] = $line->fulfillment_note;
+            }
+        }
 
         $shipments = $this->show->shipments()
             ->orderByDesc('created_at_whatnot')
@@ -144,12 +146,12 @@ class FulfillmentDashboard extends Component
 
         return view('livewire.fulfillment-dashboard', [
             'show' => $this->show,
-            'orders' => $orders,
-            'allOrders' => $allOrders,
-            'pendingPackingCount' => $pendingPackingCount,
-            'packedCount' => $packedCount,
-            'shippedCount' => $shippedCount,
-            'deliveredOrderCount' => $deliveredOrderCount,
+            'request' => $request,
+            'lines' => $lines,
+            'allLines' => $allLines,
+            'pendingCount' => $pendingCount,
+            'fulfilledCount' => $fulfilledCount,
+            'notFulfilledCount' => $notFulfilledCount,
             'shipments' => $shipments,
             'shipmentStats' => [
                 'total' => $shipments->count(),
@@ -157,7 +159,6 @@ class FulfillmentDashboard extends Component
                 'open' => $openShipments,
                 'shipping_cost' => (float) $shipments->sum('shipping_cost'),
             ],
-            'statusLabels' => WhatnotShowOrder::shippingStatusLabels(),
             'assignedUsers' => $this->show->fulfillmentUsers()->get(['users.id', 'users.name']),
         ]);
     }

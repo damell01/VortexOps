@@ -1,15 +1,20 @@
 from __future__ import annotations
 
-"""Run the existing Whatnot Scrapling extractor through StealthySession.
+"""Run the Whatnot extractor through a Scrapling-owned StealthySession.
 
-In production this adapter can attach to the same persistent Chrome that VortexOps
-already owns over CDP, so it does not compete for the shared user-data directory
-or create a second Chrome. Browser behavior is configured through environment
-variables so production settings can be changed without editing this script.
+Production data modes launch their own persistent Chrome profile by default.
+CDP attachment remains available only when WHATNOT_SCRAPLING_USE_CDP=1 is
+explicitly requested for diagnostics/migration rollback.
+
+Authentication is allowed to use the configured Whatnot credentials. MFA and
+anti-bot challenges are never bypassed: the run stops with a clear diagnostic so
+an operator can complete the required interaction in the persistent profile.
 """
 
 import importlib.util
 import os
+import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -17,22 +22,34 @@ from scrapling.fetchers import StealthySession
 
 HERE = Path(__file__).resolve().parent
 BASE_SCRIPT = HERE / "whatnot-scrapling.py"
-CDP_URL = os.getenv("WHATNOT_SCRAPLING_CDP_URL", os.getenv("WHATNOT_ATTACH_CDP_URL", "http://127.0.0.1:9222")).strip()
-USE_CDP = os.getenv("WHATNOT_SCRAPLING_USE_CDP", "1").strip() != "0"
+CDP_URL = os.getenv(
+    "WHATNOT_SCRAPLING_CDP_URL",
+    os.getenv("WHATNOT_ATTACH_CDP_URL", "http://127.0.0.1:9222"),
+).strip()
+USE_CDP = os.getenv("WHATNOT_SCRAPLING_USE_CDP", "0").strip() == "1"
+EMAIL = os.getenv("WHATNOT_EMAIL", "").strip()
+PASSWORD = os.getenv("WHATNOT_PASSWORD", "")
 
 
 def env_bool(name: str, default: bool) -> bool:
-    """Read a conventional boolean environment variable with a safe default."""
     value = os.getenv(name)
     if value is None or not value.strip():
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
-SCRAPLING_SOLVE_CLOUDFLARE = env_bool("WHATNOT_SCRAPLING_SOLVE_CLOUDFLARE", False)
 SCRAPLING_BLOCK_WEBRTC = env_bool("WHATNOT_SCRAPLING_BLOCK_WEBRTC", False)
 SCRAPLING_HIDE_CANVAS = env_bool("WHATNOT_SCRAPLING_HIDE_CANVAS", False)
 SCRAPLING_ALLOW_WEBGL = env_bool("WHATNOT_SCRAPLING_ALLOW_WEBGL", True)
+
+
+def log(message: str) -> None:
+    print(f"[whatnot:scrapling] {message}", file=sys.stderr, flush=True)
+
+
+def stop(message: str, code: int = 3) -> None:
+    print(message, file=sys.stderr, flush=True)
+    raise SystemExit(code)
 
 
 def load_base_module():
@@ -44,46 +61,184 @@ def load_base_module():
     return module
 
 
+def page_text(page) -> str:
+    try:
+        return str(page.locator("body").inner_text(timeout=2000) or "")
+    except Exception:
+        return ""
+
+
+def challenge_present(page) -> bool:
+    url = str(getattr(page, "url", "") or "")
+    title = ""
+    try:
+        title = str(page.title() or "")
+    except Exception:
+        pass
+    text = page_text(page)[:12000]
+    combined = f"{url}\n{title}\n{text}"
+    return bool(
+        re.search(
+            r"just a moment|checking your browser|verify you are human|security verification|cloudflare|challenge-platform",
+            combined,
+            re.I,
+        )
+    )
+
+
+def login_page(page) -> bool:
+    url = str(getattr(page, "url", "") or "")
+    if re.search(r"/(login|signin|auth)(/|\?|$)", url, re.I):
+        return True
+    try:
+        return bool(page.locator('input[type="password"]').first.is_visible(timeout=500))
+    except Exception:
+        return False
+
+
+def interaction_required(page) -> bool:
+    text = page_text(page)[:10000]
+    return bool(
+        re.search(
+            r"verification code|enter (?:the )?code|one[- ]time|two[- ]factor|2fa|authenticator|check your (?:email|phone)|mfa",
+            text,
+            re.I,
+        )
+    )
+
+
+def first_visible(page, selectors: list[str]):
+    for selector in selectors:
+        try:
+            node = page.locator(selector).first
+            if node.is_visible(timeout=700):
+                return node
+        except Exception:
+            pass
+    return None
+
+
+def ensure_authenticated(page) -> None:
+    """Validate the persistent session and perform an ordinary login when needed.
+
+    This deliberately does not solve or bypass Cloudflare/Turnstile/CAPTCHA and
+    does not attempt to automate MFA. Those states fail closed with instructions
+    to refresh the persistent browser profile interactively.
+    """
+    if challenge_present(page):
+        stop(
+            f"CLOUDFLARE_CHALLENGE: Whatnot presented an anti-bot verification page at {page.url}. "
+            "No challenge bypass was attempted. Refresh/authenticate the persistent Scrapling profile and retry.",
+            4,
+        )
+
+    if not login_page(page):
+        return
+
+    if not EMAIL or not PASSWORD:
+        stop(
+            f"LOGIN_REQUIRED: Scrapling profile is not authenticated at {page.url} and WHATNOT_EMAIL/WHATNOT_PASSWORD are not configured.",
+            3,
+        )
+
+    email = first_visible(
+        page,
+        [
+            'input[type="email"]',
+            'input[name="email"]',
+            'input[autocomplete="email"]',
+            'input[autocomplete="username"]',
+        ],
+    )
+    password = first_visible(
+        page,
+        [
+            'input[type="password"]',
+            'input[name="password"]',
+            'input[autocomplete="current-password"]',
+        ],
+    )
+
+    if email is None or password is None:
+        stop(f"LOGIN_FORM_CHANGED: unable to locate Whatnot login fields at {page.url}", 3)
+
+    log("AUTH_BOOTSTRAP state=login-required action=credential-login")
+    email.fill(EMAIL)
+    password.fill(PASSWORD)
+
+    submitted = False
+    for selector in [
+        'button[type="submit"]',
+        'button:has-text("Log in")',
+        'button:has-text("Login")',
+        'button:has-text("Sign in")',
+    ]:
+        try:
+            button = page.locator(selector).first
+            if button.is_visible(timeout=700):
+                button.click(timeout=5000)
+                submitted = True
+                break
+        except Exception:
+            pass
+    if not submitted:
+        try:
+            password.press("Enter")
+            submitted = True
+        except Exception:
+            pass
+    if not submitted:
+        stop("LOGIN_FORM_CHANGED: unable to submit Whatnot login form", 3)
+
+    page.wait_for_timeout(2500)
+
+    if challenge_present(page):
+        stop(
+            f"CLOUDFLARE_CHALLENGE: verification was requested after login at {page.url}. "
+            "No challenge bypass was attempted; complete it interactively in the persistent profile and retry.",
+            4,
+        )
+    if interaction_required(page):
+        stop(
+            f"AUTH_INTERACTION_REQUIRED: Whatnot requires MFA/OTP at {page.url}. "
+            "Complete the verification interactively once; the persistent Scrapling profile will retain the authenticated session.",
+            3,
+        )
+    if login_page(page):
+        stop(f"LOGIN_FAILED: Whatnot remained on the login page after credential submission ({page.url})", 3)
+
+    log("AUTH_BOOTSTRAP state=authenticated")
+
+
 def stealthy_session(**kwargs: Any):
-    # Keep the existing extractor's normal browser settings where they make
-    # sense, but switch its browser engine to Scrapling's StealthySession.
     options: dict[str, Any] = {
         "headless": kwargs.get("headless", True),
         "disable_resources": kwargs.get("disable_resources", False),
         "google_search": False,
         "locale": kwargs.get("locale", "en-US"),
-        "solve_cloudflare": SCRAPLING_SOLVE_CLOUDFLARE,
+        # Do not automate anti-bot challenges. We detect them and fail closed.
+        "solve_cloudflare": False,
         "block_webrtc": SCRAPLING_BLOCK_WEBRTC,
         "hide_canvas": SCRAPLING_HIDE_CANVAS,
         "allow_webgl": SCRAPLING_ALLOW_WEBGL,
     }
 
-    option_summary = (
-        f"solve_cloudflare={str(SCRAPLING_SOLVE_CLOUDFLARE).lower()} "
-        f"block_webrtc={str(SCRAPLING_BLOCK_WEBRTC).lower()} "
-        f"hide_canvas={str(SCRAPLING_HIDE_CANVAS).lower()} "
-        f"allow_webgl={str(SCRAPLING_ALLOW_WEBGL).lower()}"
-    )
-
     if USE_CDP and CDP_URL:
         options["cdp_url"] = CDP_URL
-        print(
-            f"[whatnot:scrapling] engine=StealthySession cdp={CDP_URL} {option_summary}",
-            file=__import__("sys").stderr,
-            flush=True,
-        )
+        log(f"engine=StealthySession transport=cdp-diagnostic cdp={CDP_URL} solve_cloudflare=false")
     else:
-        # Dev/non-CDP fallback: use the same installed Chrome/profile settings
-        # the existing DynamicSession backend already receives.
         options["real_chrome"] = kwargs.get("real_chrome", True)
         if kwargs.get("executable_path"):
             options["executable_path"] = kwargs["executable_path"]
         if kwargs.get("user_data_dir"):
             options["user_data_dir"] = kwargs["user_data_dir"]
-        print(
-            f"[whatnot:scrapling] engine=StealthySession local-chrome {option_summary}",
-            file=__import__("sys").stderr,
-            flush=True,
+        profile = options.get("user_data_dir") or "(temporary)"
+        log(
+            "engine=StealthySession transport=owned-browser "
+            f"profile={profile} solve_cloudflare=false "
+            f"block_webrtc={str(SCRAPLING_BLOCK_WEBRTC).lower()} "
+            f"hide_canvas={str(SCRAPLING_HIDE_CANVAS).lower()} "
+            f"allow_webgl={str(SCRAPLING_ALLOW_WEBGL).lower()}"
         )
 
     return StealthySession(**options)
@@ -91,10 +246,10 @@ def stealthy_session(**kwargs: Any):
 
 def main() -> None:
     module = load_base_module()
-    # The existing extractor calls DynamicSession from its module global. Swap
-    # that constructor only; analytics/order/shipment/ledger extraction stays in
-    # one source of truth instead of being duplicated in this adapter.
+    # Keep show/order/shipment/ledger extraction in one source of truth. Only the
+    # session constructor and authentication validator are replaced here.
     module.DynamicSession = stealthy_session
+    module.check_login = ensure_authenticated
     module.main()
 
 

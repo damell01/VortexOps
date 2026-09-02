@@ -81,8 +81,7 @@ class PayrollOverview extends Page
                     ->orWhereBetween('week_end', [$weekStart, $weekEnd]);
             })
             ->latest('week_start')
-            ->first()
-            ?? WeeklyPayoutBatch::query()->withCount('payouts')->latest('week_start')->first();
+            ->first();
     }
 
     public function needsAttention(): array
@@ -200,7 +199,7 @@ class PayrollOverview extends Page
             ->whereNotIn('status', ['cancelled'])
             ->with([
                 'streamers:id,name,member_type',
-                'streamerLogEntry:id,show_id,status,submitted_at,fulfillment_reviewed_at,approval_status,product_cost,hours_streamed,pwe_count,label_count',
+                'streamerLogEntry:id,show_id,streamer_id,status,submitted_at,fulfillment_reviewed_at,approval_status,product_cost,hours_streamed,pwe_count,label_count',
                 'latestDeductionRequest.lines',
                 'payouts:id,show_id,streamer_id,weekly_payout_batch_id,status,calculated_payout,calculation_notes',
             ])

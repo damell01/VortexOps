@@ -1,10 +1,14 @@
 @php
     use App\Models\Show;
+    use App\Models\StreamerLogItem;
     /** @var Show $record */
     $record = $this->record;
     $shipmentTotal = $record->shipments()->count();
     $delivered = $record->shipments()->whereRaw("LOWER(COALESCE(status, '')) = 'delivered'")->count();
     $open = max(0, $shipmentTotal - $delivered);
+    $loggedItems = $record->streamerLogEntry?->items ?? collect();
+    $pendingReview = $loggedItems->filter(fn (StreamerLogItem $item) => ! $item->isFulfillmentReviewed())->count();
+    $issues = $loggedItems->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED)->count();
 @endphp
 
 <x-filament-panels::page>
@@ -25,20 +29,21 @@
 
             <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div class="rounded-xl bg-gray-50 p-4 dark:bg-gray-800">
-                    <div class="text-xs text-gray-500">Shipments</div>
-                    <div class="mt-1 text-xl font-semibold text-gray-950 dark:text-white">{{ number_format($shipmentTotal) }}</div>
+                    <div class="text-xs text-gray-500">Logged Items</div>
+                    <div class="mt-1 text-xl font-semibold text-gray-950 dark:text-white">{{ number_format($loggedItems->count()) }}</div>
+                </div>
+                <div class="rounded-xl bg-amber-50 p-4 dark:bg-amber-950/30">
+                    <div class="text-xs text-amber-700 dark:text-amber-300">To Review</div>
+                    <div class="mt-1 text-xl font-semibold text-amber-700 dark:text-amber-200">{{ number_format($pendingReview) }}</div>
+                </div>
+                <div class="rounded-xl bg-red-50 p-4 dark:bg-red-950/30">
+                    <div class="text-xs text-red-700 dark:text-red-300">Not Fulfilled</div>
+                    <div class="mt-1 text-xl font-semibold text-red-700 dark:text-red-200">{{ number_format($issues) }}</div>
                 </div>
                 <div class="rounded-xl bg-blue-50 p-4 dark:bg-blue-950/30">
-                    <div class="text-xs text-blue-700 dark:text-blue-300">Open</div>
-                    <div class="mt-1 text-xl font-semibold text-blue-700 dark:text-blue-200">{{ number_format($open) }}</div>
-                </div>
-                <div class="rounded-xl bg-green-50 p-4 dark:bg-green-950/30">
-                    <div class="text-xs text-green-700 dark:text-green-300">Delivered</div>
-                    <div class="mt-1 text-xl font-semibold text-green-700 dark:text-green-200">{{ number_format($delivered) }}</div>
-                </div>
-                <div class="rounded-xl bg-gray-50 p-4 dark:bg-gray-800">
-                    <div class="text-xs text-gray-500">Packing Lines</div>
-                    <div class="mt-1 text-xl font-semibold text-gray-950 dark:text-white">{{ number_format($record->orders()->count()) }}</div>
+                    <div class="text-xs text-blue-700 dark:text-blue-300">Whatnot Shipments</div>
+                    <div class="mt-1 text-xl font-semibold text-blue-700 dark:text-blue-200">{{ number_format($shipmentTotal) }}</div>
+                    <div class="mt-0.5 text-[10px] text-blue-600/80 dark:text-blue-300/80">{{ $open }} open · reference only</div>
                 </div>
             </div>
 

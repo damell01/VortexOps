@@ -25,21 +25,26 @@ class ProbeWhatnotShows extends Command
         }
 
         $limit = max(1, (int) $this->option('limit'));
-        $configuredBackend = strtolower((string) config('vortex.whatnot.browser_backend', 'local'));
+        $backend = strtolower((string) config('vortex.whatnot.browser_backend', 'local'));
+        $cdpUrl = (string) config('vortex.whatnot.scrapling_cdp_url', 'http://127.0.0.1:9222');
 
-        // If a human-owned Chromium is already exposing the local CDP endpoint,
-        // always borrow it for this diagnostic probe. This command must never
-        // launch another Chromium against the same persistent profile because
-        // the launcher's stale-lock recovery can terminate the manual browser.
-        $cdpUrl = 'http://127.0.0.1:9222';
-        $backend = $this->localCdpAvailable() ? 'attached' : $configuredBackend;
-
+        // Do not override the configured backend merely because a CDP endpoint
+        // exists. Scrapling itself attaches to that same persistent Chrome via
+        // WHATNOT_SCRAPLING_CDP_URL, so forcing `attached` here bypasses the
+        // Scrapling runner entirely.
         $env = [
             'WHATNOT_MODE' => 'shows',
             'WHATNOT_LIMIT' => (string) $limit,
             'WHATNOT_DEBUG' => $this->option('debug') ? '1' : '0',
             'WHATNOT_BROWSER_BACKEND' => $backend,
             'WHATNOT_ATTACH_CDP_URL' => $cdpUrl,
+            'WHATNOT_SCRAPLING_USE_CDP' => config('vortex.whatnot.scrapling_use_cdp', true) ? '1' : '0',
+            'WHATNOT_SCRAPLING_CDP_URL' => $cdpUrl,
+            'WHATNOT_SCRAPLING_SOLVE_CLOUDFLARE' => config('vortex.whatnot.scrapling_solve_cloudflare', false) ? 'true' : 'false',
+            'WHATNOT_SCRAPLING_BLOCK_WEBRTC' => config('vortex.whatnot.scrapling_block_webrtc', false) ? 'true' : 'false',
+            'WHATNOT_SCRAPLING_HIDE_CANVAS' => config('vortex.whatnot.scrapling_hide_canvas', false) ? 'true' : 'false',
+            'WHATNOT_SCRAPLING_ALLOW_WEBGL' => config('vortex.whatnot.scrapling_allow_webgl', true) ? 'true' : 'false',
+            'WHATNOT_SCRAPER_FALLBACK' => config('vortex.whatnot.scraper_fallback', false) ? '1' : '0',
             'STEEL_BASE_URL' => (string) config('vortex.whatnot.steel_base_url', 'http://127.0.0.1:3000'),
         ];
 
@@ -75,15 +80,12 @@ class ProbeWhatnotShows extends Command
             $this->info("Probing the seller channel already active in the saved Whatnot session for {$limit} show(s)…");
         }
         $this->line('Mode: shows (analytics page bypassed; channel switch bypassed unless --channel is supplied)');
-
-        if ($backend === 'attached') {
-            $this->line('Attached mode: existing Chromium detected on 127.0.0.1:9222; this probe will not launch or stop Chromium.');
-        }
-
+        $this->line("Browser backend: {$backend}" . ($backend === 'scrapling' || $backend === 'scrapling-stealthy' ? " (CDP {$cdpUrl})" : ''));
         $this->newLine();
 
-        // Always use the central runner. It owns backend selection and the
-        // attached-browser path. Do not call whatnot-scraper.cjs directly here.
+        // Always use the central runner. It owns backend selection. For the
+        // production `scrapling` backend, the runner maps this to StealthySession
+        // and attaches it to the existing persistent Chrome over CDP.
         $process = new Process([$node, $script], base_path(), $env);
         $process->setTimeout(300);
         $process->run(function (string $type, string $buffer): void {
@@ -131,20 +133,6 @@ class ProbeWhatnotShows extends Command
         $this->line(json_encode($rows[0], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
         return self::SUCCESS;
-    }
-
-    private function localCdpAvailable(): bool
-    {
-        $errno = 0;
-        $errstr = '';
-        $socket = @stream_socket_client('tcp://127.0.0.1:9222', $errno, $errstr, 0.25);
-
-        if (! is_resource($socket)) {
-            return false;
-        }
-
-        fclose($socket);
-        return true;
     }
 
     private function resolveChannel(mixed $value): ?WhatnotChannel

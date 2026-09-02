@@ -14,12 +14,23 @@ return [
         // file returns null the moment the config is cached.
         'cookies_file' => env('WHATNOT_COOKIES_FILE'),
 
-        // Browser runtime. `scrapling` uses scripts/whatnot-scrapling.py with the
-        // same persistent Chrome profile and the same PHP import/persistence
-        // pipeline. `local` keeps the existing Node/Playwright engine; `steel`
-        // keeps the existing self-hosted Steel/CDP option.
+        // Browser runtime. `scrapling` routes through the StealthySession adapter
+        // and attaches to the existing persistent Chrome over CDP. `local` keeps
+        // the existing Node/Playwright engine; `steel` keeps the self-hosted
+        // Steel/CDP option.
         'browser_backend' => env('WHATNOT_BROWSER_BACKEND', 'local'),
         'steel_base_url'  => env('STEEL_BASE_URL', 'http://127.0.0.1:3000'),
+
+        // Scrapling runtime options are configuration, not hard-coded behavior.
+        // Keeping them here is important because Laravel may cache config and
+        // does not guarantee raw .env values are visible to child processes.
+        'scrapling_use_cdp' => filter_var(env('WHATNOT_SCRAPLING_USE_CDP', true), FILTER_VALIDATE_BOOLEAN),
+        'scrapling_cdp_url' => env('WHATNOT_SCRAPLING_CDP_URL', 'http://127.0.0.1:9222'),
+        'scrapling_solve_cloudflare' => filter_var(env('WHATNOT_SCRAPLING_SOLVE_CLOUDFLARE', false), FILTER_VALIDATE_BOOLEAN),
+        'scrapling_block_webrtc' => filter_var(env('WHATNOT_SCRAPLING_BLOCK_WEBRTC', false), FILTER_VALIDATE_BOOLEAN),
+        'scrapling_hide_canvas' => filter_var(env('WHATNOT_SCRAPLING_HIDE_CANVAS', false), FILTER_VALIDATE_BOOLEAN),
+        'scrapling_allow_webgl' => filter_var(env('WHATNOT_SCRAPLING_ALLOW_WEBGL', true), FILTER_VALIDATE_BOOLEAN),
+        'scraper_fallback' => filter_var(env('WHATNOT_SCRAPER_FALLBACK', false), FILTER_VALIDATE_BOOLEAN),
 
         'playwright_browsers_path'         => env('PLAYWRIGHT_BROWSERS_PATH'),
         'playwright_chromium_executable'   => env('PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH'),

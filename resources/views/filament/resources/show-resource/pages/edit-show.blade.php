@@ -26,7 +26,11 @@
         </div>
         <x-filament-panels::form wire:submit="save">
             {{ $this->form }}
-            <x-filament-panels::form.actions :actions="$this->getCachedFormActions()" />
+            <div class="fi-form-actions mt-6 flex flex-wrap gap-3">
+                @foreach ($this->getCachedFormActions() as $action)
+                    {{ $action }}
+                @endforeach
+            </div>
         </x-filament-panels::form>
     </div>
 </x-filament-panels::page>

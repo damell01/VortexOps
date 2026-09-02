@@ -2,12 +2,11 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\AdminShowFlowWidget;
 use App\Filament\Widgets\FulfillmentInventoryWidget;
 use App\Filament\Widgets\NeedsAttentionWidget;
 use App\Filament\Widgets\OperationsOverviewWidget;
 use App\Filament\Widgets\RecentShowsWidget;
-use App\Filament\Widgets\ShowQueueCountsWidget;
-use App\Filament\Widgets\ShowsKpiWidget;
 use App\Filament\Widgets\StreamerInventoryWidget;
 use App\Filament\Widgets\StreamerOverviewWidget;
 use App\Filament\Widgets\StreamerProfitShareWidget;
@@ -60,17 +59,15 @@ class DashboardImproved extends Dashboard
         }
 
         if ($user?->isAdmin() || $user?->isOwner()) {
+            // Keep the admin landing page focused on the actual operating flow.
+            // The old queue/KPI widgets duplicated the summary cards already in
+            // the page header; the workflow board replaces them with one place
+            // to see where shows are and jump straight into the next action.
             return [
-                // The policy radios that used to lead this list are settings
-                // now (Settings → Post-Show Workflow): chosen once, then left
-                // for months, while taking the top of a screen read many times
-                // a day by people who mostly cannot change them. Their counts
-                // stayed — nothing else here reports them.
-                ShowQueueCountsWidget::class,
+                AdminShowFlowWidget::class,
                 NeedsAttentionWidget::class,
                 OperationsOverviewWidget::class,
                 RecentShowsWidget::class,
-                ShowsKpiWidget::class,
             ];
         }
 

@@ -4,13 +4,8 @@
  * Run the existing Whatnot scraper against an already-open Chromium instance.
  *
  * This does not solve, suppress, or manipulate Cloudflare challenges. It only
- * changes browser ownership: a human starts Chromium, signs in normally, and
- * VortexOps attaches over the local Chrome DevTools Protocol endpoint. The
- * scraper's existing challenge detection and channel fail-closed checks remain
- * active.
- *
- * The source shim is intentionally tiny so the main scraper stays the single
- * implementation of Whatnot navigation/extraction logic.
+ * changes browser ownership: VortexOps attaches to the local persistent Chrome
+ * instance and reuses its authenticated state.
  */
 
 const fs = require('fs');
@@ -20,9 +15,6 @@ const Module = require('module');
 const target = path.join(__dirname, 'whatnot-scraper.cjs');
 const endpoint = String(process.env.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222').trim();
 
-// Keep the debugging endpoint local. Remote Chrome debugging is effectively
-// browser control and should never be exposed as an unauthenticated network
-// service by this helper.
 let parsed;
 try {
   parsed = new URL(endpoint);
@@ -42,110 +34,57 @@ if (!['127.0.0.1', 'localhost', '::1'].includes(host)) {
 
 let source = fs.readFileSync(target, 'utf8');
 
+function replaceRequired(marker, replacement, description) {
+  if (!source.includes(marker)) {
+    process.stderr.write(`[whatnot] attached-browser shim could not find ${description} in whatnot-scraper.cjs. The scraper changed; update scripts/whatnot-attached-runner.cjs before using attached mode.\n`);
+    process.exit(2);
+  }
+  source = source.replace(marker, replacement);
+}
+
 const marker = `async function launchPersistentContextViaCdp(userDataDir, opts = {}) {\n  const { spawn } = require('child_process');`;
+const injected = `async function launchPersistentContextViaCdp(userDataDir, opts = {}) {\n  if (process.env.WHATNOT_ATTACH_EXISTING_BROWSER === '1') {\n    const endpoint = String(process.env.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222').trim();\n    info('attaching to existing Chromium over local CDP:', endpoint);\n\n    let browser;\n    let firstAttachError = null;\n    try {\n      browser = await chromium.connectOverCDP(endpoint, { timeout: 30000 });\n    } catch (e) {\n      firstAttachError = e;\n      info('attached browser: first CDP attach attempt did not settle; retrying once after 2s');\n      await new Promise((resolve) => setTimeout(resolve, 2000));\n      try {\n        browser = await chromium.connectOverCDP(endpoint, { timeout: 30000 });\n      } catch (retryError) {\n        throw new Error('ATTACHED_BROWSER_UNAVAILABLE: could not connect to ' + endpoint + ' after two bounded attempts. First error: ' + firstAttachError.message + ' | Retry error: ' + retryError.message);\n      }\n    }\n\n    const contexts = browser.contexts();\n    if (contexts.length === 0) throw new Error('ATTACHED_BROWSER_UNAVAILABLE: Chromium exposed no browser context.');\n    const context = contexts[0];\n    info('attached browser connected; existing pages=' + context.pages().length);\n\n    try {\n      Object.defineProperty(context, 'close', {\n        configurable: true,\n        value: async () => { info('attached browser: leaving the human-owned Chromium session open'); },\n      });\n    } catch (e) {\n      throw new Error('ATTACHED_BROWSER_UNAVAILABLE: could not protect borrowed Chromium from context.close(): ' + e.message);\n    }\n    return context;\n  }\n\n  const { spawn } = require('child_process');`;
+replaceRequired(marker, injected, 'the Chromium launch hook');
 
-if (!source.includes(marker)) {
-  process.stderr.write(
-    '[whatnot] attached-browser shim could not find the Chromium launch hook in whatnot-scraper.cjs. ' +
-    'The scraper changed; update scripts/whatnot-attached-runner.cjs before using attached mode.\n',
-  );
-  process.exit(2);
-}
+// Attached Chromium already owns the authoritative cookie jar. A successful
+// whatnot:login --test writes whatnot-live-cookies.json immediately before a
+// probe, making that file newer than its marker. Re-importing that snapshot into
+// the same live context is unnecessary and sets _bootstrappedFromFile=true,
+// which makes the main scraper navigate the already-good tab to `/` solely to
+// restore localStorage. In attached mode only bootstrap when the live context
+// genuinely has no Whatnot cookies.
+const shouldLoadMarker = `    const _shouldLoad = _existingCookies.length === 0\n      || ((_isHumanImport || _isServerLiveSnapshot) && _fileMtimeMs > _lastLoadedMtimeMs);`;
+const shouldLoadInjected = `    const _shouldLoad = process.env.WHATNOT_ATTACH_EXISTING_BROWSER === '1'\n      ? _existingCookies.length === 0\n      : (_existingCookies.length === 0\n        || ((_isHumanImport || _isServerLiveSnapshot) && _fileMtimeMs > _lastLoadedMtimeMs));`;
+replaceRequired(shouldLoadMarker, shouldLoadInjected, 'the cookie bootstrap decision');
 
-const injected = `async function launchPersistentContextViaCdp(userDataDir, opts = {}) {\n  if (process.env.WHATNOT_ATTACH_EXISTING_BROWSER === '1') {\n    const endpoint = String(process.env.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222').trim();\n    info('attaching to existing Chromium over local CDP:', endpoint);\n\n    let browser;\n    let firstAttachError = null;\n    try {\n      browser = await chromium.connectOverCDP(endpoint, { timeout: 30000 });\n    } catch (e) {\n      firstAttachError = e;\n      info('attached browser: first CDP attach attempt did not settle; retrying once after 2s');\n      await new Promise((resolve) => setTimeout(resolve, 2000));\n      try {\n        browser = await chromium.connectOverCDP(endpoint, { timeout: 30000 });\n      } catch (retryError) {\n        throw new Error(\n          'ATTACHED_BROWSER_UNAVAILABLE: could not connect to ' + endpoint + ' after two bounded attempts. ' +\n          'The browser may be starting, overloaded, or unavailable. ' +\n          'First error: ' + firstAttachError.message + ' | Retry error: ' + retryError.message\n        );\n      }\n    }\n\n    const contexts = browser.contexts();\n    if (contexts.length === 0) {\n      throw new Error('ATTACHED_BROWSER_UNAVAILABLE: Chromium exposed no browser context.');\n    }\n\n    const context = contexts[0];\n    const pages = context.pages();\n    info('attached browser connected; existing pages=' + pages.length);\n\n    // The human-owned browser must remain alive after an Artisan command ends.\n    // The normal scraper closes a context it created itself in finally/blocked\n    // paths, so make close() a no-op for this borrowed default context. Refuse\n    // attached mode if Playwright ever makes that method non-overridable rather\n    // than risking closing the human browser unexpectedly.\n    try {\n      Object.defineProperty(context, 'close', {\n        configurable: true,\n        value: async () => {\n          info('attached browser: leaving the human-owned Chromium session open');\n        },\n      });\n    } catch (e) {\n      throw new Error('ATTACHED_BROWSER_UNAVAILABLE: could not protect borrowed Chromium from context.close(): ' + e.message);\n    }\n\n    return context;\n  }\n\n  const { spawn } = require('child_process');`;
-
-source = source.replace(marker, injected);
-
-// In attached mode the browser context survives between scraper processes. The
-// main scraper normally creates a fresh page on every invocation and relies on
-// context.close() to clean it up. Because attached mode deliberately makes
-// context.close() a no-op, that leaked one tab/renderer tree per shows, orders,
-// shipments, ledger, and channel run until Chrome became overloaded enough that
-// connectOverCDP itself timed out. Reuse the existing Whatnot tab instead.
 const pageMarker = `  const page = await context.newPage();`;
-
-if (!source.includes(pageMarker)) {
-  process.stderr.write(
-    '[whatnot] attached-browser shim could not find the main page creation in whatnot-scraper.cjs. ' +
-    'The scraper changed; update the attached-mode page reuse shim before using it.\n',
-  );
-  process.exit(2);
-}
-
 const pageInjected = `  const attachedPages = process.env.WHATNOT_ATTACH_EXISTING_BROWSER === '1'\n    ? context.pages().filter((candidate) => !candidate.isClosed())\n    : [];\n  const page = attachedPages.find((candidate) => candidate.url().includes('whatnot.com'))\n    || attachedPages[0]\n    || await context.newPage();\n  if (process.env.WHATNOT_ATTACH_EXISTING_BROWSER === '1') {\n    info('attached browser: reusing persistent page; open_pages=' + context.pages().length + ' url=' + page.url());\n  }`;
+replaceRequired(pageMarker, pageInjected, 'the main page creation');
 
-source = source.replace(pageMarker, pageInjected);
+// The attached browser may already be sitting on a fully rendered Seller Hub.
+// Do not issue a redundant goto(/dashboard/home) before checking it: that was
+// turning a known-good authenticated page into a fresh Cloudflare navigation.
+// confirmSellerHub is deliberately non-navigating, so inspect the borrowed page
+// first and navigate only when it is not already a settled Seller Hub.
+const hubPreflightMarker = `      await page.goto('https://www.whatnot.com/dashboard/home', { waitUntil: 'domcontentloaded', timeout: 20000 });\n      await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});\n\n      // Not just "did goto resolve" — see confirmSellerHub. The answer this\n      // gives is the one the rest of the run is built on, so it is worth the\n      // few seconds it costs to be sure of it.\n      const hub      = await confirmSellerHub(page);\n      const checkUrl = hub.url;`;
+const hubPreflightInjected = `      let hub = null;\n      if (process.env.WHATNOT_ATTACH_EXISTING_BROWSER === '1' && page.url().includes('whatnot.com')) {\n        hub = await confirmSellerHub(page, { settleMs: 1000 });\n        if (hub.ok) {\n          info('cookie auth check: reusing already-settled Seller Hub from attached Chromium; no preflight navigation needed');\n        }\n      }\n\n      if (!hub || !hub.ok) {\n        await page.goto('https://www.whatnot.com/dashboard/home', { waitUntil: 'domcontentloaded', timeout: 20000 });\n        await page.waitForLoadState('networkidle', { timeout: 6000 }).catch(() => {});\n        hub = await confirmSellerHub(page);\n      }\n      const checkUrl = hub.url;`;
+replaceRequired(hubPreflightMarker, hubPreflightInjected, 'the Seller Hub cookie-auth preflight');
 
-// The current Seller Hub exposes stable ids for the two controls involved in a
-// role change. The profile button may arrive a little after the dashboard shell,
-// so in attached mode wait for the exact visible control instead of immediately
-// falling into the generic hamburger/menu scan.
 const profileMarker = `  const directProfileButton = page.locator('#team-invite-profile-menu-anchor').first();\n  if (await directProfileButton.isVisible({ timeout: 2500 }).catch(() => false)) {`;
-
-if (!source.includes(profileMarker)) {
-  process.stderr.write(
-    '[whatnot] attached-browser shim could not find the direct profile-control path in whatnot-scraper.cjs. ' +
-    'The scraper changed; update the attached-mode channel-switch shim before using it.\n',
-  );
-  process.exit(2);
-}
-
 const profileInjected = `  const directProfileButton = page.locator('button#team-invite-profile-menu-anchor:visible, button:has(img.z-avatar-image[alt]):visible').first();\n  await directProfileButton.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {});\n  if (await directProfileButton.isVisible().catch(() => false)) {`;
-
-source = source.replace(profileMarker, profileInjected);
+replaceRequired(profileMarker, profileInjected, 'the direct profile-control path');
 
 const switchRoleMarker = `    const directSwitchRole = page.locator('#team-invite-switch-role-anchor').first();\n    if (await directSwitchRole.isVisible({ timeout: 5000 }).catch(() => false)) {`;
-
-if (!source.includes(switchRoleMarker)) {
-  process.stderr.write(
-    '[whatnot] attached-browser shim could not find the direct Switch Role path in whatnot-scraper.cjs. ' +
-    'The scraper changed; update the attached-mode channel-switch shim before using it.\n',
-  );
-  process.exit(2);
-}
-
 const switchRoleInjected = `    const directSwitchRole = page.locator('button#team-invite-switch-role-anchor:visible').first();\n    await directSwitchRole.waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});\n    if (await directSwitchRole.isVisible().catch(() => false)) {`;
+replaceRequired(switchRoleMarker, switchRoleInjected, 'the direct Switch Role path');
 
-source = source.replace(switchRoleMarker, switchRoleInjected);
-
-// Keep the generic fallback safe for attached CDP too. Locator count/nth avoids
-// relying on ElementHandle arrays being directly iterable in this environment.
 const triggerSweepMarker = `    for (const extra of await page.$$('button[aria-haspopup], [role="button"][aria-haspopup]').catch(() => [])) {\n      triggerHandles.push({ sel: 'sweep:aria-haspopup', h: extra });\n    }`;
+const triggerSweepInjected = `    const popupTriggers = page.locator('button[aria-haspopup], [role="button"][aria-haspopup]');\n    const popupCount = Math.min(await popupTriggers.count().catch(() => 0), 40);\n    for (let popupIndex = 0; popupIndex < popupCount; popupIndex++) {\n      const popupHandle = await popupTriggers.nth(popupIndex).elementHandle({ timeout: 1000 }).catch(() => null);\n      if (popupHandle) triggerHandles.push({ sel: 'sweep:aria-haspopup', h: popupHandle });\n    }\n\n    const compactButtons = page.locator('button');\n    const compactCount = Math.min(await compactButtons.count().catch(() => 0), 80);\n    for (let compactIndex = 0; compactIndex < compactCount; compactIndex++) {\n      const compact = compactButtons.nth(compactIndex);\n      const compactLabel = await compact.evaluate((el) =>\n        (el.getAttribute('aria-label') || el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ')\n      ).catch(() => '');\n      if (!/^[A-Za-z0-9]{1,3}$/.test(compactLabel)) continue;\n      const compactHandle = await compact.elementHandle({ timeout: 1000 }).catch(() => null);\n      if (compactHandle) triggerHandles.push({ sel: 'sweep:compact-avatar[' + compactLabel + ']', h: compactHandle });\n    }`;
+replaceRequired(triggerSweepMarker, triggerSweepInjected, 'the profile trigger sweep');
 
-if (!source.includes(triggerSweepMarker)) {
-  process.stderr.write(
-    '[whatnot] attached-browser shim could not find the profile trigger sweep in whatnot-scraper.cjs. ' +
-    'The scraper changed; update the attached-mode channel-switch shim before using it.\n',
-  );
-  process.exit(2);
-}
-
-const triggerSweepInjected = `    const popupTriggers = page.locator('button[aria-haspopup], [role="button"][aria-haspopup]');\n    const popupCount = Math.min(await popupTriggers.count().catch(() => 0), 40);\n    for (let popupIndex = 0; popupIndex < popupCount; popupIndex++) {\n      const popupHandle = await popupTriggers.nth(popupIndex).elementHandle({ timeout: 1000 }).catch(() => null);\n      if (popupHandle) triggerHandles.push({ sel: 'sweep:aria-haspopup', h: popupHandle });\n    }\n\n    // Current Seller Hub profile/avatar control can also be represented by the\n    // nested user-initial button in diagnostics. Keep it as a last-resort fallback\n    // after the exact stable profile id path above.\n    const compactButtons = page.locator('button');\n    const compactCount = Math.min(await compactButtons.count().catch(() => 0), 80);\n    for (let compactIndex = 0; compactIndex < compactCount; compactIndex++) {\n      const compact = compactButtons.nth(compactIndex);\n      const compactLabel = await compact.evaluate((el) =>\n        (el.getAttribute('aria-label') || el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ')\n      ).catch(() => '');\n      if (!/^[A-Za-z0-9]{1,3}$/.test(compactLabel)) continue;\n      const compactHandle = await compact.elementHandle({ timeout: 1000 }).catch(() => null);\n      if (!compactHandle) continue;\n      triggerHandles.push({ sel: 'sweep:compact-avatar[' + compactLabel + ']', h: compactHandle });\n    }`;
-
-source = source.replace(triggerSweepMarker, triggerSweepInjected);
-
-// The role switch itself can verify successfully before the Seller Hub finishes
-// re-rendering the active profile control. The final fail-closed guard must wait
-// for that identity to become readable instead of treating a transient null as a
-// different channel. It still fails if the requested identity cannot be proven
-// within the bounded verification window.
 const channelContextMarker = `      const verified = await getActiveChannelUsername(page);`;
+replaceRequired(channelContextMarker, `      const verified = await waitForActiveChannel(page, CHANNEL_NAME, 15000);`, 'the final channel-context verification');
 
-if (!source.includes(channelContextMarker)) {
-  process.stderr.write(
-    '[whatnot] attached-browser shim could not find the final channel-context verification in whatnot-scraper.cjs. ' +
-    'The scraper changed; update the attached-mode channel verification shim before using it.\n',
-  );
-  process.exit(2);
-}
-
-source = source.replace(
-  channelContextMarker,
-  `      const verified = await waitForActiveChannel(page, CHANNEL_NAME, 15000);`,
-);
-
-// Make attach mode explicit to the transformed scraper. The endpoint itself is
-// already validated as loopback above.
 process.env.WHATNOT_ATTACH_EXISTING_BROWSER = '1';
 process.env.WHATNOT_ATTACH_CDP_URL = endpoint;
 

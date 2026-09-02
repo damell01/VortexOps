@@ -26,8 +26,8 @@ class ViewFulfillmentShow extends ViewRecord
         return Show::with([
             'streamers',
             'channel',
-            'streamerLogEntry',
-            'orders',
+            'streamerLogEntry.streamer',
+            'streamerLogEntry.items.inventoryItem',
             'shipments',
             'fulfillmentUsers',
             'payouts.batch',
@@ -40,6 +40,21 @@ class ViewFulfillmentShow extends ViewRecord
 
         return ! ($user?->isAdmin() || $user?->isOwner())
             && NavVisibility::isReadOnlyForUser(FulfillmentResource::class, $user);
+    }
+
+    private function needsCountVerification(): bool
+    {
+        $log = $this->record->streamerLogEntry;
+
+        if (! $log) {
+            return false;
+        }
+
+        $approved = $log->status === 'admin_approved' || $log->approval_status === 'approved';
+
+        return $approved
+            && $log->fulfillment_reviewed_at === null
+            && ($log->streamer?->payout_type === 'pwe_labels');
     }
 
     protected function getHeaderActions(): array
@@ -71,7 +86,7 @@ class ViewFulfillmentShow extends ViewRecord
                             ->pluck('name', 'id')
                             ->all())
                         ->default(fn () => $show->fulfillmentUsers->pluck('id')->all())
-                        ->helperText('Assign one or more people responsible for packing and shipping this show.'),
+                        ->helperText('Assign one or more people responsible for reviewing the streamer-logged items and fulfillment closeout for this show.'),
                 ])
                 ->action(function (array $data) use ($show): void {
                     $show->fulfillmentUsers()->sync($data['user_ids'] ?? []);
@@ -109,10 +124,10 @@ class ViewFulfillmentShow extends ViewRecord
                 ->label('Verify for Payroll')
                 ->icon('heroicon-o-check-badge')
                 ->color('success')
-                ->visible(fn () => $log?->needsFulfillmentReview() && ! $this->readOnly())
+                ->visible(fn () => $this->needsCountVerification() && ! $this->readOnly())
                 ->requiresConfirmation()
                 ->modalHeading('Verify fulfillment counts for payroll')
-                ->modalDescription('Confirms the PWE and label counts are correct. The show can then move forward into payroll readiness.')
+                ->modalDescription('Confirms the PWE and label counts are correct. The show can then move forward into payroll readiness once the logged-item review is complete.')
                 ->action(function () use ($log): void {
                     $log?->update([
                         'fulfillment_reviewed_by' => auth()->id(),

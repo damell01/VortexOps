@@ -13,16 +13,14 @@ use Illuminate\Support\Facades\Log;
 /**
  * Four-stage product matching pipeline.
  *
- *   Stage 1 — Alias / exact lookup    (0ms, confidence ≥ 1.0)
- *   Stage 2 — Fuzzy text matching     (5–20ms, Jaccard + field bonuses)
- *   Stage 3 — Embedding similarity    (10–50ms, cosine similarity via Ollama)
- *   Stage 4 — LLM confirmation        (500ms–5s, Ollama generate with catalogue)
+ *   Stage 1 — Alias / exact lookup    (PHP/SQL)
+ *   Stage 2 — Fuzzy text matching     (PHP)
+ *   Stage 3 — Embedding similarity    (Ollama)
+ *   Stage 4 — LLM confirmation        (Ollama)
  *
- * Auto-stops at the first stage that returns confidence ≥ 0.95.
- * Stage 4 is only reached when stages 1–3 all fail to find a confident match.
- *
- * Every confirmed match is saved as a ProductIdentity alias so future
- * identical descriptions skip AI entirely (the knowledge base effect).
+ * In low-resource/background-only mode a caller using $skipLlm=true skips BOTH
+ * model-backed stages. That is the mode used by Livewire/Filament verification,
+ * ensuring a cold Ollama model can never lengthen an ordinary web request.
  */
 class MappingEngine
 {
@@ -35,17 +33,19 @@ class MappingEngine
     /**
      * Match a vendor/sales description to a Product.
      *
-     * @param string      $description Free-text item description
-     * @param string|null $upc         UPC/barcode if available
-     * @param int|null    $vendorId    Scopes alias lookup to a specific vendor
-     */
-    /**
-     * @param bool $skipLlm Skip the slow Stage 4 LLM call (use for web-request contexts).
+     * @param bool $skipLlm Web-request mode. With background_only enabled this
+     *                      suppresses embeddings as well as the final LLM stage.
      */
     public function match(string $description, ?string $upc = null, ?int $vendorId = null, bool $skipLlm = false): MappingResult
     {
-        // Stages 1–3: delegate to the existing three-stage service
-        $upstream = $this->upstream->match($description, $upc, $vendorId);
+        $skipEmbedding = $skipLlm && config('ai.ops.background_only', true);
+
+        $upstream = $this->upstream->match(
+            $description,
+            $upc,
+            $vendorId,
+            skipEmbedding: $skipEmbedding,
+        );
 
         if ($upstream['product'] && $upstream['confidence'] >= 0.95) {
             return $this->fromUpstream($upstream);
@@ -55,7 +55,6 @@ class MappingEngine
             return $this->fromUpstream($upstream);
         }
 
-        // Stage 4: LLM confirmation when all faster stages fall short
         $llmResult = $this->llmMatch($description, $upstream['candidates']);
 
         if ($llmResult) {
@@ -65,10 +64,6 @@ class MappingEngine
         return $this->fromUpstream($upstream);
     }
 
-    /**
-     * Record a human-confirmed match as a learned alias.
-     * Future identical descriptions will resolve in Stage 1 (instant, 100% confidence).
-     */
     public function confirmMatch(
         string $vendorDescription,
         Product $product,
@@ -86,11 +81,8 @@ class MappingEngine
         );
     }
 
-    // ── Stage 4: LLM ──────────────────────────────────────────────────────────
-
     private function llmMatch(string $description, array $candidates): ?MappingResult
     {
-        // Build a short catalogue: prefer candidates from earlier stages, else sample from DB
         $items = $this->buildCatalogue($candidates, $description);
 
         if (empty($items)) {
@@ -128,7 +120,6 @@ PROMPT;
             }
 
             $product = Product::find($itemId);
-
             if (! $product) {
                 return null;
             }
@@ -140,12 +131,12 @@ PROMPT;
             };
 
             return new MappingResult(
-                product:    $product,
+                product: $product,
                 confidence: $score,
-                stage:      'llm',
-                reasons:    ["LLM: {$reason}", "Confidence level: {$confidence}"],
+                stage: 'llm',
+                reasons: ["LLM: {$reason}", "Confidence level: {$confidence}"],
                 candidates: array_slice($candidates, 0, 5),
-                identity:   null,
+                identity: null,
             );
         } catch (\Throwable $e) {
             Log::warning("MappingEngine LLM stage failed for '{$description}': {$e->getMessage()}");
@@ -154,8 +145,7 @@ PROMPT;
     }
 
     /**
-     * Build a focused catalogue for the LLM prompt.
-     * Priority: stage 1-3 candidates → embedding-similar products → cached random pool.
+     * Build a focused catalogue for background/explicit LLM matching only.
      */
     private function buildCatalogue(array $candidates, string $description): array
     {
@@ -173,9 +163,8 @@ PROMPT;
 
         if (count($items) < 20) {
             $existingIds = array_column($items, 'id');
-
-            // Fill with embedding-similar products when possible
             $queryVec = $this->embedding->embed($description);
+
             if ($queryVec) {
                 $catalog = array_filter(
                     $this->embedding->productEmbeddingCatalog(),
@@ -189,19 +178,16 @@ PROMPT;
                         ->get(['id', 'name', 'sku', 'category'])
                         ->keyBy('id');
                     foreach (array_keys($ranked) as $id) {
-                        if (count($items) >= 20) {
-                            break;
-                        }
+                        if (count($items) >= 20) break;
                         if (isset($embProducts[$id])) {
-                            $p           = $embProducts[$id];
-                            $items[]     = ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'category' => $p->category];
+                            $p = $embProducts[$id];
+                            $items[] = ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'category' => $p->category];
                             $existingIds[] = $p->id;
                         }
                     }
                 }
             }
 
-            // Fall back to a cached random pool for any remaining slots
             if (count($items) < 20) {
                 $pool = Cache::remember('mapping:catalogue_pool', 300, fn () =>
                     Product::where('is_active', true)
@@ -212,11 +198,9 @@ PROMPT;
                         ->toArray()
                 );
                 foreach ($pool as $p) {
-                    if (count($items) >= 20) {
-                        break;
-                    }
+                    if (count($items) >= 20) break;
                     if (! in_array($p['id'], $existingIds)) {
-                        $items[]     = $p;
+                        $items[] = $p;
                         $existingIds[] = $p['id'];
                     }
                 }
@@ -226,17 +210,15 @@ PROMPT;
         return $items;
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────────
-
     private function fromUpstream(array $upstream): MappingResult
     {
         return new MappingResult(
-            product:    $upstream['product'],
+            product: $upstream['product'],
             confidence: $upstream['confidence'],
-            stage:      $upstream['stage'],
-            reasons:    $upstream['reasons'],
+            stage: $upstream['stage'],
+            reasons: $upstream['reasons'],
             candidates: $upstream['candidates'],
-            identity:   $upstream['identity'] ?? null,
+            identity: $upstream['identity'] ?? null,
         );
     }
 }

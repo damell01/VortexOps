@@ -248,10 +248,10 @@ def shows(session: DynamicSession):
                 }
 
                 let showDate=null;
-                const iso=text.match(/\b(20\d\d)[\/-](0[1-9]|1[0-2])[\/-](0[1-9]|[12]\d|3[01])\b/);
+                const iso=text.match(/\\b(20\d\d)[\/-](0[1-9]|1[0-2])[\/-](0[1-9]|[12]\d|3[01])\\b/);
                 if(iso) showDate=`${iso[1]}-${iso[2]}-${iso[3]}`;
                 if(!showDate){
-                  const d=text.match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](20\d\d)\b/);
+                  const d=text.match(/\\b(\d{1,2})[\/-](\d{1,2})[\/-](20\d\d)\\b/);
                   if(d) showDate=`${d[3]}-${d[1].padStart(2,'0')}-${d[2].padStart(2,'0')}`;
                 }
                 const price=[...text.matchAll(/\$[\d,]+(?:\.\d+)?/g)].map(x=>parseFloat(x[0].replace(/[^0-9.]/g,''))).filter(Number.isFinite);
@@ -316,7 +316,7 @@ def extract_orders(page):
 
 
 def extract_shipments(page):
-    return page.evaluate("""() => { const out=[];for(const tr of document.querySelectorAll('tr[data-testid^="shipments-"]')){const main=tr.innerText||'',detail=tr.nextElementSibling?.tagName==='TR'?(tr.nextElementSibling.innerText||''):'',text=main+'\n'+detail,oid=text.match(/Order\s*#\s*(\d+)/i);if(!oid)continue;const buyer=tr.querySelector('a[href*="/dashboard/inbox"]'),weight=text.match(/(\d+(?:\.\d+)?)\s*oz\b/i),dims=text.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*in\b/i),carrier=text.match(/\b(USPS|UPS|FedEx|DHL)\b\s*([A-Za-z\d\s\-/]*[A-Za-z\d])?/i),tracking=text.match(/(?:tracking\s*#?|label\s*#?)\s*([0-9]{12,})/i);let st=null;if(/ready\s*to\s*ship/i.test(text))st='ready_to_ship';else if(/label\s*created/i.test(text))st='label_created';else if(/delivered/i.test(text))st='delivered';else if(/returned/i.test(text))st='returned';else if(/packed/i.test(text))st='packed';else if(/shipped/i.test(text))st='shipped';else if(/in\s*transit/i.test(text))st='in_transit';out.push({order_id:oid[1],buyer:buyer?(buyer.textContent||'').trim():null,item_name:null,lot_number:null,quantity:1,unit_price:null,total_price:null,status:'completed',raw_text:main.replace(/\s+/g,' ').trim().substring(0,400),weight_oz:weight?parseFloat(weight[1]):null,box_length_in:dims?parseFloat(dims[1]):null,box_width_in:dims?parseFloat(dims[2]):null,box_height_in:dims?parseFloat(dims[3]):null,shipping_carrier:carrier?carrier[1].toUpperCase():null,shipping_service:carrier&&carrier[2]?carrier[2].trim():null,shipping_status_scraped:st,tracking_number:tracking?tracking[1]:null});}return out;}""")
+    return page.evaluate("""() => { const out=[];for(const tr of document.querySelectorAll('tr[data-testid^="shipments-"]')){const main=tr.innerText||'',detail=tr.nextElementSibling?.tagName==='TR'?(tr.nextElementSibling.innerText||''):'',text=main+'\n'+detail,oid=text.match(/Order\s*#\s*(\d+)/i);if(!oid)continue;const buyer=tr.querySelector('a[href*="/dashboard/inbox"]'),weight=text.match(/(\d+(?:\.\d+)?)\s*oz\\b/i),dims=text.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*in\\b/i),carrier=text.match(/\\b(USPS|UPS|FedEx|DHL)\\b\s*([A-Za-z\d\s\-/]*[A-Za-z\d])?/i),tracking=text.match(/(?:tracking\s*#?|label\s*#?)\s*([0-9]{12,})/i);let st=null;if(/ready\s*to\s*ship/i.test(text))st='ready_to_ship';else if(/label\s*created/i.test(text))st='label_created';else if(/delivered/i.test(text))st='delivered';else if(/returned/i.test(text))st='returned';else if(/packed/i.test(text))st='packed';else if(/shipped/i.test(text))st='shipped';else if(/in\s*transit/i.test(text))st='in_transit';out.push({order_id:oid[1],buyer:buyer?(buyer.textContent||'').trim():null,item_name:null,lot_number:null,quantity:1,unit_price:null,total_price:null,status:'completed',raw_text:main.replace(/\s+/g,' ').trim().substring(0,400),weight_oz:weight?parseFloat(weight[1]):null,box_length_in:dims?parseFloat(dims[1]):null,box_width_in:dims?parseFloat(dims[2]):null,box_height_in:dims?parseFloat(dims[3]):null,shipping_carrier:carrier?carrier[1].toUpperCase():null,shipping_service:carrier&&carrier[2]?carrier[2].trim():null,shipping_status_scraped:st,tracking_number:tracking?tracking[1]:null});}return out;}""")
 
 
 def batch(session: DynamicSession, shipments=False):

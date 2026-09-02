@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\AdminShowPipelineWidget;
 use App\Filament\Widgets\FulfillmentInventoryWidget;
 use App\Filament\Widgets\NeedsAttentionWidget;
 use App\Filament\Widgets\OperationsOverviewWidget;
@@ -61,11 +62,7 @@ class DashboardImproved extends Dashboard
 
         if ($user?->isAdmin() || $user?->isOwner()) {
             return [
-                // The policy radios that used to lead this list are settings
-                // now (Settings → Post-Show Workflow): chosen once, then left
-                // for months, while taking the top of a screen read many times
-                // a day by people who mostly cannot change them. Their counts
-                // stayed — nothing else here reports them.
+                AdminShowPipelineWidget::class,
                 ShowQueueCountsWidget::class,
                 NeedsAttentionWidget::class,
                 OperationsOverviewWidget::class,

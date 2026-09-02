@@ -3,9 +3,11 @@
 namespace App\Filament\Pages;
 
 use App\Models\Payout;
+use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WeeklyPayoutBatch;
 use App\Services\PayoutService;
+use App\Services\ShowWorkflowService;
 use BackedEnum;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
@@ -13,14 +15,10 @@ use UnitEnum;
 
 class PayrollOverview extends Page
 {
-    protected static ?string $title = 'Payroll Overview';
-
+    protected static ?string $title = 'Payroll Dashboard';
     protected static ?string $navigationLabel = 'Payroll';
-
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-banknotes';
-
     protected static string|UnitEnum|null $navigationGroup = 'Payouts';
-
     protected static ?int $navigationSort = 1;
 
     public function getView(): string
@@ -35,7 +33,7 @@ class PayrollOverview extends Page
 
     public function getSubheading(): ?string
     {
-        return 'One place to review the current week, fix payroll issues, manage rates, and open past pay runs.';
+        return 'Current weekly payroll, show-by-show calculations, exceptions, rates and pay run history in one place.';
     }
 
     public function currentPayRun(): ?WeeklyPayoutBatch
@@ -76,9 +74,16 @@ class PayrollOverview extends Page
             $warnings[] = $membersMissingStructure . ' active team member(s) need a payment structure reviewed.';
         }
 
+        foreach ($this->currentWeekShows() as $show) {
+            $state = $show->getAttribute('workflow_state');
+            foreach ($state['blockers'] ?? [] as $blocker) {
+                $warnings[] = $show->title . ': ' . $blocker;
+            }
+        }
+
         if (! $run) {
             $warnings[] = 'No pay run exists yet. Create the weekly run when payroll is ready for review.';
-            return $warnings;
+            return array_values(array_unique($warnings));
         }
 
         if ($run->status === 'draft') {
@@ -121,6 +126,45 @@ class PayrollOverview extends Page
             'fulfillment' => $fulfillmentIds->count(),
             'streamer_total' => (float) $payouts->filter(fn (Payout $p) => ! $p->streamer?->isFulfillment())->sum('calculated_payout'),
             'fulfillment_total' => (float) $payouts->filter(fn (Payout $p) => $p->streamer?->isFulfillment())->sum('calculated_payout'),
+        ];
+    }
+
+    public function currentWeekShows(): Collection
+    {
+        $run = $this->currentPayRun();
+        $start = $run?->week_start ?? now()->startOfWeek();
+        $end = $run?->week_end ?? now()->endOfWeek();
+        $workflow = app(ShowWorkflowService::class);
+
+        return Show::query()
+            ->inChannelContext()
+            ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
+            ->whereNotIn('status', ['cancelled'])
+            ->with([
+                'streamers',
+                'streamerLogEntry.streamer',
+                'fulfillmentUsers',
+                'payouts.batch',
+                'latestDeductionRequest.lines',
+            ])
+            ->withSum('payouts', 'calculated_payout')
+            ->orderByDesc('show_date')
+            ->get()
+            ->map(function (Show $show) use ($workflow) {
+                $show->setAttribute('workflow_state', $workflow->stateFor($show));
+                $show->setAttribute('pnl_summary', $show->profitAndLoss());
+                return $show;
+            });
+    }
+
+    public function readinessSummary(): array
+    {
+        $shows = $this->currentWeekShows();
+        return [
+            'shows' => $shows->count(),
+            'ready' => $shows->filter(fn (Show $show) => in_array($show->getAttribute('workflow_state')['key'], ['payroll_ready', 'payroll', 'paid'], true))->count(),
+            'review' => $shows->filter(fn (Show $show) => ! in_array($show->getAttribute('workflow_state')['key'], ['payroll_ready', 'payroll', 'paid'], true))->count(),
+            'show_payroll' => (float) $shows->sum(fn (Show $show) => (float) ($show->getAttribute('pnl_summary')['payouts'] ?? 0)),
         ];
     }
 

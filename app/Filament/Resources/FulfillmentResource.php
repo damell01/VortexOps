@@ -40,8 +40,14 @@ class FulfillmentResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
-            ->with(['streamers', 'channel', 'fulfillmentUsers'])
+            ->with(['streamers', 'channel', 'fulfillmentUsers', 'streamerLogEntry'])
             ->withCount('orders')
+            ->withCount([
+                'orders as pending_packing_count' => fn ($q) => $q->where(function ($pending) {
+                    $pending->whereNull('shipping_status')
+                        ->orWhereIn('shipping_status', ['', 'pending', 'label_created']);
+                }),
+            ])
             ->withCount('shipments')
             ->withCount([
                 'shipments as delivered_shipments_count' => fn ($q) => $q->whereRaw("LOWER(COALESCE(status, '')) = 'delivered'"),
@@ -49,7 +55,13 @@ class FulfillmentResource extends Resource
             ])
             ->whereNotIn('status', ['draft', 'cancelled'])
             ->where(function ($q) {
-                $q->whereHas('shipments')->orWhereHas('orders');
+                $q->whereHas('shipments')
+                    ->orWhereHas('orders')
+                    ->orWhereHas('streamerLogEntry', fn ($log) => $log
+                        ->where(function ($approved) {
+                            $approved->where('status', 'admin_approved')
+                                ->orWhere('approval_status', 'approved');
+                        }));
             });
 
         $user = auth()->user();
@@ -68,7 +80,6 @@ class FulfillmentResource extends Resource
 
     public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        // A page granted on Roles & Permissions carries its records with it.
         if (\App\Support\RoleAccess::grants(static::class)) {
             return true;
         }
@@ -87,7 +98,7 @@ class FulfillmentResource extends Resource
             Section::make('Show')->columns(3)->columnSpanFull()->schema([
                 Placeholder::make('title')->label('Show')->content(fn (?Show $record) => $record?->title ?: '—'),
                 Placeholder::make('show_date')->label('Date')->content(fn (?Show $record) => $record?->show_date?->format('M j, Y') ?? '—'),
-                Placeholder::make('status')->label('Status')->content(fn (?Show $record) => $record ? (Show::statusLabels()[$record->status] ?? $record->status) : '—'),
+                Placeholder::make('status')->label('Show Status')->content(fn (?Show $record) => $record ? (Show::statusLabels()[$record->status] ?? $record->status) : '—'),
                 Placeholder::make('streamer')->label('Streamer')->content(fn (?Show $record) => $record?->streamers->pluck('name')->join(', ') ?: '—'),
                 Placeholder::make('fulfillment')->label('Fulfillment')->content(fn (?Show $record) => $record?->fulfillmentUsers->pluck('name')->join(', ') ?: 'Unassigned'),
                 Placeholder::make('units_sold')->label('Whatnot Orders')->content(fn (?Show $record) => $record?->units_sold ?? '—'),
@@ -102,104 +113,59 @@ class FulfillmentResource extends Resource
             ->persistFiltersInSession()
             ->defaultSort('show_date', 'desc')
             ->columns([
-                // Mobile stays intentionally narrow: show + open work + next action.
-                // The context columns return at md+ rather than forcing a sideways
-                // table on the phones fulfillment staff actually use.
-                TextColumn::make('show_date')
-                    ->label('Date')
-                    ->date('M j')
-                    ->sortable()
-                    ->visibleFrom('md'),
-
+                TextColumn::make('show_date')->label('Date')->date('M j')->sortable()->visibleFrom('md'),
                 TextColumn::make('title')
                     ->label('Show')
                     ->searchable()
                     ->wrap()
                     ->limit(42)
-                    // The one thing worth knowing before planning an
-                    // afternoon, on the column nobody can hide, and on the
-                    // mobile card too — this queue is worked from a phone.
                     ->icon(fn ($record) => $record->is_slow_pack ? 'heroicon-m-clock' : null)
                     ->iconColor('warning')
                     ->description(fn ($record) => $record->is_slow_pack
-                        ? 'Takes a while' . (filled($record->fulfillment_notes)
-                            ? ' — ' . \Illuminate\Support\Str::limit($record->fulfillment_notes, 70)
-                            : '')
-                        : (filled($record->fulfillment_notes)
-                            ? \Illuminate\Support\Str::limit($record->fulfillment_notes, 70)
-                            : null))
+                        ? 'Takes a while' . (filled($record->fulfillment_notes) ? ' — ' . \Illuminate\Support\Str::limit($record->fulfillment_notes, 70) : '')
+                        : (filled($record->fulfillment_notes) ? \Illuminate\Support\Str::limit($record->fulfillment_notes, 70) : null))
                     ->tooltip(fn ($record) => $record->fulfillment_notes),
-
-                TextColumn::make('streamers.name')
-                    ->label('Streamer')
-                    ->badge()
-                    ->separator(', ')
-                    ->placeholder('Unassigned')
-                    ->visibleFrom('md'),
-
-                TextColumn::make('fulfillmentUsers.name')
-                    ->label('Fulfillment')
-                    ->badge()
-                    ->separator(', ')
-                    ->placeholder('Unassigned')
-                    ->visibleFrom('lg'),
-
-                TextColumn::make('shipments_count')
-                    ->label('Shipments')
-                    ->numeric()
-                    ->sortable()
-                    ->visibleFrom('md'),
-
-                TextColumn::make('open_shipments_count')
-                    ->label('Open')
-                    ->numeric()
-                    ->badge()
-                    ->color(fn ($state) => (int) $state > 0 ? 'warning' : 'success')
-                    ->sortable(),
-
-                TextColumn::make('delivered_shipments_count')
-                    ->label('Delivered')
-                    ->numeric()
-                    ->sortable()
-                    ->visibleFrom('lg'),
-
-                TextColumn::make('orders_count')
-                    ->label('Packing Lines')
-                    ->numeric()
-                    ->visibleFrom('xl')
-                    ->toggleable(isToggledHiddenByDefault: true),
-
+                TextColumn::make('streamers.name')->label('Streamer')->badge()->separator(', ')->placeholder('Unassigned')->visibleFrom('md'),
+                TextColumn::make('fulfillmentUsers.name')->label('Fulfillment')->badge()->separator(', ')->placeholder('Unassigned')->visibleFrom('lg'),
+                TextColumn::make('pending_packing_count')->label('To Pack')->numeric()->badge()->color(fn ($state) => (int) $state > 0 ? 'warning' : 'success')->sortable(),
+                TextColumn::make('open_shipments_count')->label('Open Shipments')->numeric()->badge()->color(fn ($state) => (int) $state > 0 ? 'info' : 'success')->sortable(),
+                TextColumn::make('delivered_shipments_count')->label('Delivered')->numeric()->sortable()->visibleFrom('lg'),
                 TextColumn::make('fulfillment_next_action')
                     ->label('Next')
                     ->state(function (Show $record): string {
-                        if ((int) $record->shipments_count === 0 && (int) $record->orders_count > 0) return 'Prepare';
+                        $approved = $record->streamerLogEntry && (
+                            $record->streamerLogEntry->status === 'admin_approved'
+                            || $record->streamerLogEntry->approval_status === 'approved'
+                        );
+                        if ($record->fulfillmentUsers->isEmpty()) return 'Assign';
+                        if ($record->streamerLogEntry?->needsFulfillmentReview()) return 'Verify counts';
+                        if ((int) $record->pending_packing_count > 0) return 'Pack orders';
                         if ((int) $record->open_shipments_count > 0) return 'Work shipments';
+                        if ($approved && (int) $record->shipments_count === 0) return 'Await shipment data';
                         if ((int) $record->shipments_count > 0) return 'Complete ✓';
                         return 'Waiting';
                     })
                     ->badge()
-                    ->color(fn (Show $record) => (int) $record->open_shipments_count > 0 ? 'warning' : ((int) $record->shipments_count > 0 ? 'success' : 'gray')),
+                    ->color(function (Show $record): string {
+                        if ($record->fulfillmentUsers->isEmpty()) return 'warning';
+                        if ($record->streamerLogEntry?->needsFulfillmentReview()) return 'warning';
+                        if ((int) $record->pending_packing_count > 0) return 'primary';
+                        if ((int) $record->open_shipments_count > 0) return 'info';
+                        if ((int) $record->shipments_count > 0) return 'success';
+                        return 'gray';
+                    }),
             ])
             ->filters([
                 SelectFilter::make('status')->options(Show::statusLabels()),
-                SelectFilter::make('fulfillment_user')
-                    ->label('Assigned To')
-                    ->relationship('fulfillmentUsers', 'name')
-                    ->searchable()
-                    ->preload(),
-                // Both directions are useful: finding the long jobs to plan
-                // around them, and finding the quick ones to clear a queue.
+                SelectFilter::make('fulfillment_user')->label('Assigned To')->relationship('fulfillmentUsers', 'name')->searchable()->preload(),
                 \Filament\Tables\Filters\TernaryFilter::make('is_slow_pack')
-                    ->label('Takes a while')
-                    ->placeholder('All shows')
-                    ->trueLabel('Flagged as slow')
-                    ->falseLabel('Not flagged'),
+                    ->label('Takes a while')->placeholder('All shows')->trueLabel('Flagged as slow')->falseLabel('Not flagged'),
             ])
             ->paginationPageOptions([25, 50, 100])
             ->defaultPaginationPageOption(25)
             ->emptyStateIcon('heroicon-o-truck')
-            ->emptyStateHeading('No fulfillment shows')
-            ->emptyStateDescription('Assigned shows with imported shipments or packing lines will appear here.');
+            ->emptyStateHeading('No fulfillment work')
+            ->emptyStateDescription('Admin-approved shows and shows with packing or shipment work appear here.');
     }
 
     public static function getRelations(): array

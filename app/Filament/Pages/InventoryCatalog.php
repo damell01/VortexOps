@@ -16,6 +16,7 @@ class InventoryCatalog extends Page
     protected static ?string $navigationLabel = 'Catalog';
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-squares-2x2';
     protected static ?int $navigationSort = 2;
+    protected static bool $shouldRegisterNavigation = false;
 
     public string $search = '';
     public string $stock = 'all';

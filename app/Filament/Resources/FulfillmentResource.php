@@ -13,6 +13,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -156,8 +157,40 @@ class FulfillmentResource extends Resource
                     }),
             ])
             ->filters([
+                SelectFilter::make('work_stage')
+                    ->label('Work Queue')
+                    ->options([
+                        'unassigned' => 'Needs Assignment',
+                        'verify' => 'Verify Counts',
+                        'packing' => 'Needs Packing',
+                        'shipping' => 'Open Shipments',
+                        'complete' => 'Fulfillment Complete',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return match ($data['value'] ?? null) {
+                            'unassigned' => $query->whereDoesntHave('fulfillmentUsers'),
+                            'verify' => $query->whereHas('streamerLogEntry', fn ($log) => $log
+                                ->where('status', 'admin_approved')
+                                ->whereNull('fulfillment_reviewed_at')
+                                ->whereHas('streamer', fn ($streamer) => $streamer->where('payout_type', 'pwe_labels'))),
+                            'packing' => $query->whereHas('orders', fn ($orders) => $orders->where(function ($pending) {
+                                $pending->whereNull('shipping_status')->orWhereIn('shipping_status', ['', 'pending', 'label_created']);
+                            })),
+                            'shipping' => $query->whereHas('shipments', fn ($shipments) => $shipments->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'")),
+                            'complete' => $query
+                                ->whereHas('shipments')
+                                ->whereDoesntHave('shipments', fn ($shipments) => $shipments->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'"))
+                                ->whereDoesntHave('orders', fn ($orders) => $orders->where(function ($pending) {
+                                    $pending->whereNull('shipping_status')->orWhereIn('shipping_status', ['', 'pending', 'label_created']);
+                                })),
+                            default => $query,
+                        };
+                    }),
                 SelectFilter::make('status')->options(Show::statusLabels()),
                 SelectFilter::make('fulfillment_user')->label('Assigned To')->relationship('fulfillmentUsers', 'name')->searchable()->preload(),
+                Filter::make('unassigned_only')
+                    ->label('Unassigned only')
+                    ->query(fn (Builder $query) => $query->whereDoesntHave('fulfillmentUsers')),
                 \Filament\Tables\Filters\TernaryFilter::make('is_slow_pack')
                     ->label('Takes a while')->placeholder('All shows')->trueLabel('Flagged as slow')->falseLabel('Not flagged'),
             ])

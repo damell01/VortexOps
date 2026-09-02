@@ -8,7 +8,7 @@
                 </h3>
                 <p class="text-sm text-gray-600 dark:text-gray-400">{{ $locationCount }} location(s)</p>
             </div>
-            <a href="{{ \App\Filament\Pages\InventoryCatalog::getUrl() }}" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg font-medium transition">Catalog →</a>
+            <a href="{{ route('filament.admin.resources.inventory-items.index') }}" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded-lg font-medium transition">Browse →</a>
         </div>
 
         <div class="grid grid-cols-2 gap-3 mb-4">
@@ -31,9 +31,6 @@
             </div>
         @endif
 
-        <div class="grid grid-cols-2 gap-2">
-            <a href="{{ \App\Filament\Pages\InventoryCatalog::getUrl() }}" class="min-h-11 flex items-center justify-center text-center px-3 py-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-medium transition">Browse Catalog</a>
-            <a href="{{ route('filament.admin.resources.inventory-items.index') }}" class="min-h-11 flex items-center justify-center text-center px-3 py-2 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium transition">Table View</a>
-        </div>
+        <a href="{{ route('filament.admin.resources.inventory-items.index') }}" class="min-h-11 flex items-center justify-center text-center px-3 py-2 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-medium transition">Browse All Inventory</a>
     </x-filament::section>
 </x-filament-widgets::widget>

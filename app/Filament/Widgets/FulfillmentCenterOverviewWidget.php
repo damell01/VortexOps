@@ -81,9 +81,9 @@ class FulfillmentCenterOverviewWidget extends Widget
             'stats' => [
                 'shows' => $queue->count(),
                 'unassigned' => $queue->where('fulfillment_stage.key', 'unassigned')->count(),
+                'review' => $queue->where('fulfillment_stage.key', 'review')->count(),
+                'issues' => $queue->where('fulfillment_stage.key', 'issues')->count(),
                 'verify' => $queue->where('fulfillment_stage.key', 'verify')->count(),
-                'packing' => $queue->where('fulfillment_stage.key', 'review')->count(),
-                'shipping' => $queue->where('fulfillment_stage.key', 'issues')->count(),
                 'complete' => $queue->where('fulfillment_stage.key', 'complete')->count(),
                 'open_shipments' => $queue->sum(fn (Show $show) => (int) $show->getAttribute('fulfillment_stage')['open']),
                 'pending_lines' => $queue->sum(fn (Show $show) => (int) $show->getAttribute('fulfillment_stage')['pending_lines']),

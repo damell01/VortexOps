@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\AdminShowPipelineWidget;
 use App\Filament\Widgets\FulfillmentInventoryWidget;
 use App\Filament\Widgets\NeedsAttentionWidget;
 use App\Filament\Widgets\OperationsOverviewWidget;
@@ -19,8 +20,6 @@ use App\Models\Shipment;
 use App\Models\Show;
 use App\Models\StreamerLogEntry;
 use App\Models\StreamerLogItem;
-use App\Models\WeeklyPayoutBatch;
-use App\Services\ShowWorkflowService;
 use App\Support\ChannelContext;
 use Filament\Pages\Dashboard;
 
@@ -63,6 +62,7 @@ class DashboardImproved extends Dashboard
 
         if ($user?->isAdmin() || $user?->isOwner()) {
             return [
+                AdminShowPipelineWidget::class,
                 ShowQueueCountsWidget::class,
                 NeedsAttentionWidget::class,
                 OperationsOverviewWidget::class,
@@ -137,40 +137,6 @@ class DashboardImproved extends Dashboard
                     : 0,
             ];
         } elseif ($user?->isAdmin() || $user?->isOwner()) {
-            $currentPayRun = WeeklyPayoutBatch::query()
-                ->withCount('payouts')
-                ->whereDate('week_start', '<=', today())
-                ->whereDate('week_end', '>=', today())
-                ->latest('week_start')
-                ->first()
-                ?? WeeklyPayoutBatch::query()->withCount('payouts')->latest('week_start')->first();
-
-            $pipelineShows = Show::query()
-                ->inChannelContext()
-                ->whereDate('show_date', '<=', today())
-                ->whereNotIn('status', ['cancelled'])
-                ->with([
-                    'streamers',
-                    'streamerLogEntry.streamer',
-                    'fulfillmentUsers',
-                    'payouts.batch',
-                    'latestDeductionRequest.lines',
-                ])
-                ->withSum('payouts', 'calculated_payout')
-                ->orderByDesc('show_date')
-                ->orderByDesc('start_time')
-                ->limit(12)
-                ->get()
-                ->map(function (Show $show) {
-                    $show->setAttribute('workflow_state', app(ShowWorkflowService::class)->stateFor($show));
-                    $show->setAttribute('pnl_summary', $show->profitAndLoss());
-                    return $show;
-                });
-
-            $workflowCounts = $pipelineShows
-                ->groupBy(fn (Show $show) => $show->getAttribute('workflow_state')['key'])
-                ->map->count();
-
             $data += [
                 'roleMode' => 'admin',
                 'reportsToReview' => StreamerLogEntry::query()
@@ -192,9 +158,6 @@ class DashboardImproved extends Dashboard
                     ->whereNotIn('status', ['closed', 'cancelled'])
                     ->count(),
                 'draftPayouts' => Payout::where('status', 'draft')->inChannelContext()->count(),
-                'pipelineShows' => $pipelineShows,
-                'workflowCounts' => $workflowCounts,
-                'currentPayRun' => $currentPayRun,
             ];
         }
 

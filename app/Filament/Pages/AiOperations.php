@@ -6,7 +6,6 @@ use App\Filament\Concerns\HasAdminNavVisibility;
 use App\Models\AiInsight;
 use App\Models\AiTask;
 use App\Services\AI\Ops\AiOpsDispatcher;
-use App\Support\AdminModules;
 use App\Support\NavVisibility;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -50,8 +49,10 @@ class AiOperations extends Page
 
         $user = auth()->user();
 
-        return AdminModules::isEnabled('ai')
-            && ! NavVisibility::isHiddenForUser(static::class, $user)
+        // Do not depend on the old all-or-nothing AI module switch. That switch
+        // can stay off (hiding chat/advanced AI surfaces) while background ops
+        // intelligence remains available to admins without affecting page loads.
+        return ! NavVisibility::isHiddenForUser(static::class, $user)
             && (($user?->isAdmin() || $user?->isOwner()) ?? false);
     }
 

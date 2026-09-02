@@ -79,6 +79,23 @@ return [
     'cache_ttl' => ['setting' => 'ai_cache_ttl', 'default' => (int) env('AI_CACHE_TTL', 300)],
 
     /*
+    | Low-resource operations mode
+    |--------------------------------------------------------------------------
+    | VortexOps uses AI as a background worker, not as a dependency of ordinary
+    | page rendering. Web requests only persist/queue work; the dedicated `ai`
+    | worker owns Ollama calls. These small limits keep a local model bounded on
+    | the VPS while PHP/SQL remain the source of truth for business calculations.
+    */
+    'ops' => [
+        'enabled'           => (bool) env('AI_OPS_ENABLED', true),
+        'use_llm'           => (bool) env('AI_OPS_USE_LLM', true),
+        'queue'             => env('AI_OPS_QUEUE', 'ai'),
+        'max_tokens'        => (int) env('AI_OPS_MAX_TOKENS', 600),
+        'context_length'    => (int) env('AI_OPS_CONTEXT_LENGTH', 2048),
+        'max_payload_chars' => (int) env('AI_OPS_MAX_PAYLOAD_CHARS', 12000),
+    ],
+
+    /*
     | Conversation memory. The assistant remembers recent turns per user for
     | `ttl` seconds (sliding), keeping at most `turns` turns per thread.
     */

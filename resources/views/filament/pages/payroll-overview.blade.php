@@ -109,25 +109,29 @@
                     @php
                         $state = $show->getAttribute('workflow_state');
                         $pnl = $show->getAttribute('pnl_summary');
+                        $payRunProblems = $show->getAttribute('payrun_problems') ?? [];
                         $resolution = $this->showResolution($show);
-                        $stateClass = match($state['key']) {
+                        $stateClass = $payRunProblems !== [] ? 'vx-blocked' : match($state['key']) {
                             'payroll_ready' => 'vx-ready',
                             'payroll' => 'vx-run',
                             'paid' => 'vx-paid',
                             default => 'vx-blocked',
                         };
+                        $stateLabel = $payRunProblems !== [] ? 'Needs Recalculation' : $state['label'];
                     @endphp
                     <div class="vx-row">
                         <a class="min-w-0" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $show]) }}">
                             <div class="vx-show-name">{{ $show->title }}</div>
                             <div class="vx-show-sub">{{ $show->show_date?->format('M j') }} · {{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer' }}</div>
-                            @if(!empty($state['blockers']))
+                            @if($payRunProblems !== [])
+                                <div class="vx-show-sub" style="color:rgb(194 65 12);font-weight:700">{{ preg_replace('/^'.preg_quote($show->title, '/').' — /', '', $payRunProblems[0]) }}@if(count($payRunProblems) > 1) · +{{ count($payRunProblems) - 1 }} more@endif</div>
+                            @elseif(!empty($state['blockers']))
                                 <div class="vx-show-sub" style="color:rgb(194 65 12);font-weight:700">{{ $state['blockers'][0] }}@if(count($state['blockers']) > 1) · +{{ count($state['blockers']) - 1 }} more@endif</div>
                             @else
                                 <div class="vx-show-sub">{{ $state['description'] }}</div>
                             @endif
                         </a>
-                        <div><span class="vx-status {{ $stateClass }}">{{ $state['label'] }}</span></div>
+                        <div><span class="vx-status {{ $stateClass }}">{{ $stateLabel }}</span></div>
                         <div class="vx-num">${{ number_format((float)($pnl['gross'] ?? 0),0) }}</div>
                         <div class="vx-num">${{ number_format((float)($pnl['net'] ?? 0),0) }}</div>
                         <div class="vx-num">${{ number_format((float)($pnl['cogs'] ?? 0),0) }}</div>

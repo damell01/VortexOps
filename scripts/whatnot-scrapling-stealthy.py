@@ -130,6 +130,67 @@ def click_first_visible(page, selectors: list[str]) -> bool:
     return False
 
 
+def login_state_summary(page) -> str:
+    """Return safe form diagnostics without exposing field values or credentials."""
+    parts: list[str] = []
+    try:
+        parts.append(f"url={page.url}")
+    except Exception:
+        pass
+    try:
+        parts.append(f"title={page.title()!r}")
+    except Exception:
+        pass
+
+    text = re.sub(r"\s+", " ", page_text(page)).strip()
+    if text:
+        parts.append(f"text={text[:1200]!r}")
+
+    try:
+        inputs = page.locator("input")
+        input_meta: list[str] = []
+        for i in range(min(inputs.count(), 12)):
+            node = inputs.nth(i)
+            try:
+                if not node.is_visible(timeout=200):
+                    continue
+            except Exception:
+                continue
+            attrs = []
+            for name in ("type", "name", "autocomplete", "placeholder"):
+                try:
+                    value = node.get_attribute(name)
+                except Exception:
+                    value = None
+                if value:
+                    attrs.append(f"{name}={value!r}")
+            input_meta.append("{" + ", ".join(attrs) + "}")
+        if input_meta:
+            parts.append("inputs=[" + ", ".join(input_meta) + "]")
+    except Exception:
+        pass
+
+    try:
+        buttons = page.locator("button")
+        labels: list[str] = []
+        for i in range(min(buttons.count(), 15)):
+            node = buttons.nth(i)
+            try:
+                if not node.is_visible(timeout=200):
+                    continue
+                label = re.sub(r"\s+", " ", str(node.inner_text(timeout=500) or "")).strip()
+                if label:
+                    labels.append(label[:120])
+            except Exception:
+                continue
+        if labels:
+            parts.append(f"buttons={labels!r}")
+    except Exception:
+        pass
+
+    return " | ".join(parts)
+
+
 def ensure_authenticated(page) -> None:
     """Validate the persistent session and perform an ordinary login when needed.
 
@@ -182,6 +243,7 @@ def ensure_authenticated(page) -> None:
     password = first_visible(page, password_selectors)
 
     if email is None and password is None:
+        log("AUTH_DIAGNOSTIC " + login_state_summary(page))
         stop(
             f"LOGIN_FORM_CHANGED: unable to locate an email/username or password field at {page.url}",
             3,
@@ -189,8 +251,6 @@ def ensure_authenticated(page) -> None:
 
     log("AUTH_BOOTSTRAP state=login-required action=credential-login")
 
-    # Whatnot may render email/username first, then reveal the password field only
-    # after Continue/Next. Handle that without assuming both fields coexist.
     if email is not None:
         email.fill(EMAIL)
 
@@ -203,6 +263,7 @@ def ensure_authenticated(page) -> None:
             except Exception:
                 pass
         if not advanced:
+            log("AUTH_DIAGNOSTIC " + login_state_summary(page))
             stop("LOGIN_FORM_CHANGED: unable to advance past the Whatnot email/username step", 3)
 
         page.wait_for_timeout(1500)
@@ -220,6 +281,7 @@ def ensure_authenticated(page) -> None:
             )
         password = first_visible(page, password_selectors)
         if password is None:
+            log("AUTH_DIAGNOSTIC " + login_state_summary(page))
             stop(
                 f"LOGIN_FORM_CHANGED: email/username step advanced but no password field appeared at {page.url}",
                 3,
@@ -244,8 +306,15 @@ def ensure_authenticated(page) -> None:
         except Exception:
             pass
     if not submitted:
+        log("AUTH_DIAGNOSTIC " + login_state_summary(page))
         stop("LOGIN_FORM_CHANGED: unable to submit Whatnot login form", 3)
 
+    # Give client-side auth/redirect logic time to settle. A fixed 2.5 second wait
+    # was too aggressive and could label a slow SPA redirect as a failed login.
+    try:
+        page.wait_for_load_state("networkidle", timeout=5000)
+    except Exception:
+        pass
     page.wait_for_timeout(2500)
 
     if challenge_present(page):
@@ -261,6 +330,7 @@ def ensure_authenticated(page) -> None:
             3,
         )
     if login_page(page):
+        log("AUTH_DIAGNOSTIC " + login_state_summary(page))
         stop(f"LOGIN_FAILED: Whatnot remained on the login page after credential submission ({page.url})", 3)
 
     log("AUTH_BOOTSTRAP state=authenticated")
@@ -272,7 +342,6 @@ def stealthy_session(**kwargs: Any):
         "disable_resources": kwargs.get("disable_resources", False),
         "google_search": False,
         "locale": kwargs.get("locale", "en-US"),
-        # Do not automate anti-bot challenges. We detect them and fail closed.
         "solve_cloudflare": False,
         "block_webrtc": SCRAPLING_BLOCK_WEBRTC,
         "hide_canvas": SCRAPLING_HIDE_CANVAS,
@@ -302,8 +371,6 @@ def stealthy_session(**kwargs: Any):
 
 def main() -> None:
     module = load_base_module()
-    # Keep show/order/shipment/ledger extraction in one source of truth. Only the
-    # session constructor and authentication validator are replaced here.
     module.DynamicSession = stealthy_session
     module.check_login = ensure_authenticated
     module.main()

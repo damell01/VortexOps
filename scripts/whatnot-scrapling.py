@@ -37,6 +37,7 @@ def norm(value: str | None) -> str:
 def active_username(page) -> str | None:
     for selector in [
         'button:has(svg[aria-label="Current account"]) img.z-avatar-image[alt]',
+        '#team-invite-profile-menu-anchor img[alt]',
         'img.z-avatar-image[alt][width="40"][height="40"]:visible',
     ]:
         try:
@@ -64,51 +65,198 @@ def check_login(page) -> None:
 def ensure_channel(page, requested: str) -> str:
     if not requested:
         fail("CHANNEL_CONTEXT_MISMATCH: WHATNOT_CHANNEL_NAME is required", 3)
-    current = active_username(page)
-    if current and norm(current) == norm(requested):
-        info(f"CHANNEL_CONTEXT_VERIFIED requested=@{requested} active=@{current}")
-        return current
 
+    current = None
+    for _ in range(10):
+        check_login(page)
+        current = active_username(page)
+        if current and norm(current) == norm(requested):
+            info(f"CHANNEL_CONTEXT_VERIFIED requested=@{requested} active=@{current}")
+            return current
+        page.wait_for_timeout(400)
+
+    info(
+        f"CHANNEL_CONTEXT_CHECK requested=@{requested} "
+        f"active=@{current or '?'} action=switch-required"
+    )
+
+    menu = page.locator("#team-invite-profile-menu-anchor").first
     try:
-        page.locator("#team-invite-profile-menu-anchor").first.click(timeout=5000, force=True)
-        page.locator("#team-invite-switch-role-anchor").first.click(timeout=5000, force=True)
-    except Exception as exc:
-        fail(f"CHANNEL_SWITCH_FAILED: could not open role picker for @{requested}: {exc}", 3)
+        menu.click(timeout=8000, force=True)
+    except Exception as first_exc:
+        try:
+            clicked = page.evaluate(r"""
+            () => {
+              const el = document.querySelector('#team-invite-profile-menu-anchor');
+              if (!el) return false;
+              el.click();
+              return true;
+            }
+            """)
+            if not clicked:
+                raise RuntimeError("profile menu element not found")
+        except Exception as fallback_exc:
+            fail(
+                f"CHANNEL_SWITCH_FAILED: could not open profile menu for "
+                f"@{requested}: {first_exc}; fallback={fallback_exc}",
+                3,
+            )
 
+    page.wait_for_timeout(600)
+
+    switcher = page.locator("#team-invite-switch-role-anchor").first
+    try:
+        switcher.click(timeout=8000, force=True)
+    except Exception as first_exc:
+        try:
+            clicked = page.evaluate(r"""
+            () => {
+              const el = document.querySelector('#team-invite-switch-role-anchor');
+              if (!el) return false;
+              el.click();
+              return true;
+            }
+            """)
+            if not clicked:
+                raise RuntimeError("switch-role element not found")
+        except Exception as fallback_exc:
+            fail(
+                f"CHANNEL_SWITCH_FAILED: could not open role picker for "
+                f"@{requested}: {first_exc}; fallback={fallback_exc}",
+                3,
+            )
+
+    page.wait_for_timeout(700)
     target = None
-    try:
-        exact = page.locator(f'button:has(img.z-avatar-image[alt="{requested.lower()}"])').first
-        if exact.is_visible(timeout=1500):
-            target = exact
-    except Exception:
-        pass
-    if target is None:
-        buttons = page.locator('button[formaction="/api/v1/auth/switch-role"]')
-        for index in range(min(buttons.count(), 30)):
-            candidate = buttons.nth(index)
+
+    candidate_selectors = [
+        'button[formaction*="switch-role"]',
+        'form[action*="switch-role"] button',
+        'button:has(img[alt])',
+        '[role="button"]:has(img[alt])',
+    ]
+
+    for selector in candidate_selectors:
+        candidates = page.locator(selector)
+        try:
+            count = min(candidates.count(), 50)
+        except Exception:
+            count = 0
+
+        for index in range(count):
+            candidate = candidates.nth(index)
             try:
-                if norm(requested) in norm(candidate.inner_text(timeout=1000)):
-                    target = candidate
-                    break
+                text = candidate.inner_text(timeout=700) or ""
+            except Exception:
+                text = ""
+            alt = ""
+            try:
+                alt = candidate.locator("img[alt]").first.get_attribute("alt", timeout=500) or ""
             except Exception:
                 pass
+
+            if norm(requested) in {norm(text), norm(alt)}:
+                target = candidate
+                info(
+                    f"CHANNEL_ROLE_FOUND requested=@{requested} "
+                    f"text={text!r} alt={alt!r}"
+                )
+                break
+        if target is not None:
+            break
+
     if target is None:
+        try:
+            found = page.evaluate(
+                r"""
+                requested => {
+                  const norm = value =>
+                    String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                  const wanted = norm(requested);
+                  const elements = [
+                    ...document.querySelectorAll(
+                      'img[alt], button, [role="button"], form[action*="switch-role"]'
+                    )
+                  ];
+
+                  for (const el of elements) {
+                    const alt = el.getAttribute?.('alt') || '';
+                    const text = el.innerText || el.textContent || '';
+                    if (norm(alt) !== wanted && norm(text) !== wanted) continue;
+
+                    const clickable =
+                      el.closest('button') ||
+                      el.closest('[role="button"]') ||
+                      el.closest('form[action*="switch-role"]');
+                    if (!clickable) continue;
+
+                    clickable.setAttribute('data-vortex-role-target', requested);
+                    return {
+                      found: true,
+                      text: text.trim().substring(0, 100),
+                      alt
+                    };
+                  }
+                  return {found: false};
+                }
+                """,
+                requested,
+            )
+            if found and found.get("found"):
+                info(
+                    f"CHANNEL_ROLE_FOUND requested=@{requested} fallback=true "
+                    f"text={found.get('text')!r} alt={found.get('alt')!r}"
+                )
+                target = page.locator('[data-vortex-role-target]').first
+        except Exception:
+            pass
+
+    if target is None:
+        try:
+            diagnostic = page.evaluate(r"""
+            () => [...document.querySelectorAll(
+                'button, [role="button"], form[action*="switch-role"]'
+            )]
+            .slice(0, 50)
+            .map(el => ({
+              tag: el.tagName,
+              text: (el.innerText || el.textContent || '').trim().substring(0, 120),
+              action: el.getAttribute('action'),
+              formaction: el.getAttribute('formaction'),
+              alt: el.querySelector('img[alt]')?.getAttribute('alt') || null
+            }))
+            """)
+            info("CHANNEL_ROLE_DIAGNOSTIC " + json.dumps(diagnostic, separators=(",", ":")))
+        except Exception as exc:
+            info(f"CHANNEL_ROLE_DIAGNOSTIC failed={exc}")
+
         fail(f"CHANNEL_SWITCH_FAILED: @{requested} was not present in role picker", 3)
+
     try:
-        target.click(timeout=5000, force=True)
-        page.wait_for_timeout(1000)
-        page.goto(f"{BASE}/dashboard/home", wait_until="domcontentloaded", timeout=20000)
+        target.click(timeout=8000, force=True)
+    except Exception as exc:
+        fail(f"CHANNEL_SWITCH_FAILED: could not select @{requested}: {exc}", 3)
+
+    page.wait_for_timeout(1200)
+    try:
+        page.goto(f"{BASE}/dashboard/home", wait_until="domcontentloaded", timeout=30000)
     except Exception:
         pass
 
     verified = None
-    for _ in range(15):
+    for _ in range(20):
+        check_login(page)
         verified = active_username(page)
         if verified and norm(verified) == norm(requested):
             info(f"CHANNEL_CONTEXT_VERIFIED requested=@{requested} active=@{verified}")
             return verified
         page.wait_for_timeout(500)
-    fail(f"CHANNEL_CONTEXT_MISMATCH: refusing to scrape. requested=@{requested} active=@{verified or '?'}", 3)
+
+    fail(
+        f"CHANNEL_CONTEXT_MISMATCH: refusing to scrape. "
+        f"requested=@{requested} active=@{verified or '?'}",
+        3,
+    )
     return ""
 
 
@@ -118,7 +266,7 @@ def prepare(page) -> str:
 
 
 def extract_show(page) -> dict[str, Any]:
-    raw = page.evaluate("""
+    raw = page.evaluate(r"""
     () => {
       const title=document.querySelector('h1,h2')?.textContent?.trim()||null;
       const text=document.body?.innerText||'';
@@ -204,7 +352,6 @@ def analytics(session: DynamicSession):
 
 
 def shows(session: DynamicSession):
-    """Discover completed shows from Seller Hub using the Scrapling browser session."""
     output: list[dict[str, Any]] = []
     seen: set[str] = set()
 
@@ -215,7 +362,7 @@ def shows(session: DynamicSession):
         check_login(page)
 
         for _ in range(20):
-            rows = page.evaluate("""
+            rows = page.evaluate(r"""
             () => {
               const generic=/^(open show|edit show|clone items?|copy show link|start sharing|end show|enable private mode|schedule a show|show tools?|view show|show details?|see analytics|view shipments|restart show|cancel show|going live help|obs tools)$/i;
               const results=[];
@@ -248,10 +395,10 @@ def shows(session: DynamicSession):
                 }
 
                 let showDate=null;
-                const iso=text.match(/\\b(20\d\d)[\/-](0[1-9]|1[0-2])[\/-](0[1-9]|[12]\d|3[01])\\b/);
+                const iso=text.match(/\b(20\d\d)[\/-](0[1-9]|1[0-2])[\/-](0[1-9]|[12]\d|3[01])\b/);
                 if(iso) showDate=`${iso[1]}-${iso[2]}-${iso[3]}`;
                 if(!showDate){
-                  const d=text.match(/\\b(\d{1,2})[\/-](\d{1,2})[\/-](20\d\d)\\b/);
+                  const d=text.match(/\b(\d{1,2})[\/-](\d{1,2})[\/-](20\d\d)\b/);
                   if(d) showDate=`${d[3]}-${d[1].padStart(2,'0')}-${d[2].padStart(2,'0')}`;
                 }
                 const price=[...text.matchAll(/\$[\d,]+(?:\.\d+)?/g)].map(x=>parseFloat(x[0].replace(/[^0-9.]/g,''))).filter(Number.isFinite);
@@ -292,7 +439,7 @@ def shows(session: DynamicSession):
                     return
 
             try:
-                advanced = page.evaluate("""
+                advanced = page.evaluate(r"""
                 () => {
                   const s=document.querySelector('svg[aria-label="Next page"]');
                   const b=s?s.closest('button'):document.querySelector('button[aria-label="Next page"]');
@@ -312,11 +459,11 @@ def shows(session: DynamicSession):
 
 
 def extract_orders(page):
-    return page.evaluate("""() => { const price=s=>{if(!s)return null;const v=parseFloat(s.replace(/[^0-9.]/g,''));return Number.isFinite(v)?v:null}; const out=[]; for(const tr of document.querySelectorAll('tbody[data-testid="orders-table-body"] tr, tr[data-testid^="orders-"]')){const t=[...tr.querySelectorAll(':scope > td')];if(t.length<6)continue;const c=t[0], title=c.querySelector('span[title],strong'), oid=(c.innerText||'').match(/Order\s*#\s*(\d+)/i), qty=parseInt((t[3]?.innerText||'').replace(/[^0-9]/g,''),10);out.push({order_id:oid?oid[1]:null,buyer:(t[2]?.innerText||'').trim()||null,item_name:title?(title.getAttribute('title')||title.textContent||'').trim():null,lot_number:null,quantity:Number.isFinite(qty)?qty:1,unit_price:price(t[5]?.innerText||''),total_price:price(t[5]?.innerText||''),net_earnings:price(t[7]?.innerText||''),sales_channel:(t[4]?.innerText||'').trim()||null,status:(t[6]?.innerText||'').trim()||'completed',raw_text:(tr.innerText||'').replace(/\s+/g,' ').trim().substring(0,400)});} return out;}""")
+    return page.evaluate(r"""() => { const price=s=>{if(!s)return null;const v=parseFloat(s.replace(/[^0-9.]/g,''));return Number.isFinite(v)?v:null}; const out=[]; for(const tr of document.querySelectorAll('tbody[data-testid="orders-table-body"] tr, tr[data-testid^="orders-"]')){const t=[...tr.querySelectorAll(':scope > td')];if(t.length<6)continue;const c=t[0], title=c.querySelector('span[title],strong'), oid=(c.innerText||'').match(/Order\s*#\s*(\d+)/i), qty=parseInt((t[3]?.innerText||'').replace(/[^0-9]/g,''),10);out.push({order_id:oid?oid[1]:null,buyer:(t[2]?.innerText||'').trim()||null,item_name:title?(title.getAttribute('title')||title.textContent||'').trim():null,lot_number:null,quantity:Number.isFinite(qty)?qty:1,unit_price:price(t[5]?.innerText||''),total_price:price(t[5]?.innerText||''),net_earnings:price(t[7]?.innerText||''),sales_channel:(t[4]?.innerText||'').trim()||null,status:(t[6]?.innerText||'').trim()||'completed',raw_text:(tr.innerText||'').replace(/\s+/g,' ').trim().substring(0,400)});} return out;}""")
 
 
 def extract_shipments(page):
-    return page.evaluate("""() => { const out=[];for(const tr of document.querySelectorAll('tr[data-testid^="shipments-"]')){const main=tr.innerText||'',detail=tr.nextElementSibling?.tagName==='TR'?(tr.nextElementSibling.innerText||''):'',text=main+'\n'+detail,oid=text.match(/Order\s*#\s*(\d+)/i);if(!oid)continue;const buyer=tr.querySelector('a[href*="/dashboard/inbox"]'),weight=text.match(/(\d+(?:\.\d+)?)\s*oz\\b/i),dims=text.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*in\\b/i),carrier=text.match(/\\b(USPS|UPS|FedEx|DHL)\\b\s*([A-Za-z\d\s\-/]*[A-Za-z\d])?/i),tracking=text.match(/(?:tracking\s*#?|label\s*#?)\s*([0-9]{12,})/i);let st=null;if(/ready\s*to\s*ship/i.test(text))st='ready_to_ship';else if(/label\s*created/i.test(text))st='label_created';else if(/delivered/i.test(text))st='delivered';else if(/returned/i.test(text))st='returned';else if(/packed/i.test(text))st='packed';else if(/shipped/i.test(text))st='shipped';else if(/in\s*transit/i.test(text))st='in_transit';out.push({order_id:oid[1],buyer:buyer?(buyer.textContent||'').trim():null,item_name:null,lot_number:null,quantity:1,unit_price:null,total_price:null,status:'completed',raw_text:main.replace(/\s+/g,' ').trim().substring(0,400),weight_oz:weight?parseFloat(weight[1]):null,box_length_in:dims?parseFloat(dims[1]):null,box_width_in:dims?parseFloat(dims[2]):null,box_height_in:dims?parseFloat(dims[3]):null,shipping_carrier:carrier?carrier[1].toUpperCase():null,shipping_service:carrier&&carrier[2]?carrier[2].trim():null,shipping_status_scraped:st,tracking_number:tracking?tracking[1]:null});}return out;}""")
+    return page.evaluate(r"""() => { const out=[];for(const tr of document.querySelectorAll('tr[data-testid^="shipments-"]')){const main=tr.innerText||'',detail=tr.nextElementSibling?.tagName==='TR'?(tr.nextElementSibling.innerText||''):'',text=main+'\n'+detail,oid=text.match(/Order\s*#\s*(\d+)/i);if(!oid)continue;const buyer=tr.querySelector('a[href*="/dashboard/inbox"]'),weight=text.match(/(\d+(?:\.\d+)?)\s*oz\b/i),dims=text.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*in\b/i),carrier=text.match(/\b(USPS|UPS|FedEx|DHL)\b\s*([A-Za-z\d\s\-/]*[A-Za-z\d])?/i),tracking=text.match(/(?:tracking\s*#?|label\s*#?)\s*([0-9]{12,})/i);let st=null;if(/ready\s*to\s*ship/i.test(text))st='ready_to_ship';else if(/label\s*created/i.test(text))st='label_created';else if(/delivered/i.test(text))st='delivered';else if(/returned/i.test(text))st='returned';else if(/packed/i.test(text))st='packed';else if(/shipped/i.test(text))st='shipped';else if(/in\s*transit/i.test(text))st='in_transit';out.push({order_id:oid[1],buyer:buyer?(buyer.textContent||'').trim():null,item_name:null,lot_number:null,quantity:1,unit_price:null,total_price:null,status:'completed',raw_text:main.replace(/\s+/g,' ').trim().substring(0,400),weight_oz:weight?parseFloat(weight[1]):null,box_length_in:dims?parseFloat(dims[1]):null,box_width_in:dims?parseFloat(dims[2]):null,box_height_in:dims?parseFloat(dims[3]):null,shipping_carrier:carrier?carrier[1].toUpperCase():null,shipping_service:carrier&&carrier[2]?carrier[2].trim():null,shipping_status_scraped:st,tracking_number:tracking?tracking[1]:null});}return out;}""")
 
 
 def batch(session: DynamicSession, shipments=False):
@@ -346,7 +493,7 @@ def batch(session: DynamicSession, shipments=False):
                         pass
                 for row in (extract_shipments(page) if shipments else extract_orders(page)):
                     found[str(row.get("order_id") or len(found))] = row
-                advanced = page.evaluate("""() => {const s=document.querySelector('svg[aria-label="Next page"]');const b=s?s.closest('button'):document.querySelector('button[aria-label="Next page"]');if(b&&!b.disabled&&b.getAttribute('aria-disabled')!=='true'){b.click();return true}return false}""")
+                advanced = page.evaluate(r"""() => {const s=document.querySelector('svg[aria-label="Next page"]');const b=s?s.closest('button'):document.querySelector('button[aria-label="Next page"]');if(b&&!b.disabled&&b.getAttribute('aria-disabled')!=='true'){b.click();return true}return false}""")
                 if not advanced:
                     break
                 page.wait_for_timeout(700)
@@ -383,10 +530,10 @@ def ledger(session: DynamicSession):
                 pass
         seen = {}
         for _ in range(60):
-            rows = page.evaluate("""() => [...document.querySelectorAll('table tbody tr')].map(tr=>{const c=[...tr.querySelectorAll(':scope > td')].map(td=>(td.innerText||'').trim());if(c.length<6)return null;const link=tr.querySelector('a[href*="/dashboard/orders/"]'),oid=(c[3]||'').match(/(\d+)/),lid=(c[2]||'').match(/(\d+)/);return {created_date:c[0]||null,amount:c[1]||null,listing_id:lid?lid[1]:null,order_id:oid?oid[1]:null,order_hash:link?(link.getAttribute('href')||'').split('/').pop():null,message:c[4]||null,status:c[5]||null,transaction_type:c[6]||null,completed_date:c[7]||null}}).filter(Boolean)""")
+            rows = page.evaluate(r"""() => [...document.querySelectorAll('table tbody tr')].map(tr=>{const c=[...tr.querySelectorAll(':scope > td')].map(td=>(td.innerText||'').trim());if(c.length<6)return null;const link=tr.querySelector('a[href*="/dashboard/orders/"]'),oid=(c[3]||'').match(/(\d+)/),lid=(c[2]||'').match(/(\d+)/);return {created_date:c[0]||null,amount:c[1]||null,listing_id:lid?lid[1]:null,order_id:oid?oid[1]:null,order_hash:link?(link.getAttribute('href')||'').split('/').pop():null,message:c[4]||null,status:c[5]||null,transaction_type:c[6]||null,completed_date:c[7]||null}}).filter(Boolean)""")
             for row in rows:
                 seen['|'.join(str(row.get(k) or '') for k in ('order_id', 'listing_id', 'created_date', 'amount', 'transaction_type'))] = row
-            advanced = page.evaluate("""() => {const s=document.querySelector('svg[aria-label="Next page"]');const b=s?s.closest('button'):document.querySelector('button[aria-label="Next page"]');if(b&&!b.disabled&&b.getAttribute('aria-disabled')!=='true'){b.click();return true}return false}""")
+            advanced = page.evaluate(r"""() => {const s=document.querySelector('svg[aria-label="Next page"]');const b=s?s.closest('button'):document.querySelector('button[aria-label="Next page"]');if(b&&!b.disabled&&b.getAttribute('aria-disabled')!=='true'){b.click();return true}return false}""")
             if not advanced:
                 break
             page.wait_for_timeout(700)

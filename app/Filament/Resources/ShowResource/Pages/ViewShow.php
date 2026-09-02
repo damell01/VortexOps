@@ -8,7 +8,6 @@ use App\Filament\Resources\ShowResource;
 use App\Services\WhatnotScraper;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
-use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
 
@@ -83,9 +82,6 @@ class ViewShow extends ViewRecord
                 ->visible(fn (): bool => ! in_array($this->record->status, ['cancelled'], true) && ($isAdmin || $isAssignedStreamer))
                 ->url(fn () => \App\Filament\Pages\EndOfStreamForm::getUrl(['showId' => $this->record->id])),
 
-            // Streamers only have two operational actions, so keep Shipments
-            // visible. Admins get one compact More menu instead of four header
-            // buttons fighting for width on a phone.
             $shipments->visible(fn (): bool => $isAssignedStreamer && ! $isAdmin),
 
             ActionGroup::make([
@@ -96,9 +92,10 @@ class ViewShow extends ViewRecord
                         'tableFilters[show_id][value]' => $this->record->id,
                     ])),
 
-                EditAction::make()
+                Action::make('edit_show')
                     ->label('Edit Show')
-                    ->icon('heroicon-o-pencil-square'),
+                    ->icon('heroicon-o-pencil-square')
+                    ->url(fn () => ShowResource::getUrl('edit', ['record' => $this->record])),
 
                 Action::make('inventory_breakdown')
                     ->label('Inventory Breakdown')

@@ -7,6 +7,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DeductionRequestLine extends Model
 {
+    public const FULFILLMENT_PENDING = 'pending';
+    public const FULFILLMENT_FULFILLED = 'fulfilled';
+    public const FULFILLMENT_NOT_FULFILLED = 'not_fulfilled';
+
     protected $fillable = [
         'deduction_request_id',
         'inventory_item_id',
@@ -20,6 +24,10 @@ class DeductionRequestLine extends Model
         'ai_reason',
         'match_stage',
         'ops_overridden',
+        'fulfillment_status',
+        'fulfillment_note',
+        'fulfilled_by',
+        'fulfilled_at',
     ];
 
     protected $casts = [
@@ -28,6 +36,7 @@ class DeductionRequestLine extends Model
         'unit_cost_snapshot' => 'decimal:2',
         'line_total'         => 'decimal:2',
         'ops_overridden'     => 'boolean',
+        'fulfilled_at'       => 'datetime',
     ];
 
     public function request(): BelongsTo
@@ -45,10 +54,37 @@ class DeductionRequestLine extends Model
         return $this->belongsTo(InventoryLocation::class, 'inventory_location_id');
     }
 
+    public function fulfilledBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'fulfilled_by');
+    }
+
     public function recalculateLineTotal(): void
     {
         $this->line_total = round((float) $this->quantity_approved * (float) $this->unit_cost_snapshot, 2);
         $this->save();
+    }
+
+    public function fulfillmentStatus(): string
+    {
+        return $this->fulfillment_status ?: self::FULFILLMENT_PENDING;
+    }
+
+    public function isFulfillmentReviewed(): bool
+    {
+        return in_array($this->fulfillmentStatus(), [
+            self::FULFILLMENT_FULFILLED,
+            self::FULFILLMENT_NOT_FULFILLED,
+        ], true);
+    }
+
+    public static function fulfillmentStatusLabels(): array
+    {
+        return [
+            self::FULFILLMENT_PENDING => 'Pending',
+            self::FULFILLMENT_FULFILLED => 'Fulfilled',
+            self::FULFILLMENT_NOT_FULFILLED => 'Not Fulfilled',
+        ];
     }
 
     public static function confidenceLabels(): array

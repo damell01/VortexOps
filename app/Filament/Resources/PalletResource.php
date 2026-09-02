@@ -110,6 +110,7 @@ class PalletResource extends Resource
 
             Section::make('Manifest Lines')
                 ->description('Enter each product line from the pallet manifest. Map each to an inventory item after saving.')
+                ->columnSpanFull()
                 ->schema([
                     Repeater::make('lines')
                         ->relationship('lines')
@@ -119,14 +120,14 @@ class PalletResource extends Resource
                                     ->label('Description / Product Name')
                                     ->required()
                                     ->maxLength(255)
-                                    ->columnSpan(6),
+                                    ->columnSpan(['default' => 12, 'md' => 6, 'xl' => 4]),
                                 TextInput::make('case_count')
                                     ->label('Cases')
                                     ->numeric()
                                     ->default(1)
                                     ->minValue(1)
                                     ->required()
-                                    ->columnSpan(2),
+                                    ->columnSpan(['default' => 4, 'md' => 2, 'xl' => 1]),
                                 TextInput::make('quantity_per_case')
                                     ->label('Units / Box')
                                     ->numeric()
@@ -134,14 +135,14 @@ class PalletResource extends Resource
                                     ->minValue(0.01)
                                     ->required()
                                     ->helperText('1 if selling sealed boxes')
-                                    ->columnSpan(2),
+                                    ->columnSpan(['default' => 4, 'md' => 2, 'xl' => 1]),
                                 TextInput::make('unit_cost')
                                     ->label('Unit Cost')
                                     ->numeric()
                                     ->prefix('$')
                                     ->default(0)
                                     ->minValue(0)
-                                    ->columnSpan(2),
+                                    ->columnSpan(['default' => 4, 'md' => 2, 'xl' => 2]),
                                 Select::make('inventory_item_id')
                                     ->label('Map to Inventory Item')
                                     ->searchable()
@@ -153,13 +154,13 @@ class PalletResource extends Resource
                                         ->toArray())
                                     ->getOptionLabelUsing(fn ($value) => InventoryItem::find($value)?->name ?? $value)
                                     ->placeholder('Search by name or SKU…')
-                                    ->columnSpan(8),
+                                    ->columnSpan(['default' => 12, 'md' => 6, 'xl' => 3]),
                                 Select::make('inventory_location_id')
                                     ->label('Receive Into Location')
                                     ->options(fn () => InventoryLocation::activeOptions())
                                     ->searchable()
                                     ->placeholder('Select destination…')
-                                    ->columnSpan(4),
+                                    ->columnSpan(['default' => 12, 'md' => 6, 'xl' => 1]),
                             ]),
                         ])
                         ->orderColumn('line_number')

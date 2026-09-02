@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\WhatnotChannel;
 use Illuminate\Console\Command;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 
 class ProbeWhatnotShows extends Command
@@ -27,6 +28,7 @@ class ProbeWhatnotShows extends Command
         $limit = max(1, (int) $this->option('limit'));
         $backend = strtolower((string) config('vortex.whatnot.browser_backend', 'local'));
         $cdpUrl = (string) config('vortex.whatnot.scrapling_cdp_url', 'http://127.0.0.1:9222');
+        $processTimeout = max(30, (int) config('vortex.whatnot.process_timeout', 300));
 
         // Do not override the configured backend merely because a CDP endpoint
         // exists. Scrapling itself attaches to that same persistent Chrome via
@@ -81,18 +83,28 @@ class ProbeWhatnotShows extends Command
         }
         $this->line('Mode: shows (analytics page bypassed; channel switch bypassed unless --channel is supplied)');
         $this->line("Browser backend: {$backend}" . ($backend === 'scrapling' || $backend === 'scrapling-stealthy' ? " (CDP {$cdpUrl})" : ''));
+        $this->line("Process timeout: {$processTimeout}s");
         $this->newLine();
 
         // Always use the central runner. It owns backend selection. For the
         // production `scrapling` backend, the runner maps this to StealthySession
         // and attaches it to the existing persistent Chrome over CDP.
         $process = new Process([$node, $script], base_path(), $env);
-        $process->setTimeout(300);
-        $process->run(function (string $type, string $buffer): void {
-            if ($type === Process::ERR) {
-                $this->output->write($buffer);
-            }
-        });
+        $process->setTimeout($processTimeout);
+
+        try {
+            $process->run(function (string $type, string $buffer): void {
+                if ($type === Process::ERR) {
+                    $this->output->write($buffer);
+                }
+            });
+        } catch (ProcessTimedOutException $e) {
+            $this->newLine();
+            $this->error("Show-list probe timed out after {$processTimeout} seconds.");
+            $this->warn('The browser process did not return control. If the last output was a Cloudflare wait page, treat this channel/session as challenged rather than retrying indefinitely.');
+            $this->line('Refresh or re-authenticate the persistent browser session, then rerun this channel.');
+            return self::FAILURE;
+        }
 
         $stdout = trim($process->getOutput());
 

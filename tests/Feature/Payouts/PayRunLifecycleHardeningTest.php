@@ -71,6 +71,29 @@ class PayRunLifecycleHardeningTest extends TestCase
         $this->assertTrue(collect($result['warnings'])->contains(fn (string $warning) => str_contains($warning, 'Blocked Show')));
     }
 
+    public function test_recalculation_detaches_show_that_became_blocked(): void
+    {
+        $streamer = $this->makeStreamer();
+        $show = $this->makeShow('Changed Show');
+        $show->streamers()->attach($streamer->id, ['is_primary' => true]);
+        $report = $this->approveReport($show, $streamer);
+
+        $first = app(PayRunAutomationService::class)->syncWeek(now());
+        $batch = $first['batch'];
+        $payout = $batch->payouts()->where('show_id', $show->id)->firstOrFail();
+
+        $report->update([
+            'status' => 'changes_requested',
+            'approval_status' => 'rejected',
+        ]);
+
+        $second = app(PayRunAutomationService::class)->syncWeek(now());
+
+        $this->assertSame(1, $second['payouts_detached']);
+        $this->assertFalse($batch->fresh()->payouts()->where('show_id', $show->id)->exists());
+        $this->assertNull($payout->fresh()->weekly_payout_batch_id);
+    }
+
     public function test_source_change_after_calculation_marks_draft_run_stale(): void
     {
         $streamer = $this->makeStreamer();

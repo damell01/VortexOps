@@ -123,15 +123,25 @@
                             default => 'vx-blocked',
                         };
                         $stateLabel = $payRunProblems !== [] ? 'Needs Recalculation' : $state['label'];
+                        $payRunProblemText = $payRunProblems !== []
+                            ? preg_replace('/^'.preg_quote($show->title, '/').' — /', '', $payRunProblems[0])
+                            : null;
+                        $payRunProblemExtra = max(0, count($payRunProblems) - 1);
+                        $blockerText = ! empty($state['blockers']) ? $state['blockers'][0] : null;
+                        $blockerExtra = max(0, count($state['blockers'] ?? []) - 1);
                     @endphp
                     <div class="vx-row">
                         <a class="min-w-0" href="{{ \App\Filament\Resources\ShowResource::getUrl('view', ['record' => $show]) }}">
                             <div class="vx-show-name">{{ $show->title }}</div>
                             <div class="vx-show-sub">{{ $show->show_date?->format('M j') }} · {{ $show->streamers->pluck('name')->join(', ') ?: 'No streamer' }}</div>
                             @if($payRunProblems !== [])
-                                <div class="vx-show-sub" style="color:rgb(194 65 12);font-weight:700">{{ preg_replace('/^'.preg_quote($show->title, '/').' — /', '', $payRunProblems[0]) }}@if(count($payRunProblems) > 1) · +{{ count($payRunProblems) - 1 }} more@endif</div>
-                            @elseif(!empty($state['blockers']))
-                                <div class="vx-show-sub" style="color:rgb(194 65 12);font-weight:700">{{ $state['blockers'][0] }}@if(count($state['blockers']) > 1) · +{{ count($state['blockers']) - 1 }} more@endif</div>
+                                <div class="vx-show-sub" style="color:rgb(194 65 12);font-weight:700">
+                                    {{ $payRunProblemText }}{{ $payRunProblemExtra > 0 ? ' · +'.$payRunProblemExtra.' more' : '' }}
+                                </div>
+                            @elseif($blockerText)
+                                <div class="vx-show-sub" style="color:rgb(194 65 12);font-weight:700">
+                                    {{ $blockerText }}{{ $blockerExtra > 0 ? ' · +'.$blockerExtra.' more' : '' }}
+                                </div>
                             @else
                                 <div class="vx-show-sub">{{ $state['description'] }}</div>
                             @endif

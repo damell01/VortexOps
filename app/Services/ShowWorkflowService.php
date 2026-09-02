@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\DeductionRequestLine;
 use App\Models\Show;
+use App\Models\StreamerLogItem;
 
 class ShowWorkflowService
 {
@@ -19,6 +19,7 @@ class ShowWorkflowService
     {
         $show->loadMissing([
             'streamerLogEntry.streamer',
+            'streamerLogEntry.items.inventoryItem',
             'fulfillmentUsers',
             'payouts.batch',
             'latestDeductionRequest.lines.inventoryItem',
@@ -74,28 +75,17 @@ class ShowWorkflowService
             return $this->state('admin_review', 'Admin Review', 'Review the streamer submission and inventory exceptions.', 'info', 3, $blockers);
         }
 
-        $deductionRequest = $show->latestDeductionRequest;
-        $lines = $deductionRequest?->lines ?? collect();
-
-        if ($deductionRequest && ! in_array($deductionRequest->status, ['approved', 'processed'], true)) {
-            $blockers[] = 'Logged inventory / COGS is not approved yet.';
-        }
-
-        $unmappedLines = $lines->filter(fn ($line) => ! $line->inventory_item_id)->count();
-        if ($unmappedLines > 0) {
-            $blockers[] = $unmappedLines . ' logged inventory line(s) still need an inventory item.';
-        }
-
-        $pendingFulfillment = $lines->filter(fn ($line) => ! $line->isFulfillmentReviewed())->count();
-        $notFulfilled = $lines->filter(fn ($line) => $line->fulfillmentStatus() === DeductionRequestLine::FULFILLMENT_NOT_FULFILLED)->count();
+        $loggedItems = $report->items;
+        $pendingFulfillment = $loggedItems->filter(fn (StreamerLogItem $item) => ! $item->isFulfillmentReviewed())->count();
+        $notFulfilled = $loggedItems->filter(fn (StreamerLogItem $item) => $item->fulfillmentStatus() === StreamerLogItem::FULFILLMENT_NOT_FULFILLED)->count();
 
         if ($pendingFulfillment > 0) {
-            $blockers[] = $pendingFulfillment . ' logged item line(s) still need fulfillment review.';
-            return $this->state('fulfillment', 'Fulfillment In Progress', 'Fulfillment is reviewing the streamer-logged items for this show.', 'purple', 4, $blockers);
+            $blockers[] = $pendingFulfillment . ' streamer-logged item line(s) still need fulfillment review.';
+            return $this->state('fulfillment', 'Fulfillment In Progress', 'Fulfillment is reviewing the items the streamer logged for this show.', 'purple', 4, $blockers);
         }
 
         if ($notFulfilled > 0) {
-            $blockers[] = $notFulfilled . ' logged item line(s) are marked not fulfilled.';
+            $blockers[] = $notFulfilled . ' streamer-logged item line(s) are marked not fulfilled.';
             return $this->state('fulfillment', 'Fulfillment Issues', 'Fulfillment review is complete, but one or more logged items were not fulfilled.', 'danger', 4, $blockers);
         }
 
@@ -104,15 +94,23 @@ class ShowWorkflowService
             return $this->state('fulfillment', 'Fulfillment Review', 'Fulfillment needs to verify the activity used for compensation.', 'purple', 4, $blockers);
         }
 
+        $deductionRequest = $show->latestDeductionRequest;
+        if ($deductionRequest) {
+            $unmappedCogsLines = $deductionRequest->lines->filter(fn ($line) => ! $line->inventory_item_id)->count();
+            if ($unmappedCogsLines > 0) {
+                $blockers[] = $unmappedCogsLines . ' COGS line(s) still need an inventory item.';
+            }
+        }
+
         // Revenue fields may legitimately be zero. Only treat them as missing
         // when neither source has actually been populated.
         if ($show->getRawOriginal('gross_revenue') === null && $show->getRawOriginal('whatnot_net') === null) {
             $blockers[] = 'Show sales / settlement data is missing.';
         }
 
-        // A legitimately zero-COGS show is valid once the inventory deduction
-        // request has been approved/processed. Do not infer readiness from a
-        // positive dollar amount.
+        // A legitimately zero-COGS show is valid once the deduction request has
+        // been approved/processed. Readiness should depend on finalization, not
+        // on the COGS dollar amount being greater than zero.
         if (! $deductionRequest || ! in_array($deductionRequest->status, ['approved', 'processed'], true)) {
             $blockers[] = 'COGS / logged inventory has not been finalized.';
         }

@@ -69,6 +69,63 @@
             </div>
         @endif
 
+        {{-- Unmatched scan → attach barcode to an existing item --}}
+        @if ($unmatchedCode)
+            <div class="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950 px-6 py-5 space-y-4">
+                <div class="flex items-start gap-3">
+                    <x-heroicon-o-link class="h-5 w-5 flex-shrink-0 mt-0.5 text-amber-500" />
+                    <div>
+                        <h3 class="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                            Attach <span class="font-mono">{{ $unmatchedCode }}</span> to an item
+                        </h3>
+                        <p class="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                            Search for the item this code belongs to. If it already has a barcode, this one is added
+                            as an extra scannable code — nothing gets overwritten.
+                        </p>
+                    </div>
+                </div>
+
+                <input
+                    wire:model.live.debounce.300ms="attachSearch"
+                    type="text"
+                    placeholder="Search by name, SKU, or existing barcode…"
+                    autocomplete="off"
+                    class="w-full rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-gray-900 px-4 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                />
+
+                @if (count($attachResults))
+                    <div class="rounded-lg border border-amber-200 dark:border-amber-800 bg-white dark:bg-gray-900 divide-y divide-amber-100 dark:divide-amber-900 max-h-72 overflow-y-auto">
+                        @foreach ($attachResults as $r)
+                            <button type="button" wire:click="attachCodeToItem({{ $r['id'] }})"
+                                class="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-amber-50 dark:hover:bg-amber-950 focus:outline-none focus:bg-amber-50 dark:focus:bg-amber-950">
+                                <span class="min-w-0">
+                                    <span class="block text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ $r['name'] }}</span>
+                                    <span class="block text-xs text-gray-400 font-mono">
+                                        {{ $r['sku'] ?: '—' }}
+                                        @if ($r['barcode'])
+                                            · has barcode {{ $r['barcode'] }}
+                                        @else
+                                            · no barcode yet
+                                        @endif
+                                    </span>
+                                </span>
+                                <span class="flex-shrink-0 text-xs font-medium text-amber-600 dark:text-amber-400">Attach →</span>
+                            </button>
+                        @endforeach
+                    </div>
+                @elseif (trim($attachSearch) !== '')
+                    <p class="text-xs text-amber-600 dark:text-amber-400">No items match "{{ $attachSearch }}".</p>
+                @endif
+
+                <div>
+                    <a href="{{ \App\Filament\Resources\InventoryItemResource::getUrl('create') }}" target="_blank"
+                        class="text-xs text-amber-700 dark:text-amber-400 underline">
+                        Or create a new item, then come back and scan again
+                    </a>
+                </div>
+            </div>
+        @endif
+
         {{-- Result --}}
         @if ($result)
             <div class="space-y-4">

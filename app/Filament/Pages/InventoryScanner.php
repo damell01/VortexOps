@@ -9,9 +9,12 @@ use App\Models\InventoryLocation;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
 use App\Models\Pallet;
+use App\Models\ProductIdentity;
 use App\Services\ReceivingService;
 use App\Support\AdminModules;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Database\QueryException;
 use RuntimeException;
 
 class InventoryScanner extends Page
@@ -60,6 +63,12 @@ class InventoryScanner extends Page
     public string  $adjustQty    = '';
     public string  $adjustReason = '';
     public int     $adjustLocationId = 0;
+
+    // ── Unmatched-scan → attach barcode state ───────────────────────────────────
+
+    public ?string $unmatchedCode  = null;
+    public string  $attachSearch   = '';
+    public array   $attachResults  = [];
 
     // ── Quick Add state ───────────────────────────────────────────────────────
 
@@ -110,6 +119,14 @@ class InventoryScanner extends Page
         $this->qaFlash     = null;
         $this->rcvFlash    = null;
         $this->rcvError    = null;
+        $this->resetUnmatchedState();
+    }
+
+    private function resetUnmatchedState(): void
+    {
+        $this->unmatchedCode = null;
+        $this->attachSearch  = '';
+        $this->attachResults = [];
     }
 
     // ── Unified scan entry point ──────────────────────────────────────────────
@@ -132,6 +149,7 @@ class InventoryScanner extends Page
         $this->scanInput    = '';
         $this->errorMessage = null;
         $this->adjustMode   = false;
+        $this->resetUnmatchedState();
 
         if ($code === '') {
             return;
@@ -140,12 +158,85 @@ class InventoryScanner extends Page
         $item = InventoryItem::findByScan($code);
 
         if (! $item) {
-            $this->result       = null;
-            $this->errorMessage = "No inventory item found for \"{$code}\". Check the barcode or SKU on the item record.";
+            $this->result        = null;
+            $this->errorMessage  = "No inventory item found for \"{$code}\".";
+            $this->unmatchedCode = $code;
             return;
         }
 
         $this->result = $this->buildResultFromItem($item);
+    }
+
+    // ── Unmatched-scan → attach barcode to an existing item ─────────────────────
+
+    public function updatedAttachSearch(): void
+    {
+        $search = trim($this->attachSearch);
+
+        if ($search === '') {
+            $this->attachResults = [];
+            return;
+        }
+
+        $this->attachResults = InventoryItem::where('is_active', true)
+            ->where(fn ($q) => $q->where('name', 'like', "%{$search}%")
+                ->orWhere('sku', 'like', "%{$search}%")
+                ->orWhere('barcode', 'like', "%{$search}%"))
+            ->orderBy('name')
+            ->limit(15)
+            ->get(['id', 'name', 'sku', 'barcode'])
+            ->toArray();
+    }
+
+    /**
+     * Attach the last unmatched scan to an existing item — sets the item's
+     * primary barcode if it doesn't have one yet, otherwise records it as an
+     * additional scannable identity (ProductIdentity) so both codes keep working.
+     */
+    public function attachCodeToItem(int $itemId): void
+    {
+        if (! $this->unmatchedCode) {
+            return;
+        }
+
+        $item = InventoryItem::find($itemId);
+        if (! $item) {
+            Notification::make()->danger()->title('Item no longer exists.')->send();
+            return;
+        }
+
+        try {
+            if (blank($item->barcode)) {
+                $item->update(['barcode' => $this->unmatchedCode]);
+            } else {
+                ProductIdentity::firstOrCreate([
+                    'product_id' => $item->id,
+                    'type'       => ProductIdentity::TYPE_BARCODE,
+                    'value'      => $this->unmatchedCode,
+                    'vendor_id'  => null,
+                ], [
+                    'confirmed_by' => auth()->id(),
+                    'confirmed_at' => now(),
+                ]);
+            }
+        } catch (QueryException $e) {
+            Notification::make()
+                ->danger()
+                ->title('Could not attach barcode')
+                ->body('That code may already be linked to a different item.')
+                ->send();
+            return;
+        }
+
+        $code = $this->unmatchedCode;
+        $this->resetUnmatchedState();
+        $this->errorMessage = null;
+        $this->result = $this->buildResultFromItem($item->fresh());
+
+        Notification::make()
+            ->success()
+            ->title("Barcode \"{$code}\" attached to {$item->name}")
+            ->send();
     }
 
     public function openAdjust(): void

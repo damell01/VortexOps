@@ -48,7 +48,7 @@
             <div class="mt-3 flex flex-col gap-2 rounded-xl border border-primary-200 bg-primary-50 p-3 dark:border-primary-900 dark:bg-primary-950/20 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <div class="text-sm font-semibold text-primary-800 dark:text-primary-200">{{ $pendingCount }} item line(s) still need review</div>
-                    <div class="mt-0.5 text-xs text-primary-700/80 dark:text-primary-300/80">If everything for the show was fulfilled cleanly, you can finish the pending items at once.</div>
+                    <div class="mt-0.5 text-xs text-primary-700/80 dark:text-primary-300/80">If everything for the show was fulfilled cleanly, finish the pending items at once.</div>
                 </div>
                 <button wire:click="markAllFulfilled" wire:confirm="Mark every pending logged item as fulfilled?" class="min-h-11 rounded-lg bg-primary-600 px-4 text-xs font-semibold text-white">Mark All Pending Fulfilled</button>
             </div>
@@ -59,7 +59,6 @@
                 @php
                     $item = $line->inventoryItem;
                     $status = $line->fulfillmentStatus();
-                    $qty = $line->quantity_approved ?? $line->quantity_suggested ?? 0;
                     $badge = match($status) {
                         'fulfilled' => 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-300',
                         'not_fulfilled' => 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-300',
@@ -71,15 +70,16 @@
                         <div class="min-w-0 flex-1">
                             <div class="flex flex-wrap items-start justify-between gap-2">
                                 <div class="min-w-0">
-                                    <div class="text-sm font-semibold text-gray-950 dark:text-white">{{ $item?->name ?? $line->raw_description ?? 'Logged Inventory Item' }}</div>
+                                    <div class="text-sm font-semibold text-gray-950 dark:text-white">{{ $line->item_name ?: $item?->name ?: 'Logged Inventory Item' }}</div>
                                     <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-gray-500 sm:text-xs">
-                                        <span>Qty {{ number_format((float) $qty, 0) }}</span>
+                                        <span>Qty {{ number_format((float) $line->quantity, 0) }}</span>
+                                        <span>{{ $line->dispositionLabel() }}</span>
                                         @if($item?->sku)<span>SKU {{ $item->sku }}</span>@endif
                                         @if($line->location?->name)<span>{{ $line->location->name }}</span>@endif
                                         @if($item?->barcode)<span>Barcode {{ $item->barcode }}</span>@elseif($item?->upc)<span>UPC {{ $item->upc }}</span>@endif
                                     </div>
                                 </div>
-                                <span class="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold {{ $badge }}">{{ \App\Models\DeductionRequestLine::fulfillmentStatusLabels()[$status] ?? ucfirst(str_replace('_',' ', $status)) }}</span>
+                                <span class="shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold {{ $badge }}">{{ \App\Models\StreamerLogItem::fulfillmentStatusLabels()[$status] ?? ucfirst(str_replace('_',' ', $status)) }}</span>
                             </div>
 
                             <div class="mt-3">
@@ -103,8 +103,8 @@
                 </article>
             @empty
                 <div class="rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500 dark:border-gray-700">
-                    @if(!$request)
-                        No streamer-logged inventory request exists for this show yet.
+                    @if(!$report)
+                        No streamer log exists for this show yet.
                     @else
                         No logged items match the current search and status.
                     @endif

@@ -6,9 +6,13 @@ const { spawnSync } = require('child_process');
 
 const projectRoot = path.resolve(__dirname, '..');
 const mode = String(process.env.WHATNOT_MODE || 'analytics').trim();
-const scraplingModes = new Set(['analytics', 'orders-batch', 'shipments-batch', 'ledger']);
-const explicitBackend = String(process.env.WHATNOT_BROWSER_BACKEND || '').trim().toLowerCase();
-// Production data ingestion now defaults to Scrapling StealthySession. Utility/auth
+const scraplingModes = new Set(['shows', 'analytics', 'orders-batch', 'shipments-batch', 'ledger']);
+const explicitBackendRaw = String(process.env.WHATNOT_BROWSER_BACKEND || '').trim().toLowerCase();
+// Keep the public/config-facing name simple: WHATNOT_BROWSER_BACKEND=scrapling.
+// Internally both "scrapling" and the older "scrapling-stealthy" spelling route
+// through the same production StealthySession adapter.
+const explicitBackend = explicitBackendRaw === 'scrapling' ? 'scrapling-stealthy' : explicitBackendRaw;
+// Production show/data ingestion defaults to Scrapling StealthySession. Utility/auth
 // modes retain the established attached/local runner unless explicitly overridden.
 let backend = explicitBackend || (scraplingModes.has(mode) ? 'scrapling-stealthy' : 'local');
 const fallbackEnabled = String(process.env.WHATNOT_SCRAPER_FALLBACK || '0').trim() !== '0';
@@ -68,7 +72,11 @@ function runHttpHealth() { const python=String(childEnv.WHATNOT_PYTHON_BIN||'pyt
 function runScraplingStealthy() {
   const python=String(childEnv.WHATNOT_PYTHON_BIN||'python3').trim();
   const env={...childEnv,WHATNOT_SCRAPLING_USE_CDP:childEnv.WHATNOT_SCRAPLING_USE_CDP||'1',WHATNOT_SCRAPLING_CDP_URL:childEnv.WHATNOT_SCRAPLING_CDP_URL||localCdpEndpoint()};
-  process.stderr.write(`[whatnot] production browser backend: scrapling-stealthy (mode=${mode}, cdp=${env.WHATNOT_SCRAPLING_CDP_URL}, solve_cloudflare=false)\n`);
+  const solve=String(env.WHATNOT_SCRAPLING_SOLVE_CLOUDFLARE||'false').trim().toLowerCase();
+  const webrtc=String(env.WHATNOT_SCRAPLING_BLOCK_WEBRTC||'false').trim().toLowerCase();
+  const canvas=String(env.WHATNOT_SCRAPLING_HIDE_CANVAS||'false').trim().toLowerCase();
+  const webgl=String(env.WHATNOT_SCRAPLING_ALLOW_WEBGL||'true').trim().toLowerCase();
+  process.stderr.write(`[whatnot] production browser backend: scrapling-stealthy (mode=${mode}, cdp=${env.WHATNOT_SCRAPLING_CDP_URL}, solve_cloudflare=${solve}, block_webrtc=${webrtc}, hide_canvas=${canvas}, allow_webgl=${webgl})\n`);
   return spawnSync(python,[path.join(__dirname,'whatnot-scrapling-stealthy.py')],{env,cwd:projectRoot,stdio:'inherit'});
 }
 function runAttachedBrowser() {

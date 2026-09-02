@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Resources\FulfillmentResource;
 use App\Models\Show;
+use App\Models\StreamerLogItem;
 use Filament\Widgets\Widget;
 
 class FulfillmentCenterOverviewWidget extends Widget
@@ -24,8 +25,9 @@ class FulfillmentCenterOverviewWidget extends Widget
         $shows = FulfillmentResource::getEloquentQuery()->limit(60)->get();
 
         $queue = $shows->map(function (Show $show) {
-            $orders = (int) ($show->orders_count ?? 0);
-            $pendingLines = (int) ($show->pending_packing_count ?? 0);
+            $items = $show->streamerLogEntry?->items ?? collect();
+            $pendingLines = $items->filter(fn (StreamerLogItem $item) => ! $item->isFulfillmentReviewed())->count();
+            $issues = $items->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED)->count();
             $shipments = (int) ($show->shipments_count ?? 0);
             $open = (int) ($show->open_shipments_count ?? 0);
             $delivered = (int) ($show->delivered_shipments_count ?? 0);
@@ -36,36 +38,26 @@ class FulfillmentCenterOverviewWidget extends Widget
                 $label = 'Needs Assignment';
                 $tone = 'warning';
                 $next = 'Assign fulfillment';
+            } elseif ($pendingLines > 0) {
+                $stage = 'review';
+                $label = 'Review Logged Items';
+                $tone = 'primary';
+                $next = "Review {$pendingLines} logged item" . ($pendingLines === 1 ? '' : 's');
+            } elseif ($issues > 0) {
+                $stage = 'issues';
+                $label = 'Item Issues';
+                $tone = 'danger';
+                $next = "Resolve {$issues} not-fulfilled item" . ($issues === 1 ? '' : 's');
             } elseif ($show->streamerLogEntry?->needsFulfillmentReview()) {
                 $stage = 'verify';
                 $label = 'Verify Counts';
                 $tone = 'warning';
                 $next = 'Verify PWE / label counts for payroll';
-            } elseif ($pendingLines > 0) {
-                $stage = 'packing';
-                $label = 'Packing';
-                $tone = 'primary';
-                $next = "Pack {$pendingLines} line" . ($pendingLines === 1 ? '' : 's');
-            } elseif ($open > 0) {
-                $stage = 'shipping';
-                $label = 'Shipping';
-                $tone = 'info';
-                $next = "Work {$open} open shipment" . ($open === 1 ? '' : 's');
-            } elseif ($shipments > 0 && $open === 0) {
+            } else {
                 $stage = 'complete';
                 $label = 'Fulfillment Complete';
                 $tone = 'success';
                 $next = 'Ready for payroll / closeout';
-            } elseif ($orders > 0) {
-                $stage = 'ready';
-                $label = 'Ready to Pack';
-                $tone = 'primary';
-                $next = 'Open show and start packing';
-            } else {
-                $stage = 'waiting';
-                $label = 'Waiting on Data';
-                $tone = 'gray';
-                $next = 'Waiting for Whatnot shipment data';
             }
 
             $show->setAttribute('fulfillment_stage', [
@@ -74,7 +66,8 @@ class FulfillmentCenterOverviewWidget extends Widget
                 'tone' => $tone,
                 'next' => $next,
                 'pending_lines' => $pendingLines,
-                'orders' => $orders,
+                'issues' => $issues,
+                'logged_items' => $items->count(),
                 'shipments' => $shipments,
                 'open' => $open,
                 'delivered' => $delivered,
@@ -89,8 +82,8 @@ class FulfillmentCenterOverviewWidget extends Widget
                 'shows' => $queue->count(),
                 'unassigned' => $queue->where('fulfillment_stage.key', 'unassigned')->count(),
                 'verify' => $queue->where('fulfillment_stage.key', 'verify')->count(),
-                'packing' => $queue->whereIn('fulfillment_stage.key', ['ready', 'packing'])->count(),
-                'shipping' => $queue->where('fulfillment_stage.key', 'shipping')->count(),
+                'packing' => $queue->where('fulfillment_stage.key', 'review')->count(),
+                'shipping' => $queue->where('fulfillment_stage.key', 'issues')->count(),
                 'complete' => $queue->where('fulfillment_stage.key', 'complete')->count(),
                 'open_shipments' => $queue->sum(fn (Show $show) => (int) $show->getAttribute('fulfillment_stage')['open']),
                 'pending_lines' => $queue->sum(fn (Show $show) => (int) $show->getAttribute('fulfillment_stage')['pending_lines']),

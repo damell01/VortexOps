@@ -5,19 +5,19 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const projectRoot = path.resolve(__dirname, '..');
-let backend = String(process.env.WHATNOT_BROWSER_BACKEND || 'local').trim().toLowerCase();
 const mode = String(process.env.WHATNOT_MODE || 'analytics').trim();
 const scraplingModes = new Set(['analytics', 'orders-batch', 'shipments-batch', 'ledger']);
-const fallbackEnabled = String(process.env.WHATNOT_SCRAPER_FALLBACK || '1').trim() !== '0';
+const explicitBackend = String(process.env.WHATNOT_BROWSER_BACKEND || '').trim().toLowerCase();
+// Production data ingestion now defaults to Scrapling StealthySession. Utility/auth
+// modes retain the established attached/local runner unless explicitly overridden.
+let backend = explicitBackend || (scraplingModes.has(mode) ? 'scrapling-stealthy' : 'local');
+const fallbackEnabled = String(process.env.WHATNOT_SCRAPER_FALLBACK || '0').trim() !== '0';
 const httpPreflightEnabled = String(process.env.WHATNOT_HTTP_PREFLIGHT || '0').trim() === '1';
 const httpPreflightStrict = String(process.env.WHATNOT_HTTP_PREFLIGHT_STRICT || '0').trim() === '1';
 const autoBrowserEnabled = String(process.env.WHATNOT_AUTO_BROWSER || '1').trim() !== '0';
 const managedBrowserService = String(process.env.WHATNOT_BROWSER_SERVICE || 'vortexops-whatnot-browser.service').trim();
 
-function normalizeChannel(value) {
-  return String(value || '').trim().replace(/^@+/, '').toLowerCase();
-}
-
+function normalizeChannel(value) { return String(value || '').trim().replace(/^@+/, '').toLowerCase(); }
 function channelFromArgs() {
   const args = process.argv.slice(2);
   for (let i = 0; i < args.length; i += 1) {
@@ -26,272 +26,73 @@ function channelFromArgs() {
   }
   return '';
 }
-
 function scopedEnvironment() {
   const env = { ...process.env };
   const channel = normalizeChannel(env.WHATNOT_CHANNEL_NAME || channelFromArgs());
-
   if (channel) {
-    if (!/^[a-z0-9._-]+$/.test(channel)) {
-      console.error(`[whatnot] Invalid channel name: ${channel}`);
-      process.exit(2);
-    }
+    if (!/^[a-z0-9._-]+$/.test(channel)) { console.error(`[whatnot] Invalid channel name: ${channel}`); process.exit(2); }
     env.WHATNOT_CHANNEL_NAME = channel;
   }
-
-  const isolate = Boolean(channel)
-    && String(env.WHATNOT_CHANNEL_ISOLATE || '0').trim() === '1';
-  const configuredRoot = env.WHATNOT_STATE_DIR
-    ? path.resolve(projectRoot, env.WHATNOT_STATE_DIR)
-    : path.resolve(projectRoot, 'storage', 'whatnot-channels');
-
+  const isolate = Boolean(channel) && String(env.WHATNOT_CHANNEL_ISOLATE || '0').trim() === '1';
+  const configuredRoot = env.WHATNOT_STATE_DIR ? path.resolve(projectRoot, env.WHATNOT_STATE_DIR) : path.resolve(projectRoot, 'storage', 'whatnot-channels');
   if (isolate) {
     const channelRoot = path.join(configuredRoot, channel);
     env.WHATNOT_USER_DATA_DIR = path.join(channelRoot, 'browser-profile');
     env.WHATNOT_COOKIES_FILE = path.join(channelRoot, 'cookies.json');
     env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR = path.join(channelRoot, 'diagnostics');
     env.WHATNOT_HTTP_DIAGNOSTICS_DIR = path.join(channelRoot, 'diagnostics');
-    fs.mkdirSync(env.WHATNOT_USER_DATA_DIR, { recursive: true });
-    fs.mkdirSync(env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR, { recursive: true });
+    fs.mkdirSync(env.WHATNOT_USER_DATA_DIR, { recursive: true }); fs.mkdirSync(env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR, { recursive: true });
     console.error(`[whatnot] CHANNEL_SCOPE requested=@${channel} session=isolated state=${path.relative(projectRoot, channelRoot)}`);
   } else {
     const sharedProfile = path.resolve(projectRoot, 'storage', 'whatnot-browser-profile');
     env.WHATNOT_USER_DATA_DIR = env.WHATNOT_USER_DATA_DIR || sharedProfile;
-
     if (channel) {
       const channelRoot = path.join(configuredRoot, channel);
       env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR = env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR || path.join(channelRoot, 'diagnostics');
       env.WHATNOT_HTTP_DIAGNOSTICS_DIR = env.WHATNOT_HTTP_DIAGNOSTICS_DIR || path.join(channelRoot, 'diagnostics');
       fs.mkdirSync(env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR, { recursive: true });
       console.error(`[whatnot] CHANNEL_SCOPE requested=@${channel} session=shared-persistent profile=${path.relative(projectRoot, env.WHATNOT_USER_DATA_DIR)}`);
-    } else {
-      env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR = env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR || path.resolve(projectRoot, 'storage', 'logs', 'whatnot-scrapling');
-      env.WHATNOT_HTTP_DIAGNOSTICS_DIR = env.WHATNOT_HTTP_DIAGNOSTICS_DIR || path.resolve(projectRoot, 'storage', 'logs', 'whatnot-http');
     }
   }
-
   return env;
 }
-
 const childEnv = scopedEnvironment();
-
-function localCdpEndpoint() {
-  return String(childEnv.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222').trim().replace(/\/$/, '');
-}
-
+function localCdpEndpoint() { return String(childEnv.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222').trim().replace(/\/$/, ''); }
 function localCdpAvailable(timeoutSeconds = 2) {
-  const endpoint = localCdpEndpoint();
-  let parsed;
-  try { parsed = new URL(endpoint); } catch { return false; }
-  const host = (parsed.hostname || '').toLowerCase();
-  if (!['127.0.0.1', 'localhost', '::1'].includes(host)) return false;
-
-  const healthUrl = endpoint + '/json/version';
-  const result = spawnSync('curl', ['-fsS', '--max-time', String(timeoutSeconds), healthUrl], {
-    cwd: projectRoot,
-    encoding: 'utf8',
-  });
-  if (result.status !== 0) return false;
-  try {
-    const data = JSON.parse(result.stdout || '{}');
-    return Boolean(data.webSocketDebuggerUrl && data.Browser);
-  } catch {
-    return false;
-  }
+  const endpoint = localCdpEndpoint(); let parsed; try { parsed = new URL(endpoint); } catch { return false; }
+  if (!['127.0.0.1','localhost','::1'].includes((parsed.hostname || '').toLowerCase())) return false;
+  const result = spawnSync('curl', ['-fsS','--max-time',String(timeoutSeconds),endpoint + '/json/version'], { cwd: projectRoot, encoding: 'utf8' });
+  if (result.status !== 0) return false; try { const data=JSON.parse(result.stdout||'{}'); return Boolean(data.webSocketDebuggerUrl&&data.Browser); } catch { return false; }
 }
-
-function systemdServiceState() {
-  if (process.platform !== 'linux' || !managedBrowserService) return null;
-
-  const load = spawnSync('systemctl', ['show', managedBrowserService, '--property=LoadState', '--value'], {
-    cwd: projectRoot,
-    encoding: 'utf8',
-    timeout: 3000,
-  });
-  if (load.error || load.status !== 0 || String(load.stdout || '').trim() !== 'loaded') return null;
-
-  const active = spawnSync('systemctl', ['is-active', managedBrowserService], {
-    cwd: projectRoot,
-    encoding: 'utf8',
-    timeout: 3000,
-  });
-
-  return String(active.stdout || '').trim() || 'unknown';
+function runHttpHealth() { const python=String(childEnv.WHATNOT_PYTHON_BIN||'python3').trim(); return spawnSync(python,[path.join(__dirname,'whatnot-http-health.py')],{env:childEnv,cwd:projectRoot,stdio:'inherit'}); }
+function runScraplingStealthy() {
+  const python=String(childEnv.WHATNOT_PYTHON_BIN||'python3').trim();
+  const env={...childEnv,WHATNOT_SCRAPLING_USE_CDP:childEnv.WHATNOT_SCRAPLING_USE_CDP||'1',WHATNOT_SCRAPLING_CDP_URL:childEnv.WHATNOT_SCRAPLING_CDP_URL||localCdpEndpoint()};
+  process.stderr.write(`[whatnot] production browser backend: scrapling-stealthy (mode=${mode}, cdp=${env.WHATNOT_SCRAPLING_CDP_URL}, solve_cloudflare=false)\n`);
+  return spawnSync(python,[path.join(__dirname,'whatnot-scrapling-stealthy.py')],{env,cwd:projectRoot,stdio:'inherit'});
 }
-
-function waitForManagedBrowser(maxWaitMs = 6000) {
-  const deadline = Date.now() + maxWaitMs;
-  while (Date.now() < deadline) {
-    if (localCdpAvailable(1)) return true;
-    const pause = spawnSync('sleep', ['0.5']);
-    if (pause.error) break;
-  }
-  return localCdpAvailable(1);
-}
-
-function ensurePersistentBrowser() {
-  if (!autoBrowserEnabled || backend !== 'local' || localCdpAvailable()) return;
-  if (process.platform !== 'linux') return;
-
-  // Production owns the shared browser with systemd. If that unit exists, never
-  // launch an unmanaged second Chrome process against the same profile. A service
-  // that is activating/restarting gets a short readiness window; otherwise fail
-  // immediately with an operator-friendly message instead of waiting through the
-  // Playwright CDP attach timeout.
-  const serviceState = systemdServiceState();
-  if (serviceState !== null) {
-    if (['active', 'activating', 'reloading'].includes(serviceState) && waitForManagedBrowser()) {
-      process.stderr.write(`[whatnot] persistent browser service ${managedBrowserService} is ${serviceState}; CDP is healthy at ${localCdpEndpoint()}\n`);
-      return;
-    }
-
-    const action = `sudo systemctl restart ${managedBrowserService}`;
-    if (['active', 'activating', 'reloading'].includes(serviceState)) {
-      process.stderr.write(`[whatnot] ATTACHED_BROWSER_UNAVAILABLE: ${managedBrowserService} is ${serviceState}, but CDP ${localCdpEndpoint()} did not become healthy within 6s. Check: sudo systemctl status ${managedBrowserService}; recovery: ${action}\n`);
-    } else {
-      process.stderr.write(`[whatnot] ATTACHED_BROWSER_UNAVAILABLE: persistent browser service ${managedBrowserService} is ${serviceState}. Recovery: ${action}\n`);
-    }
-    return;
-  }
-
-  // Non-systemd/dev fallback retained for environments that do not install the
-  // managed browser unit.
-  const starter = path.join(__dirname, 'whatnot-browser-start.sh');
-  if (!fs.existsSync(starter)) {
-    process.stderr.write('[whatnot] ATTACHED_BROWSER_UNAVAILABLE: browser auto-start helper is missing; refusing to launch a second Chromium against the shared profile\n');
-    return;
-  }
-
-  process.stderr.write('[whatnot] no attached Chromium detected; starting the persistent shared browser\n');
-  const result = spawnSync('/bin/bash', [starter], {
-    env: {
-      ...childEnv,
-      WHATNOT_PROJECT_ROOT: projectRoot,
-      WHATNOT_ATTACH_CDP_URL: childEnv.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222',
-    },
-    cwd: projectRoot,
-    stdio: 'inherit',
-    timeout: 30000,
-  });
-
-  if (result.error) {
-    process.stderr.write(`[whatnot] ATTACHED_BROWSER_UNAVAILABLE: browser auto-start failed to execute: ${result.error.message}\n`);
-    return;
-  }
-
-  if (result.status !== 0) {
-    process.stderr.write(`[whatnot] ATTACHED_BROWSER_UNAVAILABLE: browser auto-start exited ${result.status}; refusing local fallback against the shared profile\n`);
-    return;
-  }
-
-  if (!localCdpAvailable()) {
-    process.stderr.write('[whatnot] ATTACHED_BROWSER_UNAVAILABLE: browser auto-start returned success but CDP is still unavailable; refusing local fallback against the shared profile\n');
-  }
-}
-
-// Production uses one long-lived, human-authenticated browser profile for every
-// Whatnot channel. Start it automatically when needed, then always attach to it.
-// This is session/browser lifecycle automation only; it does not solve, suppress,
-// or manipulate any site verification. Challenge detection remains in the scraper.
-ensurePersistentBrowser();
-
-// A live browser on our loopback CDP port owns the shared profile. Never start
-// another Chromium against that profile: borrow the already-running browser.
-if (backend === 'local' && localCdpAvailable()) {
-  backend = 'attached';
-  process.stderr.write('[whatnot] persistent Chromium detected on local CDP; auto-selecting attached mode (will not launch/kill Chromium)\n');
-}
-
-function runHttpHealth() {
-  const python = String(childEnv.WHATNOT_PYTHON_BIN || 'python3').trim();
-  const script = path.join(__dirname, 'whatnot-http-health.py');
-  process.stderr.write(`[whatnot] http session health preflight (mode=${mode})\n`);
-  return spawnSync(python, [script], { env: childEnv, cwd: projectRoot, stdio: 'inherit' });
-}
-
-function runScrapling() {
-  const python = String(childEnv.WHATNOT_PYTHON_BIN || 'python3').trim();
-  const script = path.join(__dirname, 'whatnot-scrapling.py');
-  process.stderr.write(`[whatnot] browser backend: scrapling-dynamic (mode=${mode})\n`);
-  return spawnSync(python, [script], { env: childEnv, cwd: projectRoot, stdio: 'inherit' });
-}
-
 function runAttachedBrowser() {
-  const script = path.join(__dirname, 'whatnot-attached-runner.cjs');
-  const env = {
-    ...childEnv,
-    WHATNOT_BROWSER_BACKEND: 'local',
-    WHATNOT_ATTACH_EXISTING_BROWSER: '1',
-    WHATNOT_ATTACH_CDP_URL: childEnv.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222',
-  };
+  const env={...childEnv,WHATNOT_BROWSER_BACKEND:'local',WHATNOT_ATTACH_EXISTING_BROWSER:'1',WHATNOT_ATTACH_CDP_URL:childEnv.WHATNOT_ATTACH_CDP_URL||'http://127.0.0.1:9222'};
   process.stderr.write(`[whatnot] browser backend: attached-persistent-chromium (mode=${mode}, cdp=${env.WHATNOT_ATTACH_CDP_URL})\n`);
-  return spawnSync(process.execPath, [script, ...process.argv.slice(2)], { env, cwd: projectRoot, stdio: 'inherit' });
+  return spawnSync(process.execPath,[path.join(__dirname,'whatnot-attached-runner.cjs'),...process.argv.slice(2)],{env,cwd:projectRoot,stdio:'inherit'});
 }
-
-function runPlaywright(reason = '') {
-  if (localCdpAvailable()) {
-    process.stderr.write('[whatnot] persistent Chromium became available before launch; attaching instead of starting a second browser\n');
-    return runAttachedBrowser();
-  }
-
-  const sharedProfile = path.resolve(projectRoot, 'storage', 'whatnot-browser-profile');
-  const requestedProfile = path.resolve(childEnv.WHATNOT_USER_DATA_DIR || sharedProfile);
-  if (requestedProfile === sharedProfile && String(childEnv.WHATNOT_CHANNEL_ISOLATE || '0').trim() !== '1') {
-    const suffix = reason ? ` fallback_reason=${reason}` : '';
-    const serviceState = systemdServiceState();
-    const serviceHint = serviceState === null
-      ? ''
-      : ` service=${managedBrowserService} state=${serviceState}; run sudo systemctl status ${managedBrowserService}`;
-    process.stderr.write(`[whatnot] ATTACHED_BROWSER_UNAVAILABLE: persistent Chromium health check failed at ${localCdpEndpoint()}; refusing playwright-local launch against shared profile${suffix}${serviceHint}\n`);
-    return { status: 1, error: null };
-  }
-
-  const script = path.join(__dirname, 'whatnot-scraper.cjs');
-  const env = { ...childEnv, WHATNOT_BROWSER_BACKEND: 'local' };
-  const suffix = reason ? ` fallback_reason=${reason}` : '';
-  process.stderr.write(`[whatnot] browser backend: playwright-local (mode=${mode})${suffix}\n`);
-  return spawnSync(process.execPath, [script, ...process.argv.slice(2)], { env, cwd: projectRoot, stdio: 'inherit' });
+function runPlaywright() {
+  if (localCdpAvailable()) return runAttachedBrowser();
+  const env={...childEnv,WHATNOT_BROWSER_BACKEND:'local'};
+  return spawnSync(process.execPath,[path.join(__dirname,'whatnot-scraper.cjs'),...process.argv.slice(2)],{env,cwd:projectRoot,stdio:'inherit'});
 }
+function exitFor(result,label) { if(result.error){process.stderr.write(`[whatnot] ${label} failed to start: ${result.error.message}\n`);process.exit(1);} process.exit(result.status==null?1:result.status); }
 
-function exitFor(result, label) {
-  if (result.error) {
-    process.stderr.write(`[whatnot] ${label} failed to start: ${result.error.message}\n`);
-    process.exit(1);
-  }
-  process.exit(result.status == null ? 1 : result.status);
+if (backend === 'http-health') exitFor(runHttpHealth(),'HTTP health adapter');
+if (httpPreflightEnabled && backend !== 'attached') { const p=runHttpHealth(); const s=p.status==null?1:p.status; if((p.error||s!==0)&&httpPreflightStrict) process.exit(s||1); }
+if (backend === 'scrapling-stealthy' && scraplingModes.has(mode)) {
+  const result=runScraplingStealthy(); const status=result.status==null?1:result.status;
+  if(status===0) process.exit(0);
+  // Production does not silently switch engines by default. Opt-in fallback is
+  // available for operator recovery, but scheduled ingestion remains Scrapling-first.
+  if(fallbackEnabled && !new Set([3,4,5]).has(status)) exitFor(runPlaywright(),'Playwright fallback');
+  exitFor(result,'Scrapling StealthySession runner');
 }
-
-if (backend === 'http-health') exitFor(runHttpHealth(), 'HTTP health adapter');
-
-if (httpPreflightEnabled && backend !== 'attached') {
-  const preflight = runHttpHealth();
-  const preflightStatus = preflight.status == null ? 1 : preflight.status;
-  if (preflight.error) {
-    process.stderr.write(`[whatnot] HTTP preflight failed to start: ${preflight.error.message}\n`);
-    if (httpPreflightStrict) process.exit(1);
-  } else if (preflightStatus !== 0) {
-    process.stderr.write(`[whatnot] HTTP preflight reported exit=${preflightStatus}; browser run ${httpPreflightStrict ? 'stopped' : 'will continue'}\n`);
-    if (httpPreflightStrict) process.exit(preflightStatus);
-  }
-}
-
-if (backend === 'attached') exitFor(runAttachedBrowser(), 'Attached browser runner');
-
-if (backend === 'scrapling' && scraplingModes.has(mode)) {
-  const scraplingResult = runScrapling();
-  const status = scraplingResult.status == null ? 1 : scraplingResult.status;
-  if (status === 0) process.exit(0);
-
-  const terminalStatuses = new Set([3, 4, 5]);
-  if (fallbackEnabled && !terminalStatuses.has(status)) {
-    const reason = scraplingResult.error ? 'scrapling-start-failure' : `scrapling-exit-${status}`;
-    exitFor(runPlaywright(reason), 'Playwright fallback');
-  }
-  exitFor(scraplingResult, 'Scrapling runner');
-}
-
-if (backend === 'scrapling') {
-  process.stderr.write(`[whatnot] Scrapling does not replace mode=${mode}; using the existing Node scraper for this utility/auth mode.\n`);
-}
-
-exitFor(runPlaywright(), 'Playwright runner');
+if (backend === 'scrapling-stealthy') process.stderr.write(`[whatnot] mode=${mode} is an auth/utility mode; retaining existing browser runner.\n`);
+if (backend === 'attached' || (backend === 'local' && localCdpAvailable())) exitFor(runAttachedBrowser(),'Attached browser runner');
+exitFor(runPlaywright(),'Playwright runner');

@@ -14,27 +14,19 @@
 
 return [
 
-    // Which provider drives AI calls. New drivers register in ProviderManager.
     'default_provider' => env('AI_PROVIDER', 'ollama'),
 
     'providers' => [
         'ollama' => [
             'driver' => 'ollama',
         ],
-        // OpenAI-compatible: also drives DeepSeek, Qwen/DashScope, Together,
-        // Groq, and local gateways — just point base_url at the endpoint.
         'openai' => [
             'driver'   => 'openai',
             'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
             'api_key'  => env('OPENAI_API_KEY'),
         ],
-        // Future: 'anthropic', 'gemini'.
     ],
 
-    /*
-    | Per-task model resolution. Each task names a Settings key (admin-managed,
-    | takes precedence) and a config default. ModelRouter::modelFor() reads this.
-    */
     'tasks' => [
         'chat' => [
             'setting' => 'ollama_chat_model',
@@ -62,10 +54,6 @@ return [
         ],
     ],
 
-    /*
-    | Generation defaults. Same Settings-first pattern; ModelRouter merges these
-    | with per-call overrides.
-    */
     'generation' => [
         'temperature'    => ['setting' => 'ai_temperature',    'default' => (float) env('AI_TEMPERATURE', 0.7)],
         'top_p'          => ['setting' => 'ai_top_p',          'default' => (float) env('AI_TOP_P', 0.9)],
@@ -75,19 +63,30 @@ return [
 
     'streaming' => ['setting' => 'ai_streaming', 'default' => (bool) env('AI_STREAMING', true)],
 
-    // Seconds to cache deterministic AI results (used by higher-level services).
     'cache_ttl' => ['setting' => 'ai_cache_ttl', 'default' => (int) env('AI_CACHE_TTL', 300)],
 
     /*
-    | Conversation memory. The assistant remembers recent turns per user for
-    | `ttl` seconds (sliding), keeping at most `turns` turns per thread.
+    | Low-resource operations mode
+    |--------------------------------------------------------------------------
+    | Background-only is intentionally true by default. When enabled, normal
+    | Filament/Livewire matching paths stop before embeddings/LLM calls and only
+    | dedicated `ai` queue jobs contact the model server.
     */
+    'ops' => [
+        'enabled'           => (bool) env('AI_OPS_ENABLED', true),
+        'use_llm'           => (bool) env('AI_OPS_USE_LLM', true),
+        'background_only'   => (bool) env('AI_BACKGROUND_ONLY', true),
+        'queue'             => env('AI_OPS_QUEUE', 'ai'),
+        'max_tokens'        => (int) env('AI_OPS_MAX_TOKENS', 600),
+        'context_length'    => (int) env('AI_OPS_CONTEXT_LENGTH', 2048),
+        'max_payload_chars' => (int) env('AI_OPS_MAX_PAYLOAD_CHARS', 12000),
+    ],
+
     'memory' => [
         'ttl'   => (int) env('AI_MEMORY_TTL', 3600),
         'turns' => (int) env('AI_MEMORY_TURNS', 20),
     ],
 
-    // Persist every AI call as telemetry (latency/model/success). Prunable.
     'monitoring' => [
         'enabled' => (bool) env('AI_MONITORING', true),
     ],

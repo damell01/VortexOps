@@ -2,24 +2,21 @@
 
 namespace App\Services;
 
+use App\Jobs\GenerateProductEmbeddingJob;
 use App\Models\Product;
 use App\Models\ProductIdentity;
-use App\Models\Vendor;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Log;
 
 /**
  * Three-stage product matching pipeline:
  *
  *   Stage 1 — Alias lookup (0 ms, 100% confidence)
- *   Stage 2 — Fuzzy text matching (5–20 ms, structured token scoring)
- *   Stage 3 — Ollama embedding similarity + optional LLM confirmation
+ *   Stage 2 — Fuzzy text matching (5–20ms, structured token scoring)
+ *   Stage 3 — Ollama embedding similarity
  *
- * Confidence thresholds:
- *   >= 1.00  exact alias match
- *   >= 0.95  auto-accept (no human review)
- *   >= 0.80  needs review
- *   <  0.80  new product candidate
+ * Callers running inside a web request can set $skipEmbedding=true. That keeps
+ * matching entirely in PHP/SQL so a cold or busy local model can never hold up
+ * receiving, inventory, or another normal page request.
  */
 class ProductMatchingService
 {
@@ -30,35 +27,39 @@ class ProductMatchingService
     /** Per-request memo of the active-product catalogue (see fuzzyCatalog). */
     private ?\Illuminate\Database\Eloquent\Collection $catalogMemo = null;
 
-    // ── Match result ───────────────────────────────────────────────────────────
-
     /**
      * @return array{product: ?Product, confidence: float, stage: string, reasons: string[], candidates: array, identity: ?ProductIdentity}
      */
-    public function match(string $description, ?string $upc = null, ?int $vendorId = null): array
-    {
-        // Stage 1: exact alias / identity lookup
+    public function match(
+        string $description,
+        ?string $upc = null,
+        ?int $vendorId = null,
+        bool $skipEmbedding = false,
+    ): array {
         $stage1 = $this->aliasLookup($description, $upc, $vendorId);
         if ($stage1['product'] && $stage1['confidence'] >= 1.0) {
             return $stage1;
         }
 
-        // Stage 2: fuzzy text match
         $stage2 = $this->fuzzyMatch($description, $upc);
         if ($stage2['product'] && $stage2['confidence'] >= 0.95) {
             return $stage2;
         }
 
-        // Stage 3: embedding similarity
+        // This is the important low-resource boundary: web-request matching ends
+        // here. Fuzzy candidates are still useful for the review UI, while no
+        // HTTP request to Ollama/embedding model is made.
+        if ($skipEmbedding) {
+            return $stage2;
+        }
+
         $stage3 = $this->embeddingMatch($description, $upc);
         if ($stage3['product']) {
-            // Merge candidates from stage 2 and 3 for the review UI
             $stage3['candidates'] = array_merge($stage2['candidates'], $stage3['candidates']);
             $stage3['reasons'] = array_merge($stage3['reasons'], $stage2['reasons']);
             return $stage3;
         }
 
-        // Nothing found — return stage 2 candidates (best fuzzy guesses) for the UI
         return [
             'product'    => null,
             'confidence' => 0.0,
@@ -69,13 +70,10 @@ class ProductMatchingService
         ];
     }
 
-    // ── Stage 1: Alias lookup ──────────────────────────────────────────────────
-
     private function aliasLookup(string $description, ?string $upc, ?int $vendorId): array
     {
         $normalized = $this->embedding->normalizeText($description);
 
-        // Direct UPC lookup
         if ($upc) {
             $byUpc = Product::where('upc', $upc)->first()
                 ?? ProductIdentity::where('type', ProductIdentity::TYPE_UPC)
@@ -89,22 +87,19 @@ class ProductMatchingService
             }
         }
 
-        // Alias table lookup (vendor-scoped first, then global)
         $identity = ProductIdentity::findAlias($normalized, $vendorId)
             ?? ProductIdentity::findAlias($normalized, null);
 
         if ($identity?->product) {
             $identity->increment('times_confirmed');
             $identity->update(['last_confirmed_at' => now()]);
-            $count   = $identity->times_confirmed;
-            $reasons = [
-                "Alias matched exactly",
+            $count = $identity->times_confirmed;
+            return $this->result($identity->product, 1.0, 'alias', $identity, [], [
+                'Alias matched exactly',
                 "Learned from {$count} previous " . ($count === 1 ? 'shipment' : 'shipments'),
-            ];
-            return $this->result($identity->product, 1.0, 'alias', $identity, [], $reasons);
+            ]);
         }
 
-        // Exact name match as fallback
         $exact = Product::whereRaw('LOWER(name) = ?', [$normalized])->first();
         if ($exact) {
             return $this->result($exact, 1.0, 'alias', null, [], ['Exact product name match']);
@@ -113,21 +108,15 @@ class ProductMatchingService
         return $this->emptyResult();
     }
 
-    // ── Stage 2: Fuzzy matching ────────────────────────────────────────────────
-
     private function fuzzyMatch(string $description, ?string $upc): array
     {
         $tokens = $this->tokenize($description);
-
         if (empty($tokens)) {
             return $this->emptyResult();
         }
 
-        $products = $this->fuzzyCatalog();
-
         $scores = [];
-
-        foreach ($products as $product) {
+        foreach ($this->fuzzyCatalog() as $product) {
             $scored = $this->scoreTokensDetailed($tokens, $product);
             if ($scored['score'] > 0.5) {
                 $scores[$product->id] = ['product' => $product, 'score' => $scored['score'], 'reasons' => $scored['reasons']];
@@ -140,7 +129,6 @@ class ProductMatchingService
 
         uasort($scores, fn ($a, $b) => $b['score'] <=> $a['score']);
         $top = reset($scores);
-
         $candidates = array_map(
             fn ($s) => ['product' => $s['product'], 'confidence' => round($s['score'], 4)],
             array_slice($scores, 0, 5, true)
@@ -153,13 +141,9 @@ class ProductMatchingService
         return $this->emptyResult('fuzzy', $candidates);
     }
 
-    /**
-     * Score a product against tokenized query with detailed reasons. Returns score + reasons.
-     */
     private function scoreTokensDetailed(array $tokens, Product $product): array
     {
         $reasons = [];
-
         $productText = $this->embedding->normalizeText(implode(' ', array_filter([
             $product->name,
             $product->brand,
@@ -175,31 +159,25 @@ class ProductMatchingService
             return ['score' => 0.0, 'reasons' => []];
         }
 
-        // Token overlap score
         $intersection = count(array_intersect($tokens, $productTokens));
-        $union        = count(array_unique(array_merge($tokens, $productTokens)));
-        $jaccard      = $union > 0 ? $intersection / $union : 0.0;
+        $union = count(array_unique(array_merge($tokens, $productTokens)));
+        $jaccard = $union > 0 ? $intersection / $union : 0.0;
 
-        // Bonus: year exact match
         $yearBonus = 0.0;
-        if ($product->year) {
-            if (in_array((string) $product->year, $tokens)) {
-                $yearBonus = 0.1;
-                $reasons[] = "Year matched ({$product->year})";
-            }
+        if ($product->year && in_array((string) $product->year, $tokens)) {
+            $yearBonus = 0.1;
+            $reasons[] = "Year matched ({$product->year})";
         }
 
-        // Bonus: brand token present
         $brandBonus = 0.0;
         if ($product->brand) {
             $brandTokens = $this->tokenize($product->brand);
             if (! empty(array_intersect($tokens, $brandTokens))) {
                 $brandBonus = 0.05;
-                $reasons[]  = "Brand matched ({$product->brand})";
+                $reasons[] = "Brand matched ({$product->brand})";
             }
         }
 
-        // Configuration bonus
         if ($product->configuration) {
             $configTokens = $this->tokenize($product->configuration);
             if (! empty(array_intersect($tokens, $configTokens))) {
@@ -207,7 +185,6 @@ class ProductMatchingService
             }
         }
 
-        // Sport bonus
         if ($product->sport) {
             $sportTokens = $this->tokenize($product->sport);
             if (! empty(array_intersect($tokens, $sportTokens))) {
@@ -215,7 +192,6 @@ class ProductMatchingService
             }
         }
 
-        // Name similarity
         $nameSimilarity = 0.0;
         similar_text(
             implode(' ', $tokens),
@@ -229,12 +205,9 @@ class ProductMatchingService
         return ['score' => min(1.0, $raw), 'reasons' => $reasons];
     }
 
-    // ── Stage 3: Embedding similarity ─────────────────────────────────────────
-
     private function embeddingMatch(string $description, ?string $upc): array
     {
         $queryEmbedding = $this->embedding->embed($description);
-
         if (! $queryEmbedding) {
             return $this->emptyResult('embedding');
         }
@@ -245,35 +218,38 @@ class ProductMatchingService
         }
 
         $ranked = $this->embedding->rankBySimilarity($queryEmbedding, $catalog, 5);
-
         if (empty($ranked)) {
             return $this->emptyResult('embedding');
         }
 
-        $topId    = array_key_first($ranked);
+        $topId = array_key_first($ranked);
         $topScore = $ranked[$topId];
-
         $productIds = array_keys($ranked);
-        $products   = Product::whereIn('id', $productIds)->where('is_active', true)->get()->keyBy('id');
+        $products = Product::whereIn('id', $productIds)->where('is_active', true)->get()->keyBy('id');
 
         $candidates = array_map(fn ($id, $score) => [
-            'product'    => $products[$id] ?? null,
+            'product' => $products[$id] ?? null,
             'confidence' => round($score, 4),
         ], $productIds, $ranked);
         $candidates = array_filter($candidates, fn ($c) => $c['product'] !== null);
 
         if ($topScore >= 0.80 && isset($products[$topId])) {
-            $reasons = [sprintf('Embedding similarity: %.1f%%', $topScore * 100)];
-            return $this->result($products[$topId], round($topScore, 4), 'embedding', null, array_values($candidates), $reasons);
+            return $this->result(
+                $products[$topId],
+                round($topScore, 4),
+                'embedding',
+                null,
+                array_values($candidates),
+                [sprintf('Embedding similarity: %.1f%%', $topScore * 100)],
+            );
         }
 
         return $this->emptyResult('embedding', array_values($candidates));
     }
 
-    // ── Confirmation / learning ────────────────────────────────────────────────
-
     /**
-     * Record a human-confirmed match. Saves the alias for instant future lookups.
+     * Record a human-confirmed match. The alias is immediate and deterministic.
+     * Embedding enrichment is pushed to the AI worker in background-only mode.
      */
     public function confirmMatch(
         string $vendorDescription,
@@ -284,15 +260,20 @@ class ProductMatchingService
         ?int $vendorId = null
     ): ProductIdentity {
         $normalized = $this->embedding->normalizeText($vendorDescription);
-
         $identity = ProductIdentity::recordAlias($product, $normalized, $confidence, $stage, $vendorId);
         $identity->recordConfirmation($confirmedByUserId);
 
-        // Persist the embedding for faster future similarity lookups
-        if (in_array($stage, ['embedding', 'llm'])) {
-            $emb = $this->embedding->embed($normalized);
-            if ($emb) {
-                $identity->update(['embedding' => $emb]);
+        if (in_array($stage, ['embedding', 'llm'], true)) {
+            if (config('ai.ops.background_only', true)) {
+                // The learned alias works immediately. Generate/rebuild the
+                // product embedding later without holding this request open.
+                GenerateProductEmbeddingJob::dispatch($product->id)
+                    ->onQueue((string) config('ai.ops.queue', 'ai'));
+            } else {
+                $emb = $this->embedding->embed($normalized);
+                if ($emb) {
+                    $identity->update(['embedding' => $emb]);
+                }
             }
         }
 
@@ -302,16 +283,6 @@ class ProductMatchingService
         return $identity;
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────────
-
-    /**
-     * The active-product catalogue used by fuzzy scoring, memoized on the
-     * instance for the life of this request. It is deliberately NOT stored in
-     * the shared cache: the database/file cache stores can't round-trip hydrated
-     * Eloquent models (they come back as __PHP_Incomplete_Class and blow up the
-     * return type), and a whole import batch shares one service instance, so a
-     * single query per batch is all the caching that's needed.
-     */
     private function fuzzyCatalog(): \Illuminate\Database\Eloquent\Collection
     {
         return $this->catalogMemo ??= Product::where('is_active', true)
@@ -322,7 +293,6 @@ class ProductMatchingService
     public function flushFuzzyCatalog(): void
     {
         $this->catalogMemo = null;
-        // Clear any stale cross-request entry left by earlier versions.
         Cache::forget('matching:fuzzy_catalog');
     }
 

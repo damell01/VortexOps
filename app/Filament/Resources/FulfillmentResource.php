@@ -42,6 +42,12 @@ class FulfillmentResource extends Resource
         $query = parent::getEloquentQuery()
             ->with(['streamers', 'channel', 'fulfillmentUsers', 'streamerLogEntry'])
             ->withCount('orders')
+            ->withCount([
+                'orders as pending_packing_count' => fn ($q) => $q->where(function ($pending) {
+                    $pending->whereNull('shipping_status')
+                        ->orWhereIn('shipping_status', ['', 'pending', 'label_created']);
+                }),
+            ])
             ->withCount('shipments')
             ->withCount([
                 'shipments as delivered_shipments_count' => fn ($q) => $q->whereRaw("LOWER(COALESCE(status, '')) = 'delivered'"),
@@ -121,8 +127,8 @@ class FulfillmentResource extends Resource
                     ->tooltip(fn ($record) => $record->fulfillment_notes),
                 TextColumn::make('streamers.name')->label('Streamer')->badge()->separator(', ')->placeholder('Unassigned')->visibleFrom('md'),
                 TextColumn::make('fulfillmentUsers.name')->label('Fulfillment')->badge()->separator(', ')->placeholder('Unassigned')->visibleFrom('lg'),
-                TextColumn::make('orders_count')->label('Packing Lines')->numeric()->sortable(),
-                TextColumn::make('open_shipments_count')->label('Open Shipments')->numeric()->badge()->color(fn ($state) => (int) $state > 0 ? 'warning' : 'success')->sortable(),
+                TextColumn::make('pending_packing_count')->label('To Pack')->numeric()->badge()->color(fn ($state) => (int) $state > 0 ? 'warning' : 'success')->sortable(),
+                TextColumn::make('open_shipments_count')->label('Open Shipments')->numeric()->badge()->color(fn ($state) => (int) $state > 0 ? 'info' : 'success')->sortable(),
                 TextColumn::make('delivered_shipments_count')->label('Delivered')->numeric()->sortable()->visibleFrom('lg'),
                 TextColumn::make('fulfillment_next_action')
                     ->label('Next')
@@ -133,7 +139,7 @@ class FulfillmentResource extends Resource
                         );
                         if ($record->fulfillmentUsers->isEmpty()) return 'Assign';
                         if ($record->streamerLogEntry?->needsFulfillmentReview()) return 'Verify counts';
-                        if ((int) $record->orders_count > 0 && (int) $record->shipments_count === 0) return 'Pack orders';
+                        if ((int) $record->pending_packing_count > 0) return 'Pack orders';
                         if ((int) $record->open_shipments_count > 0) return 'Work shipments';
                         if ($approved && (int) $record->shipments_count === 0) return 'Await shipment data';
                         if ((int) $record->shipments_count > 0) return 'Complete ✓';
@@ -143,6 +149,7 @@ class FulfillmentResource extends Resource
                     ->color(function (Show $record): string {
                         if ($record->fulfillmentUsers->isEmpty()) return 'warning';
                         if ($record->streamerLogEntry?->needsFulfillmentReview()) return 'warning';
+                        if ((int) $record->pending_packing_count > 0) return 'primary';
                         if ((int) $record->open_shipments_count > 0) return 'info';
                         if ((int) $record->shipments_count > 0) return 'success';
                         return 'gray';

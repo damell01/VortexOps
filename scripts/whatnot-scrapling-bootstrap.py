@@ -178,7 +178,7 @@ def main() -> None:
                 "No challenge bypass was attempted.",
                 4,
             )
-        if re.search(r"/(login|signin|auth)(/|\\?|$)", result["url"], re.I):
+        if re.search(r"/(login|signin|auth)(/|\?|$)", result["url"], re.I):
             fail(
                 f"BOOTSTRAP_SESSION_EXPIRED: saved cookies redirected to login ({result['url']}). "
                 "Export a fresh authenticated Whatnot cookie snapshot and rerun this bootstrap.",

@@ -2,8 +2,8 @@
 
 namespace App\Livewire;
 
-use App\Models\DeductionRequestLine;
 use App\Models\Show;
+use App\Models\StreamerLogItem;
 use Livewire\Component;
 
 class FulfillmentDashboard extends Component
@@ -18,12 +18,12 @@ class FulfillmentDashboard extends Component
         $this->show = $show;
     }
 
-    public function markFulfilled(DeductionRequestLine $line): void
+    public function markFulfilled(StreamerLogItem $line): void
     {
         $this->authorizeLine($line);
 
         $line->update([
-            'fulfillment_status' => DeductionRequestLine::FULFILLMENT_FULFILLED,
+            'fulfillment_status' => StreamerLogItem::FULFILLMENT_FULFILLED,
             'fulfillment_note' => filled($this->notes[$line->id] ?? null) ? trim($this->notes[$line->id]) : null,
             'fulfilled_by' => auth()->id(),
             'fulfilled_at' => now(),
@@ -32,13 +32,13 @@ class FulfillmentDashboard extends Component
         $this->dispatch('notify', message: 'Item marked fulfilled');
     }
 
-    public function markNotFulfilled(DeductionRequestLine $line): void
+    public function markNotFulfilled(StreamerLogItem $line): void
     {
         $this->authorizeLine($line);
         $note = trim((string) ($this->notes[$line->id] ?? ''));
 
         $line->update([
-            'fulfillment_status' => DeductionRequestLine::FULFILLMENT_NOT_FULFILLED,
+            'fulfillment_status' => StreamerLogItem::FULFILLMENT_NOT_FULFILLED,
             'fulfillment_note' => $note !== '' ? $note : 'Not fulfilled',
             'fulfilled_by' => auth()->id(),
             'fulfilled_at' => now(),
@@ -47,7 +47,7 @@ class FulfillmentDashboard extends Component
         $this->dispatch('notify', message: 'Item marked not fulfilled');
     }
 
-    public function resetFulfillment(DeductionRequestLine $line): void
+    public function resetFulfillment(StreamerLogItem $line): void
     {
         $this->authorizeLine($line);
 
@@ -64,18 +64,18 @@ class FulfillmentDashboard extends Component
 
     public function markAllFulfilled(): void
     {
-        $request = $this->show->latestDeductionRequest()->first();
-        if (! $request) {
+        $report = $this->show->streamerLogEntry()->first();
+        if (! $report) {
             return;
         }
 
-        $request->lines()
+        $report->items()
             ->where(function ($query) {
                 $query->whereNull('fulfillment_status')
-                    ->orWhere('fulfillment_status', DeductionRequestLine::FULFILLMENT_PENDING);
+                    ->orWhere('fulfillment_status', StreamerLogItem::FULFILLMENT_PENDING);
             })
             ->update([
-                'fulfillment_status' => DeductionRequestLine::FULFILLMENT_FULFILLED,
+                'fulfillment_status' => StreamerLogItem::FULFILLMENT_FULFILLED,
                 'fulfilled_by' => auth()->id(),
                 'fulfilled_at' => now(),
                 'updated_at' => now(),
@@ -84,9 +84,9 @@ class FulfillmentDashboard extends Component
         $this->dispatch('notify', message: 'All pending logged items marked fulfilled');
     }
 
-    protected function authorizeLine(DeductionRequestLine $line): void
+    protected function authorizeLine(StreamerLogItem $line): void
     {
-        $belongsToShow = $line->request()
+        $belongsToShow = $line->logEntry()
             ->where('show_id', $this->show->id)
             ->exists();
 
@@ -95,28 +95,30 @@ class FulfillmentDashboard extends Component
 
     public function render()
     {
-        $request = $this->show->latestDeductionRequest()
-            ->with(['lines.inventoryItem', 'lines.location', 'lines.fulfilledBy'])
+        $report = $this->show->streamerLogEntry()
+            ->with(['items.inventoryItem', 'items.location', 'items.fulfilledBy'])
             ->first();
 
-        $lines = $request?->lines ?? collect();
+        $allLines = $report?->items ?? collect();
+        $lines = $allLines;
 
         if ($this->filterStatus !== 'all') {
-            $lines = $lines->filter(function (DeductionRequestLine $line) {
+            $lines = $lines->filter(function (StreamerLogItem $line) {
                 return $line->fulfillmentStatus() === $this->filterStatus;
             });
         }
 
         if (filled($this->search)) {
             $needle = mb_strtolower(trim($this->search));
-            $lines = $lines->filter(function (DeductionRequestLine $line) use ($needle) {
+            $lines = $lines->filter(function (StreamerLogItem $line) use ($needle) {
                 $item = $line->inventoryItem;
                 $haystack = implode(' ', array_filter([
+                    $line->item_name,
                     $item?->name,
                     $item?->sku,
                     $item?->barcode,
                     $item?->upc,
-                    $line->raw_description,
+                    $line->dispositionLabel(),
                     $line->location?->name,
                 ]));
 
@@ -124,10 +126,9 @@ class FulfillmentDashboard extends Component
             });
         }
 
-        $allLines = $request?->lines ?? collect();
-        $pendingCount = $allLines->filter(fn (DeductionRequestLine $line) => ! $line->isFulfillmentReviewed())->count();
-        $fulfilledCount = $allLines->filter(fn (DeductionRequestLine $line) => $line->fulfillmentStatus() === DeductionRequestLine::FULFILLMENT_FULFILLED)->count();
-        $notFulfilledCount = $allLines->filter(fn (DeductionRequestLine $line) => $line->fulfillmentStatus() === DeductionRequestLine::FULFILLMENT_NOT_FULFILLED)->count();
+        $pendingCount = $allLines->filter(fn (StreamerLogItem $line) => ! $line->isFulfillmentReviewed())->count();
+        $fulfilledCount = $allLines->filter(fn (StreamerLogItem $line) => $line->fulfillmentStatus() === StreamerLogItem::FULFILLMENT_FULFILLED)->count();
+        $notFulfilledCount = $allLines->filter(fn (StreamerLogItem $line) => $line->fulfillmentStatus() === StreamerLogItem::FULFILLMENT_NOT_FULFILLED)->count();
 
         foreach ($allLines as $line) {
             if (! array_key_exists($line->id, $this->notes) && filled($line->fulfillment_note)) {
@@ -146,7 +147,7 @@ class FulfillmentDashboard extends Component
 
         return view('livewire.fulfillment-dashboard', [
             'show' => $this->show,
-            'request' => $request,
+            'report' => $report,
             'lines' => $lines,
             'allLines' => $allLines,
             'pendingCount' => $pendingCount,

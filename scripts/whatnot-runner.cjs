@@ -12,6 +12,7 @@ const fallbackEnabled = String(process.env.WHATNOT_SCRAPER_FALLBACK || '1').trim
 const httpPreflightEnabled = String(process.env.WHATNOT_HTTP_PREFLIGHT || '0').trim() === '1';
 const httpPreflightStrict = String(process.env.WHATNOT_HTTP_PREFLIGHT_STRICT || '0').trim() === '1';
 const autoBrowserEnabled = String(process.env.WHATNOT_AUTO_BROWSER || '1').trim() !== '0';
+const managedBrowserService = String(process.env.WHATNOT_BROWSER_SERVICE || 'vortexops-whatnot-browser.service').trim();
 
 function normalizeChannel(value) {
   return String(value || '').trim().replace(/^@+/, '').toLowerCase();
@@ -74,31 +75,87 @@ function scopedEnvironment() {
 
 const childEnv = scopedEnvironment();
 
-function localCdpAvailable() {
-  const endpoint = String(childEnv.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222').trim();
+function localCdpEndpoint() {
+  return String(childEnv.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222').trim().replace(/\/$/, '');
+}
+
+function localCdpAvailable(timeoutSeconds = 2) {
+  const endpoint = localCdpEndpoint();
   let parsed;
   try { parsed = new URL(endpoint); } catch { return false; }
   const host = (parsed.hostname || '').toLowerCase();
   if (!['127.0.0.1', 'localhost', '::1'].includes(host)) return false;
 
-  const healthUrl = endpoint.replace(/\/$/, '') + '/json/version';
-  const result = spawnSync('curl', ['-fsS', '--max-time', '2', healthUrl], {
+  const healthUrl = endpoint + '/json/version';
+  const result = spawnSync('curl', ['-fsS', '--max-time', String(timeoutSeconds), healthUrl], {
     cwd: projectRoot,
     encoding: 'utf8',
   });
   if (result.status !== 0) return false;
   try {
     const data = JSON.parse(result.stdout || '{}');
-    return Boolean(data.webSocketDebuggerUrl);
+    return Boolean(data.webSocketDebuggerUrl && data.Browser);
   } catch {
     return false;
   }
+}
+
+function systemdServiceState() {
+  if (process.platform !== 'linux' || !managedBrowserService) return null;
+
+  const load = spawnSync('systemctl', ['show', managedBrowserService, '--property=LoadState', '--value'], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    timeout: 3000,
+  });
+  if (load.error || load.status !== 0 || String(load.stdout || '').trim() !== 'loaded') return null;
+
+  const active = spawnSync('systemctl', ['is-active', managedBrowserService], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    timeout: 3000,
+  });
+
+  return String(active.stdout || '').trim() || 'unknown';
+}
+
+function waitForManagedBrowser(maxWaitMs = 6000) {
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    if (localCdpAvailable(1)) return true;
+    const pause = spawnSync('sleep', ['0.5']);
+    if (pause.error) break;
+  }
+  return localCdpAvailable(1);
 }
 
 function ensurePersistentBrowser() {
   if (!autoBrowserEnabled || backend !== 'local' || localCdpAvailable()) return;
   if (process.platform !== 'linux') return;
 
+  // Production owns the shared browser with systemd. If that unit exists, never
+  // launch an unmanaged second Chrome process against the same profile. A service
+  // that is activating/restarting gets a short readiness window; otherwise fail
+  // immediately with an operator-friendly message instead of waiting through the
+  // Playwright CDP attach timeout.
+  const serviceState = systemdServiceState();
+  if (serviceState !== null) {
+    if (['active', 'activating', 'reloading'].includes(serviceState) && waitForManagedBrowser()) {
+      process.stderr.write(`[whatnot] persistent browser service ${managedBrowserService} is ${serviceState}; CDP is healthy at ${localCdpEndpoint()}\n`);
+      return;
+    }
+
+    const action = `sudo systemctl restart ${managedBrowserService}`;
+    if (['active', 'activating', 'reloading'].includes(serviceState)) {
+      process.stderr.write(`[whatnot] ATTACHED_BROWSER_UNAVAILABLE: ${managedBrowserService} is ${serviceState}, but CDP ${localCdpEndpoint()} did not become healthy within 6s. Check: sudo systemctl status ${managedBrowserService}; recovery: ${action}\n`);
+    } else {
+      process.stderr.write(`[whatnot] ATTACHED_BROWSER_UNAVAILABLE: persistent browser service ${managedBrowserService} is ${serviceState}. Recovery: ${action}\n`);
+    }
+    return;
+  }
+
+  // Non-systemd/dev fallback retained for environments that do not install the
+  // managed browser unit.
   const starter = path.join(__dirname, 'whatnot-browser-start.sh');
   if (!fs.existsSync(starter)) {
     process.stderr.write('[whatnot] ATTACHED_BROWSER_UNAVAILABLE: browser auto-start helper is missing; refusing to launch a second Chromium against the shared profile\n');
@@ -177,14 +234,15 @@ function runPlaywright(reason = '') {
     return runAttachedBrowser();
   }
 
-  // The shared Whatnot profile belongs exclusively to the persistent browser on
-  // loopback CDP. Never let Playwright launch its own Chromium with this profile:
-  // doing so steals SingletonLock and creates an untracked random CDP port.
   const sharedProfile = path.resolve(projectRoot, 'storage', 'whatnot-browser-profile');
   const requestedProfile = path.resolve(childEnv.WHATNOT_USER_DATA_DIR || sharedProfile);
   if (requestedProfile === sharedProfile && String(childEnv.WHATNOT_CHANNEL_ISOLATE || '0').trim() !== '1') {
     const suffix = reason ? ` fallback_reason=${reason}` : '';
-    process.stderr.write(`[whatnot] ATTACHED_BROWSER_UNAVAILABLE: persistent Chromium is not reachable on loopback CDP; refusing playwright-local launch against shared profile${suffix}\n`);
+    const serviceState = systemdServiceState();
+    const serviceHint = serviceState === null
+      ? ''
+      : ` service=${managedBrowserService} state=${serviceState}; run sudo systemctl status ${managedBrowserService}`;
+    process.stderr.write(`[whatnot] ATTACHED_BROWSER_UNAVAILABLE: persistent Chromium health check failed at ${localCdpEndpoint()}; refusing playwright-local launch against shared profile${suffix}${serviceHint}\n`);
     return { status: 1, error: null };
   }
 

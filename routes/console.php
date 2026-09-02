@@ -66,6 +66,26 @@ Schedule::command('whatnot:import-ledger --days=1825')
     ->name('whatnot-ledger-backfill-annual')
     ->withoutOverlapping(480);
 
+// AI is deliberately background-only on this VPS. These commands only enqueue
+// tiny jobs onto the dedicated `ai` queue; Ollama is never called by the
+// scheduler process or by a normal page request. The six-hour cadence keeps a
+// useful operations/exception summary fresh without keeping the model hot all
+// day, while cleanup and management summaries run at low-traffic times.
+Schedule::command('ai:ops operations')
+    ->cron('25 */6 * * *')
+    ->name('ai-ops-background-summary')
+    ->withoutOverlapping(10);
+
+Schedule::command('ai:ops cleanup')
+    ->dailyAt('04:15')
+    ->name('ai-ops-data-cleanup')
+    ->withoutOverlapping(10);
+
+Schedule::command('ai:ops weekly')
+    ->weeklyOn(1, '07:00')
+    ->name('ai-ops-weekly-management-summary')
+    ->withoutOverlapping(10);
+
 Schedule::command('reports:midweek-report')->weeklyOn(3, '09:00')->name('midweek-report');
 Schedule::command('reports:weekly-review-reminder')->weeklyOn(5, '09:00')->name('weekly-review-reminder');
 

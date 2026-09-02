@@ -70,14 +70,12 @@ class WeeklyPayoutBatchResource extends Resource
         return 'Pay Runs';
     }
 
-    // The nav item itself reads "Payouts" — the individual entity stays "Pay
-    // Run" in breadcrumbs/page titles ("View Pay Run", "New Pay Run"), since
-    // that's what it actually is; the old flat Payouts resource is hidden
-    // from navigation (still reachable via direct links) so there's only
-    // one "Payouts" entry in the sidebar.
+    // Payroll Overview is the admin hub. Keep Pay Runs as the drill-down list
+    // directly underneath it instead of making the raw batch resource the
+    // primary payroll destination.
     public static function getNavigationLabel(): string
     {
-        return 'Payouts';
+        return 'Pay Runs';
     }
 
     protected static function passesModuleAccessCheck(): bool
@@ -97,8 +95,6 @@ class WeeklyPayoutBatchResource extends Resource
 
     public static function getGlobalSearchResultDetails(\Illuminate\Database\Eloquent\Model $record): array
     {
-        // Lowercase keys are slots in the global-search override, not labels:
-        // subtitle / status / tone / figure. See that view for the contract.
         return array_filter([
             'subtitle' => $record->week_end
                 ? 'Week ending ' . $record->week_end->format('M j, Y')
@@ -106,7 +102,7 @@ class WeeklyPayoutBatchResource extends Resource
             'status' => WeeklyPayoutBatchResource::statusLabelFor($record),
             'tone'   => match ($record->status) {
                 'paid', 'finalized' => 'success',
-                'approved'          => 'info',
+                'submitted_to_adp'  => 'info',
                 'draft'             => 'warning',
                 default             => 'neutral',
             },
@@ -146,8 +142,8 @@ class WeeklyPayoutBatchResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->emptyStateHeading('No payout batches')
-            ->emptyStateDescription('Weekly batches are created when payouts are grouped for payment.')
+            ->emptyStateHeading('No pay runs')
+            ->emptyStateDescription('Weekly pay runs are created when payouts are grouped for payment.')
             ->emptyStateIcon('heroicon-o-queue-list')
             ->columns([
                 TextColumn::make('week_start')
@@ -161,10 +157,10 @@ class WeeklyPayoutBatchResource extends Resource
 
                 TextColumn::make('payouts_count')
                     ->counts('payouts')
-                    ->label('Streamers'),
+                    ->label('Entries'),
 
                 TextColumn::make('total_payout')
-                    ->label('Total Payout')
+                    ->label('Total Payroll')
                     ->money('USD')
                     ->weight('bold'),
 
@@ -176,16 +172,17 @@ class WeeklyPayoutBatchResource extends Resource
                 TextColumn::make('next_action')
                     ->label('Next Action')
                     ->state(fn (WeeklyPayoutBatch $record): string => match ($record->status) {
-                        'draft' => 'Review & approve',
-                        'approved' => 'Finalize & pay',
-                        'finalized' => 'Complete',
+                        'draft' => 'Review & finalize',
+                        'finalized' => 'Submit to ADP',
+                        'submitted_to_adp' => 'Mark paid',
+                        'paid' => 'Complete',
                         default => 'Review',
                     })
                     ->badge()
                     ->color(fn (WeeklyPayoutBatch $record): string => match ($record->status) {
                         'draft' => 'warning',
-                        'approved' => 'info',
-                        'finalized' => 'success',
+                        'finalized', 'submitted_to_adp' => 'info',
+                        'paid' => 'success',
                         default => 'gray',
                     }),
 

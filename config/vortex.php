@@ -15,18 +15,18 @@ return [
         'cookies_file' => env('WHATNOT_COOKIES_FILE'),
 
         // Browser runtime. `scrapling` routes through the StealthySession adapter
-        // and attaches to the existing persistent Chrome over CDP. `local` keeps
-        // the existing Node/Playwright engine; `steel` keeps the self-hosted
-        // Steel/CDP option.
+        // and launches its own persistent Chrome profile by default. `local` keeps
+        // the legacy Node/Playwright engine; `attached`/CDP is diagnostic only.
         'browser_backend' => env('WHATNOT_BROWSER_BACKEND', 'local'),
         'steel_base_url'  => env('STEEL_BASE_URL', 'http://127.0.0.1:3000'),
 
-        // Scrapling runtime options are configuration, not hard-coded behavior.
-        // Keeping them here is important because Laravel may cache config and
-        // does not guarantee raw .env values are visible to child processes.
-        'scrapling_use_cdp' => filter_var(env('WHATNOT_SCRAPLING_USE_CDP', true), FILTER_VALIDATE_BOOLEAN),
+        // Scrapling owns the production browser lifecycle. CDP can still be
+        // explicitly enabled for diagnostics/rollback with WHATNOT_SCRAPLING_USE_CDP=1.
+        'scrapling_use_cdp' => filter_var(env('WHATNOT_SCRAPLING_USE_CDP', false), FILTER_VALIDATE_BOOLEAN),
         'scrapling_cdp_url' => env('WHATNOT_SCRAPLING_CDP_URL', 'http://127.0.0.1:9222'),
-        'scrapling_solve_cloudflare' => filter_var(env('WHATNOT_SCRAPLING_SOLVE_CLOUDFLARE', false), FILTER_VALIDATE_BOOLEAN),
+        // Kept for backwards-compatible config parsing only. Production code does
+        // not automate anti-bot challenges and fails closed when one is presented.
+        'scrapling_solve_cloudflare' => false,
         'scrapling_block_webrtc' => filter_var(env('WHATNOT_SCRAPLING_BLOCK_WEBRTC', false), FILTER_VALIDATE_BOOLEAN),
         'scrapling_hide_canvas' => filter_var(env('WHATNOT_SCRAPLING_HIDE_CANVAS', false), FILTER_VALIDATE_BOOLEAN),
         'scrapling_allow_webgl' => filter_var(env('WHATNOT_SCRAPLING_ALLOW_WEBGL', true), FILTER_VALIDATE_BOOLEAN),

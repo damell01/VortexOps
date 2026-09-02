@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\WeeklyPayoutBatchResource\Pages;
 
+use App\Filament\Pages\PayrollOverview;
 use App\Filament\Resources\WeeklyPayoutBatchResource;
 use App\Services\AdpExportService;
 use App\Services\PayRunAutomationService;
@@ -21,6 +22,14 @@ class ViewWeeklyPayoutBatch extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('resolve_blockers')
+                ->label('Resolve Blockers')
+                ->icon('heroicon-o-wrench-screwdriver')
+                ->color('warning')
+                ->visible(fn () => $this->record->status === 'draft'
+                    && app(PayRunReadinessService::class)->problems($this->record) !== [])
+                ->url(fn () => PayrollOverview::getUrl(['workflow' => 'blocked'])),
+
             EditAction::make()
                 ->label('Edit Details')
                 ->visible(fn () => $this->record->status === 'draft'),
@@ -97,7 +106,7 @@ class ViewWeeklyPayoutBatch extends ViewRecord
                     if ($problems !== []) {
                         Notification::make()
                             ->title('Pay Run is not ready to finalize')
-                            ->body(count($problems) . ' blocker(s) still need attention. Use Validate to review them.')
+                            ->body(count($problems) . ' blocker(s) still need attention. Use Resolve Blockers to jump to the weekly show board.')
                             ->danger()
                             ->persistent()
                             ->send();

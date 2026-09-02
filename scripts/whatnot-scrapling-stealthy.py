@@ -118,12 +118,25 @@ def first_visible(page, selectors: list[str]):
     return None
 
 
+def click_first_visible(page, selectors: list[str]) -> bool:
+    for selector in selectors:
+        try:
+            node = page.locator(selector).first
+            if node.is_visible(timeout=700):
+                node.click(timeout=5000)
+                return True
+        except Exception:
+            pass
+    return False
+
+
 def ensure_authenticated(page) -> None:
     """Validate the persistent session and perform an ordinary login when needed.
 
-    This deliberately does not solve or bypass Cloudflare/Turnstile/CAPTCHA and
-    does not attempt to automate MFA. Those states fail closed with instructions
-    to refresh the persistent browser profile interactively.
+    Supports both single-page and multi-step Whatnot credential forms. This
+    deliberately does not solve or bypass Cloudflare/Turnstile/CAPTCHA and does
+    not attempt to automate MFA. Those states fail closed with instructions to
+    refresh the persistent browser profile interactively.
     """
     if challenge_present(page):
         stop(
@@ -141,46 +154,89 @@ def ensure_authenticated(page) -> None:
             3,
         )
 
-    email = first_visible(
-        page,
-        [
-            'input[type="email"]',
-            'input[name="email"]',
-            'input[autocomplete="email"]',
-            'input[autocomplete="username"]',
-        ],
-    )
-    password = first_visible(
-        page,
-        [
-            'input[type="password"]',
-            'input[name="password"]',
-            'input[autocomplete="current-password"]',
-        ],
-    )
-
-    if email is None or password is None:
-        stop(f"LOGIN_FORM_CHANGED: unable to locate Whatnot login fields at {page.url}", 3)
-
-    log("AUTH_BOOTSTRAP state=login-required action=credential-login")
-    email.fill(EMAIL)
-    password.fill(PASSWORD)
-
-    submitted = False
-    for selector in [
+    email_selectors = [
+        'input[type="email"]',
+        'input[name="email"]',
+        'input[name="username"]',
+        'input[autocomplete="email"]',
+        'input[autocomplete="username"]',
+        'input[placeholder*="email" i]',
+        'input[placeholder*="username" i]',
+    ]
+    password_selectors = [
+        'input[type="password"]',
+        'input[name="password"]',
+        'input[autocomplete="current-password"]',
+        'input[placeholder*="password" i]',
+    ]
+    continue_selectors = [
         'button[type="submit"]',
+        'button:has-text("Continue")',
+        'button:has-text("Next")',
         'button:has-text("Log in")',
         'button:has-text("Login")',
         'button:has-text("Sign in")',
-    ]:
-        try:
-            button = page.locator(selector).first
-            if button.is_visible(timeout=700):
-                button.click(timeout=5000)
-                submitted = True
-                break
-        except Exception:
-            pass
+    ]
+
+    email = first_visible(page, email_selectors)
+    password = first_visible(page, password_selectors)
+
+    if email is None and password is None:
+        stop(
+            f"LOGIN_FORM_CHANGED: unable to locate an email/username or password field at {page.url}",
+            3,
+        )
+
+    log("AUTH_BOOTSTRAP state=login-required action=credential-login")
+
+    # Whatnot may render email/username first, then reveal the password field only
+    # after Continue/Next. Handle that without assuming both fields coexist.
+    if email is not None:
+        email.fill(EMAIL)
+
+    if password is None:
+        advanced = click_first_visible(page, continue_selectors)
+        if not advanced and email is not None:
+            try:
+                email.press("Enter")
+                advanced = True
+            except Exception:
+                pass
+        if not advanced:
+            stop("LOGIN_FORM_CHANGED: unable to advance past the Whatnot email/username step", 3)
+
+        page.wait_for_timeout(1500)
+        if challenge_present(page):
+            stop(
+                f"CLOUDFLARE_CHALLENGE: verification was requested during login at {page.url}. "
+                "No challenge bypass was attempted; complete it interactively in the persistent profile and retry.",
+                4,
+            )
+        if interaction_required(page):
+            stop(
+                f"AUTH_INTERACTION_REQUIRED: Whatnot requires MFA/OTP at {page.url}. "
+                "Complete the verification interactively once; the persistent Scrapling profile will retain the authenticated session.",
+                3,
+            )
+        password = first_visible(page, password_selectors)
+        if password is None:
+            stop(
+                f"LOGIN_FORM_CHANGED: email/username step advanced but no password field appeared at {page.url}",
+                3,
+            )
+
+    password.fill(PASSWORD)
+
+    submitted = click_first_visible(
+        page,
+        [
+            'button[type="submit"]',
+            'button:has-text("Log in")',
+            'button:has-text("Login")',
+            'button:has-text("Sign in")',
+            'button:has-text("Continue")',
+        ],
+    )
     if not submitted:
         try:
             password.press("Enter")

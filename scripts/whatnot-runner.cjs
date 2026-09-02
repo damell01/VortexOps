@@ -8,14 +8,7 @@ const projectRoot = path.resolve(__dirname, '..');
 const mode = String(process.env.WHATNOT_MODE || 'analytics').trim();
 const scraplingModes = new Set(['shows', 'analytics', 'orders-batch', 'shipments-batch', 'ledger']);
 const explicitBackendRaw = String(process.env.WHATNOT_BROWSER_BACKEND || '').trim().toLowerCase();
-// Keep the public/config-facing name simple: WHATNOT_BROWSER_BACKEND=scrapling.
-// Internally both "scrapling" and the older "scrapling-stealthy" spelling route
-// through the same production StealthySession adapter.
 const explicitBackend = explicitBackendRaw === 'scrapling' ? 'scrapling-stealthy' : explicitBackendRaw;
-// All production data-bearing modes are Scrapling-owned. The historical .env value
-// WHATNOT_BROWSER_BACKEND=local is treated as a legacy default for these modes so it
-// cannot accidentally route scheduled jobs or Artisan probes back through Playwright.
-// Explicit diagnostic backends such as attached/http-health are still honored.
 const legacyLocal = explicitBackend === 'local';
 let backend = scraplingModes.has(mode) && (!explicitBackend || legacyLocal)
   ? 'scrapling-stealthy'
@@ -59,7 +52,7 @@ function scopedEnvironment() {
       env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR = env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR || path.join(channelRoot, 'diagnostics');
       env.WHATNOT_HTTP_DIAGNOSTICS_DIR = env.WHATNOT_HTTP_DIAGNOSTICS_DIR || path.join(channelRoot, 'diagnostics');
       fs.mkdirSync(env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR, { recursive: true });
-      console.error(`[whatnot] CHANNEL_SCOPE requested=@${channel} session=shared-persistent profile=${path.relative(projectRoot, env.WHATNOT_USER_DATA_DIR)}`);
+      console.error(`[whatnot] CHANNEL_SCOPE requested=@${channel} session=scrapling-owned profile=${path.relative(projectRoot, env.WHATNOT_USER_DATA_DIR)}`);
     }
   }
   return env;
@@ -75,14 +68,14 @@ function localCdpAvailable(timeoutSeconds = 2) {
 function runHttpHealth() { const python=String(childEnv.WHATNOT_PYTHON_BIN||'python3').trim(); return spawnSync(python,[path.join(__dirname,'whatnot-http-health.py')],{env:childEnv,cwd:projectRoot,stdio:'inherit'}); }
 function runScraplingStealthy() {
   const python=String(childEnv.WHATNOT_PYTHON_BIN||'python3').trim();
-  const env={...childEnv,WHATNOT_BROWSER_BACKEND:'scrapling',WHATNOT_SCRAPLING_USE_CDP:childEnv.WHATNOT_SCRAPLING_USE_CDP||'1',WHATNOT_SCRAPLING_CDP_URL:childEnv.WHATNOT_SCRAPLING_CDP_URL||localCdpEndpoint()};
-  // Challenge solving is intentionally disabled in the adapter. These values are
-  // logged here so every scheduled/manual data run proves which engine/settings ran.
-  const solve='false';
+  const useCdp=String(childEnv.WHATNOT_SCRAPLING_USE_CDP||'0').trim()==='1';
+  const env={...childEnv,WHATNOT_BROWSER_BACKEND:'scrapling',WHATNOT_SCRAPLING_USE_CDP:useCdp?'1':'0'};
+  if (useCdp) env.WHATNOT_SCRAPLING_CDP_URL=childEnv.WHATNOT_SCRAPLING_CDP_URL||localCdpEndpoint();
+  const transport=useCdp?`cdp-diagnostic:${env.WHATNOT_SCRAPLING_CDP_URL}`:'owned-browser';
   const webrtc=String(env.WHATNOT_SCRAPLING_BLOCK_WEBRTC||'false').trim().toLowerCase();
   const canvas=String(env.WHATNOT_SCRAPLING_HIDE_CANVAS||'false').trim().toLowerCase();
   const webgl=String(env.WHATNOT_SCRAPLING_ALLOW_WEBGL||'true').trim().toLowerCase();
-  process.stderr.write(`[whatnot] production browser backend: scrapling-stealthy (mode=${mode}, cdp=${env.WHATNOT_SCRAPLING_CDP_URL}, solve_cloudflare=${solve}, block_webrtc=${webrtc}, hide_canvas=${canvas}, allow_webgl=${webgl})\n`);
+  process.stderr.write(`[whatnot] production browser backend: scrapling-stealthy (mode=${mode}, transport=${transport}, profile=${env.WHATNOT_USER_DATA_DIR||'(temporary)'}, solve_cloudflare=false, block_webrtc=${webrtc}, hide_canvas=${canvas}, allow_webgl=${webgl})\n`);
   return spawnSync(python,[path.join(__dirname,'whatnot-scrapling-stealthy.py')],{env,cwd:projectRoot,stdio:'inherit'});
 }
 function runAttachedBrowser() {
@@ -100,11 +93,10 @@ function exitFor(result,label) { if(result.error){process.stderr.write(`[whatnot
 if (backend === 'http-health') exitFor(runHttpHealth(),'HTTP health adapter');
 if (httpPreflightEnabled && backend !== 'attached') { const p=runHttpHealth(); const s=p.status==null?1:p.status; if((p.error||s!==0)&&httpPreflightStrict) process.exit(s||1); }
 if (scraplingModes.has(mode)) {
-  // Data modes never silently fall back to Playwright unless an operator explicitly
-  // opts in with WHATNOT_SCRAPER_FALLBACK=1. This applies equally to scheduler jobs,
-  // queue jobs, admin actions and Artisan commands because they all enter here.
   const result=runScraplingStealthy(); const status=result.status==null?1:result.status;
   if(status===0) process.exit(0);
+  // Auth, channel-context, and anti-bot challenge failures must never silently
+  // fall back to another browser engine because that could scrape the wrong account.
   if(fallbackEnabled && !new Set([3,4,5]).has(status)) exitFor(runPlaywright(),'Playwright fallback');
   exitFor(result,'Scrapling StealthySession runner');
 }

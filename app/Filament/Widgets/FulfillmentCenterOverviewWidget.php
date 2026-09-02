@@ -32,6 +32,11 @@ class FulfillmentCenterOverviewWidget extends Widget
             $open = (int) ($show->open_shipments_count ?? 0);
             $delivered = (int) ($show->delivered_shipments_count ?? 0);
             $assigned = $show->fulfillmentUsers->isNotEmpty();
+            $log = $show->streamerLogEntry;
+            $approved = $log && ($log->status === 'admin_approved' || $log->approval_status === 'approved');
+            $needsCountVerification = $approved
+                && $log->fulfillment_reviewed_at === null
+                && ($log->streamer?->payout_type === 'pwe_labels');
 
             if (! $assigned) {
                 $stage = 'unassigned';
@@ -48,7 +53,7 @@ class FulfillmentCenterOverviewWidget extends Widget
                 $label = 'Item Issues';
                 $tone = 'danger';
                 $next = "Resolve {$issues} not-fulfilled item" . ($issues === 1 ? '' : 's');
-            } elseif ($show->streamerLogEntry?->needsFulfillmentReview()) {
+            } elseif ($needsCountVerification) {
                 $stage = 'verify';
                 $label = 'Verify Counts';
                 $tone = 'warning';

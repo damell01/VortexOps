@@ -5,7 +5,6 @@ namespace App\Filament\Widgets;
 use App\Filament\Resources\FulfillmentResource;
 use App\Models\Show;
 use Filament\Widgets\Widget;
-use Illuminate\Database\Eloquent\Builder;
 
 class FulfillmentCenterOverviewWidget extends Widget
 {
@@ -22,28 +21,26 @@ class FulfillmentCenterOverviewWidget extends Widget
 
     protected function getViewData(): array
     {
-        $query = FulfillmentResource::getEloquentQuery();
-        $shows = (clone $query)->limit(60)->get();
+        $shows = FulfillmentResource::getEloquentQuery()->limit(60)->get();
 
         $queue = $shows->map(function (Show $show) {
             $orders = (int) ($show->orders_count ?? 0);
+            $pendingLines = (int) ($show->pending_packing_count ?? 0);
             $shipments = (int) ($show->shipments_count ?? 0);
             $open = (int) ($show->open_shipments_count ?? 0);
             $delivered = (int) ($show->delivered_shipments_count ?? 0);
             $assigned = $show->fulfillmentUsers->isNotEmpty();
-
-            $pendingLines = $show->orders()
-                ->where(function (Builder $q) {
-                    $q->whereNull('shipping_status')
-                        ->orWhereIn('shipping_status', ['', 'pending', 'label_created']);
-                })
-                ->count();
 
             if (! $assigned) {
                 $stage = 'unassigned';
                 $label = 'Needs Assignment';
                 $tone = 'warning';
                 $next = 'Assign fulfillment';
+            } elseif ($show->streamerLogEntry?->needsFulfillmentReview()) {
+                $stage = 'verify';
+                $label = 'Verify Counts';
+                $tone = 'warning';
+                $next = 'Verify PWE / label counts for payroll';
             } elseif ($pendingLines > 0) {
                 $stage = 'packing';
                 $label = 'Packing';
@@ -91,6 +88,7 @@ class FulfillmentCenterOverviewWidget extends Widget
             'stats' => [
                 'shows' => $queue->count(),
                 'unassigned' => $queue->where('fulfillment_stage.key', 'unassigned')->count(),
+                'verify' => $queue->where('fulfillment_stage.key', 'verify')->count(),
                 'packing' => $queue->whereIn('fulfillment_stage.key', ['ready', 'packing'])->count(),
                 'shipping' => $queue->where('fulfillment_stage.key', 'shipping')->count(),
                 'complete' => $queue->where('fulfillment_stage.key', 'complete')->count(),

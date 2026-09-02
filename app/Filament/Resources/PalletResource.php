@@ -14,6 +14,7 @@ use App\Services\ReceivingService;
 use App\Support\AdminModules;
 use App\Support\StatusColor;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -22,6 +23,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
@@ -114,35 +116,55 @@ class PalletResource extends Resource
                 ->schema([
                     Repeater::make('lines')
                         ->relationship('lines')
+                        ->itemLabel(function (array $state): string {
+                            $desc = trim((string) ($state['description'] ?? '')) ?: 'New line';
+                            $cases = (int) ($state['case_count'] ?? 0);
+                            return $cases > 0
+                                ? "{$desc} — {$cases} case" . ($cases === 1 ? '' : 's')
+                                : $desc;
+                        })
                         ->schema([
-                            Grid::make(12)->schema([
-                                TextInput::make('description')
-                                    ->label('Description / Product Name')
-                                    ->required()
-                                    ->maxLength(255)
-                                    ->columnSpan(['default' => 12, 'md' => 6, 'xl' => 4]),
+                            TextInput::make('description')
+                                ->label('Description / Product Name')
+                                ->required()
+                                ->maxLength(255)
+                                ->live(onBlur: true)
+                                ->columnSpanFull(),
+
+                            Grid::make(4)->schema([
                                 TextInput::make('case_count')
                                     ->label('Cases')
                                     ->numeric()
                                     ->default(1)
                                     ->minValue(1)
                                     ->required()
-                                    ->columnSpan(['default' => 4, 'md' => 2, 'xl' => 1]),
+                                    ->live(onBlur: true),
                                 TextInput::make('quantity_per_case')
                                     ->label('Units / Box')
                                     ->numeric()
                                     ->default(1)
                                     ->minValue(0.01)
                                     ->required()
-                                    ->helperText('1 if selling sealed boxes')
-                                    ->columnSpan(['default' => 4, 'md' => 2, 'xl' => 1]),
+                                    ->live(onBlur: true)
+                                    ->helperText('1 if selling sealed boxes'),
                                 TextInput::make('unit_cost')
                                     ->label('Unit Cost')
                                     ->numeric()
                                     ->prefix('$')
                                     ->default(0)
                                     ->minValue(0)
-                                    ->columnSpan(['default' => 4, 'md' => 2, 'xl' => 2]),
+                                    ->live(onBlur: true),
+                                Placeholder::make('line_total')
+                                    ->label('Line Total')
+                                    ->content(function (Get $get): string {
+                                        $total = (float) ($get('case_count') ?? 0)
+                                            * (float) ($get('quantity_per_case') ?? 0)
+                                            * (float) ($get('unit_cost') ?? 0);
+                                        return '$' . number_format($total, 2);
+                                    }),
+                            ]),
+
+                            Grid::make(2)->schema([
                                 Select::make('inventory_item_id')
                                     ->label('Map to Inventory Item')
                                     ->searchable()
@@ -154,13 +176,13 @@ class PalletResource extends Resource
                                         ->toArray())
                                     ->getOptionLabelUsing(fn ($value) => InventoryItem::find($value)?->name ?? $value)
                                     ->placeholder('Search by name or SKU…')
-                                    ->columnSpan(['default' => 12, 'md' => 6, 'xl' => 3]),
+                                    ->prefixIcon('heroicon-o-cube'),
                                 Select::make('inventory_location_id')
                                     ->label('Receive Into Location')
                                     ->options(fn () => InventoryLocation::activeOptions())
                                     ->searchable()
                                     ->placeholder('Select destination…')
-                                    ->columnSpan(['default' => 12, 'md' => 6, 'xl' => 1]),
+                                    ->prefixIcon('heroicon-o-map-pin'),
                             ]),
                         ])
                         ->orderColumn('line_number')

@@ -16,7 +16,12 @@ class ShowWorkflowService
      */
     public function stateFor(Show $show): array
     {
-        $show->loadMissing(['streamerLogEntry.streamer', 'fulfillmentUsers', 'payouts.batch']);
+        $show->loadMissing([
+            'streamerLogEntry.streamer',
+            'fulfillmentUsers',
+            'payouts.batch',
+            'latestDeductionRequest.lines',
+        ]);
 
         $report = $show->streamerLogEntry;
         $payouts = $show->payouts;
@@ -31,7 +36,7 @@ class ShowWorkflowService
         }
 
         if ($payouts->isNotEmpty()) {
-            $batch = $payouts->first(fn ($payout) => $payout->batch)?->batch;
+            $batch = $payouts->first(fn ($payout) => $payout->batch !== null)?->batch;
             $label = $batch
                 ? match ($batch->status) {
                     'paid' => 'Paid',

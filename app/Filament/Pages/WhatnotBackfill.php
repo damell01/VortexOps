@@ -64,10 +64,7 @@ class WhatnotBackfill extends Page implements HasForms
 
     public string $command = 'sync-all';
     public int $limit = 500;
-    public int $days = 8;
-    public bool $skipOrders = false;
-    public bool $skipShipments = false;
-    public bool $skipLedger = false;
+    public int $days = 30;
     public bool $noOrders = false;
     public string $output = '';
     public bool $isRunning = false;
@@ -86,7 +83,7 @@ class WhatnotBackfill extends Page implements HasForms
                 Select::make('command')
                     ->label('Command')
                     ->options([
-                        'sync-all' => 'Full Sync (Shows → Orders → Shipments → Ledger)',
+                        'sync-all' => 'Full Sequential Sync (Shows → Orders → Shipments → Ledger)',
                         'import' => 'Import Shows Only',
                         'import-orders' => 'Import Orders Only',
                         'sync-shipments' => 'Sync Shipments Only',
@@ -96,17 +93,17 @@ class WhatnotBackfill extends Page implements HasForms
                     ->live(),
 
                 TextInput::make('limit')
-                    ->label('Show Limit (for import/sync-all)')
+                    ->label('Show Limit')
                     ->numeric()
                     ->default(500)
                     ->minValue(1)
                     ->maxValue(5000)
-                    ->visible(fn ($get) => in_array($get('command'), ['sync-all', 'import'])),
+                    ->visible(fn ($get) => $get('command') === 'import'),
 
                 TextInput::make('days')
-                    ->label('Days Back (for ledger)')
+                    ->label(fn ($get) => $get('command') === 'sync-all' ? 'Ledger Window (days)' : 'Days Back (for ledger)')
                     ->numeric()
-                    ->default(8)
+                    ->default(30)
                     ->minValue(1)
                     ->maxValue(365)
                     ->visible(fn ($get) => in_array($get('command'), ['import-ledger', 'sync-all'])),
@@ -115,21 +112,6 @@ class WhatnotBackfill extends Page implements HasForms
                     ->label('Skip Orders (faster show import)')
                     ->default(false)
                     ->visible(fn ($get) => $get('command') === 'import'),
-
-                Toggle::make('skipOrders')
-                    ->label('Skip Orders')
-                    ->default(false)
-                    ->visible(fn ($get) => $get('command') === 'sync-all'),
-
-                Toggle::make('skipShipments')
-                    ->label('Skip Shipments')
-                    ->default(false)
-                    ->visible(fn ($get) => $get('command') === 'sync-all'),
-
-                Toggle::make('skipLedger')
-                    ->label('Skip Ledger')
-                    ->default(false)
-                    ->visible(fn ($get) => $get('command') === 'sync-all'),
 
                 Textarea::make('output')
                     ->label('Output Log')
@@ -164,10 +146,9 @@ class WhatnotBackfill extends Page implements HasForms
             $config = match ($this->command) {
                 'sync-all' => [
                     'args' => [
-                        '--limit' => $this->limit,
-                        $this->skipOrders ? '--skip-orders' : null,
-                        $this->skipShipments ? '--skip-shipments' : null,
-                        $this->skipLedger ? '--skip-ledger' : null,
+                        '--type' => 'incremental',
+                        '--ledger-days' => $this->days,
+                        '--shipment-limit' => 50,
                     ],
                     'command' => 'whatnot:sync-all',
                 ],
@@ -193,7 +174,7 @@ class WhatnotBackfill extends Page implements HasForms
                 default => throw new \Exception("Unknown command: {$this->command}"),
             };
 
-            $args = array_filter($config['args']);
+            $args = array_filter($config['args'], fn ($value) => $value !== null && $value !== false && $value !== '');
             $command = $config['command'];
 
             $this->output .= "Command: {$command}\n";

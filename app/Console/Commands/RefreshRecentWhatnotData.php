@@ -47,17 +47,40 @@ class RefreshRecentWhatnotData extends Command
 
     private function refreshOrders(WhatnotScraper $scraper, WhatnotChannel $channel, int $hours, int $limit): void
     {
-        // Only revisit recent shows. Prefer shows that have no orders or where
-        // analytics says more units were sold than we currently have imported.
+        $windowStart = now()->subHours($hours);
+        $windowEnd = now();
+
+        // Keep the routine refresh tightly scoped to shows that actually fall
+        // inside the requested recent window. The upper bound is important:
+        // malformed/future show dates must never be treated as recent.
+        //
+        // units_sold is only a prioritization hint. It is not guaranteed to
+        // equal the number of order rows, so never use it as proof that an
+        // order import is complete.
         $shows = Show::query()
             ->where('whatnot_channel_id', $channel->id)
             ->whereNotNull('detail_url')
-            ->where('show_date', '>=', now()->subHours($hours)->startOfDay())
+            ->whereBetween('show_date', [$windowStart, $windowEnd])
             ->withCount('orders')
+            ->orderByRaw('CASE WHEN last_synced_at IS NULL THEN 0 ELSE 1 END')
+            ->orderBy('last_synced_at')
             ->orderByDesc('show_date')
             ->limit($limit * 3)
             ->get()
-            ->filter(fn (Show $show) => $show->orders_count === 0 || ((int) $show->units_sold > 0 && $show->orders_count < (int) $show->units_sold))
+            ->filter(function (Show $show) use ($windowStart) {
+                if ($show->orders_count === 0) {
+                    return true;
+                }
+
+                if ((int) $show->units_sold > 0 && $show->orders_count < (int) $show->units_sold) {
+                    return true;
+                }
+
+                // Recheck already-populated recent shows on a bounded cadence.
+                // This catches late orders and pagination changes without
+                // continuously hammering the same show every 30 minutes.
+                return $show->last_synced_at === null || $show->last_synced_at->lt($windowStart);
+            })
             ->take($limit);
 
         foreach ($shows as $show) {
@@ -70,6 +93,8 @@ class RefreshRecentWhatnotData extends Command
                     'created' => $result['created'] ?? 0,
                     'updated' => $result['updated'] ?? 0,
                     'skipped' => $result['skipped'] ?? 0,
+                    'orders_in_db' => $show->orders()->count(),
+                    'units_sold_hint' => (int) $show->units_sold,
                 ]);
             } catch (\Throwable $e) {
                 Log::warning('Whatnot recent order refresh failed', [

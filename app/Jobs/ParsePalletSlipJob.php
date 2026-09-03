@@ -2,11 +2,13 @@
 
 namespace App\Jobs;
 
+use App\Filament\Resources\PalletResource;
 use App\Models\AiTask;
 use App\Models\Pallet;
 use App\Models\User;
 use App\Services\AI\Documents\PalletSlipParser;
 use App\Services\AI\Mapping\MappingEngine;
+use Filament\Notifications\Actions\Action as NotificationAction;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -142,9 +144,18 @@ class ParsePalletSlipJob implements ShouldQueue
 
         Notification::make()
             ->title('AI manifest ready for review')
-            ->body("{$pallet->displayName()}: {$total} lines analyzed · {$matched} suggested matches · {$needsReview} need review. Open the pallet and choose AI Manifest Review.")
+            ->body("{$pallet->displayName()}: {$total} lines analyzed · {$matched} suggested matches · {$needsReview} need review.")
             ->success()
             ->icon('heroicon-o-sparkles')
+            ->actions([
+                NotificationAction::make('review')
+                    ->label('Open AI Review')
+                    ->button()
+                    ->url(PalletResource::getUrl('import-manifest', ['record' => $pallet])),
+                NotificationAction::make('pallet')
+                    ->label('Open Pallet')
+                    ->url(PalletResource::getUrl('view', ['record' => $pallet])),
+            ])
             ->sendToDatabase($user);
     }
 
@@ -158,6 +169,15 @@ class ParsePalletSlipJob implements ShouldQueue
             ->body($pallet->displayName() . ': ' . str($message)->limit(180))
             ->danger()
             ->icon('heroicon-o-exclamation-triangle')
+            ->actions([
+                NotificationAction::make('retry')
+                    ->label('Open AI Manifest')
+                    ->button()
+                    ->url(PalletResource::getUrl('import-manifest', ['record' => $pallet])),
+                NotificationAction::make('pallet')
+                    ->label('Open Pallet')
+                    ->url(PalletResource::getUrl('view', ['record' => $pallet])),
+            ])
             ->sendToDatabase($user);
     }
 

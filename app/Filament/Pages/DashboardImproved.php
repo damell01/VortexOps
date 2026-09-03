@@ -2,7 +2,6 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Widgets\AdminShowPipelineWidget;
 use App\Filament\Widgets\FulfillmentInventoryWidget;
 use App\Filament\Widgets\NeedsAttentionWidget;
 use App\Filament\Widgets\OperationsOverviewWidget;
@@ -62,7 +61,6 @@ class DashboardImproved extends Dashboard
 
         if ($user?->isAdmin() || $user?->isOwner()) {
             return [
-                AdminShowPipelineWidget::class,
                 ShowQueueCountsWidget::class,
                 NeedsAttentionWidget::class,
                 OperationsOverviewWidget::class,

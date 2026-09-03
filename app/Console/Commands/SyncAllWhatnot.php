@@ -51,18 +51,22 @@ class SyncAllWhatnot extends Command
         $this->line('Execution: synchronous/sequential (this terminal remains attached until complete)');
         $this->newLine();
 
-        // Run the exact same job handler used by the scheduler, but synchronously.
-        // This makes manual verification deterministic: there is no dependency on
-        // whichever queue worker happens to be running, and each browser-backed
-        // scraper call is additionally serialized by the global browser lock.
+        $startedAt = microtime(true);
+
         ProcessWhatnotChannelsJob::dispatchSync(
             type: $type,
             ledgerDays: $ledgerDays,
             shipmentLimit: $shipmentLimit,
+            showProgress: true,
         );
 
+        $elapsed = (int) round(microtime(true) - $startedAt);
+        $minutes = intdiv($elapsed, 60);
+        $seconds = $elapsed % 60;
+
         $this->newLine();
-        $this->info('Sequential Whatnot pipeline finished. Check the sync records/log for per-channel results.');
+        $this->info("Sequential Whatnot pipeline finished in {$minutes}m {$seconds}s.");
+        $this->line('Detailed results are also stored in the sync records and Laravel log.');
 
         return self::SUCCESS;
     }

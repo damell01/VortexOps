@@ -62,15 +62,12 @@ def parse_date(*values: Any) -> str | None:
         text = clean(value)
         if not text:
             continue
-
         m = re.search(r"\b(20\d{2})[-/](\d{1,2})[-/](\d{1,2})\b", text)
         if m:
             return f"{int(m.group(1)):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
-
         m = re.search(r"\b(\d{1,2})[/-](\d{1,2})[/-](20\d{2})\b", text)
         if m:
             return f"{int(m.group(3)):04d}-{int(m.group(1)):02d}-{int(m.group(2)):02d}"
-
         m = re.search(
             r"\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
             r"Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
@@ -80,7 +77,6 @@ def parse_date(*values: Any) -> str | None:
         )
         if m:
             return f"{int(m.group(3)):04d}-{MONTHS[m.group(1).lower()]:02d}-{int(m.group(2)):02d}"
-
         try:
             return datetime.fromisoformat(text.replace("Z", "+00:00")).date().isoformat()
         except Exception:
@@ -120,7 +116,6 @@ def snapshot(page) -> dict[str, Any]:
       ];
       const labels = {};
       const all = [...document.querySelectorAll('body *')];
-
       for (const label of wanted) {
         const lower = label.toLowerCase();
         const hit = all.find(el => el.childElementCount === 0 && (el.textContent || '').trim().toLowerCase() === lower);
@@ -135,29 +130,25 @@ def snapshot(page) -> dict[str, Any]:
           if (value) { labels[label] = value; break; }
         }
       }
-
       const titleCandidates = [];
       const push = value => {
         value = String(value || '').replace(/\s+/g, ' ').trim();
         if (value && !titleCandidates.includes(value)) titleCandidates.push(value);
       };
-
       for (const el of document.querySelectorAll('a[href],button,[role="combobox"],[aria-haspopup="listbox"]')) {
         const href = el.getAttribute?.('href') || '';
-        const text = (el.innerText || el.textContent || '').trim();
-        if ((liveId && href.includes(liveId)) || href.includes('live_id=') || el.getAttribute?.('role') === 'combobox' || el.getAttribute?.('aria-haspopup') === 'listbox') push(text);
+        const value = (el.innerText || el.textContent || '').trim();
+        if ((liveId && href.includes(liveId)) || href.includes('live_id=') || el.getAttribute?.('role') === 'combobox' || el.getAttribute?.('aria-haspopup') === 'listbox') push(value);
       }
       for (const el of document.querySelectorAll('h1,h2,h3,[data-testid*="title" i],[class*="title" i]')) push(el.textContent);
       push(document.querySelector('meta[property="og:title"]')?.getAttribute('content'));
       push(document.querySelector('meta[name="twitter:title"]')?.getAttribute('content'));
       push(document.title);
-
       const dates = [];
       for (const el of document.querySelectorAll('time,[datetime],[data-testid*="date" i],[class*="date" i]')) {
         const value = el.getAttribute?.('datetime') || el.textContent || '';
         if (value) dates.push(String(value).trim());
       }
-
       return {
         live_id: liveId,
         url: location.href,
@@ -228,10 +219,8 @@ def wait_for_row(module, page, previous_live_id: str | None = None, timeout_ms: 
 def analytics(module, session):
     if not module.UUID_RE.fullmatch(module.START_UUID):
         module.fail("ANALYTICS_SEED_REQUIRED: WHATNOT_START_UUID is required")
-
     rows: list[dict[str, Any]] = []
     seen: set[str] = set()
-
     end_date = (date.today() + timedelta(days=7)).isoformat()
     target = f"{module.BASE}/account/analytics?tab=livestream&live_id={module.START_UUID}&start_dt=2019-01-01&end_dt={end_date}"
     module.info(f"analytics: range end={end_date} seed={module.START_UUID}")
@@ -239,7 +228,6 @@ def analytics(module, session):
     def action(page):
         module.prepare(page)
         page.goto(target, wait_until="domcontentloaded", timeout=30000)
-
         previous_live_id = None
         for index in range(module.LIMIT):
             row = wait_for_row(module, page, previous_live_id)
@@ -247,7 +235,6 @@ def analytics(module, session):
             if not key or key in seen:
                 break
             seen.add(key)
-
             if not has_useful_data(row):
                 module.info("ANALYTICS_DIAGNOSTIC " + json.dumps({
                     "index": index + 1,
@@ -258,12 +245,10 @@ def analytics(module, session):
                     "dates": (row.get("_dates") or [])[:8],
                     "preview": row.get("_preview"),
                 }, separators=(",", ":")))
-
             row.pop("_preview", None)
             row.pop("_titles", None)
             row.pop("_dates", None)
             rows.append(row)
-
             previous_live_id = row.get("whatnot_live_id")
             older = page.get_by_text(re.compile(r"see older show", re.I)).first
             try:
@@ -272,7 +257,6 @@ def analytics(module, session):
                 older.click(timeout=5000)
             except Exception:
                 break
-
         module.info(f"analytics: collected {len(rows)} show(s)")
 
     session.fetch(
@@ -331,70 +315,203 @@ def extract_orders_hardened(page) -> list[dict[str, Any]]:
 
 def order_page_signature(page) -> str:
     try:
-        value = page.evaluate(r"""
+        return str(page.evaluate(r"""
         () => {
           const ids = [...document.querySelectorAll('tbody tr, tr[data-testid^="orders-"]')]
             .map(tr => ((tr.innerText || '').match(/Order\s*#\s*(\d+)/i) || [])[1])
             .filter(Boolean);
           return `${ids.length}:${ids[0] || ''}:${ids[ids.length - 1] || ''}`;
         }
-        """)
-        return str(value or "")
+        """) or "")
     except Exception:
         return ""
 
 
-def advance_orders_page(module, page, previous_signature: str) -> bool:
+def pagination_state(page) -> dict[str, Any]:
     try:
-        state = page.evaluate(r"""
+        return page.evaluate(r"""
         () => {
           const svg = document.querySelector('svg[aria-label="Next page"]');
           const button = svg ? svg.closest('button') : document.querySelector('button[aria-label="Next page"]');
-          if (!button) return {exists:false, disabled:true};
-          const disabled = !!button.disabled || button.getAttribute('aria-disabled') === 'true';
-          if (disabled) return {exists:true, disabled:true};
-          button.click();
-          return {exists:true, disabled:false};
+          const body = document.body?.innerText || '';
+          const showing = (body.match(/Showing\s+([\d,]+)\s*[-–]\s*([\d,]+)\s+of\s+([\d,]+)/i) || []).slice(1);
+          return {
+            exists: !!button,
+            disabled: !button || !!button.disabled || button.getAttribute('aria-disabled') === 'true',
+            showing,
+            url: location.href,
+          };
         }
-        """)
-    except Exception as exc:
-        module.info(f"orders-batch: next-page click failed error={exc}")
+        """) or {}
+    except Exception:
+        return {}
+
+
+def advance_orders_page(module, page, previous_signature: str) -> bool:
+    state = pagination_state(page)
+    if not state.get("exists") or state.get("disabled"):
         return False
 
-    if not state or not state.get("exists") or state.get("disabled"):
-        return False
+    module.info(f"orders-batch: pagination next state={json.dumps(state, separators=(',', ':'))}")
 
-    for _ in range(24):
+    # Prefer a real browser click. It follows React's event path more reliably
+    # than calling element.click() from page.evaluate().
+    try:
+        button = page.locator('svg[aria-label="Next page"]').first.locator('xpath=ancestor::button[1]')
+        if button.is_visible(timeout=1500) and not button.is_disabled():
+            button.scroll_into_view_if_needed(timeout=2000)
+            button.click(timeout=5000)
+        else:
+            return False
+    except Exception as first_exc:
+        module.info(f"orders-batch: locator next click failed error={first_exc}; trying DOM click")
+        try:
+            clicked = page.evaluate(r"""
+            () => {
+              const svg = document.querySelector('svg[aria-label="Next page"]');
+              const button = svg ? svg.closest('button') : document.querySelector('button[aria-label="Next page"]');
+              if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return false;
+              button.click();
+              return true;
+            }
+            """)
+            if not clicked:
+                return False
+        except Exception:
+            return False
+
+    for _ in range(40):
         page.wait_for_timeout(250)
+        module.check_login(page)
         current = order_page_signature(page)
         if current and current != previous_signature:
             return True
 
-    # React occasionally ignores a synthetic DOM click. Retry with the browser
-    # locator so the event follows the same path as an operator click.
-    try:
-        next_button = page.locator('svg[aria-label="Next page"]').first.locator('xpath=ancestor::button[1]')
-        if next_button.is_visible(timeout=1000) and not next_button.is_disabled():
-            next_button.click(timeout=4000, force=True)
-            for _ in range(24):
-                page.wait_for_timeout(250)
-                current = order_page_signature(page)
-                if current and current != previous_signature:
-                    return True
-    except Exception:
-        pass
-
-    module.info(f"orders-batch: pagination stalled signature={previous_signature!r}")
+    module.info(
+        f"orders-batch: pagination stalled previous={previous_signature!r} "
+        f"state={json.dumps(pagination_state(page), separators=(',', ':'))}"
+    )
     return False
+
+
+def extract_order_sidebar(page) -> dict[str, Any]:
+    return page.evaluate(r"""
+    () => {
+      const root = document.querySelector('[data-testid="orders-details-sidebar"]');
+      if (!root) return {};
+      const text = root.innerText || '';
+      const money = value => {
+        const m = String(value || '').match(/-?\$\s*[\d,]+(?:\.\d+)?/);
+        if (!m) return null;
+        const n = parseFloat(m[0].replace(/[^0-9.-]/g, ''));
+        return Number.isFinite(n) ? n : null;
+      };
+      const pair = label => {
+        const nodes = [...root.querySelectorAll('strong,span')];
+        const hit = nodes.find(el => (el.textContent || '').trim().toLowerCase() === label.toLowerCase());
+        if (!hit) return null;
+        const section = hit.closest('section') || hit.parentElement;
+        if (!section) return null;
+        const vals = [...section.querySelectorAll('strong,span,a')]
+          .map(el => (el.textContent || '').trim())
+          .filter(Boolean);
+        return vals.find(v => v.toLowerCase() !== label.toLowerCase()) || null;
+      };
+      const shipmentLink = root.querySelector('a[href*="/dashboard/shipments/"]');
+      const shipmentHref = shipmentLink?.getAttribute('href') || null;
+      const shipmentId = shipmentHref ? (shipmentHref.match(/\/dashboard\/shipments\/(\d+)/) || [])[1] || null : null;
+      const orderId = (text.match(/Order\s*#\s*(\d+)/i) || [])[1] || null;
+      const buyerPaid = text.match(/Buyer paid[\s\S]*?Price\s+(-?\$[\d,.]+)[\s\S]*?Taxes paid by buyer\s+(-?\$[\d,.]+)[\s\S]*?Shipping paid by buyer\s+(-?\$[\d,.]+)[\s\S]*?Order total\s+(-?\$[\d,.]+)/i);
+      const earnings = text.match(/Your earnings[\s\S]*?Price\s+(-?\$[\d,.]+)[\s\S]*?(?:Shipping\s+(-?\$[\d,.]+)[\s\S]*?)?Net earnings\s+(-?\$[\d,.]+)/i);
+      return {
+        order_id: orderId,
+        shipment_id: shipmentId,
+        shipment_url: shipmentHref ? new URL(shipmentHref, location.origin).href : null,
+        order_date: pair('Order date'),
+        order_time: pair('Order time'),
+        buyer: pair('Buyer'),
+        product_category: pair('Product Category'),
+        quantity_detail: pair('Quantity'),
+        show_name: pair('Show'),
+        show_category: pair('Show Category'),
+        buyer_price: buyerPaid ? money(buyerPaid[1]) : null,
+        tax_amount: buyerPaid ? money(buyerPaid[2]) : null,
+        shipping_paid_by_buyer: buyerPaid ? money(buyerPaid[3]) : null,
+        order_total_detail: buyerPaid ? money(buyerPaid[4]) : null,
+        earnings_price: earnings ? money(earnings[1]) : null,
+        seller_shipping_cost: earnings ? money(earnings[2]) : null,
+        net_earnings_detail: earnings ? money(earnings[3]) : null,
+      };
+    }
+    """) or {}
+
+
+def enrich_order_row(module, page, row: dict[str, Any]) -> dict[str, Any]:
+    order_id = str(row.get("order_id") or "")
+    row_index = row.get("_row_index")
+    if not order_id and row_index is None:
+        return row
+
+    try:
+        candidates = page.locator('tbody[data-testid="orders-table-body"] tr, tbody tr, tr[data-testid^="orders-"]')
+        target = None
+        count = min(candidates.count(), 200)
+        for i in range(count):
+            candidate = candidates.nth(i)
+            try:
+                text = candidate.inner_text(timeout=400) or ""
+            except Exception:
+                continue
+            if order_id and re.search(rf"Order\s*#\s*{re.escape(order_id)}\b", text, re.I):
+                target = candidate
+                break
+        if target is None and isinstance(row_index, int) and row_index < count:
+            target = candidates.nth(row_index)
+        if target is None:
+            return row
+
+        target.click(timeout=4000, force=True)
+        sidebar = page.locator('[data-testid="orders-details-sidebar"]').first
+        if not sidebar.is_visible(timeout=3000):
+            return row
+        detail = extract_order_sidebar(page)
+        if detail:
+            row.update({k: v for k, v in detail.items() if v is not None and v != ""})
+            if row.get("order_total_detail") is not None:
+                row["total_price"] = row.get("order_total_detail")
+            if row.get("net_earnings_detail") is not None:
+                row["net_earnings"] = row.get("net_earnings_detail")
+        try:
+            close = sidebar.locator('[aria-label="Close order details"]').first
+            if close.is_visible(timeout=500):
+                close.click(timeout=2000)
+            else:
+                page.keyboard.press('Escape')
+        except Exception:
+            try:
+                page.keyboard.press('Escape')
+            except Exception:
+                pass
+        page.wait_for_timeout(100)
+    except Exception as exc:
+        module.info(f"orders-batch: detail enrichment failed order={order_id or row_index} error={exc}")
+    return row
 
 
 def orders_batch(module, session):
     source_file = os.getenv("WHATNOT_ORDER_SOURCES_FILE", "").strip()
     if not source_file or not Path(source_file).exists():
         module.fail("WHATNOT_ORDER_SOURCES_FILE is required")
-
     sources = json.loads(Path(source_file).read_text())
     output: list[dict[str, Any]] = []
+
+    enrich_raw = os.getenv("WHATNOT_ORDER_DETAIL_ENRICH", "").strip().lower()
+    enrich_details = enrich_raw in {"1", "true", "yes", "on"} if enrich_raw else len(sources) <= 5
+    detail_limit = max(0, int(os.getenv("WHATNOT_ORDER_DETAIL_MAX", "500") or "500"))
+    module.info(
+        f"orders-batch: detail_enrichment={'on' if enrich_details else 'off'} "
+        f"sources={len(sources)} detail_max={detail_limit}"
+    )
 
     def action(page):
         module.prepare(page)
@@ -405,14 +522,9 @@ def orders_batch(module, session):
                 output.append({"show_key": show_key, "live_id": None, "order_count": 0, "orders": []})
                 continue
 
-            # Whatnot's orders table defaults to 20. `first=100` is the same
-            # page-size parameter the Seller Hub UI writes when Show 100 is
-            # selected. We still paginate until Next is disabled so shows with
-            # more than 100 orders are complete.
             target = f"{module.BASE}/dashboard/orders?source={live_id}&first=100"
             page.goto(target, wait_until="domcontentloaded", timeout=30000)
-
-            for _ in range(30):
+            for _ in range(40):
                 module.check_login(page)
                 if order_page_signature(page):
                     break
@@ -420,17 +532,28 @@ def orders_batch(module, session):
 
             found: dict[str, dict[str, Any]] = {}
             page_number = 1
+            enriched_count = 0
             for _ in range(100):
                 module.check_login(page)
                 rows = extract_orders_hardened(page)
+
+                if enrich_details and enriched_count < detail_limit:
+                    for row in rows:
+                        if enriched_count >= detail_limit:
+                            break
+                        enrich_order_row(module, page, row)
+                        enriched_count += 1
+
                 for row in rows:
                     row.pop("_row_index", None)
                     key = str(row.get("order_id") or row.get("order_hash") or len(found))
                     found[key] = row
 
+                state = pagination_state(page)
                 module.info(
                     f"orders-batch: [{idx}/{len(sources)}] {show_key} "
-                    f"page={page_number} page_rows={len(rows)} total_unique={len(found)}"
+                    f"page={page_number} page_rows={len(rows)} total_unique={len(found)} "
+                    f"pagination={json.dumps(state, separators=(',', ':'))}"
                 )
 
                 signature = order_page_signature(page)
@@ -441,7 +564,7 @@ def orders_batch(module, session):
             rows = list(found.values())
             module.info(
                 f"orders-batch: [{idx}/{len(sources)}] {show_key} -> "
-                f"{len(rows)} row(s) across {page_number} page(s)"
+                f"{len(rows)} row(s) across {page_number} page(s) enriched={enriched_count}"
             )
             output.append({
                 "show_key": show_key,
@@ -463,7 +586,6 @@ def orders_batch(module, session):
 def install(module) -> None:
     module.extract_show = extract_show
     module.analytics = lambda session: analytics(module, session)
-
     original_batch = module.batch
     module.batch = lambda session, shipments=False: (
         original_batch(session, True) if shipments else orders_batch(module, session)

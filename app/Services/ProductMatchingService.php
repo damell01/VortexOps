@@ -13,10 +13,6 @@ use Illuminate\Support\Facades\Cache;
  *   Stage 1 — Alias lookup (0 ms, 100% confidence)
  *   Stage 2 — Fuzzy text matching (5–20ms, structured token scoring)
  *   Stage 3 — Ollama embedding similarity
- *
- * Callers running inside a web request can set $skipEmbedding=true. That keeps
- * matching entirely in PHP/SQL so a cold or busy local model can never hold up
- * receiving, inventory, or another normal page request.
  */
 class ProductMatchingService
 {
@@ -24,12 +20,8 @@ class ProductMatchingService
         private readonly EmbeddingService $embedding
     ) {}
 
-    /** Per-request memo of the active-product catalogue (see fuzzyCatalog). */
     private ?\Illuminate\Database\Eloquent\Collection $catalogMemo = null;
 
-    /**
-     * @return array{product: ?Product, confidence: float, stage: string, reasons: string[], candidates: array, identity: ?ProductIdentity}
-     */
     public function match(
         string $description,
         ?string $upc = null,
@@ -46,9 +38,6 @@ class ProductMatchingService
             return $stage2;
         }
 
-        // This is the important low-resource boundary: web-request matching ends
-        // here. Fuzzy candidates are still useful for the review UI, while no
-        // HTTP request to Ollama/embedding model is made.
         if ($skipEmbedding) {
             return $stage2;
         }
@@ -61,10 +50,10 @@ class ProductMatchingService
         }
 
         return [
-            'product'    => null,
-            'confidence' => 0.0,
-            'stage'      => 'none',
-            'reasons'    => [],
+            'product'    => $stage2['product'],
+            'confidence' => $stage2['confidence'],
+            'stage'      => $stage2['product'] ? 'fuzzy' : 'none',
+            'reasons'    => $stage2['reasons'],
             'candidates' => array_merge($stage2['candidates'], $stage3['candidates']),
             'identity'   => null,
         ];
@@ -100,9 +89,13 @@ class ProductMatchingService
             ]);
         }
 
-        $exact = Product::whereRaw('LOWER(name) = ?', [$normalized])->first();
+        // Compare normalized names so punctuation / vendor formatting does not
+        // prevent what is otherwise an exact catalogue-name match.
+        $exact = $this->fuzzyCatalog()->first(
+            fn (Product $product) => $this->embedding->normalizeText($product->name) === $normalized
+        );
         if ($exact) {
-            return $this->result($exact, 1.0, 'alias', null, [], ['Exact product name match']);
+            return $this->result($exact, 1.0, 'alias', null, [], ['Exact normalized product name match']);
         }
 
         return $this->emptyResult();
@@ -118,8 +111,15 @@ class ProductMatchingService
         $scores = [];
         foreach ($this->fuzzyCatalog() as $product) {
             $scored = $this->scoreTokensDetailed($tokens, $product);
-            if ($scored['score'] > 0.5) {
-                $scores[$product->id] = ['product' => $product, 'score' => $scored['score'], 'reasons' => $scored['reasons']];
+            // Keep broader candidates for the background AI confirmation stage.
+            // A vendor description can contain brand/language filler and still
+            // clearly refer to the same inventory item.
+            if ($scored['score'] >= 0.35) {
+                $scores[$product->id] = [
+                    'product' => $product,
+                    'score' => $scored['score'],
+                    'reasons' => $scored['reasons'],
+                ];
             }
         }
 
@@ -134,7 +134,10 @@ class ProductMatchingService
             array_slice($scores, 0, 5, true)
         );
 
-        if ($top['score'] >= 0.80) {
+        // 0.68 is a suggestion threshold, not an automatic commit threshold.
+        // The manifest review still requires human approval, while >= .95 is
+        // the existing auto-accept confidence boundary used elsewhere.
+        if ($top['score'] >= 0.68) {
             return $this->result($top['product'], round($top['score'], 4), 'fuzzy', null, $candidates, $top['reasons']);
         }
 
@@ -163,9 +166,14 @@ class ProductMatchingService
         $union = count(array_unique(array_merge($tokens, $productTokens)));
         $jaccard = $union > 0 ? $intersection / $union : 0.0;
 
+        $coverage = min(
+            count($tokens) > 0 ? $intersection / count($tokens) : 0,
+            count($productTokens) > 0 ? $intersection / count($productTokens) : 0,
+        );
+
         $yearBonus = 0.0;
         if ($product->year && in_array((string) $product->year, $tokens)) {
-            $yearBonus = 0.1;
+            $yearBonus = 0.08;
             $reasons[] = "Year matched ({$product->year})";
         }
 
@@ -173,7 +181,7 @@ class ProductMatchingService
         if ($product->brand) {
             $brandTokens = $this->tokenize($product->brand);
             if (! empty(array_intersect($tokens, $brandTokens))) {
-                $brandBonus = 0.05;
+                $brandBonus = 0.04;
                 $reasons[] = "Brand matched ({$product->brand})";
             }
         }
@@ -185,23 +193,22 @@ class ProductMatchingService
             }
         }
 
-        if ($product->sport) {
-            $sportTokens = $this->tokenize($product->sport);
-            if (! empty(array_intersect($tokens, $sportTokens))) {
-                $reasons[] = "Sport matched ({$product->sport})";
-            }
-        }
-
         $nameSimilarity = 0.0;
         similar_text(
             implode(' ', $tokens),
-            $this->embedding->normalizeText($product->name),
+            implode(' ', $this->tokenize($product->name)),
             $nameSimilarity
         );
         $nameSimilarity /= 100.0;
         $reasons[] = sprintf('Name similarity: %.1f%%', $nameSimilarity * 100);
+        $reasons[] = sprintf('Token coverage: %.1f%%', $coverage * 100);
 
-        $raw = ($jaccard * 0.5) + ($nameSimilarity * 0.35) + $yearBonus + $brandBonus;
+        $raw = ($jaccard * 0.35)
+            + ($coverage * 0.30)
+            + ($nameSimilarity * 0.23)
+            + $yearBonus
+            + $brandBonus;
+
         return ['score' => min(1.0, $raw), 'reasons' => $reasons];
     }
 
@@ -247,10 +254,6 @@ class ProductMatchingService
         return $this->emptyResult('embedding', array_values($candidates));
     }
 
-    /**
-     * Record a human-confirmed match. The alias is immediate and deterministic.
-     * Embedding enrichment is pushed to the AI worker in background-only mode.
-     */
     public function confirmMatch(
         string $vendorDescription,
         Product $product,
@@ -265,8 +268,6 @@ class ProductMatchingService
 
         if (in_array($stage, ['embedding', 'llm'], true)) {
             if (config('ai.ops.background_only', true)) {
-                // The learned alias works immediately. Generate/rebuild the
-                // product embedding later without holding this request open.
                 GenerateProductEmbeddingJob::dispatch($product->id)
                     ->onQueue((string) config('ai.ops.queue', 'ai'));
             } else {
@@ -298,9 +299,22 @@ class ProductMatchingService
 
     private function tokenize(string $text): array
     {
+        $aliases = [
+            'chinese' => 'ch',
+            'china' => 'ch',
+            'japanese' => 'jp',
+            'japan' => 'jp',
+            'indonesian' => 'indo',
+            'indonesia' => 'indo',
+        ];
+        $ignore = ['pokemon', 'version', 'edition', 'product', 'tcg'];
+
+        $tokens = explode(' ', $this->embedding->normalizeText($text));
+        $tokens = array_map(fn ($token) => $aliases[$token] ?? $token, $tokens);
+
         return array_values(array_unique(array_filter(
-            explode(' ', $this->embedding->normalizeText($text)),
-            fn ($t) => strlen($t) >= 2
+            $tokens,
+            fn ($token) => strlen($token) >= 2 && ! in_array($token, $ignore, true)
         )));
     }
 

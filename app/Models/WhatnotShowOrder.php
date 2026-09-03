@@ -16,6 +16,12 @@ class WhatnotShowOrder extends Model
         'total_cost',
         'whatnot_order_id',
         'whatnot_show_url',
+        'whatnot_order_detail_url',
+        'whatnot_shipment_id',
+        'whatnot_shipment_url',
+        'ordered_at_whatnot',
+        'product_category',
+        'show_category',
         'buyer_username',
         'buyer_display_name',
         'lot_number',
@@ -44,6 +50,7 @@ class WhatnotShowOrder extends Model
 
     protected $casts = [
         'show_date'           => 'date',
+        'ordered_at_whatnot'  => 'datetime',
         'raw_data'            => 'array',
         'quantity'            => 'integer',
         'unit_price'          => 'decimal:2',

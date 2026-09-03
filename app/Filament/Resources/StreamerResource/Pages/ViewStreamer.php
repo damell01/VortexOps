@@ -4,7 +4,6 @@ namespace App\Filament\Resources\StreamerResource\Pages;
 
 use App\Filament\Resources\StreamerResource;
 use App\Filament\Widgets\StreamerEarningsChartWidget;
-use App\Filament\Widgets\StreamerSummaryWidget;
 use App\Models\InventoryItem;
 use App\Models\InventoryLocation;
 use App\Models\InventoryStock;
@@ -20,6 +19,7 @@ use Filament\Resources\Pages\ViewRecord;
 class ViewStreamer extends ViewRecord
 {
     protected static string $resource = StreamerResource::class;
+    protected string $view = 'filament.resources.streamer-resource.pages.view-streamer-workspace';
 
     public function getTitle(): string
     {
@@ -31,127 +31,58 @@ class ViewStreamer extends ViewRecord
         $status = Streamer::statusLabels()[$this->record->status] ?? ucfirst((string) $this->record->status);
         $channel = $this->record->channel?->name;
         $type = Streamer::payoutTypeLabels()[$this->record->payout_type] ?? ucfirst(str_replace('_', ' ', (string) $this->record->payout_type));
-
         return implode(' · ', array_filter([$status, $type, $channel]));
     }
 
-    protected function getHeaderWidgets(): array
-    {
-        return [
-            StreamerSummaryWidget::class,
-        ];
-    }
+    protected function getHeaderWidgets(): array { return []; }
 
-    public function getWidgetData(): array
-    {
-        return ['record' => $this->record];
-    }
+    public function getWidgetData(): array { return ['record' => $this->record]; }
 
     protected function getHeaderActions(): array
     {
         $allocate = Action::make('allocate_to_pool')
-            ->label('Allocate Inventory')
-            ->icon('heroicon-o-arrow-right-circle')
-            ->color('primary')
+            ->label('Allocate Inventory')->icon('heroicon-o-arrow-right-circle')->color('primary')
             ->form([
-                Select::make('inventory_item_id')
-                    ->label('Item')
-                    ->options(fn () => InventoryItem::where('is_active', true)->orderBy('name')->pluck('name', 'id')->toArray())
-                    ->required()
-                    ->searchable(),
-
-                Select::make('from_location_id')
-                    ->label('Source Location')
-                    ->options(fn () => InventoryLocation::where('status', 'active')
-                        ->whereIn('type', ['main_storage', 'fulfillment', 'other'])
-                        ->orderBy('name')
-                        ->pluck('name', 'id')
-                        ->toArray())
-                    ->required()
-                    ->searchable(),
-
-                TextInput::make('quantity')
-                    ->numeric()
-                    ->minValue(0.01)
-                    ->required(),
-
-                TextInput::make('reason')
-                    ->label('Reason (optional)')
-                    ->placeholder('Show prep: Break #47')
-                    ->maxLength(255),
+                Select::make('inventory_item_id')->label('Item')->options(fn () => InventoryItem::where('is_active', true)->orderBy('name')->pluck('name', 'id')->toArray())->required()->searchable(),
+                Select::make('from_location_id')->label('Source Location')->options(fn () => InventoryLocation::where('status', 'active')->whereIn('type', ['main_storage', 'fulfillment', 'other'])->orderBy('name')->pluck('name', 'id')->toArray())->required()->searchable(),
+                TextInput::make('quantity')->numeric()->minValue(0.01)->required(),
+                TextInput::make('reason')->label('Reason (optional)')->placeholder('Show prep: Break #47')->maxLength(255),
             ])
             ->action(function (array $data): void {
                 /** @var Streamer $streamer */
                 $streamer = $this->record;
-
-                $poolLocation = $streamer->inventoryLocations()
-                    ->where('type', 'streamer_inventory')
-                    ->where('status', 'active')
-                    ->first();
-
+                $poolLocation = $streamer->inventoryLocations()->where('type', 'streamer_inventory')->where('status', 'active')->first();
                 if (! $poolLocation) {
-                    Notification::make()
-                        ->title("No active inventory pool found for {$streamer->name}. Create a Streamer Inventory location first.")
-                        ->danger()
-                        ->send();
+                    Notification::make()->title("No active inventory pool found for {$streamer->name}. Create a Streamer Inventory location first.")->danger()->send();
                     return;
                 }
-
-                $item    = InventoryItem::findOrFail($data['inventory_item_id']);
+                $item = InventoryItem::findOrFail($data['inventory_item_id']);
                 $fromLoc = InventoryLocation::findOrFail($data['from_location_id']);
-                $qty     = (float) $data['quantity'];
-
-                $sourceStock = InventoryStock::where('inventory_item_id', $item->id)
-                    ->where('inventory_location_id', $fromLoc->id)
-                    ->first();
-
+                $qty = (float) $data['quantity'];
+                $sourceStock = InventoryStock::where('inventory_item_id', $item->id)->where('inventory_location_id', $fromLoc->id)->first();
                 if (! $sourceStock || (float) $sourceStock->quantity < $qty) {
-                    $available = number_format((float) ($sourceStock?->quantity ?? 0), 2);
-                    Notification::make()
-                        ->title("Insufficient stock in {$fromLoc->name}. Available: {$available}")
-                        ->danger()
-                        ->send();
+                    Notification::make()->title("Insufficient stock in {$fromLoc->name}. Available: " . number_format((float) ($sourceStock?->quantity ?? 0), 2))->danger()->send();
                     return;
                 }
-
                 try {
-                    app(\App\Services\InventoryService::class)->transferStock(
-                        item: $item,
-                        from: $fromLoc,
-                        to: $poolLocation,
-                        quantity: $qty,
-                        reason: $data['reason'] ?: "Allocated to {$streamer->name} pool",
-                    );
+                    app(\App\Services\InventoryService::class)->transferStock(item: $item, from: $fromLoc, to: $poolLocation, quantity: $qty, reason: $data['reason'] ?: "Allocated to {$streamer->name} pool");
                 } catch (\RuntimeException $e) {
                     Notification::make()->title($e->getMessage())->danger()->send();
                     return;
                 }
-
-                Notification::make()
-                    ->title("Allocated {$qty} × {$item->name} → {$streamer->name}'s pool.")
-                    ->success()
-                    ->send();
+                Notification::make()->title("Allocated {$qty} × {$item->name} → {$streamer->name}'s pool.")->success()->send();
             });
 
         return [
             $allocate,
-
             ActionGroup::make([
-                EditAction::make()
-                    ->label('Edit Team Member')
-                    ->icon('heroicon-o-pencil-square'),
-            ])
-                ->label('More')
-                ->icon('heroicon-o-ellipsis-horizontal')
-                ->button()
-                ->color('gray'),
+                EditAction::make()->label('Edit Team Member')->icon('heroicon-o-pencil-square'),
+            ])->label('More')->icon('heroicon-o-ellipsis-horizontal')->button()->color('gray'),
         ];
     }
 
     protected function getFooterWidgets(): array
     {
-        return [
-            StreamerEarningsChartWidget::class,
-        ];
+        return [StreamerEarningsChartWidget::class];
     }
 }

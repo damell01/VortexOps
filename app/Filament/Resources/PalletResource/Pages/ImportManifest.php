@@ -73,8 +73,6 @@ class ImportManifest extends Page
             throw new \RuntimeException('Manifest upload could not be saved.');
         }
 
-        // Laravel's local disk is storage/app/private by default. Always resolve
-        // the exact absolute path from the disk instead of assuming storage/app.
         $path = Storage::disk('local')->path($relativePath);
 
         $task = AiTask::create([
@@ -102,7 +100,7 @@ class ImportManifest extends Page
 
         Notification::make()
             ->title('AI manifest job started')
-            ->body('You can leave this page. VortexOps will notify you when the manifest and inventory suggestions are ready to review.')
+            ->body('You can leave this page. VortexOps will add the extracted manifest lines in the background and notify you when item matching is ready to review.')
             ->success()
             ->send();
 
@@ -166,6 +164,7 @@ class ImportManifest extends Page
             'match_reasons' => [],
             'alternatives' => [],
             'create_new_item' => true,
+            'pallet_line_id' => null,
         ];
     }
 
@@ -200,6 +199,17 @@ class ImportManifest extends Page
 
     public function removeLine(int $idx): void
     {
+        if (! isset($this->parsedLines[$idx])) return;
+
+        $lineId = $this->parsedLines[$idx]['pallet_line_id'] ?? null;
+        if ($lineId) {
+            PalletLine::query()
+                ->where('id', $lineId)
+                ->where('pallet_id', $this->record->id)
+                ->whereDoesntHave('cases', fn ($q) => $q->where('status', '!=', 'expected'))
+                ->delete();
+        }
+
         array_splice($this->parsedLines, $idx, 1);
         $this->parsedLines = array_values($this->parsedLines);
     }
@@ -208,10 +218,10 @@ class ImportManifest extends Page
     {
         $pallet = $this->record;
         $nextLine = ($pallet->lines()->max('line_number') ?? 0) + 1;
-        $created = 0;
+        $processed = 0;
         $matched = 0;
 
-        DB::transaction(function () use ($pallet, &$nextLine, &$created, &$matched) {
+        DB::transaction(function () use ($pallet, &$nextLine, &$processed, &$matched) {
             foreach ($this->parsedLines as $row) {
                 $description = trim($row['description'] ?? '');
                 if ($description === '') continue;
@@ -231,9 +241,7 @@ class ImportManifest extends Page
                     ]);
                 }
 
-                PalletLine::create([
-                    'pallet_id' => $pallet->id,
-                    'line_number' => $nextLine++,
+                $attributes = [
                     'description' => $description,
                     'vendor_description' => $description,
                     'case_count' => max(1, (int) ($row['case_count'] ?? 1)),
@@ -241,25 +249,39 @@ class ImportManifest extends Page
                     'unit_cost' => $unitCost > 0 ? $unitCost : ($item?->unit_cost ?? 0),
                     'inventory_item_id' => $item?->id,
                     'match_confidence' => $item ? (float) ($row['match_confidence_score'] ?? 1) : null,
-                    'match_stage' => $item ? (($row['match_stage'] ?? '') ?: 'manual_review') : null,
+                    'match_stage' => $item ? (($row['match_stage'] ?? '') ?: 'manual_review') : 'ai_unmatched',
                     'match_reasons' => $row['match_reasons'] ?? [],
                     'matched_at' => $item ? now() : null,
                     'matched_by' => $item ? auth()->id() : null,
-                ]);
+                ];
 
-                $created++;
+                $lineId = $row['pallet_line_id'] ?? null;
+                $line = $lineId
+                    ? PalletLine::query()->where('pallet_id', $pallet->id)->find($lineId)
+                    : null;
+
+                if ($line) {
+                    $line->update($attributes);
+                } else {
+                    $line = PalletLine::create(array_merge($attributes, [
+                        'pallet_id' => $pallet->id,
+                        'line_number' => $nextLine++,
+                    ]));
+                }
+
+                $processed++;
                 if ($item) $matched++;
             }
         });
 
-        $this->created = $created;
+        $this->created = $processed;
         $this->matched = $matched;
-        $this->unmatched = $created - $matched;
+        $this->unmatched = $processed - $matched;
         $this->stage = 'done';
 
         Notification::make()
-            ->title('Manifest approved')
-            ->body("{$created} pallet lines created · {$matched} mapped to inventory · {$this->unmatched} left unmapped.")
+            ->title('Manifest review saved')
+            ->body("{$processed} manifest lines saved · {$matched} mapped to inventory · {$this->unmatched} remain unmapped.")
             ->success()
             ->send();
 

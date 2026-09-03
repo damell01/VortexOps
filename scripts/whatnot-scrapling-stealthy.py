@@ -22,6 +22,7 @@ from scrapling.fetchers import StealthySession
 
 HERE = Path(__file__).resolve().parent
 BASE_SCRIPT = HERE / "whatnot-scrapling.py"
+ANALYTICS_HELPER = HERE / "whatnot-analytics-hardened.py"
 CDP_URL = os.getenv(
     "WHATNOT_SCRAPLING_CDP_URL",
     os.getenv("WHATNOT_ATTACH_CDP_URL", "http://127.0.0.1:9222"),
@@ -52,13 +53,17 @@ def stop(message: str, code: int = 3) -> None:
     raise SystemExit(code)
 
 
-def load_base_module():
-    spec = importlib.util.spec_from_file_location("vortexops_whatnot_scrapling", BASE_SCRIPT)
+def load_module(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"Unable to load {BASE_SCRIPT}")
+        raise RuntimeError(f"Unable to load {path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def load_base_module():
+    return load_module(BASE_SCRIPT, "vortexops_whatnot_scrapling")
 
 
 def page_text(page) -> str:
@@ -131,12 +136,6 @@ def click_first_visible(page, selectors: list[str]) -> bool:
 
 
 def enter_field_value(node, value: str, label: str) -> None:
-    """Enter a normal form value and verify the browser accepted it.
-
-    Some React-controlled forms can visually expose an input while ignoring a
-    programmatic fill during hydration. Prefer real key events, then verify the
-    DOM value without ever logging the credential itself.
-    """
     try:
         node.click(timeout=3000)
     except Exception:
@@ -178,7 +177,6 @@ def enter_field_value(node, value: str, label: str) -> None:
 
 
 def login_state_summary(page) -> str:
-    """Return safe form diagnostics without exposing field values or credentials."""
     parts: list[str] = []
     try:
         parts.append(f"url={page.url}")
@@ -239,17 +237,9 @@ def login_state_summary(page) -> str:
 
 
 def ensure_authenticated(page) -> None:
-    """Validate the persistent session and perform an ordinary login when needed.
-
-    Supports both single-page and multi-step Whatnot credential forms. This
-    deliberately does not solve or bypass Cloudflare/Turnstile/CAPTCHA and does
-    not attempt to automate MFA. Those states fail closed with instructions to
-    refresh the persistent browser profile interactively.
-    """
     if challenge_present(page):
         stop(
-            f"CLOUDFLARE_CHALLENGE: Whatnot presented an anti-bot verification page at {page.url}. "
-            "No challenge bypass was attempted. Refresh/authenticate the persistent Scrapling profile and retry.",
+            f"CLOUDFLARE_CHALLENGE: Whatnot presented an anti-bot verification page at {page.url}. No challenge bypass was attempted. Refresh/authenticate the persistent Scrapling profile and retry.",
             4,
         )
 
@@ -293,10 +283,7 @@ def ensure_authenticated(page) -> None:
 
     if email is None and password is None:
         log("AUTH_DIAGNOSTIC " + login_state_summary(page))
-        stop(
-            f"LOGIN_FORM_CHANGED: unable to locate an email/username or password field at {page.url}",
-            3,
-        )
+        stop(f"LOGIN_FORM_CHANGED: unable to locate an email/username or password field at {page.url}", 3)
 
     log("AUTH_BOOTSTRAP state=login-required action=credential-login")
 
@@ -317,38 +304,24 @@ def ensure_authenticated(page) -> None:
 
         page.wait_for_timeout(1500)
         if challenge_present(page):
-            stop(
-                f"CLOUDFLARE_CHALLENGE: verification was requested during login at {page.url}. "
-                "No challenge bypass was attempted; complete it interactively in the persistent profile and retry.",
-                4,
-            )
+            stop(f"CLOUDFLARE_CHALLENGE: verification was requested during login at {page.url}. No challenge bypass was attempted; complete it interactively in the persistent profile and retry.", 4)
         if interaction_required(page):
-            stop(
-                f"AUTH_INTERACTION_REQUIRED: Whatnot requires MFA/OTP at {page.url}. "
-                "Complete the verification interactively once; the persistent Scrapling profile will retain the authenticated session.",
-                3,
-            )
+            stop(f"AUTH_INTERACTION_REQUIRED: Whatnot requires MFA/OTP at {page.url}. Complete the verification interactively once; the persistent Scrapling profile will retain the authenticated session.", 3)
         password = first_visible(page, password_selectors)
         if password is None:
             log("AUTH_DIAGNOSTIC " + login_state_summary(page))
-            stop(
-                f"LOGIN_FORM_CHANGED: email/username step advanced but no password field appeared at {page.url}",
-                3,
-            )
+            stop(f"LOGIN_FORM_CHANGED: email/username step advanced but no password field appeared at {page.url}", 3)
 
     enter_field_value(password, PASSWORD, "password")
 
-    submitted = click_first_visible(
-        page,
-        [
-            'form button[type="submit"]',
-            'button[type="submit"]',
-            'button:has-text("Log in")',
-            'button:has-text("Login")',
-            'button:has-text("Sign in")',
-            'button:has-text("Continue")',
-        ],
-    )
+    submitted = click_first_visible(page, [
+        'form button[type="submit"]',
+        'button[type="submit"]',
+        'button:has-text("Log in")',
+        'button:has-text("Login")',
+        'button:has-text("Sign in")',
+        'button:has-text("Continue")',
+    ])
     if not submitted:
         try:
             password.press("Enter")
@@ -366,17 +339,9 @@ def ensure_authenticated(page) -> None:
     page.wait_for_timeout(2500)
 
     if challenge_present(page):
-        stop(
-            f"CLOUDFLARE_CHALLENGE: verification was requested after login at {page.url}. "
-            "No challenge bypass was attempted; complete it interactively in the persistent profile and retry.",
-            4,
-        )
+        stop(f"CLOUDFLARE_CHALLENGE: verification was requested after login at {page.url}. No challenge bypass was attempted; complete it interactively in the persistent profile and retry.", 4)
     if interaction_required(page):
-        stop(
-            f"AUTH_INTERACTION_REQUIRED: Whatnot requires MFA/OTP at {page.url}. "
-            "Complete the verification interactively once; the persistent Scrapling profile will retain the authenticated session.",
-            3,
-        )
+        stop(f"AUTH_INTERACTION_REQUIRED: Whatnot requires MFA/OTP at {page.url}. Complete the verification interactively once; the persistent Scrapling profile will retain the authenticated session.", 3)
     if login_page(page):
         log("AUTH_DIAGNOSTIC " + login_state_summary(page))
         stop(f"LOGIN_FAILED: Whatnot remained on the login page after credential submission ({page.url})", 3)
@@ -421,6 +386,13 @@ def main() -> None:
     module = load_base_module()
     module.DynamicSession = stealthy_session
     module.check_login = ensure_authenticated
+
+    # Keep the common Scrapling channel/auth/browser code untouched while using
+    # the hardened analytics parser for the one surface Whatnot changed.
+    analytics_helper = load_module(ANALYTICS_HELPER, "vortexops_whatnot_analytics_hardened")
+    analytics_helper.install(module)
+    log("analytics extractor=hardened")
+
     module.main()
 
 

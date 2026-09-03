@@ -26,25 +26,29 @@ class ProcessWhatnotChannelsJob implements ShouldQueue, ShouldBeUnique
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 1;
-
-    // Four channels can legitimately take a while when each has shows/orders to
-    // catch up. The browser layer has its own tighter per-process timeouts.
     public int $timeout = 14400;
-
-    // The scheduler can fire again while a slow four-channel cycle is still in
-    // progress. Keep a single pipeline queued/running instead of stacking a
-    // second copy behind it. Laravel releases this lock when the job finishes.
     public int $uniqueFor = 18000;
 
     public function __construct(
         public readonly string $type = 'incremental',
         public readonly int $ledgerDays = 30,
         public readonly int $shipmentLimit = 50,
+        public readonly bool $showProgress = false,
     ) {}
 
     public function uniqueId(): string
     {
         return 'whatnot-sequential-channel-pipeline';
+    }
+
+    private function progress(string $message): void
+    {
+        if (! $this->showProgress || app()->runningUnitTests()) {
+            return;
+        }
+
+        fwrite(STDOUT, $message . PHP_EOL);
+        fflush(STDOUT);
     }
 
     public function handle(WhatnotSyncEngine $engine, WhatnotScraper $scraper): void
@@ -57,38 +61,45 @@ class ProcessWhatnotChannelsJob implements ShouldQueue, ShouldBeUnique
 
         if ($channels->isEmpty()) {
             Log::warning('ProcessWhatnotChannelsJob: no enabled active Whatnot channels found');
+            $this->progress('No enabled active Whatnot channels found.');
             return;
         }
+
+        $count = $channels->count();
 
         Log::info('ProcessWhatnotChannelsJob: starting sequential channel pipeline', [
             'channels' => $channels->pluck('whatnot_username')->values()->all(),
             'type' => $this->type,
         ]);
 
+        $this->progress("Starting sequential Whatnot pipeline for {$count} channel(s)...");
+
         foreach ($channels as $position => $channel) {
             $number = $position + 1;
+            $startedAt = microtime(true);
 
-            Log::info("Whatnot pipeline [{$number}/{$channels->count()}]: starting {$channel->name}", [
+            Log::info("Whatnot pipeline [{$number}/{$count}]: starting {$channel->name}", [
                 'channel_id' => $channel->id,
                 'username' => $channel->whatnot_username,
             ]);
 
-            // Step 1: shows + analytics + orders + buyers. Most importantly,
-            // syncChannel passes THIS channel username into the scraper. If the
-            // role switch cannot be verified, the headed wrapper returns a
-            // failure instead of allowing another channel's data to be stored.
+            $this->progress('');
+            $this->progress("[{$number}/{$count}] {$channel->name} (@{$channel->whatnot_username})");
+            $this->progress('  → Shows / analytics / orders / buyers...');
+
             $sync = $engine->syncChannel($channel, $this->type);
 
             if ($sync->status !== 'completed') {
-                Log::error("Whatnot pipeline [{$number}/{$channels->count()}]: {$channel->name} show/order sync failed; skipping channel-specific follow-up steps", [
+                Log::error("Whatnot pipeline [{$number}/{$count}]: {$channel->name} show/order sync failed; skipping channel-specific follow-up steps", [
                     'sync_id' => $sync->id,
                     'errors' => $sync->errors,
                 ]);
 
-                // Do not attempt shipments/ledger on a browser session whose
-                // channel switch just failed. Continue with the next channel.
+                $this->progress('  ✗ Show/order sync failed; skipping shipments and ledger for this channel.');
                 continue;
             }
+
+            $this->progress("  ✓ Shows / analytics / orders / buyers complete (sync #{$sync->id})");
 
             $pipeline = [
                 'shows_orders_sync_id' => $sync->id,
@@ -97,29 +108,33 @@ class ProcessWhatnotChannelsJob implements ShouldQueue, ShouldBeUnique
                 'errors' => [],
             ];
 
-            // Step 2: refresh unresolved shipment metadata for this channel.
+            $this->progress("  → Shipments (up to {$this->shipmentLimit})...");
             try {
                 $pipeline['shipments'] = $engine->syncShipmentUpdatesForChannel(
                     $channel,
                     max(1, $this->shipmentLimit),
                 );
+                $this->progress('  ✓ Shipment refresh complete');
             } catch (\Throwable $e) {
                 $pipeline['errors'][] = ['step' => 'shipments', 'message' => $e->getMessage()];
                 Log::error("Whatnot pipeline: shipment refresh failed for {$channel->name}", [
                     'exception' => $e->getMessage(),
                 ]);
+                $this->progress('  ✗ Shipment refresh failed: ' . $e->getMessage());
             }
 
-            // Step 3: keep a rolling ledger window current for this same channel.
+            $this->progress("  → Ledger ({$this->ledgerDays}-day rolling window)...");
             try {
                 $to = now()->toDateString();
                 $from = now()->subDays(max(1, $this->ledgerDays))->toDateString();
                 $pipeline['ledger'] = $scraper->importLedger($channel, $from, $to, false);
+                $this->progress('  ✓ Ledger import complete');
             } catch (\Throwable $e) {
                 $pipeline['errors'][] = ['step' => 'ledger', 'message' => $e->getMessage()];
                 Log::error("Whatnot pipeline: ledger import failed for {$channel->name}", [
                     'exception' => $e->getMessage(),
                 ]);
+                $this->progress('  ✗ Ledger import failed: ' . $e->getMessage());
             }
 
             $sync->update([
@@ -129,9 +144,15 @@ class ProcessWhatnotChannelsJob implements ShouldQueue, ShouldBeUnique
                 ]),
             ]);
 
-            Log::info("Whatnot pipeline [{$number}/{$channels->count()}]: finished {$channel->name}", $pipeline);
+            $elapsed = (int) round(microtime(true) - $startedAt);
+            $status = empty($pipeline['errors']) ? '✓' : '⚠';
+            $this->progress("  {$status} {$channel->name} finished in {$elapsed}s");
+
+            Log::info("Whatnot pipeline [{$number}/{$count}]: finished {$channel->name}", $pipeline);
         }
 
         Log::info('ProcessWhatnotChannelsJob: all enabled channels attempted');
+        $this->progress('');
+        $this->progress('All enabled Whatnot channels attempted.');
     }
 }

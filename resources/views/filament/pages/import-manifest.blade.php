@@ -1,495 +1,91 @@
 <x-filament-panels::page>
-    <div class="space-y-6">
-
-        {{-- ── Progress stepper ────────────────────────────────────────────── --}}
-        @php
-            $stages = ['upload' => 'Upload', 'processing' => 'Reading', 'verify' => 'Verify', 'done' => 'Done'];
-            $stageKeys = array_keys($stages);
-            $currentIdx = array_search($stage, $stageKeys);
-        @endphp
-        <div class="flex items-center gap-2 max-w-3xl mx-auto">
-            @foreach ($stages as $key => $label)
-                @php
-                    $idx    = array_search($key, $stageKeys);
-                    $done   = $idx < $currentIdx;
-                    $active = $key === $stage;
-                @endphp
-                <div class="flex items-center {{ $loop->last ? '' : 'flex-1' }}">
-                    <div class="flex flex-col items-center">
-                        <div class="h-8 w-8 rounded-full flex items-center justify-center text-xs font-semibold
-                            {{ $done ? 'bg-green-500 text-white' : ($active ? 'bg-violet-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-400') }}">
-                            @if ($done)
-                                <x-heroicon-o-check class="h-4 w-4" />
-                            @else
-                                {{ $idx + 1 }}
-                            @endif
-                        </div>
-                        <span class="mt-1 text-[11px] font-medium {{ $active ? 'text-violet-600 dark:text-violet-400' : 'text-gray-400' }}">{{ $label }}</span>
-                    </div>
-                    @if (! $loop->last)
-                        <div class="flex-1 h-0.5 mx-2 mb-4 {{ $done ? 'bg-green-400' : 'bg-gray-200 dark:bg-gray-700' }}"></div>
-                    @endif
-                </div>
-            @endforeach
+@php
+    $palletUrl = \App\Filament\Resources\PalletResource::getUrl('view', ['record' => $this->record]);
+@endphp
+<style>
+.vx-ai{max-width:1180px;margin:0 auto;display:grid;gap:14px}.vx-card{border:1px solid #e5e7eb;background:#fff;border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,.04)}.dark .vx-card{background:#101827;border-color:#263248}.vx-head{padding:18px 20px}.vx-stepper{display:grid;grid-template-columns:repeat(4,1fr);padding:14px 18px}.vx-step{text-align:center;font-size:10px;font-weight:800;color:#94a3b8;position:relative}.vx-step:before{content:'';position:absolute;top:11px;left:-50%;right:50%;height:2px;background:#e5e7eb}.vx-step:first-child:before{display:none}.vx-dot{position:relative;z-index:1;width:24px;height:24px;border-radius:50%;margin:0 auto 5px;display:grid;place-items:center;background:#f3f4f6}.vx-step.done,.vx-step.active{color:#7c3aed}.vx-step.done .vx-dot,.vx-step.active .vx-dot{background:#ede9fe;color:#7c3aed}.vx-step.done:before,.vx-step.active:before{background:#c4b5fd}.vx-section{padding:20px}.vx-upload{border:2px dashed #d8dee8;border-radius:14px;padding:30px 18px;text-align:center;background:#fafbfc}.dark .vx-upload{background:#111827;border-color:#374151}.vx-btn{display:inline-flex;align-items:center;justify-content:center;min-height:42px;border-radius:10px;padding:8px 13px;border:1px solid #d1d5db;font-size:12px;font-weight:800;color:#374151;background:#fff}.dark .vx-btn{background:#111827;border-color:#475569;color:#e5e7eb}.vx-btn.primary{background:#7c3aed;border-color:#7c3aed;color:#fff}.vx-btn.success{background:#059669;border-color:#059669;color:#fff}.vx-status{display:flex;gap:14px;align-items:flex-start;border-radius:14px;background:#f5f3ff;padding:16px}.dark .vx-status{background:#24183f}.vx-spin{width:34px;height:34px;border:3px solid #ddd6fe;border-top-color:#7c3aed;border-radius:50%;animation:vxspin 1s linear infinite;flex:none}@keyframes vxspin{to{transform:rotate(360deg)}}.vx-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.vx-stat{border-radius:12px;background:#f8fafc;padding:12px}.dark .vx-stat{background:#1f2937}.vx-stat label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:#94a3b8}.vx-stat strong{display:block;margin-top:3px;font-size:18px}.vx-lines{display:grid;gap:10px}.vx-line{border:1px solid #e5e7eb;border-radius:14px;padding:14px}.dark .vx-line{border-color:#334155}.vx-line-grid{display:grid;grid-template-columns:minmax(220px,1.3fr) 90px 90px 110px minmax(220px,.9fr);gap:10px;align-items:start}.vx-label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:#94a3b8;margin-bottom:4px}.vx-input{width:100%;min-height:40px;border:1px solid #d1d5db;border-radius:9px;padding:7px 9px;font-size:12px;background:#fff}.dark .vx-input{background:#111827;border-color:#475569;color:#fff}.vx-match{border-radius:11px;padding:10px;background:#f8fafc}.dark .vx-match{background:#1f2937}.vx-match-name{font-size:12px;font-weight:800}.vx-meta{font-size:10px;color:#6b7280;margin-top:3px}.vx-alt{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.vx-alt button{border:1px solid #d1d5db;border-radius:8px;padding:5px 7px;font-size:10px;font-weight:700}.dark .vx-alt button{border-color:#475569}.vx-high{color:#047857}.vx-medium{color:#b45309}.vx-low{color:#b91c1c}.vx-footer{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}.vx-error{border-radius:12px;background:#fef2f2;color:#b91c1c;padding:12px;font-size:12px}
+@media(max-width:900px){.vx-line-grid{grid-template-columns:1fr 1fr}.vx-line-grid>div:first-child,.vx-line-grid>div:last-child{grid-column:1/-1}.vx-summary{grid-template-columns:1fr 1fr}}
+@media(max-width:640px){.vx-ai{gap:10px}.vx-head,.vx-section{padding:14px}.vx-stepper{padding:12px 8px}.vx-step{font-size:9px}.vx-btn{min-height:44px}.vx-footer{display:grid;grid-template-columns:1fr 1fr}.vx-footer .vx-btn{width:100%}}
+</style>
+<div class="vx-ai">
+    <section class="vx-card vx-head">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div><div class="text-xs font-bold uppercase tracking-wide text-violet-600">AI Manifest</div><h1 class="mt-1 text-2xl font-bold text-gray-950 dark:text-white">{{ $this->record->displayName() }}</h1><p class="mt-1 text-xs text-gray-500">Upload the supplier manifest, let AI work in the background, then review every suggested mapping before anything is committed.</p></div>
+            <a href="{{ $palletUrl }}" class="vx-btn">Back to Pallet</a>
         </div>
+    </section>
 
-        {{-- ═══════════════════════════════════════════════════════════════════
-             Stage 1 — Upload
-        ═══════════════════════════════════════════════════════════════════ --}}
-        @if ($stage === 'upload')
-            <div class="max-w-3xl mx-auto rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm px-6 py-6 space-y-5">
-                <div>
-                    <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Upload Packing Slip</h2>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Take a photo of the packing slip that came with the pallet, or upload a PDF.
-                        AI will read it and extract every line item for you to verify before importing.
-                    </p>
-                    <p class="mt-2 text-xs text-gray-400">
-                        Pallet: <span class="font-medium text-gray-700 dark:text-gray-300">{{ $this->record->reference ?? "#{$this->record->id}" }}</span>
-                        @if ($this->record->vendor)
-                            &nbsp;·&nbsp; Vendor: <span class="font-medium text-gray-700 dark:text-gray-300">{{ $this->record->vendor->name }}</span>
-                        @endif
-                    </p>
-                </div>
+    @php $keys=['upload','processing','verify','done']; $current=array_search($stage,$keys,true); @endphp
+    <section class="vx-card vx-stepper">
+        @foreach(['Upload','AI Analysis','Review Matches','Approved'] as $i=>$label)
+            <div class="vx-step {{ $i < $current ? 'done' : ($i === $current ? 'active' : '') }}"><div class="vx-dot">{{ $i < $current ? '✓' : $i+1 }}</div>{{ $label }}</div>
+        @endforeach
+    </section>
 
-                @if ($parseError)
-                    <div class="rounded-lg bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300 space-y-1">
-                        <div class="flex items-center gap-2 font-medium">
-                            <x-heroicon-o-exclamation-circle class="h-4 w-4 flex-shrink-0" />
-                            {{ $parseErrorIsTimeout ? 'AI worker timed out' : 'AI parsing failed' }}
-                        </div>
-                        <p class="text-xs">{{ $parseError }}</p>
-                        @if ($parseErrorIsTimeout)
-                            <p class="text-xs text-red-500">Restart the worker: <code class="font-mono bg-red-100 dark:bg-red-900 px-1 rounded">docker compose up -d ai-worker</code></p>
-                        @else
-                            <p class="text-xs text-red-500">Make sure the <code class="font-mono bg-red-100 dark:bg-red-900 px-1 rounded">{{ config('services.ollama.vision_model') }}</code> model is pulled: <code class="font-mono bg-red-100 dark:bg-red-900 px-1 rounded">ollama pull {{ config('services.ollama.vision_model') }}</code></p>
-                        @endif
-                    </div>
-                @endif
-
-                <div
-                    x-data="{
-                        dragover: false,
-                        preview: null,
-                        isPdf: false,
-                        handleFile(file) {
-                            this.isPdf = file.type === 'application/pdf';
-                            if (!this.isPdf) {
-                                const reader = new FileReader();
-                                reader.onload = e => this.preview = e.target.result;
-                                reader.readAsDataURL(file);
-                            } else {
-                                this.preview = 'pdf';
-                            }
-                        }
-                    }"
-                    @dragover.prevent="dragover = true"
-                    @dragleave.prevent="dragover = false"
-                    @drop.prevent="dragover = false; if ($event.dataTransfer.files[0]) { handleFile($event.dataTransfer.files[0]); $refs.fileInput.files = $event.dataTransfer.files; $wire.upload('slipFile', $event.dataTransfer.files[0]) }"
-                    class="border-2 border-dashed rounded-xl px-6 py-8 text-center transition-colors"
-                    :class="dragover ? 'border-violet-500 bg-violet-50 dark:bg-violet-950' : 'border-gray-200 dark:border-gray-700'"
-                >
-                    {{-- Preview of selected image --}}
-                    <template x-if="preview && preview !== 'pdf'">
-                        <div class="mb-4">
-                            <img :src="preview" class="mx-auto max-h-48 rounded-lg shadow border border-gray-200 dark:border-gray-700 object-contain" />
-                        </div>
-                    </template>
-                    <template x-if="preview === 'pdf'">
-                        <div class="mb-4 flex flex-col items-center gap-2">
-                            <x-heroicon-o-document-text class="h-12 w-12 text-violet-400" />
-                            <span class="text-sm text-gray-600 dark:text-gray-400">PDF selected</span>
-                        </div>
-                    </template>
-                    <template x-if="!preview">
-                        <div class="mb-4">
-                            <x-heroicon-o-camera class="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600" />
-                        </div>
-                    </template>
-
-                    <p x-show="!preview" class="text-sm text-gray-500 dark:text-gray-400">
-                        Drag &amp; drop, or tap to select
-                    </p>
-                    <p x-show="!preview" class="mt-1 text-xs text-gray-400">
-                        Photo (JPG, PNG, WEBP) or PDF — max 20 MB
-                    </p>
-
-                    <label class="mt-4 inline-block cursor-pointer rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-violet-700">
-                        <span x-text="preview ? 'Change File' : 'Choose Photo or PDF'"></span>
-                        <input
-                            x-ref="fileInput"
-                            wire:model="slipFile"
-                            @change="if ($event.target.files[0]) handleFile($event.target.files[0])"
-                            type="file"
-                            accept="image/*,.pdf,application/pdf"
-                            capture="environment"
-                            class="sr-only"
-                        />
-                    </label>
-                    <div wire:loading wire:target="slipFile" class="mt-3 text-xs text-gray-400">Uploading…</div>
-                </div>
-
-                <div class="flex items-center gap-3 pt-1">
-                    <button
-                        wire:click="parseSlip"
-                        wire:loading.attr="disabled"
-                        :disabled="{{ $slipFile ? 'false' : 'true' }}"
-                        type="button"
-                        class="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                        <span wire:loading.remove wire:target="parseSlip">Read with AI</span>
-                        <span wire:loading wire:target="parseSlip">Sending to AI…</span>
-                    </button>
-                    <a
-                        href="{{ \App\Filament\Resources\PalletResource::getUrl('view', ['record' => $this->record]) }}"
-                        class="rounded-lg border border-gray-200 dark:border-gray-700 px-5 py-2.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
-                    >
-                        Cancel
-                    </a>
-                </div>
-
-                <p class="text-xs text-gray-400">
-                    Need to enter lines manually?
-                    <a href="{{ \App\Filament\Resources\PalletResource::getUrl('edit', ['record' => $this->record]) }}" class="underline text-violet-500">Edit the pallet directly.</a>
-                </p>
+    @if($stage === 'upload')
+        <section class="vx-card vx-section space-y-4">
+            <div><h2 class="text-sm font-bold">Upload manifest / PO / packing slip</h2><p class="mt-1 text-xs text-gray-500">PDF, image, CSV, TXT, XLS, or XLSX up to 20 MB. The AI job runs on the dedicated queue so you do not have to wait on this screen.</p></div>
+            @if($parseError)<div class="vx-error"><strong>AI analysis failed.</strong><div class="mt-1">{{ $parseError }}</div></div>@endif
+            <div class="vx-upload">
+                <x-heroicon-o-document-arrow-up class="mx-auto h-9 w-9 text-violet-500" />
+                <div class="mt-2 text-sm font-semibold">Choose a manifest file</div>
+                <div class="mt-1 text-xs text-gray-500">VortexOps will extract line items and suggest existing inventory matches.</div>
+                <label class="vx-btn primary mt-4 cursor-pointer">Choose File<input type="file" wire:model="slipFile" accept="image/*,.pdf,.csv,.txt,.xls,.xlsx" class="sr-only" /></label>
+                @if($slipFile)<div class="mt-3 text-xs font-semibold text-emerald-600">✓ {{ $slipFile->getClientOriginalName() }}</div>@endif
+                <div wire:loading wire:target="slipFile" class="mt-2 text-xs text-gray-400">Uploading…</div>
             </div>
-        @endif
+            <div class="flex flex-wrap gap-2"><button type="button" wire:click="parseSlip" wire:loading.attr="disabled" class="vx-btn primary" @disabled(!$slipFile)><span wire:loading.remove wire:target="parseSlip">Launch AI Analysis</span><span wire:loading wire:target="parseSlip">Starting job…</span></button><a href="{{ $palletUrl }}" class="vx-btn">Cancel</a></div>
+        </section>
+    @endif
 
-        {{-- ═══════════════════════════════════════════════════════════════════
-             Stage 2 — AI Processing (polls every 3 s)
-        ═══════════════════════════════════════════════════════════════════ --}}
-        @if ($stage === 'processing')
-            <div wire:poll.3000ms="checkProcessing" class="max-w-3xl mx-auto">
-                <div class="rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-950 shadow-sm px-6 py-10 text-center space-y-4">
-                    <div class="flex justify-center">
-                        <svg class="animate-spin h-10 w-10 text-violet-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                        </svg>
-                    </div>
-                    <div>
-                        <p class="text-base font-semibold text-violet-900 dark:text-violet-100">Reading your packing slip…</p>
-                        <p class="mt-1 text-sm text-violet-600 dark:text-violet-400">
-                            AI is reading the slip and matching each line to inventory. This usually takes 30–90 seconds.
-                        </p>
-                    </div>
-                    <p class="text-xs text-violet-400">Using model: {{ config('services.ollama.vision_model') }}</p>
-                </div>
+    @if($stage === 'processing')
+        <section wire:poll.10000ms="checkProcessing" class="vx-card vx-section">
+            <div class="vx-status"><div class="vx-spin"></div><div><div class="font-bold text-violet-900 dark:text-violet-100">AI analysis is running in the background</div><div class="mt-1 text-xs text-violet-700 dark:text-violet-300">You can close this page or work anywhere else in VortexOps. You will receive a notification when extraction and inventory matching are finished.</div><div class="mt-2 text-[10px] text-violet-500">Task #{{ $aiTaskId }} · Checking status every 10 seconds while this page is open</div></div></div>
+            <div class="mt-4 flex gap-2"><a href="{{ $palletUrl }}" class="vx-btn primary">Return to Pallet</a><button wire:click="checkProcessing" class="vx-btn">Check Now</button></div>
+        </section>
+    @endif
+
+    @if($stage === 'verify')
+        <section class="vx-card vx-section space-y-4">
+            <div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-sm font-bold">Review AI Suggestions</h2><p class="mt-1 text-xs text-gray-500">Nothing below has been added to the pallet yet. Confirm existing-item matches or choose Create New, then approve the manifest.</p></div><button wire:click="startOver" class="vx-btn">Analyze Another File</button></div>
+            <div class="vx-summary">
+                <div class="vx-stat"><label>Lines</label><strong>{{ count($parsedLines) }}</strong></div>
+                <div class="vx-stat"><label>Suggested Matches</label><strong>{{ collect($parsedLines)->whereNotNull('matched_item_id')->count() }}</strong></div>
+                <div class="vx-stat"><label>New Items</label><strong>{{ collect($parsedLines)->where('create_new_item',true)->count() }}</strong></div>
+                <div class="vx-stat"><label>Need Review</label><strong>{{ collect($parsedLines)->filter(fn($l)=>empty($l['matched_item_id']) || ($l['match_confidence_score']??0)<.95)->count() }}</strong></div>
             </div>
-        @endif
-
-        {{-- ═══════════════════════════════════════════════════════════════════
-             Stage 3 — Verify & Edit
-        ═══════════════════════════════════════════════════════════════════ --}}
-        @if ($stage === 'verify')
-            <div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm px-6 py-6 space-y-5">
-                <div class="flex items-center justify-between gap-4">
-                    <div>
-                        <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">Verify Line Items</h2>
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                            AI found <strong>{{ count($parsedLines) }}</strong> line item(s). Check everything looks right — edit, add, or remove lines before importing.
-                        </p>
-                    </div>
-                    @if (count($parsedLines) > 0)
-                        <span class="hidden sm:inline-flex shrink-0 items-center rounded-full bg-violet-100 dark:bg-violet-900 px-3 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
-                            {{ collect($parsedLines)->filter(fn ($l) => !empty($l['matched_item_id']))->count() }}/{{ count($parsedLines) }} matched
-                        </span>
-                    @endif
-                </div>
-
-                @if (count($parsedLines) === 0)
-                    <div class="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
-                        AI couldn't extract any lines from this image. The photo may be blurry or the format isn't recognised. Add lines manually below, or go back and try a clearer photo.
-                    </div>
-                @endif
-
-                {{-- Editable lines — mobile: stacked cards, desktop: compact table --}}
-                <div class="space-y-2">
-
-                    {{-- Mobile card layout (hidden on sm+) --}}
-                    <div class="sm:hidden space-y-2">
-                        @foreach ($parsedLines as $i => $line)
-                            <div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3 space-y-2">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-[11px] font-mono text-gray-400 flex-shrink-0">#{{ $i + 1 }}</span>
-                                    <input
-                                        wire:model="parsedLines.{{ $i }}.description"
-                                        type="text"
-                                        placeholder="Item description"
-                                        class="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 min-w-0 {{ trim($line['description']) === '' ? 'border-amber-300 dark:border-amber-600' : '' }}"
-                                    />
-                                    <button
-                                        wire:click="removeLine({{ $i }})"
-                                        type="button"
-                                        class="flex-shrink-0 text-gray-300 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 focus:outline-none"
-                                        title="Remove line"
-                                    >
-                                        <x-heroicon-o-x-mark class="h-4 w-4" />
-                                    </button>
-                                </div>
-                                <div class="grid grid-cols-3 gap-2">
-                                    <div>
-                                        <label class="block text-xs text-gray-400 mb-0.5 uppercase">Cases</label>
-                                        <input
-                                            wire:model="parsedLines.{{ $i }}.case_count"
-                                            type="number"
-                                            min="1"
-                                            placeholder="1"
-                                            class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs text-gray-400 mb-0.5 uppercase">Unit Cost</label>
-                                        <input
-                                            wire:model="parsedLines.{{ $i }}.unit_cost"
-                                            type="text"
-                                            placeholder="0.00"
-                                            class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs text-gray-400 mb-0.5 uppercase">SKU</label>
-                                        <input
-                                            wire:model="parsedLines.{{ $i }}.sku"
-                                            type="text"
-                                            placeholder="SKU"
-                                            class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                        />
-                                    </div>
-                                </div>
-
-                                {{-- Match status (mobile) --}}
-                                @php $conf = $line['match_confidence'] ?? ''; $stg = $line['match_stage'] ?? ''; @endphp
-                                @if (!empty($line['matched_item_id']))
-                                    <div class="flex flex-col gap-1">
-                                        <div class="flex items-center gap-1.5 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 px-2.5 py-1.5">
-                                            <x-heroicon-o-check-circle class="h-4 w-4 flex-shrink-0 text-green-600 dark:text-green-400" />
-                                            <span class="text-xs font-medium text-green-700 dark:text-green-300 truncate">{{ $line['matched_item_name'] }}</span>
-                                        </div>
-                                        @if ($conf || $stg)
-                                            <div class="flex items-center gap-1 px-0.5">
-                                                @if ($conf)
-                                                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium {{ $conf === 'high' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : ($conf === 'medium' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500') }}">{{ ucfirst($conf) }}</span>
-                                                @endif
-                                                @if ($stg)
-                                                    <span class="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300">{{ $stg }}</span>
-                                                @endif
-                                            </div>
-                                        @endif
-                                    </div>
+            <div class="vx-lines">
+                @forelse($parsedLines as $i=>$line)
+                    <div class="vx-line" wire:key="manifest-line-{{ $i }}">
+                        <div class="vx-line-grid">
+                            <div><label class="vx-label">Manifest Item</label><input class="vx-input" wire:model="parsedLines.{{ $i }}.description" /></div>
+                            <div><label class="vx-label">Cases</label><input class="vx-input" type="number" min="1" wire:model="parsedLines.{{ $i }}.case_count" /></div>
+                            <div><label class="vx-label">Units / Case</label><input class="vx-input" type="number" min="1" wire:model="parsedLines.{{ $i }}.quantity_per_case" /></div>
+                            <div><label class="vx-label">Unit Cost</label><input class="vx-input" wire:model="parsedLines.{{ $i }}.unit_cost" /></div>
+                            <div><label class="vx-label">Inventory Decision</label><div class="vx-match">
+                                @if(!empty($line['matched_item_id']) && empty($line['create_new_item']))
+                                    <div class="vx-match-name">✓ {{ $line['matched_item_name'] }}</div>
+                                    <div class="vx-meta {{ ($line['match_confidence']??'')==='high'?'vx-high':((($line['match_confidence']??'')==='medium')?'vx-medium':'vx-low') }}">{{ ucfirst($line['match_confidence'] ?: 'low') }} confidence · {{ $line['match_stage'] ?: 'suggested' }}</div>
+                                    @if(!empty($line['match_reasons']))<div class="vx-meta">{{ implode(' · ', array_slice($line['match_reasons'],0,2)) }}</div>@endif
                                 @else
-                                    <div class="space-y-1.5">
-                                        <div class="flex items-center gap-1.5 rounded-md bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-2.5 py-1.5">
-                                            <x-heroicon-o-question-mark-circle class="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
-                                            <span class="text-xs font-medium text-amber-700 dark:text-amber-300">No inventory match</span>
-                                        </div>
-                                        <label class="flex items-center gap-2 px-3 py-2 cursor-pointer rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                                            <input
-                                                wire:model="parsedLines.{{ $i }}.create_new_item"
-                                                type="checkbox"
-                                                class="h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500 cursor-pointer"
-                                            />
-                                            <span class="text-xs text-gray-600 dark:text-gray-400">Create new inventory item</span>
-                                        </label>
-                                    </div>
+                                    <div class="vx-match-name">Create new inventory item</div><div class="vx-meta">No existing item is currently selected.</div>
                                 @endif
-                            </div>
-                        @endforeach
-                    </div>
-
-                    {{-- Desktop table layout (hidden on mobile) --}}
-                    @php
-                        $totalCases   = collect($parsedLines)->sum(fn ($l) => (int) ($l['case_count'] ?? 0));
-                        $totalCost    = collect($parsedLines)->sum(fn ($l) => (float) ($l['unit_cost'] ?? 0) * (int) ($l['case_count'] ?? 0));
-                        $matchedCount = collect($parsedLines)->filter(fn ($l) => !empty($l['matched_item_id']))->count();
-                    @endphp
-                    <div class="hidden sm:block rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                        {{-- Header --}}
-                        <div class="grid grid-cols-12 gap-2 px-4 py-2.5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700
-                                    text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                            <div class="col-span-4">Description</div>
-                            <div class="col-span-1">Cases</div>
-                            <div class="col-span-2">Unit Cost</div>
-                            <div class="col-span-2">SKU</div>
-                            <div class="col-span-2">Inventory Match</div>
-                            <div class="col-span-1"></div>
+                                @if(!empty($line['alternatives']))<div class="vx-alt">@foreach($line['alternatives'] as $alt)<button type="button" wire:click="chooseMatch({{ $i }}, {{ $alt['id'] }})">{{ $alt['name'] }}</button>@endforeach</div>@endif
+                                <div class="vx-alt"><button type="button" wire:click="chooseCreateNew({{ $i }})">+ Create New</button></div>
+                            </div></div>
                         </div>
-
-                        @foreach ($parsedLines as $i => $line)
-                            <div class="border-b border-gray-100 dark:border-gray-800 last:border-b-0
-                                        {{ $i % 2 === 1 ? 'bg-gray-50/60 dark:bg-gray-800/30' : '' }}
-                                        hover:bg-violet-50/40 dark:hover:bg-violet-900/10 transition-colors">
-
-                                {{-- Input row --}}
-                                <div class="grid grid-cols-12 gap-2 items-center px-4 pt-2.5 pb-1.5">
-                                    <div class="col-span-4">
-                                        <input
-                                            wire:model="parsedLines.{{ $i }}.description"
-                                            type="text"
-                                            placeholder="Item description"
-                                            class="w-full rounded-lg border bg-white dark:bg-gray-900 px-3 py-1.5 text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500
-                                                {{ trim($line['description']) === '' ? 'border-amber-300 dark:border-amber-600' : 'border-gray-200 dark:border-gray-700' }}"
-                                        />
-                                    </div>
-                                    <div class="col-span-1">
-                                        <input
-                                            wire:model="parsedLines.{{ $i }}.case_count"
-                                            type="number"
-                                            min="1"
-                                            placeholder="1"
-                                            class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm font-mono tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                        />
-                                    </div>
-                                    <div class="col-span-2">
-                                        <input
-                                            wire:model="parsedLines.{{ $i }}.unit_cost"
-                                            type="text"
-                                            placeholder="0.00"
-                                            class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono tabular-nums text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                        />
-                                    </div>
-                                    <div class="col-span-2">
-                                        <input
-                                            wire:model="parsedLines.{{ $i }}.sku"
-                                            type="text"
-                                            placeholder="SKU"
-                                            class="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-1.5 text-sm font-mono text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                                        />
-                                    </div>
-                                    <div class="col-span-2 flex flex-col gap-2">
-                                        @php $conf = $line['match_confidence'] ?? ''; $stg = $line['match_stage'] ?? ''; @endphp
-                                        @if (!empty($line['matched_item_id']))
-                                            <span class="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900 px-3 py-1 text-[11px] font-medium text-green-700 dark:text-green-300 max-w-full">
-                                                <x-heroicon-o-check-circle class="h-4 w-4 flex-shrink-0" />
-                                                <span class="truncate">{{ $line['matched_item_name'] }}</span>
-                                            </span>
-                                            @if ($conf || $stg)
-                                                <div class="flex items-center gap-1">
-                                                    @if ($conf)
-                                                        <span class="inline-flex items-center rounded px-2 py-1 text-xs font-medium {{ $conf === 'high' ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' : ($conf === 'medium' ? 'bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500') }}">{{ ucfirst($conf) }}</span>
-                                                    @endif
-                                                    @if ($stg)
-                                                        <span class="inline-flex items-center rounded px-2 py-1 text-xs font-medium bg-violet-100 dark:bg-violet-900 text-violet-600 dark:text-violet-300">{{ $stg }}</span>
-                                                    @endif
-                                                </div>
-                                            @endif
-                                        @else
-                                            <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-                                                <x-heroicon-o-question-mark-circle class="h-4 w-4 flex-shrink-0" />
-                                                No match
-                                            </span>
-                                        @endif
-                                    </div>
-                                    <div class="col-span-1 flex justify-center">
-                                        <button
-                                            wire:click="removeLine({{ $i }})"
-                                            type="button"
-                                            class="text-gray-300 dark:text-gray-600 hover:text-red-400 dark:hover:text-red-500 focus:outline-none"
-                                            title="Remove line"
-                                        >
-                                            <x-heroicon-o-x-mark class="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {{-- Create new item checkbox (only for unmatched lines) --}}
-                                @if (empty($line['matched_item_id']))
-                                    <div class="grid grid-cols-12 gap-2 px-4 pb-2">
-                                        <div class="col-span-9"></div>
-                                        <div class="col-span-2">
-                                            <label class="flex items-center gap-2 cursor-pointer">
-                                                <input
-                                                    wire:model="parsedLines.{{ $i }}.create_new_item"
-                                                    type="checkbox"
-                                                    class="h-3.5 w-3.5 rounded border-gray-300 dark:border-gray-600 text-violet-600 focus:ring-violet-500"
-                                                />
-                                                <span class="text-[11px] text-gray-500 dark:text-gray-400 whitespace-nowrap">Create new item</span>
-                                            </label>
-                                        </div>
-                                        <div class="col-span-1"></div>
-                                    </div>
-                                @else
-                                    <div class="pb-1.5"></div>
-                                @endif
-                            </div>
-                        @endforeach
-
-                        {{-- Totals footer --}}
-                        @if (count($parsedLines) > 0)
-                            <div class="grid grid-cols-12 gap-2 items-center px-4 py-2.5
-                                        bg-gray-50 dark:bg-gray-800 border-t-2 border-gray-200 dark:border-gray-700">
-                                <div class="col-span-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                                    {{ count($parsedLines) }} line{{ count($parsedLines) !== 1 ? 's' : '' }}
-                                </div>
-                                <div class="col-span-1 text-sm font-bold tabular-nums text-gray-800 dark:text-gray-200">
-                                    {{ $totalCases }}
-                                </div>
-                                <div class="col-span-2 text-sm font-bold tabular-nums text-gray-800 dark:text-gray-200">
-                                    ${{ number_format($totalCost, 2) }}
-                                </div>
-                                <div class="col-span-2"></div>
-                                <div class="col-span-3 text-xs text-gray-400 text-right">
-                                    {{ $matchedCount }}/{{ count($parsedLines) }} matched
-                                </div>
-                            </div>
-                        @endif
+                        <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2"><div><label class="vx-label">SKU</label><input class="vx-input" wire:model="parsedLines.{{ $i }}.sku" /></div><div><label class="vx-label">Barcode / UPC</label><input class="vx-input" wire:model="parsedLines.{{ $i }}.barcode" /></div></div>
+                        <div class="mt-2 text-right"><button type="button" wire:click="removeLine({{ $i }})" class="text-xs font-semibold text-red-500">Remove line</button></div>
                     </div>
-
-                    <button
-                        wire:click="addLine"
-                        type="button"
-                        class="flex items-center gap-1.5 text-sm text-violet-600 dark:text-violet-400 hover:text-violet-700 mt-2"
-                    >
-                        <x-heroicon-o-plus class="h-4 w-4" />
-                        Add line
-                    </button>
-                </div>
-
-                <div class="flex items-center gap-3 pt-2 border-t border-gray-100 dark:border-gray-800">
-                    <button
-                        wire:click="import"
-                        wire:loading.attr="disabled"
-                        type="button"
-                        class="rounded-lg bg-violet-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-violet-700 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50"
-                    >
-                        <span wire:loading.remove wire:target="import">Import {{ count($parsedLines) }} Lines</span>
-                        <span wire:loading wire:target="import">Importing…</span>
-                    </button>
-                    <button
-                        wire:click="$set('stage', 'upload')"
-                        type="button"
-                        class="rounded-lg border border-gray-200 dark:border-gray-700 px-5 py-2.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
-                    >
-                        Try Again
-                    </button>
-                </div>
+                @empty<div class="rounded-xl border border-dashed border-gray-300 p-8 text-center text-sm text-gray-500">No lines were extracted. Add one manually or analyze a different file.</div>@endforelse
             </div>
-        @endif
+            <button type="button" wire:click="addLine" class="vx-btn">+ Add Line</button>
+            <div class="vx-footer border-t border-gray-100 pt-4 dark:border-gray-800"><div class="text-xs text-gray-500">Review the suggested mappings before approval. AI never commits inventory mappings automatically.</div><button type="button" wire:click="import" wire:loading.attr="disabled" class="vx-btn success"><span wire:loading.remove wire:target="import">Approve & Build Manifest</span><span wire:loading wire:target="import">Building manifest…</span></button></div>
+        </section>
+    @endif
 
-        {{-- ═══════════════════════════════════════════════════════════════════
-             Stage 4 — Done
-        ═══════════════════════════════════════════════════════════════════ --}}
-        @if ($stage === 'done')
-            <div class="max-w-3xl mx-auto rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 shadow-sm px-6 py-10 text-center space-y-4">
-                <x-heroicon-o-check-circle class="h-12 w-12 mx-auto text-green-500" />
-                <div>
-                    <h2 class="text-lg font-semibold text-green-900 dark:text-green-100">Imported</h2>
-                    <p class="mt-1 text-sm text-green-700 dark:text-green-300">
-                        {{ $created }} line(s) added to the pallet.
-                        {{ $matched }} auto-matched to existing inventory items.
-                        @if ($unmatched > 0)
-                            <br><strong>{{ $unmatched }} line(s) still need mapping</strong> — use the "Map Line to Item" button on the pallet.
-                        @endif
-                    </p>
-                </div>
-                <a
-                    href="{{ \App\Filament\Resources\PalletResource::getUrl('view', ['record' => $this->record]) }}"
-                    class="inline-block rounded-lg bg-green-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-green-700"
-                >
-                    Back to Pallet
-                </a>
-            </div>
-        @endif
-
-    </div>
+    @if($stage === 'done')
+        <section class="vx-card vx-section text-center"><x-heroicon-o-check-circle class="mx-auto h-12 w-12 text-emerald-500" /><h2 class="mt-2 text-lg font-bold">Manifest approved</h2><p class="mt-1 text-sm text-gray-500">{{ $created }} lines created · {{ $matched }} mapped · {{ $unmatched }} unmapped.</p><a href="{{ $palletUrl }}" class="vx-btn primary mt-4">Return to Pallet</a></section>
+    @endif
+</div>
 </x-filament-panels::page>

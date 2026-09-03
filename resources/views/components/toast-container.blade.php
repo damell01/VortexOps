@@ -11,6 +11,7 @@
 @include('filament.components.inventory-catalog-enhancements')
 @include('filament.components.ios-inventory-picker-fix')
 @include('filament.components.manifest-inventory-picker-fix')
+@include('filament.components.dashboard-receiving-queue-removal')
 
 <script>
     /**

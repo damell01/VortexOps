@@ -22,6 +22,8 @@
 /storage/chromium-path.txt
 /storage/debugbar
 /storage/pail
+/storage/whatnot-browser-profile
+/storage/whatnot-browser.lock
 /vendor
 _ide_helper.php
 Homestead.json

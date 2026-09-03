@@ -15,7 +15,7 @@ use Spatie\Activitylog\Support\LogOptions;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password', 'timezone'])]
+#[Fillable(['name', 'email', 'password', 'timezone', 'notifications_enabled', 'notification_in_app_enabled', 'notification_email_enabled'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser
 {
@@ -36,7 +36,23 @@ class User extends Authenticatable implements FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'notifications_enabled' => 'boolean',
+            'notification_in_app_enabled' => 'boolean',
+            'notification_email_enabled' => 'boolean',
         ];
+    }
+
+    public function wantsNotificationChannel(string $channel): bool
+    {
+        if (! $this->notifications_enabled) {
+            return false;
+        }
+
+        return match ($channel) {
+            'database' => $this->notification_in_app_enabled,
+            'mail' => $this->notification_email_enabled,
+            default => true,
+        };
     }
 
     public function canAccessPanel(Panel $panel): bool

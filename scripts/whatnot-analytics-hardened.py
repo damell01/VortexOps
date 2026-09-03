@@ -2,42 +2,33 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 
 MONTHS = {
-    "jan": 1, "january": 1,
-    "feb": 2, "february": 2,
-    "mar": 3, "march": 3,
-    "apr": 4, "april": 4,
-    "may": 5,
-    "jun": 6, "june": 6,
-    "jul": 7, "july": 7,
-    "aug": 8, "august": 8,
-    "sep": 9, "sept": 9, "september": 9,
-    "oct": 10, "october": 10,
-    "nov": 11, "november": 11,
-    "dec": 12, "december": 12,
+    "jan": 1, "january": 1, "feb": 2, "february": 2,
+    "mar": 3, "march": 3, "apr": 4, "april": 4, "may": 5,
+    "jun": 6, "june": 6, "jul": 7, "july": 7, "aug": 8, "august": 8,
+    "sep": 9, "sept": 9, "september": 9, "oct": 10, "october": 10,
+    "nov": 11, "november": 11, "dec": 12, "december": 12,
 }
 
 GENERIC_TITLE_RE = re.compile(
-    r"^(?:whatnot|seller hub|analytics|livestream analytics|show analytics|"
-    r"see older show|see newer show|overview|performance|orders|buyers|"
-    r"completed|ended|live|dashboard)$",
+    r"^(?:whatnot|seller hub|account\s*[-–—|:]?\s*analytics|analytics|"
+    r"livestream analytics|show analytics|overview|performance|orders|buyers|"
+    r"completed|ended|live|dashboard|see older show|see newer show)$",
     re.I,
 )
 
 
-def _clean(value: Any) -> str:
+def clean(value: Any) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
-def _money(value: Any) -> float | None:
-    if value is None:
-        return None
-    raw = re.sub(r"[^0-9.-]", "", str(value))
-    if not raw or raw in {"-", ".", "-."}:
+def parse_money(value: Any) -> float | None:
+    raw = re.sub(r"[^0-9.-]", "", str(value or ""))
+    if raw in {"", "-", ".", "-."}:
         return None
     try:
         return float(raw)
@@ -45,15 +36,13 @@ def _money(value: Any) -> float | None:
         return None
 
 
-def _integer(value: Any) -> int | None:
-    if value is None:
-        return None
-    raw = re.sub(r"[^0-9]", "", str(value))
+def parse_int(value: Any) -> int | None:
+    raw = re.sub(r"[^0-9]", "", str(value or ""))
     return int(raw) if raw else None
 
 
-def _duration_minutes(value: Any) -> int | None:
-    text = _clean(value)
+def parse_duration(value: Any) -> int | None:
+    text = clean(value)
     if not text:
         return None
     hm = re.search(r"(\d+)\s*h(?:r|our)?s?\s*(?:(\d+)\s*m)?", text, re.I)
@@ -63,106 +52,83 @@ def _duration_minutes(value: Any) -> int | None:
     if mm:
         return int(mm.group(1))
     clock = re.search(r"\b(\d+):(\d{2})(?::\d{2})?\b", text)
-    if clock:
-        return int(clock.group(1)) * 60 + int(clock.group(2))
-    return None
+    return int(clock.group(1)) * 60 + int(clock.group(2)) if clock else None
 
 
-def _parse_date(*values: Any) -> str | None:
+def parse_date(*values: Any) -> str | None:
     for value in values:
-        text = _clean(value)
+        text = clean(value)
         if not text:
             continue
 
-        iso = re.search(r"\b(20\d{2})[-/](0?[1-9]|1[0-2])[-/](0?[1-9]|[12]\d|3[01])\b", text)
-        if iso:
-            return f"{int(iso.group(1)):04d}-{int(iso.group(2)):02d}-{int(iso.group(3)):02d}"
+        m = re.search(r"\b(20\d{2})[-/](\d{1,2})[-/](\d{1,2})\b", text)
+        if m:
+            return f"{int(m.group(1)):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
 
-        slash = re.search(r"\b(0?[1-9]|1[0-2])[/-](0?[1-9]|[12]\d|3[01])[/-](20\d{2})\b", text)
-        if slash:
-            return f"{int(slash.group(3)):04d}-{int(slash.group(1)):02d}-{int(slash.group(2)):02d}"
+        m = re.search(r"\b(\d{1,2})[/-](\d{1,2})[/-](20\d{2})\b", text)
+        if m:
+            return f"{int(m.group(3)):04d}-{int(m.group(1)):02d}-{int(m.group(2)):02d}"
 
-        month_first = re.search(
-            r"\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|"
-            r"Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
+        m = re.search(
+            r"\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
+            r"Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
             r"\s+(\d{1,2})(?:st|nd|rd|th)?[,]?\s+(20\d{2})\b",
             text,
             re.I,
         )
-        if month_first:
-            month = MONTHS[month_first.group(1).lower()]
-            return f"{int(month_first.group(3)):04d}-{month:02d}-{int(month_first.group(2)):02d}"
-
-        day_first = re.search(
-            r"\b(\d{1,2})(?:st|nd|rd|th)?\s+"
-            r"(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|"
-            r"Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
-            r"[,]?\s+(20\d{2})\b",
-            text,
-            re.I,
-        )
-        if day_first:
-            month = MONTHS[day_first.group(2).lower()]
-            return f"{int(day_first.group(3)):04d}-{month:02d}-{int(day_first.group(1)):02d}"
+        if m:
+            return f"{int(m.group(3)):04d}-{MONTHS[m.group(1).lower()]:02d}-{int(m.group(2)):02d}"
 
         try:
-            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-            return parsed.date().isoformat()
+            return datetime.fromisoformat(text.replace("Z", "+00:00")).date().isoformat()
         except Exception:
             pass
-
     return None
 
 
-def _pick_title(candidates: list[Any]) -> str | None:
-    for candidate in candidates:
-        title = _clean(candidate)
-        if not title or len(title) < 3 or len(title) > 180:
+def pick_title(candidates: list[Any]) -> str | None:
+    for value in candidates:
+        title = clean(value)
+        if not 3 <= len(title) <= 180:
             continue
         title = re.sub(r"\s*[|–—-]\s*Whatnot(?: Seller Hub)?$", "", title, flags=re.I).strip()
         title = re.sub(r"^Whatnot\s*[|–—-]\s*", "", title, flags=re.I).strip()
         if not title or GENERIC_TITLE_RE.match(title):
             continue
+        if parse_date(title):
+            continue
         if re.fullmatch(r"[$+\-]?\d[\d,.% ]*", title):
             continue
-        if _parse_date(title):
-            continue
-        if re.search(r"^(?:gross revenue|estimated sales|estimated earnings|total estimated earnings|completed earnings|units sold|orders|buyers|first time buyers|returning buyers|shares|show duration|max concurrent viewers|total views|average order value|avg order value|giveaway spend|giveaways)\b", title, re.I):
+        if re.search(r"^(?:estimated sales|gross revenue|revenue|total estimated earnings|estimated earnings|completed earnings|units sold|orders|buyers|first time buyers|returning buyers|shares|show duration|max concurrent viewers|total views|average order value|avg order value|giveaway spend|giveaways)\b", title, re.I):
             continue
         return title
     return None
 
 
-def _snapshot(page) -> dict[str, Any]:
+def snapshot(page) -> dict[str, Any]:
     return page.evaluate(r"""
     () => {
       const text = document.body?.innerText || '';
       const liveId = (location.href.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i) || [])[0] || null;
       const wanted = [
-        'Estimated Sales', 'Gross Revenue', 'Revenue',
-        'Total Estimated Earnings', 'Estimated Earnings', 'Net Revenue',
-        'Completed Earnings', 'Units Sold', 'Orders', 'Buyers',
-        'First Time Buyers', 'Returning Buyers', 'Shares', 'Show Duration',
-        'Max Concurrent Viewers', 'Total Views', 'Average Order Value',
-        'Avg Order Value', 'Giveaway Spend', 'Giveaways'
+        'Estimated Sales','Gross Revenue','Revenue','Total Estimated Earnings','Estimated Earnings','Net Revenue',
+        'Completed Earnings','Units Sold','Orders','Buyers','First Time Buyers','Returning Buyers','Shares',
+        'Show Duration','Max Concurrent Viewers','Total Views','Average Order Value','Avg Order Value',
+        'Giveaway Spend','Giveaways'
       ];
       const labels = {};
-      const leafs = [...document.querySelectorAll('body *')]
-        .filter(el => el.childElementCount === 0)
-        .map(el => ({ el, text: (el.textContent || '').trim() }))
-        .filter(x => x.text);
+      const all = [...document.querySelectorAll('body *')];
 
       for (const label of wanted) {
-        const wantedLower = label.toLowerCase();
-        const hit = leafs.find(x => x.text.toLowerCase() === wantedLower);
+        const lower = label.toLowerCase();
+        const hit = all.find(el => el.childElementCount === 0 && (el.textContent || '').trim().toLowerCase() === lower);
         if (!hit) continue;
-
-        let node = hit.el;
-        for (let depth = 0; node && depth < 7; depth++, node = node.parentElement) {
+        let node = hit.parentElement;
+        for (let depth = 0; node && depth < 8; depth++, node = node.parentElement) {
           const values = [...node.querySelectorAll('*')]
-            .filter(el => el !== hit.el && el.childElementCount === 0)
+            .filter(el => el !== hit && el.childElementCount === 0)
             .map(el => (el.textContent || '').trim())
-            .filter(v => v && v.length < 100 && v.toLowerCase() !== wantedLower);
+            .filter(v => v && v.length < 100 && v.toLowerCase() !== lower);
           const value = values.find(v => /^[-+$]?[$]?\d[\d,.]*(?:\s*%|\s*k|\s*m|\s*h|\s*hr|\s*hrs|\s*min)?$/i.test(v));
           if (value) { labels[label] = value; break; }
         }
@@ -174,147 +140,102 @@ def _snapshot(page) -> dict[str, Any]:
         if (value && !titleCandidates.includes(value)) titleCandidates.push(value);
       };
 
-      // A show selector/link is stronger evidence than a generic page heading.
-      for (const el of document.querySelectorAll('a[href], button, [role="combobox"], [aria-haspopup="listbox"]')) {
+      for (const el of document.querySelectorAll('a[href],button,[role="combobox"],[aria-haspopup="listbox"]')) {
         const href = el.getAttribute?.('href') || '';
-        const own = (el.innerText || el.textContent || '').trim();
-        if ((liveId && href.includes(liveId)) || /live_id=/.test(href) || el.getAttribute?.('aria-haspopup') === 'listbox' || el.getAttribute?.('role') === 'combobox') {
-          push(own);
-        }
+        const text = (el.innerText || el.textContent || '').trim();
+        if ((liveId && href.includes(liveId)) || href.includes('live_id=') || el.getAttribute?.('role') === 'combobox' || el.getAttribute?.('aria-haspopup') === 'listbox') push(text);
       }
       for (const el of document.querySelectorAll('h1,h2,h3,[data-testid*="title" i],[class*="title" i]')) push(el.textContent);
       push(document.querySelector('meta[property="og:title"]')?.getAttribute('content'));
       push(document.querySelector('meta[name="twitter:title"]')?.getAttribute('content'));
       push(document.title);
 
-      const dateCandidates = [];
+      const dates = [];
       for (const el of document.querySelectorAll('time,[datetime],[data-testid*="date" i],[class*="date" i]')) {
         const value = el.getAttribute?.('datetime') || el.textContent || '';
-        if (value) dateCandidates.push(String(value).trim());
-      }
-
-      // Next/React payloads often contain the exact show metadata even when the
-      // visible heading has not hydrated yet. Search JSON script data for the
-      // object that contains the current live UUID and collect common fields.
-      const embedded = [];
-      const visit = (value, depth = 0) => {
-        if (!value || depth > 12) return;
-        if (Array.isArray(value)) {
-          for (const item of value.slice(0, 500)) visit(item, depth + 1);
-          return;
-        }
-        if (typeof value !== 'object') return;
-        let containsLive = false;
-        for (const [k, v] of Object.entries(value)) {
-          if (typeof v === 'string' && liveId && v.includes(liveId)) containsLive = true;
-          if (/^(id|uuid|live_id|livestream_id|livestreamId)$/i.test(k) && liveId && String(v) === liveId) containsLive = true;
-        }
-        if (containsLive) {
-          embedded.push({
-            title: value.title || value.show_title || value.name || value.show_name || null,
-            date: value.show_date || value.started_at || value.start_time || value.startTime || value.scheduled_at || value.scheduledAt || value.created_at || value.date || null,
-          });
-        }
-        for (const child of Object.values(value)) visit(child, depth + 1);
-      };
-      for (const script of document.querySelectorAll('script[type="application/json"],script#__NEXT_DATA__')) {
-        const raw = script.textContent || '';
-        if (!raw || raw.length > 5000000) continue;
-        try { visit(JSON.parse(raw)); } catch (_) {}
-      }
-      for (const item of embedded) {
-        push(item.title);
-        if (item.date) dateCandidates.push(String(item.date));
+        if (value) dates.push(String(value).trim());
       }
 
       return {
         live_id: liveId,
         url: location.href,
-        text: text.substring(0, 20000),
-        text_preview: text.replace(/\s+/g, ' ').trim().substring(0, 1400),
+        text: text.substring(0, 50000),
+        preview: text.replace(/\s+/g, ' ').trim().substring(0, 1600),
         labels,
         title_candidates: titleCandidates.slice(0, 30),
-        date_candidates: dateCandidates.slice(0, 30),
+        date_candidates: dates.slice(0, 30),
       };
     }
     """)
 
 
 def extract_show(page) -> dict[str, Any]:
-    raw = _snapshot(page)
+    raw = snapshot(page)
     labels = raw.get("labels") or {}
-    title = _pick_title(raw.get("title_candidates") or [])
-    show_date = _parse_date(*(raw.get("date_candidates") or []), raw.get("text"))
-
-    duration = labels.get("Show Duration")
-    return {
-        "title": title,
-        "show_date": show_date,
+    row = {
+        "title": pick_title(raw.get("title_candidates") or []),
+        "show_date": parse_date(*(raw.get("date_candidates") or []), raw.get("text")),
         "whatnot_live_id": raw.get("live_id"),
         "detail_url": f"https://www.whatnot.com/dashboard/live/{raw.get('live_id')}" if raw.get("live_id") else raw.get("url"),
-        "gross_revenue": _money(labels.get("Estimated Sales") or labels.get("Gross Revenue") or labels.get("Revenue")),
-        "whatnot_net": _money(labels.get("Total Estimated Earnings") or labels.get("Estimated Earnings") or labels.get("Net Revenue")),
-        "completed_earnings": _money(labels.get("Completed Earnings")),
-        "units_sold": _integer(labels.get("Units Sold") or labels.get("Orders")),
-        "buyers_count": _integer(labels.get("Buyers")),
-        "first_time_buyers": _integer(labels.get("First Time Buyers")),
-        "returning_buyers": _integer(labels.get("Returning Buyers")),
-        "shares_count": _integer(labels.get("Shares")),
-        "show_duration": _duration_minutes(duration),
-        "max_concurrent_viewers": _integer(labels.get("Max Concurrent Viewers")),
-        "total_views": _integer(labels.get("Total Views")),
-        "avg_order_value": _money(labels.get("Average Order Value") or labels.get("Avg Order Value")),
-        "giveaway_spend": _money(labels.get("Giveaway Spend")),
-        "giveaways_count": _integer(labels.get("Giveaways")),
-        "_analytics_preview": raw.get("text_preview"),
-        "_title_candidates": raw.get("title_candidates") or [],
-        "_date_candidates": raw.get("date_candidates") or [],
+        "gross_revenue": parse_money(labels.get("Estimated Sales") or labels.get("Gross Revenue") or labels.get("Revenue")),
+        "whatnot_net": parse_money(labels.get("Total Estimated Earnings") or labels.get("Estimated Earnings") or labels.get("Net Revenue")),
+        "completed_earnings": parse_money(labels.get("Completed Earnings")),
+        "units_sold": parse_int(labels.get("Units Sold") or labels.get("Orders")),
+        "buyers_count": parse_int(labels.get("Buyers")),
+        "first_time_buyers": parse_int(labels.get("First Time Buyers")),
+        "returning_buyers": parse_int(labels.get("Returning Buyers")),
+        "shares_count": parse_int(labels.get("Shares")),
+        "show_duration": parse_duration(labels.get("Show Duration")),
+        "max_concurrent_viewers": parse_int(labels.get("Max Concurrent Viewers")),
+        "total_views": parse_int(labels.get("Total Views")),
+        "avg_order_value": parse_money(labels.get("Average Order Value") or labels.get("Avg Order Value")),
+        "giveaway_spend": parse_money(labels.get("Giveaway Spend")),
+        "giveaways_count": parse_int(labels.get("Giveaways")),
     }
+    row["_preview"] = raw.get("preview")
+    row["_titles"] = raw.get("title_candidates") or []
+    row["_dates"] = raw.get("date_candidates") or []
+    return row
 
 
-def _has_metrics(row: dict[str, Any]) -> bool:
-    return any(
-        row.get(key) is not None
-        for key in (
+def has_useful_data(row: dict[str, Any]) -> bool:
+    return bool(row.get("title") or row.get("show_date")) and any(
+        row.get(k) is not None for k in (
             "gross_revenue", "whatnot_net", "completed_earnings", "units_sold",
             "buyers_count", "total_views", "avg_order_value", "show_duration",
         )
     )
 
 
-def wait_for_show_ready(module, page, previous_live_id: str | None = None, timeout_ms: int = 15000) -> dict[str, Any]:
+def wait_for_row(module, page, previous_live_id: str | None = None, timeout_ms: int = 15000) -> dict[str, Any]:
     elapsed = 0
-    last = None
+    last: dict[str, Any] | None = None
     while elapsed < timeout_ms:
         module.check_login(page)
-        try:
-            last = extract_show(page)
-        except Exception:
-            last = None
-
-        if last:
-            changed = previous_live_id is None or (
-                last.get("whatnot_live_id") and last.get("whatnot_live_id") != previous_live_id
-            )
-            identified = bool(last.get("title") or last.get("show_date"))
-            if changed and identified and (_has_metrics(last) or elapsed >= 2500):
-                return last
-
+        last = extract_show(page)
+        changed = previous_live_id is None or (
+            last.get("whatnot_live_id") and last.get("whatnot_live_id") != previous_live_id
+        )
+        if changed and has_useful_data(last):
+            return last
         page.wait_for_timeout(500)
         elapsed += 500
-
     return last or extract_show(page)
 
 
 def analytics(module, session):
-    start_uuid = module.START_UUID
-    if not module.UUID_RE.fullmatch(start_uuid):
+    if not module.UUID_RE.fullmatch(module.START_UUID):
         module.fail("ANALYTICS_SEED_REQUIRED: WHATNOT_START_UUID is required")
 
     rows: list[dict[str, Any]] = []
     seen: set[str] = set()
-    today = date.today().isoformat()
-    target = f"{module.BASE}/account/analytics?tab=livestream&live_id={start_uuid}&start_dt=2019-01-01&end_dt={today}"
+
+    # Give the page a small future cushion. The VPS clock has previously lagged
+    # the browser/app date, and end_dt that is even one day too old makes Whatnot
+    # render the generic Account - Analytics shell instead of the selected show.
+    end_date = (date.today() + timedelta(days=7)).isoformat()
+    target = f"{module.BASE}/account/analytics?tab=livestream&live_id={module.START_UUID}&start_dt=2019-01-01&end_dt={end_date}"
+    module.info(f"analytics: range end={end_date} seed={module.START_UUID}")
 
     def action(page):
         module.prepare(page)
@@ -322,34 +243,26 @@ def analytics(module, session):
 
         previous_live_id = None
         for index in range(module.LIMIT):
-            row = wait_for_show_ready(module, page, previous_live_id=previous_live_id)
+            row = wait_for_row(module, page, previous_live_id)
             key = row.get("whatnot_live_id") or f"{row.get('title')}|{row.get('show_date')}"
-
             if not key or key in seen:
                 break
             seen.add(key)
 
-            if not row.get("title") and not row.get("show_date"):
-                module.info(
-                    "ANALYTICS_DIAGNOSTIC "
-                    + json.dumps(
-                        {
-                            "index": index + 1,
-                            "live_id": row.get("whatnot_live_id"),
-                            "url": row.get("detail_url"),
-                            "title_candidates": (row.get("_title_candidates") or [])[:8],
-                            "date_candidates": (row.get("_date_candidates") or [])[:8],
-                            "preview": row.get("_analytics_preview"),
-                        },
-                        separators=(",", ":"),
-                    )
-                )
+            if not has_useful_data(row):
+                module.info("ANALYTICS_DIAGNOSTIC " + json.dumps({
+                    "index": index + 1,
+                    "live_id": row.get("whatnot_live_id"),
+                    "title": row.get("title"),
+                    "show_date": row.get("show_date"),
+                    "titles": (row.get("_titles") or [])[:8],
+                    "dates": (row.get("_dates") or [])[:8],
+                    "preview": row.get("_preview"),
+                }, separators=(",", ":")))
 
-            # Internal diagnostics are useful on stderr but should not pollute
-            # the Laravel raw payload or ingestion-log comparison logic.
-            row.pop("_analytics_preview", None)
-            row.pop("_title_candidates", None)
-            row.pop("_date_candidates", None)
+            row.pop("_preview", None)
+            row.pop("_titles", None)
+            row.pop("_dates", None)
             rows.append(row)
 
             previous_live_id = row.get("whatnot_live_id")
@@ -375,8 +288,4 @@ def analytics(module, session):
 
 def install(module) -> None:
     module.extract_show = extract_show
-
-    def hardened_analytics(session):
-        return analytics(module, session)
-
-    module.analytics = hardened_analytics
+    module.analytics = lambda session: analytics(module, session)

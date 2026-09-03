@@ -30,30 +30,24 @@ class ProbeWhatnotShows extends Command
         $cdpUrl = (string) config('vortex.whatnot.scrapling_cdp_url', 'http://127.0.0.1:9222');
         $processTimeout = max(30, (int) config('vortex.whatnot.process_timeout', 300));
 
-        // Do not override the configured backend merely because a CDP endpoint
-        // exists. Scrapling itself attaches to that same persistent Chrome via
-        // WHATNOT_SCRAPLING_CDP_URL, so forcing `attached` here bypasses the
-        // Scrapling runner entirely.
         $env = [
             'WHATNOT_MODE' => 'shows',
             'WHATNOT_LIMIT' => (string) $limit,
             'WHATNOT_DEBUG' => $this->option('debug') ? '1' : '0',
             'WHATNOT_BROWSER_BACKEND' => $backend,
             'WHATNOT_ATTACH_CDP_URL' => $cdpUrl,
-            'WHATNOT_SCRAPLING_USE_CDP' => config('vortex.whatnot.scrapling_use_cdp', true) ? '1' : '0',
+            'WHATNOT_SCRAPLING_USE_CDP' => config('vortex.whatnot.scrapling_use_cdp', false) ? '1' : '0',
             'WHATNOT_SCRAPLING_CDP_URL' => $cdpUrl,
-            'WHATNOT_SCRAPLING_SOLVE_CLOUDFLARE' => config('vortex.whatnot.scrapling_solve_cloudflare', false) ? 'true' : 'false',
+            'WHATNOT_SCRAPLING_SOLVE_CLOUDFLARE' => 'false',
             'WHATNOT_SCRAPLING_BLOCK_WEBRTC' => config('vortex.whatnot.scrapling_block_webrtc', false) ? 'true' : 'false',
             'WHATNOT_SCRAPLING_HIDE_CANVAS' => config('vortex.whatnot.scrapling_hide_canvas', false) ? 'true' : 'false',
             'WHATNOT_SCRAPLING_ALLOW_WEBGL' => config('vortex.whatnot.scrapling_allow_webgl', true) ? 'true' : 'false',
             'WHATNOT_SCRAPER_FALLBACK' => config('vortex.whatnot.scraper_fallback', false) ? '1' : '0',
+            'WHATNOT_BROWSER_LOCK_WAIT' => (string) max(1, (int) config('vortex.whatnot.browser_lock_wait', 1200)),
+            'WHATNOT_PYTHON_BIN' => (string) config('vortex.whatnot.python_bin', 'python3'),
             'STEEL_BASE_URL' => (string) config('vortex.whatnot.steel_base_url', 'http://127.0.0.1:3000'),
         ];
 
-        // Important: do NOT set WHATNOT_CHANNEL_NAME unless the caller explicitly
-        // asks for one. The persisted browser session is already authenticated as
-        // a seller, and role/channel switching is intentionally tested only when
-        // --channel is supplied.
         if ($channel) {
             $env['WHATNOT_CHANNEL_NAME'] = (string) $channel->whatnot_username;
         }
@@ -82,13 +76,15 @@ class ProbeWhatnotShows extends Command
             $this->info("Probing the seller channel already active in the saved Whatnot session for {$limit} show(s)…");
         }
         $this->line('Mode: shows (analytics page bypassed; channel switch bypassed unless --channel is supplied)');
-        $this->line("Browser backend: {$backend}" . ($backend === 'scrapling' || $backend === 'scrapling-stealthy' ? " (CDP {$cdpUrl})" : ''));
+
+        $ownedScrapling = in_array($backend, ['scrapling', 'scrapling-stealthy'], true)
+            && ! config('vortex.whatnot.scrapling_use_cdp', false);
+        $transport = $ownedScrapling ? 'owned-browser' : ($backend === 'scrapling' || $backend === 'scrapling-stealthy' ? "cdp-diagnostic {$cdpUrl}" : $backend);
+        $this->line("Browser backend: {$backend} ({$transport})");
+        $this->line('Python runtime: ' . $env['WHATNOT_PYTHON_BIN']);
         $this->line("Process timeout: {$processTimeout}s");
         $this->newLine();
 
-        // Always use the central runner. It owns backend selection. For the
-        // production `scrapling` backend, the runner maps this to StealthySession
-        // and attaches it to the existing persistent Chrome over CDP.
         $process = new Process([$node, $script], base_path(), $env);
         $process->setTimeout($processTimeout);
 

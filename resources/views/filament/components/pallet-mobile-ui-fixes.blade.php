@@ -37,8 +37,8 @@
         box-shadow: 0 18px 45px rgba(0, 0, 0, .42) !important;
     }
 
-    body:not(.dark).vx-pallet-screen .fi-fo-select-ctn > .fi-dropdown-panel,
-    body:not(.dark).vx-pallet-screen .fi-fo-select-ctn > [role="listbox"] {
+    html:not(.dark) body.vx-pallet-screen .fi-fo-select-ctn > .fi-dropdown-panel,
+    html:not(.dark) body.vx-pallet-screen .fi-fo-select-ctn > [role="listbox"] {
         background: #ffffff !important;
         border-color: rgba(15, 23, 42, .14) !important;
         box-shadow: 0 18px 45px rgba(15, 23, 42, .18) !important;
@@ -63,8 +63,8 @@
         padding-inline: 12px !important;
     }
 
-    body:not(.dark).vx-pallet-screen .fi-fo-select-search-ctn .fi-input,
-    body:not(.dark).vx-pallet-screen .fi-fo-select-search-ctn input {
+    html:not(.dark) body.vx-pallet-screen .fi-fo-select-search-ctn .fi-input,
+    html:not(.dark) body.vx-pallet-screen .fi-fo-select-search-ctn input {
         color: #0f172a !important;
         background: #f8fafc !important;
     }
@@ -87,8 +87,8 @@
         white-space: normal !important;
     }
 
-    body:not(.dark).vx-pallet-screen .fi-dropdown-list-item.fi-fo-select-option,
-    body:not(.dark).vx-pallet-screen .fi-fo-select-option {
+    html:not(.dark) body.vx-pallet-screen .fi-dropdown-list-item.fi-fo-select-option,
+    html:not(.dark) body.vx-pallet-screen .fi-fo-select-option {
         color: #0f172a !important;
     }
 
@@ -99,9 +99,9 @@
         color: #ffffff !important;
     }
 
-    body:not(.dark).vx-pallet-screen .fi-fo-select-option:hover,
-    body:not(.dark).vx-pallet-screen .fi-fo-select-option:focus,
-    body:not(.dark).vx-pallet-screen .fi-fo-select-option[aria-selected="true"] {
+    html:not(.dark) body.vx-pallet-screen .fi-fo-select-option:hover,
+    html:not(.dark) body.vx-pallet-screen .fi-fo-select-option:focus,
+    html:not(.dark) body.vx-pallet-screen .fi-fo-select-option[aria-selected="true"] {
         color: #4c1d95 !important;
         background: #ede9fe !important;
     }
@@ -157,24 +157,25 @@
         border: 1px solid #334155 !important;
     }
 
-    body:not(.dark).vx-pallet-screen .fi-btn.fi-color-gray,
-    body:not(.dark).vx-pallet-screen .fi-btn-color-gray {
+    html:not(.dark) body.vx-pallet-screen .fi-btn.fi-color-gray,
+    html:not(.dark) body.vx-pallet-screen .fi-btn-color-gray {
         color: #172033 !important;
         background: #ffffff !important;
         border-color: #cbd5e1 !important;
     }
 
     /* Cleaner pallet cards and less dead vertical space on phones. */
-    body.vx-pallet-screen .fi-main > .fi-page,
-    body.vx-pallet-screen .fi-page {
-        --vx-pallet-card: #111827;
-    }
-
-    body.vx-pallet-screen .fi-page .rounded-xl.border.bg-white,
-    body.vx-pallet-screen .fi-page .rounded-xl.border.dark\:bg-gray-900 {
+    html.dark body.vx-pallet-screen .fi-page .rounded-xl.border.bg-white,
+    html.dark body.vx-pallet-screen .fi-page .rounded-xl.border.dark\:bg-gray-900 {
         border-color: #293548 !important;
         background: #111827 !important;
         box-shadow: 0 8px 24px rgba(0, 0, 0, .16) !important;
+    }
+
+    html:not(.dark) body.vx-pallet-screen .fi-page .rounded-xl.border.bg-white {
+        border-color: #dbe3ee !important;
+        background: #ffffff !important;
+        box-shadow: 0 8px 24px rgba(15, 23, 42, .07) !important;
     }
 
     body.vx-pallet-screen .fi-page .px-6.py-4 {
@@ -185,18 +186,18 @@
         gap: 14px !important;
     }
 
-    body.vx-pallet-screen .fi-page .text-gray-400 {
+    html.dark body.vx-pallet-screen .fi-page .text-gray-400 {
         color: #aeb9ca !important;
     }
 
-    body.vx-pallet-screen .fi-page .text-gray-500,
-    body.vx-pallet-screen .fi-page .dark\:text-gray-400 {
+    html.dark body.vx-pallet-screen .fi-page .text-gray-500,
+    html.dark body.vx-pallet-screen .fi-page .dark\:text-gray-400 {
         color: #c2cad7 !important;
     }
 
-    body.vx-pallet-screen .fi-page h1,
-    body.vx-pallet-screen .fi-page h2,
-    body.vx-pallet-screen .fi-page .font-semibold {
+    html.dark body.vx-pallet-screen .fi-page h1,
+    html.dark body.vx-pallet-screen .fi-page h2,
+    html.dark body.vx-pallet-screen .fi-page .font-semibold {
         color: #f8fafc;
     }
 }

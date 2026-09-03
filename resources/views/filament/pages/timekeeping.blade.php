@@ -243,59 +243,41 @@
                     <p class="text-sm text-gray-500 dark:text-gray-400">No time entries yet. Clock in to get started.</p>
                 </div>
             @else
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm min-w-[480px]">
-                        <thead>
-                            <tr class="border-b border-gray-100 dark:border-gray-700 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                @if ($seesTeam)
-                                    <th class="px-6 py-3">Who</th>
-                                @endif
-                                <th class="px-6 py-3">Date</th>
-                                <th class="px-6 py-3">In</th>
-                                <th class="px-6 py-3">Out</th>
-                                <th class="px-6 py-3 text-right">Duration</th>
-                                <th class="px-6 py-3">Notes</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                            @foreach ($entries as $e)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                <div class="divide-y divide-gray-100 dark:divide-gray-800">
+                    @foreach ($entries as $e)
+                        <div class="px-6 py-3">
+                            <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                                <span class="font-medium text-gray-900 dark:text-gray-100">
                                     @if ($seesTeam)
-                                        <td class="px-6 py-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                                            {{ $e->user->name ?? '—' }}
-                                        </td>
+                                        {{ $e->user->name ?? '—' }} ·
                                     @endif
-                                    <td class="px-6 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                                        {{ $e->clocked_in_at->setTimezone($this->userTimezone())->format('M j, Y') }}
-                                    </td>
-                                    <td class="px-6 py-3 tabular-nums text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                                        {{ $this->formatTimeInUserTz($e->clocked_in_at) }}
-                                    </td>
-                                    <td class="px-6 py-3 tabular-nums whitespace-nowrap">
-                                        @if ($e->clocked_out_at)
-                                            <span class="text-gray-600 dark:text-gray-300">{{ $this->formatTimeInUserTz($e->clocked_out_at) }}</span>
-                                        @else
-                                            <span class="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                                Active
-                                            </span>
-                                        @endif
-                                    </td>
-                                    <td class="px-6 py-3 text-right tabular-nums font-semibold text-gray-900 dark:text-gray-100 whitespace-nowrap">
-                                        @php $mins = $e->duration_minutes; @endphp
-                                        @if ($mins !== null)
-                                            {{ \App\Models\TimeEntry::formatMinutes($mins) }}
-                                        @else
-                                            <span class="text-gray-400 font-normal">—</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-6 py-3 text-gray-500 dark:text-gray-400 max-w-xs truncate">
-                                        {{ $e->notes ?? '' }}
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                                    {{ $e->clocked_in_at->setTimezone($this->userTimezone())->format('M j, Y') }}
+                                </span>
+                                <span class="font-semibold tabular-nums text-gray-900 dark:text-gray-100">
+                                    @php $mins = $e->duration_minutes; @endphp
+                                    @if ($mins !== null)
+                                        {{ \App\Models\TimeEntry::formatMinutes($mins) }}
+                                    @else
+                                        <span class="font-normal text-gray-400">—</span>
+                                    @endif
+                                </span>
+                            </div>
+                            <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                                <span class="tabular-nums text-gray-500 dark:text-gray-400">In {{ $this->formatTimeInUserTz($e->clocked_in_at) }}</span>
+                                @if ($e->clocked_out_at)
+                                    <span class="tabular-nums text-gray-500 dark:text-gray-400">Out {{ $this->formatTimeInUserTz($e->clocked_out_at) }}</span>
+                                @else
+                                    <span class="inline-flex items-center gap-1 font-medium text-emerald-600 dark:text-emerald-400">
+                                        <span class="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                        Active
+                                    </span>
+                                @endif
+                                @if ($e->notes)
+                                    <span class="min-w-0 truncate text-gray-400">{{ $e->notes }}</span>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
 
                 {{-- Pagination --}}

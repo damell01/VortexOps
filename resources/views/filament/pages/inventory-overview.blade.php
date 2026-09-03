@@ -57,12 +57,19 @@
 
             <section class="vx-wcard overflow-hidden">
                 <div class="flex items-center justify-between px-5 py-4"><div><h3 class="font-bold">Recent Stock Activity</h3><p class="mt-1 text-xs text-gray-500">The newest inventory movements across visible locations.</p></div></div>
-                <div class="overflow-x-auto px-5 pb-3">
-                    <div class="vx-table-head grid min-w-[760px] grid-cols-[120px_150px_1fr_180px_80px] border-b border-gray-100 py-2 text-[11px] font-bold uppercase tracking-wide text-gray-400 dark:border-gray-800"><span>Date</span><span>Type</span><span>Item</span><span>Location</span><span class="text-right">Qty</span></div>
+                <div class="px-5 pb-3">
                     @forelse($this->recentMovements as $move)
                         @php $change=$move->signedChange(); $location=$move->toLocation?->name ?? $move->fromLocation?->name ?? '—'; @endphp
-                        <div class="vx-activity-row grid min-w-[760px] grid-cols-[120px_150px_1fr_180px_80px] items-center border-b border-gray-100 py-3 text-sm last:border-0 dark:border-gray-800">
-                            <span class="text-xs text-gray-500">{{ $move->created_at?->format('M j, g:i A') }}</span><span><span class="rounded-full bg-gray-100 px-2 py-1 text-xs dark:bg-gray-800">{{ $movementLabels[$move->movement_type] ?? ucfirst(str_replace('_',' ',$move->movement_type)) }}</span></span><span class="truncate font-medium">{{ $move->item?->name ?? 'Inventory item' }}</span><span class="vx-activity-meta truncate text-gray-500">{{ $location }}</span><span class="text-right font-bold {{ $change < 0 ? 'text-red-500' : 'text-emerald-600' }}">{{ $move->changeLabel() }}</span>
+                        <div class="border-b border-gray-100 py-3 text-sm last:border-0 dark:border-gray-800">
+                            <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                                <span class="min-w-0 truncate font-medium">{{ $move->item?->name ?? 'Inventory item' }}</span>
+                                <span class="flex-shrink-0 font-bold {{ $change < 0 ? 'text-red-500' : 'text-emerald-600' }}">{{ $move->changeLabel() }}</span>
+                            </div>
+                            <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500">
+                                <span>{{ $move->created_at?->format('M j, g:i A') }}</span>
+                                <span class="rounded-full bg-gray-100 px-2 py-0.5 dark:bg-gray-800">{{ $movementLabels[$move->movement_type] ?? ucfirst(str_replace('_',' ',$move->movement_type)) }}</span>
+                                <span class="truncate">{{ $location }}</span>
+                            </div>
                         </div>
                     @empty <div class="py-10 text-center text-sm text-gray-500">No stock activity yet.</div> @endforelse
                 </div>

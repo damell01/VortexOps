@@ -248,31 +248,20 @@
             <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
                 <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Revenue by Channel</h3>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full min-w-[480px] text-sm">
-                    <thead>
-                        <tr class="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-                            <th class="px-5 py-3">Channel</th>
-                            <th class="px-5 py-3 text-right">Shows</th>
-                            <th class="px-5 py-3 text-right">Units</th>
-                            <th class="px-5 py-3 text-right">Gross Revenue</th>
-                            <th class="px-5 py-3 text-right">Whatnot Net</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                        @forelse ($this->revenueByChannel as $i => $row)
-                            <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $i % 2 === 1 ? 'bg-gray-50/50 dark:bg-gray-800/20' : '' }}">
-                                <td class="px-5 py-3 font-medium text-gray-900 dark:text-white">{{ $row['channel'] }}</td>
-                                <td class="px-5 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ number_format($row['shows']) }}</td>
-                                <td class="px-5 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ number_format($row['units']) }}</td>
-                                <td class="px-5 py-3 text-right tabular-nums font-medium text-gray-900 dark:text-white">${{ number_format($row['gross'], 2) }}</td>
-                                <td class="px-5 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">${{ number_format($row['net'], 2) }}</td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="5" class="px-5 py-8 text-center text-gray-400">No shows in this period</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
+            <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                @forelse ($this->revenueByChannel as $row)
+                    <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-5 py-3">
+                        <span class="font-medium text-gray-900 dark:text-white">{{ $row['channel'] }}</span>
+                        <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-right tabular-nums">
+                            <span class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($row['shows']) }} shows</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($row['units']) }} units</span>
+                            <span class="font-medium text-gray-900 dark:text-white">${{ number_format($row['gross'], 2) }}</span>
+                            <span class="text-emerald-600 dark:text-emerald-400">${{ number_format($row['net'], 2) }}</span>
+                        </div>
+                    </div>
+                @empty
+                    <div class="px-5 py-8 text-center text-gray-400">No shows in this period</div>
+                @endforelse
             </div>
         </div>
 
@@ -296,29 +285,19 @@
                         </button>
                     @endif
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full min-w-[320px] text-sm">
-                        <thead>
-                            <tr class="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-                                <th class="px-4 py-3">Week of</th>
-                                <th class="px-4 py-3 text-right">Shows</th>
-                                <th class="px-4 py-3 text-right">Gross</th>
-                                <th class="px-4 py-3 text-right">Net</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                            @forelse ($weekDisplay as $i => $row)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $i % 2 === 1 ? 'bg-gray-50/50 dark:bg-gray-800/20' : '' }}">
-                                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-white whitespace-nowrap">{{ $row['week'] }}</td>
-                                    <td class="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ $row['shows'] }}</td>
-                                    <td class="px-4 py-3 text-right tabular-nums font-medium text-gray-900 dark:text-white">${{ number_format($row['gross'], 0) }}</td>
-                                    <td class="px-4 py-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">${{ number_format($row['net'], 0) }}</td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">No data</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                    @forelse ($weekDisplay as $row)
+                        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-3">
+                            <span class="font-medium text-gray-900 dark:text-white">{{ $row['week'] }}</span>
+                            <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-right tabular-nums">
+                                <span class="text-xs text-gray-500 dark:text-gray-400">{{ $row['shows'] }} shows</span>
+                                <span class="font-medium text-gray-900 dark:text-white">${{ number_format($row['gross'], 0) }}</span>
+                                <span class="text-emerald-600 dark:text-emerald-400">${{ number_format($row['net'], 0) }}</span>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="px-4 py-8 text-center text-gray-400">No data</div>
+                    @endforelse
                 </div>
             </div>
 
@@ -327,32 +306,22 @@
                 <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
                     <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200">Top Streamers by Payout</h3>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full min-w-[320px] text-sm">
-                        <thead>
-                            <tr class="border-b border-gray-100 bg-gray-50 text-left text-xs font-medium uppercase tracking-wide text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-                                <th class="px-4 py-3">Streamer</th>
-                                <th class="px-4 py-3 text-right">Shows</th>
-                                <th class="px-4 py-3 text-right">Total Paid</th>
-                                <th class="px-4 py-3 text-right">Avg/Show</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                            @forelse ($this->topStreamersByPayout as $i => $row)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 {{ $i % 2 === 1 ? 'bg-gray-50/50 dark:bg-gray-800/20' : '' }}">
-                                    <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">
-                                        <span class="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-500 dark:bg-gray-700 dark:text-gray-400">{{ $i + 1 }}</span>
-                                        {{ $row['streamer'] }}
-                                    </td>
-                                    <td class="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">{{ $row['shows'] }}</td>
-                                    <td class="px-4 py-3 text-right tabular-nums font-semibold text-violet-600 dark:text-violet-400">${{ number_format($row['total'], 2) }}</td>
-                                    <td class="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-gray-300">${{ number_format($row['avg'], 2) }}</td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">No payouts in this period</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                <div class="divide-y divide-gray-100 dark:divide-gray-700">
+                    @forelse ($this->topStreamersByPayout as $i => $row)
+                        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-3">
+                            <span class="font-medium text-gray-900 dark:text-white">
+                                <span class="mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-500 dark:bg-gray-700 dark:text-gray-400">{{ $i + 1 }}</span>
+                                {{ $row['streamer'] }}
+                            </span>
+                            <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-right tabular-nums">
+                                <span class="text-xs text-gray-500 dark:text-gray-400">{{ $row['shows'] }} shows</span>
+                                <span class="font-semibold text-violet-600 dark:text-violet-400">${{ number_format($row['total'], 2) }}</span>
+                                <span class="text-gray-600 dark:text-gray-300">${{ number_format($row['avg'], 2) }} avg</span>
+                            </div>
+                        </div>
+                    @empty
+                        <div class="px-4 py-8 text-center text-gray-400">No payouts in this period</div>
+                    @endforelse
                 </div>
             </div>
         </div>

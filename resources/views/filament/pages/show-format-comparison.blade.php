@@ -69,50 +69,58 @@
                     <p class="mt-0.5 text-[11px] leading-4 text-gray-500 dark:text-gray-400 sm:text-xs">Best average first. The percentage compares each format's average show against the average of every show in range.</p>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full min-w-[44rem] text-sm">
-                        <thead class="bg-gray-50 text-left text-[11px] uppercase tracking-wide text-gray-500 dark:bg-gray-800/60 dark:text-gray-400">
-                            <tr>
-                                <th class="px-4 py-2.5 font-semibold">Format</th>
-                                <th class="px-4 py-2.5 text-right font-semibold">Shows</th>
-                                <th class="px-4 py-2.5 text-right font-semibold">Avg / show</th>
-                                <th class="px-4 py-2.5 text-right font-semibold">vs average</th>
-                                <th class="px-4 py-2.5 text-right font-semibold">Avg units</th>
-                                <th class="px-4 py-2.5 text-right font-semibold">Avg giveaways</th>
-                                <th class="px-4 py-2.5 text-right font-semibold">Avg buyers</th>
-                                <th class="px-4 py-2.5 text-right font-semibold">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                            @foreach ($rows as $row)
-                                <tr class="{{ $row['format'] === null ? 'bg-gray-50/60 dark:bg-gray-800/30' : '' }}">
-                                    <td class="px-4 py-3 font-medium text-gray-950 dark:text-white">
-                                        {{ $row['label'] }}
-                                        {{-- A single show is not a trend, and a table of averages
-                                             invites reading one as though it were. --}}
-                                        @if ($row['shows'] < 3)
-                                            <span class="ml-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">too few to trust</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($row['shows']) }}</td>
-                                    <td class="px-4 py-3 text-right font-semibold tabular-nums text-gray-950 dark:text-white">${{ number_format($row['avg_net'], 2) }}</td>
-                                    <td class="px-4 py-3 text-right tabular-nums">
-                                        @if ($row['net_vs_overall_pct'] === null)
-                                            <span class="text-gray-400">—</span>
-                                        @else
-                                            <span class="font-semibold {{ $row['net_vs_overall_pct'] >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
-                                                {{ $row['net_vs_overall_pct'] >= 0 ? '+' : '' }}{{ number_format($row['net_vs_overall_pct'], 1) }}%
-                                            </span>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($row['avg_units'], 1) }}</td>
-                                    <td class="px-4 py-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($row['avg_giveaways'], 1) }}</td>
-                                    <td class="px-4 py-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($row['avg_buyers'], 1) }}</td>
-                                    <td class="px-4 py-3 text-right tabular-nums text-gray-700 dark:text-gray-300">${{ number_format($row['total_net'], 2) }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                {{-- Eight columns never fit a phone. Each format is its own block instead —
+                     a header line, then the same numbers as a wrapping grid of small
+                     stat tiles rather than table cells that force horizontal scroll. --}}
+                <div class="divide-y divide-gray-100 dark:divide-gray-800">
+                    @foreach ($rows as $row)
+                        <div class="p-4 {{ $row['format'] === null ? 'bg-gray-50/60 dark:bg-gray-800/30' : '' }}">
+                            <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                                <span class="font-medium text-gray-950 dark:text-white">
+                                    {{ $row['label'] }}
+                                    {{-- A single show is not a trend, and a table of averages
+                                         invites reading one as though it were. --}}
+                                    @if ($row['shows'] < 3)
+                                        <span class="ml-1 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold text-gray-500 dark:bg-gray-800 dark:text-gray-400">too few to trust</span>
+                                    @endif
+                                </span>
+                                <span class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($row['shows']) }} shows</span>
+                            </div>
+
+                            <div class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-6">
+                                <div>
+                                    <div class="text-[10px] uppercase tracking-wide text-gray-400">Avg / show</div>
+                                    <div class="font-semibold tabular-nums text-gray-950 dark:text-white">${{ number_format($row['avg_net'], 2) }}</div>
+                                </div>
+                                <div>
+                                    <div class="text-[10px] uppercase tracking-wide text-gray-400">vs average</div>
+                                    @if ($row['net_vs_overall_pct'] === null)
+                                        <div class="tabular-nums text-gray-400">—</div>
+                                    @else
+                                        <div class="font-semibold tabular-nums {{ $row['net_vs_overall_pct'] >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
+                                            {{ $row['net_vs_overall_pct'] >= 0 ? '+' : '' }}{{ number_format($row['net_vs_overall_pct'], 1) }}%
+                                        </div>
+                                    @endif
+                                </div>
+                                <div>
+                                    <div class="text-[10px] uppercase tracking-wide text-gray-400">Avg units</div>
+                                    <div class="tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($row['avg_units'], 1) }}</div>
+                                </div>
+                                <div>
+                                    <div class="text-[10px] uppercase tracking-wide text-gray-400">Avg giveaways</div>
+                                    <div class="tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($row['avg_giveaways'], 1) }}</div>
+                                </div>
+                                <div>
+                                    <div class="text-[10px] uppercase tracking-wide text-gray-400">Avg buyers</div>
+                                    <div class="tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($row['avg_buyers'], 1) }}</div>
+                                </div>
+                                <div>
+                                    <div class="text-[10px] uppercase tracking-wide text-gray-400">Total</div>
+                                    <div class="tabular-nums text-gray-700 dark:text-gray-300">${{ number_format($row['total_net'], 2) }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
                 </div>
             </section>
         @endif

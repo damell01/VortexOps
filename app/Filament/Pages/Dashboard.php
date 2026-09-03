@@ -6,7 +6,6 @@ use App\Filament\Widgets\NeedsAttentionWidget;
 use App\Filament\Widgets\OperationsOverviewWidget;
 use App\Filament\Widgets\RecentShowsWidget;
 use App\Filament\Widgets\SetupChecklistWidget;
-use App\Filament\Widgets\ShowsKpiWidget;
 use App\Filament\Widgets\StreamerOverviewWidget;
 use App\Filament\Widgets\StreamerShowsToReviewWidget;
 use App\Models\Setting;
@@ -31,7 +30,6 @@ class Dashboard extends BaseDashboard
             StreamerOverviewWidget::class,
             StreamerShowsToReviewWidget::class,
             // Admin/owner overview (each gates itself via canView()).
-            ShowsKpiWidget::class,
             NeedsAttentionWidget::class,
             OperationsOverviewWidget::class,
             RecentShowsWidget::class,

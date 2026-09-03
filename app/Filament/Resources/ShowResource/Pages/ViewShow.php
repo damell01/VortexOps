@@ -66,9 +66,13 @@ class ViewShow extends ViewRecord
                     ->visible(fn (): bool => ! in_array($this->record->status, ['cancelled', 'closed'], true))
                     ->action(function (): void {
                         $suggestions = $this->record->detectStreamers();
-                        Notification::make()->title(empty($suggestions) ? 'No streamer detected' : 'Streamer detected')
-                            ->body(empty($suggestions) ? null : 'Matched: ' . collect($suggestions)->pluck('streamer_name')->join(', '))
-                            ->{empty($suggestions) ? 'warning' : 'success'}()->send();
+                        $notice = Notification::make()->title(empty($suggestions) ? 'No streamer detected' : 'Streamer detected');
+                        if (empty($suggestions)) {
+                            $notice->warning();
+                        } else {
+                            $notice->body('Matched: ' . collect($suggestions)->pluck('streamer_name')->join(', '))->success();
+                        }
+                        $notice->send();
                         $this->record->load('streamers');
                     }),
                 Action::make('import_items_sold')->label(fn () => $this->record->orders->count() > 0 ? 'Items Sold (' . $this->record->orders->count() . ')' : 'Import Items Sold')->icon('heroicon-o-shopping-cart')

@@ -1,333 +1,61 @@
-{{--
-    View Pallet should feel like a receiving workstation, not an admin action
-    dump. Keep the three workflow actions plus More in the header. Less-used
-    actions are folded into the existing More menu at runtime so the underlying
-    Filament actions/modals stay unchanged.
---}}
+{{-- View Pallet gets one deliberate action bar instead of Filament's conditional action shells. --}}
 <style>
-body.vx-pallet-view-screen .fi-page-header {
-    align-items: flex-start !important;
-    gap: 10px !important;
-}
-
-body.vx-pallet-view-screen .fi-header-actions,
-body.vx-pallet-view-screen .fi-header-actions-ctn {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    align-items: center !important;
-    gap: 8px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-}
-
-body.vx-pallet-view-screen .fi-header-actions > *,
-body.vx-pallet-view-screen .fi-header-actions-ctn > * {
-    width: auto !important;
-    min-width: 0 !important;
-    margin: 0 !important;
-}
-
-/* Only the real workflow belongs in the first screen. */
-body.vx-pallet-view-screen .vx-secondary-header-action {
-    display: none !important;
-}
-
-body.vx-pallet-view-screen .fi-header-actions .fi-btn,
-body.vx-pallet-view-screen .fi-header-actions-ctn .fi-btn,
-body.vx-pallet-view-screen .fi-header-actions a,
-body.vx-pallet-view-screen .fi-header-actions button,
-body.vx-pallet-view-screen .fi-header-actions-ctn a,
-body.vx-pallet-view-screen .fi-header-actions-ctn button {
-    width: auto !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    min-height: 42px !important;
-    padding: 9px 14px !important;
-    border-radius: 10px !important;
-    white-space: nowrap !important;
-    line-height: 1.15 !important;
-    font-size: 14px !important;
-    font-weight: 700 !important;
-    justify-content: center !important;
-    gap: 7px !important;
-}
-
-/* Strong contrast: colored workflow buttons always use white text/icons. */
-body.vx-pallet-view-screen .vx-primary-receive .fi-btn,
-body.vx-pallet-view-screen .vx-primary-receive a,
-body.vx-pallet-view-screen .vx-primary-receive button,
-body.vx-pallet-view-screen .vx-primary-scan .fi-btn,
-body.vx-pallet-view-screen .vx-primary-scan a,
-body.vx-pallet-view-screen .vx-primary-scan button,
-body.vx-pallet-view-screen .vx-primary-review .fi-btn,
-body.vx-pallet-view-screen .vx-primary-review a,
-body.vx-pallet-view-screen .vx-primary-review button,
-body.vx-pallet-view-screen .vx-primary-receive svg,
-body.vx-pallet-view-screen .vx-primary-scan svg,
-body.vx-pallet-view-screen .vx-primary-review svg {
-    color: #ffffff !important;
-}
-
-body.vx-pallet-view-screen .vx-primary-receive .fi-btn-label,
-body.vx-pallet-view-screen .vx-primary-scan .fi-btn-label,
-body.vx-pallet-view-screen .vx-primary-review .fi-btn-label {
-    color: #ffffff !important;
-}
-
-/* Neutral More button stays readable in both themes. */
-body.vx-pallet-view-screen .vx-native-more .fi-btn,
-body.vx-pallet-view-screen .vx-native-more button,
-body.vx-pallet-view-screen .vx-native-more a {
-    color: #1f2937 !important;
-    background: #ffffff !important;
-    border: 1px solid #d1d5db !important;
-}
-
-html.dark body.vx-pallet-view-screen .vx-native-more .fi-btn,
-html.dark body.vx-pallet-view-screen .vx-native-more button,
-html.dark body.vx-pallet-view-screen .vx-native-more a {
-    color: #f8fafc !important;
-    background: #182235 !important;
-    border-color: #334155 !important;
-}
-
-/* Hide empty shells left by conditional actions. */
-body.vx-pallet-view-screen .fi-header-actions > *:not(:has(a)):not(:has(button)),
-body.vx-pallet-view-screen .fi-header-actions-ctn > *:not(:has(a)):not(:has(button)) {
-    display: none !important;
-}
-
-/* Get useful pallet information above the fold quickly. */
-body.vx-pallet-view-screen .fi-page-content {
-    padding-top: 10px !important;
-}
-
-body.vx-pallet-view-screen .fi-page-content > .space-y-6 {
-    gap: 12px !important;
-}
-
-/* Extra actions injected into Filament's existing More dropdown. */
-.vx-pallet-more-divider {
-    height: 1px;
-    margin: 6px 8px;
-    background: #e5e7eb;
-}
-
-html.dark .vx-pallet-more-divider {
-    background: #334155;
-}
-
-.vx-pallet-more-item {
-    display: flex !important;
-    width: calc(100% - 8px) !important;
-    min-height: 40px !important;
-    margin: 2px 4px !important;
-    padding: 9px 10px !important;
-    align-items: center !important;
-    gap: 9px !important;
-    border-radius: 8px !important;
-    color: #1f2937 !important;
-    background: transparent !important;
-    border: 0 !important;
-    text-align: left !important;
-    font-size: 14px !important;
-    font-weight: 600 !important;
-    cursor: pointer !important;
-}
-
-.vx-pallet-more-item:hover {
-    background: #f3f4f6 !important;
-}
-
-html.dark .vx-pallet-more-item {
-    color: #f1f5f9 !important;
-}
-
-html.dark .vx-pallet-more-item:hover {
-    background: #1f2937 !important;
-}
-
-@media (max-width: 768px) {
-    body.vx-pallet-view-screen .fi-page-header {
-        gap: 8px !important;
-    }
-
-    body.vx-pallet-view-screen .fi-header-actions,
-    body.vx-pallet-view-screen .fi-header-actions-ctn {
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        gap: 8px !important;
-        width: 100% !important;
-    }
-
-    body.vx-pallet-view-screen .fi-header-actions > *,
-    body.vx-pallet-view-screen .fi-header-actions-ctn > * {
-        width: 100% !important;
-    }
-
-    body.vx-pallet-view-screen .vx-primary-receive {
-        grid-column: 1 / -1 !important;
-    }
-
-    body.vx-pallet-view-screen .vx-native-more {
-        grid-column: 1 / -1 !important;
-        width: auto !important;
-        justify-self: start !important;
-    }
-
-    body.vx-pallet-view-screen .fi-header-actions .fi-btn,
-    body.vx-pallet-view-screen .fi-header-actions-ctn .fi-btn,
-    body.vx-pallet-view-screen .fi-header-actions a,
-    body.vx-pallet-view-screen .fi-header-actions button,
-    body.vx-pallet-view-screen .fi-header-actions-ctn a,
-    body.vx-pallet-view-screen .fi-header-actions-ctn button {
-        width: 100% !important;
-        min-height: 46px !important;
-        padding: 9px 10px !important;
-        white-space: normal !important;
-        text-align: center !important;
-        font-size: 13px !important;
-    }
-
-    body.vx-pallet-view-screen .vx-native-more .fi-btn,
-    body.vx-pallet-view-screen .vx-native-more button,
-    body.vx-pallet-view-screen .vx-native-more a {
-        width: auto !important;
-        min-width: 104px !important;
-    }
-
-    body.vx-pallet-view-screen .fi-page-content {
-        padding-top: 8px !important;
-    }
+body.vx-pallet-view-screen .fi-page-header .fi-header-actions,
+body.vx-pallet-view-screen .fi-page-header .fi-header-actions-ctn { display:none !important; }
+body.vx-pallet-view-screen .vx-pallet-workflow-bar { display:flex; flex-wrap:wrap; align-items:center; gap:8px; width:100%; margin-top:2px; }
+body.vx-pallet-view-screen .vx-pallet-primary-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+body.vx-pallet-view-screen .vx-pallet-workflow-bar .vx-action-shell { display:block !important; width:auto !important; min-width:0 !important; margin:0 !important; }
+body.vx-pallet-view-screen .vx-pallet-workflow-bar .fi-btn,
+body.vx-pallet-view-screen .vx-pallet-workflow-bar a,
+body.vx-pallet-view-screen .vx-pallet-workflow-bar button { width:auto !important; min-height:42px !important; padding:9px 14px !important; border-radius:9px !important; justify-content:center !important; gap:7px !important; white-space:nowrap !important; font-size:14px !important; font-weight:700 !important; }
+body.vx-pallet-view-screen .vx-pallet-primary-actions .fi-btn-label,
+body.vx-pallet-view-screen .vx-pallet-primary-actions svg { color:inherit !important; opacity:1 !important; }
+body.vx-pallet-view-screen .vx-pallet-more { position:relative; }
+body.vx-pallet-view-screen .vx-pallet-more > summary { list-style:none; display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:42px; padding:9px 14px; border:1px solid #cbd5e1; border-radius:9px; background:#fff; color:#1e293b; cursor:pointer; font-size:14px; font-weight:700; }
+body.vx-pallet-view-screen .vx-pallet-more > summary::-webkit-details-marker { display:none; }
+html.dark body.vx-pallet-view-screen .vx-pallet-more > summary { background:#182235; border-color:#334155; color:#f8fafc; }
+body.vx-pallet-view-screen .vx-pallet-more-menu { position:absolute; z-index:90; top:calc(100% + 7px); right:0; min-width:250px; padding:7px; border:1px solid #dbe3ee; border-radius:11px; background:#fff; box-shadow:0 18px 45px rgba(15,23,42,.17); }
+html.dark body.vx-pallet-view-screen .vx-pallet-more-menu { background:#111827; border-color:#334155; }
+body.vx-pallet-view-screen .vx-pallet-more-menu .vx-action-shell { width:100% !important; }
+body.vx-pallet-view-screen .vx-pallet-more-menu .fi-btn,
+body.vx-pallet-view-screen .vx-pallet-more-menu a,
+body.vx-pallet-view-screen .vx-pallet-more-menu button { width:100% !important; min-height:40px !important; justify-content:flex-start !important; text-align:left !important; padding:9px 10px !important; border-radius:8px !important; background:transparent !important; color:#334155 !important; box-shadow:none !important; }
+html.dark body.vx-pallet-view-screen .vx-pallet-more-menu .fi-btn,
+html.dark body.vx-pallet-view-screen .vx-pallet-more-menu a,
+html.dark body.vx-pallet-view-screen .vx-pallet-more-menu button { color:#e2e8f0 !important; }
+body.vx-pallet-view-screen .fi-page-content { padding-top:10px !important; }
+@media(max-width:768px){
+ body.vx-pallet-view-screen .vx-pallet-workflow-bar,body.vx-pallet-view-screen .vx-pallet-primary-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
+ body.vx-pallet-view-screen .vx-pallet-primary-actions{grid-column:1/-1}
+ body.vx-pallet-view-screen .vx-pallet-primary-actions .vx-action-shell:first-child{grid-column:1/-1}
+ body.vx-pallet-view-screen .vx-pallet-workflow-bar .vx-action-shell,body.vx-pallet-view-screen .vx-pallet-workflow-bar .fi-btn,body.vx-pallet-view-screen .vx-pallet-workflow-bar a,body.vx-pallet-view-screen .vx-pallet-workflow-bar button{width:100%!important}
+ body.vx-pallet-view-screen .vx-pallet-more{grid-column:1/-1;width:100%}
+ body.vx-pallet-view-screen .vx-pallet-more>summary{width:100%}
+ body.vx-pallet-view-screen .vx-pallet-more-menu{position:fixed;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);top:auto;width:auto;max-height:55dvh;overflow-y:auto}
 }
 </style>
-
 <script>
 (() => {
-    if (window.__vxPalletHeaderHierarchyLoaded) return;
-    window.__vxPalletHeaderHierarchyLoaded = true;
-
-    const clean = value => (value || '').replace(/\s+/g, ' ').trim();
-
-    const actionContainers = () => [...document.querySelectorAll(
-        'body.vx-pallet-view-screen .fi-header-actions, body.vx-pallet-view-screen .fi-header-actions-ctn'
-    )];
-
-    const interactive = wrapper => wrapper?.querySelector('a, button');
-
-    const classify = () => {
-        if (!document.body.classList.contains('vx-pallet-view-screen')) return;
-
-        actionContainers().forEach(container => {
-            [...container.children].forEach(wrapper => {
-                wrapper.classList.remove(
-                    'vx-primary-receive', 'vx-primary-scan', 'vx-primary-review',
-                    'vx-secondary-header-action', 'vx-native-more'
-                );
-
-                const text = clean(wrapper.textContent).toLowerCase();
-                if (!text) return;
-
-                if (text.includes('continue receiving') || text.includes('start receiving')) {
-                    wrapper.classList.add('vx-primary-receive');
-                    return;
-                }
-
-                if (text.includes('scan item')) {
-                    wrapper.classList.add('vx-primary-scan');
-                    return;
-                }
-
-                if (text.includes('review & receive') || text.includes('review manifest')) {
-                    wrapper.classList.add('vx-primary-review');
-                    return;
-                }
-
-                if (text === 'more' || text.startsWith('more ')) {
-                    wrapper.classList.add('vx-native-more');
-                    bindMore(wrapper);
-                    return;
-                }
-
-                if (
-                    text.includes('items from this pallet') ||
-                    text.includes('add lines') ||
-                    text.includes('add photos / documents')
-                ) {
-                    wrapper.classList.add('vx-secondary-header-action');
-                }
-            });
-        });
-    };
-
-    const secondaryActions = () => {
-        const entries = [];
-        document.querySelectorAll('body.vx-pallet-view-screen .vx-secondary-header-action').forEach(wrapper => {
-            const target = interactive(wrapper);
-            const label = clean(wrapper.textContent);
-            if (!target || !label) return;
-            entries.push({ label, target });
-        });
-        return entries;
-    };
-
-    const findVisibleMenu = () => {
-        const candidates = [...document.querySelectorAll(
-            '[role="menu"], .fi-dropdown-panel, .fi-dropdown-list'
-        )].filter(el => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden');
-        return candidates[candidates.length - 1] || null;
-    };
-
-    const injectSecondaryIntoMore = () => {
-        const menu = findVisibleMenu();
-        if (!menu || menu.querySelector('[data-vx-pallet-more-extra="1"]')) return;
-
-        const actions = secondaryActions();
-        if (!actions.length) return;
-
-        const block = document.createElement('div');
-        block.dataset.vxPalletMoreExtra = '1';
-
-        const divider = document.createElement('div');
-        divider.className = 'vx-pallet-more-divider';
-        block.appendChild(divider);
-
-        actions.forEach(({ label, target }) => {
-            const item = document.createElement('button');
-            item.type = 'button';
-            item.className = 'vx-pallet-more-item';
-            item.textContent = label;
-            item.addEventListener('click', event => {
-                event.preventDefault();
-                event.stopPropagation();
-
-                if (target.tagName === 'A' && target.href) {
-                    window.location.href = target.href;
-                    return;
-                }
-
-                target.click();
-            });
-            block.appendChild(item);
-        });
-
-        menu.prepend(block);
-    };
-
-    function bindMore(wrapper) {
-        const button = interactive(wrapper);
-        if (!button || button.dataset.vxPalletMoreBound === '1') return;
-        button.dataset.vxPalletMoreBound = '1';
-        button.addEventListener('click', () => {
-            [0, 30, 80, 160].forEach(delay => setTimeout(injectSecondaryIntoMore, delay));
-        });
-    }
-
-    const refresh = () => requestAnimationFrame(classify);
-    document.addEventListener('DOMContentLoaded', refresh);
-    document.addEventListener('livewire:navigated', refresh);
-    new MutationObserver(refresh).observe(document.body, { childList: true, subtree: true });
-    refresh();
+ const norm=v=>(v||'').replace(/\s+/g,' ').trim().toLowerCase();
+ const isView=()=>/^\/admin\/pallets\/\d+\/?$/.test(location.pathname.toLowerCase());
+ let queued=false;
+ const build=()=>{
+  if(!isView()) return;
+  document.body.classList.add('vx-pallet-view-screen','vx-pallet-screen');
+  const header=document.querySelector('.fi-page-header');
+  const source=header?.querySelector('.fi-header-actions,.fi-header-actions-ctn');
+  if(!header||!source) return;
+  let bar=header.querySelector('.vx-pallet-workflow-bar');
+  if(!bar){bar=document.createElement('div');bar.className='vx-pallet-workflow-bar';bar.innerHTML='<div class="vx-pallet-primary-actions"></div><details class="vx-pallet-more"><summary><span aria-hidden="true">⋮</span> More</summary><div class="vx-pallet-more-menu"></div></details>';header.appendChild(bar);}
+  const primary=bar.querySelector('.vx-pallet-primary-actions'), more=bar.querySelector('.vx-pallet-more-menu');
+  [...source.children].forEach(shell=>{
+   const text=norm(shell.textContent); if(!text||(!shell.querySelector('a')&&!shell.querySelector('button'))) return;
+   shell.classList.add('vx-action-shell');
+   if(/start receiving|continue receiving|scan item|review & receive|review manifest/.test(text)) primary.appendChild(shell); else more.appendChild(shell);
+  });
+  const seen=new Set();[...primary.children].forEach(shell=>{const t=norm(shell.textContent);const k=/start receiving|continue receiving/.test(t)?'receive':/scan item/.test(t)?'scan':/review & receive|review manifest/.test(t)?'review':t;if(seen.has(k))shell.remove();else seen.add(k);});
+ };
+ const refresh=()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;build();});};
+ document.addEventListener('DOMContentLoaded',refresh);document.addEventListener('livewire:navigated',refresh);document.addEventListener('livewire:initialized',refresh);new MutationObserver(refresh).observe(document.documentElement,{childList:true,subtree:true});refresh();
 })();
 </script>

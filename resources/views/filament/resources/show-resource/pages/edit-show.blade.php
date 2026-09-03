@@ -27,9 +27,12 @@
         <form wire:submit="save">
             {{ $this->form }}
             <div class="fi-form-actions mt-6 flex flex-wrap gap-3">
-                @foreach ($this->getCachedFormActions() as $action)
-                    {{ $action }}
-                @endforeach
+                <x-filament::button type="submit">
+                    Save changes
+                </x-filament::button>
+                <x-filament::button color="gray" tag="a" :href="\App\Filament\Resources\ShowResource::getUrl('view', ['record' => $this->record])">
+                    Cancel
+                </x-filament::button>
             </div>
         </form>
     </div>

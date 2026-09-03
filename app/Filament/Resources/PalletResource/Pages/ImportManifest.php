@@ -29,6 +29,8 @@ class ImportManifest extends Page
     public ?int $aiTaskId = null;
     public ?string $parseError = null;
     public bool $parseErrorIsTimeout = false;
+    public ?string $sourceExtension = null;
+    public ?string $sourceOriginalName = null;
 
     /** @var list<array<string,mixed>> */
     public array $parsedLines = [];
@@ -66,6 +68,7 @@ class ImportManifest extends Page
         ]);
 
         $ext = strtolower($this->slipFile->getClientOriginalExtension());
+        $originalName = $this->slipFile->getClientOriginalName();
         $filename = uniqid('manifest_') . '.' . $ext;
         $relativePath = $this->slipFile->storeAs('manifest-uploads', $filename, 'local');
 
@@ -73,7 +76,16 @@ class ImportManifest extends Page
             throw new \RuntimeException('Manifest upload could not be saved.');
         }
 
-        $path = Storage::disk('local')->path($relativePath);
+        // Keep the original upload for the review screen. The parser owns and
+        // deletes only this processing copy, so reviewers can always compare
+        // extracted lines against the source document before approval.
+        $processingRelativePath = 'manifest-processing/' . $filename;
+        Storage::disk('local')->makeDirectory('manifest-processing');
+        if (! Storage::disk('local')->copy($relativePath, $processingRelativePath)) {
+            throw new \RuntimeException('Manifest processing copy could not be created.');
+        }
+
+        $path = Storage::disk('local')->path($processingRelativePath);
 
         $task = AiTask::create([
             'type' => 'parse_pallet_slip',
@@ -84,7 +96,9 @@ class ImportManifest extends Page
             'input' => [
                 'pallet_id' => $this->record->id,
                 'file' => $filename,
+                'original_name' => $originalName,
                 'stored_path' => $relativePath,
+                'processing_path' => $processingRelativePath,
                 'extension' => $ext,
                 'background_only' => true,
                 'review_required' => true,
@@ -94,13 +108,15 @@ class ImportManifest extends Page
         ParsePalletSlipJob::dispatch($this->record->id, $task->id, $path)->onQueue('ai');
 
         $this->aiTaskId = $task->id;
+        $this->sourceExtension = $ext;
+        $this->sourceOriginalName = $originalName;
         $this->stage = 'processing';
         $this->slipFile = null;
         $this->parseError = null;
 
         Notification::make()
             ->title('AI manifest job started')
-            ->body('You can leave this page. VortexOps will add the extracted manifest lines in the background and notify you when item matching is ready to review.')
+            ->body('VortexOps is extracting and staging manifest lines in the background. You can leave this page and return when the review is ready.')
             ->success()
             ->send();
 
@@ -119,6 +135,10 @@ class ImportManifest extends Page
 
     private function applyTaskState(AiTask $task): void
     {
+        $input = is_array($task->input) ? $task->input : [];
+        $this->sourceExtension = strtolower((string) ($input['extension'] ?? '')) ?: null;
+        $this->sourceOriginalName = (string) ($input['original_name'] ?? $input['file'] ?? '') ?: null;
+
         if ($task->status === 'completed') {
             $this->parsedLines = array_values($task->output['lines'] ?? []);
             $this->stage = 'verify';
@@ -145,6 +165,8 @@ class ImportManifest extends Page
         $this->parsedLines = [];
         $this->parseError = null;
         $this->parseErrorIsTimeout = false;
+        $this->sourceExtension = null;
+        $this->sourceOriginalName = null;
     }
 
     public function addLine(): void

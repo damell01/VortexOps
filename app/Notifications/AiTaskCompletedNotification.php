@@ -5,7 +5,6 @@ namespace App\Notifications;
 use App\Models\AiTask;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class AiTaskCompletedNotification extends Notification implements ShouldQueue
@@ -16,6 +15,11 @@ class AiTaskCompletedNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
+        if (method_exists($notifiable, 'wantsNotificationChannel')
+            && ! $notifiable->wantsNotificationChannel('database')) {
+            return [];
+        }
+
         return ['database'];
     }
 

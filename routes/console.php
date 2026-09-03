@@ -17,10 +17,6 @@ Schedule::command('db:backup')->dailyAt('02:00');
 Schedule::command('health:check --notify')->everyThirtyMinutes();
 Schedule::command('workflow:notify-state')->everyFifteenMinutes()->name('workflow-state-notifications')->withoutOverlapping(10);
 
-// Payroll setup is intentionally frequent and idempotent. A completed show or
-// corrected report can therefore reach the current Draft Pay Run without a
-// payroll admin opening the screen. The command itself checks the admin setting
-// before it writes anything and never changes finalized/submitted/paid weeks.
 Schedule::command('payroll:sync-pay-runs')
     ->hourly()
     ->name('payroll-sync-current-week')
@@ -39,16 +35,42 @@ Schedule::command('activitylog:clean')
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
 $whatnotLog = storage_path('logs/whatnot-scheduler.log');
 
-// One queued job owns the normal Whatnot cycle. It processes every enabled
-// channel in order and does not start the next channel until the current one has
-// finished shows/analytics/orders, shipment refresh, and its rolling ledger.
-// This replaces separate overlapping scheduled scrapes that could all contend
-// for the same persistent Whatnot browser profile.
-Schedule::job(new ProcessWhatnotChannelsJob(type: 'incremental', ledgerDays: 30, shipmentLimit: 50))
+// Critical path: keep show discovery and analytics fresh for every channel.
+// Orders/shipments/ledger are deliberately NOT part of this job, so a slow
+// fulfillment page cannot prevent another channel from receiving its hourly pull.
+Schedule::job(new ProcessWhatnotChannelsJob())
     ->skip($whatnotPaused)
     ->hourlyAt(5)
-    ->name('whatnot-sequential-channel-pipeline')
-    ->withoutOverlapping(240);
+    ->name('whatnot-hourly-show-analytics-pull')
+    ->withoutOverlapping(55);
+
+// Recent order reconciliation. Detail enrichment is disabled by the runner for
+// routine batches; only recent shows whose imported order count appears short are
+// revisited. Offset from the hourly pull to reduce browser-lock contention.
+Schedule::command('whatnot:refresh-recent --orders --hours=48 --limit=8')
+    ->appendOutputTo($whatnotLog)
+    ->skip($whatnotPaused)
+    ->cron('20,50 * * * *')
+    ->name('whatnot-recent-orders-refresh')
+    ->withoutOverlapping(25);
+
+// Shipment state changes independently of show analytics. Check unresolved
+// shipments on a separate cadence and stop revisiting delivered/returned orders.
+Schedule::command('whatnot:refresh-recent --shipments --limit=8')
+    ->appendOutputTo($whatnotLog)
+    ->skip($whatnotPaused)
+    ->hourlyAt(35)
+    ->name('whatnot-unresolved-shipments-refresh')
+    ->withoutOverlapping(25);
+
+// Rolling ledger reconciliation is useful but not latency-sensitive. Keeping it
+// out of the hourly show pull makes the normal channel cycle predictable.
+Schedule::command('whatnot:refresh-recent --ledger --ledger-days=30')
+    ->appendOutputTo($whatnotLog)
+    ->skip($whatnotPaused)
+    ->cron('10 */6 * * *')
+    ->name('whatnot-rolling-ledger-refresh')
+    ->withoutOverlapping(90);
 
 Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->appendOutputTo($whatnotLog)
@@ -57,8 +79,16 @@ Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->name('whatnot-show-alias-cleanup')
     ->withoutOverlapping(10);
 
-// Keep the deep historical ledger backfill separate from the normal rolling
-// 30-day pipeline. It is intentionally infrequent and idempotent.
+// Nightly reconciliation catches gaps without putting historical work on the
+// hourly critical path. This intentionally uses the existing idempotent sync.
+Schedule::command('whatnot:sync --type=last_30_days')
+    ->appendOutputTo($whatnotLog)
+    ->skip($whatnotPaused)
+    ->dailyAt('00:30')
+    ->name('whatnot-nightly-30-day-reconciliation')
+    ->withoutOverlapping(240);
+
+// Deep historical ledger backfill remains weekly and isolated.
 Schedule::command('whatnot:import-ledger --days=1825')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
@@ -66,11 +96,6 @@ Schedule::command('whatnot:import-ledger --days=1825')
     ->name('whatnot-ledger-backfill-annual')
     ->withoutOverlapping(480);
 
-// AI is deliberately background-only on this VPS. These commands only enqueue
-// tiny jobs onto the dedicated `ai` queue; Ollama is never called by the
-// scheduler process or by a normal page request. The six-hour cadence keeps a
-// useful operations/exception summary fresh without keeping the model hot all
-// day, while cleanup and management summaries run at low-traffic times.
 Schedule::command('ai:ops operations')
     ->cron('25 */6 * * *')
     ->name('ai-ops-background-summary')

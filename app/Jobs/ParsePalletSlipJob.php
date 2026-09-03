@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Filament\Resources\PalletResource;
 use App\Models\AiTask;
 use App\Models\Pallet;
 use App\Models\User;
@@ -17,8 +16,6 @@ class ParsePalletSlipJob implements ShouldQueue
 {
     use Queueable;
 
-    // Vision + embeddings + LLM matching can legitimately take several minutes
-    // for a large packing slip. This never runs inside a web request.
     public int $timeout = 1800;
     public int $tries = 1;
 
@@ -40,13 +37,10 @@ class ParsePalletSlipJob implements ShouldQueue
 
             foreach ($rawLines as $line) {
                 $description = trim((string) ($line['description'] ?? ''));
-                if ($description === '') {
-                    continue;
-                }
+                if ($description === '') continue;
 
                 $barcode = filled($line['barcode'] ?? null) ? trim((string) $line['barcode']) : null;
                 $sku = filled($line['sku'] ?? null) ? trim((string) $line['sku']) : null;
-
                 $matchedId = null;
                 $matchedName = null;
                 $confidence = '';
@@ -56,8 +50,6 @@ class ParsePalletSlipJob implements ShouldQueue
                 $alternatives = [];
 
                 try {
-                    // This is intentionally the full matcher. It may use embeddings
-                    // and LLM confirmation, but we are safely on queue=ai here.
                     $result = $mapping->match(
                         description: $description,
                         upc: $barcode,
@@ -114,7 +106,6 @@ class ParsePalletSlipJob implements ShouldQueue
                     'match_stage' => $stage,
                     'match_reasons' => $reasons,
                     'alternatives' => $alternatives,
-                    // Nothing is committed by AI. A human still approves the review.
                     'create_new_item' => $matchedId === null,
                 ];
             }
@@ -151,14 +142,9 @@ class ParsePalletSlipJob implements ShouldQueue
 
         Notification::make()
             ->title('AI manifest ready for review')
-            ->body("{$pallet->displayName()}: {$total} lines analyzed · {$matched} suggested matches · {$needsReview} need review.")
+            ->body("{$pallet->displayName()}: {$total} lines analyzed · {$matched} suggested matches · {$needsReview} need review. Open the pallet and choose AI Manifest Review.")
             ->success()
             ->icon('heroicon-o-sparkles')
-            ->actions([
-                \Filament\Notifications\Actions\Action::make('review')
-                    ->label('Review manifest')
-                    ->url(PalletResource::getUrl('import-manifest', ['record' => $pallet])),
-            ])
             ->sendToDatabase($user);
     }
 

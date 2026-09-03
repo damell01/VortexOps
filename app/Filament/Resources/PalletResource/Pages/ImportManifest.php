@@ -11,6 +11,7 @@ use App\Models\PalletLine;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\WithFileUploads;
 
 class ImportManifest extends Page
@@ -45,9 +46,6 @@ class ImportManifest extends Page
     {
         $this->record = $record->load('vendor');
 
-        // Re-open the latest AI job for this pallet. The user is expected to
-        // leave this screen while Ollama works and come back from the database
-        // notification when review is ready.
         $task = AiTask::query()
             ->where('type', 'parse_pallet_slip')
             ->where('taskable_type', Pallet::class)
@@ -68,10 +66,16 @@ class ImportManifest extends Page
         ]);
 
         $ext = strtolower($this->slipFile->getClientOriginalExtension());
-        $path = storage_path('app/manifest-uploads/' . uniqid('manifest_') . '.' . $ext);
+        $filename = uniqid('manifest_') . '.' . $ext;
+        $relativePath = $this->slipFile->storeAs('manifest-uploads', $filename, 'local');
 
-        @mkdir(dirname($path), 0775, true);
-        $this->slipFile->storeAs('manifest-uploads', basename($path), 'local');
+        if (! $relativePath || ! Storage::disk('local')->exists($relativePath)) {
+            throw new \RuntimeException('Manifest upload could not be saved.');
+        }
+
+        // Laravel's local disk is storage/app/private by default. Always resolve
+        // the exact absolute path from the disk instead of assuming storage/app.
+        $path = Storage::disk('local')->path($relativePath);
 
         $task = AiTask::create([
             'type' => 'parse_pallet_slip',
@@ -81,7 +85,8 @@ class ImportManifest extends Page
             'triggered_by' => auth()->id(),
             'input' => [
                 'pallet_id' => $this->record->id,
-                'file' => basename($path),
+                'file' => $filename,
+                'stored_path' => $relativePath,
                 'extension' => $ext,
                 'background_only' => true,
                 'review_required' => true,

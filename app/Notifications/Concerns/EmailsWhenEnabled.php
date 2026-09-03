@@ -5,8 +5,11 @@ namespace App\Notifications\Concerns;
 use App\Models\Setting;
 
 /**
- * Adds the mail channel to an in-app notification when email is switched on,
- * while also respecting each user's own delivery preferences.
+ * Resolves notification delivery channels from three layers:
+ *
+ * 1. Environment safety switch (email is opt-in, off by default)
+ * 2. App-level Settings toggle
+ * 3. The individual user's own notification preferences
  */
 trait EmailsWhenEnabled
 {
@@ -32,6 +35,10 @@ trait EmailsWhenEnabled
 
     public static function emailIsEnabled(): bool
     {
+        if (! filter_var(config('mail.notification_emails_enabled', false), FILTER_VALIDATE_BOOLEAN)) {
+            return false;
+        }
+
         // Cast rather than trust: the settings table stores '1'/'0' strings,
         // and '0' is truthy.
         return filter_var(Setting::get('notify_email_enabled', false), FILTER_VALIDATE_BOOLEAN);

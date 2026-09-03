@@ -8,6 +8,7 @@
 @include('filament.components.pallet-mobile-ui-fixes')
 @include('filament.components.mobile-inventory-hotfixes')
 @include('filament.components.inventory-catalog-enhancements')
+@include('filament.components.ios-inventory-picker-fix')
 
 <script>
     /**

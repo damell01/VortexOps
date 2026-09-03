@@ -7,23 +7,6 @@ use Illuminate\Support\Facades\Cache;
 
 /**
  * The one lock over the one browser, and a straight answer about who holds it.
- *
- * Every Whatnot job drives a single Chromium profile, so they queue behind this.
- * Knowing *who* is holding it is the difference between "wait a minute" and
- * "this is stale, clear it" — and getting that wrong costs twenty minutes or a
- * corrupted profile.
- *
- * That answer used to live in a second cache key written just after the lock was
- * taken, which meant two facts that could disagree. They did, constantly: any
- * job whose `finally` ran without it ever having held the lock deleted the key
- * belonging to the job that did, and the lock became "held by nobody". It was
- * fixed in one command, then found in another that ran every ten minutes and
- * recreated the state on a timer.
- *
- * So the holder is not tracked separately any more. Laravel already stores an
- * owner token with the lock itself, atomically, in the same row — this just
- * makes that token say who we are. A process cannot erase it without releasing
- * the lock, because it *is* the lock.
  */
 class WhatnotBrowserLock
 {
@@ -46,16 +29,13 @@ class WhatnotBrowserLock
     /**
      * Who holds the lock right now.
      *
-     * @return array{pid:int,host:string,alive:bool}|null  null when it is free,
-     *         or held by something that predates this scheme.
+     * @return array{pid:int,host:string,alive:bool}|null
      */
     public static function holder(): ?array
     {
         $owner = self::storedOwner();
 
         if ($owner === null || ! preg_match('/^(\d+)@(.*)$/', $owner, $matches)) {
-            // Fall back to the old separate key so a lock taken by code that has
-            // not been redeployed yet is still attributable.
             $legacy = Cache::get(self::KEY . ':holder_pid');
 
             return $legacy
@@ -68,7 +48,6 @@ class WhatnotBrowserLock
         return [
             'pid'   => $pid,
             'host'  => $matches[2],
-            // Only meaningful for a lock held on this machine.
             'alive' => $matches[2] === gethostname() && self::pidIsAlive($pid),
         ];
     }
@@ -86,9 +65,56 @@ class WhatnotBrowserLock
     }
 
     /**
+     * Recover a lock whose recorded owner is definitely gone.
+     *
+     * This is intentionally conservative. A live Whatnot owner is never touched.
+     * When the owner PID is dead, the cache lock cannot represent useful work any
+     * longer, so it is safe to release. We then clean Chrome profile locks left by
+     * browser children that outlived the dead scraper, but never kill the managed
+     * persistent browser service.
+     *
+     * @return array{recovered:bool,holder_pid:?int,killed_pids:array<int,int>,removed:array<int,string>}
+     */
+    public static function recoverIfStale(): array
+    {
+        $result = [
+            'recovered'  => false,
+            'holder_pid' => null,
+            'killed_pids'=> [],
+            'removed'    => [],
+        ];
+
+        if (! self::isHeld()) {
+            return $result;
+        }
+
+        $holder = self::holder();
+
+        // An unattributable lock is left alone. Its TTL is the final safety net.
+        if ($holder === null) {
+            return $result;
+        }
+
+        $result['holder_pid'] = $holder['pid'];
+
+        // A lock from another host or a live local owner may still be legitimate.
+        if ($holder['host'] !== gethostname() || $holder['alive']) {
+            return $result;
+        }
+
+        self::forceRelease();
+        $result['recovered'] = true;
+
+        foreach (self::profileDirectories() as $profile) {
+            self::recoverProfile($profile, $result);
+        }
+
+        return $result;
+    }
+
+    /**
      * A process that has exited but not been reaped keeps its /proc entry, so
-     * existence alone counts a dead job as a live one and leaves the lock
-     * refused for ever. Zombies hold nothing.
+     * existence alone counts a dead job as a live one and leaves the lock stuck.
      */
     public static function pidIsAlive(int $pid): bool
     {
@@ -101,24 +127,118 @@ class WhatnotBrowserLock
         return $status === false || preg_match('/^State:\s*Z/m', $status) !== 1;
     }
 
+    /** @return array<int,string> */
+    private static function profileDirectories(): array
+    {
+        return array_values(array_unique([
+            storage_path('whatnot-scrapling-profile'),
+            storage_path('whatnot-browser-profile'),
+        ]));
+    }
+
     /**
-     * The owner token currently stored against the lock.
-     *
-     * Laravel gives a Lock instance its *own* owner, not the stored one, so
-     * there is no API for reading another process's token — it has to come from
-     * where the driver keeps it.
+     * @param array{recovered:bool,holder_pid:?int,killed_pids:array<int,int>,removed:array<int,string>} $result
      */
+    private static function recoverProfile(string $profile, array &$result): void
+    {
+        if (! is_dir($profile)) {
+            return;
+        }
+
+        foreach (['SingletonLock', 'SingletonSocket', 'SingletonCookie'] as $name) {
+            $path = $profile . '/' . $name;
+
+            if (! is_link($path) && ! file_exists($path)) {
+                continue;
+            }
+
+            $pid = self::chromeProfileHolder($path);
+
+            if ($pid !== null) {
+                // Only touch a Chrome/Chromium process using exactly this VortexOps
+                // profile. Never stop the persistent systemd-owned browser service.
+                if (! self::isOurChrome($pid, $profile) || self::isManagedBrowserService($pid)) {
+                    continue;
+                }
+
+                @posix_kill($pid, SIGTERM);
+                usleep(500_000);
+
+                if (self::pidIsAlive($pid)) {
+                    @posix_kill($pid, SIGKILL);
+                    usleep(250_000);
+                }
+
+                if (self::pidIsAlive($pid)) {
+                    // Permissions or some other protection prevented termination.
+                    // Do not unlink Chrome's live lock underneath it.
+                    continue;
+                }
+
+                $result['killed_pids'][] = $pid;
+            }
+
+            if (@unlink($path)) {
+                $result['removed'][] = $profile . '/' . $name;
+            }
+        }
+    }
+
+    private static function chromeProfileHolder(string $path): ?int
+    {
+        if (! is_link($path)) {
+            return null;
+        }
+
+        $target = @readlink($path);
+
+        if ($target === false || ! preg_match('/-(\d+)$/', $target, $matches)) {
+            return null;
+        }
+
+        $pid = (int) $matches[1];
+
+        return self::pidIsAlive($pid) ? $pid : null;
+    }
+
+    private static function isOurChrome(int $pid, string $profile): bool
+    {
+        $command = self::commandLine($pid);
+
+        return $command !== null
+            && str_contains($command, $profile)
+            && preg_match('/chrome|chromium/i', $command) === 1;
+    }
+
+    /**
+     * The persistent browser service is supposed to live without an Artisan
+     * parent. Its cgroup is the reliable distinction between that managed
+     * process and an orphaned browser child from an interrupted scrape.
+     */
+    private static function isManagedBrowserService(int $pid): bool
+    {
+        $cgroup = @file_get_contents("/proc/{$pid}/cgroup");
+
+        return is_string($cgroup)
+            && str_contains($cgroup, 'vortexops-whatnot-browser.service');
+    }
+
+    private static function commandLine(int $pid): ?string
+    {
+        $raw = @file_get_contents("/proc/{$pid}/cmdline");
+
+        if ($raw === false || $raw === '') {
+            return null;
+        }
+
+        return trim(str_replace("\0", ' ', $raw)) ?: null;
+    }
+
+    /** The owner token currently stored against the lock. */
     protected static function storedOwner(): ?string
     {
         $lock = Cache::lock(self::KEY);
 
-        // Every driver already implements getCurrentOwner() — reading its own
-        // table, key or array — and every driver stores it differently:
-        // prefixes, lock tables, expiry semantics. Reimplementing that per
-        // driver is how this ends up right in production and untestable under
-        // the array store, so borrow the framework's accessor instead of
-        // guessing at the storage. It is protected rather than private
-        // precisely because it is the driver's answer to this question.
         try {
             $owner = \Closure::bind(
                 fn () => $this->getCurrentOwner(),

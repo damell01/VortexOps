@@ -3,7 +3,9 @@
 use App\Http\Controllers\ExportController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\HealthController;
+use App\Models\AiTask;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 Route::get('/', function () {
     return redirect('/admin');
@@ -21,6 +23,24 @@ Route::middleware(['auth', 'web'])->prefix('admin')->name('admin.')->group(funct
     Route::post('feedback', [FeedbackController::class, 'store'])
         ->middleware('throttle:10,1')
         ->name('feedback.store');
+
+    Route::get('ai-tasks/{task}/source', function (AiTask $task) {
+        abort_unless($task->type === 'parse_pallet_slip', 404);
+
+        $input = is_array($task->input) ? $task->input : [];
+        $relativePath = $input['stored_path'] ?? null;
+        abort_unless(is_string($relativePath) && Storage::disk('local')->exists($relativePath), 404);
+
+        $path = Storage::disk('local')->path($relativePath);
+        $name = basename((string) ($input['original_name'] ?? $input['file'] ?? basename($relativePath)));
+        $mime = mime_content_type($path) ?: 'application/octet-stream';
+
+        return response()->file($path, [
+            'Content-Type' => $mime,
+            'Content-Disposition' => "inline; filename*=UTF-8''" . rawurlencode($name),
+            'Cache-Control' => 'private, no-store, max-age=0',
+        ]);
+    })->name('manifest-source');
 });
 
 Route::middleware(['auth', 'web', 'throttle:6,1'])->prefix('admin/export')->name('export.')->group(function () {
@@ -38,4 +58,3 @@ Route::middleware(['auth', 'web', 'throttle:6,1'])->prefix('admin/export')->name
 });
 
 Route::middleware(['auth', 'web'])->get('/admin/manifest-template', [ExportController::class, 'manifestTemplate'])->name('manifest.template');
-

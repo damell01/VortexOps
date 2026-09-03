@@ -9,15 +9,6 @@ use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Symfony\Component\Process\Process;
 
-/**
- * Parses packing slips, purchase orders, and manifests into structured lines.
- *
- * Text-based PDFs first use pdftotext. Common tabular PO/manifest layouts are
- * parsed deterministically before AI is ever called. If the text layout is not
- * recognizable, JSON normalization is used as a fallback. Scanned PDFs/images
- * still fall back to the vision model. CSV/XLS/XLSX use deterministic header
- * mapping first.
- */
 class PalletSlipParser
 {
     public function __construct(
@@ -36,9 +27,10 @@ class PalletSlipParser
             }
 
             if ($ext === 'txt') {
-                return $this->normalizeUnknownRows(
-                    array_values(array_filter(array_map('trim', file($storedPath, FILE_IGNORE_NEW_LINES) ?: [])))
-                );
+                return $this->normalizeUnknownRows(array_values(array_filter(array_map(
+                    'trim',
+                    file($storedPath, FILE_IGNORE_NEW_LINES) ?: []
+                ))));
             }
 
             if ($ext === 'pdf') {
@@ -54,18 +46,12 @@ class PalletSlipParser
                     }
 
                     try {
-                        Log::info('PalletSlipParser starting AI text normalization', [
-                            'rows' => count($textRows),
-                        ]);
+                        Log::info('PalletSlipParser starting AI text normalization', ['rows' => count($textRows)]);
                         $textLines = $this->normalizeUnknownRows($textRows);
                         if ($textLines !== []) {
-                            Log::info('PalletSlipParser extracted PDF lines from text layer', [
-                                'lines' => count($textLines),
-                            ]);
+                            Log::info('PalletSlipParser extracted PDF lines from text layer', ['lines' => count($textLines)]);
                             return $textLines;
                         }
-
-                        Log::warning('PalletSlipParser PDF text layer produced zero normalized lines; falling back to vision');
                     } catch (\Throwable $textError) {
                         Log::warning('PalletSlipParser PDF text normalization failed; falling back to vision', [
                             'error' => $textError->getMessage(),
@@ -74,17 +60,13 @@ class PalletSlipParser
                 }
             }
 
-            $images = $this->toBase64Images($storedPath);
             $lines = [];
-
-            foreach ($images as $b64) {
+            foreach ($this->toBase64Images($storedPath) as $b64) {
                 $lines = array_merge($lines, $this->extractFromImage($b64));
             }
 
             if ($lines === []) {
-                throw new \RuntimeException(
-                    'AI could not extract any manifest line items from this file. The job was not marked complete so you can retry or use a different document.'
-                );
+                throw new \RuntimeException('AI could not extract any manifest line items from this file.');
             }
 
             return $lines;
@@ -100,15 +82,12 @@ class PalletSlipParser
             throw new \RuntimeException("Uploaded manifest not found: {$path}");
         }
 
-        $sheet = IOFactory::load($path)->getActiveSheet();
         $rows = array_values(array_filter(
-            $sheet->toArray(null, true, true, false),
+            IOFactory::load($path)->getActiveSheet()->toArray(null, true, true, false),
             fn (array $row) => collect($row)->contains(fn ($value) => filled($value))
         ));
 
-        if ($rows === []) {
-            return [];
-        }
+        if ($rows === []) return [];
 
         $headerIndex = null;
         $columnMap = [];
@@ -129,25 +108,22 @@ class PalletSlipParser
 
                 $qty = isset($columnMap['case_count']) ? $this->number($row[$columnMap['case_count']] ?? 1) : 1;
                 $unitsPerCase = isset($columnMap['quantity_per_case']) ? $this->number($row[$columnMap['quantity_per_case']] ?? 1) : 1;
-                $cost = isset($columnMap['unit_cost']) ? $this->money($row[$columnMap['unit_cost']] ?? null) : null;
 
                 $out[] = [
                     'description' => $description,
                     'case_count' => max(1, (int) round($qty ?: 1)),
                     'quantity_per_case' => max(1, (int) round($unitsPerCase ?: 1)),
-                    'unit_cost' => $cost,
+                    'unit_cost' => isset($columnMap['unit_cost']) ? $this->money($row[$columnMap['unit_cost']] ?? null) : null,
                     'sku' => isset($columnMap['sku']) ? $this->cleanIdentifier($row[$columnMap['sku']] ?? null) : null,
                     'barcode' => isset($columnMap['barcode']) ? $this->cleanIdentifier($row[$columnMap['barcode']] ?? null) : null,
                 ];
             }
-
             if ($out !== []) return $out;
         }
 
-        $bounded = array_slice($rows, 0, 120);
         return $this->normalizeUnknownRows(array_map(
             fn (array $row) => implode(' | ', array_map(fn ($value) => trim((string) $value), $row)),
-            $bounded
+            array_slice($rows, 0, 120)
         ));
     }
 
@@ -165,11 +141,9 @@ class PalletSlipParser
 
         $normalizedAliases = collect($aliases)->map(fn ($values) => array_map([$this, 'normalizeHeader'], $values));
         $map = [];
-
         foreach ($row as $index => $value) {
             $header = $this->normalizeHeader((string) $value);
             if ($header === '') continue;
-
             foreach ($normalizedAliases as $field => $values) {
                 if (! isset($map[$field]) && in_array($header, $values, true)) {
                     $map[$field] = $index;
@@ -177,7 +151,6 @@ class PalletSlipParser
                 }
             }
         }
-
         return $map;
     }
 
@@ -195,8 +168,8 @@ class PalletSlipParser
     private function money(mixed $value): ?float
     {
         if ($value === null || trim((string) $value) === '') return null;
-        $number = $this->number($value);
-        return $number >= 0 ? $number : null;
+        $clean = preg_replace('/[^0-9.\-]/', '', (string) $value) ?: '';
+        return is_numeric($clean) ? (float) $clean : null;
     }
 
     private function cleanIdentifier(mixed $value): ?string
@@ -207,50 +180,95 @@ class PalletSlipParser
     }
 
     /**
-     * Parse a common fixed-column text table produced by `pdftotext -layout`.
-     * Expected logical order: line, description, sku, barcode, cases,
-     * units-per-case, unit-cost, line-total. Extra spaces inside descriptions are
-     * tolerated because the trailing numeric/identifier columns are parsed from
-     * the right side of each row.
+     * Build logical line-item blocks first. pdftotext may wrap one item across
+     * multiple physical rows (for example the UPC may land on the next row), so
+     * treating each physical row as a complete item loses valid products.
      *
      * @param list<string> $rows
      * @return list<array<string,mixed>>
      */
     private function parseTextTableRows(array $rows): array
     {
-        $out = [];
+        $blocks = [];
+        $current = null;
 
         foreach ($rows as $row) {
-            $parts = preg_split('/\s{2,}/u', trim((string) $row)) ?: [];
-            $parts = array_values(array_filter(array_map('trim', $parts), fn ($v) => $v !== ''));
+            $row = trim((string) $row);
+            if ($row === '') continue;
 
-            if (count($parts) < 8) continue;
-            if (! preg_match('/^\d{1,4}$/', $parts[0])) continue;
+            if (preg_match('/^(\d{1,4})\s+(.+)$/u', $row, $start)) {
+                if ($current !== null) $blocks[] = $current;
+                $current = ['line' => (int) $start[1], 'text' => trim($start[2])];
+                continue;
+            }
 
-            $last = count($parts) - 1;
-            $lineTotal = $this->money($parts[$last] ?? null);
-            $unitCost = $this->money($parts[$last - 1] ?? null);
-            $unitsPerCase = $this->number($parts[$last - 2] ?? 0);
-            $cases = $this->number($parts[$last - 3] ?? 0);
-            $barcode = preg_replace('/\D+/', '', (string) ($parts[$last - 4] ?? '')) ?: '';
-            $sku = trim((string) ($parts[$last - 5] ?? ''));
+            if ($current !== null) {
+                // Stop carrying a completed line into document totals/notes.
+                if (preg_match('/^(AI MATCHING|SUBTOTAL|MERCHANDISE|SHIPPING|PAYMENT|TOTAL|NOTES?|TERMS?)\b/i', $row)) {
+                    $blocks[] = $current;
+                    $current = null;
+                    continue;
+                }
+                $current['text'] .= ' ' . $row;
+            }
+        }
+        if ($current !== null) $blocks[] = $current;
 
-            if ($lineTotal === null || $unitCost === null || $cases <= 0 || $unitsPerCase <= 0) continue;
-            if ($barcode !== '' && (strlen($barcode) < 8 || strlen($barcode) > 14)) continue;
+        $out = [];
+        $rejected = [];
 
-            $descriptionParts = array_slice($parts, 1, max(1, $last - 5));
-            $description = trim(implode(' ', $descriptionParts));
-            if ($description === '') continue;
+        foreach ($blocks as $block) {
+            $text = preg_replace('/\s+/u', ' ', trim($block['text'])) ?: '';
+
+            // Find the stable tail first: UPC + cases + units/case + cost + total.
+            if (! preg_match(
+                '/^(.*?)(\d{8,14})\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+\$?([\d,]+(?:\.\d{1,2})?)\s+\$?([\d,]+(?:\.\d{1,2})?)(?:\s+.*)?$/u',
+                $text,
+                $m
+            )) {
+                $rejected[] = ['line' => $block['line'], 'reason' => 'tail_not_recognized', 'sample' => Str::limit($text, 180)];
+                continue;
+            }
+
+            $prefix = trim($m[1]);
+            $barcode = $m[2];
+            $cases = $this->number($m[3]);
+            $unitsPerCase = $this->number($m[4]);
+            $unitCost = $this->money($m[5]);
+
+            // SKU is the final code-like token before UPC. It may be glued to the
+            // description by pdftotext (e.g. "VersionVND-151-GATH-CH"). Prefer
+            // an explicit separated token, then fall back to a trailing code.
+            $sku = null;
+            $description = $prefix;
+            if (preg_match('/^(.*?)\s+([A-Z0-9][A-Z0-9._\/-]*[-_][A-Z0-9._\/-]+)$/u', $prefix, $skuMatch)) {
+                $description = trim($skuMatch[1]);
+                $sku = trim($skuMatch[2]);
+            } elseif (preg_match('/^(.*?)([A-Z]{2,}[A-Z0-9._\/-]*[-_][A-Z0-9._\/-]+)$/u', $prefix, $skuMatch)) {
+                $description = trim($skuMatch[1]);
+                $sku = trim($skuMatch[2]);
+            }
+
+            if ($description === '' || $cases <= 0 || $unitsPerCase <= 0 || $unitCost === null) {
+                $rejected[] = ['line' => $block['line'], 'reason' => 'invalid_fields', 'sample' => Str::limit($text, 180)];
+                continue;
+            }
 
             $out[] = [
                 'description' => $description,
                 'case_count' => max(1, (int) round($cases)),
                 'quantity_per_case' => max(1, (int) round($unitsPerCase)),
                 'unit_cost' => $unitCost,
-                'sku' => $sku !== '' ? $sku : null,
-                'barcode' => $barcode !== '' ? $barcode : null,
+                'sku' => $sku,
+                'barcode' => $barcode,
             ];
         }
+
+        Log::info('PalletSlipParser deterministic table diagnostics', [
+            'candidate_blocks' => count($blocks),
+            'accepted' => count($out),
+            'rejected' => $rejected,
+        ]);
 
         return $out;
     }
@@ -269,7 +287,7 @@ class PalletSlipParser
         $result = $this->gateway->json([
             [
                 'role' => 'system',
-                'content' => 'Extract EVERY purchase-order, packing-slip, or receiving-manifest product line from the supplied document text. Return JSON only as {"lines":[...]}. Each line must use: description, case_count, quantity_per_case, unit_cost, sku, barcode. Preserve the supplier product description. case_count is the number of cases/cartons; quantity_per_case is units in each case. If the document shows a single quantity but not a case structure, use case_count 1 and quantity_per_case equal to that quantity. Do not include headers, addresses, shipping, fees, totals, notes, terms, or metadata. Do not invent missing identifiers; use null.',
+                'content' => 'Extract EVERY purchase-order, packing-slip, or receiving-manifest product line from the supplied document text. Return JSON only as {"lines":[...]}. Each line must use: description, case_count, quantity_per_case, unit_cost, sku, barcode. Preserve the supplier product description. Do not include headers, addresses, shipping, fees, totals, notes, terms, or metadata. Do not invent missing identifiers; use null.',
             ],
             ['role' => 'user', 'content' => $text],
         ], [
@@ -283,68 +301,38 @@ class PalletSlipParser
         }
 
         $lines = $this->normalizeLines($result['lines'] ?? $result);
-        Log::info('PalletSlipParser normalized document text', [
-            'input_chars' => strlen($text),
-            'lines' => count($lines),
-        ]);
-
+        Log::info('PalletSlipParser normalized document text', ['input_chars' => strlen($text), 'lines' => count($lines)]);
         return $lines;
     }
 
     /** @return list<string> */
     private function pdfTextRows(string $pdfPath): array
     {
-        if (! file_exists($pdfPath)) {
-            throw new \RuntimeException("Uploaded PDF not found: {$pdfPath}");
-        }
+        if (! file_exists($pdfPath)) throw new \RuntimeException("Uploaded PDF not found: {$pdfPath}");
 
         $binary = collect(['/usr/bin/pdftotext', '/usr/local/bin/pdftotext'])
             ->first(fn (string $candidate) => is_file($candidate) && is_executable($candidate));
-
-        if (! $binary) {
-            Log::notice('PalletSlipParser pdftotext not available; using vision fallback');
-            return [];
-        }
+        if (! $binary) return [];
 
         $process = new Process([$binary, '-layout', '-nopgbrk', $pdfPath, '-']);
         $process->setTimeout(60);
         $process->run();
-
-        if (! $process->isSuccessful()) {
-            Log::warning('PalletSlipParser pdftotext failed; using vision fallback', [
-                'exit_code' => $process->getExitCode(),
-                'error' => Str::limit(trim($process->getErrorOutput()), 300),
-            ]);
-            return [];
-        }
+        if (! $process->isSuccessful()) return [];
 
         $text = trim($process->getOutput());
         if ($text === '') return [];
-
         $rows = preg_split('/\R/u', $text) ?: [];
-        $rows = array_values(array_filter(array_map(
-            fn ($row) => trim((string) $row),
-            $rows
-        ), fn ($row) => $row !== ''));
+        $rows = array_values(array_filter(array_map(fn ($row) => trim((string) $row), $rows), fn ($row) => $row !== ''));
 
-        Log::info('PalletSlipParser extracted PDF text layer', [
-            'characters' => strlen($text),
-            'rows' => count($rows),
-        ]);
-
+        Log::info('PalletSlipParser extracted PDF text layer', ['characters' => strlen($text), 'rows' => count($rows)]);
         return $rows;
     }
 
     /** @return list<string> */
     private function toBase64Images(string $path): array
     {
-        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
-        if ($ext === 'pdf') return $this->pdfToImages($path);
-
-        if (! file_exists($path)) {
-            throw new \RuntimeException("Uploaded file not found: {$path}");
-        }
-
+        if (strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'pdf') return $this->pdfToImages($path);
+        if (! file_exists($path)) throw new \RuntimeException("Uploaded file not found: {$path}");
         return [base64_encode(file_get_contents($path))];
     }
 
@@ -356,37 +344,26 @@ class PalletSlipParser
             $im->setResolution(150, 150);
             $im->readImage("{$pdfPath}[0-9]");
             $images = [];
-
             foreach ($im as $page) {
                 $page->setImageFormat('png');
                 $page->setImageAlphaChannel(\Imagick::ALPHACHANNEL_REMOVE);
                 $page->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
                 $images[] = base64_encode($page->getImageBlob());
             }
-
             $im->clear();
             if ($images !== []) return $images;
         }
 
-        if (! file_exists($pdfPath)) {
-            throw new \RuntimeException("Uploaded PDF not found: {$pdfPath}");
-        }
-
         $binary = collect(['/usr/bin/pdftoppm', '/usr/local/bin/pdftoppm'])
             ->first(fn (string $candidate) => is_file($candidate) && is_executable($candidate));
-
-        if (! $binary) {
-            throw new \RuntimeException('PDF conversion cannot find executable pdftoppm. Install poppler-utils or configure the worker environment.');
-        }
+        if (! $binary) throw new \RuntimeException('PDF conversion cannot find executable pdftoppm.');
 
         $prefix = sys_get_temp_dir() . '/slip_' . uniqid();
-        $process = new Process([
-            $binary, '-r', '150', '-png', '-f', '1', '-l', '1', $pdfPath, $prefix,
-        ]);
+        $process = new Process([$binary, '-r', '150', '-png', '-f', '1', '-l', '1', $pdfPath, $prefix]);
         $process->setTimeout(120);
         $process->run();
-
         $generated = $prefix . '-1.png';
+
         if ($process->isSuccessful() && file_exists($generated) && filesize($generated) > 0) {
             $b64 = base64_encode(file_get_contents($generated));
             @unlink($generated);
@@ -394,60 +371,30 @@ class PalletSlipParser
         }
 
         @unlink($generated);
-        $detail = trim($process->getErrorOutput() ?: $process->getOutput());
-        Log::error('Pallet PDF conversion failed', [
-            'binary' => $binary,
-            'exit_code' => $process->getExitCode(),
-            'error' => $detail,
-            'pdf_exists' => file_exists($pdfPath),
-            'pdf_readable' => is_readable($pdfPath),
-            'temp_dir' => sys_get_temp_dir(),
-        ]);
-
-        throw new \RuntimeException(
-            'PDF conversion failed with pdftoppm' . ($detail !== '' ? ': ' . Str::limit($detail, 180) : '.')
-        );
+        throw new \RuntimeException('PDF conversion failed with pdftoppm: ' . Str::limit(trim($process->getErrorOutput()), 180));
     }
 
     /** @return list<array<string,mixed>> */
     private function extractFromImage(string $base64Image): array
     {
         $response = $this->gateway->vision($this->prompts->slipExtraction(), $base64Image);
-        if (! $response->success) {
-            throw new \RuntimeException("Vision extraction failed: {$response->error}");
-        }
-
-        $lines = $this->parseJsonLines($response->content);
-        Log::info('PalletSlipParser vision extraction completed', [
-            'response_chars' => strlen($response->content),
-            'lines' => count($lines),
-        ]);
-        return $lines;
+        if (! $response->success) throw new \RuntimeException("Vision extraction failed: {$response->error}");
+        return $this->parseJsonLines($response->content);
     }
 
     /** @return list<array<string,mixed>> */
     private function parseJsonLines(string $text): array
     {
         $direct = json_decode($text, true);
-        if (isset($direct['lines']) && is_array($direct['lines'])) {
-            return $this->normalizeLines($direct['lines']);
-        }
-
+        if (isset($direct['lines']) && is_array($direct['lines'])) return $this->normalizeLines($direct['lines']);
         if (preg_match('/\{.*"lines"\s*:\s*\[.*?\]\s*\}/s', $text, $m)) {
             $parsed = json_decode($m[0], true);
-            if (isset($parsed['lines']) && is_array($parsed['lines'])) {
-                return $this->normalizeLines($parsed['lines']);
-            }
+            if (isset($parsed['lines']) && is_array($parsed['lines'])) return $this->normalizeLines($parsed['lines']);
         }
-
         if (preg_match('/\[.*\]/s', $text, $m)) {
             $parsed = json_decode($m[0], true);
             if (is_array($parsed)) return $this->normalizeLines($parsed);
         }
-
-        Log::warning('PalletSlipParser: could not extract JSON from vision response', [
-            'sample' => substr($text, 0, 700),
-        ]);
         return [];
     }
 
@@ -457,13 +404,11 @@ class PalletSlipParser
         $out = [];
         foreach ($raw as $item) {
             if (! is_array($item)) continue;
-
             $description = trim((string) ($item['description'] ?? $item['name'] ?? $item['item'] ?? ''));
             if ($description === '') continue;
 
             $caseCount = max(1, (int) ($item['case_count'] ?? $item['cases'] ?? 1));
             $quantityPerCase = max(1, (int) ($item['quantity_per_case'] ?? $item['units_per_case'] ?? $item['pack_qty'] ?? 1));
-
             if (! isset($item['case_count']) && ! isset($item['quantity_per_case'])) {
                 $quantityPerCase = max(1, (int) ($item['qty'] ?? $item['quantity'] ?? 1));
                 $caseCount = 1;
@@ -478,7 +423,6 @@ class PalletSlipParser
                 'barcode' => ($item['barcode'] ?? $item['upc'] ?? null) ? trim((string) ($item['barcode'] ?? $item['upc'])) : null,
             ];
         }
-
         return $out;
     }
 }

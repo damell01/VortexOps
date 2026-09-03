@@ -9,6 +9,7 @@ use App\Models\Payout;
 use App\Models\Product;
 use App\Models\Shipment;
 use App\Models\Show;
+use App\Models\User;
 use App\Observers\DeductionRequestObserver;
 use App\Observers\PayoutObserver;
 use App\Observers\ProductObserver;
@@ -29,6 +30,7 @@ use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Notifications\Events\NotificationSending;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
@@ -77,6 +79,18 @@ class AppServiceProvider extends ServiceProvider
         Show::observe(ShowObserver::class);
         Shipment::observe(ShipmentObserver::class);
         Product::observe(ProductObserver::class);
+
+        // Apply the account-level notification preference to every Laravel
+        // notification, including older database-only notifications that do not
+        // use the shared EmailsWhenEnabled concern yet.
+        Event::listen(NotificationSending::class, function (NotificationSending $event): ?bool {
+            if ($event->notifiable instanceof User
+                && ! $event->notifiable->wantsNotificationChannel($event->channel)) {
+                return false;
+            }
+
+            return null;
+        });
 
         // Every table in the panel, not just the resources — relation managers
         // and the custom pages that build their own tables go through the same

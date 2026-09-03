@@ -4,18 +4,16 @@ namespace App\Support;
 
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
- * The one lock over the one browser, and a straight answer about who holds it.
+ * The one lock over the Scrapling-owned Whatnot browser profile.
  */
 class WhatnotBrowserLock
 {
     public const KEY = 'whatnot:browser';
-
-    /** Long enough to outlast the slowest legitimate scrape. */
     public const TTL = 13800;
 
-    /** This process, in a form another process can read back. */
     public static function owner(): string
     {
         return getmypid() . '@' . gethostname();
@@ -23,14 +21,23 @@ class WhatnotBrowserLock
 
     public static function make(?int $ttl = null): Lock
     {
+        // Every scraper operation comes through make(). Recover here instead of
+        // only at the beginning of the hourly pipeline, because a child can die
+        // between shows/orders/shipments/ledger and leave a stale lock behind.
+        $recovery = self::recoverIfStale();
+
+        if ($recovery['recovered']) {
+            Log::warning('WhatnotBrowserLock: automatically recovered stale Scrapling browser state', [
+                'stale_holder_pid' => $recovery['holder_pid'],
+                'killed_orphan_browser_pids' => $recovery['killed_pids'],
+                'removed_profile_locks' => $recovery['removed'],
+            ]);
+        }
+
         return Cache::lock(self::KEY, $ttl ?? self::TTL, self::owner());
     }
 
-    /**
-     * Who holds the lock right now.
-     *
-     * @return array{pid:int,host:string,alive:bool}|null
-     */
+    /** @return array{pid:int,host:string,alive:bool}|null */
     public static function holder(): ?array
     {
         $owner = self::storedOwner();
@@ -46,13 +53,12 @@ class WhatnotBrowserLock
         $pid = (int) $matches[1];
 
         return [
-            'pid'   => $pid,
-            'host'  => $matches[2],
+            'pid' => $pid,
+            'host' => $matches[2],
             'alive' => $matches[2] === gethostname() && self::pidIsAlive($pid),
         ];
     }
 
-    /** Whether anything holds the lock, regardless of who. */
     public static function isHeld(): bool
     {
         return self::storedOwner() !== null;
@@ -65,23 +71,19 @@ class WhatnotBrowserLock
     }
 
     /**
-     * Recover a lock whose recorded owner is definitely gone.
-     *
-     * This is intentionally conservative. A live Whatnot owner is never touched.
-     * When the owner PID is dead, the cache lock cannot represent useful work any
-     * longer, so it is safe to release. We then clean Chrome profile locks left by
-     * browser children that outlived the dead scraper, but never kill the managed
-     * persistent browser service.
+     * Recover only when the cache lock's recorded local owner is definitely dead.
+     * The separate persistent browser service/profile is deliberately not part of
+     * this recovery path; production scraping uses Scrapling's owned profile.
      *
      * @return array{recovered:bool,holder_pid:?int,killed_pids:array<int,int>,removed:array<int,string>}
      */
     public static function recoverIfStale(): array
     {
         $result = [
-            'recovered'  => false,
+            'recovered' => false,
             'holder_pid' => null,
-            'killed_pids'=> [],
-            'removed'    => [],
+            'killed_pids' => [],
+            'removed' => [],
         ];
 
         if (! self::isHeld()) {
@@ -89,32 +91,26 @@ class WhatnotBrowserLock
         }
 
         $holder = self::holder();
-
-        // An unattributable lock is left alone. Its TTL is the final safety net.
         if ($holder === null) {
             return $result;
         }
 
         $result['holder_pid'] = $holder['pid'];
 
-        // A lock from another host or a live local owner may still be legitimate.
         if ($holder['host'] !== gethostname() || $holder['alive']) {
             return $result;
         }
 
         self::forceRelease();
         $result['recovered'] = true;
-
-        foreach (self::profileDirectories() as $profile) {
-            self::recoverProfile($profile, $result);
-        }
+        self::recoverProfile(storage_path('whatnot-scrapling-profile'), $result);
 
         return $result;
     }
 
     /**
-     * A process that has exited but not been reaped keeps its /proc entry, so
-     * existence alone counts a dead job as a live one and leaves the lock stuck.
+     * True only for a real non-zombie PID. /proc existence alone is insufficient
+     * because zombies retain a proc entry until their parent reaps them.
      */
     public static function pidIsAlive(int $pid): bool
     {
@@ -122,23 +118,29 @@ class WhatnotBrowserLock
             return false;
         }
 
+        $stat = @file_get_contents("/proc/{$pid}/stat");
+        if (is_string($stat) && $stat !== '') {
+            $close = strrpos($stat, ') ');
+            if ($close !== false && isset($stat[$close + 2])) {
+                return strtoupper($stat[$close + 2]) !== 'Z';
+            }
+        }
+
         $status = @file_get_contents("/proc/{$pid}/status");
+        if (is_string($status) && preg_match('/^State:\s*([A-Z])/mi', $status, $matches) === 1) {
+            return strtoupper($matches[1]) !== 'Z';
+        }
 
-        return $status === false || preg_match('/^State:\s*Z/m', $status) !== 1;
+        if (function_exists('posix_kill')) {
+            return @posix_kill($pid, 0);
+        }
+
+        // If procfs exists but cannot be inspected, leave the lock alone rather
+        // than risk disrupting legitimate work.
+        return true;
     }
 
-    /** @return array<int,string> */
-    private static function profileDirectories(): array
-    {
-        return array_values(array_unique([
-            storage_path('whatnot-scrapling-profile'),
-            storage_path('whatnot-browser-profile'),
-        ]));
-    }
-
-    /**
-     * @param array{recovered:bool,holder_pid:?int,killed_pids:array<int,int>,removed:array<int,string>} $result
-     */
+    /** @param array{recovered:bool,holder_pid:?int,killed_pids:array<int,int>,removed:array<int,string>} $result */
     private static function recoverProfile(string $profile, array &$result): void
     {
         if (! is_dir($profile)) {
@@ -155,9 +157,9 @@ class WhatnotBrowserLock
             $pid = self::chromeProfileHolder($path);
 
             if ($pid !== null) {
-                // Only touch a Chrome/Chromium process using exactly this VortexOps
-                // profile. Never stop the persistent systemd-owned browser service.
-                if (! self::isOurChrome($pid, $profile) || self::isManagedBrowserService($pid)) {
+                // Only terminate Chromium that is actually using Scrapling's exact
+                // profile. Never kill unrelated Chrome processes on the server.
+                if (! self::isOurChrome($pid, $profile)) {
                     continue;
                 }
 
@@ -170,8 +172,6 @@ class WhatnotBrowserLock
                 }
 
                 if (self::pidIsAlive($pid)) {
-                    // Permissions or some other protection prevented termination.
-                    // Do not unlink Chrome's live lock underneath it.
                     continue;
                 }
 
@@ -179,7 +179,7 @@ class WhatnotBrowserLock
             }
 
             if (@unlink($path)) {
-                $result['removed'][] = $profile . '/' . $name;
+                $result['removed'][] = $path;
             }
         }
     }
@@ -191,13 +191,11 @@ class WhatnotBrowserLock
         }
 
         $target = @readlink($path);
-
         if ($target === false || ! preg_match('/-(\d+)$/', $target, $matches)) {
             return null;
         }
 
         $pid = (int) $matches[1];
-
         return self::pidIsAlive($pid) ? $pid : null;
     }
 
@@ -210,23 +208,9 @@ class WhatnotBrowserLock
             && preg_match('/chrome|chromium/i', $command) === 1;
     }
 
-    /**
-     * The persistent browser service is supposed to live without an Artisan
-     * parent. Its cgroup is the reliable distinction between that managed
-     * process and an orphaned browser child from an interrupted scrape.
-     */
-    private static function isManagedBrowserService(int $pid): bool
-    {
-        $cgroup = @file_get_contents("/proc/{$pid}/cgroup");
-
-        return is_string($cgroup)
-            && str_contains($cgroup, 'vortexops-whatnot-browser.service');
-    }
-
     private static function commandLine(int $pid): ?string
     {
         $raw = @file_get_contents("/proc/{$pid}/cmdline");
-
         if ($raw === false || $raw === '') {
             return null;
         }
@@ -234,7 +218,6 @@ class WhatnotBrowserLock
         return trim(str_replace("\0", ' ', $raw)) ?: null;
     }
 
-    /** The owner token currently stored against the lock. */
     protected static function storedOwner(): ?string
     {
         $lock = Cache::lock(self::KEY);

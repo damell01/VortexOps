@@ -35,6 +35,7 @@ tests/Browser/output/
 # 142 of these files were, once, by an over-broad `git add -A`.
 /storage/whatnot-browser-profile/
 /storage/whatnot-browser-profile.broken/
+/storage/whatnot-browser.lock
 
 # The saved session itself, in every shape it takes.
 #

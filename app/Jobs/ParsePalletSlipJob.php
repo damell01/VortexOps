@@ -9,7 +9,7 @@ use App\Models\PalletLine;
 use App\Models\User;
 use App\Services\AI\Documents\PalletSlipParser;
 use App\Services\AI\Mapping\MappingEngine;
-use Filament\Notifications\Actions\Action as NotificationAction;
+use Filament\Actions\Action as NotificationAction;
 use Filament\Notifications\Notification;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -115,12 +115,6 @@ class ParsePalletSlipJob implements ShouldQueue
                 ];
             }
 
-            // The extraction itself is the useful automation. Stage every valid
-            // extracted row on the pallet immediately so the receiver never has
-            // to re-type a manifest just because inventory matching was uncertain.
-            // Existing-item suggestions are preselected when confidence is high
-            // enough for MappingEngine to return a product; unmatched lines stay
-            // as ordinary unmapped manifest lines for human review.
             DB::transaction(function () use ($pallet, $task, &$reviewLines) {
                 $nextLine = ($pallet->lines()->max('line_number') ?? 0) + 1;
 

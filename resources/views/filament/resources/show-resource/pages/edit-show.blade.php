@@ -1,9 +1,11 @@
 <x-filament-panels::page>
     <style>
-        .vx-edit-shell{max-width:1100px;margin:0 auto}.vx-edit-intro{display:none}.vx-edit-shell .fi-section{scroll-margin-top:6rem}
+        body:has(.vx-edit-shell) .fi-page-content{max-width:none!important;width:100%!important}
+        .vx-edit-shell{max-width:none;width:100%;margin:0;padding:0 1rem}.vx-edit-intro{display:none}.vx-edit-shell form,.vx-edit-shell .fi-fo-component-ctn{width:100%;max-width:none}.vx-edit-shell .fi-section{width:100%;max-width:none;scroll-margin-top:6rem}
+        @media(min-width:1024px){.vx-edit-shell{padding-inline:1.5rem}.vx-edit-shell .fi-section-content{padding:1.25rem 1.5rem!important}}
         @media(max-width:640px){
             body:has(.vx-edit-shell) .fi-page-header{display:none!important}
-            .vx-edit-shell{margin:0;max-width:none;padding-bottom:5.5rem}
+            .vx-edit-shell{margin:0;max-width:none;padding:0 0 5.5rem}
             .vx-edit-intro{display:block;margin-bottom:.75rem}
             .vx-edit-intro h1{font-size:1.45rem;font-weight:800;line-height:1.2;color:rgb(17 24 39)}
             .dark .vx-edit-intro h1{color:#fff}.vx-edit-intro p{margin-top:.35rem;font-size:.78rem;line-height:1.45;color:rgb(107 114 128)}

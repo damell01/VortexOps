@@ -6,6 +6,7 @@ use App\Filament\Resources\PalletResource\Pages\AddPalletLines;
 use App\Models\InventoryLocation;
 use App\Models\Pallet;
 use App\Models\PalletLine;
+use App\Models\Product;
 use App\Models\User;
 use App\Models\Vendor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -252,6 +253,34 @@ class AddPalletLinesTest extends TestCase
 
         $this->assertEqualsWithDelta(3, $totals['units'], 0.001);
         $this->assertEqualsWithDelta(30, $totals['cost'], 0.001);
+    }
+
+    public function test_saving_several_rows_linked_to_existing_products(): void
+    {
+        // The restock path — search, link, save — reported a save error in
+        // practice with three linked rows. Nothing here reproduced it, but
+        // the flow itself (selectProduct on multiple rows before a single
+        // save) had no coverage until now.
+        $products = collect(['Reward Turn Booster Box', 'Black Crystal Blazing Box', 'Mystic & Void Booster Box'])
+            ->map(fn ($name, $i) => Product::create([
+                'name' => $name, 'sku' => "LINK-{$i}", 'is_active' => true, 'is_container' => true,
+            ]));
+
+        $page = $this->page();
+
+        foreach ($products as $i => $product) {
+            $page->call('selectProduct', $i, $product->id)
+                ->set("rows.{$i}.case_count", 4);
+        }
+
+        $page->call('save')->assertHasNoErrors();
+
+        $this->assertSame(3, $this->pallet->lines()->count());
+        foreach ($products as $i => $product) {
+            $line = PalletLine::firstWhere('inventory_item_id', $product->id);
+            $this->assertNotNull($line, "line for \"{$product->name}\" was not saved");
+            $this->assertEqualsWithDelta(4, $line->case_count, 0.001);
+        }
     }
 
     public function test_removing_the_last_row_leaves_one_to_type_into(): void

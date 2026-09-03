@@ -46,8 +46,6 @@ function scopedEnvironment() {
     console.error(`[whatnot] CHANNEL_SCOPE requested=@${channel} session=isolated state=${path.relative(projectRoot, channelRoot)}`);
   } else {
     // Never share the production Scrapling profile with the legacy :9222 Chrome.
-    // That browser may remain installed for diagnostics/rollback, but it cannot
-    // hold the same Chrome user-data directory while Scrapling owns its browser.
     const sharedProfile = path.resolve(projectRoot, 'storage', 'whatnot-scrapling-profile');
     env.WHATNOT_USER_DATA_DIR = env.WHATNOT_USER_DATA_DIR || sharedProfile;
     fs.mkdirSync(env.WHATNOT_USER_DATA_DIR, { recursive: true });
@@ -79,8 +77,15 @@ function runScraplingStealthy() {
   const webrtc=String(env.WHATNOT_SCRAPLING_BLOCK_WEBRTC||'false').trim().toLowerCase();
   const canvas=String(env.WHATNOT_SCRAPLING_HIDE_CANVAS||'false').trim().toLowerCase();
   const webgl=String(env.WHATNOT_SCRAPLING_ALLOW_WEBGL||'true').trim().toLowerCase();
+  const lockFile=String(env.WHATNOT_BROWSER_LOCK_FILE||path.join(projectRoot,'storage','whatnot-browser.lock')).trim();
+  const lockWait=Math.max(1,parseInt(String(env.WHATNOT_BROWSER_LOCK_WAIT||'1200'),10)||1200);
+  fs.mkdirSync(path.dirname(lockFile),{recursive:true});
   process.stderr.write(`[whatnot] production browser backend: scrapling-stealthy (mode=${mode}, transport=${transport}, profile=${env.WHATNOT_USER_DATA_DIR||'(temporary)'}, solve_cloudflare=false, block_webrtc=${webrtc}, hide_canvas=${canvas}, allow_webgl=${webgl})\n`);
-  return spawnSync(python,[path.join(__dirname,'whatnot-scrapling-stealthy.py')],{env,cwd:projectRoot,stdio:'inherit'});
+  process.stderr.write(`[whatnot] BROWSER_LOCK_WAIT file=${lockFile} timeout=${lockWait}s\n`);
+  const result=spawnSync('flock',['-w',String(lockWait),lockFile,python,path.join(__dirname,'whatnot-scrapling-stealthy.py')],{env,cwd:projectRoot,stdio:'inherit'});
+  if(result.status===0) process.stderr.write('[whatnot] BROWSER_LOCK_RELEASED\n');
+  else if(result.status===1) process.stderr.write(`[whatnot] BROWSER_LOCK_TIMEOUT waited=${lockWait}s\n`);
+  return result;
 }
 function runAttachedBrowser() {
   const env={...childEnv,WHATNOT_BROWSER_BACKEND:'local',WHATNOT_ATTACH_EXISTING_BROWSER:'1',WHATNOT_ATTACH_CDP_URL:childEnv.WHATNOT_ATTACH_CDP_URL||'http://127.0.0.1:9222'};

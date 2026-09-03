@@ -9,7 +9,7 @@ return [
     |
     | Laravel's queue supports a variety of backends via a single, unified
     | API, giving you convenient access to each backend using identical
-    | syntax for each. The default queue connection is defined below.
+    | interfaces. The default queue connection is defined below.
     |
     */
 
@@ -19,10 +19,6 @@ return [
     |--------------------------------------------------------------------------
     | Queue Connections
     |--------------------------------------------------------------------------
-    |
-    | Here you may configure the connection options for every queue backend
-    | used by your application. An example configuration is provided for
-    | each backend supported by Laravel. You're also free to add more.
     |
     | Drivers: "sync", "database", "beanstalkd", "sqs", "redis",
     |          "deferred", "background", "failover", "null"
@@ -40,7 +36,14 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
-            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
+
+            // ProcessWhatnotChannelsJob may legitimately run for several hours
+            // (its job timeout is 14,400 seconds). Laravel's stock 90-second
+            // retry_after makes the same reserved database job visible again while
+            // the first worker is still scraping, which produces a duplicate pickup
+            // and MaxAttemptsExceededException. Keep retry_after comfortably above
+            // the longest queued job. Production may still override this in .env.
+            'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 18000),
             'after_commit' => false,
         ],
 
@@ -95,11 +98,6 @@ return [
     |--------------------------------------------------------------------------
     | Job Batching
     |--------------------------------------------------------------------------
-    |
-    | The following options configure the database and table that store job
-    | batching information. These options can be updated to any database
-    | connection and table which has been defined by your application.
-    |
     */
 
     'batching' => [
@@ -111,13 +109,6 @@ return [
     |--------------------------------------------------------------------------
     | Failed Queue Jobs
     |--------------------------------------------------------------------------
-    |
-    | These options configure the behavior of failed queue job logging so you
-    | can control how and where failed jobs are stored. Laravel ships with
-    | support for storing failed jobs in a simple file or in a database.
-    |
-    | Supported drivers: "database-uuids", "dynamodb", "file", "null"
-    |
     */
 
     'failed' => [

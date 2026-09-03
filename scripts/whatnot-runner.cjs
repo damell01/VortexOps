@@ -85,6 +85,17 @@ function runScraplingStealthy() {
   const python=resolvePythonBin();
   const useCdp=String(childEnv.WHATNOT_SCRAPLING_USE_CDP||'0').trim()==='1';
   const env={...childEnv,WHATNOT_BROWSER_BACKEND:'scrapling',WHATNOT_SCRAPLING_USE_CDP:useCdp?'1':'0',WHATNOT_PYTHON_BIN:python};
+
+  // The normal scheduled/incremental path needs fast order discovery, not a
+  // click-through of every order sidebar. A busy show can have hundreds of
+  // rows, and enriching every row was causing the entire four-channel pipeline
+  // to spend 20 minutes here and time out before shipments/other channels.
+  // Explicit WHATNOT_ORDER_DETAIL_ENRICH=1 still enables the slower enrichment
+  // path for a deliberate backfill/diagnostic run.
+  if (mode === 'orders-batch' && !String(env.WHATNOT_ORDER_DETAIL_ENRICH || '').trim()) {
+    env.WHATNOT_ORDER_DETAIL_ENRICH = '0';
+  }
+
   if (useCdp) env.WHATNOT_SCRAPLING_CDP_URL=childEnv.WHATNOT_SCRAPLING_CDP_URL||localCdpEndpoint();
   const transport=useCdp?`cdp-diagnostic:${env.WHATNOT_SCRAPLING_CDP_URL}`:'owned-browser';
   const webrtc=String(env.WHATNOT_SCRAPLING_BLOCK_WEBRTC||'false').trim().toLowerCase();
@@ -94,6 +105,7 @@ function runScraplingStealthy() {
   const lockWait=Math.max(1,parseInt(String(env.WHATNOT_BROWSER_LOCK_WAIT||'1200'),10)||1200);
   fs.mkdirSync(path.dirname(lockFile),{recursive:true});
   process.stderr.write(`[whatnot] production browser backend: scrapling-stealthy (mode=${mode}, transport=${transport}, profile=${env.WHATNOT_USER_DATA_DIR||'(temporary)'}, python=${python}, solve_cloudflare=false, block_webrtc=${webrtc}, hide_canvas=${canvas}, allow_webgl=${webgl})\n`);
+  if (mode === 'orders-batch') process.stderr.write(`[whatnot] ORDER_DETAIL_ENRICH=${env.WHATNOT_ORDER_DETAIL_ENRICH}\n`);
   process.stderr.write(`[whatnot] BROWSER_LOCK_WAIT file=${lockFile} timeout=${lockWait}s\n`);
   const result=spawnSync('flock',['-w',String(lockWait),lockFile,python,path.join(__dirname,'whatnot-scrapling-stealthy.py')],{env,cwd:projectRoot,stdio:'inherit'});
   if(result.status===0) process.stderr.write('[whatnot] BROWSER_LOCK_RELEASED\n');

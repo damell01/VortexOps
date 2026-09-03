@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Jobs\NotifyShowPendingReview;
 use App\Models\Show;
 use App\Models\ShowChangeLog;
+use App\Models\Streamer;
 use App\Models\StreamerLogEntry;
 use App\Models\User;
 use App\Services\AI\Ops\AiOpsDispatcher;
@@ -24,6 +25,17 @@ class ShowObserver
         'giveaway_spend', 'giveaways_count', 'buyers_count', 'first_time_buyers',
         'returning_buyers', 'shares_count', 'show_duration', 'max_concurrent_viewers',
         'total_views', 'avg_order_rating',
+    ];
+
+    /**
+     * Whatnot usernames/handles that should resolve to a known streamer even
+     * when the show title does not contain their display name verbatim.
+     *
+     * Keep this mapping deliberately explicit: aliases are high-confidence
+     * attribution rules and should never be inferred from partial usernames.
+     */
+    private const STREAMER_ALIASES = [
+        'dennis_vortexcollects' => 'Dennis',
     ];
 
     public function updating(Show $show): void
@@ -115,9 +127,56 @@ class ShowObserver
         if ($show->streamers()->exists()) return;
         if (! $forceAttempt && is_array($show->ai_streamer_suggestion)) return;
 
+        if ($this->attachKnownStreamerAlias($show)) {
+            return;
+        }
+
         $suggestions = $show->detectStreamers();
         if ($suggestions === []) {
             $show->updateQuietly(['ai_streamer_suggestion' => []]);
         }
+    }
+
+    /**
+     * Attach an explicitly configured Whatnot-handle alias to its streamer.
+     * Matching uses the complete alias token, never a substring, so an alias
+     * cannot accidentally claim another streamer's similarly named show.
+     */
+    private function attachKnownStreamerAlias(Show $show): bool
+    {
+        $title = strtolower((string) $show->title);
+
+        foreach (self::STREAMER_ALIASES as $alias => $streamerName) {
+            $pattern = '/(?<![a-z0-9])' . preg_quote(strtolower($alias), '/') . '(?![a-z0-9])/i';
+            if (preg_match($pattern, $title) !== 1) {
+                continue;
+            }
+
+            $streamer = Streamer::query()
+                ->where('status', 'active')
+                ->whereRaw('LOWER(name) = ?', [strtolower($streamerName)])
+                ->first();
+
+            if (! $streamer) {
+                return false;
+            }
+
+            $show->streamers()->syncWithoutDetaching([
+                $streamer->id => ['is_primary' => true],
+            ]);
+
+            $show->updateQuietly([
+                'ai_streamer_suggestion' => [[
+                    'streamer_id' => $streamer->id,
+                    'streamer_name' => $streamer->name,
+                    'confidence' => 'high',
+                    'reason' => "Whatnot alias \"{$alias}\" maps to {$streamer->name}",
+                ]],
+            ]);
+
+            return true;
+        }
+
+        return false;
     }
 }

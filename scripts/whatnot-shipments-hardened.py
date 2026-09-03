@@ -37,17 +37,12 @@ def absolute_url(value: str | None) -> str | None:
     value = str(value or "").strip()
     if not value:
         return None
-    if value.startswith("http://") or value.startswith("https://"):
+    if value.startswith(("http://", "https://")):
         return value
     return BASE + (value if value.startswith("/") else "/" + value)
 
 
 def ui_filter_url(live_id: str) -> str:
-    """Build the same sales-channel filter shape emitted by Seller Hub.
-
-    This is only the fallback. The normal path discovers the exact View Shipments
-    href from the matching show-list item and follows that href directly.
-    """
     payload = {
         "salesChannel": {"type": "single", "value": live_id},
         "status": {"type": "single", "value": "all"},
@@ -57,11 +52,8 @@ def ui_filter_url(live_id: str) -> str:
 
 
 def find_show_actions(page, live_id: str) -> dict[str, Any] | None:
-    """Resolve Open Show / View Shipments / See Analytics from one show row."""
     page.goto(f"{BASE}/dashboard/lives", wait_until="domcontentloaded", timeout=30000)
     page.wait_for_timeout(700)
-
-    # Seller Hub normally remembers the Past tab. If it does not, select it.
     try:
         past = page.get_by_text(re.compile(r"^Past$", re.I)).first
         if past.is_visible(timeout=1200):
@@ -75,23 +67,19 @@ def find_show_actions(page, live_id: str) -> dict[str, Any] | None:
             r"""
             liveId => {
               const wanted = `/dashboard/live/${liveId}`;
-              const items = [...document.querySelectorAll('section[data-testid="show-list-item"]')];
-              for (const item of items) {
-                const open = [...item.querySelectorAll('a[href]')]
-                  .find(a => (a.getAttribute('href') || '').split('?')[0] === wanted);
-                if (!open) continue;
+              for (const item of document.querySelectorAll('section[data-testid="show-list-item"]')) {
                 const links = [...item.querySelectorAll('a[href]')];
+                const open = links.find(a => (a.getAttribute('href') || '').split('?')[0] === wanted);
+                if (!open) continue;
                 const shipment = links.find(a => /\/dashboard\/shipments(?:\?|$)/.test(a.getAttribute('href') || ''));
-                const analytics = links.find(a => /\/dashboard\/(?:analytics\/overview|account\/analytics)|\/account\/analytics/.test(a.getAttribute('href') || ''));
-                const title = item.querySelector('[data-testid="show-list-item-title"]')?.textContent?.trim() || null;
-                const text = (item.innerText || '').replace(/\s+/g, ' ').trim();
+                const analytics = links.find(a => /\/dashboard\/(?:analytics\/overview)|\/account\/analytics/.test(a.getAttribute('href') || ''));
                 return {
                   live_id: liveId,
-                  title,
+                  title: item.querySelector('[data-testid="show-list-item-title"]')?.textContent?.trim() || null,
                   open_show_url: open.getAttribute('href') || null,
                   shipment_url: shipment?.getAttribute('href') || null,
                   analytics_url: analytics?.getAttribute('href') || null,
-                  row_preview: text.substring(0, 350),
+                  row_preview: (item.innerText || '').replace(/\s+/g, ' ').trim().substring(0, 350),
                 };
               }
               return null;
@@ -101,9 +89,6 @@ def find_show_actions(page, live_id: str) -> dict[str, Any] | None:
         )
         if result:
             return result
-
-        # The show list lazy-loads older rows. Scroll until the matching live id
-        # appears or we stop making progress.
         before = page.evaluate("() => document.documentElement.scrollHeight")
         page.evaluate("() => window.scrollTo(0, document.documentElement.scrollHeight)")
         page.wait_for_timeout(500)
@@ -113,50 +98,138 @@ def find_show_actions(page, live_id: str) -> dict[str, Any] | None:
     return None
 
 
+def expand_rows(page) -> int:
+    clicked = 0
+    for selector in [
+        'button[aria-label="Expand All"]',
+        'button[aria-label="Expand all"]',
+        'button:has-text("Expand All")',
+        'button:has-text("Expand all")',
+    ]:
+        try:
+            button = page.locator(selector).first
+            if button.is_visible(timeout=300):
+                button.click(timeout=2000)
+                page.wait_for_timeout(350)
+                return 1
+        except Exception:
+            pass
+
+    # Current Seller Hub renders an Expand button in each shipment row.
+    try:
+        buttons = page.get_by_role("button", name=re.compile(r"^Expand$", re.I))
+        count = min(buttons.count(), 100)
+        for i in range(count):
+            try:
+                button = buttons.nth(i)
+                if button.is_visible(timeout=150):
+                    button.click(timeout=1200)
+                    clicked += 1
+            except Exception:
+                continue
+        if clicked:
+            page.wait_for_timeout(500)
+    except Exception:
+        pass
+    return clicked
+
+
 def extract_shipments(page) -> list[dict[str, Any]]:
     return page.evaluate(r"""
     () => {
-      const rows = [...document.querySelectorAll('tr[data-testid^="shipments-"], tbody tr')]
-        .filter((row, index, all) => all.indexOf(row) === index && /Order\s*#\s*\d+/i.test(row.innerText || ''));
+      const money = value => {
+        const m = String(value || '').match(/-?\$?\s*([\d,]+(?:\.\d+)?)/);
+        if (!m) return null;
+        const n = parseFloat(m[0].replace(/[^0-9.-]/g, ''));
+        return Number.isFinite(n) ? n : null;
+      };
+      const number = value => {
+        const n = parseInt(String(value || '').replace(/[^0-9]/g, ''), 10);
+        return Number.isFinite(n) ? n : null;
+      };
+      const weightOz = value => {
+        const text = String(value || '');
+        const lb = text.match(/(\d+(?:\.\d+)?)\s*lb\b/i);
+        const oz = text.match(/(\d+(?:\.\d+)?)\s*oz\b/i);
+        if (!lb && !oz) return null;
+        return (lb ? parseFloat(lb[1]) * 16 : 0) + (oz ? parseFloat(oz[1]) : 0);
+      };
+      const statusOf = text => {
+        if (/delivered/i.test(text)) return 'delivered';
+        if (/returned/i.test(text)) return 'returned';
+        if (/in\s*transit/i.test(text)) return 'in_transit';
+        if (/shipping|shipped/i.test(text)) return 'shipped';
+        if (/label\s*created/i.test(text)) return 'label_created';
+        if (/ready\s*to\s*ship/i.test(text)) return 'ready_to_ship';
+        if (/packed/i.test(text)) return 'packed';
+        return null;
+      };
+      const shipmentRows = [...document.querySelectorAll('tr[data-testid^="shipments-"][data-testid$="-row"]')];
+      const rows = shipmentRows.length ? shipmentRows : [...document.querySelectorAll('[data-testid="shipments-table-body"] tr')];
+      const unique = rows.filter((row, index, all) => all.indexOf(row) === index);
       const out = [];
-      for (const tr of rows) {
+
+      for (const tr of unique) {
+        const cells = [...tr.querySelectorAll(':scope > td')];
         const main = tr.innerText || '';
-        const next = tr.nextElementSibling;
-        const detail = next && next.tagName === 'TR' ? (next.innerText || '') : '';
+        let detail = '';
+        let next = tr.nextElementSibling;
+        if (next && next.tagName === 'TR' && !/^shipments-.*-row$/.test(next.getAttribute('data-testid') || '')) {
+          detail = next.innerText || '';
+        }
         const text = `${main}\n${detail}`;
-        const oid = text.match(/Order\s*#\s*(\d+)/i);
-        if (!oid) continue;
-        const buyer = tr.querySelector('a[href*="/dashboard/inbox"], a[href*="participantId"]');
-        const weight = text.match(/(\d+(?:\.\d+)?)\s*oz\b/i);
-        const dims = text.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*in\b/i);
-        const carrier = text.match(/\b(USPS|UPS|FedEx|DHL)\b\s*([A-Za-z\d\s\-/]*[A-Za-z\d])?/i);
-        const tracking = text.match(/(?:tracking\s*(?:number|#)?|label\s*#?)\s*[:#-]?\s*([A-Z0-9]{8,34})/i);
-        let st = null;
-        if (/delivered/i.test(text)) st = 'delivered';
-        else if (/returned/i.test(text)) st = 'returned';
-        else if (/in\s*transit/i.test(text)) st = 'in_transit';
-        else if (/shipped/i.test(text)) st = 'shipped';
-        else if (/label\s*created/i.test(text)) st = 'label_created';
-        else if (/ready\s*to\s*ship/i.test(text)) st = 'ready_to_ship';
-        else if (/packed/i.test(text)) st = 'packed';
+        const testid = tr.getAttribute('data-testid') || '';
+        const shipmentNode = (testid.match(/^shipments-(.+)-row$/) || [])[1] || null;
+
+        const orderText = text.match(/Order\s*#\s*(\d+)/i);
+        const orderHref = [...tr.querySelectorAll('a[href]')]
+          .map(a => a.getAttribute('href') || '')
+          .find(href => /\/dashboard\/orders\//.test(href));
+        const hrefOrder = orderHref && orderHref.match(/\/dashboard\/orders\/(\d+)(?:[/?#]|$)/);
+        const orderId = orderText ? orderText[1] : (hrefOrder ? hrefOrder[1] : null);
+
+        const buyerCell = cells[0]?.innerText || '';
+        const buyer = buyerCell.replace(/\b(New|Expand|Collapse)\b/gi, ' ').replace(/\s+/g, ' ').trim() || null;
+        const qty = number(cells[2]?.innerText || '');
+        const value = money(cells[3]?.innerText || '');
+        const weight = weightOz(cells[4]?.innerText || text);
+        const dimsText = cells[5]?.innerText || text;
+        const dims = dimsText.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*in\b/i);
+        const carrierText = cells[8]?.innerText || text;
+        const carrier = carrierText.match(/\b(USPS|UPS|FedEx|DHL)\b/i);
+        const statusText = cells[7]?.innerText || text;
+
+        let tracking = null;
+        const trackingLink = [...tr.querySelectorAll('a[href]')].find(a => /track|tracking/i.test(a.getAttribute('href') || ''));
+        if (trackingLink) {
+          const href = trackingLink.getAttribute('href') || '';
+          const candidates = href.match(/[A-Z0-9]{10,34}/ig) || [];
+          tracking = candidates.sort((a,b) => b.length - a.length)[0] || null;
+        }
+        if (!tracking) {
+          const visible = (cells[8]?.innerText || text).match(/\b([A-Z0-9]{10,34})\b/i);
+          if (visible && !visible[1].includes('...')) tracking = visible[1];
+        }
+
         out.push({
-          order_id: oid[1],
-          buyer: buyer ? (buyer.textContent || '').trim() || null : null,
+          order_id: orderId,
+          whatnot_shipment_id: shipmentNode,
+          buyer,
           item_name: null,
           lot_number: null,
-          quantity: 1,
+          quantity: qty || 1,
           unit_price: null,
-          total_price: null,
+          total_price: value,
           status: 'completed',
-          raw_text: text.replace(/\s+/g, ' ').trim().substring(0, 800),
-          weight_oz: weight ? parseFloat(weight[1]) : null,
+          raw_text: text.replace(/\s+/g, ' ').trim().substring(0, 1200),
+          weight_oz: weight,
           box_length_in: dims ? parseFloat(dims[1]) : null,
           box_width_in: dims ? parseFloat(dims[2]) : null,
           box_height_in: dims ? parseFloat(dims[3]) : null,
           shipping_carrier: carrier ? carrier[1].toUpperCase() : null,
-          shipping_service: carrier && carrier[2] ? carrier[2].trim() : null,
-          shipping_status_scraped: st,
-          tracking_number: tracking ? tracking[1] : null,
+          shipping_service: carrierText.replace(/\s+/g, ' ').trim() || null,
+          shipping_status_scraped: statusOf(statusText),
+          tracking_number: tracking,
         });
       }
       return out;
@@ -168,9 +241,8 @@ def page_signature(page) -> str:
     try:
         return str(page.evaluate(r"""
         () => {
-          const ids = [...document.querySelectorAll('tr[data-testid^="shipments-"], tbody tr')]
-            .map(tr => ((tr.innerText || '').match(/Order\s*#\s*(\d+)/i) || [])[1])
-            .filter(Boolean);
+          const rows = [...document.querySelectorAll('tr[data-testid^="shipments-"][data-testid$="-row"]')];
+          const ids = rows.map(tr => tr.getAttribute('data-testid') || '');
           return `${ids.length}:${ids[0] || ''}:${ids[ids.length - 1] || ''}`;
         }
         """) or "")
@@ -202,29 +274,11 @@ def page_diagnostic(page) -> dict[str, Any]:
             .map(el => el.getAttribute('data-testid')).filter(Boolean)
             .filter((value, index, all) => all.indexOf(value) === index)
             .slice(0, 30);
-          return {url: location.href, title: document.title, testids, preview: body.substring(0, 1200)};
+          return {url: location.href, title: document.title, testids, preview: body.substring(0, 1600)};
         }
         """) or {}
     except Exception:
         return {}
-
-
-def expand_all(page) -> None:
-    selectors = [
-        'button[aria-label="Expand All"]',
-        'button[aria-label="Expand all"]',
-        'button:has-text("Expand All")',
-        'button:has-text("Expand all")',
-    ]
-    for selector in selectors:
-        try:
-            button = page.locator(selector).first
-            if button.is_visible(timeout=400):
-                button.click(timeout=2000)
-                page.wait_for_timeout(250)
-                return
-        except Exception:
-            pass
 
 
 def advance_page(page, previous_signature: str) -> bool:
@@ -234,11 +288,8 @@ def advance_page(page, previous_signature: str) -> bool:
     try:
         svg = page.locator('svg[aria-label="Next page"]').first
         button = svg.locator('xpath=ancestor::button[1]')
-        if button.is_visible(timeout=1000) and not button.is_disabled():
-            button.scroll_into_view_if_needed(timeout=1500)
-            button.click(timeout=3000)
-        else:
-            return False
+        button.scroll_into_view_if_needed(timeout=1500)
+        button.click(timeout=3000)
     except Exception:
         try:
             clicked = page.evaluate(r"""
@@ -287,21 +338,17 @@ def main() -> None:
             actions = find_show_actions(page, live_id)
             if actions and actions.get("shipment_url"):
                 target = absolute_url(actions.get("shipment_url"))
-                info(
-                    f"SHIPMENT_ROUTE show={show_key} live_id={live_id} source=show-row "
-                    f"title={actions.get('title')!r} url={target}"
-                )
+                route_source = "show-row"
             else:
                 target = ui_filter_url(live_id)
-                info(
-                    f"SHIPMENT_ROUTE show={show_key} live_id={live_id} source=ui-filter-fallback "
-                    f"url={target} actions={json.dumps(actions or {}, separators=(',', ':'))}"
-                )
+                route_source = "ui-filter-fallback"
+            info(f"SHIPMENT_ROUTE show={show_key} live_id={live_id} source={route_source} url={target}")
 
             page.goto(target, wait_until="domcontentloaded", timeout=30000)
             for _ in range(60):
                 base.check_login(page)
-                if page_signature(page) or pagination_state(page).get("exists"):
+                state = pagination_state(page)
+                if page_signature(page) or state.get("exists"):
                     break
                 page.wait_for_timeout(250)
 
@@ -309,12 +356,17 @@ def main() -> None:
             page_number = 1
             for _ in range(100):
                 base.check_login(page)
-                expand_all(page)
+                expanded = expand_rows(page)
                 rows = extract_shipments(page)
                 for row in rows:
-                    found[str(row.get("order_id") or len(found))] = row
+                    key = str(row.get("whatnot_shipment_id") or row.get("order_id") or row.get("tracking_number") or len(found))
+                    found[key] = row
                 state = pagination_state(page)
-                info(f"shipments-batch: [{idx}/{len(sources)}] {show_key} page={page_number} page_rows={len(rows)} total_unique={len(found)} pagination={json.dumps(state, separators=(',', ':'))}")
+                info(
+                    f"shipments-batch: [{idx}/{len(sources)}] {show_key} page={page_number} "
+                    f"page_rows={len(rows)} expanded={expanded} total_unique={len(found)} "
+                    f"pagination={json.dumps(state, separators=(',', ':'))}"
+                )
                 signature = page_signature(page)
                 if not signature or not advance_page(page, signature):
                     break
@@ -322,18 +374,23 @@ def main() -> None:
 
             rows = list(found.values())
             if not rows:
+                info("SHIPMENT_ZERO_DIAGNOSTIC " + json.dumps({"show_key": show_key, "live_id": live_id, **page_diagnostic(page)}, separators=(",", ":")))
+            else:
+                sample = rows[0]
                 info(
-                    "SHIPMENT_ZERO_DIAGNOSTIC "
-                    + json.dumps({"show_key": show_key, "live_id": live_id, **page_diagnostic(page)}, separators=(",", ":"))
+                    "SHIPMENT_PARSE_SAMPLE "
+                    + json.dumps({
+                        "show_key": show_key,
+                        "shipment_id": sample.get("whatnot_shipment_id"),
+                        "order_id": sample.get("order_id"),
+                        "buyer": sample.get("buyer"),
+                        "status": sample.get("shipping_status_scraped"),
+                        "tracking": sample.get("tracking_number"),
+                        "weight_oz": sample.get("weight_oz"),
+                    }, separators=(",", ":"))
                 )
             info(f"shipments-batch: [{idx}/{len(sources)}] {show_key} -> {len(rows)} row(s) across {page_number} page(s)")
-            output.append({
-                "show_key": show_key,
-                "live_id": live_id,
-                "order_count": len(rows),
-                "orders": rows,
-                "show_actions": actions or {},
-            })
+            output.append({"show_key": show_key, "live_id": live_id, "order_count": len(rows), "orders": rows, "show_actions": actions or {}})
 
     with stealthy.stealthy_session(
         headless=HEADLESS,

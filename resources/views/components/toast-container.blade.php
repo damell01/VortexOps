@@ -6,6 +6,7 @@
 {{-- Mobile pallet / manifest UX fixes are kept in one partial so the rules also
      survive Filament SPA navigation without needing a separate Vite entry. --}}
 @include('filament.components.pallet-mobile-ui-fixes')
+@include('filament.components.mobile-inventory-hotfixes')
 
 <script>
     /**

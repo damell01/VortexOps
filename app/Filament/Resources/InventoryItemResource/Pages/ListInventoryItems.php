@@ -29,7 +29,6 @@ class ListInventoryItems extends ListRecords
     #[Url(as: 'q')]
     public string $catalogSearch = '';
 
-    public int $catalogLimit = 40;
     public ?int $barcodeScanTargetId = null;
     public ?string $barcodeScanTargetName = null;
 
@@ -84,37 +83,20 @@ class ListInventoryItems extends ListRecords
     #[Computed]
     public function catalogItems(): Collection
     {
-        return $this->catalogQuery()->limit($this->catalogLimit)->get();
+        return $this->catalogQuery()->get();
     }
 
     #[Computed]
     public function catalogTotal(): int
     {
-        // The stock filters use HAVING aliases, so count the resulting IDs
-        // instead of relying on a direct aggregate that MySQL can reject.
-        return $this->catalogQuery()
-            ->reorder()
-            ->get(['products.id'])
-            ->count();
-    }
-
-    public function loadMoreCatalog(): void
-    {
-        $this->catalogLimit += 40;
-        unset($this->catalogItems, $this->catalogTotal);
-    }
-
-    private function resetCatalogWindow(): void
-    {
-        $this->catalogLimit = 40;
-        unset($this->catalogItems, $this->catalogTotal);
+        return $this->catalogItems->count();
     }
 
     public function filterStock(?string $status): void
     {
         $this->stockHealth = $this->stockHealth === $status ? null : $status;
         $this->resetPage();
-        $this->resetCatalogWindow();
+        unset($this->catalogItems, $this->catalogTotal);
     }
 
     public function setViewMode(string $mode): void
@@ -124,13 +106,13 @@ class ListInventoryItems extends ListRecords
 
     public function updatedCatalogSearch(): void
     {
-        $this->resetCatalogWindow();
+        unset($this->catalogItems, $this->catalogTotal);
     }
 
     public function clearCatalogSearch(): void
     {
         $this->catalogSearch = '';
-        $this->resetCatalogWindow();
+        unset($this->catalogItems, $this->catalogTotal);
     }
 
     public function getStats(): array

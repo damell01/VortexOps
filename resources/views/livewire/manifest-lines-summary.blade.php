@@ -17,44 +17,34 @@
             </p>
         </div>
     @else
-        <div class="rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
-            <table class="w-full min-w-[40rem] text-sm">
-                <thead>
-                    <tr class="border-b border-gray-200 dark:border-gray-700 text-left">
-                        <th class="w-10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">#</th>
-                        <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Item</th>
-                        <th class="w-40 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Linked to</th>
-                        <th class="w-28 px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Qty</th>
-                        <th class="w-28 px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Unit cost</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($lines as $line)
-                        @php($units = (float) $line->case_count * ($line->is_container ? (float) $line->quantity_per_case : 1))
-                        <tr class="border-b border-gray-100 dark:border-gray-800 last:border-0">
-                            <td class="px-3 py-2 text-gray-400 tabular-nums">{{ $line->line_number }}</td>
-                            <td class="px-3 py-2 text-gray-900 dark:text-gray-100">
-                                {{ $line->description }}
-                                @if($line->is_container)
-                                    <span class="ml-1 text-xs text-gray-400">
-                                        {{ rtrim(rtrim(number_format($line->case_count, 2), '0'), '.') }} ×
-                                        {{ rtrim(rtrim(number_format($line->quantity_per_case, 2), '0'), '.') }}
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="px-3 py-2 text-gray-500 dark:text-gray-400">
-                                {{ $line->inventoryItem?->name ?? '—' }}
-                            </td>
-                            <td class="px-3 py-2 text-right tabular-nums text-gray-900 dark:text-gray-100">
-                                {{ rtrim(rtrim(number_format($units, 2), '0'), '.') }}
-                            </td>
-                            <td class="px-3 py-2 text-right tabular-nums text-gray-500 dark:text-gray-400">
-                                {{ $line->unit_cost === null ? '—' : '$' . number_format($line->unit_cost, 2) }}
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
+        {{-- A <table min-w-[40rem]> here forced horizontal scrolling on any
+             phone, the same bug as the manifest-entry page it links to. Rows
+             instead of columns, same as that page's fix. --}}
+        <div class="rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800">
+            @foreach($lines as $line)
+                @php($units = (float) $line->case_count * ($line->is_container ? (float) $line->quantity_per_case : 1))
+                <div class="flex items-start gap-3 px-3 py-2.5">
+                    <span class="mt-0.5 flex-shrink-0 text-xs font-mono text-gray-400 tabular-nums">{{ $line->line_number }}</span>
+                    <div class="min-w-0 flex-1">
+                        <p class="text-sm text-gray-900 dark:text-gray-100">
+                            {{ $line->description }}
+                            @if($line->is_container)
+                                <span class="text-xs text-gray-400">
+                                    {{ rtrim(rtrim(number_format($line->case_count, 2), '0'), '.') }} ×
+                                    {{ rtrim(rtrim(number_format($line->quantity_per_case, 2), '0'), '.') }}
+                                </span>
+                            @endif
+                        </p>
+                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                            {{ $line->inventoryItem?->name ?? 'Not linked' }}
+                        </p>
+                    </div>
+                    <div class="flex-shrink-0 text-right text-sm tabular-nums">
+                        <div class="text-gray-900 dark:text-gray-100">{{ rtrim(rtrim(number_format($units, 2), '0'), '.') }} units</div>
+                        <div class="text-xs text-gray-500 dark:text-gray-400">{{ $line->unit_cost === null ? '—' : '$' . number_format($line->unit_cost, 2) }}</div>
+                    </div>
+                </div>
+            @endforeach
         </div>
 
         @if($this->totalPages() > 1)

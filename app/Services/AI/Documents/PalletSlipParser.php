@@ -7,6 +7,7 @@ use App\AI\Services\AiGateway;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use Symfony\Component\Process\Process;
 
 /**
  * Parses packing slips, purchase orders, and manifests into structured lines.
@@ -73,8 +74,6 @@ class PalletSlipParser
             return [];
         }
 
-        // Scan the first 12 rows for a likely header; vendor sheets often have
-        // PO/vendor metadata above the actual table.
         $headerIndex = null;
         $columnMap = [];
         foreach (array_slice($rows, 0, 12, true) as $index => $row) {
@@ -111,8 +110,6 @@ class PalletSlipParser
             }
         }
 
-        // Unknown vendor layout. Pass a bounded text representation to the JSON
-        // model. This is still safely inside ParsePalletSlipJob on queue=ai.
         $bounded = array_slice($rows, 0, 120);
         return $this->normalizeUnknownRows(array_map(
             fn (array $row) => implode(' | ', array_map(fn ($value) => trim((string) $value), $row)),
@@ -237,22 +234,53 @@ class PalletSlipParser
             if ($images !== []) return $images;
         }
 
+        if (! file_exists($pdfPath)) {
+            throw new \RuntimeException("Uploaded PDF not found: {$pdfPath}");
+        }
+
+        // Queue workers may have a much smaller PATH than an interactive root
+        // shell. Resolve Poppler explicitly instead of relying on shell lookup.
+        $binary = collect(['/usr/bin/pdftoppm', '/usr/local/bin/pdftoppm'])
+            ->first(fn (string $candidate) => is_file($candidate) && is_executable($candidate));
+
+        if (! $binary) {
+            throw new \RuntimeException('PDF conversion cannot find executable pdftoppm. Install poppler-utils or configure the worker environment.');
+        }
+
         $prefix = sys_get_temp_dir() . '/slip_' . uniqid();
-        $cmd = sprintf(
-            'pdftoppm -r 150 -png -f 1 -l 1 %s %s 2>/dev/null',
-            escapeshellarg($pdfPath),
-            escapeshellarg($prefix),
-        );
-        exec($cmd);
+        $process = new Process([
+            $binary,
+            '-r', '150',
+            '-png',
+            '-f', '1',
+            '-l', '1',
+            $pdfPath,
+            $prefix,
+        ]);
+        $process->setTimeout(120);
+        $process->run();
 
         $generated = $prefix . '-1.png';
-        if (file_exists($generated)) {
+        if ($process->isSuccessful() && file_exists($generated) && filesize($generated) > 0) {
             $b64 = base64_encode(file_get_contents($generated));
             @unlink($generated);
             return [$b64];
         }
 
-        throw new \RuntimeException('PDF conversion requires Imagick or poppler-utils (pdftoppm).');
+        @unlink($generated);
+        $detail = trim($process->getErrorOutput() ?: $process->getOutput());
+        Log::error('Pallet PDF conversion failed', [
+            'binary' => $binary,
+            'exit_code' => $process->getExitCode(),
+            'error' => $detail,
+            'pdf_exists' => file_exists($pdfPath),
+            'pdf_readable' => is_readable($pdfPath),
+            'temp_dir' => sys_get_temp_dir(),
+        ]);
+
+        throw new \RuntimeException(
+            'PDF conversion failed with pdftoppm' . ($detail !== '' ? ': ' . Str::limit($detail, 180) : '.')
+        );
     }
 
     /**

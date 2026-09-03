@@ -12,10 +12,11 @@ use Symfony\Component\Process\Process;
 /**
  * Parses packing slips, purchase orders, and manifests into structured lines.
  *
- * Text-based PDFs first use pdftotext + JSON normalization because supplier PDFs
- * usually contain selectable text and this is much more reliable than asking a
- * vision model to OCR a rendered page. Scanned PDFs/images still fall back to
- * the vision model. CSV/XLS/XLSX use deterministic header mapping first.
+ * Text-based PDFs first use pdftotext. Common tabular PO/manifest layouts are
+ * parsed deterministically before AI is ever called. If the text layout is not
+ * recognizable, JSON normalization is used as a fallback. Scanned PDFs/images
+ * still fall back to the vision model. CSV/XLS/XLSX use deterministic header
+ * mapping first.
  */
 class PalletSlipParser
 {
@@ -44,7 +45,18 @@ class PalletSlipParser
                 $textRows = $this->pdfTextRows($storedPath);
 
                 if ($textRows !== []) {
+                    $tableLines = $this->parseTextTableRows($textRows);
+                    if ($tableLines !== []) {
+                        Log::info('PalletSlipParser parsed PDF table deterministically', [
+                            'lines' => count($tableLines),
+                        ]);
+                        return $tableLines;
+                    }
+
                     try {
+                        Log::info('PalletSlipParser starting AI text normalization', [
+                            'rows' => count($textRows),
+                        ]);
                         $textLines = $this->normalizeUnknownRows($textRows);
                         if ($textLines !== []) {
                             Log::info('PalletSlipParser extracted PDF lines from text layer', [
@@ -194,11 +206,65 @@ class PalletSlipParser
         return $clean !== '' ? $clean : null;
     }
 
+    /**
+     * Parse a common fixed-column text table produced by `pdftotext -layout`.
+     * Expected logical order: line, description, sku, barcode, cases,
+     * units-per-case, unit-cost, line-total. Extra spaces inside descriptions are
+     * tolerated because the trailing numeric/identifier columns are parsed from
+     * the right side of each row.
+     *
+     * @param list<string> $rows
+     * @return list<array<string,mixed>>
+     */
+    private function parseTextTableRows(array $rows): array
+    {
+        $out = [];
+
+        foreach ($rows as $row) {
+            $parts = preg_split('/\s{2,}/u', trim((string) $row)) ?: [];
+            $parts = array_values(array_filter(array_map('trim', $parts), fn ($v) => $v !== ''));
+
+            if (count($parts) < 8) continue;
+            if (! preg_match('/^\d{1,4}$/', $parts[0])) continue;
+
+            $last = count($parts) - 1;
+            $lineTotal = $this->money($parts[$last] ?? null);
+            $unitCost = $this->money($parts[$last - 1] ?? null);
+            $unitsPerCase = $this->number($parts[$last - 2] ?? 0);
+            $cases = $this->number($parts[$last - 3] ?? 0);
+            $barcode = preg_replace('/\D+/', '', (string) ($parts[$last - 4] ?? '')) ?: '';
+            $sku = trim((string) ($parts[$last - 5] ?? ''));
+
+            if ($lineTotal === null || $unitCost === null || $cases <= 0 || $unitsPerCase <= 0) continue;
+            if ($barcode !== '' && (strlen($barcode) < 8 || strlen($barcode) > 14)) continue;
+
+            $descriptionParts = array_slice($parts, 1, max(1, $last - 5));
+            $description = trim(implode(' ', $descriptionParts));
+            if ($description === '') continue;
+
+            $out[] = [
+                'description' => $description,
+                'case_count' => max(1, (int) round($cases)),
+                'quantity_per_case' => max(1, (int) round($unitsPerCase)),
+                'unit_cost' => $unitCost,
+                'sku' => $sku !== '' ? $sku : null,
+                'barcode' => $barcode !== '' ? $barcode : null,
+            ];
+        }
+
+        return $out;
+    }
+
     /** @param list<string> $rows @return list<array<string,mixed>> */
     private function normalizeUnknownRows(array $rows): array
     {
         $text = Str::limit(implode("\n", $rows), 18000, '');
         if ($text === '') return [];
+
+        Log::info('PalletSlipParser sending document text to AI normalization', [
+            'input_chars' => strlen($text),
+            'rows' => count($rows),
+        ]);
 
         $result = $this->gateway->json([
             [
@@ -398,8 +464,6 @@ class PalletSlipParser
             $caseCount = max(1, (int) ($item['case_count'] ?? $item['cases'] ?? 1));
             $quantityPerCase = max(1, (int) ($item['quantity_per_case'] ?? $item['units_per_case'] ?? $item['pack_qty'] ?? 1));
 
-            // Older prompts/providers may return only qty/quantity. Preserve the
-            // quantity without pretending it represents multiple cases.
             if (! isset($item['case_count']) && ! isset($item['quantity_per_case'])) {
                 $quantityPerCase = max(1, (int) ($item['qty'] ?? $item['quantity'] ?? 1));
                 $caseCount = 1;

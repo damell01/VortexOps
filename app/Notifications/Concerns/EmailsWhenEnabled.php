@@ -5,24 +5,29 @@ namespace App\Notifications\Concerns;
 use App\Models\Setting;
 
 /**
- * Adds the mail channel to an in-app notification when email is switched on.
- *
- * Seven of the ten notifications were database-only and hardcoded that way, so
- * configuring Resend changed nothing they did — the bell in the panel was the
- * only place anything arrived. The three that did declare 'mail' were the
- * scheduled digests, which is why mail looked wired when it mostly was not.
- *
- * Off by default. Turning a mailer on should not silently start sending a
- * team every operational event that was previously an in-app badge; the
- * Settings toggle is the moment someone decides they want that.
+ * Adds the mail channel to an in-app notification when email is switched on,
+ * while also respecting each user's own delivery preferences.
  */
 trait EmailsWhenEnabled
 {
     public function via(object $notifiable): array
     {
-        return static::emailIsEnabled()
-            ? ['database', 'mail']
-            : ['database'];
+        $channels = [];
+
+        $wants = static function (object $notifiable, string $channel): bool {
+            return ! method_exists($notifiable, 'wantsNotificationChannel')
+                || $notifiable->wantsNotificationChannel($channel);
+        };
+
+        if ($wants($notifiable, 'database')) {
+            $channels[] = 'database';
+        }
+
+        if (static::emailIsEnabled() && $wants($notifiable, 'mail')) {
+            $channels[] = 'mail';
+        }
+
+        return $channels;
     }
 
     public static function emailIsEnabled(): bool

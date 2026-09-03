@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Concerns\EmailsWhenEnabled;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -15,6 +16,8 @@ use Illuminate\Notifications\Notification;
  */
 class MidweekReportNotification extends Notification
 {
+    use EmailsWhenEnabled;
+
     public function __construct(
         public readonly string $weekLabel,
         public readonly int $showCount,
@@ -24,11 +27,6 @@ class MidweekReportNotification extends Notification
         public readonly ?float $pacingPct = null,
         public readonly ?string $narrative = null,
     ) {}
-
-    public function via(object $notifiable): array
-    {
-        return ['database', 'mail'];
-    }
 
     private function pacingLine(): ?string
     {

@@ -1,6 +1,6 @@
 {{--
     The redesigned View Pallet page owns its title and action bar.
-    Filament's legacy record header must not render above it.  Older CSS-only
+    Filament's legacy record header must not render above it. Older CSS-only
     attempts were being beaten by other global header rules, so this removes
     the legacy header at the DOM level on the View Pallet route while leaving
     the redesigned .vx-pallet-redesign workspace untouched.
@@ -15,11 +15,35 @@ body.vx-pallet-view-screen main > .fi-header {
 body.vx-pallet-view-screen .fi-page-content {
     padding-top: 10px !important;
 }
+
+.vx-ai-manifest-shortcut {
+    background: #7c3aed !important;
+    border-color: #7c3aed !important;
+    color: #fff !important;
+}
 </style>
 
 <script>
 (() => {
     const isView = () => /^\/admin\/pallets\/\d+\/?$/.test(location.pathname.toLowerCase());
+
+    const addAiManifestShortcut = () => {
+        if (!isView()) return;
+        const actions = document.querySelector('.vx-pallet-redesign .vx-actions');
+        if (!actions || actions.querySelector('.vx-ai-manifest-shortcut')) return;
+
+        const match = location.pathname.match(/^\/admin\/pallets\/(\d+)\/?$/i);
+        if (!match) return;
+
+        const link = document.createElement('a');
+        link.className = 'vx-action vx-ai-manifest-shortcut';
+        link.href = `/admin/pallets/${match[1]}/import-manifest`;
+        link.innerHTML = '<span aria-hidden="true">✦</span><span>AI Manifest</span>';
+
+        const more = actions.querySelector('.vx-more');
+        if (more) actions.insertBefore(link, more);
+        else actions.appendChild(link);
+    };
 
     const removeLegacyHeader = () => {
         if (!isView()) return;
@@ -27,7 +51,6 @@ body.vx-pallet-view-screen .fi-page-content {
         const workspace = document.querySelector('.vx-pallet-redesign');
         if (!workspace) return;
 
-        // Remove Filament page headers that sit before the redesigned workspace.
         document.querySelectorAll('.fi-page-header, .fi-header').forEach((header) => {
             if (header.closest('nav.fi-topbar')) return;
             if (workspace.contains(header)) return;
@@ -37,9 +60,6 @@ body.vx-pallet-view-screen .fi-page-content {
             }
         });
 
-        // Fallback for responsive/action wrappers that Filament may render
-        // outside the semantic header element.  Only touch blocks above the
-        // redesigned workspace and only when they contain the pallet actions.
         const labels = ['Continue receiving', 'Start receiving', 'Scan Item', 'Review & Receive'];
         document.querySelectorAll('main div, main section').forEach((node) => {
             if (workspace.contains(node)) return;
@@ -53,6 +73,7 @@ body.vx-pallet-view-screen .fi-page-content {
         });
 
         document.querySelectorAll('.vx-pallet-workflow-bar').forEach((bar) => bar.remove());
+        addAiManifestShortcut();
     };
 
     const apply = () => {

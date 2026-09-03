@@ -1,0 +1,190 @@
+{{-- Targeted mobile inventory fixes that need to survive Filament SPA navigation. --}}
+<style>
+@media (max-width: 768px) {
+    body.vx-pallet-screen [data-vx-active-inventory-picker="1"] {
+        position: fixed !important;
+        left: 10px !important;
+        right: 10px !important;
+        top: calc(env(safe-area-inset-top, 0px) + 78px) !important;
+        bottom: auto !important;
+        inset-inline: 10px !important;
+        width: auto !important;
+        max-width: none !important;
+        min-width: 0 !important;
+        height: auto !important;
+        max-height: min(430px, 58dvh) !important;
+        transform: none !important;
+        z-index: 10000 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        border-radius: 14px !important;
+        background: #111827 !important;
+        border: 1px solid #334155 !important;
+        box-shadow: 0 24px 70px rgba(0,0,0,.55) !important;
+    }
+
+    html:not(.dark) body.vx-pallet-screen [data-vx-active-inventory-picker="1"] {
+        background: #fff !important;
+        border-color: #cbd5e1 !important;
+    }
+
+    body.vx-pallet-screen [data-vx-active-inventory-picker="1"] [role="listbox"] {
+        position: static !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        max-height: min(320px, 42dvh) !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+
+    body.vx-pallet-screen [data-vx-active-inventory-picker="1"] input[type="search"],
+    body.vx-pallet-screen [data-vx-active-inventory-picker="1"] input[role="combobox"] {
+        position: relative !important;
+        z-index: 2 !important;
+        min-height: 48px !important;
+        width: 100% !important;
+        font-size: 16px !important;
+    }
+
+    body.vx-pallet-screen [data-vx-active-inventory-picker="1"] [role="option"] {
+        min-height: 50px !important;
+        padding: 10px 12px !important;
+        white-space: normal !important;
+    }
+
+    body.vx-pallet-screen [data-vx-active-inventory-picker="1"] [data-vx-picker-helper="1"] {
+        position: static !important;
+        flex: 0 0 auto !important;
+        margin: 0 !important;
+        padding: 8px 12px !important;
+        border-top: 1px solid rgba(148,163,184,.16) !important;
+        background: #0f172a !important;
+        color: #94a3b8 !important;
+        font-size: 12px !important;
+    }
+
+    html:not(.dark) body.vx-pallet-screen [data-vx-active-inventory-picker="1"] [data-vx-picker-helper="1"] {
+        background: #f8fafc !important;
+        color: #64748b !important;
+    }
+
+    .vx-card-action.add-stock {
+        color: #047857 !important;
+        background: #ecfdf5 !important;
+        border-color: #a7f3d0 !important;
+    }
+
+    .dark .vx-card-action.add-stock {
+        color: #6ee7b7 !important;
+        background: #052e2b !important;
+        border-color: #065f46 !important;
+    }
+}
+</style>
+
+<script>
+(() => {
+    const isVisible = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+
+    const markPalletPage = () => {
+        const path = location.pathname.toLowerCase();
+        const onPallet = path.includes('/admin/pallet') || path.includes('/admin/receive-inventory') || !!document.querySelector('input[placeholder*="Search or browse inventory" i]');
+        document.body.classList.toggle('vx-pallet-screen', onPallet);
+        return onPallet;
+    };
+
+    const findPickerWrapper = (input) => {
+        if (!input) return null;
+        let node = input;
+        for (let i = 0; node && node !== document.body && i < 12; i++, node = node.parentElement) {
+            if (node.querySelector?.('[role="listbox"]')) return node;
+        }
+        return null;
+    };
+
+    const pinActivePicker = () => {
+        if (innerWidth > 768 || !markPalletPage()) return;
+
+        document.querySelectorAll('[data-vx-active-inventory-picker="1"]').forEach(el => delete el.dataset.vxActiveInventoryPicker);
+
+        const active = document.activeElement;
+        let wrapper = findPickerWrapper(active);
+
+        if (!wrapper) {
+            const visibleSearch = [...document.querySelectorAll('input[type="search"], input[role="combobox"]')]
+                .find(input => isVisible(input) && findPickerWrapper(input));
+            wrapper = findPickerWrapper(visibleSearch);
+        }
+
+        if (!wrapper) return;
+
+        wrapper.dataset.vxActiveInventoryPicker = '1';
+
+        ['position','left','right','top','bottom','inset','transform','width','height','max-height'].forEach(prop => {
+            wrapper.style.removeProperty(prop);
+        });
+
+        [...wrapper.querySelectorAll('div,p,span')].forEach(node => {
+            const text = (node.textContent || '').trim();
+            if (text.length < 120 && /showing up to|keep typing to narrow/i.test(text)) {
+                node.dataset.vxPickerHelper = '1';
+            }
+        });
+
+        const viewport = window.visualViewport;
+        if (viewport) {
+            const top = Math.max(72, Math.round(viewport.offsetTop + 72));
+            const maxHeight = Math.max(220, Math.min(430, Math.round(viewport.height - 92)));
+            wrapper.style.setProperty('top', top + 'px', 'important');
+            wrapper.style.setProperty('max-height', maxHeight + 'px', 'important');
+        }
+    };
+
+    const injectAddStockButtons = () => {
+        document.querySelectorAll('.vx-product-card .vx-card-actions').forEach(actions => {
+            if (actions.querySelector('.vx-card-action.add-stock')) return;
+
+            const card = actions.closest('.vx-product-card');
+            const viewLink = card?.querySelector('a[href*="/admin/inventory-items/"]');
+            const match = viewLink?.getAttribute('href')?.match(/\/admin\/inventory-items\/(\d+)(?:$|[/?#])/);
+            if (!match) return;
+            const recordId = Number(match[1]);
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'vx-card-action add-stock';
+            btn.title = 'Add stock';
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg><span>Add Stock</span>';
+            btn.addEventListener('click', async (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const root = card.closest('[wire\\:id]');
+                const id = root?.getAttribute('wire:id');
+                if (!id || !window.Livewire) return;
+                const component = window.Livewire.find(id);
+                if (!component) return;
+                await component.call('mountTableAction', 'add_stock', recordId);
+            });
+
+            actions.prepend(btn);
+        });
+    };
+
+    const refresh = () => {
+        injectAddStockButtons();
+        requestAnimationFrame(pinActivePicker);
+    };
+
+    document.addEventListener('DOMContentLoaded', refresh);
+    document.addEventListener('livewire:navigated', refresh);
+    document.addEventListener('focusin', () => setTimeout(pinActivePicker, 0));
+    document.addEventListener('input', () => setTimeout(pinActivePicker, 0));
+    window.visualViewport?.addEventListener('resize', pinActivePicker);
+    window.visualViewport?.addEventListener('scroll', pinActivePicker);
+
+    new MutationObserver(refresh).observe(document.documentElement, { childList: true, subtree: true });
+    refresh();
+})();
+</script>

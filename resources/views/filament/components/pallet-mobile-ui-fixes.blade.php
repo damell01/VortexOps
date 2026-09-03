@@ -1,20 +1,19 @@
 {{--
     Pallet / receiving mobile polish.
 
-    Filament positions searchable Select dropdowns with fixed viewport
-    coordinates. On iOS that can leave the search/results tray pinned to the
-    bottom of the screen after the keyboard/search result list changes height.
-    For pallet/manifest workflows we keep the dropdown anchored to the field
-    that opened it instead.
+    Filament's searchable select is rendered through a floating/teleported
+    panel on phones. iOS can expand that panel into a near full-screen list
+    once the search results refresh. The rules and JS below keep the inventory
+    picker compact, readable and scrollable without taking over the page.
 --}}
 <style>
 @media (max-width: 768px) {
-    /* Keep searchable inventory results attached to the select that opened them. */
     body.vx-pallet-screen .fi-fo-select-ctn {
         position: relative !important;
         overflow: visible !important;
     }
 
+    /* Panels that are still rendered directly under the select. */
     body.vx-pallet-screen .fi-fo-select-ctn > .fi-dropdown-panel,
     body.vx-pallet-screen .fi-fo-select-ctn > [role="listbox"] {
         position: absolute !important;
@@ -22,11 +21,8 @@
         right: 0 !important;
         top: calc(100% + 6px) !important;
         bottom: auto !important;
-        inset: auto 0 auto 0 !important;
         width: 100% !important;
-        min-width: 100% !important;
-        max-width: none !important;
-        max-height: min(320px, 45vh) !important;
+        max-height: min(360px, 48dvh) !important;
         transform: none !important;
         z-index: 90 !important;
         overflow-y: auto !important;
@@ -37,11 +33,72 @@
         box-shadow: 0 18px 45px rgba(0, 0, 0, .42) !important;
     }
 
-    html:not(.dark) body.vx-pallet-screen .fi-fo-select-ctn > .fi-dropdown-panel,
-    html:not(.dark) body.vx-pallet-screen .fi-fo-select-ctn > [role="listbox"] {
+    /* Teleported Filament select popup — JS marks the actual wrapper. */
+    body.vx-pallet-screen [data-vx-pallet-select-popup="1"] {
+        position: fixed !important;
+        left: 12px !important;
+        right: 12px !important;
+        top: max(96px, 18dvh) !important;
+        bottom: auto !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        height: auto !important;
+        max-height: min(430px, 62dvh) !important;
+        transform: none !important;
+        z-index: 9999 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        border-radius: 14px !important;
+        border: 1px solid rgba(148, 163, 184, .28) !important;
+        background: #111827 !important;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, .5) !important;
+    }
+
+    html:not(.dark) body.vx-pallet-screen [data-vx-pallet-select-popup="1"] {
         background: #ffffff !important;
         border-color: rgba(15, 23, 42, .14) !important;
-        box-shadow: 0 18px 45px rgba(15, 23, 42, .18) !important;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, .22) !important;
+    }
+
+    body.vx-pallet-screen [data-vx-pallet-select-popup="1"] [data-vx-pallet-search-wrap="1"] {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 3 !important;
+        flex: 0 0 auto !important;
+        padding: 10px !important;
+        background: #111827 !important;
+        border-bottom: 1px solid rgba(148, 163, 184, .18) !important;
+    }
+
+    html:not(.dark) body.vx-pallet-screen [data-vx-pallet-select-popup="1"] [data-vx-pallet-search-wrap="1"] {
+        background: #ffffff !important;
+    }
+
+    body.vx-pallet-screen [data-vx-pallet-select-popup="1"] [data-vx-pallet-results="1"] {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        max-height: min(330px, 46dvh) !important;
+        overflow-y: auto !important;
+        overscroll-behavior: contain !important;
+        -webkit-overflow-scrolling: touch;
+        padding: 6px !important;
+    }
+
+    body.vx-pallet-screen [data-vx-pallet-select-popup="1"] [data-vx-pallet-footer="1"] {
+        flex: 0 0 auto !important;
+        position: static !important;
+        padding: 9px 12px !important;
+        background: #0f172a !important;
+        border-top: 1px solid rgba(148, 163, 184, .16) !important;
+        color: #94a3b8 !important;
+        font-size: 12px !important;
+    }
+
+    html:not(.dark) body.vx-pallet-screen [data-vx-pallet-select-popup="1"] [data-vx-pallet-footer="1"] {
+        background: #f8fafc !important;
+        color: #64748b !important;
     }
 
     body.vx-pallet-screen .fi-fo-select-search-ctn {
@@ -54,8 +111,11 @@
     }
 
     body.vx-pallet-screen .fi-fo-select-search-ctn .fi-input,
-    body.vx-pallet-screen .fi-fo-select-search-ctn input {
+    body.vx-pallet-screen .fi-fo-select-search-ctn input,
+    body.vx-pallet-screen [data-vx-pallet-select-popup="1"] input[type="search"],
+    body.vx-pallet-screen [data-vx-pallet-select-popup="1"] input[role="combobox"] {
         min-height: 46px !important;
+        width: 100% !important;
         font-size: 16px !important;
         color: #f8fafc !important;
         background: #1e293b !important;
@@ -64,7 +124,9 @@
     }
 
     html:not(.dark) body.vx-pallet-screen .fi-fo-select-search-ctn .fi-input,
-    html:not(.dark) body.vx-pallet-screen .fi-fo-select-search-ctn input {
+    html:not(.dark) body.vx-pallet-screen .fi-fo-select-search-ctn input,
+    html:not(.dark) body.vx-pallet-screen [data-vx-pallet-select-popup="1"] input[type="search"],
+    html:not(.dark) body.vx-pallet-screen [data-vx-pallet-select-popup="1"] input[role="combobox"] {
         color: #0f172a !important;
         background: #f8fafc !important;
     }
@@ -74,8 +136,9 @@
     }
 
     body.vx-pallet-screen .fi-dropdown-list-item.fi-fo-select-option,
-    body.vx-pallet-screen .fi-fo-select-option {
-        min-height: 52px !important;
+    body.vx-pallet-screen .fi-fo-select-option,
+    body.vx-pallet-screen [data-vx-pallet-results="1"] [role="option"] {
+        min-height: 50px !important;
         display: flex !important;
         align-items: center !important;
         padding: 10px 12px !important;
@@ -88,28 +151,25 @@
     }
 
     html:not(.dark) body.vx-pallet-screen .fi-dropdown-list-item.fi-fo-select-option,
-    html:not(.dark) body.vx-pallet-screen .fi-fo-select-option {
+    html:not(.dark) body.vx-pallet-screen .fi-fo-select-option,
+    html:not(.dark) body.vx-pallet-screen [data-vx-pallet-results="1"] [role="option"] {
         color: #0f172a !important;
     }
 
     body.vx-pallet-screen .fi-fo-select-option:hover,
     body.vx-pallet-screen .fi-fo-select-option:focus,
-    body.vx-pallet-screen .fi-fo-select-option[aria-selected="true"] {
+    body.vx-pallet-screen .fi-fo-select-option[aria-selected="true"],
+    body.vx-pallet-screen [data-vx-pallet-results="1"] [role="option"][aria-selected="true"] {
         background: rgba(124, 58, 237, .18) !important;
         color: #ffffff !important;
     }
 
     html:not(.dark) body.vx-pallet-screen .fi-fo-select-option:hover,
     html:not(.dark) body.vx-pallet-screen .fi-fo-select-option:focus,
-    html:not(.dark) body.vx-pallet-screen .fi-fo-select-option[aria-selected="true"] {
+    html:not(.dark) body.vx-pallet-screen .fi-fo-select-option[aria-selected="true"],
+    html:not(.dark) body.vx-pallet-screen [data-vx-pallet-results="1"] [role="option"][aria-selected="true"] {
         color: #4c1d95 !important;
         background: #ede9fe !important;
-    }
-
-    /* Do not dim the whole manifest just because a searchable select is open. */
-    body.vx-pallet-screen .fi-fo-select-ctn + .fi-modal-close-overlay,
-    body.vx-pallet-screen .fi-fo-select-ctn ~ .fi-modal-close-overlay {
-        display: none !important;
     }
 
     /* Pallet/receiving header actions: compact 2-column grid with readable labels. */
@@ -205,6 +265,8 @@
 
 <script>
 (() => {
+    const visible = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
+
     const markPalletScreens = () => {
         const path = window.location.pathname.toLowerCase();
         const isPallet = /\/admin\/(pallets|receive-inventory)(\/|$)/.test(path)
@@ -214,38 +276,67 @@
         document.body.classList.toggle('vx-pallet-screen', Boolean(isPallet));
     };
 
-    const keepSelectVisible = () => {
+    const markTeleportedSelect = () => {
         if (!document.body.classList.contains('vx-pallet-screen') || window.innerWidth > 768) return;
 
-        document.querySelectorAll('.fi-fo-select-ctn').forEach((container) => {
-            const panel = container.querySelector(':scope > .fi-dropdown-panel, :scope > [role="listbox"]');
-            if (!panel || panel.offsetParent === null) return;
+        document.querySelectorAll('[role="listbox"]').forEach((listbox) => {
+            if (!visible(listbox)) return;
 
-            // Popper writes fixed viewport coordinates inline. Clearing them lets
-            // the mobile CSS anchor the result list under the active field.
-            panel.style.removeProperty('left');
-            panel.style.removeProperty('right');
-            panel.style.removeProperty('top');
-            panel.style.removeProperty('bottom');
-            panel.style.removeProperty('transform');
-            panel.style.removeProperty('width');
-            panel.style.removeProperty('position');
+            /* Ignore an inline listbox that is already inside its select. */
+            if (listbox.closest('.fi-fo-select-ctn')) return;
+
+            let popup = listbox;
+            let cursor = listbox.parentElement;
+
+            /* Find the smallest floating wrapper that contains the list plus
+               the select search input/helper text. Filament's exact wrapper
+               classes vary between releases, so this deliberately uses the DOM
+               relationship instead of one brittle class name. */
+            for (let i = 0; cursor && cursor !== document.body && i < 7; i++, cursor = cursor.parentElement) {
+                const hasSearch = cursor.querySelector('input[type="search"], input[role="combobox"], .fi-fo-select-search-ctn');
+                const rect = cursor.getBoundingClientRect();
+                if (hasSearch && rect.width > 200) {
+                    popup = cursor;
+                    break;
+                }
+            }
+
+            popup.dataset.vxPalletSelectPopup = '1';
+            listbox.dataset.vxPalletResults = '1';
+
+            const search = popup.querySelector('input[type="search"], input[role="combobox"], .fi-fo-select-search-ctn input');
+            if (search) {
+                const wrap = search.closest('.fi-fo-select-search-ctn') || search.parentElement;
+                if (wrap) wrap.dataset.vxPalletSearchWrap = '1';
+            }
+
+            /* Filament's mobile helper is the line that says things such as
+               “Showing up to 50 — keep typing to narrow it down.” Keep that
+               outside the scrolling results so it never pushes the field away. */
+            [...popup.querySelectorAll('div, p, span')].forEach((node) => {
+                const text = (node.textContent || '').trim();
+                if (text && text.length < 120 && /showing up to|keep typing to narrow/i.test(text)) {
+                    node.dataset.vxPalletFooter = '1';
+                }
+            });
+
+            /* Remove the viewport-sized coordinates written by the floating
+               positioning library. CSS now owns the compact mobile geometry. */
+            ['left','right','top','bottom','inset','transform','width','height','max-height','position'].forEach((prop) => {
+                popup.style.removeProperty(prop);
+            });
         });
     };
 
     const refresh = () => {
         markPalletScreens();
-        requestAnimationFrame(keepSelectVisible);
+        requestAnimationFrame(markTeleportedSelect);
     };
 
     document.addEventListener('DOMContentLoaded', refresh);
     document.addEventListener('livewire:navigated', refresh);
-    document.addEventListener('focusin', (event) => {
-        if (event.target.closest?.('.fi-fo-select-ctn')) setTimeout(keepSelectVisible, 0);
-    });
-    document.addEventListener('input', (event) => {
-        if (event.target.closest?.('.fi-fo-select-ctn')) setTimeout(keepSelectVisible, 0);
-    });
+    document.addEventListener('focusin', () => setTimeout(refresh, 0));
+    document.addEventListener('input', () => setTimeout(refresh, 0));
 
     const observer = new MutationObserver(() => refresh());
     observer.observe(document.documentElement, { childList: true, subtree: true });

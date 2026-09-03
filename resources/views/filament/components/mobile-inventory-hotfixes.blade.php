@@ -1,41 +1,206 @@
 {{-- Targeted inventory / receiving UI fixes that survive Filament SPA navigation. --}}
 <style>
-/* Inventory cards: five actions need room to breathe. */
-.vx-card-actions {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+/* Inventory catalog cards: keep every action readable at every card width. */
+.vx-product-card .vx-card-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    padding: 12px !important;
     align-items: stretch !important;
 }
-.vx-card-action {
+
+.vx-product-card .vx-card-action {
     width: 100% !important;
     min-width: 0 !important;
-    padding-inline: 8px !important;
+    min-height: 42px !important;
+    padding: 8px 10px !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
     white-space: nowrap !important;
+    text-overflow: ellipsis !important;
+    font-size: .72rem !important;
+    line-height: 1.1 !important;
+}
+
+.vx-product-card .vx-card-action span {
+    min-width: 0 !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
 }
+
+.vx-product-card .vx-card-action.scan {
+    grid-column: 1 / -1 !important;
+}
+
 .vx-card-action.add-stock {
     color: #047857 !important;
     background: #ecfdf5 !important;
     border-color: #a7f3d0 !important;
 }
+
 .dark .vx-card-action.add-stock {
     color: #6ee7b7 !important;
     background: #052e2b !important;
     border-color: #065f46 !important;
 }
 
+/* View Pallet: prevent the header action row from ever overflowing. */
+body.vx-pallet-view-screen .fi-page-header {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+body.vx-pallet-view-screen .fi-header-actions,
+body.vx-pallet-view-screen .fi-header-actions-ctn {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-areas:
+        "receive receive items scan"
+        "add photos review more" !important;
+    gap: 10px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    align-items: stretch !important;
+}
+
+body.vx-pallet-view-screen .fi-header-actions > *,
+body.vx-pallet-view-screen .fi-header-actions-ctn > * {
+    min-width: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+}
+
+body.vx-pallet-view-screen [data-vx-pallet-action="receive"] { grid-area: receive !important; }
+body.vx-pallet-view-screen [data-vx-pallet-action="items"] { grid-area: items !important; }
+body.vx-pallet-view-screen [data-vx-pallet-action="add"] { grid-area: add !important; }
+body.vx-pallet-view-screen [data-vx-pallet-action="scan"] { grid-area: scan !important; }
+body.vx-pallet-view-screen [data-vx-pallet-action="review"] { grid-area: review !important; }
+body.vx-pallet-view-screen [data-vx-pallet-action="photos"] { grid-area: photos !important; }
+body.vx-pallet-view-screen [data-vx-pallet-action="more"] { grid-area: more !important; }
+
+body.vx-pallet-view-screen .fi-header-actions .fi-btn,
+body.vx-pallet-view-screen .fi-header-actions-ctn .fi-btn,
+body.vx-pallet-view-screen .fi-header-actions a,
+body.vx-pallet-view-screen .fi-header-actions button,
+body.vx-pallet-view-screen .fi-header-actions-ctn a,
+body.vx-pallet-view-screen .fi-header-actions-ctn button {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    min-height: 50px !important;
+    padding: 10px 12px !important;
+    box-sizing: border-box !important;
+    justify-content: center !important;
+    gap: 7px !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    white-space: normal !important;
+    text-align: center !important;
+    line-height: 1.15 !important;
+    font-weight: 700 !important;
+}
+
+body.vx-pallet-view-screen [data-vx-pallet-action="receive"] .fi-btn,
+body.vx-pallet-view-screen [data-vx-pallet-action="review"] .fi-btn,
+body.vx-pallet-view-screen [data-vx-pallet-action="scan"] .fi-btn,
+body.vx-pallet-view-screen [data-vx-pallet-action="receive"] a,
+body.vx-pallet-view-screen [data-vx-pallet-action="review"] a,
+body.vx-pallet-view-screen [data-vx-pallet-action="scan"] a,
+body.vx-pallet-view-screen [data-vx-pallet-action="receive"] button,
+body.vx-pallet-view-screen [data-vx-pallet-action="review"] button,
+body.vx-pallet-view-screen [data-vx-pallet-action="scan"] button {
+    color: #fff !important;
+}
+
 @media (max-width: 768px) {
-    .vx-card-actions {
+    .vx-product-card .vx-card-actions {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
         gap: 8px !important;
+        padding: 10px !important;
     }
-    .vx-card-action {
+
+    .vx-product-card .vx-card-action {
         min-height: 44px !important;
         font-size: 12px !important;
         padding-inline: 10px !important;
     }
 
-    /* Keep the live inventory picker above the iOS keyboard instead of at the bottom. */
+    /* Exact phone hierarchy for receiving controls. */
+    body.vx-pallet-view-screen .fi-page-header {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+    }
+
+    body.vx-pallet-view-screen .fi-page-header-main-ctn,
+    body.vx-pallet-view-screen .fi-page-header-main,
+    body.vx-pallet-view-screen .fi-page-header > div {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    body.vx-pallet-view-screen .fi-header-actions,
+    body.vx-pallet-view-screen .fi-header-actions-ctn {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-template-areas:
+            "receive receive"
+            "items scan"
+            "add photos"
+            "review review"
+            "more more" !important;
+        gap: 8px !important;
+    }
+
+    body.vx-pallet-view-screen .fi-header-actions .fi-btn,
+    body.vx-pallet-view-screen .fi-header-actions-ctn .fi-btn,
+    body.vx-pallet-view-screen .fi-header-actions a,
+    body.vx-pallet-view-screen .fi-header-actions button,
+    body.vx-pallet-view-screen .fi-header-actions-ctn a,
+    body.vx-pallet-view-screen .fi-header-actions-ctn button {
+        min-height: 52px !important;
+        padding: 10px 8px !important;
+        font-size: 13px !important;
+    }
+
+    /* Tighten pallet information cards and improve dark-mode contrast. */
+    body.vx-pallet-view-screen .fi-page-content > .space-y-6 > * + * {
+        margin-top: 12px !important;
+    }
+
+    body.vx-pallet-view-screen .fi-page-content .rounded-xl.border {
+        border-radius: 14px !important;
+    }
+
+    body.vx-pallet-view-screen .fi-page-content .px-6.py-4 {
+        padding: 14px !important;
+    }
+
+    body.vx-pallet-view-screen .fi-page-content .grid.grid-cols-1.md\:grid-cols-2 {
+        grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+        gap: 12px !important;
+    }
+
+    body.vx-pallet-view-screen .fi-page-content .text-xs.text-gray-400.uppercase {
+        color: #94a3b8 !important;
+        font-size: 10px !important;
+        letter-spacing: .06em !important;
+    }
+
+    html.dark body.vx-pallet-view-screen .fi-page-content .rounded-xl.border {
+        background: #101827 !important;
+        border-color: #263248 !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,.16) !important;
+    }
+
+    html.dark body.vx-pallet-view-screen .fi-page-content .text-gray-900,
+    html.dark body.vx-pallet-view-screen .fi-page-content .dark\:text-gray-100 {
+        color: #f8fafc !important;
+    }
+
+    /* Keep the live inventory picker above the iOS keyboard. */
     body.vx-pallet-screen [data-vx-active-inventory-picker="1"] {
         position: fixed !important;
         left: 10px !important;
@@ -103,133 +268,6 @@
     html:not(.dark) body.vx-pallet-screen [data-vx-active-inventory-picker="1"] [data-vx-picker-helper="1"] {
         background: #f8fafc !important;
         color: #64748b !important;
-    }
-
-    /* View Pallet: make the Filament header behave like a real mobile action panel. */
-    body.vx-pallet-view-screen .fi-page-header {
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: stretch !important;
-        gap: 12px !important;
-        width: 100% !important;
-    }
-
-    body.vx-pallet-view-screen .fi-page-header-main-ctn,
-    body.vx-pallet-view-screen .fi-page-header-main,
-    body.vx-pallet-view-screen .fi-page-header > div {
-        width: 100% !important;
-        min-width: 0 !important;
-    }
-
-    body.vx-pallet-view-screen .fi-header-actions,
-    body.vx-pallet-view-screen .fi-header-actions-ctn {
-        display: grid !important;
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        gap: 9px !important;
-        width: 100% !important;
-        max-width: none !important;
-        margin: 0 !important;
-        align-items: stretch !important;
-    }
-
-    body.vx-pallet-view-screen .fi-header-actions > *,
-    body.vx-pallet-view-screen .fi-header-actions-ctn > * {
-        width: 100% !important;
-        min-width: 0 !important;
-        margin: 0 !important;
-    }
-
-    body.vx-pallet-view-screen .fi-header-actions .fi-btn,
-    body.vx-pallet-view-screen .fi-header-actions-ctn .fi-btn,
-    body.vx-pallet-view-screen .fi-header-actions a,
-    body.vx-pallet-view-screen .fi-header-actions button {
-        width: 100% !important;
-        min-width: 0 !important;
-        min-height: 50px !important;
-        padding: 10px 12px !important;
-        border-radius: 10px !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 7px !important;
-        font-size: 13px !important;
-        font-weight: 750 !important;
-        line-height: 1.2 !important;
-        text-align: center !important;
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
-    }
-
-    body.vx-pallet-view-screen [data-vx-pallet-wide="1"] {
-        grid-column: 1 / -1 !important;
-    }
-
-    body.vx-pallet-view-screen [data-vx-pallet-kind="receive"] {
-        color: #fff !important;
-        background: #059669 !important;
-        border-color: #059669 !important;
-    }
-
-    body.vx-pallet-view-screen [data-vx-pallet-kind="scan"] {
-        color: #fff !important;
-        background: #2563eb !important;
-        border-color: #2563eb !important;
-    }
-
-    body.vx-pallet-view-screen [data-vx-pallet-kind="review"] {
-        color: #fff !important;
-        background: #059669 !important;
-        border-color: #059669 !important;
-    }
-
-    body.vx-pallet-view-screen [data-vx-pallet-kind="secondary"],
-    body.vx-pallet-view-screen [data-vx-pallet-kind="more"] {
-        color: #e5e7eb !important;
-        background: #111827 !important;
-        border: 1px solid #334155 !important;
-    }
-
-    html:not(.dark) body.vx-pallet-view-screen [data-vx-pallet-kind="secondary"],
-    html:not(.dark) body.vx-pallet-view-screen [data-vx-pallet-kind="more"] {
-        color: #172033 !important;
-        background: #fff !important;
-        border-color: #cbd5e1 !important;
-    }
-
-    /* Tighten the page cards and make labels readable on a phone. */
-    body.vx-pallet-view-screen .fi-page-content > .space-y-6 > * + * {
-        margin-top: 12px !important;
-    }
-
-    body.vx-pallet-view-screen .fi-page-content .rounded-xl.border {
-        border-radius: 14px !important;
-    }
-
-    body.vx-pallet-view-screen .fi-page-content .px-6.py-4 {
-        padding: 14px !important;
-    }
-
-    body.vx-pallet-view-screen .fi-page-content .grid.grid-cols-1.md\:grid-cols-2 {
-        grid-template-columns: repeat(2, minmax(0,1fr)) !important;
-        gap: 12px !important;
-    }
-
-    body.vx-pallet-view-screen .fi-page-content .text-xs.text-gray-400.uppercase {
-        color: #94a3b8 !important;
-        font-size: 10px !important;
-        letter-spacing: .06em !important;
-    }
-
-    html.dark body.vx-pallet-view-screen .fi-page-content .rounded-xl.border {
-        background: #101827 !important;
-        border-color: #263248 !important;
-        box-shadow: 0 8px 24px rgba(0,0,0,.16) !important;
-    }
-
-    html.dark body.vx-pallet-view-screen .fi-page-content .text-gray-900,
-    html.dark body.vx-pallet-view-screen .fi-page-content .dark\:text-gray-100 {
-        color: #f8fafc !important;
     }
 }
 </style>
@@ -329,28 +367,21 @@
         const { onPalletView } = markPage();
         if (!onPalletView) return;
 
-        const header = document.querySelector('.fi-page-header');
-        if (!header) return;
+        const containers = document.querySelectorAll('.fi-header-actions, .fi-header-actions-ctn');
+        containers.forEach(container => {
+            [...container.children].forEach(child => {
+                const text = (child.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+                let area = null;
+                if (/start receiving|continue receiving/.test(text)) area = 'receive';
+                else if (/items from this pallet/.test(text)) area = 'items';
+                else if (/add lines/.test(text)) area = 'add';
+                else if (/scan item/.test(text)) area = 'scan';
+                else if (/review.*receive/.test(text)) area = 'review';
+                else if (/photos|documents/.test(text)) area = 'photos';
+                else if (/\bmore\b/.test(text)) area = 'more';
 
-        const actions = header.querySelectorAll('.fi-header-actions a, .fi-header-actions button, .fi-header-actions-ctn a, .fi-header-actions-ctn button');
-        actions.forEach(action => {
-            const text = (action.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-            let kind = 'secondary';
-            let wide = false;
-
-            if (text.includes('receiving')) { kind = 'receive'; wide = true; }
-            else if (text.includes('scan item')) { kind = 'scan'; }
-            else if (text.includes('review') && text.includes('receive')) { kind = 'review'; wide = true; }
-            else if (text === 'more' || text.endsWith(' more')) { kind = 'more'; wide = true; }
-
-            action.dataset.vxPalletKind = kind;
-            if (wide) action.dataset.vxPalletWide = '1';
-
-            const container = action.parentElement;
-            if (container && container.closest('.fi-header-actions, .fi-header-actions-ctn')) {
-                container.dataset.vxPalletKind = kind;
-                if (wide) container.dataset.vxPalletWide = '1';
-            }
+                if (area) child.dataset.vxPalletAction = area;
+            });
         });
     };
 

@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Notifications\Concerns\EmailsWhenEnabled;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification as FilamentNotification;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -14,17 +15,14 @@ use Illuminate\Notifications\Notification;
  */
 class WeeklyReviewReminderNotification extends Notification
 {
+    use EmailsWhenEnabled;
+
     public function __construct(
         public readonly int $pendingCount,
         public readonly string $weekLabel,
         public readonly string $reviewUrl,
         public readonly ?string $narrative = null,
     ) {}
-
-    public function via(object $notifiable): array
-    {
-        return ['database', 'mail'];
-    }
 
     public function toMail(object $notifiable): MailMessage
     {

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\WeeklyPayoutBatchResource\Pages;
 
 use App\Filament\Pages\PayrollOverview;
 use App\Filament\Resources\WeeklyPayoutBatchResource;
+use App\Filament\Widgets\PayRunSummaryWidget;
 use App\Models\WeeklyPayoutBatch;
 use App\Services\AdpExportService;
 use App\Services\PayRunAutomationService;
@@ -38,6 +39,18 @@ class ViewWeeklyPayoutBatch extends ViewRecord
         $total = '$' . number_format((float) $this->record->total_payout, 2);
 
         return "{$status} · {$entries} payout " . ($entries === 1 ? 'entry' : 'entries') . " · {$total} total";
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            PayRunSummaryWidget::class,
+        ];
+    }
+
+    public function getWidgetData(): array
+    {
+        return ['record' => $this->record];
     }
 
     protected function getHeaderActions(): array

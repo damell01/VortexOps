@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import importlib.util
 import json
 import os
@@ -7,6 +8,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 HERE = Path(__file__).resolve().parent
 BASE_SCRIPT = HERE / "whatnot-scrapling.py"
@@ -29,6 +31,86 @@ def load_module(path: Path, name: str):
 
 def info(message: str) -> None:
     print(f"[whatnot:scrapling] {message}", file=sys.stderr, flush=True)
+
+
+def absolute_url(value: str | None) -> str | None:
+    value = str(value or "").strip()
+    if not value:
+        return None
+    if value.startswith("http://") or value.startswith("https://"):
+        return value
+    return BASE + (value if value.startswith("/") else "/" + value)
+
+
+def ui_filter_url(live_id: str) -> str:
+    """Build the same sales-channel filter shape emitted by Seller Hub.
+
+    This is only the fallback. The normal path discovers the exact View Shipments
+    href from the matching show-list item and follows that href directly.
+    """
+    payload = {
+        "salesChannel": {"type": "single", "value": live_id},
+        "status": {"type": "single", "value": "all"},
+    }
+    encoded = base64.b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode()
+    return f"{BASE}/dashboard/shipments?filters={quote(encoded, safe='')}"
+
+
+def find_show_actions(page, live_id: str) -> dict[str, Any] | None:
+    """Resolve Open Show / View Shipments / See Analytics from one show row."""
+    page.goto(f"{BASE}/dashboard/lives", wait_until="domcontentloaded", timeout=30000)
+    page.wait_for_timeout(700)
+
+    # Seller Hub normally remembers the Past tab. If it does not, select it.
+    try:
+        past = page.get_by_text(re.compile(r"^Past$", re.I)).first
+        if past.is_visible(timeout=1200):
+            past.click(timeout=3000)
+            page.wait_for_timeout(700)
+    except Exception:
+        pass
+
+    for _ in range(30):
+        result = page.evaluate(
+            r"""
+            liveId => {
+              const wanted = `/dashboard/live/${liveId}`;
+              const items = [...document.querySelectorAll('section[data-testid="show-list-item"]')];
+              for (const item of items) {
+                const open = [...item.querySelectorAll('a[href]')]
+                  .find(a => (a.getAttribute('href') || '').split('?')[0] === wanted);
+                if (!open) continue;
+                const links = [...item.querySelectorAll('a[href]')];
+                const shipment = links.find(a => /\/dashboard\/shipments(?:\?|$)/.test(a.getAttribute('href') || ''));
+                const analytics = links.find(a => /\/dashboard\/(?:analytics\/overview|account\/analytics)|\/account\/analytics/.test(a.getAttribute('href') || ''));
+                const title = item.querySelector('[data-testid="show-list-item-title"]')?.textContent?.trim() || null;
+                const text = (item.innerText || '').replace(/\s+/g, ' ').trim();
+                return {
+                  live_id: liveId,
+                  title,
+                  open_show_url: open.getAttribute('href') || null,
+                  shipment_url: shipment?.getAttribute('href') || null,
+                  analytics_url: analytics?.getAttribute('href') || null,
+                  row_preview: text.substring(0, 350),
+                };
+              }
+              return null;
+            }
+            """,
+            live_id,
+        )
+        if result:
+            return result
+
+        # The show list lazy-loads older rows. Scroll until the matching live id
+        # appears or we stop making progress.
+        before = page.evaluate("() => document.documentElement.scrollHeight")
+        page.evaluate("() => window.scrollTo(0, document.documentElement.scrollHeight)")
+        page.wait_for_timeout(500)
+        after = page.evaluate("() => document.documentElement.scrollHeight")
+        if after == before:
+            page.wait_for_timeout(500)
+    return None
 
 
 def extract_shipments(page) -> list[dict[str, Any]]:
@@ -111,6 +193,22 @@ def pagination_state(page) -> dict[str, Any]:
         return {}
 
 
+def page_diagnostic(page) -> dict[str, Any]:
+    try:
+        return page.evaluate(r"""
+        () => {
+          const body = (document.body?.innerText || '').replace(/\s+/g, ' ').trim();
+          const testids = [...document.querySelectorAll('[data-testid]')]
+            .map(el => el.getAttribute('data-testid')).filter(Boolean)
+            .filter((value, index, all) => all.indexOf(value) === index)
+            .slice(0, 30);
+          return {url: location.href, title: document.title, testids, preview: body.substring(0, 1200)};
+        }
+        """) or {}
+    except Exception:
+        return {}
+
+
 def expand_all(page) -> None:
     selectors = [
         'button[aria-label="Expand All"]',
@@ -186,9 +284,22 @@ def main() -> None:
                 output.append({"show_key": show_key, "live_id": None, "order_count": 0, "orders": []})
                 continue
 
-            target = f"{BASE}/dashboard/shipments?source={live_id}"
+            actions = find_show_actions(page, live_id)
+            if actions and actions.get("shipment_url"):
+                target = absolute_url(actions.get("shipment_url"))
+                info(
+                    f"SHIPMENT_ROUTE show={show_key} live_id={live_id} source=show-row "
+                    f"title={actions.get('title')!r} url={target}"
+                )
+            else:
+                target = ui_filter_url(live_id)
+                info(
+                    f"SHIPMENT_ROUTE show={show_key} live_id={live_id} source=ui-filter-fallback "
+                    f"url={target} actions={json.dumps(actions or {}, separators=(',', ':'))}"
+                )
+
             page.goto(target, wait_until="domcontentloaded", timeout=30000)
-            for _ in range(40):
+            for _ in range(60):
                 base.check_login(page)
                 if page_signature(page) or pagination_state(page).get("exists"):
                     break
@@ -210,8 +321,19 @@ def main() -> None:
                 page_number += 1
 
             rows = list(found.values())
+            if not rows:
+                info(
+                    "SHIPMENT_ZERO_DIAGNOSTIC "
+                    + json.dumps({"show_key": show_key, "live_id": live_id, **page_diagnostic(page)}, separators=(",", ":"))
+                )
             info(f"shipments-batch: [{idx}/{len(sources)}] {show_key} -> {len(rows)} row(s) across {page_number} page(s)")
-            output.append({"show_key": show_key, "live_id": live_id, "order_count": len(rows), "orders": rows})
+            output.append({
+                "show_key": show_key,
+                "live_id": live_id,
+                "order_count": len(rows),
+                "orders": rows,
+                "show_actions": actions or {},
+            })
 
     with stealthy.stealthy_session(
         headless=HEADLESS,

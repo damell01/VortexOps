@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\WhatnotChannel;
 use App\Services\WhatnotScraper;
 use App\Services\WhatnotSyncEngine;
+use App\Support\WhatnotBrowserLock;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -53,6 +54,22 @@ class ProcessWhatnotChannelsJob implements ShouldQueue, ShouldBeUnique
 
     public function handle(WhatnotSyncEngine $engine, WhatnotScraper $scraper): void
     {
+        // Scheduled jobs must be able to recover from an interrupted predecessor
+        // without somebody SSHing in to run whatnot:unlock --force. Recovery is
+        // deliberately conservative: a live lock owner is never touched, and a
+        // browser managed by vortexops-whatnot-browser.service is never killed.
+        $recovery = WhatnotBrowserLock::recoverIfStale();
+
+        if ($recovery['recovered']) {
+            Log::warning('ProcessWhatnotChannelsJob: recovered stale Whatnot browser state', [
+                'stale_holder_pid' => $recovery['holder_pid'],
+                'killed_orphan_browser_pids' => $recovery['killed_pids'],
+                'removed_profile_locks' => $recovery['removed'],
+            ]);
+
+            $this->progress('Recovered stale Whatnot browser state before starting.');
+        }
+
         $channels = WhatnotChannel::query()
             ->where('include_in_import', true)
             ->where('status', 'active')

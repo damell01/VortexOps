@@ -8,7 +8,7 @@ use App\Models\AiTask;
 use App\Models\InventoryItem;
 use App\Models\Pallet;
 use App\Models\PalletLine;
-use App\Services\AI\Mapping\MappingEngine;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Illuminate\Support\Facades\DB;
 use Livewire\WithFileUploads;
@@ -18,26 +18,18 @@ class ImportManifest extends Page
     use WithFileUploads;
 
     protected static string $resource = PalletResource::class;
-
-    protected static ?string $title = 'Import Manifest / PO / Packing Slip';
+    protected static ?string $title = 'AI Manifest Review';
 
     public Pallet $record;
 
     /** @var 'upload'|'processing'|'verify'|'done' */
     public string $stage = 'upload';
-
     public $slipFile = null;
-
     public ?int $aiTaskId = null;
-
     public ?string $parseError = null;
-
     public bool $parseErrorIsTimeout = false;
 
-    private const PENDING_TIMEOUT_MINUTES = 5;
-    private const PROCESSING_TIMEOUT_MINUTES = 10;
-
-    /** @var list<array{description:string, case_count:int|string, unit_cost:string, sku:string, barcode:string, matched_item_id:int|null, matched_item_name:string|null, match_confidence:string, match_stage:string, create_new_item:bool}> */
+    /** @var list<array<string,mixed>> */
     public array $parsedLines = [];
 
     public int $created = 0;
@@ -52,13 +44,25 @@ class ImportManifest extends Page
     public function mount(Pallet $record): void
     {
         $this->record = $record->load('vendor');
+
+        // Re-open the latest AI job for this pallet. The user is expected to
+        // leave this screen while Ollama works and come back from the database
+        // notification when review is ready.
+        $task = AiTask::query()
+            ->where('type', 'parse_pallet_slip')
+            ->where('taskable_type', Pallet::class)
+            ->where('taskable_id', $record->id)
+            ->latest('id')
+            ->first();
+
+        if ($task) {
+            $this->aiTaskId = $task->id;
+            $this->applyTaskState($task);
+        }
     }
 
-    public function parseSlip(): void
+    public function parseSlip(): mixed
     {
-        // Images/PDFs are parsed with vision; spreadsheets use deterministic
-        // header mapping first. Every path is dispatched to queue=ai, so upload
-        // returns immediately and never loads a model in this Livewire request.
         $this->validate([
             'slipFile' => 'required|file|max:20480|mimes:jpeg,jpg,png,gif,webp,pdf,csv,txt,xls,xlsx',
         ]);
@@ -80,6 +84,7 @@ class ImportManifest extends Page
                 'file' => basename($path),
                 'extension' => $ext,
                 'background_only' => true,
+                'review_required' => true,
             ],
         ]);
 
@@ -88,6 +93,15 @@ class ImportManifest extends Page
         $this->aiTaskId = $task->id;
         $this->stage = 'processing';
         $this->slipFile = null;
+        $this->parseError = null;
+
+        Notification::make()
+            ->title('AI manifest job started')
+            ->body('You can leave this page. VortexOps will notify you when the manifest and inventory suggestions are ready to review.')
+            ->success()
+            ->send();
+
+        return redirect()->to(PalletResource::getUrl('view', ['record' => $this->record]));
     }
 
     public function checkProcessing(): void
@@ -97,88 +111,78 @@ class ImportManifest extends Page
         $task = AiTask::find($this->aiTaskId);
         if (! $task) return;
 
+        $this->applyTaskState($task);
+    }
+
+    private function applyTaskState(AiTask $task): void
+    {
         if ($task->status === 'completed') {
-            $raw = $task->output['lines'] ?? [];
-            $engine = app(MappingEngine::class);
-
-            $this->parsedLines = array_map(function ($l) use ($engine) {
-                $description = $l['description'] ?? '';
-                $barcode = $l['barcode'] ?? null;
-                $sku = $l['sku'] ?? null;
-
-                // Web-request matching deliberately stops after exact/fuzzy
-                // matching in background-only mode. No embeddings or LLM here.
-                $matchResult = $this->matchLine($engine, $description, $barcode, $sku);
-
-                return [
-                    'description' => $description,
-                    'case_count' => (string) ($l['case_count'] ?? 1),
-                    'unit_cost' => $l['unit_cost'] !== null ? number_format((float) $l['unit_cost'], 2, '.', '') : '',
-                    'sku' => $sku ?? '',
-                    'barcode' => $barcode ?? '',
-                    'matched_item_id' => $matchResult['id'],
-                    'matched_item_name' => $matchResult['name'],
-                    'match_confidence' => $matchResult['confidence'],
-                    'match_stage' => $matchResult['stage'],
-                    'create_new_item' => false,
-                ];
-            }, $raw);
+            $this->parsedLines = array_values($task->output['lines'] ?? []);
             $this->stage = 'verify';
+            $this->parseError = null;
+            return;
+        }
+
+        if (in_array($task->status, ['pending', 'processing'], true)) {
+            $this->stage = 'processing';
             return;
         }
 
         if ($task->status === 'failed') {
-            $this->parseError = $task->error_message ?? 'Manifest parsing failed.';
-            $this->parseErrorIsTimeout = false;
+            $this->parseError = $task->error_message ?? 'Manifest analysis failed.';
+            $this->parseErrorIsTimeout = str_contains(strtolower((string) $this->parseError), 'timeout');
             $this->stage = 'upload';
-            return;
         }
+    }
 
-        if ($task->status === 'processing' && (
-            $task->started_at === null ||
-            $task->started_at->lt(now()->subMinutes(self::PROCESSING_TIMEOUT_MINUTES)))) {
-            $this->parseError = 'Background manifest processing timed out after ' . self::PROCESSING_TIMEOUT_MINUTES . ' minutes. Check the dedicated AI worker.';
-            $this->parseErrorIsTimeout = true;
-            $this->stage = 'upload';
-            return;
-        }
-
-        if ($task->status === 'pending' && $task->created_at?->lt(now()->subMinutes(self::PENDING_TIMEOUT_MINUTES))) {
-            $this->parseError = 'The manifest job was not picked up after ' . self::PENDING_TIMEOUT_MINUTES . ' minutes. Check the dedicated AI worker.';
-            $this->parseErrorIsTimeout = true;
-            $this->stage = 'upload';
-        }
+    public function startOver(): void
+    {
+        $this->stage = 'upload';
+        $this->aiTaskId = null;
+        $this->parsedLines = [];
+        $this->parseError = null;
+        $this->parseErrorIsTimeout = false;
     }
 
     public function addLine(): void
     {
         $this->parsedLines[] = [
-            'description' => '', 'case_count' => '1', 'unit_cost' => '', 'sku' => '', 'barcode' => '',
-            'matched_item_id' => null, 'matched_item_name' => null,
-            'match_confidence' => '', 'match_stage' => '', 'create_new_item' => false,
+            'description' => '',
+            'case_count' => '1',
+            'quantity_per_case' => '1',
+            'unit_cost' => '',
+            'sku' => '',
+            'barcode' => '',
+            'matched_item_id' => null,
+            'matched_item_name' => null,
+            'match_confidence' => '',
+            'match_confidence_score' => 0,
+            'match_stage' => '',
+            'match_reasons' => [],
+            'alternatives' => [],
+            'create_new_item' => true,
         ];
     }
 
-    private function matchLine(MappingEngine $engine, string $description, ?string $barcode, ?string $sku): array
+    public function chooseMatch(int $index, int $itemId): void
     {
-        $empty = ['id' => null, 'name' => null, 'confidence' => '', 'stage' => ''];
-        if ($description === '') return $empty;
+        if (! isset($this->parsedLines[$index])) return;
 
-        try {
-            $result = $engine->match(description: $description, upc: $barcode, skipLlm: true);
+        $item = InventoryItem::find($itemId);
+        if (! $item) return;
 
-            if ($result->matched()) {
-                return [
-                    'id' => $result->product->id,
-                    'name' => $result->product->name,
-                    'confidence' => $result->confidenceLabel(),
-                    'stage' => $result->stage,
-                ];
-            }
-        } catch (\Throwable) {
-        }
+        $this->parsedLines[$index]['matched_item_id'] = $item->id;
+        $this->parsedLines[$index]['matched_item_name'] = $item->name;
+        $this->parsedLines[$index]['create_new_item'] = false;
+    }
 
-        return $empty;
+    public function chooseCreateNew(int $index): void
+    {
+        if (! isset($this->parsedLines[$index])) return;
+
+        $this->parsedLines[$index]['matched_item_id'] = null;
+        $this->parsedLines[$index]['matched_item_name'] = null;
+        $this->parsedLines[$index]['create_new_item'] = true;
     }
 
     private function quickItemLookup(?string $barcode, ?string $sku, string $description): ?InventoryItem
@@ -195,7 +199,7 @@ class ImportManifest extends Page
         $this->parsedLines = array_values($this->parsedLines);
     }
 
-    public function import(): void
+    public function import(): mixed
     {
         $pallet = $this->record;
         $nextLine = ($pallet->lines()->max('line_number') ?? 0) + 1;
@@ -226,9 +230,16 @@ class ImportManifest extends Page
                     'pallet_id' => $pallet->id,
                     'line_number' => $nextLine++,
                     'description' => $description,
+                    'vendor_description' => $description,
                     'case_count' => max(1, (int) ($row['case_count'] ?? 1)),
+                    'quantity_per_case' => max(1, (float) ($row['quantity_per_case'] ?? 1)),
                     'unit_cost' => $unitCost > 0 ? $unitCost : ($item?->unit_cost ?? 0),
                     'inventory_item_id' => $item?->id,
+                    'match_confidence' => $item ? (float) ($row['match_confidence_score'] ?? 1) : null,
+                    'match_stage' => $item ? (($row['match_stage'] ?? '') ?: 'manual_review') : null,
+                    'match_reasons' => $row['match_reasons'] ?? [],
+                    'matched_at' => $item ? now() : null,
+                    'matched_by' => $item ? auth()->id() : null,
                 ]);
 
                 $created++;
@@ -240,5 +251,13 @@ class ImportManifest extends Page
         $this->matched = $matched;
         $this->unmatched = $created - $matched;
         $this->stage = 'done';
+
+        Notification::make()
+            ->title('Manifest approved')
+            ->body("{$created} pallet lines created · {$matched} mapped to inventory · {$this->unmatched} left unmapped.")
+            ->success()
+            ->send();
+
+        return redirect()->to(PalletResource::getUrl('view', ['record' => $pallet]));
     }
 }

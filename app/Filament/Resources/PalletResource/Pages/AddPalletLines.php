@@ -109,6 +109,18 @@ class AddPalletLines extends Page
     }
 
     /**
+     * Catalog picker endpoint: an empty term lists the catalog alphabetically
+     * instead of nothing, so the picker shows something to scroll the moment
+     * it opens rather than an empty box waiting for the first keystroke.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function browseProducts(string $term = ''): array
+    {
+        return ProductSearch::browse($term);
+    }
+
+    /**
      * Link a manifest row to an existing product and fill the fields we already
      * know. This is the important restock path: selecting "Test 2" means the
      * receiver should never have to type "Test 2" again in the item box.

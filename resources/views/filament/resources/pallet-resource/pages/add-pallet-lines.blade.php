@@ -89,45 +89,79 @@
                                     </div>
                                 @else
                                     <div x-data="{
-                                            q: '', open: false, loading: false, results: [], timer: null,
+                                            open: false, q: '', loading: false, results: [], timer: null,
+                                            openPicker() {
+                                                this.open = true; this.q = ''; this.loading = true;
+                                                $wire.browseProducts('').then(r => { this.results = r; this.loading = false; });
+                                                this.$nextTick(() => this.$refs.picker{{ $i }}?.focus());
+                                            },
                                             search() {
                                                 clearTimeout(this.timer);
-                                                if (this.q.trim().length < 2) { this.results = []; this.open = false; return; }
-                                                this.loading = true; this.open = true;
+                                                this.loading = true;
                                                 this.timer = setTimeout(async () => {
-                                                    try { this.results = await $wire.searchProducts(this.q); }
+                                                    try { this.results = await $wire.browseProducts(this.q); }
                                                     finally { this.loading = false; }
                                                 }, 220);
                                             },
                                             async choose(id) {
                                                 await $wire.selectProduct({{ $i }}, id);
-                                                this.q = ''; this.results = []; this.open = false;
+                                                this.open = false; this.q = ''; this.results = [];
                                             }
-                                        }" class="relative" @click.outside="open = false">
-                                        <div class="relative">
-                                            <x-heroicon-o-magnifying-glass class="pointer-events-none absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                                            <input type="search" x-model="q" @input="search" @focus="if (results.length) open = true"
-                                                placeholder="Search name, SKU, UPC or barcode…"
-                                                class="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-9 text-sm text-gray-900 shadow-sm focus:border-violet-500 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100" />
-                                            <svg x-show="loading" class="absolute right-3 top-2.5 h-5 w-5 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                                        </div>
+                                        }">
+                                        {{-- Trigger — opens the picker, never types inline. A field you can only
+                                             half-see the options in is the exact complaint this replaces. --}}
+                                        <button type="button" @click="openPicker()"
+                                            class="flex w-full items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-500 shadow-sm hover:border-violet-400 hover:text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:text-gray-200">
+                                            <x-heroicon-o-magnifying-glass class="h-5 w-5 flex-shrink-0 text-gray-400" />
+                                            Search or browse inventory…
+                                        </button>
 
-                                        <div x-show="open" x-cloak class="absolute z-50 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white p-1 shadow-xl dark:border-gray-700 dark:bg-gray-900">
-                                            <template x-if="!loading && results.length === 0 && q.trim().length >= 2">
-                                                <div class="px-3 py-3 text-sm text-gray-500">No matching inventory. Keep this row as a new item.</div>
-                                            </template>
-                                            <template x-for="item in results" :key="item.id">
-                                                <button type="button" @click="choose(item.id)" class="block w-full rounded-md px-3 py-2 text-left hover:bg-violet-50 dark:hover:bg-violet-950/30">
-                                                    <div class="font-medium text-gray-950 dark:text-white" x-text="item.name"></div>
-                                                    <div class="mt-0.5 flex flex-wrap gap-x-3 text-xs text-gray-500">
-                                                        <span x-show="item.sku" x-text="'SKU ' + item.sku"></span>
-                                                        <span x-show="item.upc" x-text="'UPC ' + item.upc"></span>
-                                                        <span x-show="item.barcode && item.barcode !== item.upc" x-text="'Barcode ' + item.barcode"></span>
+                                        {{-- Teleported to <body> on purpose: a modal that inherits some ancestor's
+                                             overflow/positioning is exactly the clipping bug this page just got
+                                             fixed for elsewhere. This can never be clipped by a row, a card, or a
+                                             future layout change around it. --}}
+                                        <template x-teleport="body">
+                                            <div x-show="open" x-cloak
+                                                class="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 sm:items-center sm:p-4"
+                                                @keydown.escape.window="open = false">
+                                                <div @click.outside="open = false"
+                                                    class="flex max-h-[85vh] w-full flex-col rounded-t-2xl bg-white shadow-2xl dark:bg-gray-900 sm:max-w-lg sm:rounded-2xl">
+                                                    <div class="flex items-center gap-2 border-b border-gray-200 p-4 dark:border-gray-700">
+                                                        <x-heroicon-o-magnifying-glass class="h-5 w-5 flex-shrink-0 text-gray-400" />
+                                                        <input x-ref="picker{{ $i }}" type="search" x-model="q" @input="search"
+                                                            placeholder="Search name, SKU, UPC or barcode…"
+                                                            class="min-w-0 flex-1 border-0 bg-transparent p-0 text-base text-gray-900 focus:outline-none focus:ring-0 dark:text-gray-100" />
+                                                        <svg x-show="loading" class="h-5 w-5 flex-shrink-0 animate-spin text-violet-500" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                                                        <button type="button" @click="open = false" title="Close" class="flex-shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+                                                            <x-heroicon-o-x-mark class="h-5 w-5" />
+                                                        </button>
                                                     </div>
-                                                </button>
-                                            </template>
-                                        </div>
-                                        <div class="mt-1.5 text-xs text-gray-500">Type at least 2 characters. Results load as you search — the full catalog is never dumped into the page.</div>
+
+                                                    <div class="flex-1 overflow-y-auto p-2">
+                                                        <template x-if="!loading && results.length === 0">
+                                                            <div class="px-3 py-10 text-center text-sm text-gray-500">
+                                                                No matching inventory.<br>Close this and type a new item name instead.
+                                                            </div>
+                                                        </template>
+                                                        <template x-for="item in results" :key="item.id">
+                                                            <button type="button" @click="choose(item.id)"
+                                                                class="block w-full rounded-lg px-3 py-3 text-left hover:bg-violet-50 dark:hover:bg-violet-950/30">
+                                                                <div class="font-medium text-gray-950 dark:text-white" x-text="item.name"></div>
+                                                                <div class="mt-0.5 flex flex-wrap gap-x-3 text-xs text-gray-500">
+                                                                    <span x-show="item.sku" x-text="'SKU ' + item.sku"></span>
+                                                                    <span x-show="item.upc" x-text="'UPC ' + item.upc"></span>
+                                                                    <span x-show="item.barcode && item.barcode !== item.upc" x-text="'Barcode ' + item.barcode"></span>
+                                                                </div>
+                                                            </button>
+                                                        </template>
+                                                    </div>
+
+                                                    <div class="border-t border-gray-100 p-2.5 text-center text-xs text-gray-400 dark:border-gray-800">
+                                                        Showing up to 50 — keep typing to narrow it down.
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
                                     </div>
                                 @endif
                             </div>

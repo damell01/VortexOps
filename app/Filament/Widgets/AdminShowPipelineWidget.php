@@ -20,7 +20,7 @@ class AdminShowPipelineWidget extends Widget
 
     public static function canView(): bool
     {
-        return (auth()->user()?->isAdmin() || auth()->user()?->isOwner()) ?? false;
+        return false;
     }
 
     protected function getViewData(): array

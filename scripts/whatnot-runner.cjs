@@ -45,7 +45,6 @@ function scopedEnvironment() {
     fs.mkdirSync(env.WHATNOT_SCRAPLING_DIAGNOSTICS_DIR, { recursive: true });
     console.error(`[whatnot] CHANNEL_SCOPE requested=@${channel} session=isolated state=${path.relative(projectRoot, channelRoot)}`);
   } else {
-    // Never share the production Scrapling profile with the legacy :9222 Chrome.
     const sharedProfile = path.resolve(projectRoot, 'storage', 'whatnot-scrapling-profile');
     env.WHATNOT_USER_DATA_DIR = env.WHATNOT_USER_DATA_DIR || sharedProfile;
     fs.mkdirSync(env.WHATNOT_USER_DATA_DIR, { recursive: true });
@@ -60,6 +59,20 @@ function scopedEnvironment() {
   return env;
 }
 const childEnv = scopedEnvironment();
+
+function resolvePythonBin() {
+  const configured = String(childEnv.WHATNOT_PYTHON_BIN || '').trim();
+  if (configured) return configured;
+
+  // App-triggered and queue-worker runs do not inherit an activated shell venv.
+  // Prefer the project venv automatically so the same Scrapling install is used
+  // for CLI, scheduled, queued, and admin-triggered imports.
+  const projectVenv = path.join(projectRoot, '.venv', 'bin', 'python');
+  if (fs.existsSync(projectVenv)) return projectVenv;
+
+  return 'python3';
+}
+
 function localCdpEndpoint() { return String(childEnv.WHATNOT_ATTACH_CDP_URL || 'http://127.0.0.1:9222').trim().replace(/\/$/, ''); }
 function localCdpAvailable(timeoutSeconds = 2) {
   const endpoint = localCdpEndpoint(); let parsed; try { parsed = new URL(endpoint); } catch { return false; }
@@ -67,11 +80,11 @@ function localCdpAvailable(timeoutSeconds = 2) {
   const result = spawnSync('curl', ['-fsS','--max-time',String(timeoutSeconds),endpoint + '/json/version'], { cwd: projectRoot, encoding: 'utf8' });
   if (result.status !== 0) return false; try { const data=JSON.parse(result.stdout||'{}'); return Boolean(data.webSocketDebuggerUrl&&data.Browser); } catch { return false; }
 }
-function runHttpHealth() { const python=String(childEnv.WHATNOT_PYTHON_BIN||'python3').trim(); return spawnSync(python,[path.join(__dirname,'whatnot-http-health.py')],{env:childEnv,cwd:projectRoot,stdio:'inherit'}); }
+function runHttpHealth() { const python=resolvePythonBin(); return spawnSync(python,[path.join(__dirname,'whatnot-http-health.py')],{env:childEnv,cwd:projectRoot,stdio:'inherit'}); }
 function runScraplingStealthy() {
-  const python=String(childEnv.WHATNOT_PYTHON_BIN||'python3').trim();
+  const python=resolvePythonBin();
   const useCdp=String(childEnv.WHATNOT_SCRAPLING_USE_CDP||'0').trim()==='1';
-  const env={...childEnv,WHATNOT_BROWSER_BACKEND:'scrapling',WHATNOT_SCRAPLING_USE_CDP:useCdp?'1':'0'};
+  const env={...childEnv,WHATNOT_BROWSER_BACKEND:'scrapling',WHATNOT_SCRAPLING_USE_CDP:useCdp?'1':'0',WHATNOT_PYTHON_BIN:python};
   if (useCdp) env.WHATNOT_SCRAPLING_CDP_URL=childEnv.WHATNOT_SCRAPLING_CDP_URL||localCdpEndpoint();
   const transport=useCdp?`cdp-diagnostic:${env.WHATNOT_SCRAPLING_CDP_URL}`:'owned-browser';
   const webrtc=String(env.WHATNOT_SCRAPLING_BLOCK_WEBRTC||'false').trim().toLowerCase();
@@ -80,7 +93,7 @@ function runScraplingStealthy() {
   const lockFile=String(env.WHATNOT_BROWSER_LOCK_FILE||path.join(projectRoot,'storage','whatnot-browser.lock')).trim();
   const lockWait=Math.max(1,parseInt(String(env.WHATNOT_BROWSER_LOCK_WAIT||'1200'),10)||1200);
   fs.mkdirSync(path.dirname(lockFile),{recursive:true});
-  process.stderr.write(`[whatnot] production browser backend: scrapling-stealthy (mode=${mode}, transport=${transport}, profile=${env.WHATNOT_USER_DATA_DIR||'(temporary)'}, solve_cloudflare=false, block_webrtc=${webrtc}, hide_canvas=${canvas}, allow_webgl=${webgl})\n`);
+  process.stderr.write(`[whatnot] production browser backend: scrapling-stealthy (mode=${mode}, transport=${transport}, profile=${env.WHATNOT_USER_DATA_DIR||'(temporary)'}, python=${python}, solve_cloudflare=false, block_webrtc=${webrtc}, hide_canvas=${canvas}, allow_webgl=${webgl})\n`);
   process.stderr.write(`[whatnot] BROWSER_LOCK_WAIT file=${lockFile} timeout=${lockWait}s\n`);
   const result=spawnSync('flock',['-w',String(lockWait),lockFile,python,path.join(__dirname,'whatnot-scrapling-stealthy.py')],{env,cwd:projectRoot,stdio:'inherit'});
   if(result.status===0) process.stderr.write('[whatnot] BROWSER_LOCK_RELEASED\n');

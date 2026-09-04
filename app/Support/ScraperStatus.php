@@ -142,17 +142,18 @@ class ScraperStatus
         $channelSources = collect(self::JOBS)->filter(fn ($job) => $job['channel_scoped'])->keys();
 
         return $channels->map(function (WhatnotChannel $channel) use ($channelSources) {
-            $latest = ShowIngestionLog::query()
-                ->where('whatnot_channel_id', $channel->id)
-                ->latest('created_at')
-                ->first();
-
-            $pipelines = $channelSources->map(function (string $source) use ($channel) {
+            $pipelineRecords = $channelSources->mapWithKeys(function (string $source) use ($channel) {
                 $record = ShowIngestionLog::query()
                     ->where('whatnot_channel_id', $channel->id)
                     ->where('source', $source)
                     ->latest('created_at')
                     ->first();
+
+                return [$source => $record];
+            });
+
+            $pipelines = $channelSources->map(function (string $source) use ($pipelineRecords) {
+                $record = $pipelineRecords->get($source);
 
                 return [
                     'source' => $source,
@@ -163,16 +164,22 @@ class ScraperStatus
                 ];
             })->values()->all();
 
-            $failures24h = ShowIngestionLog::query()
-                ->where('whatnot_channel_id', $channel->id)
-                ->where('created_at', '>=', now()->subDay())
-                ->whereIn('status', ['failed', 'partial'])
+            $latest = $pipelineRecords
+                ->filter()
+                ->sortByDesc(fn (ShowIngestionLog $record) => $record->created_at)
+                ->first();
+
+            // Count only pipelines whose CURRENT state is bad. Historical/legacy
+            // failures stay in the detailed log, but they must not make a healthy
+            // channel look like it currently has 10+ broken jobs.
+            $currentProblems = $pipelineRecords
+                ->filter(fn (?ShowIngestionLog $record) => $record && in_array($record->status, ['failed', 'partial'], true))
                 ->count();
 
             return [
                 'channel' => $channel,
                 'last_at' => $latest?->created_at,
-                'failures_24h' => $failures24h,
+                'failures_24h' => $currentProblems,
                 'pipelines' => $pipelines,
             ];
         })->all();

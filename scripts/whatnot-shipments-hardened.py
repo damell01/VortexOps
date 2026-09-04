@@ -18,6 +18,7 @@ PROFILE = os.getenv("WHATNOT_USER_DATA_DIR", "").strip()
 CHROME = os.getenv("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH", "").strip()
 SOURCE_FILE = os.getenv("WHATNOT_ORDER_SOURCES_FILE", "").strip()
 HEADLESS = os.getenv("WHATNOT_HEADLESS", "false").lower() != "false"
+EXPAND_DETAILS = os.getenv("WHATNOT_SHIPMENT_EXPAND_DETAILS", "0").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def load_module(path: Path, name: str):
@@ -99,7 +100,6 @@ def find_show_actions(page, live_id: str) -> dict[str, Any] | None:
 
 
 def expand_rows(page) -> int:
-    """Expand current Seller Hub shipment bundles so order/item details exist in DOM."""
     try:
         clicked = page.evaluate(r"""
         () => {
@@ -180,17 +180,11 @@ def extract_shipments(page) -> list[dict[str, Any]]:
 
         const shipmentIndex = shipmentRows.indexOf(tr);
         const nextShipmentRow = shipmentIndex >= 0 ? (shipmentRows[shipmentIndex + 1] || null) : null;
-
-        // Seller Hub has rendered expanded bundles as <tr> siblings, nested rows,
-        // and non-TR wrappers at different times. Collect every sibling node until
-        // the next shipment header, then also use DOM-order link association below.
         const detailRoots = [];
         let next = tr.nextElementSibling;
         let guard = 0;
         while (next && next !== nextShipmentRow && guard < 50) {
-          if (!/^shipments-.*-row$/.test(next.getAttribute?.('data-testid') || '')) {
-            detailRoots.push(next);
-          }
+          if (!/^shipments-.*-row$/.test(next.getAttribute?.('data-testid') || '')) detailRoots.push(next);
           next = next.nextElementSibling;
           guard++;
         }
@@ -199,7 +193,6 @@ def extract_shipments(page) -> list[dict[str, Any]]:
 
         const buyerLink = tr.querySelector('a[href*="/dashboard/inbox"]');
         const buyer = clean(buyerLink?.textContent) || null;
-
         const dateIndex = dateCellIndex(cells);
         const orderDate = dateIndex >= 0 ? clean(cells[dateIndex]?.innerText) : null;
         const headerQty = dateIndex >= 0 ? integer(cells[dateIndex + 1]?.innerText) : null;
@@ -247,13 +240,11 @@ def extract_shipments(page) -> list[dict[str, Any]]:
           if (!orderMatch) continue;
           const orderId = orderMatch[1];
           if (!orderIds.includes(orderId)) orderIds.push(orderId);
-
           const title = clean((rowText.split(/Order\s*#\s*\d+/i)[0] || '').replace(/^Items?\s*\(Bundled\)\s*/i, '')) || null;
           const rowCells = row && row.tagName === 'TR' ? [...row.querySelectorAll(':scope > td')] : [];
           const childQtyCell = rowCells.find(td => /^\d{1,4}$/.test(clean(td.innerText)));
           const childMoney = rowCells.map(td => money(td.innerText)).filter(v => v !== null);
           const childWeightCell = rowCells.find(td => /\b\d+(?:\.\d+)?\s*oz\b|\b\d+(?:\.\d+)?\s*lb\b/i.test(clean(td.innerText)));
-
           bundledItems.push({
             order_id: orderId,
             order_url: link.getAttribute('href') || null,
@@ -277,7 +268,7 @@ def extract_shipments(page) -> list[dict[str, Any]]:
         const qty = headerQty || bundledQty || 1;
 
         out.push({
-          parser_version: 4,
+          parser_version: 5,
           order_id: orderIds[0] || null,
           order_ids: orderIds.join(','),
           order_count: orderIds.length,
@@ -398,6 +389,7 @@ def main() -> None:
     stealthy = load_module(STEALTHY_SCRIPT, "vortexops_whatnot_shipments_stealthy")
     base.check_login = stealthy.ensure_authenticated
     output: list[dict[str, Any]] = []
+    info(f"SHIPMENT_DETAIL_MODE={'expanded' if EXPAND_DETAILS else 'top-level'}")
 
     def action(page):
         base.prepare(page)
@@ -429,7 +421,7 @@ def main() -> None:
             page_number = 1
             for _ in range(100):
                 base.check_login(page)
-                expanded = expand_rows(page)
+                expanded = expand_rows(page) if EXPAND_DETAILS else 0
                 rows = extract_shipments(page)
                 for row in rows:
                     key = str(row.get("whatnot_shipment_id") or row.get("order_id") or row.get("tracking_number") or len(found))
@@ -455,13 +447,9 @@ def main() -> None:
                     + json.dumps({
                         "show_key": show_key,
                         "shipment_id": sample.get("whatnot_shipment_id"),
-                        "order_id": sample.get("order_id"),
-                        "order_ids": sample.get("order_ids"),
-                        "order_count": sample.get("order_count"),
                         "buyer": sample.get("buyer"),
                         "items": sample.get("quantity"),
                         "shipment_value": sample.get("shipment_value"),
-                        "shipping_spend": sample.get("shipping_cost_scraped"),
                         "status": sample.get("shipping_status_scraped"),
                         "tracking": sample.get("tracking_number"),
                         "weight_oz": sample.get("weight_oz"),

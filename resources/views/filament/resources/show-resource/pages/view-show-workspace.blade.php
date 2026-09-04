@@ -1,16 +1,17 @@
 <x-filament-panels::page>
 @php
     $show = $this->record;
-    $show->loadMissing(['streamers','channel','fulfillmentUsers','streamerLogEntry','orders','shipments','payouts.batch','latestDeductionRequest.lines.inventoryItem']);
+    $show->loadMissing(['streamers','channel','fulfillmentUsers','streamerLogEntry','shipments','payouts.batch','latestDeductionRequest.lines.inventoryItem']);
     $pnl = $show->profitAndLoss();
     $workflow = app(\App\Services\ShowWorkflowService::class)->stateFor($show);
     $workflowKey = $workflow['key'] ?? 'show';
     $report = $show->streamerLogEntry;
-    $orders = $show->orders;
     $shipments = $show->shipments;
     $payouts = $show->payouts;
-    $importedOrderSales = (float) $orders->sum(fn ($order) => (float) ($order->total_price ?? 0));
-    $analyticsMissing = $show->show_date?->lte(today()) && $orders->isNotEmpty()
+    $deliveredShipments = $shipments->filter(fn ($shipment) => strtolower((string) $shipment->status) === 'delivered')->count();
+    $openShipments = max(0, $shipments->count() - $deliveredShipments);
+    $analyticsMissing = $show->show_date?->lte(today())
+        && ! in_array($show->status, ['cancelled'], true)
         && (float) $show->gross_revenue === 0.0 && (float) $show->whatnot_net === 0.0;
     $reportLabel = match(true) {
         $report?->status === 'changes_requested' => 'Changes requested',
@@ -56,7 +57,7 @@
         </div>
         <div class="vx-kpis">
             <div class="vx-kpi"><label>Gross Sales</label><strong>${{ number_format((float)$pnl['gross'],2) }}</strong></div>
-            <div class="vx-kpi"><label>Orders</label><strong>{{ number_format($orders->sum('quantity') ?: $orders->count()) }}</strong></div>
+            <div class="vx-kpi"><label>Shipments</label><strong>{{ number_format($shipments->count()) }}</strong></div>
             <div class="vx-kpi"><label>Estimated Net Earnings</label><strong>${{ number_format((float)$pnl['net'],2) }}</strong></div>
             <div class="vx-kpi"><label>Payroll</label><strong>${{ number_format((float)$pnl['payouts'],2) }}</strong></div>
             <div class="vx-kpi"><label>Show Net</label><strong class="{{ $pnl['margin'] < 0 ? 'vx-bad' : 'vx-good' }}">${{ number_format((float)$pnl['margin'],2) }}</strong></div>
@@ -82,19 +83,19 @@
             </section>
 
             <section class="vx-card vx-section">
-                <div class="flex items-start justify-between gap-3"><div><h3>Whatnot Orders</h3><div class="vx-sub">Latest imported buyer/order activity for this show.</div></div><span class="vx-chip">{{ $orders->count() }} rows</span></div>
-                @forelse($orders->take(8) as $order)
-                    <div class="vx-row"><div class="min-w-0"><div class="vx-value truncate">{{ $order->item_name ?? 'Order item' }}</div><div class="vx-meta">{{ $order->buyer_username ?? 'Buyer' }} @if($order->lot_number)· Lot {{ $order->lot_number }}@endif</div></div><div class="text-right"><div class="vx-value">{{ number_format((float)($order->quantity ?? 1)) }} ×</div><div class="vx-meta">${{ number_format((float)($order->total_price ?? $order->unit_price ?? 0),2) }}</div></div></div>
-                @empty<div class="vx-empty">No Whatnot order rows imported yet.</div>@endforelse
+                <div class="flex items-start justify-between gap-3"><div><h3>Shipment Summary</h3><div class="vx-sub">Whatnot shipment records tied directly to this show.</div></div><a class="vx-link" href="{{ \App\Filament\Resources\ShipmentResource::getUrl('index',['show'=>$show->id]) }}">View All</a></div>
+                <div class="grid grid-cols-3 gap-2 py-4 text-center"><div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-xl font-bold">{{ $shipments->count() }}</div><div class="text-xs text-gray-500">Shipments</div></div><div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-xl font-bold">{{ $deliveredShipments }}</div><div class="text-xs text-gray-500">Delivered</div></div><div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-800"><div class="text-xl font-bold">{{ $openShipments }}</div><div class="text-xs text-gray-500">Open</div></div></div>
+                @forelse($shipments->sortByDesc('created_at_whatnot')->take(6) as $shipment)
+                    <div class="vx-row"><div class="min-w-0"><div class="vx-value truncate">{{ $shipment->buyer_username ?: 'Shipment' }}</div><div class="vx-meta">{{ $shipment->item_count ?? 0 }} item(s) · {{ ucfirst((string)($shipment->status ?: 'unknown')) }}</div></div><div class="text-right"><div class="vx-value">{{ $shipment->carrier ?: '—' }}</div><div class="vx-meta">{{ $shipment->tracking_number ? \Illuminate\Support\Str::limit($shipment->tracking_number,18) : 'No tracking yet' }}</div></div></div>
+                @empty<div class="vx-empty">No shipment rows imported for this show yet.</div>@endforelse
             </section>
         </div>
 
         <aside class="space-y-3">
             <section class="vx-card vx-section">
-                <h3>Show Financials</h3><div class="vx-sub">Whatnot analytics are kept separate from imported order totals and internal payroll.</div>
+                <h3>Show Financials</h3><div class="vx-sub">Whatnot analytics are kept separate from internal payroll and show costs.</div>
                 @foreach([['Gross Sales · Whatnot',$pnl['gross']],['Estimated Net Earnings · Whatnot',$pnl['net']],['Tips',$pnl['tips']],['COGS',-$pnl['cogs']],['Payroll',-$pnl['payouts']]] as [$label,$value])<div class="vx-fin"><span class="text-gray-500">{{ $label }}</span><strong>${{ number_format((float)$value,2) }}</strong></div>@endforeach
-                @if($orders->isNotEmpty())<div class="vx-fin"><span class="text-gray-500">Imported Order Sales</span><strong>${{ number_format($importedOrderSales,2) }}</strong></div>@endif
-                @if($analyticsMissing)<div class="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">Orders were imported, but Whatnot's Estimated Sales / Total Estimated Earnings were not captured for this show. The order total above is shown for comparison only and does not replace Whatnot analytics.</div>@endif
+                @if($analyticsMissing)<div class="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">This show has happened, but Whatnot's Estimated Sales / Total Estimated Earnings have not been captured yet. The analytics backfill will retry the show's own Whatnot UUID.</div>@endif
                 <div class="vx-fin total"><span>Show Net</span><strong class="{{ $pnl['margin'] < 0 ? 'vx-bad' : 'vx-good' }}">${{ number_format((float)$pnl['margin'],2) }} <small>({{ number_format((float)$pnl['margin_pct'],1) }}%)</small></strong></div>
             </section>
             <section class="vx-card vx-section">

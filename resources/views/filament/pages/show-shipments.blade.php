@@ -66,7 +66,7 @@
                                 <div class="mt-0.5 text-base font-semibold leading-none text-green-600 sm:text-lg">{{ $show->delivered_shipments_count }}</div>
                             </div>
                             <div class="px-2 py-2 text-center sm:py-2.5">
-                                <div class="text-[9px] font-medium uppercase tracking-wide text-gray-400 sm:text-[10px]">Shipping</div>
+                                <div class="text-[9px] font-medium uppercase tracking-wide text-gray-400 sm:text-[10px]">Shipping Spend</div>
                                 <div class="mt-0.5 truncate text-sm font-semibold leading-none text-gray-950 dark:text-white sm:text-lg">${{ number_format((float)($show->shipments_sum_shipping_cost ?? 0), 2) }}</div>
                             </div>
                         </div>

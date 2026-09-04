@@ -54,12 +54,10 @@ class BackfillMissingWhatnotAnalytics extends Command
             ->whereDate('show_date', '<=', today())
             ->whereDate('show_date', '>=', today()->subDays($days))
             ->whereNotNull('detail_url')
+            ->whereNotIn('status', ['cancelled'])
             ->where(function ($q) {
                 $q->whereNull('gross_revenue')->orWhere('gross_revenue', '<=', 0)
                   ->orWhereNull('whatnot_net')->orWhere('whatnot_net', '<=', 0);
-            })
-            ->where(function ($q) {
-                $q->whereHas('orders')->orWhere('units_sold', '>', 0);
             })
             ->orderByDesc('show_date')
             ->orderByDesc('id');
@@ -161,7 +159,7 @@ class BackfillMissingWhatnotAnalytics extends Command
 
     private function extractLiveId(string $url): ?string
     {
-        return preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $url, $m)
+        return preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $url, $m)
             ? strtolower($m[0])
             : null;
     }

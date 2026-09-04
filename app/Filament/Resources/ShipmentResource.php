@@ -21,7 +21,6 @@ class ShipmentResource extends Resource
     protected static ?string $model = Shipment::class;
     protected static string $moduleSlug = 'streams';
 
-    /** The navigation entry is the show-first ShowShipments page. */
     public static function shouldRegisterNavigation(): bool
     {
         return false;
@@ -43,17 +42,10 @@ class ShipmentResource extends Resource
             ->with(['show.channel', 'show.streamers'])
             ->whereHas('show', fn (Builder $query) => $query->inChannelContext());
 
-        // Channel context alone is not ownership: it narrowed this to one
-        // channel and then showed a streamer every other streamer's shipments
-        // in it — buyer usernames, order dates, shipping costs. Same rule as
-        // ShowResource: a streamer sees their own shows and nothing else.
-        // Fulfillment works other people's shipments by design, so it keeps
-        // the channel-wide view.
         $user = auth()->user();
 
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {
             $streamerId = $user->streamer?->id ?? 0;
-
             $query->whereHas('show.streamers', fn (Builder $q) => $q->where('streamers.id', $streamerId));
         }
 
@@ -71,11 +63,18 @@ class ShipmentResource extends Resource
                 TextColumn::make('buyer_username')
                     ->label('Recipient')->searchable()->sortable()->placeholder('—'),
                 TextColumn::make('created_at_whatnot')
-                    ->label('Order Date')->dateTime('M j, Y g:i A')->sortable()->placeholder('—'),
+                    ->label('Order Date')->dateTime('M j, Y')->sortable()->placeholder('—'),
                 TextColumn::make('item_count')
-                    ->label('Items')->numeric()->sortable(),
+                    ->label('Items')
+                    ->numeric()
+                    ->sortable()
+                    ->description(function (Shipment $record): ?string {
+                        $payload = is_array($record->raw_payload) ? $record->raw_payload : [];
+                        $orders = collect($payload['order_ids'] ?? [])->filter()->unique()->count();
+                        return $orders > 1 ? "{$orders} bundled orders" : null;
+                    }),
                 TextColumn::make('shipping_cost')
-                    ->label('Shipping')->money('USD')->sortable()->placeholder('—'),
+                    ->label('Amount')->money('USD')->sortable()->placeholder('—'),
                 TextColumn::make('weight_oz')
                     ->label('Weight')
                     ->formatStateUsing(function ($state): string {
@@ -106,11 +105,16 @@ class ShipmentResource extends Resource
                     ->color(fn ($state) => match (strtolower((string) $state)) {
                         'delivered' => 'success',
                         'in_transit', 'in transit', 'shipped' => 'info',
-                        'pending', 'pending delivery', 'ready to ship', 'label_created', 'label created' => 'warning',
+                        'pending', 'pending delivery', 'ready_to_ship', 'ready to ship', 'label_created', 'label created' => 'warning',
                         'failed', 'returned', 'cancelled', 'canceled' => 'danger',
                         default => 'gray',
                     })->sortable(),
                 TextColumn::make('carrier')->label('Carrier')->searchable()->placeholder('—'),
+                TextColumn::make('shipping_service')
+                    ->label('Service')
+                    ->state(fn (Shipment $record) => data_get($record->raw_payload, 'shipping_service'))
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('tracking_number')
                     ->label('Tracking')->searchable()->copyable()->copyMessage('Tracking number copied')->fontFamily('mono')->placeholder('—'),
                 IconColumn::make('insurance_added')->label('Insured')->boolean()->toggleable(isToggledHiddenByDefault: true),

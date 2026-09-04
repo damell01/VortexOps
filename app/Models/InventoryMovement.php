@@ -24,6 +24,53 @@ class InventoryMovement extends Model
         'unit_cost' => 'decimal:2',
     ];
 
+    protected static function booted(): void
+    {
+        // Receiving one pallet line case-by-case used to write one audit row per
+        // case, so a 12-case receipt appeared as twelve identical +1 entries.
+        // Keep the audit trail but collapse that one business event into a
+        // single movement whose quantity grows as more cases are received.
+        static::creating(function (InventoryMovement $movement): bool {
+            if ($movement->movement_type !== 'opening'
+                || ! str_starts_with((string) $movement->reason, 'Received via pallet #')) {
+                return true;
+            }
+
+            $existing = static::query()
+                ->where('inventory_item_id', $movement->inventory_item_id)
+                ->where('movement_type', 'opening')
+                ->where('reason', $movement->reason)
+                ->where(function ($q) use ($movement) {
+                    $movement->from_location_id === null
+                        ? $q->whereNull('from_location_id')
+                        : $q->where('from_location_id', $movement->from_location_id);
+                })
+                ->where(function ($q) use ($movement) {
+                    $movement->to_location_id === null
+                        ? $q->whereNull('to_location_id')
+                        : $q->where('to_location_id', $movement->to_location_id);
+                })
+                ->where(function ($q) use ($movement) {
+                    $movement->created_by === null
+                        ? $q->whereNull('created_by')
+                        : $q->where('created_by', $movement->created_by);
+                })
+                ->latest('id')
+                ->first();
+
+            if (! $existing) {
+                return true;
+            }
+
+            $existing->quantity = (float) $existing->quantity + (float) $movement->quantity;
+            if ($movement->unit_cost !== null) $existing->unit_cost = $movement->unit_cost;
+            $existing->updated_at = $movement->created_at ?? now();
+            $existing->saveQuietly();
+
+            return false;
+        });
+    }
+
     public function signedChange(): float
     {
         if ($this->quantity_before !== null && $this->quantity_after !== null) {

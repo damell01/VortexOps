@@ -7,6 +7,77 @@ window.addEventListener('beforeunload', (event) => {
     event.stopImmediatePropagation();
 }, { capture: true });
 
+// Keep Whatnot financial terminology consistent across Filament, including
+// server-rendered resource labels and Livewire-rendered report tables. The
+// underlying field remains shows.whatnot_net; this only clarifies what Whatnot
+// actually calls it: Total Estimated Earnings.
+const WHATNOT_FINANCIAL_LABELS = new Map([
+    ['Whatnot Net', 'Estimated Net Earnings'],
+    ['Net Revenue', 'Estimated Net Earnings'],
+]);
+
+function normalizeWhatnotFinancialLabels(root = document.body) {
+    if (! root) return;
+
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const changes = [];
+
+    while (walker.nextNode()) {
+        const node = walker.currentNode;
+        const current = node.nodeValue?.trim();
+        if (! current) continue;
+
+        const replacement = WHATNOT_FINANCIAL_LABELS.get(current);
+        if (replacement) {
+            changes.push([node, replacement]);
+            continue;
+        }
+
+        // Reports / streamer analytics historically shortened this metric to
+        // just "Net". Only rewrite that exact table/card label on those pages;
+        // do not globally replace ordinary uses of the word "net" such as Net
+        // Margin, net_revenue_basis, or unrelated accounting language.
+        if (
+            current === 'Net' &&
+            (/\/admin\/reports(?:\/|$)/.test(location.pathname) ||
+             /\/admin\/streamer-analytics(?:\/|$)/.test(location.pathname))
+        ) {
+            changes.push([node, 'Estimated Net Earnings']);
+        }
+    }
+
+    for (const [node, replacement] of changes) {
+        node.nodeValue = node.nodeValue.replace(node.nodeValue.trim(), replacement);
+    }
+}
+
+function startFinancialTerminologyObserver() {
+    normalizeWhatnotFinancialLabels();
+
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            for (const added of mutation.addedNodes) {
+                if (added.nodeType === Node.TEXT_NODE) {
+                    normalizeWhatnotFinancialLabels(added.parentNode);
+                } else if (added.nodeType === Node.ELEMENT_NODE) {
+                    normalizeWhatnotFinancialLabels(added);
+                }
+            }
+        }
+    });
+
+    observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', startFinancialTerminologyObserver, { once: true });
+} else {
+    startFinancialTerminologyObserver();
+}
+
 // The barcode scanner and its decoding library are 469KB — more than a fifth
 // of everything the panel ships — and were imported here at the top level, so
 // every page paid for them: the dashboard, the payouts table, the settings

@@ -37,7 +37,7 @@ class ViewShow extends ViewRecord
         $shipments = Action::make('shipments')
             ->label(fn () => 'Shipments (' . $this->record->shipments->count() . ')')
             ->icon('heroicon-o-truck')->color('info')
-            ->url(fn () => ShipmentResource::getUrl('index', ['tableFilters[show_id][value]' => $this->record->id]));
+            ->url(fn () => ShipmentResource::getUrl('index', ['show' => $this->record->id]));
 
         return [
             Action::make('show_report')
@@ -56,7 +56,7 @@ class ViewShow extends ViewRecord
 
             ActionGroup::make([
                 Action::make('shipments_admin')->label(fn () => 'Shipments (' . $this->record->shipments->count() . ')')->icon('heroicon-o-truck')
-                    ->url(fn () => ShipmentResource::getUrl('index', ['tableFilters[show_id][value]' => $this->record->id])),
+                    ->url(fn () => ShipmentResource::getUrl('index', ['show' => $this->record->id])),
                 Action::make('edit_show')->label('Edit Show')->icon('heroicon-o-pencil-square')->url(fn () => ShowResource::getUrl('edit', ['record' => $this->record])),
                 Action::make('inventory_breakdown')->label('Inventory Breakdown')->icon('heroicon-o-chart-bar-square')->url(fn () => ShowResource::getUrl('inventory', ['record' => $this->record])),
                 Action::make('review_approval')->label('Review Approval')->icon('heroicon-o-clipboard-document-check')

@@ -3,11 +3,13 @@
 namespace App\Console\Commands;
 
 use App\Models\Show;
+use App\Models\ShowIngestionLog;
 use App\Models\WhatnotChannel;
 use App\Services\WhatnotScraper;
 use App\Services\WhatnotSyncEngine;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class RefreshRecentWhatnotData extends Command
 {
@@ -26,6 +28,7 @@ class RefreshRecentWhatnotData extends Command
         $doOrders = (bool) $this->option('orders');
         $doShipments = (bool) $this->option('shipments');
         $doLedger = (bool) $this->option('ledger');
+
         if (! $doOrders && ! $doShipments && ! $doLedger) {
             $this->error('Choose at least one of --orders, --shipments, or --ledger.');
             return self::FAILURE;
@@ -36,27 +39,52 @@ class RefreshRecentWhatnotData extends Command
         $ledgerDays = max(1, (int) $this->option('ledger-days'));
         $channels = WhatnotChannel::where('include_in_import', true)->where('status', 'active')->orderBy('id')->get();
 
+        $source = $doOrders ? 'whatnot_orders' : ($doShipments ? 'whatnot_shipments' : 'whatnot_ledger');
+        $runId = (string) Str::uuid();
+        $successes = 0;
+        $partials = 0;
+        $failures = 0;
+        $errors = [];
+
         foreach ($channels as $channel) {
-            if ($doOrders) $this->refreshOrders($scraper, $channel, $hours, $limit);
-            if ($doShipments) $this->refreshShipments($engine, $channel, $limit);
-            if ($doLedger) $this->refreshLedger($scraper, $channel, $ledgerDays);
+            $this->line($channel->name . ': ' . ShowIngestionLog::sourceLabels()[$source]);
+
+            if ($doOrders) $result = $this->refreshOrders($scraper, $channel, $hours, $limit, $runId);
+            elseif ($doShipments) $result = $this->refreshShipments($engine, $channel, $limit, $runId);
+            else $result = $this->refreshLedger($scraper, $channel, $ledgerDays, $runId);
+
+            if ($result['status'] === 'success') $successes++;
+            elseif ($result['status'] === 'partial') $partials++;
+            else $failures++;
+
+            if (! empty($result['error'])) $errors[] = $channel->name . ': ' . $result['error'];
         }
 
-        return self::SUCCESS;
+        $globalStatus = $failures === 0 && $partials === 0
+            ? 'success'
+            : (($successes > 0 || $partials > 0) ? 'partial' : 'failed');
+
+        ShowIngestionLog::create([
+            'source' => $source,
+            'status' => $globalStatus,
+            'raw_payload' => [
+                'run_id' => $runId,
+                'channels_total' => $channels->count(),
+                'channels_succeeded' => $successes,
+                'channels_partial' => $partials,
+                'channels_failed' => $failures,
+            ],
+            'error_message' => $errors ? implode("\n", $errors) : null,
+        ]);
+
+        return $globalStatus === 'failed' ? self::FAILURE : self::SUCCESS;
     }
 
-    private function refreshOrders(WhatnotScraper $scraper, WhatnotChannel $channel, int $hours, int $limit): void
+    private function refreshOrders(WhatnotScraper $scraper, WhatnotChannel $channel, int $hours, int $limit, string $runId): array
     {
         $windowStart = now()->subHours($hours);
         $windowEnd = now();
 
-        // Keep the routine refresh tightly scoped to shows that actually fall
-        // inside the requested recent window. The upper bound is important:
-        // malformed/future show dates must never be treated as recent.
-        //
-        // units_sold is only a prioritization hint. It is not guaranteed to
-        // equal the number of order rows, so never use it as proof that an
-        // order import is complete.
         $shows = Show::query()
             ->where('whatnot_channel_id', $channel->id)
             ->whereNotNull('detail_url')
@@ -68,69 +96,98 @@ class RefreshRecentWhatnotData extends Command
             ->limit($limit * 3)
             ->get()
             ->filter(function (Show $show) use ($windowStart) {
-                if ($show->orders_count === 0) {
-                    return true;
-                }
-
-                if ((int) $show->units_sold > 0 && $show->orders_count < (int) $show->units_sold) {
-                    return true;
-                }
-
-                // Recheck already-populated recent shows on a bounded cadence.
-                // This catches late orders and pagination changes without
-                // continuously hammering the same show every 30 minutes.
+                if ($show->orders_count === 0) return true;
+                if ((int) $show->units_sold > 0 && $show->orders_count < (int) $show->units_sold) return true;
                 return $show->last_synced_at === null || $show->last_synced_at->lt($windowStart);
             })
             ->take($limit);
 
+        $checked = 0;
+        $failed = 0;
+        $created = 0;
+        $updated = 0;
+        $errors = [];
+
         foreach ($shows as $show) {
+            $checked++;
             try {
                 $result = $scraper->importShowOrders($show);
                 $show->update(['last_synced_at' => now()]);
-                Log::info('Whatnot recent order refresh complete', [
-                    'channel' => $channel->name,
-                    'show_id' => $show->id,
-                    'created' => $result['created'] ?? 0,
-                    'updated' => $result['updated'] ?? 0,
-                    'skipped' => $result['skipped'] ?? 0,
-                    'orders_in_db' => $show->orders()->count(),
-                    'units_sold_hint' => (int) $show->units_sold,
-                ]);
+                $created += (int) ($result['created'] ?? 0);
+                $updated += (int) ($result['updated'] ?? 0);
             } catch (\Throwable $e) {
-                Log::warning('Whatnot recent order refresh failed', [
-                    'channel' => $channel->name,
-                    'show_id' => $show->id,
-                    'exception' => $e->getMessage(),
-                ]);
+                $failed++;
+                $errors[] = "Show {$show->id}: {$e->getMessage()}";
+                Log::warning('Whatnot recent order refresh failed', ['channel' => $channel->name, 'show_id' => $show->id, 'exception' => $e->getMessage()]);
             }
         }
+
+        $status = $failed === 0 ? 'success' : ($failed < max(1, $checked) ? 'partial' : 'failed');
+        $payload = ['run_id' => $runId, 'shows_checked' => $checked, 'shows_failed' => $failed, 'created' => $created, 'updated' => $updated];
+
+        ShowIngestionLog::create([
+            'whatnot_channel_id' => $channel->id,
+            'source' => 'whatnot_orders',
+            'status' => $status,
+            'raw_payload' => $payload,
+            'error_message' => $errors ? implode("\n", $errors) : null,
+        ]);
+
+        Log::info('Whatnot recent order refresh complete', ['channel' => $channel->name] + $payload);
+        return ['status' => $status, 'error' => $errors ? implode('; ', $errors) : null];
     }
 
-    private function refreshShipments(WhatnotSyncEngine $engine, WhatnotChannel $channel, int $limit): void
+    private function refreshShipments(WhatnotSyncEngine $engine, WhatnotChannel $channel, int $limit, string $runId): array
     {
         try {
             $result = $engine->syncShipmentUpdatesForChannel($channel, $limit);
-            Log::info('Whatnot recent shipment refresh complete', ['channel' => $channel->name] + $result);
-        } catch (\Throwable $e) {
-            Log::warning('Whatnot recent shipment refresh failed', [
-                'channel' => $channel->name,
-                'exception' => $e->getMessage(),
+            $payload = ['run_id' => $runId] + $result;
+            ShowIngestionLog::create([
+                'whatnot_channel_id' => $channel->id,
+                'source' => 'whatnot_shipments',
+                'status' => 'success',
+                'raw_payload' => $payload,
             ]);
+            Log::info('Whatnot recent shipment refresh complete', ['channel' => $channel->name] + $result);
+            return ['status' => 'success', 'error' => null];
+        } catch (\Throwable $e) {
+            ShowIngestionLog::create([
+                'whatnot_channel_id' => $channel->id,
+                'source' => 'whatnot_shipments',
+                'status' => 'failed',
+                'raw_payload' => ['run_id' => $runId],
+                'error_message' => $e->getMessage(),
+            ]);
+            Log::warning('Whatnot recent shipment refresh failed', ['channel' => $channel->name, 'exception' => $e->getMessage()]);
+            return ['status' => 'failed', 'error' => $e->getMessage()];
         }
     }
 
-    private function refreshLedger(WhatnotScraper $scraper, WhatnotChannel $channel, int $days): void
+    private function refreshLedger(WhatnotScraper $scraper, WhatnotChannel $channel, int $days, string $runId): array
     {
         try {
             $to = now()->toDateString();
             $from = now()->subDays($days)->toDateString();
             $result = $scraper->importLedger($channel, $from, $to, false);
-            Log::info('Whatnot rolling ledger refresh complete', ['channel' => $channel->name] + $result);
-        } catch (\Throwable $e) {
-            Log::warning('Whatnot rolling ledger refresh failed', [
-                'channel' => $channel->name,
-                'exception' => $e->getMessage(),
+            $payload = ['run_id' => $runId, 'from' => $from, 'to' => $to] + $result;
+            ShowIngestionLog::create([
+                'whatnot_channel_id' => $channel->id,
+                'source' => 'whatnot_ledger',
+                'status' => 'success',
+                'raw_payload' => $payload,
             ]);
+            Log::info('Whatnot rolling ledger refresh complete', ['channel' => $channel->name] + $result);
+            return ['status' => 'success', 'error' => null];
+        } catch (\Throwable $e) {
+            ShowIngestionLog::create([
+                'whatnot_channel_id' => $channel->id,
+                'source' => 'whatnot_ledger',
+                'status' => 'failed',
+                'raw_payload' => ['run_id' => $runId],
+                'error_message' => $e->getMessage(),
+            ]);
+            Log::warning('Whatnot rolling ledger refresh failed', ['channel' => $channel->name, 'exception' => $e->getMessage()]);
+            return ['status' => 'failed', 'error' => $e->getMessage()];
         }
     }
 }

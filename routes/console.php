@@ -41,6 +41,17 @@ Schedule::job(new ProcessWhatnotChannelsJob())
     ->name('whatnot-hourly-show-analytics-pull')
     ->withoutOverlapping(55);
 
+// The current Whatnot analytics page can expose the selected livestream without
+// rendering its older-show navigation control. Seed missing recent shows by their
+// own immutable Whatnot UUID so Gross / Estimated Net cannot stay blank just
+// because the multi-show walk stopped after the newest show.
+Schedule::command('whatnot:backfill-missing-analytics --days=14 --limit=8 --skip-if-busy')
+    ->appendOutputTo($whatnotLog)
+    ->skip($whatnotPaused)
+    ->hourlyAt(15)
+    ->name('whatnot-missing-show-analytics-backfill')
+    ->withoutOverlapping(20);
+
 // Scheduled refresh commands use --skip-if-busy. The pipeline coordinator holds
 // one coarse lock across ALL channels, preventing shows/orders/shipments/ledger
 // from interleaving and fighting over the same Scrapling browser profile.

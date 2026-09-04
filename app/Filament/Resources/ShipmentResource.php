@@ -21,11 +21,7 @@ class ShipmentResource extends Resource
     protected static ?string $model = Shipment::class;
     protected static string $moduleSlug = 'streams';
 
-    public static function shouldRegisterNavigation(): bool
-    {
-        return false;
-    }
-
+    public static function shouldRegisterNavigation(): bool { return false; }
     public static function canCreate(): bool { return false; }
     public static function canEdit($record): bool { return false; }
     public static function canDelete($record): bool { return false; }
@@ -43,7 +39,6 @@ class ShipmentResource extends Resource
             ->whereHas('show', fn (Builder $query) => $query->inChannelContext());
 
         $user = auth()->user();
-
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {
             $streamerId = $user->streamer?->id ?? 0;
             $query->whereHas('show.streamers', fn (Builder $q) => $q->where('streamers.id', $streamerId));
@@ -69,12 +64,19 @@ class ShipmentResource extends Resource
                     ->numeric()
                     ->sortable()
                     ->description(function (Shipment $record): ?string {
-                        $payload = is_array($record->raw_payload) ? $record->raw_payload : [];
-                        $orders = collect($payload['order_ids'] ?? [])->filter()->unique()->count();
+                        $orders = count($record->bundledOrderIds());
                         return $orders > 1 ? "{$orders} bundled orders" : null;
                     }),
+                TextColumn::make('shipment_value')
+                    ->label('Value')
+                    ->state(fn (Shipment $record) => data_get($record->raw_payload, 'shipment_value') ?? data_get($record->raw_payload, 'total_price'))
+                    ->money('USD')
+                    ->placeholder('—'),
                 TextColumn::make('shipping_cost')
-                    ->label('Amount')->money('USD')->sortable()->placeholder('—'),
+                    ->label('Shipping')
+                    ->money('USD')
+                    ->sortable()
+                    ->placeholder('—'),
                 TextColumn::make('weight_oz')
                     ->label('Weight')
                     ->formatStateUsing(function ($state): string {

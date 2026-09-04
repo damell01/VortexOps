@@ -118,10 +118,14 @@ class StreamsOverview extends Page
         $shows = (clone $base)->count();
         $grossRevenue = (float) (clone $base)->sum('gross_revenue');
         $netRevenue = (float) (clone $base)->sum('whatnot_net');
-        $orders = (int) (clone $base)->withCount('orders')->get()->sum('orders_count');
-        $shipments = (int) (clone $base)->withCount('shipments')->get()->sum('shipments_count');
+        $shipmentRows = (clone $base)->withCount([
+            'shipments',
+            'shipments as delivered_shipments_count' => fn ($q) => $q->whereRaw("LOWER(COALESCE(status, '')) = 'delivered'"),
+        ])->get();
+        $shipments = (int) $shipmentRows->sum('shipments_count');
+        $delivered = (int) $shipmentRows->sum('delivered_shipments_count');
         $needsSubmission = (clone $base)->whereDate('show_date', '<=', today())->whereDoesntHave('streamerLogEntry')->whereNotIn('status', ['closed','cancelled'])->count();
-        return compact('shows','grossRevenue','netRevenue','orders','shipments','needsSubmission');
+        return compact('shows','grossRevenue','netRevenue','shipments','delivered','needsSubmission');
     }
 
     #[Computed]
@@ -133,7 +137,13 @@ class StreamsOverview extends Page
     #[Computed]
     public function recentShows(): Collection
     {
-        return $this->periodQuery()->whereDate('show_date','<=',today())->with(['streamers','streamerLogEntry'])->withCount(['orders','shipments'])->withCount(['shipments as open_shipments_count'=>fn($q)=>$q->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'")])->orderByDesc('show_date')->orderByDesc('start_time')->limit(12)->get();
+        return $this->periodQuery()->whereDate('show_date','<=',today())->with(['streamers','streamerLogEntry'])
+            ->withCount([
+                'shipments',
+                'shipments as delivered_shipments_count' => fn ($q) => $q->whereRaw("LOWER(COALESCE(status, '')) = 'delivered'"),
+                'shipments as open_shipments_count' => fn($q) => $q->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'"),
+            ])
+            ->orderByDesc('show_date')->orderByDesc('start_time')->limit(12)->get();
     }
 
     #[Computed]

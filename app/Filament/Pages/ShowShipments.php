@@ -59,8 +59,6 @@ class ShowShipments extends Page
 
     public static function canAccess(): bool
     {
-        // An explicit grant on Roles & Permissions is the answer; the rules
-        // below are the fallback for roles that have no explicit list.
         if (\App\Support\RoleAccess::grants(static::class)) {
             return true;
         }
@@ -85,7 +83,7 @@ class ShowShipments extends Page
                 'shipments as delivered_shipments_count' => fn ($q) => $q
                     ->whereRaw("LOWER(COALESCE(status, '')) = 'delivered'"),
             ])
-            ->withSum('shipments', 'shipping_cost');
+            ->withSum('shipments', 'item_count');
 
         if ($user?->isStreamer() && ! $user?->isAdmin()) {
             $streamerId = $user->streamer?->id ?? 0;

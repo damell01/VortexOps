@@ -99,53 +99,40 @@ def find_show_actions(page, live_id: str) -> dict[str, Any] | None:
 
 
 def expand_rows(page) -> int:
-    clicked = 0
-    for selector in [
-        'button[aria-label="Expand All"]',
-        'button[aria-label="Expand all"]',
-        'button:has-text("Expand All")',
-        'button:has-text("Expand all")',
-    ]:
-        try:
-            button = page.locator(selector).first
-            if button.is_visible(timeout=300):
-                button.click(timeout=2000)
-                page.wait_for_timeout(350)
-                return 1
-        except Exception:
-            pass
-
-    # Current Seller Hub renders an Expand button in each shipment row.
+    """Expand current Seller Hub shipment bundles so order/item details exist in DOM."""
     try:
-        buttons = page.get_by_role("button", name=re.compile(r"^Expand$", re.I))
-        count = min(buttons.count(), 100)
-        for i in range(count):
-            try:
-                button = buttons.nth(i)
-                if button.is_visible(timeout=150):
-                    button.click(timeout=1200)
-                    clicked += 1
-            except Exception:
-                continue
+        clicked = page.evaluate(r"""
+        () => {
+          let clicked = 0;
+          const controls = [...document.querySelectorAll('button, [role="button"]')]
+            .filter(el => (el.textContent || '').trim().toLowerCase() === 'expand');
+          for (const el of controls) {
+            if (el.disabled || el.getAttribute('aria-disabled') === 'true') continue;
+            try { el.click(); clicked++; } catch (_) {}
+          }
+          return clicked;
+        }
+        """) or 0
         if clicked:
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(700)
+        return int(clicked)
     except Exception:
-        pass
-    return clicked
+        return 0
 
 
 def extract_shipments(page) -> list[dict[str, Any]]:
     return page.evaluate(r"""
     () => {
+      const clean = value => String(value || '').replace(/\s+/g, ' ').trim();
       const money = value => {
-        const m = String(value || '').match(/-?\$?\s*([\d,]+(?:\.\d+)?)/);
+        const m = String(value || '').match(/-?\$\s*([\d,]+(?:\.\d+)?)/);
         if (!m) return null;
-        const n = parseFloat(m[0].replace(/[^0-9.-]/g, ''));
+        const n = parseFloat(m[1].replace(/,/g, ''));
         return Number.isFinite(n) ? n : null;
       };
-      const number = value => {
-        const n = parseInt(String(value || '').replace(/[^0-9]/g, ''), 10);
-        return Number.isFinite(n) ? n : null;
+      const integer = value => {
+        const m = clean(value).match(/^\d{1,5}$/);
+        return m ? parseInt(m[0], 10) : null;
       };
       const weightOz = value => {
         const text = String(value || '');
@@ -155,15 +142,16 @@ def extract_shipments(page) -> list[dict[str, Any]]:
         return (lb ? parseFloat(lb[1]) * 16 : 0) + (oz ? parseFloat(oz[1]) : 0);
       };
       const statusOf = text => {
-        if (/delivered/i.test(text)) return 'delivered';
-        if (/returned/i.test(text)) return 'returned';
-        if (/in\s*transit/i.test(text)) return 'in_transit';
-        if (/shipping|shipped/i.test(text)) return 'shipped';
-        if (/label\s*created/i.test(text)) return 'label_created';
-        if (/ready\s*to\s*ship/i.test(text)) return 'ready_to_ship';
-        if (/packed/i.test(text)) return 'packed';
+        if (/\bdelivered\b/i.test(text)) return 'delivered';
+        if (/\breturned\b/i.test(text)) return 'returned';
+        if (/\bin\s*transit\b/i.test(text)) return 'in_transit';
+        if (/\bshipping\b|\bshipped\b/i.test(text)) return 'shipped';
+        if (/\blabel\s*created\b/i.test(text)) return 'label_created';
+        if (/\bready\s*to\s*ship\b/i.test(text)) return 'ready_to_ship';
+        if (/\bpacked\b/i.test(text)) return 'packed';
         return null;
       };
+      const dateCellIndex = cells => cells.findIndex(td => /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},\s+20\d{2}\b/i.test(clean(td.innerText)));
       const shipmentRows = [...document.querySelectorAll('tr[data-testid^="shipments-"][data-testid$="-row"]')];
       const rows = shipmentRows.length ? shipmentRows : [...document.querySelectorAll('[data-testid="shipments-table-body"] tr')];
       const unique = rows.filter((row, index, all) => all.indexOf(row) === index);
@@ -172,73 +160,124 @@ def extract_shipments(page) -> list[dict[str, Any]]:
       for (const tr of unique) {
         const cells = [...tr.querySelectorAll(':scope > td')];
         const main = tr.innerText || '';
-        let detail = '';
-        let next = tr.nextElementSibling;
-        if (next && next.tagName === 'TR' && !/^shipments-.*-row$/.test(next.getAttribute('data-testid') || '')) {
-          detail = next.innerText || '';
-        }
-        const text = `${main}\n${detail}`;
-        const normalized = main.replace(/\s+/g, ' ').trim();
+        const normalized = clean(main);
         const testid = tr.getAttribute('data-testid') || '';
         const shipmentNode = (testid.match(/^shipments-(.+)-row$/) || [])[1] || null;
 
-        // Seller Hub renders a table-body placeholder row when a filtered show
-        // has no shipments. It is not shipment data and must never become a
-        // fake buyer/order. Real current shipment rows have a shipments-*-row
-        // test id; the fallback is kept only for layout changes and must still
-        // look like an actual shipment before we accept it.
         if (/no results to show|clear all filters/i.test(normalized)) continue;
         if (!shipmentNode && cells.length < 4) continue;
-        if (!shipmentNode && !statusOf(text) && !weightOz(text) && !/\b(?:USPS|UPS|FedEx|DHL)\b/i.test(text)) continue;
 
-        const orderText = text.match(/Order\s*#\s*(\d+)/i);
-        const orderHref = [...tr.querySelectorAll('a[href]')]
-          .map(a => a.getAttribute('href') || '')
-          .find(href => /\/dashboard\/orders\//.test(href));
-        const hrefOrder = orderHref && orderHref.match(/\/dashboard\/orders\/(\d+)(?:[/?#]|$)/);
-        const orderId = orderText ? orderText[1] : (hrefOrder ? hrefOrder[1] : null);
+        // Gather every expanded detail row until the next shipment header row.
+        const detailRoots = [];
+        let next = tr.nextElementSibling;
+        while (next && next.tagName === 'TR' && !/^shipments-.*-row$/.test(next.getAttribute('data-testid') || '')) {
+          detailRoots.push(next);
+          next = next.nextElementSibling;
+        }
+        const detailText = detailRoots.map(row => row.innerText || '').join('\n');
+        const text = `${main}\n${detailText}`;
 
-        const buyerCell = cells[0]?.innerText || '';
-        const buyer = buyerCell.replace(/\b(New|Expand|Collapse)\b/gi, ' ').replace(/\s+/g, ' ').trim() || null;
-        const qty = number(cells[2]?.innerText || '');
-        const value = money(cells[3]?.innerText || '');
-        const weight = weightOz(cells[4]?.innerText || text);
-        const dimsText = cells[5]?.innerText || text;
+        // Recipient has a stable inbox link and is much safer than a cell index.
+        const buyerLink = tr.querySelector('a[href*="/dashboard/inbox"]');
+        const buyer = clean(buyerLink?.textContent) || null;
+
+        // Current table layout: recipient | expand | date | items | amount | weight |
+        // dimensions | ... | status | logo | service/tracking | actions. Find the
+        // date first so future inserted columns do not turn Sep 3, 2026 into 32,026 items.
+        const dateIndex = dateCellIndex(cells);
+        const orderDate = dateIndex >= 0 ? clean(cells[dateIndex]?.innerText) : null;
+        const qty = dateIndex >= 0 ? integer(cells[dateIndex + 1]?.innerText) : null;
+        const value = dateIndex >= 0 ? money(cells[dateIndex + 2]?.innerText) : null;
+
+        const weightCell = cells.find(td => /\b(?:\d+(?:\.\d+)?\s*lb|\d+(?:\.\d+)?\s*oz)\b/i.test(clean(td.innerText)));
+        const weight = weightOz(weightCell?.innerText || '');
+        const dimsCell = cells.find(td => /\d+(?:\.\d+)?\s*[×x]\s*\d+(?:\.\d+)?\s*[×x]\s*\d+(?:\.\d+)?\s*in\b/i.test(clean(td.innerText)));
+        const dimsText = clean(dimsCell?.innerText || '');
         const dims = dimsText.match(/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*in\b/i);
-        const carrierText = cells[8]?.innerText || text;
-        const carrier = carrierText.match(/\b(USPS|UPS|FedEx|DHL)\b/i);
-        const statusText = cells[7]?.innerText || text;
+        const status = statusOf(main);
 
+        const allLinks = [tr, ...detailRoots].flatMap(root => [...root.querySelectorAll('a[href]')]);
+        const trackingLink = allLinks.find(a => /tools\.usps\.com|track|tracking/i.test(a.getAttribute('href') || ''));
         let tracking = null;
-        const trackingLink = [...tr.querySelectorAll('a[href]')].find(a => /track|tracking/i.test(a.getAttribute('href') || ''));
         if (trackingLink) {
           const href = trackingLink.getAttribute('href') || '';
-          const candidates = href.match(/[A-Z0-9]{10,34}/ig) || [];
-          tracking = candidates.sort((a,b) => b.length - a.length)[0] || null;
+          try {
+            const url = new URL(href, location.origin);
+            tracking = url.searchParams.get('tLabels') || url.searchParams.get('trackingNumber') || null;
+          } catch (_) {}
+          if (!tracking) {
+            const candidates = href.match(/[A-Z0-9]{10,34}/ig) || [];
+            tracking = candidates.sort((a,b) => b.length - a.length)[0] || null;
+          }
         }
-        if (!tracking) {
-          const visible = (cells[8]?.innerText || text).match(/\b([A-Z0-9]{10,34})\b/i);
-          if (visible && !visible[1].includes('...')) tracking = visible[1];
+
+        const carrierMatch = text.match(/\b(USPS|UPS|FedEx|DHL)\b/i);
+        const carrier = carrierMatch ? carrierMatch[1].toUpperCase() : null;
+        const serviceCell = cells.find(td => /\b(?:USPS|UPS|FedEx|DHL)\b/i.test(clean(td.innerText)) || td.querySelector('a[href*="TrackConfirmAction"], a[href*="tracking"]'));
+        let service = clean(serviceCell?.innerText || '');
+        if (tracking) service = clean(service.replace(tracking, '').replace(/\d+\.\.\.\d+/g, ''));
+
+        const shipmentEditLink = allLinks.find(a => /\/dashboard\/shipments\/.+\/edit(?:\?|$)/.test(a.getAttribute('href') || ''));
+        const shipmentUrl = shipmentEditLink ? shipmentEditLink.getAttribute('href') : null;
+
+        // Expanded bundles expose every actual order. Capture all numeric Order # IDs
+        // plus useful child item data so PHP can reconcile one shipment to many orders.
+        const bundledItems = [];
+        const orderIds = [];
+        for (const root of detailRoots) {
+          const orderLinks = [...root.querySelectorAll('a[href*="/dashboard/orders/"]')];
+          for (const link of orderLinks) {
+            const row = link.closest('tr') || link.parentElement || root;
+            const rowText = clean(row?.innerText || link.parentElement?.innerText || '');
+            const orderMatch = rowText.match(/Order\s*#\s*(\d+)/i);
+            if (!orderMatch) continue;
+            const orderId = orderMatch[1];
+            if (!orderIds.includes(orderId)) orderIds.push(orderId);
+            const title = clean((rowText.split(/Order\s*#\s*\d+/i)[0] || '').replace(/^Items?\s*\(Bundled\)\s*/i, '')) || null;
+            const rowCells = row && row.tagName === 'TR' ? [...row.querySelectorAll(':scope > td')] : [];
+            const childQtyCell = rowCells.find(td => /^\d{1,4}$/.test(clean(td.innerText)));
+            const childMoney = rowCells.map(td => money(td.innerText)).filter(v => v !== null);
+            const childWeightCell = rowCells.find(td => /\b\d+(?:\.\d+)?\s*oz\b|\b\d+(?:\.\d+)?\s*lb\b/i.test(clean(td.innerText)));
+            bundledItems.push({
+              order_id: orderId,
+              order_url: link.getAttribute('href') || null,
+              item_name: title,
+              quantity: childQtyCell ? integer(childQtyCell.innerText) : 1,
+              item_price: childMoney.length ? childMoney[0] : null,
+              weight_oz: weightOz(childWeightCell?.innerText || ''),
+            });
+          }
+        }
+
+        // Fallback when expanded detail is represented in the same row subtree.
+        if (!orderIds.length) {
+          for (const match of text.matchAll(/Order\s*#\s*(\d+)/ig)) {
+            if (!orderIds.includes(match[1])) orderIds.push(match[1]);
+          }
         }
 
         out.push({
-          order_id: orderId,
+          order_id: orderIds[0] || null,
+          order_ids: orderIds,
           whatnot_shipment_id: shipmentNode,
+          shipment_url: shipmentUrl,
           buyer,
-          item_name: null,
+          item_name: bundledItems.length === 1 ? bundledItems[0].item_name : null,
+          bundled_items: bundledItems,
           lot_number: null,
-          quantity: qty || 1,
+          quantity: qty || (bundledItems.reduce((sum, item) => sum + (item.quantity || 0), 0) || 1),
           unit_price: null,
           total_price: value,
+          ordered_at: orderDate,
           status: 'completed',
-          raw_text: text.replace(/\s+/g, ' ').trim().substring(0, 1200),
+          raw_text: clean(text).substring(0, 5000),
           weight_oz: weight,
           box_length_in: dims ? parseFloat(dims[1]) : null,
           box_width_in: dims ? parseFloat(dims[2]) : null,
           box_height_in: dims ? parseFloat(dims[3]) : null,
-          shipping_carrier: carrier ? carrier[1].toUpperCase() : null,
-          shipping_service: carrierText.replace(/\s+/g, ' ').trim() || null,
-          shipping_status_scraped: statusOf(statusText),
+          shipping_carrier: carrier,
+          shipping_service: service || null,
+          shipping_status_scraped: status,
           tracking_number: tracking,
         });
       }
@@ -393,7 +432,9 @@ def main() -> None:
                         "show_key": show_key,
                         "shipment_id": sample.get("whatnot_shipment_id"),
                         "order_id": sample.get("order_id"),
+                        "order_ids": sample.get("order_ids"),
                         "buyer": sample.get("buyer"),
+                        "items": sample.get("quantity"),
                         "status": sample.get("shipping_status_scraped"),
                         "tracking": sample.get("tracking_number"),
                         "weight_oz": sample.get("weight_oz"),

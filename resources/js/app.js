@@ -1,3 +1,12 @@
+// Some Filament/Livewire pages attach beforeunload guards after interactive
+// actions. In VortexOps those guards were sticking around after the action had
+// already completed, so ordinary navigation could trigger Chrome's misleading
+// "Changes you made may not be saved" dialog. VortexOps saves operational
+// actions immediately; do not block normal navigation with a stale page guard.
+window.addEventListener('beforeunload', (event) => {
+    event.stopImmediatePropagation();
+}, { capture: true });
+
 // The barcode scanner and its decoding library are 469KB — more than a fifth
 // of everything the panel ships — and were imported here at the top level, so
 // every page paid for them: the dashboard, the payouts table, the settings
@@ -23,8 +32,6 @@ window.ensureBarcodeScanner = function () {
 
             return window.barcodeScanner;
         }).catch((e) => {
-            // Cleared so a failed download — a dropped connection mid-scan —
-            // can be retried rather than poisoning every later attempt.
             scannerPromise = null;
             console.warn('[app.js] barcode scanner failed to load:', e.message);
 

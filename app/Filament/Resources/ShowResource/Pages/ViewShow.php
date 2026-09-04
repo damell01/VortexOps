@@ -5,7 +5,6 @@ namespace App\Filament\Resources\ShowResource\Pages;
 use App\Filament\Resources\DeductionRequestResource;
 use App\Filament\Resources\ShipmentResource;
 use App\Filament\Resources\ShowResource;
-use App\Services\WhatnotScraper;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Notifications\Notification;
@@ -21,7 +20,7 @@ class ViewShow extends ViewRecord
         return \App\Models\Show::with([
             'streamers', 'channel', 'fulfillmentUsers',
             'latestDeductionRequest.lines.inventoryItem',
-            'streamerLogEntry.streamer', 'orders', 'shipments', 'payouts.batch',
+            'streamerLogEntry.streamer', 'shipments', 'payouts.batch',
         ])->findOrFail($key);
     }
 
@@ -74,22 +73,6 @@ class ViewShow extends ViewRecord
                         }
                         $notice->send();
                         $this->record->load('streamers');
-                    }),
-                Action::make('import_items_sold')->label(fn () => $this->record->orders->count() > 0 ? 'Items Sold (' . $this->record->orders->count() . ')' : 'Import Items Sold')->icon('heroicon-o-shopping-cart')
-                    ->visible(fn (): bool => (bool) $this->record->detail_url
-                        && ! $this->record->show_date?->isAfter(today())
-                        && \App\Services\FeatureFlagService::enabled('whatnot_import'))
-                    ->requiresConfirmation()->action(function (): void {
-                        try {
-                            if ($this->record->show_date?->isAfter(today())) {
-                                throw new \RuntimeException('Orders cannot be imported for a future scheduled show.');
-                            }
-                            $result = app(WhatnotScraper::class)->importShowOrders($this->record);
-                            Notification::make()->title('Import complete')->body("{$result['created']} new item(s) imported.")->success()->send();
-                            $this->record->load('orders');
-                        } catch (\RuntimeException|\LogicException $exception) {
-                            Notification::make()->title('Import failed')->body($exception->getMessage())->danger()->send();
-                        }
                     }),
                 Action::make('export_pdf')->label('Export P&L PDF')->icon('heroicon-o-document-arrow-down')->url(fn () => route('export.show-pl-pdf', ['show' => $this->record->id]))->openUrlInNewTab(),
                 Action::make('close_show')->label('Close Show')->icon('heroicon-o-lock-closed')->visible(fn (): bool => $this->record->status === 'reconciled')->requiresConfirmation()->action(fn () => $this->record->update(['status' => 'closed'])),

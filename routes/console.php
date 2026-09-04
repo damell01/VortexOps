@@ -3,6 +3,7 @@
 use App\Jobs\ProcessWhatnotChannelsJob;
 use App\Jobs\WorkerHeartbeat;
 use App\Models\Setting;
+use App\Models\ShowIngestionLog;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -35,18 +36,12 @@ Schedule::command('activitylog:clean')
 $whatnotPaused = fn () => ! config('vortex.whatnot.schedule_enabled', true);
 $whatnotLog = storage_path('logs/whatnot-scheduler.log');
 
-// Critical path: keep show discovery and analytics fresh for every channel.
-// Orders/shipments/ledger are deliberately NOT part of this job, so a slow
-// fulfillment page cannot prevent another channel from receiving its hourly pull.
 Schedule::job(new ProcessWhatnotChannelsJob())
     ->skip($whatnotPaused)
     ->hourlyAt(5)
     ->name('whatnot-hourly-show-analytics-pull')
     ->withoutOverlapping(55);
 
-// Recent order reconciliation. Detail enrichment is disabled by the runner for
-// routine batches; only recent shows whose imported order count appears short are
-// revisited. Offset from the hourly pull to reduce browser-lock contention.
 Schedule::command('whatnot:refresh-recent --orders --hours=48 --limit=8')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
@@ -54,8 +49,6 @@ Schedule::command('whatnot:refresh-recent --orders --hours=48 --limit=8')
     ->name('whatnot-recent-orders-refresh')
     ->withoutOverlapping(25);
 
-// Shipment state changes independently of show analytics. Check unresolved
-// shipments on a separate cadence and stop revisiting delivered/returned orders.
 Schedule::command('whatnot:refresh-recent --shipments --limit=8')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
@@ -63,8 +56,6 @@ Schedule::command('whatnot:refresh-recent --shipments --limit=8')
     ->name('whatnot-unresolved-shipments-refresh')
     ->withoutOverlapping(25);
 
-// Rolling ledger reconciliation is useful but not latency-sensitive. Keeping it
-// out of the hourly show pull makes the normal channel cycle predictable.
 Schedule::command('whatnot:refresh-recent --ledger --ledger-days=30')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
@@ -79,22 +70,49 @@ Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->name('whatnot-show-alias-cleanup')
     ->withoutOverlapping(10);
 
-// Nightly reconciliation catches gaps without putting historical work on the
-// hourly critical path. This intentionally uses the existing idempotent sync.
 Schedule::command('whatnot:sync --type=last_30_days')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->dailyAt('00:30')
     ->name('whatnot-nightly-30-day-reconciliation')
-    ->withoutOverlapping(240);
+    ->withoutOverlapping(240)
+    ->onSuccess(function (): void {
+        ShowIngestionLog::create([
+            'source' => 'whatnot_nightly_reconciliation',
+            'status' => 'success',
+            'raw_payload' => ['schedule' => 'daily 00:30'],
+        ]);
+    })
+    ->onFailure(function (): void {
+        ShowIngestionLog::create([
+            'source' => 'whatnot_nightly_reconciliation',
+            'status' => 'failed',
+            'raw_payload' => ['schedule' => 'daily 00:30'],
+            'error_message' => 'Nightly 30-day reconciliation command exited unsuccessfully. Check whatnot-scheduler.log for command output.',
+        ]);
+    });
 
-// Deep historical ledger backfill remains weekly and isolated.
 Schedule::command('whatnot:import-ledger --days=1825')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->cron('0 1 * * 0')
     ->name('whatnot-ledger-backfill-annual')
-    ->withoutOverlapping(480);
+    ->withoutOverlapping(480)
+    ->onSuccess(function (): void {
+        ShowIngestionLog::create([
+            'source' => 'whatnot_deep_backfill',
+            'status' => 'success',
+            'raw_payload' => ['schedule' => 'Sunday 01:00', 'days' => 1825],
+        ]);
+    })
+    ->onFailure(function (): void {
+        ShowIngestionLog::create([
+            'source' => 'whatnot_deep_backfill',
+            'status' => 'failed',
+            'raw_payload' => ['schedule' => 'Sunday 01:00', 'days' => 1825],
+            'error_message' => 'Deep historical ledger backfill exited unsuccessfully. Check whatnot-scheduler.log for command output.',
+        ]);
+    });
 
 Schedule::command('ai:ops operations')
     ->cron('25 */6 * * *')

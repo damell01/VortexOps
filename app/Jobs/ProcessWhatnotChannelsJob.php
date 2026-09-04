@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\ShowIngestionLog;
 use App\Models\WhatnotChannel;
 use App\Services\WhatnotScraper;
 use App\Support\WhatnotBrowserLock;
@@ -12,15 +13,8 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
-/**
- * Fast hourly Whatnot show/analytics pull.
- *
- * Keep the critical path intentionally small: each enabled channel gets a show
- * and analytics refresh, then we immediately move to the next channel. Orders,
- * shipments, ledger and historical reconciliation run on separate schedules so
- * a slow fulfillment page can never block fresh show data for another channel.
- */
 class ProcessWhatnotChannelsJob implements ShouldQueue, ShouldBeUnique
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
@@ -50,6 +44,7 @@ class ProcessWhatnotChannelsJob implements ShouldQueue, ShouldBeUnique
 
     public function handle(WhatnotScraper $scraper): void
     {
+        $runId = (string) Str::uuid();
         $recovery = WhatnotBrowserLock::recoverIfStale();
         if ($recovery['recovered']) {
             Log::warning('ProcessWhatnotChannelsJob: recovered stale Whatnot browser state', [
@@ -66,13 +61,24 @@ class ProcessWhatnotChannelsJob implements ShouldQueue, ShouldBeUnique
             ->get();
 
         if ($channels->isEmpty()) {
+            ShowIngestionLog::create([
+                'source' => 'whatnot_show_analytics',
+                'status' => 'failed',
+                'raw_payload' => ['run_id' => $runId, 'channels' => 0],
+                'error_message' => 'No enabled active Whatnot channels found.',
+            ]);
             Log::warning('ProcessWhatnotChannelsJob: no enabled active Whatnot channels found');
             return;
         }
 
         $count = $channels->count();
+        $successes = 0;
+        $failures = 0;
+        $errors = [];
+
         Log::info('ProcessWhatnotChannelsJob: starting hourly show/analytics pull', [
             'channels' => $channels->pluck('whatnot_username')->values()->all(),
+            'run_id' => $runId,
         ]);
 
         foreach ($channels as $position => $channel) {
@@ -88,15 +94,38 @@ class ProcessWhatnotChannelsJob implements ShouldQueue, ShouldBeUnique
                     withOrders: false,
                 );
 
-                Log::info("Whatnot hourly pull [{$number}/{$count}]: finished {$channel->name}", [
+                $payload = [
+                    'run_id' => $runId,
                     'created' => $result['created'] ?? 0,
                     'updated' => $result['updated'] ?? 0,
                     'skipped' => $result['skipped'] ?? 0,
                     'elapsed_seconds' => (int) round(microtime(true) - $startedAt),
+                ];
+
+                ShowIngestionLog::create([
+                    'whatnot_channel_id' => $channel->id,
+                    'source' => 'whatnot_show_analytics',
+                    'status' => 'success',
+                    'raw_payload' => $payload,
                 ]);
+
+                $successes++;
+                Log::info("Whatnot hourly pull [{$number}/{$count}]: finished {$channel->name}", $payload);
             } catch (\Throwable $e) {
-                // A bad channel must not prevent the remaining channels from
-                // receiving their hourly show/analytics refresh.
+                $failures++;
+                $errors[] = $channel->name . ': ' . $e->getMessage();
+
+                ShowIngestionLog::create([
+                    'whatnot_channel_id' => $channel->id,
+                    'source' => 'whatnot_show_analytics',
+                    'status' => 'failed',
+                    'raw_payload' => [
+                        'run_id' => $runId,
+                        'elapsed_seconds' => (int) round(microtime(true) - $startedAt),
+                    ],
+                    'error_message' => $e->getMessage(),
+                ]);
+
                 Log::error("Whatnot hourly pull [{$number}/{$count}]: {$channel->name} failed", [
                     'exception' => $e->getMessage(),
                 ]);
@@ -104,6 +133,25 @@ class ProcessWhatnotChannelsJob implements ShouldQueue, ShouldBeUnique
             }
         }
 
-        Log::info('ProcessWhatnotChannelsJob: hourly show/analytics pull complete');
+        $status = $failures === 0 ? 'success' : ($successes > 0 ? 'partial' : 'failed');
+
+        ShowIngestionLog::create([
+            'source' => 'whatnot_show_analytics',
+            'status' => $status,
+            'raw_payload' => [
+                'run_id' => $runId,
+                'channels_total' => $count,
+                'channels_succeeded' => $successes,
+                'channels_failed' => $failures,
+            ],
+            'error_message' => $errors ? implode("\n", $errors) : null,
+        ]);
+
+        Log::info('ProcessWhatnotChannelsJob: hourly show/analytics pull complete', [
+            'run_id' => $runId,
+            'status' => $status,
+            'channels_succeeded' => $successes,
+            'channels_failed' => $failures,
+        ]);
     }
 }

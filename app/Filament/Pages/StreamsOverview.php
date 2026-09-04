@@ -72,7 +72,10 @@ class StreamsOverview extends Page
         $from = now()->subDays(30)->toDateString();
         $to = today()->toDateString();
 
-        $total30 = (clone $base)->whereDate('show_date', '>=', $from)->count();
+        // "30 days" is historical activity, not historical + every scheduled
+        // future show. Keep the upcoming count separate so the KPI meanings are
+        // stable and a large schedule cannot inflate recent show volume.
+        $total30 = (clone $base)->whereBetween('show_date', [$from, $to])->count();
         $upcoming = (clone $base)->whereDate('show_date', '>', today())->count();
         $needsSubmission = (clone $base)
             ->whereDate('show_date', '<=', today())
@@ -87,6 +90,7 @@ class StreamsOverview extends Page
             ->sum('whatnot_net');
 
         $openShipments = (int) (clone $base)
+            ->whereDate('show_date', '<=', today())
             ->withCount([
                 'shipments as open_shipments_count' => fn ($q) => $q->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'"),
             ])
@@ -111,7 +115,11 @@ class StreamsOverview extends Page
     #[Computed]
     public function recentShows(): Collection
     {
+        // Recent Shows means shows that have happened. Scheduled shows belong in
+        // Upcoming Shows and must never appear here merely because their date is
+        // later than every historical show.
         return $this->scopedShowsQuery()
+            ->whereDate('show_date', '<=', today())
             ->with(['streamers', 'streamerLogEntry'])
             ->withCount(['orders', 'shipments'])
             ->withCount([

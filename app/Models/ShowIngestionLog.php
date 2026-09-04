@@ -42,10 +42,16 @@ class ShowIngestionLog extends Model
     public static function sourceLabels(): array
     {
         return [
-            'whatnot'                => 'Manual import',
-            'whatnot_show_index'     => 'Scheduled show index',
-            'whatnot_spa_enrichment' => 'Analytics enrichment',
-            'whatnot_recent_refresh' => 'Recent-show refresh',
+            'whatnot'                         => 'Manual import',
+            'whatnot_show_index'              => 'Legacy show index',
+            'whatnot_spa_enrichment'          => 'Legacy analytics enrichment',
+            'whatnot_recent_refresh'          => 'Legacy recent refresh',
+            'whatnot_show_analytics'           => 'Shows + Analytics',
+            'whatnot_orders'                   => 'Recent Orders',
+            'whatnot_shipments'                => 'Shipments',
+            'whatnot_ledger'                   => 'Rolling Ledger',
+            'whatnot_nightly_reconciliation'   => 'Nightly Reconciliation',
+            'whatnot_deep_backfill'            => 'Deep Backfill',
         ];
     }
 
@@ -58,6 +64,7 @@ class ShowIngestionLog extends Model
     {
         return [
             'browser_startup' => 'Browser startup failed',
+            'browser_lock'    => 'Browser busy / lock timeout',
             'channel_switch'  => 'Channel switch failed',
             'cloudflare'      => 'Cloudflare blocked navigation',
             'auth_session'    => 'Authentication/session issue',
@@ -76,6 +83,9 @@ class ShowIngestionLog extends Model
         $error = strtolower((string) $this->error_message);
 
         return match (true) {
+            str_contains($error, 'browser_lock_timeout'),
+            str_contains($error, 'browser lock timeout') => 'browser_lock',
+
             str_contains($error, 'chromium exited before devtools listener was ready'),
             str_contains($error, 'chromium startup failed'),
             str_contains($error, 'died during startup'),
@@ -107,24 +117,31 @@ class ShowIngestionLog extends Model
     public function failureTypeLabel(): ?string
     {
         $type = $this->failureType();
-
         return $type ? (static::failureTypeLabels()[$type] ?? $type) : null;
     }
 
     public function summary(): string
     {
         if ($this->status === 'failed') {
-            return $this->failureTypeLabel()
-                ?? ($this->show_id ? 'Show import failed' : 'Scraper failed');
+            return $this->failureTypeLabel() ?? ($this->show_id ? 'Show import failed' : $this->sourceLabel() . ' failed');
+        }
+
+        if ($this->status === 'partial') {
+            return $this->sourceLabel() . ' partially completed';
         }
 
         $payload = is_array($this->raw_payload) ? $this->raw_payload : [];
 
         return match ($this->source) {
-            'whatnot_spa_enrichment',
-            'whatnot_recent_refresh' => $this->enrichmentSummary($payload),
-            'whatnot_show_index'     => 'Show details refreshed from the index',
-            default                  => $this->show_id ? 'Show imported' : 'Import ran',
+            'whatnot_show_analytics' => sprintf('Shows + analytics completed%s', isset($payload['created'], $payload['updated']) ? " ({$payload['created']} created, {$payload['updated']} updated)" : ''),
+            'whatnot_orders' => sprintf('Recent orders completed%s', isset($payload['shows_checked']) ? " ({$payload['shows_checked']} shows checked)" : ''),
+            'whatnot_shipments' => sprintf('Shipment refresh completed%s', isset($payload['shows_checked']) ? " ({$payload['shows_checked']} shows checked, " . ($payload['updated'] ?? 0) . ' updates)' : ''),
+            'whatnot_ledger' => 'Rolling ledger refresh completed',
+            'whatnot_nightly_reconciliation' => 'Nightly reconciliation completed',
+            'whatnot_deep_backfill' => 'Deep historical backfill completed',
+            'whatnot_spa_enrichment', 'whatnot_recent_refresh' => $this->enrichmentSummary($payload),
+            'whatnot_show_index' => 'Show details refreshed from the index',
+            default => $this->show_id ? 'Show imported' : 'Import ran',
         };
     }
 
@@ -132,29 +149,17 @@ class ShowIngestionLog extends Model
     {
         $parts = [];
         $analytics = $payload['analytics'] ?? null;
-
         if (is_array($analytics)) {
             foreach (['orders' => 'order', 'units_sold' => 'unit'] as $key => $noun) {
                 $n = $analytics[$key] ?? null;
-
                 if (is_numeric($n) && (int) $n > 0) {
                     $parts[] = number_format((int) $n) . ' ' . str($noun)->plural((int) $n);
                 }
             }
-
-            if ($parts === [] && $analytics !== []) {
-                $parts[] = 'analytics';
-            }
+            if ($parts === [] && $analytics !== []) $parts[] = 'analytics';
         }
-
         $shipments = (int) ($payload['shipment_count'] ?? 0);
-
-        if ($shipments > 0) {
-            $parts[] = number_format($shipments) . ' ' . str('shipment')->plural($shipments);
-        }
-
-        return $parts === []
-            ? 'Analytics pulled, nothing new to record'
-            : 'Pulled ' . implode(', ', $parts);
+        if ($shipments > 0) $parts[] = number_format($shipments) . ' ' . str('shipment')->plural($shipments);
+        return $parts === [] ? 'Analytics pulled, nothing new to record' : 'Pulled ' . implode(', ', $parts);
     }
 }

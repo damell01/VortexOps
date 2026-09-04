@@ -40,20 +40,52 @@ class Shipment extends Model
         static::saving(function (Shipment $shipment): void {
             $shipment->normalizeScrapedPayload();
         });
+
+        static::saved(function (Shipment $shipment): void {
+            $shipment->reconcileBundledOrders();
+        });
     }
 
     /**
      * Seller Hub has changed shipment-table column order several times. The
      * scraper keeps the complete visible row in raw_payload.raw_text, so use
      * the text itself as a safety net instead of trusting fixed cell indexes.
-     *
-     * This also repairs the obvious "312,026 items" bug where Aug 31, 2026 was
-     * accidentally parsed as the quantity.
      */
     public function normalizeScrapedPayload(): void
     {
         $payload = is_array($this->raw_payload) ? $this->raw_payload : [];
         $text = trim((string) ($payload['raw_text'] ?? ''));
+
+        // Prefer the structured values produced by the current hardened parser.
+        if (! empty($payload['buyer'])) {
+            $this->buyer_username = $payload['buyer'];
+        }
+        if (! empty($payload['ordered_at'])) {
+            try {
+                $this->created_at_whatnot = Carbon::parse($payload['ordered_at'])->startOfDay();
+            } catch (\Throwable) {
+            }
+        }
+        if (isset($payload['quantity']) && is_numeric($payload['quantity'])) {
+            $qty = (int) $payload['quantity'];
+            if ($qty > 0 && $qty <= 10000) $this->item_count = $qty;
+        }
+        if (isset($payload['weight_oz']) && is_numeric($payload['weight_oz'])) {
+            $this->weight_oz = (float) $payload['weight_oz'];
+        }
+        if (! empty($payload['shipping_carrier'])) {
+            $this->carrier = strtoupper((string) $payload['shipping_carrier']);
+        }
+        if (! empty($payload['shipping_status_scraped'])) {
+            $this->status = $payload['shipping_status_scraped'];
+        }
+        if (isset($payload['box_length_in']) || isset($payload['box_width_in']) || isset($payload['box_height_in'])) {
+            $this->dimensions_json = array_filter([
+                'length_in' => $payload['box_length_in'] ?? null,
+                'width_in' => $payload['box_width_in'] ?? null,
+                'height_in' => $payload['box_height_in'] ?? null,
+            ], fn ($value) => $value !== null && $value !== '');
+        }
 
         if ($text === '') {
             return;
@@ -63,7 +95,6 @@ class Shipment extends Model
         $months = 'Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?';
         $datePattern = "(?:{$months})\\s+\\d{1,2},\\s+20\\d{2}";
 
-        // Recipient is everything before the expand/collapse control and date.
         if (blank($this->buyer_username)) {
             if (preg_match('/^(.+?)\s+(?:Expand|Collapse)\s+(' . $datePattern . ')\b/i', $text, $m)) {
                 $buyer = trim(preg_replace('/\b(?:New|Expand|Collapse)\b/i', ' ', $m[1]) ?: $m[1]);
@@ -74,45 +105,35 @@ class Shipment extends Model
             }
         }
 
-        // Capture the actual shipment/order date from the row instead of using
-        // the show's date at midnight.
         if (preg_match('/\b(' . $datePattern . ')\b/i', $text, $m)) {
             try {
                 $this->created_at_whatnot = Carbon::parse($m[1])->startOfDay();
             } catch (\Throwable) {
-                // Keep the existing value if Whatnot changes date formatting.
             }
         }
 
-        // The number directly after the date is the item count. Fixed-index
-        // parsing used the date cell itself, producing values like 312,026.
-        if (preg_match('/\b' . $datePattern . '\s+(\d{1,5})\b/i', $text, $m)) {
+        if ((! $this->item_count || (int) $this->item_count > 10000)
+            && preg_match('/\b' . $datePattern . '\s+(\d{1,5})\b/i', $text, $m)) {
             $qty = (int) $m[1];
             if ($qty > 0 && $qty <= 10000) {
                 $this->item_count = $qty;
             }
         }
 
-        // The first money value after the item count is the row's shipment/order
-        // value exposed by Seller Hub. Keep the existing DB column for backward
-        // compatibility even though the UI label may be refined separately.
         if (preg_match('/\b' . $datePattern . '\s+\d{1,5}\s+\$\s*([\d,]+(?:\.\d{1,2})?)/i', $text, $m)) {
             $this->shipping_cost = (float) str_replace(',', '', $m[1]);
         }
 
-        $lb = null;
-        $oz = null;
-        if (preg_match('/(\d+(?:\.\d+)?)\s*lb\b/i', $text, $m)) {
-            $lb = (float) $m[1];
-        }
-        if (preg_match('/(\d+(?:\.\d+)?)\s*oz\b/i', $text, $m)) {
-            $oz = (float) $m[1];
-        }
-        if ($lb !== null || $oz !== null) {
-            $this->weight_oz = (($lb ?? 0) * 16) + ($oz ?? 0);
+        if ($this->weight_oz === null) {
+            $lb = null;
+            $oz = null;
+            if (preg_match('/(\d+(?:\.\d+)?)\s*lb\b/i', $text, $m)) $lb = (float) $m[1];
+            if (preg_match('/(\d+(?:\.\d+)?)\s*oz\b/i', $text, $m)) $oz = (float) $m[1];
+            if ($lb !== null || $oz !== null) $this->weight_oz = (($lb ?? 0) * 16) + ($oz ?? 0);
         }
 
-        if (preg_match('/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*in\b/i', $text, $m)) {
+        if (empty($this->dimensions_json)
+            && preg_match('/(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*[×x]\s*(\d+(?:\.\d+)?)\s*in\b/i', $text, $m)) {
             $this->dimensions_json = [
                 'length_in' => (float) $m[1],
                 'width_in' => (float) $m[2],
@@ -120,7 +141,7 @@ class Shipment extends Model
             ];
         }
 
-        if (preg_match('/\b(USPS|UPS|FedEx|DHL)\b/i', $text, $m)) {
+        if (blank($this->carrier) && preg_match('/\b(USPS|UPS|FedEx|DHL)\b/i', $text, $m)) {
             $this->carrier = strtoupper($m[1]);
         }
 
@@ -138,6 +159,50 @@ class Shipment extends Model
         if (! $this->signature_required && preg_match('/\bSignature\s+Required\b/i', $text)) {
             $this->signature_required = true;
         }
+    }
+
+    /** One Whatnot shipment can contain several sold orders. Keep the shipment
+     * as the fulfillment source of truth, but copy its current status/tracking
+     * onto every bundled order when numeric Order # IDs are available. */
+    public function reconcileBundledOrders(): int
+    {
+        $payload = is_array($this->raw_payload) ? $this->raw_payload : [];
+        $orderIds = collect($payload['order_ids'] ?? [])
+            ->push($payload['order_id'] ?? null)
+            ->filter()
+            ->map(fn ($id) => (string) $id)
+            ->unique()
+            ->values();
+
+        if ($orderIds->isEmpty() || ! $this->show_id) {
+            return 0;
+        }
+
+        $dimensions = is_array($this->dimensions_json) ? $this->dimensions_json : [];
+        $shipmentId = $payload['whatnot_shipment_id'] ?? null;
+        $shipmentUrl = $payload['shipment_url'] ?? null;
+        $service = $payload['shipping_service'] ?? null;
+
+        return WhatnotShowOrder::query()
+            ->where('show_id', $this->show_id)
+            ->whereIn('whatnot_order_id', $orderIds->all())
+            ->get()
+            ->each(function (WhatnotShowOrder $order) use ($shipmentId, $shipmentUrl, $service, $dimensions): void {
+                $order->update(array_filter([
+                    'whatnot_shipment_id' => $shipmentId,
+                    'whatnot_shipment_url' => $shipmentUrl,
+                    'tracking_number' => $this->tracking_number,
+                    'shipping_status' => $this->status,
+                    'shipment_weight_oz' => $this->weight_oz,
+                    'box_length_in' => $dimensions['length_in'] ?? null,
+                    'box_width_in' => $dimensions['width_in'] ?? null,
+                    'box_height_in' => $dimensions['height_in'] ?? null,
+                    'shipping_carrier' => $this->carrier,
+                    'shipping_service' => $service,
+                    'shipment_synced_at' => now(),
+                ], fn ($value) => $value !== null && $value !== ''));
+            })
+            ->count();
     }
 
     public function show(): BelongsTo

@@ -103,6 +103,10 @@ class BackfillWhatnotHistory extends Command
             $this->newLine();
             $this->line("  <fg=cyan>Batch {$batch} of {$totalLabel}</> — {$before} outstanding");
 
+            // RefreshRecentWhatnotShows owns the actual browser pass. Keep this
+            // runner thin: it repeatedly asks that command for the next due batch.
+            // The rolling --days window controls stale rechecks; rows with missing
+            // analytics/shipments are selected regardless of age by dueShows().
             $exit = $this->call('whatnot:refresh-recent', [
                 '--limit' => self::BATCH_SIZE,
                 '--days'  => $days,

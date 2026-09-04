@@ -27,7 +27,7 @@ class RecentShowsWidget extends BaseWidget
         $user = auth()->user();
 
         if ($user && $user->isStreamer() && ! $user->isAdmin() && ! $user->isOwner()) {
-            return $user->streamer?->id ?? 0; // 0 → matches nothing if unlinked
+            return $user->streamer?->id ?? 0;
         }
 
         return null;
@@ -37,9 +37,6 @@ class RecentShowsWidget extends BaseWidget
     {
         $query = Show::query()->with('channel')->inChannelContext();
 
-        // A streamer only sees shows they were on (shows are many-to-many with
-        // streamers, so co-hosted shows count). Apply unconditionally when scoped
-        // — an unlinked streamer (id 0) then matches nothing rather than leaking.
         $streamerId = $this->streamerScopeId();
         if ($streamerId !== null) {
             $query->whereHas('streamers', fn ($s) => $s->where('streamers.id', $streamerId));
@@ -74,7 +71,8 @@ class RecentShowsWidget extends BaseWidget
                         default            => 'gray',
                     }),
                 TextColumn::make('whatnot_net')
-                    ->label('Net Revenue')
+                    ->label('Estimated Net Earnings')
+                    ->description('Whatnot Total Estimated Earnings')
                     ->money('USD')
                     ->placeholder('—'),
                 TextColumn::make('units_sold')

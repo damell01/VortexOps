@@ -62,11 +62,7 @@ class ShipmentResource extends Resource
                 TextColumn::make('item_count')
                     ->label('Items')
                     ->numeric()
-                    ->sortable()
-                    ->description(function (Shipment $record): ?string {
-                        $orders = count($record->bundledOrderIds());
-                        return $orders > 1 ? "{$orders} bundled orders" : null;
-                    }),
+                    ->sortable(),
                 TextColumn::make('shipment_value')
                     ->label('Value')
                     ->state(fn (Shipment $record) => data_get($record->raw_payload, 'shipment_value') ?? data_get($record->raw_payload, 'total_price'))

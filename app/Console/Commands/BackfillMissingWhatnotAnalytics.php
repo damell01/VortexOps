@@ -53,7 +53,6 @@ class BackfillMissingWhatnotAnalytics extends Command
             ->with('channel')
             ->whereDate('show_date', '<=', today())
             ->whereDate('show_date', '>=', today()->subDays($days))
-            ->whereNotNull('detail_url')
             ->whereNotIn('status', ['cancelled'])
             ->where(function ($q) {
                 $q->whereNull('gross_revenue')->orWhere('gross_revenue', '<=', 0)
@@ -88,9 +87,9 @@ class BackfillMissingWhatnotAnalytics extends Command
         $failed = 0;
 
         foreach ($shows as $show) {
-            $liveId = $this->extractLiveId((string) $show->detail_url);
+            $liveId = $this->resolveLiveId($show);
             if (! $liveId) {
-                $this->warn("Show #{$show->id}: no Whatnot UUID in detail_url; skipped.");
+                $this->warn("Show #{$show->id}: no Whatnot UUID in whatnot_show_id, detail_url, or stored import payload; skipped.");
                 $failed++;
                 continue;
             }
@@ -132,6 +131,7 @@ class BackfillMissingWhatnotAnalytics extends Command
                     throw new \RuntimeException('Analytics page loaded but no usable metrics were extracted.');
                 }
 
+                $fields['whatnot_show_id'] = $show->whatnot_show_id ?: $liveId;
                 $fields['last_synced_at'] = now();
                 $fields['raw_import_payload'] = $raw;
                 $show->forceFill($fields)->save();
@@ -157,9 +157,47 @@ class BackfillMissingWhatnotAnalytics extends Command
         return $failed > 0 && $updated === 0 ? self::FAILURE : self::SUCCESS;
     }
 
-    private function extractLiveId(string $url): ?string
+    private function resolveLiveId(Show $show): ?string
     {
-        return preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $url, $m)
+        foreach ([$show->whatnot_show_id, $show->detail_url] as $candidate) {
+            if ($liveId = $this->extractLiveId((string) $candidate)) {
+                return $liveId;
+            }
+        }
+
+        return $this->findLiveIdInPayload($show->raw_import_payload);
+    }
+
+    private function findLiveIdInPayload(mixed $value): ?string
+    {
+        if (is_string($value)) {
+            return $this->extractLiveId($value);
+        }
+
+        if (! is_array($value)) {
+            return null;
+        }
+
+        // Prefer fields that are expected to identify the livestream before
+        // scanning the rest of an old payload for embedded URLs/IDs.
+        foreach (['whatnot_live_id', 'live_id', 'whatnot_show_id', 'show_id', 'detail_url', 'url', 'href'] as $key) {
+            if (array_key_exists($key, $value) && ($liveId = $this->findLiveIdInPayload($value[$key]))) {
+                return $liveId;
+            }
+        }
+
+        foreach ($value as $item) {
+            if ($liveId = $this->findLiveIdInPayload($item)) {
+                return $liveId;
+            }
+        }
+
+        return null;
+    }
+
+    private function extractLiveId(string $value): ?string
+    {
+        return preg_match('/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', $value, $m)
             ? strtolower($m[0])
             : null;
     }

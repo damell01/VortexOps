@@ -19,14 +19,13 @@ class ShowsKpiWidget extends BaseWidget
     protected static ?int $sort = 0;
 
     /**
-     * Five stats, so the default one-column-each is even tighter here than on
-     * the operations strip. Two on a phone, three from tablet up — five across
-     * leaves the last card a sliver whatever the screen.
+     * Keep the financial figures explicit: Whatnot Estimated Sales is gross,
+     * while Total Estimated Earnings is the Whatnot-provided estimated net.
      */
     protected int | array | null $columns = [
         'default' => 2,
         'md'      => 3,
-        'xl'      => 5,
+        'xl'      => 6,
     ];
 
     public static function canView(): bool
@@ -36,54 +35,84 @@ class ShowsKpiWidget extends BaseWidget
 
     protected function getStats(): array
     {
-        $cacheKey = 'widget:shows_kpi:' . (ChannelContext::currentId() ?? 'all');
+        $cacheKey = 'widget:shows_kpi:v2:' . (ChannelContext::currentId() ?? 'all');
 
-        [$weekShows, $weekRevenue, $pendingReview, $draftPayoutTotal, $dailyShows, $dailyRevenue, $priorWeekShows, $priorWeekRevenue, $weekHours, $priorWeekHours] =
-            Cache::remember($cacheKey, 120, function () {
-                $weekStart = now()->startOfWeek()->toDateString();
-                // Upper bounds include a time component: a show_date row dated
-                // "today" is stored with a midnight timestamp, which a bare
-                // date-string upper bound would exclude via lexical comparison
-                // on SQLite (see Show::weekPacing() for the same trap).
-                $weekEnd   = now()->endOfWeek()->endOfDay()->toDateTimeString();
-                // Fair week-over-week comparison: same weekday span last week,
-                // not last week's full total vs. this week's partial-so-far total.
-                $priorWeekStart = now()->subWeek()->startOfWeek()->toDateString();
-                $priorWeekEnd   = now()->subWeek()->endOfDay()->toDateTimeString();
+        [
+            $weekShows,
+            $weekGross,
+            $weekEstimatedNet,
+            $pendingReview,
+            $draftPayoutTotal,
+            $dailyShows,
+            $dailyGross,
+            $dailyEstimatedNet,
+            $priorWeekShows,
+            $priorWeekGross,
+            $priorWeekEstimatedNet,
+            $weekHours,
+            $priorWeekHours,
+        ] = Cache::remember($cacheKey, 120, function () {
+            $weekStart = now()->startOfWeek()->toDateString();
+            $weekEnd   = now()->endOfWeek()->endOfDay()->toDateTimeString();
 
-                $weekShows    = Show::whereBetween('show_date', [$weekStart, $weekEnd])->inChannelContext()->count();
-                $weekRevenue  = (float) Show::whereBetween('show_date', [$weekStart, $weekEnd])
+            // Fair week-over-week comparison: compare this week's elapsed span
+            // with the equivalent span last week rather than a completed week.
+            $priorWeekStart = now()->subWeek()->startOfWeek()->toDateString();
+            $priorWeekEnd   = now()->subWeek()->endOfDay()->toDateTimeString();
+
+            $weekQuery = fn () => Show::whereBetween('show_date', [$weekStart, $weekEnd])->inChannelContext();
+            $priorWeekQuery = fn () => Show::whereBetween('show_date', [$priorWeekStart, $priorWeekEnd])->inChannelContext();
+
+            $weekShows = $weekQuery()->count();
+            $weekGross = (float) $weekQuery()->whereNotNull('gross_revenue')->sum('gross_revenue');
+            $weekEstimatedNet = (float) $weekQuery()->whereNotNull('whatnot_net')->sum('whatnot_net');
+
+            $priorWeekShows = $priorWeekQuery()->count();
+            $priorWeekGross = (float) $priorWeekQuery()->whereNotNull('gross_revenue')->sum('gross_revenue');
+            $priorWeekEstimatedNet = (float) $priorWeekQuery()->whereNotNull('whatnot_net')->sum('whatnot_net');
+
+            $weekHours = (float) $weekQuery()->sum('show_duration') / 60;
+            $priorWeekHours = (float) $priorWeekQuery()->sum('show_duration') / 60;
+
+            $pendingReview = Show::where('status', 'pending_review')->inChannelContext()->count();
+            $draftPayoutTotal = AdminModules::isEnabled('payouts')
+                ? (float) Payout::where('status', 'draft')->inChannelContext()->sum('calculated_payout')
+                : 0.0;
+
+            // Trailing 7 days, oldest first, for the sparklines.
+            $dailyShows = [];
+            $dailyGross = [];
+            $dailyEstimatedNet = [];
+
+            for ($i = 6; $i >= 0; $i--) {
+                $day = now()->subDays($i)->toDateString();
+                $dailyShows[] = Show::where('show_date', $day)->inChannelContext()->count();
+                $dailyGross[] = (float) Show::where('show_date', $day)
+                    ->whereNotNull('gross_revenue')
+                    ->inChannelContext()
+                    ->sum('gross_revenue');
+                $dailyEstimatedNet[] = (float) Show::where('show_date', $day)
                     ->whereNotNull('whatnot_net')
                     ->inChannelContext()
                     ->sum('whatnot_net');
-                $priorWeekShows = Show::whereBetween('show_date', [$priorWeekStart, $priorWeekEnd])->inChannelContext()->count();
-                $priorWeekRevenue = (float) Show::whereBetween('show_date', [$priorWeekStart, $priorWeekEnd])
-                    ->whereNotNull('whatnot_net')
-                    ->inChannelContext()
-                    ->sum('whatnot_net');
-                $weekHours = (float) Show::whereBetween('show_date', [$weekStart, $weekEnd])
-                    ->inChannelContext()
-                    ->sum('show_duration') / 60;
-                $priorWeekHours = (float) Show::whereBetween('show_date', [$priorWeekStart, $priorWeekEnd])
-                    ->inChannelContext()
-                    ->sum('show_duration') / 60;
+            }
 
-                $pendingReview = Show::where('status', 'pending_review')->inChannelContext()->count();
-                $draftPayoutTotal = AdminModules::isEnabled('payouts')
-                    ? (float) Payout::where('status', 'draft')->inChannelContext()->sum('calculated_payout')
-                    : 0.0;
-
-                // Trailing 7 days, oldest first, for the sparkline.
-                $dailyShows   = [];
-                $dailyRevenue = [];
-                for ($i = 6; $i >= 0; $i--) {
-                    $day = now()->subDays($i)->toDateString();
-                    $dailyShows[]   = Show::where('show_date', $day)->inChannelContext()->count();
-                    $dailyRevenue[] = (float) Show::where('show_date', $day)->whereNotNull('whatnot_net')->inChannelContext()->sum('whatnot_net');
-                }
-
-                return [$weekShows, $weekRevenue, $pendingReview, $draftPayoutTotal, $dailyShows, $dailyRevenue, $priorWeekShows, $priorWeekRevenue, $weekHours, $priorWeekHours];
-            });
+            return [
+                $weekShows,
+                $weekGross,
+                $weekEstimatedNet,
+                $pendingReview,
+                $draftPayoutTotal,
+                $dailyShows,
+                $dailyGross,
+                $dailyEstimatedNet,
+                $priorWeekShows,
+                $priorWeekGross,
+                $priorWeekEstimatedNet,
+                $weekHours,
+                $priorWeekHours,
+            ];
+        });
 
         return [
             Stat::make('Shows This Week', $weekShows)
@@ -99,12 +128,19 @@ class ShowsKpiWidget extends BaseWidget
                 ->icon('heroicon-o-clock')
                 ->color($this->trendColor($weekHours, $priorWeekHours, 'primary')),
 
-            Stat::make('Revenue This Week', '$' . number_format($weekRevenue, 2))
-                ->description('Whatnot net proceeds' . $this->trendSuffix($weekRevenue, $priorWeekRevenue))
-                ->descriptionIcon($this->trendIcon($weekRevenue, $priorWeekRevenue))
-                ->chart($dailyRevenue)
+            Stat::make('Gross Revenue', '$' . number_format($weekGross, 2))
+                ->description('Whatnot Estimated Sales' . $this->trendSuffix($weekGross, $priorWeekGross))
+                ->descriptionIcon($this->trendIcon($weekGross, $priorWeekGross))
+                ->chart($dailyGross)
+                ->icon('heroicon-o-currency-dollar')
+                ->color($this->trendColor($weekGross, $priorWeekGross, 'primary')),
+
+            Stat::make('Estimated Net Earnings', '$' . number_format($weekEstimatedNet, 2))
+                ->description('Whatnot Total Estimated Earnings' . $this->trendSuffix($weekEstimatedNet, $priorWeekEstimatedNet))
+                ->descriptionIcon($this->trendIcon($weekEstimatedNet, $priorWeekEstimatedNet))
+                ->chart($dailyEstimatedNet)
                 ->icon('heroicon-o-banknotes')
-                ->color($this->trendColor($weekRevenue, $priorWeekRevenue, 'success')),
+                ->color($this->trendColor($weekEstimatedNet, $priorWeekEstimatedNet, 'success')),
 
             Stat::make('Pending Review', $pendingReview)
                 ->description($pendingReview > 0 ? 'Shows awaiting streamer assignment' : 'No shows in review queue')

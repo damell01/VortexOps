@@ -30,6 +30,23 @@ class WhatnotShowOrder extends Model
 
     protected static function booted(): void
     {
+        // Completed Whatnot order rows must never be attached to a show that has
+        // not happened yet. A bad show/date mapping used to let an order scrape
+        // contaminate scheduled shows; fail before insert instead of persisting
+        // impossible data. Existing rows remain readable for the repair command.
+        static::creating(function (WhatnotShowOrder $order) {
+            if (! $order->show_id) {
+                return;
+            }
+
+            $show = Show::find($order->show_id);
+            if ($show?->show_date?->isAfter(today())) {
+                throw new \LogicException(
+                    "Refusing to attach Whatnot order to future show #{$show->id} ({$show->show_date->toDateString()})."
+                );
+            }
+        });
+
         static::saving(function (WhatnotShowOrder $order) {
             if ($order->unit_cost !== null) {
                 $order->total_cost = round((float) $order->unit_cost * (int) ($order->quantity ?: 1), 2);

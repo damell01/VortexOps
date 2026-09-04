@@ -42,21 +42,25 @@ Schedule::job(new ProcessWhatnotChannelsJob())
     ->name('whatnot-hourly-show-analytics-pull')
     ->withoutOverlapping(55);
 
-Schedule::command('whatnot:refresh-recent --orders --hours=48 --limit=8')
+// Scheduled refresh commands use --skip-if-busy. The new pipeline coordinator
+// holds the lock across ALL channels, so one long shipment pass can no longer
+// be interrupted by orders/ledger/shows between channels. A busy scheduled run
+// exits cleanly and simply tries again at its next cadence.
+Schedule::command('whatnot:refresh-recent --orders --hours=48 --limit=8 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->cron('20,50 * * * *')
     ->name('whatnot-recent-orders-refresh')
     ->withoutOverlapping(25);
 
-Schedule::command('whatnot:refresh-recent --shipments --limit=8')
+Schedule::command('whatnot:refresh-recent --shipments --limit=8 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->hourlyAt(35)
     ->name('whatnot-unresolved-shipments-refresh')
     ->withoutOverlapping(25);
 
-Schedule::command('whatnot:refresh-recent --ledger --ledger-days=30')
+Schedule::command('whatnot:refresh-recent --ledger --ledger-days=30 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->cron('10 */6 * * *')

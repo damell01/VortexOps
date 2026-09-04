@@ -70,13 +70,18 @@ class WhatnotScraper
         return is_array($data) ? $data : [];
     }
 
-    public function fetchSellerShowUrls(bool $debug = false): array
+    public function fetchSellerShowUrls(bool $debug = false, ?string $channelUsername = null, int $limit = 500): array
     {
-        $env = $this->baseEnv($debug); $env['WHATNOT_MODE'] = 'seller-shows';
-        $process = $this->makeProcess($env, timeout: 120);
-        $this->withBrowserLock(fn () => $process->run());
-        $stderr = trim($process->getErrorOutput()); $stdout = trim($process->getOutput());
-        if ($stderr) Log::channel('stack')->warning('WhatnotScraper seller-shows stderr', ['output' => $stderr]);
+        $env = $this->baseEnv($debug);
+        $env['WHATNOT_MODE'] = 'seller-shows';
+        $env['WHATNOT_LIMIT'] = (string) max(1, min(500, $limit));
+        if ($channelUsername) $env['WHATNOT_CHANNEL_NAME'] = $channelUsername;
+        $timeout = 1200;
+        $process = $this->makeProcess($env, timeout: $timeout);
+        $this->withBrowserLock(fn () => $process->run(), waitSeconds: $timeout);
+        $stderr = trim($process->getErrorOutput());
+        $stdout = trim($process->getOutput());
+        if ($stderr) Log::channel('stack')->warning('WhatnotScraper seller-shows stderr', ['output' => $stderr, 'channel' => $channelUsername]);
         $this->throwForExitCode((int)$process->getExitCode(), $stderr, $process->getCommandLine());
         if (!$process->isSuccessful()) throw new \RuntimeException('Seller-shows scraper failed: ' . ($stderr ?: "exit code {$process->getExitCode()}"));
         $data=json_decode($stdout,true); return is_array($data)?$data:[];
@@ -149,9 +154,9 @@ class WhatnotScraper
 
     public function refreshShipmentsForShows(\Illuminate\Support\Collection $shows,?string $channelUsername=null,bool $debug=false):array
     {
-        $sources=[];$byKey=[];foreach($shows as $show){$liveId=$this->extractLiveIdFromUrl($show->detail_url);if(!$liveId)continue;$sources[]=['live_id'=>$liveId,'show_key'=>$show->id];$byKey[$show->id]=$show;}$skippedShows=$shows->count()-count($sources);if(empty($sources))return['updated'=>0,'skipped_shows'=>$skippedShows];
-        try{$shipmentsByShow=$this->fetchShipmentsForShows($sources,$channelUsername,$debug);}catch(\Throwable $e){$message=$e->getMessage();if(str_contains($message,'CHANNEL_SWITCH_')||str_contains($message,'CHANNEL_CONTEXT_MISMATCH')||str_contains($message,'CHANNEL_SWITCH_FAILED'))throw$e;Log::error('WhatnotScraper: shipments refresh failed — '.$message);return['updated'=>0,'skipped_shows'=>$shows->count()];}
-        $updated=0;foreach($shipmentsByShow as $showKey=>$rows){$show=$byKey[$showKey]??null;if(!$show||empty($rows))continue;$orderRes=$this->persistShowOrders($show,$rows);$updated+=$orderRes['updated']??0;$shipmentRes=$this->persistShipments($show,$rows);$updated+=$shipmentRes['created']??0;}return['updated'=>$updated,'skipped_shows'=>$skippedShows];
+        $sources=[];$byKey=[];foreach($shows as$show){$liveId=$this->extractLiveIdFromUrl($show->detail_url);if(!$liveId)continue;$sources[]=['live_id'=>$liveId,'show_key'=>$show->id];$byKey[$show->id]=$show;}$skippedShows=$shows->count()-count($sources);if(empty($sources))return['updated'=>0,'skipped_shows'=>$skippedShows];
+        try{$shipmentsByShow=$this->fetchShipmentsForShows($sources,$channelUsername,$debug);}catch(\Throwable$e){$message=$e->getMessage();if(str_contains($message,'CHANNEL_SWITCH_')||str_contains($message,'CHANNEL_CONTEXT_MISMATCH')||str_contains($message,'CHANNEL_SWITCH_FAILED'))throw$e;Log::error('WhatnotScraper: shipments refresh failed — '.$message);return['updated'=>0,'skipped_shows'=>$shows->count()];}
+        $updated=0;foreach($shipmentsByShow as$showKey=>$rows){$show=$byKey[$showKey]??null;if(!$show||empty($rows))continue;$orderRes=$this->persistShowOrders($show,$rows);$updated+=$orderRes['updated']??0;$shipmentRes=$this->persistShipments($show,$rows);$updated+=$shipmentRes['created']??0;}return['updated'=>$updated,'skipped_shows'=>$skippedShows];
     }
 
     public function fetchOrdersForShows(array $sources,?string $channelUsername=null,bool $debug=false,?callable $onProgress=null):array{return $this->runBatchScrape('orders-batch',$sources,$channelUsername,$debug,$onProgress);}
@@ -161,16 +166,13 @@ class WhatnotScraper
     private function runBatchScrape(string $mode,array $sources,?string $channelUsername,bool $debug,?callable $onProgress=null):array
     {
         if(empty($sources))return[];$srcFile=tempnam(sys_get_temp_dir(),'wn-'.$mode.'-').'.json';file_put_contents($srcFile,json_encode(array_values($sources)));$env=$this->baseEnv($debug);$env['WHATNOT_MODE']=$mode;$env['WHATNOT_ORDER_SOURCES_FILE']=$srcFile;if($channelUsername)$env['WHATNOT_CHANNEL_NAME']=$channelUsername;
-        // Pagination and detail enrichment can make even one busy show take more
-        // than five minutes. Give every order/shipment batch a real 20-minute
-        // floor, then scale by show count for larger batches, capped at one hour.
         $timeout=min(3600,max(1200,300+count($sources)*30));
-        try{$process=$this->makeProcess($env,timeout:$timeout);$this->withBrowserLock(function()use($process,$onProgress){$onProgress?$this->streamProcess($process,$onProgress):$process->run();},waitSeconds:$timeout);$stderr=trim($process->getErrorOutput());$stdout=trim($process->getOutput());if($stderr){Log::channel('stack')->warning("WhatnotScraper {$mode} stderr",['output'=>$stderr]);if($debug)fwrite(STDERR,$stderr."\n");}$this->throwForExitCode((int)$process->getExitCode(),$stderr,$process->getCommandLine());if(!$process->isSuccessful())throw new \RuntimeException("Whatnot {$mode} scraper failed: ".($stderr?:"Scraper exited with code {$process->getExitCode()}"));if(empty($stdout))return[];$data=json_decode($stdout,true);if(json_last_error()!==JSON_ERROR_NONE||!is_array($data))throw new \RuntimeException("Whatnot {$mode} scraper returned invalid JSON: ".json_last_error_msg());$map=[];foreach($data as $entry){$key=$entry['show_key']??null;if($key===null)continue;$map[$key]=$entry['orders']??[];}return$map;}finally{@unlink($srcFile);}
+        try{$process=$this->makeProcess($env,timeout:$timeout);$this->withBrowserLock(function()use($process,$onProgress){$onProgress?$this->streamProcess($process,$onProgress):$process->run();},waitSeconds:$timeout);$stderr=trim($process->getErrorOutput());$stdout=trim($process->getOutput());if($stderr){Log::channel('stack')->warning("WhatnotScraper {$mode} stderr",['output'=>$stderr]);if($debug)fwrite(STDERR,$stderr."\n");}$this->throwForExitCode((int)$process->getExitCode(),$stderr,$process->getCommandLine());if(!$process->isSuccessful())throw new \RuntimeException("Whatnot {$mode} scraper failed: ".($stderr?:"Scraper exited with code {$process->getExitCode()}"));if(empty($stdout))return[];$data=json_decode($stdout,true);if(json_last_error()!==JSON_ERROR_NONE||!is_array($data))throw new \RuntimeException("Whatnot {$mode} scraper returned invalid JSON: ".json_last_error_msg());$map=[];foreach($data as$entry){$key=$entry['show_key']??null;if($key===null)continue;$map[$key]=$entry['orders']??[];}return$map;}finally{@unlink($srcFile);}
     }
 
     private function runSimpleScrape(string $mode,?string $channelUsername,bool $debug,?callable $onProgress=null):array
     {
-        $env=$this->baseEnv($debug);$env['WHATNOT_MODE']=$mode;if($channelUsername)$env['WHATNOT_CHANNEL_NAME']=$channelUsername;$timeout=3600;$process=$this->makeProcess($env,timeout:$timeout);$this->withBrowserLock(function()use($process,$onProgress){$onProgress?$this->streamProcess($process,$onProgress):$process->run();},waitSeconds:$timeout);$stderr=trim($process->getErrorOutput());$stdout=trim($process->getOutput());if($stderr){Log::channel('stack')->warning("WhatnotScraper {$mode} stderr",['output'=>$stderr]);if($debug)fwrite(STDERR,$stderr."\n");}$this->throwForExitCode((int)$process->getExitCode(),$stderr,$process->getCommandLine());if(!$process->isSuccessful())throw new \RuntimeException("Whatnot {$mode} scraper failed: ".($stderr?:"Scraper exited with code {$process->getExitCode()}"));if(empty($stdout))return[];$data=json_decode($stdout,true);if(json_last_error()!==JSON_ERROR_NONE||!is_array($data))throw new \RuntimeException("Whatnot {$mode} scraper returned invalid JSON: ".json_last_error_msg());$map=[];foreach($data as $entry){$key=$entry['live_id']??null;if($key!==null)$map[$key]=$entry['orders']??[];}return$map;
+        $env=$this->baseEnv($debug);$env['WHATNOT_MODE']=$mode;if($channelUsername)$env['WHATNOT_CHANNEL_NAME']=$channelUsername;$timeout=3600;$process=$this->makeProcess($env,timeout:$timeout);$this->withBrowserLock(function()use($process,$onProgress){$onProgress?$this->streamProcess($process,$onProgress):$process->run();},waitSeconds:$timeout);$stderr=trim($process->getErrorOutput());$stdout=trim($process->getOutput());if($stderr){Log::channel('stack')->warning("WhatnotScraper {$mode} stderr",['output'=>$stderr]);if($debug)fwrite(STDERR,$stderr."\n");}$this->throwForExitCode((int)$process->getExitCode(),$stderr,$process->getCommandLine());if(!$process->isSuccessful())throw new \RuntimeException("Whatnot {$mode} scraper failed: ".($stderr?:"Scraper exited with code {$process->getExitCode()}"));if(empty($stdout))return[];$data=json_decode($stdout,true);if(json_last_error()!==JSON_ERROR_NONE||!is_array($data))throw new \RuntimeException("Whatnot {$mode} scraper returned invalid JSON: ".json_last_error_msg());$map=[];foreach($data as$entry){$key=$entry['live_id']??null;if($key!==null)$map[$key]=$entry['orders']??[];}return$map;
     }
 
     public function fetchLedger(string $from,string $to,?string $channelUsername=null,bool $debug=false):array
@@ -180,7 +182,7 @@ class WhatnotScraper
 
     public function importLedger(?WhatnotChannel $channel,string $from,string $to,bool $debug=false):array
     {
-        $cursor=Carbon::parse($from)->startOfDay();$end=Carbon::parse($to)->startOfDay();$created=0;$skipped=0;$windows=0;while($cursor->lte($end)){$wEnd=(clone$cursor)->addDays(30);if($wEnd->gt($end))$wEnd=clone$end;$windows++;$rows=$this->fetchLedger($cursor->toDateString(),$wEnd->toDateString(),$channel?->whatnot_username,$debug);foreach($rows as $row){if($this->persistLedgerRow($channel,$row))$created++;else$skipped++;}$cursor=(clone$wEnd)->addDay();}Log::info('WhatnotScraper importLedger complete',['channel'=>$channel?->name,'from'=>$from,'to'=>$to,'created'=>$created,'skipped'=>$skipped,'windows'=>$windows]);return compact('created','skipped','windows');
+        $cursor=Carbon::parse($from)->startOfDay();$end=Carbon::parse($to)->startOfDay();$created=0;$skipped=0;$windows=0;while($cursor->lte($end)){$wEnd=(clone$cursor)->addDays(30);if($wEnd->gt($end))$wEnd=clone$end;$windows++;$rows=$this->fetchLedger($cursor->toDateString(),$wEnd->toDateString(),$channel?->whatnot_username,$debug);foreach($rows as$row){if($this->persistLedgerRow($channel,$row))$created++;else$skipped++;}$cursor=(clone$wEnd)->addDay();}Log::info('WhatnotScraper importLedger complete',['channel'=>$channel?->name,'from'=>$from,'to'=>$to,'created'=>$created,'skipped'=>$skipped,'windows'=>$windows]);return compact('created','skipped','windows');
     }
 
     private function persistLedgerRow(?WhatnotChannel $channel,array $row):bool

@@ -3,7 +3,6 @@
 use App\Jobs\ProcessWhatnotChannelsJob;
 use App\Jobs\WorkerHeartbeat;
 use App\Models\Setting;
-use App\Models\ShowIngestionLog;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -42,10 +41,9 @@ Schedule::job(new ProcessWhatnotChannelsJob())
     ->name('whatnot-hourly-show-analytics-pull')
     ->withoutOverlapping(55);
 
-// Scheduled refresh commands use --skip-if-busy. The new pipeline coordinator
-// holds the lock across ALL channels, so one long shipment pass can no longer
-// be interrupted by orders/ledger/shows between channels. A busy scheduled run
-// exits cleanly and simply tries again at its next cadence.
+// Scheduled refresh commands use --skip-if-busy. The pipeline coordinator holds
+// one coarse lock across ALL channels, preventing shows/orders/shipments/ledger
+// from interleaving and fighting over the same Scrapling browser profile.
 Schedule::command('whatnot:refresh-recent --orders --hours=48 --limit=8 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
@@ -74,49 +72,22 @@ Schedule::command('whatnot:repair-shows --apply --skip-sync --aliases-only')
     ->name('whatnot-show-alias-cleanup')
     ->withoutOverlapping(10);
 
-Schedule::command('whatnot:sync --type=last_30_days')
+// Long maintenance jobs use the same coordinator too. They record their own
+// ingestion outcome inside the wrapper; a busy schedule is a clean skip rather
+// than a false red failure.
+Schedule::command('whatnot:run-maintenance nightly --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->dailyAt('00:30')
     ->name('whatnot-nightly-30-day-reconciliation')
-    ->withoutOverlapping(240)
-    ->onSuccess(function (): void {
-        ShowIngestionLog::create([
-            'source' => 'whatnot_nightly_reconciliation',
-            'status' => 'success',
-            'raw_payload' => ['schedule' => 'daily 00:30'],
-        ]);
-    })
-    ->onFailure(function (): void {
-        ShowIngestionLog::create([
-            'source' => 'whatnot_nightly_reconciliation',
-            'status' => 'failed',
-            'raw_payload' => ['schedule' => 'daily 00:30'],
-            'error_message' => 'Nightly 30-day reconciliation command exited unsuccessfully. Check whatnot-scheduler.log for command output.',
-        ]);
-    });
+    ->withoutOverlapping(240);
 
-Schedule::command('whatnot:import-ledger --days=1825')
+Schedule::command('whatnot:run-maintenance deep --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->cron('0 1 * * 0')
     ->name('whatnot-ledger-backfill-annual')
-    ->withoutOverlapping(480)
-    ->onSuccess(function (): void {
-        ShowIngestionLog::create([
-            'source' => 'whatnot_deep_backfill',
-            'status' => 'success',
-            'raw_payload' => ['schedule' => 'Sunday 01:00', 'days' => 1825],
-        ]);
-    })
-    ->onFailure(function (): void {
-        ShowIngestionLog::create([
-            'source' => 'whatnot_deep_backfill',
-            'status' => 'failed',
-            'raw_payload' => ['schedule' => 'Sunday 01:00', 'days' => 1825],
-            'error_message' => 'Deep historical ledger backfill exited unsuccessfully. Check whatnot-scheduler.log for command output.',
-        ]);
-    });
+    ->withoutOverlapping(480);
 
 Schedule::command('ai:ops operations')
     ->cron('25 */6 * * *')

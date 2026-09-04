@@ -24,7 +24,7 @@ class ShowsExport implements FromCollection, WithHeadings, WithMapping, WithStyl
     {
         return [
             'Date', 'Title', 'Channel', 'Status',
-            'Gross Revenue', 'Whatnot Net', 'Tips',
+            'Gross Revenue (Estimated Sales)', 'Estimated Net Earnings', 'Tips',
             'Units Sold', 'Buyers', 'Avg Order Value',
             'Total Views', 'Max Concurrent Viewers',
             'Avg Order Rating', 'Completed Earnings',

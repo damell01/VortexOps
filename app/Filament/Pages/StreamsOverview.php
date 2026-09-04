@@ -5,9 +5,11 @@ namespace App\Filament\Pages;
 use App\Filament\Resources\ShowResource;
 use App\Models\Show;
 use App\Support\AdminModules;
+use Carbon\Carbon;
 use Filament\Pages\Page;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Url;
 
 class StreamsOverview extends Page
 {
@@ -18,149 +20,136 @@ class StreamsOverview extends Page
     protected static ?string $navigationLabel = 'Overview';
     protected static ?string $slug = 'streams-overview';
 
-    public static function getNavigationIcon(): string|\BackedEnum|null
+    #[Url(as: 'range')]
+    public string $datePreset = 'this_month';
+    #[Url(as: 'from')]
+    public string $dateFrom = '';
+    #[Url(as: 'to')]
+    public string $dateTo = '';
+
+    public function mount(): void
     {
-        return 'heroicon-o-squares-2x2';
+        if ($this->dateFrom === '' || $this->dateTo === '') $this->applyDatePreset($this->datePreset);
     }
 
-    public static function getNavigationGroup(): string|\UnitEnum|null
+    public function updatedDatePreset(string $value): void
     {
-        return AdminModules::navigationGroupFor('streams');
+        if ($value !== 'custom') $this->applyDatePreset($value);
     }
 
-    public static function getNavigationSort(): ?int
+    public function applyDatePreset(string $preset): void
     {
-        return 1;
+        $today = today();
+        [$from, $to] = match ($preset) {
+            'this_week' => [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()],
+            'last_week' => [$today->copy()->subWeek()->startOfWeek(), $today->copy()->subWeek()->endOfWeek()],
+            'last_month' => [$today->copy()->subMonthNoOverflow()->startOfMonth(), $today->copy()->subMonthNoOverflow()->endOfMonth()],
+            'last_30' => [$today->copy()->subDays(29), $today],
+            default => [$today->copy()->startOfMonth(), $today->copy()->endOfMonth()],
+        };
+        $this->datePreset = $preset;
+        $this->dateFrom = $from->toDateString();
+        $this->dateTo = $to->toDateString();
+        unset($this->streamSnapshot, $this->recentShows, $this->attentionShows, $this->recentActivity);
     }
 
+    public function previousPeriod(): void
+    {
+        [$from, $to] = $this->dateRange();
+        $days = $from->diffInDays($to) + 1;
+        $this->datePreset = 'custom';
+        $this->dateFrom = $from->copy()->subDays($days)->toDateString();
+        $this->dateTo = $to->copy()->subDays($days)->toDateString();
+    }
+
+    public function nextPeriod(): void
+    {
+        [$from, $to] = $this->dateRange();
+        $days = $from->diffInDays($to) + 1;
+        $this->datePreset = 'custom';
+        $this->dateFrom = $from->copy()->addDays($days)->toDateString();
+        $this->dateTo = $to->copy()->addDays($days)->toDateString();
+    }
+
+    public function dateRange(): array
+    {
+        try { $from = Carbon::parse($this->dateFrom)->startOfDay(); } catch (\Throwable) { $from = today()->startOfMonth(); }
+        try { $to = Carbon::parse($this->dateTo)->startOfDay(); } catch (\Throwable) { $to = today()->endOfMonth(); }
+        if ($from->gt($to)) [$from, $to] = [$to, $from];
+        return [$from, $to];
+    }
+
+    public function dateRangeLabel(): string
+    {
+        [$from, $to] = $this->dateRange();
+        return $from->isSameYear($to) ? $from->format('M j').' – '.$to->format('M j, Y') : $from->format('M j, Y').' – '.$to->format('M j, Y');
+    }
+
+    public static function getNavigationIcon(): string|\BackedEnum|null { return 'heroicon-o-squares-2x2'; }
+    public static function getNavigationGroup(): string|\UnitEnum|null { return AdminModules::navigationGroupFor('streams'); }
+    public static function getNavigationSort(): ?int { return 1; }
     public static function canAccess(): bool
     {
-        if (\App\Support\RoleAccess::grants(static::class)) {
-            return true;
-        }
-
+        if (\App\Support\RoleAccess::grants(static::class)) return true;
         $user = auth()->user();
         return AdminModules::isEnabled('streams') && ($user?->isAdmin() || $user?->isStreamer());
     }
-
-    public function getSubheading(): ?string
-    {
-        return 'Shows, submissions, revenue, shipments, and recent activity in one place.';
-    }
-
-    public function getView(): string
-    {
-        return 'filament.pages.streams-overview';
-    }
+    public function getSubheading(): ?string { return 'Shows, submissions, revenue, shipments, and recent activity in one place.'; }
+    public function getView(): string { return 'filament.pages.streams-overview'; }
 
     protected function scopedShowsQuery()
     {
         $query = Show::query()->inChannelContext();
         $user = auth()->user();
-
-        if ($user?->isStreamer() && ! $user?->isAdmin() && $user->streamer) {
-            $query->whereHas('streamers', fn ($q) => $q->where('streamers.id', $user->streamer->id));
-        }
-
+        if ($user?->isStreamer() && ! $user?->isAdmin() && $user->streamer) $query->whereHas('streamers', fn ($q) => $q->where('streamers.id', $user->streamer->id));
         return $query;
+    }
+
+    protected function periodQuery()
+    {
+        [$from, $to] = $this->dateRange();
+        return $this->scopedShowsQuery()->whereBetween('show_date', [$from->toDateString(), $to->toDateString()]);
     }
 
     #[Computed]
     public function streamSnapshot(): array
     {
-        $base = $this->scopedShowsQuery();
-        $from = now()->subDays(30)->toDateString();
-        $to = today()->toDateString();
-
-        // "30 days" is historical activity, not historical + every scheduled
-        // future show. Keep the upcoming count separate so the KPI meanings are
-        // stable and a large schedule cannot inflate recent show volume.
-        $total30 = (clone $base)->whereBetween('show_date', [$from, $to])->count();
-        $upcoming = (clone $base)->whereDate('show_date', '>', today())->count();
-        $needsSubmission = (clone $base)
-            ->whereDate('show_date', '<=', today())
-            ->whereDoesntHave('streamerLogEntry')
-            ->whereNotIn('status', ['closed', 'cancelled'])
-            ->count();
-        $grossRevenue30 = (float) (clone $base)
-            ->whereBetween('show_date', [$from, $to])
-            ->sum('gross_revenue');
-        $netRevenue30 = (float) (clone $base)
-            ->whereBetween('show_date', [$from, $to])
-            ->sum('whatnot_net');
-
-        $openShipments = (int) (clone $base)
-            ->whereDate('show_date', '<=', today())
-            ->withCount([
-                'shipments as open_shipments_count' => fn ($q) => $q->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'"),
-            ])
-            ->get()
-            ->sum('open_shipments_count');
-
-        return compact('total30', 'upcoming', 'needsSubmission', 'grossRevenue30', 'netRevenue30', 'openShipments');
+        $base = $this->periodQuery();
+        $shows = (clone $base)->count();
+        $grossRevenue = (float) (clone $base)->sum('gross_revenue');
+        $netRevenue = (float) (clone $base)->sum('whatnot_net');
+        $orders = (int) (clone $base)->withCount('orders')->get()->sum('orders_count');
+        $shipments = (int) (clone $base)->withCount('shipments')->get()->sum('shipments_count');
+        $needsSubmission = (clone $base)->whereDate('show_date', '<=', today())->whereDoesntHave('streamerLogEntry')->whereNotIn('status', ['closed','cancelled'])->count();
+        return compact('shows','grossRevenue','netRevenue','orders','shipments','needsSubmission');
     }
 
     #[Computed]
     public function upcomingShows(): Collection
     {
-        return $this->scopedShowsQuery()
-            ->whereDate('show_date', '>', today())
-            ->with('streamers')
-            ->orderBy('show_date')
-            ->orderBy('start_time')
-            ->limit(5)
-            ->get();
+        return $this->scopedShowsQuery()->whereDate('show_date','>',today())->with('streamers')->orderBy('show_date')->orderBy('start_time')->limit(5)->get();
     }
 
     #[Computed]
     public function recentShows(): Collection
     {
-        // Recent Shows means shows that have happened. Scheduled shows belong in
-        // Upcoming Shows and must never appear here merely because their date is
-        // later than every historical show.
-        return $this->scopedShowsQuery()
-            ->whereDate('show_date', '<=', today())
-            ->with(['streamers', 'streamerLogEntry'])
-            ->withCount(['orders', 'shipments'])
-            ->withCount([
-                'shipments as open_shipments_count' => fn ($q) => $q->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'"),
-            ])
-            ->orderByDesc('show_date')
-            ->orderByDesc('start_time')
-            ->limit(8)
-            ->get();
+        return $this->periodQuery()->whereDate('show_date','<=',today())->with(['streamers','streamerLogEntry'])->withCount(['orders','shipments'])->withCount(['shipments as open_shipments_count'=>fn($q)=>$q->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'")])->orderByDesc('show_date')->orderByDesc('start_time')->limit(12)->get();
     }
 
     #[Computed]
     public function attentionShows(): Collection
     {
-        return $this->scopedShowsQuery()
-            ->whereDate('show_date', '<=', today())
-            ->whereDoesntHave('streamerLogEntry')
-            ->whereNotIn('status', ['closed', 'cancelled'])
-            ->with('streamers')
-            ->orderByDesc('show_date')
-            ->limit(5)
-            ->get();
+        return $this->periodQuery()->whereDate('show_date','<=',today())->whereDoesntHave('streamerLogEntry')->whereNotIn('status',['closed','cancelled'])->with('streamers')->orderByDesc('show_date')->limit(5)->get();
     }
 
     #[Computed]
     public function recentActivity(): Collection
     {
-        return $this->scopedShowsQuery()
-            ->with(['streamers', 'streamerLogEntry'])
-            ->whereNotNull('status_changed_at')
-            ->orderByDesc('status_changed_at')
-            ->limit(6)
-            ->get();
+        return $this->periodQuery()->with(['streamers','streamerLogEntry'])->whereNotNull('status_changed_at')->orderByDesc('status_changed_at')->limit(6)->get();
     }
 
-    public function showUrl(int $id): string
-    {
-        return ShowResource::getUrl('view', ['record' => $id]);
-    }
-
-    public function showsUrl(): string { return Shows::getUrl(); }
+    public function showUrl(int $id): string { return ShowResource::getUrl('view',['record'=>$id]); }
+    public function showsUrl(): string { return Shows::getUrl(['range'=>$this->datePreset,'from'=>$this->dateFrom,'to'=>$this->dateTo]); }
     public function shipmentsUrl(): string { return ShowShipments::getUrl(); }
     public function importerUrl(): string { return WhatnotScraperPage::getUrl(); }
     public function syncUrl(): string { return WhatnotSyncPage::getUrl(); }

@@ -41,26 +41,19 @@ Schedule::job(new ProcessWhatnotChannelsJob())
     ->name('whatnot-hourly-show-analytics-pull')
     ->withoutOverlapping(55);
 
-// The current Whatnot analytics page can expose the selected livestream without
-// rendering its older-show navigation control. Seed missing recent shows by their
-// own immutable Whatnot UUID so Gross / Estimated Net cannot stay blank just
-// because the multi-show walk stopped after the newest show.
+// Fill missing Gross / Estimated Net one UUID at a time for recently completed shows.
+// This is intentionally separate from the fast hourly show pull so one stubborn
+// historical show cannot hold up current show discovery.
 Schedule::command('whatnot:backfill-missing-analytics --days=14 --limit=8 --skip-if-busy')
     ->appendOutputTo($whatnotLog)
     ->skip($whatnotPaused)
     ->hourlyAt(15)
-    ->name('whatnot-missing-show-analytics-backfill')
-    ->withoutOverlapping(20);
+    ->name('whatnot-missing-analytics-backfill')
+    ->withoutOverlapping(45);
 
-// Scheduled refresh commands use --skip-if-busy. The pipeline coordinator holds
-// one coarse lock across ALL channels, preventing shows/orders/shipments/ledger
-// from interleaving and fighting over the same Scrapling browser profile.
-Schedule::command('whatnot:refresh-recent --orders --hours=48 --limit=8 --skip-if-busy')
-    ->appendOutputTo($whatnotLog)
-    ->skip($whatnotPaused)
-    ->cron('20,50 * * * *')
-    ->name('whatnot-recent-orders-refresh')
-    ->withoutOverlapping(25);
+// Order-count polling is intentionally not scheduled. Operational views use
+// Whatnot analytics plus shipment records; the legacy order table is retained
+// for historical/reconciliation use without spending browser time refreshing it.
 
 Schedule::command('whatnot:refresh-recent --shipments --limit=8 --skip-if-busy')
     ->appendOutputTo($whatnotLog)

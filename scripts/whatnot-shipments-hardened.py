@@ -178,8 +178,18 @@ def extract_shipments(page) -> list[dict[str, Any]]:
           detail = next.innerText || '';
         }
         const text = `${main}\n${detail}`;
+        const normalized = main.replace(/\s+/g, ' ').trim();
         const testid = tr.getAttribute('data-testid') || '';
         const shipmentNode = (testid.match(/^shipments-(.+)-row$/) || [])[1] || null;
+
+        // Seller Hub renders a table-body placeholder row when a filtered show
+        // has no shipments. It is not shipment data and must never become a
+        // fake buyer/order. Real current shipment rows have a shipments-*-row
+        // test id; the fallback is kept only for layout changes and must still
+        // look like an actual shipment before we accept it.
+        if (/no results to show|clear all filters/i.test(normalized)) continue;
+        if (!shipmentNode && cells.length < 4) continue;
+        if (!shipmentNode && !statusOf(text) && !weightOz(text) && !/\b(?:USPS|UPS|FedEx|DHL)\b/i.test(text)) continue;
 
         const orderText = text.match(/Order\s*#\s*(\d+)/i);
         const orderHref = [...tr.querySelectorAll('a[href]')]

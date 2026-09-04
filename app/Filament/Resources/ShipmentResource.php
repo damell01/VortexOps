@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Concerns\HasModuleAccess;
 use App\Filament\Resources\ShipmentResource\Pages;
 use App\Models\Shipment;
+use App\Models\Show;
 use Filament\Actions\Action;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
@@ -32,11 +33,36 @@ class ShipmentResource extends Resource
         return $schema->components([]);
     }
 
+    /**
+     * A show opened from the Shows workspace is a hard data boundary, not just
+     * a cosmetic Filament table filter. This prevents a stale/persisted table
+     * filter from ever showing another show's shipment rows under the selected
+     * show's URL.
+     */
+    public static function selectedShowId(): ?int
+    {
+        $show = request()->query('show');
+
+        if (! $show) {
+            $show = data_get(request()->query(), 'tableFilters.show_id.value');
+        }
+
+        if (! $show) {
+            $show = data_get(request()->query(), 'tableFilters.show_id.values.0');
+        }
+
+        return is_numeric($show) && (int) $show > 0 ? (int) $show : null;
+    }
+
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()
             ->with(['show.channel', 'show.streamers'])
             ->whereHas('show', fn (Builder $query) => $query->inChannelContext());
+
+        if ($showId = static::selectedShowId()) {
+            $query->where('shipments.show_id', $showId);
+        }
 
         $user = auth()->user();
         if ($user && $user->isStreamer() && ! $user->isAdmin()) {
@@ -49,10 +75,14 @@ class ShipmentResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $showId = static::selectedShowId();
+        $show = $showId ? Show::query()->select(['id', 'title'])->find($showId) : null;
+
         return $table
-            ->heading('Shipments for selected show')
+            ->heading($show ? 'Shipments · ' . $show->title : 'Shipments')
+            ->description($show ? 'Locked to show #' . $show->id . '. Only shipment records attached to this show are displayed.' : 'Filter shipments by show, status, or carrier.')
             ->deferLoading()
-            ->persistFiltersInSession()
+            ->persistFiltersInSession(false)
             ->defaultSort('created_at_whatnot', 'desc')
             ->columns([
                 TextColumn::make('buyer_username')
@@ -64,15 +94,16 @@ class ShipmentResource extends Resource
                     ->numeric()
                     ->sortable(),
                 TextColumn::make('shipment_value')
-                    ->label('Value')
+                    ->label('Shipment Value')
                     ->state(fn (Shipment $record) => data_get($record->raw_payload, 'shipment_value') ?? data_get($record->raw_payload, 'total_price'))
                     ->money('USD')
                     ->placeholder('—'),
                 TextColumn::make('shipping_cost')
-                    ->label('Shipping')
+                    ->label('Shipping Cost')
                     ->money('USD')
                     ->sortable()
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('weight_oz')
                     ->label('Weight')
                     ->formatStateUsing(function ($state): string {
@@ -120,7 +151,11 @@ class ShipmentResource extends Resource
             ])
             ->filters([
                 SelectFilter::make('show_id')
-                    ->label('Show')->relationship('show', 'title')->searchable()->preload(),
+                    ->label('Show')
+                    ->relationship('show', 'title')
+                    ->searchable()
+                    ->preload()
+                    ->visible(fn () => ! static::selectedShowId()),
                 SelectFilter::make('status')
                     ->options(fn () => Shipment::query()->whereNotNull('status')->distinct()->orderBy('status')->pluck('status', 'status')->all()),
                 SelectFilter::make('carrier')

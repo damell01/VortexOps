@@ -7,6 +7,7 @@ use App\Models\ShowIngestionLog;
 use App\Models\WhatnotChannel;
 use App\Services\WhatnotScraper;
 use App\Services\WhatnotSyncEngine;
+use App\Support\WhatnotPipelineLock;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -19,7 +20,8 @@ class RefreshRecentWhatnotData extends Command
         {--ledger : Refresh the rolling ledger window}
         {--hours=48 : Recent-show window for order refresh}
         {--limit=10 : Maximum shows per channel for each refresh}
-        {--ledger-days=30 : Rolling ledger window}';
+        {--ledger-days=30 : Rolling ledger window}
+        {--skip-if-busy : Scheduled mode: skip cleanly when another Whatnot pipeline is already running}';
 
     protected $description = 'Targeted Whatnot refresh for recent orders, unresolved shipments, or ledger data';
 
@@ -34,12 +36,55 @@ class RefreshRecentWhatnotData extends Command
             return self::FAILURE;
         }
 
+        $source = $doOrders ? 'whatnot_orders' : ($doShipments ? 'whatnot_shipments' : 'whatnot_ledger');
+        $label = ShowIngestionLog::sourceLabels()[$source] ?? $source;
+        $skipIfBusy = (bool) $this->option('skip-if-busy');
+
+        // Hold one coordinator lock for the ENTIRE multi-channel run. The lower
+        // browser lock still protects each browser process, but this prevents a
+        // scheduled show/ledger/order job from jumping in between shipment
+        // channels and making every command wait on the same profile.
+        $pipelineLock = WhatnotPipelineLock::acquire(
+            $label,
+            $skipIfBusy ? 0 : 7200,
+        );
+
+        if (! $pipelineLock) {
+            $message = WhatnotPipelineLock::busyMessage();
+
+            if ($skipIfBusy) {
+                $this->line("{$label}: skipped — {$message}");
+                Log::info('Whatnot pipeline skipped because another pipeline is active', [
+                    'pipeline' => $source,
+                    'reason' => $message,
+                ]);
+                return self::SUCCESS;
+            }
+
+            $this->error("{$label}: timed out waiting for the Whatnot pipeline coordinator. {$message}");
+            return self::FAILURE;
+        }
+
+        try {
+            return $this->runRefresh($scraper, $engine, $doOrders, $doShipments, $doLedger, $source);
+        } finally {
+            WhatnotPipelineLock::release($pipelineLock);
+        }
+    }
+
+    private function runRefresh(
+        WhatnotScraper $scraper,
+        WhatnotSyncEngine $engine,
+        bool $doOrders,
+        bool $doShipments,
+        bool $doLedger,
+        string $source,
+    ): int {
         $hours = max(1, (int) $this->option('hours'));
         $limit = max(1, min(50, (int) $this->option('limit')));
         $ledgerDays = max(1, (int) $this->option('ledger-days'));
         $channels = WhatnotChannel::where('include_in_import', true)->where('status', 'active')->orderBy('id')->get();
 
-        $source = $doOrders ? 'whatnot_orders' : ($doShipments ? 'whatnot_shipments' : 'whatnot_ledger');
         $runId = (string) Str::uuid();
         $successes = 0;
         $partials = 0;

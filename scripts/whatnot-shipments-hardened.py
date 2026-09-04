@@ -114,7 +114,7 @@ def expand_rows(page) -> int:
         }
         """) or 0
         if clicked:
-            page.wait_for_timeout(700)
+            page.wait_for_timeout(900)
         return int(clicked)
     except Exception:
         return 0
@@ -157,6 +157,17 @@ def extract_shipments(page) -> list[dict[str, Any]]:
       const unique = rows.filter((row, index, all) => all.indexOf(row) === index);
       const out = [];
 
+      const orderLinksForShipment = (tr, nextShipmentRow) => {
+        const links = [...document.querySelectorAll('a[href*="/dashboard/orders/"]')];
+        return links.filter(link => {
+          if (tr.contains(link)) return true;
+          const afterCurrent = !!(tr.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING);
+          if (!afterCurrent) return false;
+          if (!nextShipmentRow) return true;
+          return !!(link.compareDocumentPosition(nextShipmentRow) & Node.DOCUMENT_POSITION_FOLLOWING);
+        });
+      };
+
       for (const tr of unique) {
         const cells = [...tr.querySelectorAll(':scope > td')];
         const main = tr.innerText || '';
@@ -167,11 +178,21 @@ def extract_shipments(page) -> list[dict[str, Any]]:
         if (/no results to show|clear all filters/i.test(normalized)) continue;
         if (!shipmentNode && cells.length < 4) continue;
 
+        const shipmentIndex = shipmentRows.indexOf(tr);
+        const nextShipmentRow = shipmentIndex >= 0 ? (shipmentRows[shipmentIndex + 1] || null) : null;
+
+        // Seller Hub has rendered expanded bundles as <tr> siblings, nested rows,
+        // and non-TR wrappers at different times. Collect every sibling node until
+        // the next shipment header, then also use DOM-order link association below.
         const detailRoots = [];
         let next = tr.nextElementSibling;
-        while (next && next.tagName === 'TR' && !/^shipments-.*-row$/.test(next.getAttribute('data-testid') || '')) {
-          detailRoots.push(next);
+        let guard = 0;
+        while (next && next !== nextShipmentRow && guard < 50) {
+          if (!/^shipments-.*-row$/.test(next.getAttribute?.('data-testid') || '')) {
+            detailRoots.push(next);
+          }
           next = next.nextElementSibling;
+          guard++;
         }
         const detailText = detailRoots.map(row => row.innerText || '').join('\n');
         const text = `${main}\n${detailText}`;
@@ -179,8 +200,6 @@ def extract_shipments(page) -> list[dict[str, Any]]:
         const buyerLink = tr.querySelector('a[href*="/dashboard/inbox"]');
         const buyer = clean(buyerLink?.textContent) || null;
 
-        // Current Seller Hub header layout is anchored from the date cell so a
-        // year such as 2026 can never be misread as the item quantity.
         const dateIndex = dateCellIndex(cells);
         const orderDate = dateIndex >= 0 ? clean(cells[dateIndex]?.innerText) : null;
         const headerQty = dateIndex >= 0 ? integer(cells[dateIndex + 1]?.innerText) : null;
@@ -194,7 +213,7 @@ def extract_shipments(page) -> list[dict[str, Any]]:
         const status = statusOf(main);
 
         const allLinks = [tr, ...detailRoots].flatMap(root => [...root.querySelectorAll('a[href]')]);
-        const trackingLink = allLinks.find(a => /tools\.usps\.com|track|tracking/i.test(a.getAttribute('href') || ''));
+        const trackingLink = allLinks.find(a => /tools\.usps\.com|track|tracking/i.test(a.getAttribute('href') || '')) || tr.querySelector('a[href*="TrackConfirmAction"]');
         let tracking = null;
         if (trackingLink) {
           const href = trackingLink.getAttribute('href') || '';
@@ -214,35 +233,36 @@ def extract_shipments(page) -> list[dict[str, Any]]:
         let service = clean(serviceCell?.innerText || '');
         if (tracking) service = clean(service.replace(tracking, '').replace(/\d+\.\.\.\d+/g, ''));
 
-        const shipmentEditLink = allLinks.find(a => /\/dashboard\/shipments\/.+\/edit(?:\?|$)/.test(a.getAttribute('href') || ''));
+        const shipmentEditLink = allLinks.find(a => /\/dashboard\/shipments\/.+\/edit(?:\?|$)/.test(a.getAttribute('href') || '')) || tr.querySelector('a[href*="/dashboard/shipments/"][href*="/edit"]');
         const shipmentUrl = shipmentEditLink ? shipmentEditLink.getAttribute('href') : null;
 
         const bundledItems = [];
         const orderIds = [];
-        for (const root of detailRoots) {
-          const orderLinks = [...root.querySelectorAll('a[href*="/dashboard/orders/"]')];
-          for (const link of orderLinks) {
-            const row = link.closest('tr') || link.parentElement || root;
-            const rowText = clean(row?.innerText || link.parentElement?.innerText || '');
-            const orderMatch = rowText.match(/Order\s*#\s*(\d+)/i);
-            if (!orderMatch) continue;
-            const orderId = orderMatch[1];
-            if (!orderIds.includes(orderId)) orderIds.push(orderId);
-            const title = clean((rowText.split(/Order\s*#\s*\d+/i)[0] || '').replace(/^Items?\s*\(Bundled\)\s*/i, '')) || null;
-            const rowCells = row && row.tagName === 'TR' ? [...row.querySelectorAll(':scope > td')] : [];
-            const childQtyCell = rowCells.find(td => /^\d{1,4}$/.test(clean(td.innerText)));
-            const childMoney = rowCells.map(td => money(td.innerText)).filter(v => v !== null);
-            const childWeightCell = rowCells.find(td => /\b\d+(?:\.\d+)?\s*oz\b|\b\d+(?:\.\d+)?\s*lb\b/i.test(clean(td.innerText)));
-            bundledItems.push({
-              order_id: orderId,
-              order_url: link.getAttribute('href') || null,
-              item_name: title,
-              quantity: childQtyCell ? integer(childQtyCell.innerText) : 1,
-              item_price: childMoney.length ? childMoney[0] : null,
-              shipping_amount: childMoney.length > 1 ? childMoney[1] : null,
-              weight_oz: weightOz(childWeightCell?.innerText || ''),
-            });
-          }
+        const associatedOrderLinks = orderLinksForShipment(tr, nextShipmentRow);
+        for (const link of associatedOrderLinks) {
+          const row = link.closest('tr') || link.closest('[role="row"]') || link.parentElement;
+          const rowText = clean(row?.innerText || link.parentElement?.innerText || link.textContent || '');
+          const linkText = clean(link.textContent || '');
+          const orderMatch = rowText.match(/Order\s*#\s*(\d+)/i) || linkText.match(/Order\s*#\s*(\d+)/i);
+          if (!orderMatch) continue;
+          const orderId = orderMatch[1];
+          if (!orderIds.includes(orderId)) orderIds.push(orderId);
+
+          const title = clean((rowText.split(/Order\s*#\s*\d+/i)[0] || '').replace(/^Items?\s*\(Bundled\)\s*/i, '')) || null;
+          const rowCells = row && row.tagName === 'TR' ? [...row.querySelectorAll(':scope > td')] : [];
+          const childQtyCell = rowCells.find(td => /^\d{1,4}$/.test(clean(td.innerText)));
+          const childMoney = rowCells.map(td => money(td.innerText)).filter(v => v !== null);
+          const childWeightCell = rowCells.find(td => /\b\d+(?:\.\d+)?\s*oz\b|\b\d+(?:\.\d+)?\s*lb\b/i.test(clean(td.innerText)));
+
+          bundledItems.push({
+            order_id: orderId,
+            order_url: link.getAttribute('href') || null,
+            item_name: title,
+            quantity: childQtyCell ? integer(childQtyCell.innerText) : 1,
+            item_price: childMoney.length ? childMoney[0] : null,
+            shipping_amount: childMoney.length > 1 ? childMoney[1] : null,
+            weight_oz: weightOz(childWeightCell?.innerText || ''),
+          });
         }
 
         if (!orderIds.length) {
@@ -256,11 +276,8 @@ def extract_shipments(page) -> list[dict[str, Any]]:
         const hasShippingSpend = bundledItems.some(item => Number.isFinite(item.shipping_amount));
         const qty = headerQty || bundledQty || 1;
 
-        // Keep bundle metadata scalar because the PHP persistence layer also
-        // scans row values as text. Nested arrays there caused "Array to string
-        // conversion" and aborted an otherwise successful scrape.
         out.push({
-          parser_version: 3,
+          parser_version: 4,
           order_id: orderIds[0] || null,
           order_ids: orderIds.join(','),
           order_count: orderIds.length,
@@ -277,7 +294,7 @@ def extract_shipments(page) -> list[dict[str, Any]]:
           shipping_cost_scraped: hasShippingSpend ? Math.round(shippingSpend * 100) / 100 : null,
           ordered_at: orderDate,
           status: 'completed',
-          raw_text: clean(text).substring(0, 8000),
+          raw_text: clean(text).substring(0, 12000),
           weight_oz: weight,
           box_length_in: dims ? parseFloat(dims[1]) : null,
           box_width_in: dims ? parseFloat(dims[2]) : null,
@@ -440,6 +457,7 @@ def main() -> None:
                         "shipment_id": sample.get("whatnot_shipment_id"),
                         "order_id": sample.get("order_id"),
                         "order_ids": sample.get("order_ids"),
+                        "order_count": sample.get("order_count"),
                         "buyer": sample.get("buyer"),
                         "items": sample.get("quantity"),
                         "shipment_value": sample.get("shipment_value"),

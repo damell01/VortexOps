@@ -7,6 +7,7 @@ use App\Models\WhatnotChannel;
 use App\Services\WhatnotDataNormalizer;
 use App\Services\WhatnotScraper;
 use App\Support\WhatnotPipelineLock;
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -19,6 +20,11 @@ class BackfillMissingWhatnotAnalytics extends Command
         {--skip-if-busy : Skip cleanly if another Whatnot pipeline is active}';
 
     protected $description = 'Backfill Gross Revenue and Estimated Net Earnings for completed shows by seeding Whatnot analytics with each show UUID individually.';
+
+    /** @var array<int,array<string,mixed>>|null */
+    private ?array $discoveredSellerShows = null;
+
+    private bool $sellerDiscoveryAttempted = false;
 
     public function handle(WhatnotScraper $scraper, WhatnotDataNormalizer $normalizer): int
     {
@@ -87,9 +93,9 @@ class BackfillMissingWhatnotAnalytics extends Command
         $failed = 0;
 
         foreach ($shows as $show) {
-            $liveId = $this->resolveLiveId($show);
+            $liveId = $this->resolveLiveId($show, $scraper);
             if (! $liveId) {
-                $this->warn("Show #{$show->id}: no Whatnot UUID in whatnot_show_id, detail_url, or stored import payload; skipped.");
+                $this->warn("Show #{$show->id}: UUID still unresolved after stored-data and seller-show discovery; skipped.");
                 $failed++;
                 continue;
             }
@@ -157,7 +163,7 @@ class BackfillMissingWhatnotAnalytics extends Command
         return $failed > 0 && $updated === 0 ? self::FAILURE : self::SUCCESS;
     }
 
-    private function resolveLiveId(Show $show): ?string
+    private function resolveLiveId(Show $show, WhatnotScraper $scraper): ?string
     {
         foreach ([$show->whatnot_show_id, $show->detail_url] as $candidate) {
             if ($liveId = $this->extractLiveId((string) $candidate)) {
@@ -165,7 +171,86 @@ class BackfillMissingWhatnotAnalytics extends Command
             }
         }
 
-        return $this->findLiveIdInPayload($show->raw_import_payload);
+        if ($liveId = $this->findLiveIdInPayload($show->raw_import_payload)) {
+            return $liveId;
+        }
+
+        return $this->discoverLiveId($show, $scraper);
+    }
+
+    private function discoverLiveId(Show $show, WhatnotScraper $scraper): ?string
+    {
+        if (! $this->sellerDiscoveryAttempted) {
+            $this->sellerDiscoveryAttempted = true;
+            $this->line('  Discovering historical Whatnot show URLs for unresolved records…');
+
+            try {
+                $this->discoveredSellerShows = array_values(array_filter(
+                    $scraper->fetchSellerShowUrls(false),
+                    fn ($row) => is_array($row) && ! empty($row['detail_url']) && $this->extractLiveId((string) $row['detail_url']) !== null,
+                ));
+                $this->line('  Discovery returned '.count($this->discoveredSellerShows).' show URL(s).');
+            } catch (\Throwable $e) {
+                $this->discoveredSellerShows = [];
+                $this->warn('  Historical show URL discovery failed: '.$e->getMessage());
+                Log::warning('Missing Whatnot analytics: seller-show discovery failed', [
+                    'exception' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if (empty($this->discoveredSellerShows)) {
+            return null;
+        }
+
+        $targetTitle = $this->normalizeTitle((string) $show->title);
+        $targetDate = $show->show_date?->format('Y-m-d');
+
+        $rows = collect($this->discoveredSellerShows)->filter(function (array $row) {
+            return $this->extractLiveId((string) ($row['detail_url'] ?? '')) !== null;
+        });
+
+        $exact = $rows->filter(function (array $row) use ($targetTitle, $targetDate) {
+            return $targetTitle !== ''
+                && $targetDate !== null
+                && $this->normalizeTitle((string) ($row['title'] ?? '')) === $targetTitle
+                && $this->normalizeDate($row['show_date'] ?? null) === $targetDate;
+        });
+
+        $match = $exact->count() === 1 ? $exact->first() : null;
+
+        if (! $match && $targetDate !== null) {
+            $sameDate = $rows->filter(fn (array $row) => $this->normalizeDate($row['show_date'] ?? null) === $targetDate);
+            if ($sameDate->count() === 1) {
+                $match = $sameDate->first();
+            }
+        }
+
+        if (! $match && $targetTitle !== '') {
+            $sameTitle = $rows->filter(fn (array $row) => $this->normalizeTitle((string) ($row['title'] ?? '')) === $targetTitle);
+            if ($sameTitle->count() === 1) {
+                $match = $sameTitle->first();
+            }
+        }
+
+        if (! is_array($match)) {
+            return null;
+        }
+
+        $detailUrl = (string) ($match['detail_url'] ?? '');
+        $liveId = $this->extractLiveId($detailUrl);
+        if (! $liveId) {
+            return null;
+        }
+
+        $show->forceFill([
+            'whatnot_show_id' => $liveId,
+            'detail_url' => $detailUrl,
+        ])->save();
+
+        $this->line("    resolved #{$show->id} → {$liveId}");
+
+        return $liveId;
     }
 
     private function findLiveIdInPayload(mixed $value): ?string
@@ -178,8 +263,6 @@ class BackfillMissingWhatnotAnalytics extends Command
             return null;
         }
 
-        // Prefer fields that are expected to identify the livestream before
-        // scanning the rest of an old payload for embedded URLs/IDs.
         foreach (['whatnot_live_id', 'live_id', 'whatnot_show_id', 'show_id', 'detail_url', 'url', 'href'] as $key) {
             if (array_key_exists($key, $value) && ($liveId = $this->findLiveIdInPayload($value[$key]))) {
                 return $liveId;
@@ -193,6 +276,26 @@ class BackfillMissingWhatnotAnalytics extends Command
         }
 
         return null;
+    }
+
+    private function normalizeTitle(string $value): string
+    {
+        $value = html_entity_decode(trim($value), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $value = preg_replace('/\s+/', ' ', $value) ?? $value;
+        return mb_strtolower($value);
+    }
+
+    private function normalizeDate(mixed $value): ?string
+    {
+        if ($value === null || trim((string) $value) === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse((string) $value)->format('Y-m-d');
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function extractLiveId(string $value): ?string

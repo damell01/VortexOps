@@ -184,7 +184,20 @@ class BackfillMissingWhatnotAnalytics extends Command
             $this->sellerDiscoveryAttempted = true;
             $this->line('  Discovering historical Whatnot show URLs for unresolved records…');
 
+            $channelUsername = trim((string) ($show->channel?->whatnot_username ?? ''));
+            $previousChannel = getenv('WHATNOT_CHANNEL_NAME');
+            $previousLimit = getenv('WHATNOT_LIMIT');
+
             try {
+                // fetchSellerShowUrls() predates multi-channel support and does not
+                // accept a channel argument. The Symfony child process still inherits
+                // the parent environment, so explicitly scope this one discovery run
+                // to the same channel as the show before it reaches whatnot-runner.cjs.
+                if ($channelUsername !== '') {
+                    putenv('WHATNOT_CHANNEL_NAME='.$channelUsername);
+                }
+                putenv('WHATNOT_LIMIT=500');
+
                 $this->discoveredSellerShows = array_values(array_filter(
                     $scraper->fetchSellerShowUrls(false),
                     fn ($row) => is_array($row) && ! empty($row['detail_url']) && $this->extractLiveId((string) $row['detail_url']) !== null,
@@ -194,8 +207,16 @@ class BackfillMissingWhatnotAnalytics extends Command
                 $this->discoveredSellerShows = [];
                 $this->warn('  Historical show URL discovery failed: '.$e->getMessage());
                 Log::warning('Missing Whatnot analytics: seller-show discovery failed', [
+                    'channel' => $channelUsername ?: null,
                     'exception' => $e->getMessage(),
                 ]);
+            } finally {
+                $previousChannel === false
+                    ? putenv('WHATNOT_CHANNEL_NAME')
+                    : putenv('WHATNOT_CHANNEL_NAME='.$previousChannel);
+                $previousLimit === false
+                    ? putenv('WHATNOT_LIMIT')
+                    : putenv('WHATNOT_LIMIT='.$previousLimit);
             }
         }
 

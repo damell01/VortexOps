@@ -6,7 +6,7 @@ const { spawnSync } = require('child_process');
 
 const projectRoot = path.resolve(__dirname, '..');
 const mode = String(process.env.WHATNOT_MODE || 'analytics').trim();
-const scraplingModes = new Set(['shows', 'analytics', 'orders-batch', 'shipments-batch', 'ledger']);
+const scraplingModes = new Set(['shows', 'seller-shows', 'analytics', 'orders-batch', 'shipments-batch', 'ledger']);
 const explicitBackendRaw = String(process.env.WHATNOT_BROWSER_BACKEND || '').trim().toLowerCase();
 const explicitBackend = explicitBackendRaw === 'scrapling' ? 'scrapling-stealthy' : explicitBackendRaw;
 const legacyLocal = explicitBackend === 'local';
@@ -79,7 +79,12 @@ function runHttpHealth() { const python=resolvePythonBin(); return spawnSync(pyt
 function runScraplingStealthy() {
   const python=resolvePythonBin();
   const useCdp=String(childEnv.WHATNOT_SCRAPLING_USE_CDP||'0').trim()==='1';
-  const env={...childEnv,WHATNOT_BROWSER_BACKEND:'scrapling',WHATNOT_SCRAPLING_USE_CDP:useCdp?'1':'0',WHATNOT_PYTHON_BIN:python};
+  const effectiveMode = mode === 'seller-shows' ? 'shows' : mode;
+  const env={...childEnv,WHATNOT_MODE:effectiveMode,WHATNOT_BROWSER_BACKEND:'scrapling',WHATNOT_SCRAPLING_USE_CDP:useCdp?'1':'0',WHATNOT_PYTHON_BIN:python};
+
+  if (mode === 'seller-shows' && !String(env.WHATNOT_LIMIT || '').trim()) {
+    env.WHATNOT_LIMIT = '500';
+  }
 
   if (mode === 'orders-batch' && !String(env.WHATNOT_ORDER_DETAIL_ENRICH || '').trim()) {
     env.WHATNOT_ORDER_DETAIL_ENRICH = '0';
@@ -96,7 +101,7 @@ function runScraplingStealthy() {
     ? path.join(__dirname, 'whatnot-shipments-hardened.py')
     : path.join(__dirname, 'whatnot-scrapling-stealthy.py');
   fs.mkdirSync(path.dirname(lockFile),{recursive:true});
-  process.stderr.write(`[whatnot] production browser backend: scrapling-stealthy (mode=${mode}, transport=${transport}, profile=${env.WHATNOT_USER_DATA_DIR||'(temporary)'}, python=${python}, solve_cloudflare=false, block_webrtc=${webrtc}, hide_canvas=${canvas}, allow_webgl=${webgl})\n`);
+  process.stderr.write(`[whatnot] production browser backend: scrapling-stealthy (mode=${mode}, effective_mode=${effectiveMode}, transport=${transport}, profile=${env.WHATNOT_USER_DATA_DIR||'(temporary)'}, python=${python}, solve_cloudflare=false, block_webrtc=${webrtc}, hide_canvas=${canvas}, allow_webgl=${webgl})\n`);
   if (mode === 'orders-batch') process.stderr.write(`[whatnot] ORDER_DETAIL_ENRICH=${env.WHATNOT_ORDER_DETAIL_ENRICH}\n`);
   if (mode === 'shipments-batch') process.stderr.write('[whatnot] SHIPMENT_EXTRACTOR=hardened\n');
   process.stderr.write(`[whatnot] BROWSER_LOCK_WAIT file=${lockFile} timeout=${lockWait}s\n`);

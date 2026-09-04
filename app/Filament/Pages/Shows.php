@@ -37,7 +37,7 @@ class Shows extends Page
     public function previousPeriod():void{[$f,$t]=$this->dateRange();$d=$f->diffInDays($t)+1;$this->datePreset='custom';$this->dateFrom=$f->copy()->subDays($d)->toDateString();$this->dateTo=$t->copy()->subDays($d)->toDateString();unset($this->shows);}
     public function nextPeriod():void{[$f,$t]=$this->dateRange();$d=$f->diffInDays($t)+1;$this->datePreset='custom';$this->dateFrom=$f->copy()->addDays($d)->toDateString();$this->dateTo=$t->copy()->addDays($d)->toDateString();unset($this->shows);}
 
-    public function getSubheading():?string{return 'Whatnot shows, streamer assignments, analytics, orders, shipments, and end-of-stream workflow in one place.';}
+    public function getSubheading():?string{return 'Whatnot shows, streamer assignments, analytics, shipments, and end-of-stream workflow in one place.';}
     public function getView():string{return 'filament.pages.shows';}
     public static function getNavigationIcon():string{return 'heroicon-o-presentation-chart-line';}
     public static function getNavigationGroup():?string{return AdminModules::navigationGroupFor('streams');}
@@ -57,7 +57,13 @@ class Shows extends Page
         if($this->filterStreamer&&$u?->isAdmin())$q->whereHas('streamers',fn($x)=>$x->where('streamers.id',$this->filterStreamer));elseif($u?->isStreamer())$q->whereHas('streamers',fn($x)=>$x->where('streamers.id',$u->streamer->id));
         if($this->searchQuery){$n=trim($this->searchQuery);$q->where(fn($x)=>$x->where('title','like',"%{$n}%")->orWhere('notes','like',"%{$n}%")->orWhere('whatnot_show_id','like',"%{$n}%"));}
         if($this->sortBy==='revenue')$q->orderByDesc('gross_revenue')->orderByDesc('show_date');elseif($this->sortBy==='oldest')$q->orderBy('show_date')->orderBy('start_time');else$q->orderByDesc('show_date')->orderByDesc('start_time');
-        return $q->with(['streamers','streamerLogEntry'])->withCount(['orders','shipments'])->withCount(['shipments as pending_shipments_count'=>fn($x)=>$x->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'")])->limit(500)->get();
+        return $q->with(['streamers','streamerLogEntry'])
+            ->withCount([
+                'shipments',
+                'shipments as delivered_shipments_count'=>fn($x)=>$x->whereRaw("LOWER(COALESCE(status, '')) = 'delivered'"),
+                'shipments as pending_shipments_count'=>fn($x)=>$x->whereRaw("LOWER(COALESCE(status, '')) <> 'delivered'"),
+            ])
+            ->limit(500)->get();
     }
 
     #[Computed] public function calendarWeeks():Collection

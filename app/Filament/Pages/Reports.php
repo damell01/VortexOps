@@ -155,7 +155,7 @@ class Reports extends Page
 
         return response()->streamDownload(function () use ($shows) {
             $out = fopen('php://output', 'w');
-            fputcsv($out, ['Date', 'Title', 'Channel', 'Streamers', 'Status', 'Gross Revenue', 'Whatnot Net', 'Tips', 'Units Sold']);
+            fputcsv($out, ['Date', 'Title', 'Channel', 'Streamers', 'Status', 'Gross Revenue', 'Estimated Net Earnings', 'Tips', 'Units Sold']);
             foreach ($shows as $show) {
                 fputcsv($out, [
                     $show->show_date?->format('Y-m-d'),

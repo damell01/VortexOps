@@ -167,7 +167,6 @@ def extract_shipments(page) -> list[dict[str, Any]]:
         if (/no results to show|clear all filters/i.test(normalized)) continue;
         if (!shipmentNode && cells.length < 4) continue;
 
-        // Gather every expanded detail row until the next shipment header row.
         const detailRoots = [];
         let next = tr.nextElementSibling;
         while (next && next.tagName === 'TR' && !/^shipments-.*-row$/.test(next.getAttribute('data-testid') || '')) {
@@ -177,17 +176,15 @@ def extract_shipments(page) -> list[dict[str, Any]]:
         const detailText = detailRoots.map(row => row.innerText || '').join('\n');
         const text = `${main}\n${detailText}`;
 
-        // Recipient has a stable inbox link and is much safer than a cell index.
         const buyerLink = tr.querySelector('a[href*="/dashboard/inbox"]');
         const buyer = clean(buyerLink?.textContent) || null;
 
-        // Current table layout: recipient | expand | date | items | amount | weight |
-        // dimensions | ... | status | logo | service/tracking | actions. Find the
-        // date first so future inserted columns do not turn Sep 3, 2026 into 32,026 items.
+        // Current Seller Hub header layout is anchored from the date cell so a
+        // year such as 2026 can never be misread as the item quantity.
         const dateIndex = dateCellIndex(cells);
         const orderDate = dateIndex >= 0 ? clean(cells[dateIndex]?.innerText) : null;
-        const qty = dateIndex >= 0 ? integer(cells[dateIndex + 1]?.innerText) : null;
-        const value = dateIndex >= 0 ? money(cells[dateIndex + 2]?.innerText) : null;
+        const headerQty = dateIndex >= 0 ? integer(cells[dateIndex + 1]?.innerText) : null;
+        const shipmentValue = dateIndex >= 0 ? money(cells[dateIndex + 2]?.innerText) : null;
 
         const weightCell = cells.find(td => /\b(?:\d+(?:\.\d+)?\s*lb|\d+(?:\.\d+)?\s*oz)\b/i.test(clean(td.innerText)));
         const weight = weightOz(weightCell?.innerText || '');
@@ -211,7 +208,7 @@ def extract_shipments(page) -> list[dict[str, Any]]:
           }
         }
 
-        const carrierMatch = text.match(/\b(USPS|UPS|FedEx|DHL)\b/i);
+        const carrierMatch = main.match(/\b(USPS|UPS|FedEx|DHL)\b/i);
         const carrier = carrierMatch ? carrierMatch[1].toUpperCase() : null;
         const serviceCell = cells.find(td => /\b(?:USPS|UPS|FedEx|DHL)\b/i.test(clean(td.innerText)) || td.querySelector('a[href*="TrackConfirmAction"], a[href*="tracking"]'));
         let service = clean(serviceCell?.innerText || '');
@@ -220,8 +217,6 @@ def extract_shipments(page) -> list[dict[str, Any]]:
         const shipmentEditLink = allLinks.find(a => /\/dashboard\/shipments\/.+\/edit(?:\?|$)/.test(a.getAttribute('href') || ''));
         const shipmentUrl = shipmentEditLink ? shipmentEditLink.getAttribute('href') : null;
 
-        // Expanded bundles expose every actual order. Capture all numeric Order # IDs
-        // plus useful child item data so PHP can reconcile one shipment to many orders.
         const bundledItems = [];
         const orderIds = [];
         for (const root of detailRoots) {
@@ -244,33 +239,45 @@ def extract_shipments(page) -> list[dict[str, Any]]:
               item_name: title,
               quantity: childQtyCell ? integer(childQtyCell.innerText) : 1,
               item_price: childMoney.length ? childMoney[0] : null,
+              shipping_amount: childMoney.length > 1 ? childMoney[1] : null,
               weight_oz: weightOz(childWeightCell?.innerText || ''),
             });
           }
         }
 
-        // Fallback when expanded detail is represented in the same row subtree.
         if (!orderIds.length) {
           for (const match of text.matchAll(/Order\s*#\s*(\d+)/ig)) {
             if (!orderIds.includes(match[1])) orderIds.push(match[1]);
           }
         }
 
+        const bundledQty = bundledItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+        const shippingSpend = bundledItems.reduce((sum, item) => sum + (Number.isFinite(item.shipping_amount) ? item.shipping_amount : 0), 0);
+        const hasShippingSpend = bundledItems.some(item => Number.isFinite(item.shipping_amount));
+        const qty = headerQty || bundledQty || 1;
+
+        // Keep bundle metadata scalar because the PHP persistence layer also
+        // scans row values as text. Nested arrays there caused "Array to string
+        // conversion" and aborted an otherwise successful scrape.
         out.push({
+          parser_version: 3,
           order_id: orderIds[0] || null,
-          order_ids: orderIds,
+          order_ids: orderIds.join(','),
+          order_count: orderIds.length,
           whatnot_shipment_id: shipmentNode,
           shipment_url: shipmentUrl,
           buyer,
           item_name: bundledItems.length === 1 ? bundledItems[0].item_name : null,
-          bundled_items: bundledItems,
+          bundled_items: JSON.stringify(bundledItems),
           lot_number: null,
-          quantity: qty || (bundledItems.reduce((sum, item) => sum + (item.quantity || 0), 0) || 1),
+          quantity: qty,
           unit_price: null,
-          total_price: value,
+          total_price: shipmentValue,
+          shipment_value: shipmentValue,
+          shipping_cost_scraped: hasShippingSpend ? Math.round(shippingSpend * 100) / 100 : null,
           ordered_at: orderDate,
           status: 'completed',
-          raw_text: clean(text).substring(0, 5000),
+          raw_text: clean(text).substring(0, 8000),
           weight_oz: weight,
           box_length_in: dims ? parseFloat(dims[1]) : null,
           box_width_in: dims ? parseFloat(dims[2]) : null,
@@ -435,6 +442,8 @@ def main() -> None:
                         "order_ids": sample.get("order_ids"),
                         "buyer": sample.get("buyer"),
                         "items": sample.get("quantity"),
+                        "shipment_value": sample.get("shipment_value"),
+                        "shipping_spend": sample.get("shipping_cost_scraped"),
                         "status": sample.get("shipping_status_scraped"),
                         "tracking": sample.get("tracking_number"),
                         "weight_oz": sample.get("weight_oz"),

@@ -10,29 +10,24 @@ use Illuminate\Console\Command;
  * Walk the back catalogue until every past show has its analytics and its
  * shipments.
  *
- * whatnot:refresh-recent already picks never-synced shows first, whatever their
- * age — but it is capped at twenty per run because the scheduler calls it twice
- * an hour and a scheduled job should be short. At that rate a few hundred old
- * shows take days, and nobody watching the Ingestion page can tell whether it is
- * working through them or stuck.
- *
- * This is the deliberate version: the same scraping, run in batches with a pause
- * between them, reporting what is left after each pass and stopping the moment
- * Whatnot pushes back rather than hammering it into a rate limit.
+ * The scraper itself intentionally works in small batches so one Whatnot page
+ * failure does not turn into hundreds of bad writes. This command is the
+ * deliberate full-history runner: by default it keeps taking batches until
+ * there is nothing left to fill, or until a pass makes no progress.
  */
 class BackfillWhatnotHistory extends Command
 {
-    /** whatnot:refresh-recent clamps its own limit to this, so asking for more is pointless. */
+    /** whatnot:refresh-recent clamps its own limit to this. */
     private const BATCH_SIZE = 20;
 
     protected $signature = 'whatnot:backfill-history
-                            {--batches=20 : How many batches of 20 shows to work through}
+                            {--batches=0 : Maximum batches to run; 0 means keep going until all outstanding history is filled}
                             {--sleep=20 : Seconds to wait between batches}
-                            {--days=90 : Refresh window passed through to whatnot:refresh-recent}
+                            {--days=90 : Rolling refresh window; missing data is repaired regardless of age}
                             {--dry-run : Report what is outstanding and stop}
                             {--verify : Take one show all the way through and report what actually landed}';
 
-    protected $description = 'Backfill analytics and shipments for past Whatnot shows, in paced batches';
+    protected $description = 'Backfill analytics and shipments for all past Whatnot shows, in paced batches';
 
     public function handle(): int
     {
@@ -54,9 +49,6 @@ class BackfillWhatnotHistory extends Command
             $outstanding,
         ));
 
-        // One number cannot be acted on: missing figures and missing shipments
-        // need different things, and a catalogue whose figures are all in but
-        // whose shipments never were looks identical to one with nothing at all.
         if ($outstanding > 0) {
             $this->line(sprintf(
                 '  <fg=gray>%d missing figures · %d missing shipments</>',
@@ -78,7 +70,7 @@ class BackfillWhatnotHistory extends Command
             $this->newLine();
             $passes = (int) ceil($outstanding / self::BATCH_SIZE);
             $this->line('  <fg=gray>' . $passes . ' ' . str('pass')->plural($passes) . ' of up to ' . self::BATCH_SIZE . '.</>');
-            $this->comment('Dry run. Re-run without --dry-run to work through them.');
+            $this->comment('Dry run. Re-run without --dry-run to work through all outstanding history.');
 
             return self::SUCCESS;
         }
@@ -87,22 +79,29 @@ class BackfillWhatnotHistory extends Command
             return $this->verify($channel);
         }
 
-        $batches = max(1, (int) $this->option('batches'));
-        $sleep   = max(0, (int) $this->option('sleep'));
-        $days    = (int) $this->option('days');
+        // 0 means "all". We still scrape at most 20 shows per browser pass,
+        // but there is no overall 8/20/400-show ceiling anymore. The loop ends
+        // only when every outstanding past show is filled, a pass makes no
+        // progress, or the scraper reports a real failure/rate limit.
+        $batchLimit = max(0, (int) $this->option('batches'));
+        $sleep      = max(0, (int) $this->option('sleep'));
+        $days       = (int) $this->option('days');
+        $batch      = 0;
 
-        for ($batch = 1; $batch <= $batches; $batch++) {
+        while ($batchLimit === 0 || $batch < $batchLimit) {
+            $batch++;
             $before = $this->outstanding($channel);
 
             if ($before === 0) {
                 $this->newLine();
-                $this->info('Everything is in. Stopping early.');
+                $this->info('Everything is in. Stopping.');
 
                 return self::SUCCESS;
             }
 
+            $totalLabel = $batchLimit === 0 ? 'all' : (string) $batchLimit;
             $this->newLine();
-            $this->line("  <fg=cyan>Batch {$batch} of {$batches}</> — {$before} outstanding");
+            $this->line("  <fg=cyan>Batch {$batch} of {$totalLabel}</> — {$before} outstanding");
 
             $exit = $this->call('whatnot:refresh-recent', [
                 '--limit' => self::BATCH_SIZE,
@@ -128,10 +127,6 @@ class BackfillWhatnotHistory extends Command
 
             $after = $this->outstanding($channel);
 
-            // No movement means this route cannot fill what is left — a show
-            // deleted on Whatnot, an id that no longer resolves, or another
-            // browser job holding the lock. Either way, looping on it burns an
-            // hour and earns a rate limit.
             if ($after >= $before) {
                 $this->newLine();
                 $this->warn("Nothing moved on that pass — {$after} shows are still outstanding and are not being filled.");
@@ -141,7 +136,10 @@ class BackfillWhatnotHistory extends Command
                 return self::SUCCESS;
             }
 
-            if ($sleep > 0 && $batch < $batches) {
+            $filled = $before - $after;
+            $this->line("  <fg=green>{$filled} show(s) filled this pass.</> <fg=gray>{$after} still outstanding.</>");
+
+            if ($sleep > 0 && ($batchLimit === 0 || $batch < $batchLimit)) {
                 sleep($sleep);
             }
         }
@@ -161,13 +159,6 @@ class BackfillWhatnotHistory extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Name any channel that is deliberately left out.
-     *
-     * Enrichment now covers every channel marked for import, so a channel whose
-     * shows never fill is one somebody switched off — which is invisible from
-     * the Ingestion page and looks exactly like a broken scrape.
-     */
     private function reportExcludedChannels(): void
     {
         $excluded = WhatnotChannel::query()
@@ -196,13 +187,6 @@ class BackfillWhatnotHistory extends Command
         $this->line('  <fg=gray>Turn on "include in import" for a channel to have it kept up to date.</>');
     }
 
-    /**
-     * Take a single show all the way through and say what actually arrived.
-     *
-     * A backfill is hours of work on a session that may have lapsed and a page
-     * whose markup Whatnot can change without telling anyone. Finding that out
-     * on show 300 is expensive; finding it out on show 1 costs a minute.
-     */
     private function verify(WhatnotChannel $channel): int
     {
         $show = $this->pastShows($channel)
@@ -225,10 +209,6 @@ class BackfillWhatnotHistory extends Command
 
         $shipmentsBefore = $show->shipments()->count();
 
-        // --debug so the scraper's own stage-by-stage narration reaches the
-        // terminal: whether the Seller Hub answered or served a challenge, how
-        // far the Past list scrolled, and per show whether analytics and
-        // shipments were read or failed.
         $exit = $this->call('whatnot:refresh-recent', [
             '--limit' => 1,
             '--days'  => (int) $this->option('days'),
@@ -281,14 +261,6 @@ class BackfillWhatnotHistory extends Command
         return self::SUCCESS;
     }
 
-    /**
-     * Say what the scraper's exit code means and what to do about it.
-     *
-     * These codes only started arriving once the sync scraper stopped exiting 1
-     * for everything, so this advice used to be printed at a code that could
-     * never occur — a lapsed session and moved markup produced the same three
-     * lines, neither of which fitted.
-     */
     private function explainExit(int $exit): void
     {
         match ($exit) {
@@ -321,16 +293,6 @@ class BackfillWhatnotHistory extends Command
         }
     }
 
-    /**
-     * Past shows on this channel that are genuinely missing something.
-     *
-     * Counted from the figures and the shipment rows, not from
-     * last_analytics_synced_at. That stamp is only written by the two commands
-     * driving whatnot-production-sync, while the figures also arrive with the
-     * show import — so this reported 567 of 570 shows outstanding on a channel
-     * where roughly a third already had every number, and no amount of scraping
-     * would ever have moved it.
-     */
     private function outstanding(WhatnotChannel $channel): int
     {
         return $this->pastShows($channel)
@@ -347,5 +309,4 @@ class BackfillWhatnotHistory extends Command
             ->whereNotNull('whatnot_show_id')
             ->whereDate('show_date', '<=', today());
     }
-
 }

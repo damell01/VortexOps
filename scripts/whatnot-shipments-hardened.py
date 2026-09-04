@@ -318,11 +318,38 @@ def pagination_state(page) -> dict[str, Any]:
     try:
         return page.evaluate(r"""
         () => {
-          const svg = document.querySelector('svg[aria-label="Next page"]');
-          const button = svg ? svg.closest('button') : document.querySelector('button[aria-label="Next page"]');
+          const visible = el => {
+            if (!el) return false;
+            const style = window.getComputedStyle(el);
+            const rect = el.getBoundingClientRect();
+            return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+          };
+          const disabled = button => !button || !!button.disabled || button.getAttribute('aria-disabled') === 'true';
+          const nextButtons = [...document.querySelectorAll('button')].filter(button => {
+            const aria = (button.getAttribute('aria-label') || '').trim().toLowerCase();
+            const title = (button.getAttribute('title') || '').trim().toLowerCase();
+            const text = (button.textContent || '').trim().toLowerCase();
+            const svg = button.querySelector('svg[aria-label="Next page"]');
+            return aria === 'next page' || title === 'next page' || text === 'next page' || !!svg;
+          });
+          const states = nextButtons.map((button, index) => ({
+            index,
+            visible: visible(button),
+            disabled: disabled(button),
+            aria: button.getAttribute('aria-label') || button.querySelector('svg')?.getAttribute('aria-label') || null,
+          }));
+          const usable = nextButtons.find(button => visible(button) && !disabled(button));
           const body = document.body?.innerText || '';
-          const showing = (body.match(/Showing\s+([\d,]+)\s*[-–]\s*([\d,]+)\s+of\s+([\d,]+)/i) || []).slice(1);
-          return {exists: !!button, disabled: !button || !!button.disabled || button.getAttribute('aria-disabled') === 'true', showing};
+          const showingMatches = [...body.matchAll(/Showing\s+([\d,]+)\s*[-–]\s*([\d,]+)\s+of\s+([\d,]+)/ig)]
+            .map(match => match.slice(1));
+          const showing = showingMatches.find(values => values.some(value => String(value).replace(/,/g, '') !== '0')) || showingMatches[0] || [];
+          return {
+            exists: nextButtons.length > 0,
+            usable: !!usable,
+            disabled: !usable,
+            candidates: states,
+            showing,
+          };
         }
         """) or {}
     except Exception:
@@ -347,28 +374,39 @@ def page_diagnostic(page) -> dict[str, Any]:
 
 def advance_page(page, previous_signature: str) -> bool:
     state = pagination_state(page)
-    if not state.get("exists") or state.get("disabled"):
+    if not state.get("usable"):
         return False
+
     try:
-        svg = page.locator('svg[aria-label="Next page"]').first
-        button = svg.locator('xpath=ancestor::button[1]')
-        button.scroll_into_view_if_needed(timeout=1500)
-        button.click(timeout=3000)
-    except Exception:
-        try:
-            clicked = page.evaluate(r"""
-            () => {
-              const svg = document.querySelector('svg[aria-label="Next page"]');
-              const button = svg ? svg.closest('button') : document.querySelector('button[aria-label="Next page"]');
-              if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return false;
-              button.click(); return true;
-            }
-            """)
-            if not clicked:
-                return False
-        except Exception:
+        clicked = page.evaluate(r"""
+        () => {
+          const visible = el => {
+            if (!el) return false;
+            const style = window.getComputedStyle(el);
+            const rect = el.getBoundingClientRect();
+            return style.display !== 'none' && style.visibility !== 'hidden' && rect.width > 0 && rect.height > 0;
+          };
+          const disabled = button => !button || !!button.disabled || button.getAttribute('aria-disabled') === 'true';
+          const buttons = [...document.querySelectorAll('button')].filter(button => {
+            const aria = (button.getAttribute('aria-label') || '').trim().toLowerCase();
+            const title = (button.getAttribute('title') || '').trim().toLowerCase();
+            const text = (button.textContent || '').trim().toLowerCase();
+            const svg = button.querySelector('svg[aria-label="Next page"]');
+            return aria === 'next page' || title === 'next page' || text === 'next page' || !!svg;
+          });
+          const button = buttons.find(candidate => visible(candidate) && !disabled(candidate));
+          if (!button) return false;
+          button.scrollIntoView({block: 'center', inline: 'nearest'});
+          button.click();
+          return true;
+        }
+        """)
+        if not clicked:
             return False
-    for _ in range(40):
+    except Exception:
+        return False
+
+    for _ in range(60):
         page.wait_for_timeout(250)
         current = page_signature(page)
         if current and current != previous_signature:

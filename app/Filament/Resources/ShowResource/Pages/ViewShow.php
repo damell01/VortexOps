@@ -76,13 +76,18 @@ class ViewShow extends ViewRecord
                         $this->record->load('streamers');
                     }),
                 Action::make('import_items_sold')->label(fn () => $this->record->orders->count() > 0 ? 'Items Sold (' . $this->record->orders->count() . ')' : 'Import Items Sold')->icon('heroicon-o-shopping-cart')
-                    ->visible(fn (): bool => (bool) $this->record->detail_url && \App\Services\FeatureFlagService::enabled('whatnot_import'))
+                    ->visible(fn (): bool => (bool) $this->record->detail_url
+                        && ! $this->record->show_date?->isAfter(today())
+                        && \App\Services\FeatureFlagService::enabled('whatnot_import'))
                     ->requiresConfirmation()->action(function (): void {
                         try {
+                            if ($this->record->show_date?->isAfter(today())) {
+                                throw new \RuntimeException('Orders cannot be imported for a future scheduled show.');
+                            }
                             $result = app(WhatnotScraper::class)->importShowOrders($this->record);
                             Notification::make()->title('Import complete')->body("{$result['created']} new item(s) imported.")->success()->send();
                             $this->record->load('orders');
-                        } catch (\RuntimeException $exception) {
+                        } catch (\RuntimeException|\LogicException $exception) {
                             Notification::make()->title('Import failed')->body($exception->getMessage())->danger()->send();
                         }
                     }),

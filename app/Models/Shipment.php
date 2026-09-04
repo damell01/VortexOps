@@ -46,45 +46,68 @@ class Shipment extends Model
         });
     }
 
-    /**
-     * Seller Hub has changed shipment-table column order several times. The
-     * scraper keeps the complete visible row in raw_payload.raw_text, so use
-     * the text itself as a safety net instead of trusting fixed cell indexes.
-     */
+    /** Normalize the authoritative fields exposed by Whatnot Seller Hub. */
     public function normalizeScrapedPayload(): void
     {
         $payload = is_array($this->raw_payload) ? $this->raw_payload : [];
         $text = trim((string) ($payload['raw_text'] ?? ''));
+        $parserVersion = (int) ($payload['parser_version'] ?? 0);
 
-        // Prefer the structured values produced by the current hardened parser.
         if (! empty($payload['buyer'])) {
-            $this->buyer_username = $payload['buyer'];
+            $this->buyer_username = (string) $payload['buyer'];
         }
+
         if (! empty($payload['ordered_at'])) {
             try {
                 $this->created_at_whatnot = Carbon::parse($payload['ordered_at'])->startOfDay();
             } catch (\Throwable) {
             }
         }
+
         if (isset($payload['quantity']) && is_numeric($payload['quantity'])) {
             $qty = (int) $payload['quantity'];
-            if ($qty > 0 && $qty <= 10000) $this->item_count = $qty;
+            if ($qty > 0 && $qty <= 10000) {
+                $this->item_count = $qty;
+            }
         }
+
         if (isset($payload['weight_oz']) && is_numeric($payload['weight_oz'])) {
             $this->weight_oz = (float) $payload['weight_oz'];
         }
+
         if (! empty($payload['shipping_carrier'])) {
             $this->carrier = strtoupper((string) $payload['shipping_carrier']);
         }
+
         if (! empty($payload['shipping_status_scraped'])) {
-            $this->status = $payload['shipping_status_scraped'];
+            $this->status = (string) $payload['shipping_status_scraped'];
         }
+
         if (isset($payload['box_length_in']) || isset($payload['box_width_in']) || isset($payload['box_height_in'])) {
-            $this->dimensions_json = array_filter([
+            $dims = array_filter([
                 'length_in' => $payload['box_length_in'] ?? null,
                 'width_in' => $payload['box_width_in'] ?? null,
                 'height_in' => $payload['box_height_in'] ?? null,
             ], fn ($value) => $value !== null && $value !== '');
+            if ($dims !== []) {
+                $this->dimensions_json = $dims;
+            }
+        }
+
+        // Parser v3 separates the shipment's merchandise Value from actual
+        // Shipping spend. Older parsers copied Value into shipping_cost, which
+        // is why some show cards reported $10k+ of "Shipping".
+        if (array_key_exists('shipping_cost_scraped', $payload)) {
+            $this->shipping_cost = is_numeric($payload['shipping_cost_scraped'])
+                ? round((float) $payload['shipping_cost_scraped'], 2)
+                : null;
+        } elseif ($parserVersion >= 3) {
+            $this->shipping_cost = null;
+        } elseif (array_key_exists('total_price', $payload)
+            && $this->shipping_cost !== null
+            && is_numeric($payload['total_price'])
+            && abs((float) $this->shipping_cost - (float) $payload['total_price']) < 0.001) {
+            $this->shipping_cost = null;
         }
 
         if ($text === '') {
@@ -112,16 +135,13 @@ class Shipment extends Model
             }
         }
 
-        if ((! $this->item_count || (int) $this->item_count > 10000)
-            && preg_match('/\b' . $datePattern . '\s+(\d{1,5})\b/i', $text, $m)) {
+        // Always allow the date-anchored quantity to repair legacy 12,026 /
+        // 312,026 values caused by parsing the year as part of the item count.
+        if (preg_match('/\b' . $datePattern . '\s+(\d{1,5})\b/i', $text, $m)) {
             $qty = (int) $m[1];
             if ($qty > 0 && $qty <= 10000) {
                 $this->item_count = $qty;
             }
-        }
-
-        if (preg_match('/\b' . $datePattern . '\s+\d{1,5}\s+\$\s*([\d,]+(?:\.\d{1,2})?)/i', $text, $m)) {
-            $this->shipping_cost = (float) str_replace(',', '', $m[1]);
         }
 
         if ($this->weight_oz === null) {
@@ -161,20 +181,44 @@ class Shipment extends Model
         }
     }
 
-    /** One Whatnot shipment can contain several sold orders. Keep the shipment
-     * as the fulfillment source of truth, but copy its current status/tracking
-     * onto every bundled order when numeric Order # IDs are available. */
+    public function bundledOrderIds(): array
+    {
+        $payload = is_array($this->raw_payload) ? $this->raw_payload : [];
+        $value = $payload['order_ids'] ?? [];
+
+        if (is_string($value)) {
+            $value = explode(',', $value);
+        }
+
+        return collect(is_array($value) ? $value : [])
+            ->push($payload['order_id'] ?? null)
+            ->map(fn ($id) => trim((string) $id))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function bundledItems(): array
+    {
+        $payload = is_array($this->raw_payload) ? $this->raw_payload : [];
+        $value = $payload['bundled_items'] ?? [];
+
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($value) ? $value : [];
+    }
+
+    /** One Whatnot shipment can contain several sold orders. */
     public function reconcileBundledOrders(): int
     {
         $payload = is_array($this->raw_payload) ? $this->raw_payload : [];
-        $orderIds = collect($payload['order_ids'] ?? [])
-            ->push($payload['order_id'] ?? null)
-            ->filter()
-            ->map(fn ($id) => (string) $id)
-            ->unique()
-            ->values();
+        $orderIds = $this->bundledOrderIds();
 
-        if ($orderIds->isEmpty() || ! $this->show_id) {
+        if ($orderIds === [] || ! $this->show_id) {
             return 0;
         }
 
@@ -183,26 +227,28 @@ class Shipment extends Model
         $shipmentUrl = $payload['shipment_url'] ?? null;
         $service = $payload['shipping_service'] ?? null;
 
-        return WhatnotShowOrder::query()
+        $orders = WhatnotShowOrder::query()
             ->where('show_id', $this->show_id)
-            ->whereIn('whatnot_order_id', $orderIds->all())
-            ->get()
-            ->each(function (WhatnotShowOrder $order) use ($shipmentId, $shipmentUrl, $service, $dimensions): void {
-                $order->update(array_filter([
-                    'whatnot_shipment_id' => $shipmentId,
-                    'whatnot_shipment_url' => $shipmentUrl,
-                    'tracking_number' => $this->tracking_number,
-                    'shipping_status' => $this->status,
-                    'shipment_weight_oz' => $this->weight_oz,
-                    'box_length_in' => $dimensions['length_in'] ?? null,
-                    'box_width_in' => $dimensions['width_in'] ?? null,
-                    'box_height_in' => $dimensions['height_in'] ?? null,
-                    'shipping_carrier' => $this->carrier,
-                    'shipping_service' => $service,
-                    'shipment_synced_at' => now(),
-                ], fn ($value) => $value !== null && $value !== ''));
-            })
-            ->count();
+            ->whereIn('whatnot_order_id', $orderIds)
+            ->get();
+
+        foreach ($orders as $order) {
+            $order->update(array_filter([
+                'whatnot_shipment_id' => $shipmentId,
+                'whatnot_shipment_url' => $shipmentUrl,
+                'tracking_number' => $this->tracking_number,
+                'shipping_status' => $this->status,
+                'shipment_weight_oz' => $this->weight_oz,
+                'box_length_in' => $dimensions['length_in'] ?? null,
+                'box_width_in' => $dimensions['width_in'] ?? null,
+                'box_height_in' => $dimensions['height_in'] ?? null,
+                'shipping_carrier' => $this->carrier,
+                'shipping_service' => $service,
+                'shipment_synced_at' => now(),
+            ], fn ($value) => $value !== null && $value !== ''));
+        }
+
+        return $orders->count();
     }
 
     public function show(): BelongsTo

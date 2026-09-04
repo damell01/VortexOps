@@ -16,6 +16,7 @@ class ReconcileWhatnotShipments extends Command
         {--days=3650 : Only reconcile shows this many days back}
         {--batch=4 : Number of shows per browser batch}
         {--channel= : Channel name or Whatnot username}
+        {--show= : Reconcile one specific VortexOps show ID or Whatnot show ID}
         {--limit=0 : Maximum shows per channel; 0 means all in range}
         {--skip-if-busy : Exit cleanly if another Whatnot pipeline is running}
         {--no-dedupe : Do not compact exact duplicate tracking rows afterward}';
@@ -37,6 +38,7 @@ class ReconcileWhatnotShipments extends Command
             $batchSize = max(1, min(10, (int) $this->option('batch')));
             $limit = max(0, (int) $this->option('limit'));
             $channelFilter = trim((string) $this->option('channel'));
+            $showFilter = trim((string) $this->option('show'));
 
             $channels = WhatnotChannel::query()
                 ->where('include_in_import', true)
@@ -67,7 +69,18 @@ class ReconcileWhatnotShipments extends Command
                 $query = Show::query()
                     ->where('whatnot_channel_id', $channel->id)
                     ->whereNotNull('detail_url')
-                    ->whereBetween('show_date', [now()->subDays($days)->startOfDay(), now()->endOfDay()])
+                    ->when($showFilter !== '', function ($query) use ($showFilter) {
+                        $query->where(function ($q) use ($showFilter) {
+                            if (ctype_digit($showFilter)) {
+                                $q->whereKey((int) $showFilter)
+                                    ->orWhere('whatnot_show_id', $showFilter);
+                            } else {
+                                $q->where('whatnot_show_id', $showFilter);
+                            }
+                        });
+                    }, function ($query) use ($days) {
+                        $query->whereBetween('show_date', [now()->subDays($days)->startOfDay(), now()->endOfDay()]);
+                    })
                     ->orderBy('show_date')
                     ->orderBy('id');
 

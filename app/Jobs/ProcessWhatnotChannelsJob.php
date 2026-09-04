@@ -6,6 +6,7 @@ use App\Models\ShowIngestionLog;
 use App\Models\WhatnotChannel;
 use App\Services\WhatnotScraper;
 use App\Support\WhatnotBrowserLock;
+use App\Support\WhatnotPipelineLock;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -43,6 +44,27 @@ class ProcessWhatnotChannelsJob implements ShouldQueue, ShouldBeUnique
     }
 
     public function handle(WhatnotScraper $scraper): void
+    {
+        // Do not interleave this hourly walk with a long shipment/order/ledger
+        // command. If another pipeline owns the coordinator, leave its browser
+        // alone and let the next hourly run retry. This is a clean skip, not an
+        // ingestion failure.
+        $pipelineLock = WhatnotPipelineLock::acquire('Shows + Analytics', 0);
+        if (! $pipelineLock) {
+            Log::info('ProcessWhatnotChannelsJob: skipped because another Whatnot pipeline is active', [
+                'reason' => WhatnotPipelineLock::busyMessage(),
+            ]);
+            return;
+        }
+
+        try {
+            $this->runPipeline($scraper);
+        } finally {
+            WhatnotPipelineLock::release($pipelineLock);
+        }
+    }
+
+    private function runPipeline(WhatnotScraper $scraper): void
     {
         $runId = (string) Str::uuid();
         $recovery = WhatnotBrowserLock::recoverIfStale();

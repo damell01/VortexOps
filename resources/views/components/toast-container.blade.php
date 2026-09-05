@@ -7,6 +7,7 @@
      survive Filament SPA navigation without needing a separate Vite entry. --}}
 @include('filament.components.pallet-mobile-ui-fixes')
 @include('filament.components.mobile-inventory-hotfixes')
+@include('filament.components.inventory-item-view-responsive-fix')
 @include('filament.components.view-pallet-action-layout-fix')
 @include('filament.components.inventory-catalog-enhancements')
 @include('filament.components.ios-inventory-picker-fix')

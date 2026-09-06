@@ -22,6 +22,8 @@ use App\Services\InventoryVelocityService;
 use App\Services\PackingSlipAnalyzerService;
 use App\Services\ProductMatchingService;
 use App\Services\ReceivingReportService;
+use App\Services\SafeWhatnotScraper;
+use App\Services\WhatnotScraper;
 use App\Support\TableFilterPresentation;
 use Filament\Support\Facades\FilamentView;
 use Filament\Tables\Table;
@@ -62,6 +64,12 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(ReceivingReportService::class);
         $this->app->singleton(InventoryVelocityService::class);
+
+        // Fail closed for channel-specific Whatnot analytics imports. The Node
+        // scraper historically continued after a role-switch timeout and could
+        // parse a Cloudflare interstitial as a fake show. The guarded subclass
+        // preserves every other scraper mode while refusing those unsafe rows.
+        $this->app->singleton(WhatnotScraper::class, SafeWhatnotScraper::class);
     }
 
     public function boot(): void

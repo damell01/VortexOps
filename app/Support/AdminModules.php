@@ -103,7 +103,16 @@ class AdminModules
             return static::$memoizedSlugs = static::defaultEnabledSlugs();
         }
 
-        return static::$memoizedSlugs = static::normalizeEnabledSlugs($decoded);
+        $enabled = static::normalizeEnabledSlugs($decoded);
+
+        // Fulfillment is now part of the core Show → Shipment workflow. Existing
+        // installations may have saved module settings from before the module
+        // existed, so bring it forward whenever Shows is already enabled.
+        if (in_array('streams', $enabled, true) && ! in_array('fulfillment', $enabled, true)) {
+            $enabled[] = 'fulfillment';
+        }
+
+        return static::$memoizedSlugs = array_values(array_unique($enabled));
     }
 
     public static function isEnabled(string $slug): bool

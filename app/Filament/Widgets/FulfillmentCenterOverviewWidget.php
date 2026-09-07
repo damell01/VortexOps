@@ -22,7 +22,7 @@ class FulfillmentCenterOverviewWidget extends Widget
 
     protected function getViewData(): array
     {
-        $shows = FulfillmentResource::getEloquentQuery()->limit(60)->get();
+        $shows = FulfillmentResource::getEloquentQuery()->limit(80)->get();
 
         $queue = $shows->map(function (Show $show) {
             $items = $show->streamerLogEntry?->items ?? collect();
@@ -81,10 +81,22 @@ class FulfillmentCenterOverviewWidget extends Widget
             return $show;
         });
 
+        $active = $queue->whereNotIn('fulfillment_stage.key', ['complete']);
+
         return [
             'queue' => $queue->take(12),
+            'focusQueue' => $active->sortBy(function (Show $show): int {
+                return match ($show->getAttribute('fulfillment_stage')['key'] ?? '') {
+                    'issues' => 0,
+                    'unassigned' => 1,
+                    'review' => 2,
+                    'verify' => 3,
+                    default => 4,
+                };
+            })->take(6)->values(),
             'stats' => [
                 'shows' => $queue->count(),
+                'active' => $active->count(),
                 'unassigned' => $queue->where('fulfillment_stage.key', 'unassigned')->count(),
                 'review' => $queue->where('fulfillment_stage.key', 'review')->count(),
                 'issues' => $queue->where('fulfillment_stage.key', 'issues')->count(),

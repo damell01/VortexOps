@@ -73,10 +73,7 @@ class FulfillmentResource extends Resource
 
     public static function canView(\Illuminate\Database\Eloquent\Model $record): bool
     {
-        if (\App\Support\RoleAccess::grants(static::class)) {
-            return true;
-        }
-
+        if (\App\Support\RoleAccess::grants(static::class)) return true;
         $user = auth()->user();
         return ($user?->isAdmin() || $user?->isOwner() || $user?->isFulfillment() || $user?->isFulfillmentAdmin()) ?? false;
     }
@@ -88,13 +85,11 @@ class FulfillmentResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Show')->columns(3)->columnSpanFull()->schema([
+            Section::make('Show')->columns(2)->columnSpanFull()->schema([
                 Placeholder::make('title')->label('Show')->content(fn (?Show $record) => $record?->title ?: '—'),
                 Placeholder::make('show_date')->label('Date')->content(fn (?Show $record) => $record?->show_date?->format('M j, Y') ?? '—'),
-                Placeholder::make('status')->label('Show Status')->content(fn (?Show $record) => $record ? (Show::statusLabels()[$record->status] ?? $record->status) : '—'),
                 Placeholder::make('streamer')->label('Streamer')->content(fn (?Show $record) => $record?->streamers->pluck('name')->join(', ') ?: '—'),
-                Placeholder::make('fulfillment')->label('Fulfillment')->content(fn (?Show $record) => $record?->fulfillmentUsers->pluck('name')->join(', ') ?: 'Unassigned'),
-                Placeholder::make('logged_items')->label('Logged Items')->content(fn (?Show $record) => $record?->streamerLogEntry?->items->count() ?? 0),
+                Placeholder::make('fulfillment')->label('Assigned Fulfillment')->content(fn (?Show $record) => $record?->fulfillmentUsers->pluck('name')->join(', ') ?: 'Unassigned'),
             ]),
         ]);
     }
@@ -106,40 +101,25 @@ class FulfillmentResource extends Resource
             ->persistFiltersInSession()
             ->defaultSort('show_date', 'desc')
             ->columns([
-                TextColumn::make('show_date')->label('Date')->date('M j')->sortable()->visibleFrom('md'),
                 TextColumn::make('title')
                     ->label('Show')
                     ->searchable()
                     ->wrap()
-                    ->limit(42)
-                    ->icon(fn ($record) => $record->is_slow_pack ? 'heroicon-m-clock' : null)
-                    ->iconColor('warning')
-                    ->description(fn ($record) => filled($record->fulfillment_notes) ? \Illuminate\Support\Str::limit($record->fulfillment_notes, 70) : null)
-                    ->tooltip(fn ($record) => $record->fulfillment_notes),
-                TextColumn::make('streamers.name')->label('Streamer')->badge()->separator(', ')->placeholder('Unassigned')->visibleFrom('md'),
-                TextColumn::make('fulfillmentUsers.name')->label('Fulfillment')->badge()->separator(', ')->placeholder('Unassigned')->visibleFrom('lg'),
-                TextColumn::make('fulfillment_pending')
-                    ->label('To Review')
-                    ->state(fn (Show $record) => $record->streamerLogEntry?->items->filter(fn (StreamerLogItem $item) => ! $item->isFulfillmentReviewed())->count() ?? 0)
-                    ->badge()
-                    ->color(fn ($state) => (int) $state > 0 ? 'warning' : 'success'),
-                TextColumn::make('fulfillment_issues')
-                    ->label('Issues')
-                    ->state(fn (Show $record) => $record->streamerLogEntry?->items->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED)->count() ?? 0)
-                    ->badge()
-                    ->color(fn ($state) => (int) $state > 0 ? 'danger' : 'gray'),
-                TextColumn::make('open_shipments_count')->label('Open Shipments')->numeric()->badge()->color('info')->visibleFrom('lg'),
+                    ->limit(48)
+                    ->description(function (Show $record): string {
+                        $streamer = $record->streamers->pluck('name')->join(', ') ?: 'No streamer';
+                        $assigned = $record->fulfillmentUsers->pluck('name')->join(', ') ?: 'Unassigned';
+                        return ($record->show_date?->format('M j') ?? 'No date') . " · {$streamer} · Fulfillment: {$assigned}";
+                    }),
                 TextColumn::make('fulfillment_next_action')
-                    ->label('Next')
+                    ->label('Next Step')
                     ->state(function (Show $record): string {
-                        if ($record->fulfillmentUsers->isEmpty()) return 'Assign';
-
+                        if ($record->fulfillmentUsers->isEmpty()) return 'Assign fulfillment';
                         $items = $record->streamerLogEntry?->items ?? collect();
                         $pending = $items->filter(fn (StreamerLogItem $item) => ! $item->isFulfillmentReviewed())->count();
                         $issues = $items->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED)->count();
-
+                        if ($issues > 0) return "Resolve {$issues} issue" . ($issues === 1 ? '' : 's');
                         if ($pending > 0) return "Review {$pending} item" . ($pending === 1 ? '' : 's');
-                        if ($issues > 0) return 'Resolve item issues';
                         if ($record->streamerLogEntry?->needsFulfillmentReview()) return 'Verify counts';
                         return 'Complete ✓';
                     })
@@ -147,11 +127,21 @@ class FulfillmentResource extends Resource
                     ->color(function (Show $record): string {
                         if ($record->fulfillmentUsers->isEmpty()) return 'warning';
                         $items = $record->streamerLogEntry?->items ?? collect();
-                        if ($items->filter(fn (StreamerLogItem $item) => ! $item->isFulfillmentReviewed())->isNotEmpty()) return 'primary';
                         if ($items->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED)->isNotEmpty()) return 'danger';
+                        if ($items->filter(fn (StreamerLogItem $item) => ! $item->isFulfillmentReviewed())->isNotEmpty()) return 'primary';
                         if ($record->streamerLogEntry?->needsFulfillmentReview()) return 'warning';
                         return 'success';
                     }),
+                TextColumn::make('fulfillment_summary')
+                    ->label('Work')
+                    ->state(function (Show $record): string {
+                        $items = $record->streamerLogEntry?->items ?? collect();
+                        $pending = $items->filter(fn (StreamerLogItem $item) => ! $item->isFulfillmentReviewed())->count();
+                        $issues = $items->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED)->count();
+                        return "{$pending} review · {$issues} issues · " . (int) $record->open_shipments_count . ' open';
+                    })
+                    ->wrap()
+                    ->visibleFrom('md'),
             ])
             ->filters([
                 SelectFilter::make('work_stage')
@@ -166,52 +156,24 @@ class FulfillmentResource extends Resource
                     ->query(function (Builder $query, array $data): Builder {
                         return match ($data['value'] ?? null) {
                             'unassigned' => $query->whereDoesntHave('fulfillmentUsers'),
-                            'review' => $query->whereHas('streamerLogEntry.items', fn ($items) => $items
-                                ->whereNull('fulfillment_status')
-                                ->orWhere('fulfillment_status', StreamerLogItem::FULFILLMENT_PENDING)),
-                            'issues' => $query->whereHas('streamerLogEntry.items', fn ($items) => $items
-                                ->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED)),
-                            'verify' => $query->whereHas('streamerLogEntry', fn ($log) => $log
-                                ->where(function ($approved) {
-                                    $approved->where('status', 'admin_approved')
-                                        ->orWhere('approval_status', 'approved');
-                                })
-                                ->whereNull('fulfillment_reviewed_at')
-                                ->whereHas('streamer', fn ($streamer) => $streamer->where('payout_type', 'pwe_labels'))),
-                            'complete' => $query
-                                ->whereHas('streamerLogEntry', fn ($log) => $log
-                                    ->where(function ($approved) {
-                                        $approved->where('status', 'admin_approved')
-                                            ->orWhere('approval_status', 'approved');
-                                    }))
-                                ->whereDoesntHave('streamerLogEntry.items', fn ($items) => $items
-                                    ->whereNull('fulfillment_status')
-                                    ->orWhereIn('fulfillment_status', [StreamerLogItem::FULFILLMENT_PENDING, StreamerLogItem::FULFILLMENT_NOT_FULFILLED]))
-                                ->whereDoesntHave('streamerLogEntry', fn ($log) => $log
-                                    ->whereNull('fulfillment_reviewed_at')
-                                    ->whereHas('streamer', fn ($streamer) => $streamer->where('payout_type', 'pwe_labels'))),
+                            'review' => $query->whereHas('streamerLogEntry.items', fn ($items) => $items->whereNull('fulfillment_status')->orWhere('fulfillment_status', StreamerLogItem::FULFILLMENT_PENDING)),
+                            'issues' => $query->whereHas('streamerLogEntry.items', fn ($items) => $items->where('fulfillment_status', StreamerLogItem::FULFILLMENT_NOT_FULFILLED)),
+                            'verify' => $query->whereHas('streamerLogEntry', fn ($log) => $log->where(function ($approved) {$approved->where('status', 'admin_approved')->orWhere('approval_status', 'approved');})->whereNull('fulfillment_reviewed_at')->whereHas('streamer', fn ($streamer) => $streamer->where('payout_type', 'pwe_labels'))),
+                            'complete' => $query->whereHas('streamerLogEntry', fn ($log) => $log->where(function ($approved) {$approved->where('status', 'admin_approved')->orWhere('approval_status', 'approved');}))->whereDoesntHave('streamerLogEntry.items', fn ($items) => $items->whereNull('fulfillment_status')->orWhereIn('fulfillment_status', [StreamerLogItem::FULFILLMENT_PENDING, StreamerLogItem::FULFILLMENT_NOT_FULFILLED]))->whereDoesntHave('streamerLogEntry', fn ($log) => $log->whereNull('fulfillment_reviewed_at')->whereHas('streamer', fn ($streamer) => $streamer->where('payout_type', 'pwe_labels'))),
                             default => $query,
                         };
                     }),
-                SelectFilter::make('status')->options(Show::statusLabels()),
                 SelectFilter::make('fulfillment_user')->label('Assigned To')->relationship('fulfillmentUsers', 'name')->searchable()->preload(),
-                Filter::make('unassigned_only')
-                    ->label('Unassigned only')
-                    ->query(fn (Builder $query) => $query->whereDoesntHave('fulfillmentUsers')),
-                \Filament\Tables\Filters\TernaryFilter::make('is_slow_pack')
-                    ->label('Takes a while')->placeholder('All shows')->trueLabel('Flagged as slow')->falseLabel('Not flagged'),
+                Filter::make('unassigned_only')->label('Unassigned only')->query(fn (Builder $query) => $query->whereDoesntHave('fulfillmentUsers')),
             ])
-            ->paginationPageOptions([25, 50, 100])
-            ->defaultPaginationPageOption(25)
+            ->paginationPageOptions([15, 25, 50])
+            ->defaultPaginationPageOption(15)
             ->emptyStateIcon('heroicon-o-truck')
             ->emptyStateHeading('No fulfillment work')
-            ->emptyStateDescription('Admin-approved streamer logs appear here. Whatnot shipments remain visible as show context only.');
+            ->emptyStateDescription('Shows that are ready for fulfillment appear here automatically.');
     }
 
-    public static function getRelations(): array
-    {
-        return [];
-    }
+    public static function getRelations(): array { return []; }
 
     public static function getPages(): array
     {

@@ -90,7 +90,17 @@ class MappingEngine
         }
 
         $itemList = collect($items)
-            ->map(fn ($i) => "[{$i['id']}] {$i['name']}" . ($i['sku'] ? " (SKU: {$i['sku']})" : '') . ($i['category'] ? " [{$i['category']}]" : ''))
+            ->map(function ($i) {
+                $meta = array_values(array_filter([
+                    $i['category'] ?? null,
+                    $i['product_type'] ?? null,
+                    $i['configuration'] ?? null,
+                ]));
+
+                return "[{$i['id']}] {$i['name']}"
+                    . ($i['sku'] ? " (SKU: {$i['sku']})" : '')
+                    . ($meta ? ' [' . implode(' · ', $meta) . ']' : '');
+            })
             ->join("\n");
 
         $prompt = <<<PROMPT
@@ -104,7 +114,7 @@ Sold item: "{$description}"
 Reply with JSON only, no explanation:
 {"item_id": <integer or null>, "confidence": "high|medium|low", "reason": "<one sentence>"}
 
-If no match is reasonable, set item_id to null.
+Packaging and configuration words are strict. Do not match different explicit formats such as Booster vs Jumbo, Hobby vs Blaster, Box vs Case, Pack vs Box, or ETB vs Booster. If no configuration-compatible match is reasonable, set item_id to null.
 PROMPT;
 
         try {
@@ -121,6 +131,18 @@ PROMPT;
 
             $product = Product::find($itemId);
             if (! $product) {
+                return null;
+            }
+
+            // Never allow the model to override a concrete packaging conflict.
+            // This is intentionally deterministic even when the model says the
+            // semantic match is high confidence.
+            if (! $this->upstream->isConfigurationCompatible($description, $product)) {
+                Log::info('MappingEngine rejected LLM configuration mismatch', [
+                    'description' => $description,
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                ]);
                 return null;
             }
 
@@ -150,13 +172,9 @@ PROMPT;
     private function buildCatalogue(array $candidates, string $description): array
     {
         $items = collect($candidates)
-            ->filter(fn ($c) => $c['product'] !== null)
-            ->map(fn ($c) => [
-                'id'       => $c['product']->id,
-                'name'     => $c['product']->name,
-                'sku'      => $c['product']->sku ?? null,
-                'category' => $c['product']->category ?? null,
-            ])
+            ->filter(fn ($c) => ($c['product'] ?? null) !== null)
+            ->filter(fn ($c) => $this->upstream->isConfigurationCompatible($description, $c['product']))
+            ->map(fn ($c) => $this->catalogueItem($c['product']))
             ->unique('id')
             ->values()
             ->toArray();
@@ -171,19 +189,21 @@ PROMPT;
                     fn ($id) => ! in_array($id, $existingIds),
                     ARRAY_FILTER_USE_KEY
                 );
-                $ranked = $this->embedding->rankBySimilarity($queryVec, $catalog, 20 - count($items));
+                // Ask for more than the remaining slot count because hard
+                // configuration filtering may reject several semantic neighbors.
+                $ranked = $this->embedding->rankBySimilarity($queryVec, $catalog, 60);
                 if (! empty($ranked)) {
                     $embProducts = Product::whereIn('id', array_keys($ranked))
                         ->where('is_active', true)
-                        ->get(['id', 'name', 'sku', 'category'])
+                        ->get(['id', 'name', 'sku', 'category', 'product_type', 'configuration'])
                         ->keyBy('id');
                     foreach (array_keys($ranked) as $id) {
                         if (count($items) >= 20) break;
-                        if (isset($embProducts[$id])) {
-                            $p = $embProducts[$id];
-                            $items[] = ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'category' => $p->category];
-                            $existingIds[] = $p->id;
-                        }
+                        if (! isset($embProducts[$id])) continue;
+                        $p = $embProducts[$id];
+                        if (! $this->upstream->isConfigurationCompatible($description, $p)) continue;
+                        $items[] = $this->catalogueItem($p);
+                        $existingIds[] = $p->id;
                     }
                 }
             }
@@ -193,21 +213,36 @@ PROMPT;
                     Product::where('is_active', true)
                         ->inRandomOrder()
                         ->limit(100)
-                        ->get(['id', 'name', 'sku', 'category'])
-                        ->map(fn ($p) => ['id' => $p->id, 'name' => $p->name, 'sku' => $p->sku, 'category' => $p->category])
+                        ->get(['id', 'name', 'sku', 'category', 'product_type', 'configuration'])
+                        ->map(fn ($p) => $this->catalogueItem($p))
                         ->toArray()
                 );
-                foreach ($pool as $p) {
+                foreach ($pool as $item) {
                     if (count($items) >= 20) break;
-                    if (! in_array($p['id'], $existingIds)) {
-                        $items[] = $p;
-                        $existingIds[] = $p['id'];
-                    }
+                    if (in_array($item['id'], $existingIds)) continue;
+
+                    $p = Product::find($item['id']);
+                    if (! $p || ! $this->upstream->isConfigurationCompatible($description, $p)) continue;
+
+                    $items[] = $item;
+                    $existingIds[] = $item['id'];
                 }
             }
         }
 
         return $items;
+    }
+
+    private function catalogueItem(Product $product): array
+    {
+        return [
+            'id' => $product->id,
+            'name' => $product->name,
+            'sku' => $product->sku ?? null,
+            'category' => $product->category ?? null,
+            'product_type' => $product->product_type ?? null,
+            'configuration' => $product->configuration ?? null,
+        ];
     }
 
     private function fromUpstream(array $upstream): MappingResult

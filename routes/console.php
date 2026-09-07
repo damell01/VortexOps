@@ -14,7 +14,14 @@ Artisan::command('inspire', function () {
 Schedule::call(fn () => Setting::set('scheduler_last_heartbeat', now()->toISOString()))->everyFiveMinutes()->name('scheduler-heartbeat')->withoutOverlapping();
 Schedule::job(new WorkerHeartbeat)->everyFiveMinutes()->name('worker-heartbeat')->withoutOverlapping();
 Schedule::command('db:backup')->dailyAt('02:00');
-Schedule::command('health:check --notify')->everyThirtyMinutes();
+
+// Keep health checks available for the System Health page, but do not send
+// owner alerts and do not emit scheduler output that server cron/MAILTO can
+// convert into email. Stale failed_jobs rows should not generate inbox noise.
+Schedule::command('health:check')
+    ->everyThirtyMinutes()
+    ->sendOutputTo('/dev/null');
+
 Schedule::command('workflow:notify-state')->everyFifteenMinutes()->name('workflow-state-notifications')->withoutOverlapping(10);
 
 Schedule::command('payroll:sync-pay-runs')

@@ -15,7 +15,13 @@ Schedule::call(fn () => Setting::set('scheduler_last_heartbeat', now()->toISOStr
 // when it runs, so the System Health page can tell whether the queue is being drained.
 Schedule::job(new WorkerHeartbeat)->everyMinute()->name('worker-heartbeat')->withoutOverlapping();
 Schedule::command('db:backup')->dailyAt('02:00');
-Schedule::command('health:check --notify')->everyFifteenMinutes();
+
+// Keep health checks for the System Health page, but do not send owner alerts and
+// do not emit scheduled-command output that a server cron/MAILTO configuration
+// could turn into email. Health remains visible in-app when someone opens it.
+Schedule::command('health:check')
+    ->everyFifteenMinutes()
+    ->sendOutputTo('/dev/null');
 
 // Keep append-only tables from growing forever.
 // AI telemetry: prune interactions older than 30 days (see AiInteraction::prunable()).

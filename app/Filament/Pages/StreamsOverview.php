@@ -16,8 +16,8 @@ class StreamsOverview extends Page
     use \App\Filament\Concerns\HasAdminNavVisibility;
 
     protected static string $moduleSlug = 'streams';
-    protected static ?string $title = 'Streams Overview';
-    protected static ?string $navigationLabel = 'Overview';
+    protected static ?string $title = 'Shows Overview';
+    protected static ?string $navigationLabel = 'Shows Overview';
     protected static ?string $slug = 'streams-overview';
 
     #[Url(as: 'range')]
@@ -161,6 +161,7 @@ class StreamsOverview extends Page
     public function showUrl(int $id): string { return ShowResource::getUrl('view',['record'=>$id]); }
     public function showsUrl(): string { return Shows::getUrl(['range'=>$this->datePreset,'from'=>$this->dateFrom,'to'=>$this->dateTo]); }
     public function shipmentsUrl(): string { return ShowShipments::getUrl(); }
+    public function fulfillmentUrl(): string { return FulfillmentCenter::getUrl(); }
     public function importerUrl(): string { return WhatnotScraperPage::getUrl(); }
     public function syncUrl(): string { return WhatnotSyncPage::getUrl(); }
     public function statusUrl(): string { return ShowStatusBoard::getUrl(); }

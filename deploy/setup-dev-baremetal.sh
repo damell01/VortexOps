@@ -7,7 +7,8 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-read -r -p "Dev domain (example: dev.ops.example.com): " DEV_DOMAIN
+read -r -p "Dev domain [dev.vortexops.tech]: " DEV_DOMAIN
+DEV_DOMAIN="${DEV_DOMAIN:-dev.vortexops.tech}"
 read -r -p "Dev MySQL database [vortexops_dev]: " DEV_DB
 DEV_DB="${DEV_DB:-vortexops_dev}"
 read -r -p "Dev MySQL user [vortexops_dev]: " DEV_DB_USER
@@ -153,8 +154,6 @@ NGINX
 
 ln -sf /etc/nginx/sites-available/vortexops-dev /etc/nginx/sites-enabled/vortexops-dev
 
-# Obtain/refresh the certificate. This assumes DNS already points the dev
-# subdomain at this server.
 certbot --nginx -d "$DEV_DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email || true
 nginx -t
 systemctl reload nginx

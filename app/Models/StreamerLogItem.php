@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A single item a streamer reported for a show.
@@ -33,6 +34,7 @@ class StreamerLogItem extends Model
         'inventory_item_id',
         'item_name',
         'quantity',
+        'packed_quantity',
         'disposition',
         'unit_cost',
         'inventory_location_id',
@@ -46,6 +48,7 @@ class StreamerLogItem extends Model
 
     protected $casts = [
         'quantity'          => 'integer',
+        'packed_quantity'   => 'integer',
         'deducted_quantity' => 'integer',
         'unit_cost'         => 'decimal:2',
         'fulfilled_at'      => 'datetime',
@@ -71,8 +74,17 @@ class StreamerLogItem extends Model
         return $this->belongsTo(User::class, 'fulfilled_by');
     }
 
+    public function packageItems(): HasMany
+    {
+        return $this->hasMany(FulfillmentPackageItem::class);
+    }
+
     public function fulfillmentStatus(): string
     {
+        if ((int) $this->packed_quantity >= (int) $this->quantity && (int) $this->quantity > 0) {
+            return self::FULFILLMENT_FULFILLED;
+        }
+
         return $this->fulfillment_status ?: self::FULFILLMENT_PENDING;
     }
 
@@ -84,33 +96,25 @@ class StreamerLogItem extends Model
         ], true);
     }
 
+    public function remainingToPack(): int
+    {
+        return max(0, (int) $this->quantity - (int) $this->packed_quantity);
+    }
+
+    public function packingProgressLabel(): string
+    {
+        return min((int) $this->packed_quantity, (int) $this->quantity) . '/' . (int) $this->quantity . ' packed';
+    }
+
     public static function fulfillmentStatusLabels(): array
     {
         return [
-            self::FULFILLMENT_PENDING => 'Pending',
-            self::FULFILLMENT_FULFILLED => 'Fulfilled',
-            self::FULFILLMENT_NOT_FULFILLED => 'Not Fulfilled',
+            self::FULFILLMENT_PENDING => 'Packing',
+            self::FULFILLMENT_FULFILLED => 'Packaged',
+            self::FULFILLMENT_NOT_FULFILLED => 'Issue',
         ];
     }
 
-    /**
-     * What one of these costs the business.
-     *
-     * The catalogue is the source, not the keyboard: a matched line leaves
-     * unit_cost null and reads the item's effectiveCost() — the same figure the
-     * item screen, the tables and the value snapshots quote, which is the
-     * received weighted average once receiving has earned one and the list cost
-     * until then. Costs used to be stamped onto the line from average_cost at
-     * the moment it was added, so an item nobody had received yet stamped 0.00
-     * and the show's product cost — the number the profit share is calculated
-     * from — read as if the inventory had been free.
-     *
-     * A figure typed into the line still wins, because sometimes the person who
-     * ran the show knows something the catalogue does not. Zero is read as "no
-     * override" rather than "free": it is what the old stamping left behind on
-     * every un-received item, and a matched line that genuinely cost nothing is
-     * rare enough to be worth the trade.
-     */
     public function effectiveUnitCost(): float
     {
         $typed = (float) ($this->unit_cost ?? 0);
@@ -128,7 +132,6 @@ class StreamerLogItem extends Model
         return (float) ($this->inventoryItem?->effectiveCost() ?? 0.0);
     }
 
-    /** Whether this line's cost is the catalogue's or somebody's correction. */
     public function costIsFromInventory(): bool
     {
         return $this->inventory_item_id !== null && (float) ($this->unit_cost ?? 0) <= 0;

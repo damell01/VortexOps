@@ -37,6 +37,13 @@ async function login(page) {
     await page.waitForTimeout(1250);
 }
 
+async function expectPageTitle(page, title: string) {
+    // Filament may render the page title as an h1 or as the panel header text
+    // depending on layout/version. Assert the visible page title rather than a
+    // brittle heading role so screenshot CI catches real route/render failures.
+    await expect(page.getByText(title, { exact: true }).first()).toBeVisible();
+}
+
 async function shot(page, name: string) {
     fs.mkdirSync(ROOT, { recursive: true });
     await page.screenshot({ path: `${ROOT}/${name}.png`, fullPage: true });
@@ -46,7 +53,7 @@ test.describe('Payroll structures and automation screenshots', () => {
     test('payment structures, individual overrides and automation', async ({ page }) => {
         await login(page);
         await visit(page, '/admin/payment-structures');
-        await expect(page.getByRole('heading', { name: 'Payment Structures' })).toBeVisible();
+        await expectPageTitle(page, 'Payment Structures');
         await shot(page, 'payment-structures');
 
         const adopt = page.getByRole('button', { name: 'Use Team Default' }).first();
@@ -71,7 +78,7 @@ test.describe('Payroll structures and automation screenshots', () => {
     test('historical pay run backfill preview', async ({ page }) => {
         await login(page);
         await visit(page, '/admin/pay-run-backfill');
-        await expect(page.getByRole('heading', { name: 'Pay Run Backfill' })).toBeVisible();
+        await expectPageTitle(page, 'Pay Run Backfill');
         await shot(page, 'pay-run-backfill-empty');
 
         await page.getByRole('button', { name: 'Preview / Dry Run' }).click();

@@ -7,6 +7,7 @@ use App\Filament\Resources\ShowResource;
 use App\Filament\Resources\StreamerLogResource;
 use App\Filament\Resources\WeeklyPayoutBatchResource;
 use App\Models\Payout;
+use App\Models\Product;
 use App\Models\Show;
 use App\Models\Streamer;
 use App\Models\WeeklyPayoutBatch;
@@ -36,16 +37,26 @@ class PayrollOverview extends Page
     public function mount(): void
     {
         if ($this->mockProducts === []) {
-            $this->mockProducts = [
-                ['name' => 'Mock Booster Box', 'quantity' => 4, 'unit_cost' => 125.00],
-                ['name' => 'Mock Hobby Box', 'quantity' => 6, 'unit_cost' => 95.00],
-            ];
+            $this->mockProducts = $this->catalogProductsForSimulation(2);
         }
     }
 
     public function addMockProduct(): void
     {
-        $this->mockProducts[] = ['name' => 'Mock Product', 'quantity' => 1, 'unit_cost' => 0.00];
+        $usedIds = collect($this->mockProducts)->pluck('product_id')->filter()->all();
+        $product = Product::query()
+            ->where('is_active', true)
+            ->whereNotIn('id', $usedIds)
+            ->orderByRaw('CASE WHEN average_cost > 0 THEN 0 WHEN unit_cost > 0 THEN 1 ELSE 2 END')
+            ->orderBy('name')
+            ->first();
+
+        if (! $product) {
+            $this->dispatch('notify', message: 'No additional active catalog products are available.');
+            return;
+        }
+
+        $this->mockProducts[] = $this->simulationProductRow($product);
     }
 
     public function removeMockProduct(int $index): void
@@ -136,23 +147,34 @@ class PayrollOverview extends Page
     }
 
     /**
-     * Fully in-memory mock show calculator. Admins can enter fake products,
-     * quantities, costs, revenue, hours, shipments and share percentage and see
-     * every intermediate payroll calculation without touching production data.
+     * In-memory show calculator backed by real products from the catalog. The
+     * quantities and show inputs are simulated, but product identity and cost
+     * basis are always re-read from the database so this mirrors production
+     * costing instead of relying on invented products or editable fake costs.
      */
     public function mockShowCalculation(): array
     {
+        $ids = collect($this->mockProducts)->pluck('product_id')->filter()->map(fn ($id) => (int) $id)->unique()->values();
+        $catalog = Product::query()->whereIn('id', $ids)->get()->keyBy('id');
+
         $products = collect($this->mockProducts)
-            ->map(function (array $product): array {
-                $quantity = max(0, (float) ($product['quantity'] ?? 0));
-                $unitCost = max(0, (float) ($product['unit_cost'] ?? 0));
+            ->map(function (array $row) use ($catalog): ?array {
+                $product = $catalog->get((int) ($row['product_id'] ?? 0));
+                if (! $product) return null;
+
+                $quantity = max(0, (float) ($row['quantity'] ?? 0));
+                $unitCost = max(0, (float) ($product->costBasis() ?? 0));
+
                 return [
-                    'name' => trim((string) ($product['name'] ?? 'Mock Product')) ?: 'Mock Product',
+                    'product_id' => $product->id,
+                    'name' => $product->name,
+                    'sku' => $product->sku,
                     'quantity' => $quantity,
                     'unit_cost' => $unitCost,
                     'line_total' => round($quantity * $unitCost, 2),
                 ];
             })
+            ->filter()
             ->values();
 
         $productCost = round((float) $products->sum('line_total'), 2);
@@ -189,6 +211,31 @@ class PayrollOverview extends Page
             'projected_payout' => $projectedPayout,
             'business_after_payroll' => $businessAfterPayroll,
             'explanation' => ProfitShareFormula::explain($working),
+        ];
+    }
+
+    private function catalogProductsForSimulation(int $limit): array
+    {
+        return Product::query()
+            ->where('is_active', true)
+            ->orderByRaw('CASE WHEN average_cost > 0 THEN 0 WHEN unit_cost > 0 THEN 1 ELSE 2 END')
+            ->orderByDesc('total_units_received')
+            ->orderBy('name')
+            ->limit($limit)
+            ->get()
+            ->map(fn (Product $product) => $this->simulationProductRow($product))
+            ->values()
+            ->all();
+    }
+
+    private function simulationProductRow(Product $product): array
+    {
+        return [
+            'product_id' => $product->id,
+            'name' => $product->name,
+            'sku' => $product->sku,
+            'quantity' => 1,
+            'unit_cost' => (float) ($product->costBasis() ?? 0),
         ];
     }
 

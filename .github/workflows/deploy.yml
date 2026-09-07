@@ -31,8 +31,13 @@ jobs:
             fi
 
             if [ ! -d "$APP_DIR/.git" ]; then
-              echo "Missing bare-metal checkout at $APP_DIR"
-              echo "Run the one-time Dev setup before enabling automatic deploys."
+              if [ "$BRANCH" = 'Dev' ]; then
+                echo "Dev checkout not created yet at $APP_DIR; skipping automatic Dev deploy."
+                echo "Run deploy/setup-dev-baremetal.sh once after the dev subdomain points here."
+                exit 0
+              fi
+
+              echo "Production checkout is missing at $APP_DIR"
               exit 1
             fi
 
@@ -40,8 +45,7 @@ jobs:
             export DEPLOY_BRANCH="$BRANCH"
             export DEPLOY_ENVIRONMENT="$([ "$BRANCH" = 'Production' ] && echo production || echo development)"
 
-            # Use the server-side deployment script from the target branch. The
-            # current checkout makes its DB backup before replacing tracked code.
+            # Back up the currently-running database before replacing tracked code.
             php artisan db:backup --prune=30
             git fetch origin "$BRANCH"
             git checkout -B "$BRANCH" "origin/$BRANCH"

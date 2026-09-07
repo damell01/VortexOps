@@ -15,10 +15,16 @@ class AdminModules
     {
         return [
             'streams' => [
-                'label'       => 'Streams',
-                'description' => 'Shows and pending approvals for operational review.',
-                'group'       => 'Streams',
+                'label'       => 'Shows',
+                'description' => 'Shows, submissions, revenue, and show-level shipment visibility.',
+                'group'       => 'Shows',
                 'order'       => 10,
+            ],
+            'fulfillment' => [
+                'label'       => 'Fulfillment Center',
+                'description' => 'Pick, pack, shipment exceptions, and fulfillment history for assigned shows.',
+                'group'       => 'Fulfillment',
+                'order'       => 15,
             ],
             'payouts' => [
                 'label'       => 'Payouts & Pay Runs',
@@ -68,18 +74,12 @@ class AdminModules
                 'group'       => 'Operations',
                 'order'       => 42,
             ],
-            'fulfillment' => [
-                'label'       => 'Fulfillment Center',
-                'description' => 'Shipping status and tracking for sold items, scoped per fulfillment team member to their assigned shows.',
-                'group'       => 'Operations',
-                'order'       => 44,
-            ],
         ];
     }
 
     public static function defaultEnabledSlugs(): array
     {
-        return ['streams', 'payouts', 'inventory', 'purchasing', 'shipments', 'operations', 'reporting'];
+        return ['streams', 'fulfillment', 'payouts', 'inventory', 'purchasing', 'shipments', 'operations', 'reporting'];
     }
 
     public static function enabledSlugs(): array
@@ -127,12 +127,12 @@ class AdminModules
         return [
             'basics' => [
                 'label'       => 'Month 1 — Basics',
-                'description' => 'Just shows, payouts, and inventory — everything else stays hidden.',
-                'slugs'       => ['streams', 'payouts', 'inventory'],
+                'description' => 'Shows, fulfillment, payouts, and inventory — everything else stays hidden.',
+                'slugs'       => ['streams', 'fulfillment', 'payouts', 'inventory'],
             ],
             'standard' => [
                 'label'       => 'Standard Ops',
-                'description' => 'Basics plus purchasing/receiving, operations, and reporting.',
+                'description' => 'Core operations plus purchasing/receiving, supporting ops, and reporting.',
                 'slugs'       => static::defaultEnabledSlugs(),
             ],
             'everything' => [
@@ -145,8 +145,6 @@ class AdminModules
 
     public static function visibleNavigationGroups(): array
     {
-        // A saved Navigation Manager layout becomes the presentation order.
-        // Defaults are appended so newly-added code pages/groups never disappear.
         $custom = collect(NavLayout::config()['groups'] ?? [])
             ->sortBy('sort')
             ->pluck('label')

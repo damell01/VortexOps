@@ -110,6 +110,10 @@ class ProductMatchingService
 
         $scores = [];
         foreach ($this->fuzzyCatalog() as $product) {
+            if (! $this->isConfigurationCompatible($description, $product)) {
+                continue;
+            }
+
             $scored = $this->scoreTokensDetailed($tokens, $product);
             // Keep broader candidates for the background AI confirmation stage.
             // A vendor description can contain brand/language filler and still
@@ -224,7 +228,26 @@ class ProductMatchingService
             return $this->emptyResult('embedding');
         }
 
-        $ranked = $this->embedding->rankBySimilarity($queryEmbedding, $catalog, 5);
+        $ranked = $this->embedding->rankBySimilarity($queryEmbedding, $catalog, 12);
+        if (empty($ranked)) {
+            return $this->emptyResult('embedding');
+        }
+
+        $productIds = array_keys($ranked);
+        $products = Product::whereIn('id', $productIds)->where('is_active', true)->get()->keyBy('id');
+
+        // Embeddings are intentionally semantic, so "booster box" and "jumbo box"
+        // can sit very close together. Apply the same deterministic package/type
+        // guard used by fuzzy matching before accepting or even displaying a
+        // candidate. This keeps semantic similarity from overriding a concrete
+        // configuration word present in the source description.
+        $ranked = array_filter(
+            $ranked,
+            fn ($score, $id) => isset($products[$id])
+                && $this->isConfigurationCompatible($description, $products[$id]),
+            ARRAY_FILTER_USE_BOTH,
+        );
+        $ranked = array_slice($ranked, 0, 5, true);
         if (empty($ranked)) {
             return $this->emptyResult('embedding');
         }
@@ -232,7 +255,6 @@ class ProductMatchingService
         $topId = array_key_first($ranked);
         $topScore = $ranked[$topId];
         $productIds = array_keys($ranked);
-        $products = Product::whereIn('id', $productIds)->where('is_active', true)->get()->keyBy('id');
 
         $candidates = array_map(fn ($id, $score) => [
             'product' => $products[$id] ?? null,
@@ -252,6 +274,78 @@ class ProductMatchingService
         }
 
         return $this->emptyResult('embedding', array_values($candidates));
+    }
+
+    /**
+     * Reject a catalogue candidate when both the incoming description and the
+     * catalogue item explicitly name different packaging/configuration types.
+     *
+     * Generic words such as "box" are deliberately ignored. A description that
+     * does not name a distinctive type remains eligible for normal fuzzy/AI
+     * review. This is only a hard guard when the source says e.g. BOOSTER while
+     * the candidate says JUMBO, or PACK while the candidate says CASE.
+     */
+    public function isConfigurationCompatible(string $description, Product $product): bool
+    {
+        $requested = $this->configurationMarkers($description);
+        if ($requested === []) {
+            return true;
+        }
+
+        $candidateText = implode(' ', array_filter([
+            $product->name,
+            $product->product_type,
+            $product->configuration,
+        ]));
+        $candidate = $this->configurationMarkers($candidateText);
+
+        if ($candidate === []) {
+            return true;
+        }
+
+        return array_intersect($requested, $candidate) !== [];
+    }
+
+    /** @return list<string> */
+    private function configurationMarkers(string $text): array
+    {
+        $normalized = ' ' . $this->embedding->normalizeText($text) . ' ';
+        $markers = [];
+
+        $patterns = [
+            'etb' => [' elite trainer box ', ' elite trainer ', ' etb '],
+            'booster' => [' booster box ', ' booster display ', ' booster '],
+            'jumbo' => [' jumbo box ', ' jumbo '],
+            'hobby' => [' hobby box ', ' hobby '],
+            'blaster' => [' blaster box ', ' blaster '],
+            'mega' => [' mega box ', ' mega '],
+            'hanger' => [' hanger box ', ' hanger pack ', ' hanger '],
+            'fatpack' => [' fat pack ', ' fatpack '],
+            'bundle' => [' booster bundle ', ' bundle '],
+            'tin' => [' tin '],
+            'display' => [' display box ', ' display '],
+            'case' => [' case '],
+            'pack' => [' pack '],
+        ];
+
+        foreach ($patterns as $marker => $phrases) {
+            foreach ($phrases as $phrase) {
+                if (str_contains($normalized, $phrase)) {
+                    $markers[] = $marker;
+                    break;
+                }
+            }
+        }
+
+        // A booster display is still a booster configuration. Do not make the
+        // generic "display" marker conflict with an otherwise exact booster hit.
+        if (in_array('booster', $markers, true)) {
+            $markers = array_values(array_diff($markers, ['display']));
+        }
+
+        // "Hobby jumbo" is a legitimate compound name. Keeping both markers
+        // means a source saying either hobby or jumbo can still match it.
+        return array_values(array_unique($markers));
     }
 
     public function confirmMatch(

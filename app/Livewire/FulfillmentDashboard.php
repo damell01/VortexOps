@@ -21,7 +21,9 @@ class FulfillmentDashboard extends Component
     public function mount(Show $show): void
     {
         $this->show = $show;
-        $this->activePackageId = $this->show->fulfillmentPackages()
+        $this->authorizeShow();
+        $this->activePackageId = FulfillmentPackage::query()
+            ->where('show_id', $this->show->id)
             ->where('status', 'building')
             ->latest('id')
             ->value('id');
@@ -31,19 +33,21 @@ class FulfillmentDashboard extends Component
     {
         $this->authorizeShow();
 
-        $next = (int) $this->show->fulfillmentPackages()->max('box_number') + 1;
-        $package = $this->show->fulfillmentPackages()->create([
-            'buyer_username' => filled($this->newPackageBuyer) ? trim($this->newPackageBuyer) : null,
+        $next = (int) FulfillmentPackage::where('show_id', $this->show->id)->max('box_number') + 1;
+        $package = FulfillmentPackage::create([
+            'show_id' => $this->show->id,
+            'buyer_username' => filled($this->newPackageBuyer) ? ltrim(trim($this->newPackageBuyer), '@') : null,
             'box_number' => max(1, $next),
             'box_total' => max(1, $next),
+            'tracking_number' => 'INTERNAL-' . strtoupper(substr(bin2hex(random_bytes(5)), 0, 10)),
             'created_by' => auth()->id(),
             'packed_by' => auth()->id(),
             'status' => 'building',
         ]);
 
-        $this->show->fulfillmentPackages()->where('id', '<>', $package->id)->update([
-            'box_total' => max(1, $next),
-        ]);
+        FulfillmentPackage::where('show_id', $this->show->id)
+            ->whereKeyNot($package->id)
+            ->update(['box_total' => max(1, $next)]);
 
         $this->activePackageId = $package->id;
         $this->newPackageBuyer = null;
@@ -52,7 +56,8 @@ class FulfillmentDashboard extends Component
 
     public function selectPackage(int $packageId): void
     {
-        $package = $this->show->fulfillmentPackages()->findOrFail($packageId);
+        $this->authorizeShow();
+        $package = FulfillmentPackage::where('show_id', $this->show->id)->findOrFail($packageId);
         abort_if($package->isSealed(), 422, 'This box is already sealed.');
         $this->activePackageId = $package->id;
     }
@@ -60,10 +65,7 @@ class FulfillmentDashboard extends Component
     public function packOne(StreamerLogItem $line): void
     {
         $this->authorizeLine($line);
-
-        if ($line->remainingToPack() <= 0) {
-            return;
-        }
+        if ($line->remainingToPack() <= 0) return;
 
         $package = $this->activePackage();
         abort_unless($package, 422, 'Create or select a box before packing items.');
@@ -72,6 +74,7 @@ class FulfillmentDashboard extends Component
             'fulfillment_package_id' => $package->id,
             'streamer_log_item_id' => $line->id,
         ]);
+        $packageItem->product_id = $line->inventory_item_id;
         $packageItem->quantity = (int) ($packageItem->quantity ?: 0) + 1;
         $packageItem->packed_by = auth()->id();
         $packageItem->packed_at = now();
@@ -101,6 +104,7 @@ class FulfillmentDashboard extends Component
             'fulfillment_package_id' => $package->id,
             'streamer_log_item_id' => $line->id,
         ]);
+        $packageItem->product_id = $line->inventory_item_id;
         $packageItem->quantity = (int) ($packageItem->quantity ?: 0) + $remaining;
         $packageItem->packed_by = auth()->id();
         $packageItem->packed_at = now();
@@ -119,6 +123,7 @@ class FulfillmentDashboard extends Component
 
     public function scanItem(): void
     {
+        $this->authorizeShow();
         $code = trim($this->scanCode);
         if ($code === '') return;
 
@@ -170,7 +175,8 @@ class FulfillmentDashboard extends Component
 
     public function sealPackage(int $packageId): void
     {
-        $package = $this->show->fulfillmentPackages()->with('items')->findOrFail($packageId);
+        $this->authorizeShow();
+        $package = FulfillmentPackage::where('show_id', $this->show->id)->with('items')->findOrFail($packageId);
         abort_if($package->items->isEmpty(), 422, 'Add at least one item before sealing this box.');
         $package->update([
             'status' => 'sealed',
@@ -183,20 +189,28 @@ class FulfillmentDashboard extends Component
 
     public function markLabelPrinted(int $packageId): void
     {
-        $package = $this->show->fulfillmentPackages()->findOrFail($packageId);
+        $this->authorizeShow();
+        $package = FulfillmentPackage::where('show_id', $this->show->id)->findOrFail($packageId);
         $package->update(['label_printed_at' => now()]);
     }
 
     protected function activePackage(): ?FulfillmentPackage
     {
         if (! $this->activePackageId) return null;
-        return $this->show->fulfillmentPackages()->where('status', 'building')->find($this->activePackageId);
+        return FulfillmentPackage::where('show_id', $this->show->id)
+            ->where('status', 'building')
+            ->find($this->activePackageId);
     }
 
     protected function authorizeShow(): void
     {
         $user = auth()->user();
-        $allowed = $user && ($user->isAdmin() || $user->isOwner() || $user->isFulfillmentAdmin() || ($user->isFulfillment() && $this->show->fulfillmentUsers()->where('users.id', $user->id)->exists()));
+        $allowed = $user && (
+            $user->isAdmin()
+            || $user->isOwner()
+            || $user->isFulfillmentAdmin()
+            || ($user->isFulfillment() && $this->show->fulfillmentUsers()->where('users.id', $user->id)->exists())
+        );
         abort_unless($allowed, 403);
     }
 
@@ -209,6 +223,8 @@ class FulfillmentDashboard extends Component
 
     public function render()
     {
+        $this->authorizeShow();
+
         $report = $this->show->streamerLogEntry()
             ->with(['items.inventoryItem', 'items.location', 'items.fulfilledBy', 'items.packageItems.package'])
             ->first();
@@ -229,7 +245,15 @@ class FulfillmentDashboard extends Component
             $needle = mb_strtolower(trim($this->search));
             $lines = $lines->filter(function (StreamerLogItem $line) use ($needle) {
                 $item = $line->inventoryItem;
-                $haystack = implode(' ', array_filter([$line->item_name, $item?->name, $item?->sku, $item?->barcode, $item?->upc, $line->dispositionLabel(), $line->location?->name]));
+                $haystack = implode(' ', array_filter([
+                    $line->item_name,
+                    $item?->name,
+                    $item?->sku,
+                    $item?->barcode,
+                    $item?->upc,
+                    $line->dispositionLabel(),
+                    $line->location?->name,
+                ]));
                 return str_contains(mb_strtolower($haystack), $needle);
             });
         }
@@ -245,7 +269,11 @@ class FulfillmentDashboard extends Component
         $notFulfilledCount = $allLines->filter(fn (StreamerLogItem $line) => $line->fulfillmentStatus() === StreamerLogItem::FULFILLMENT_NOT_FULFILLED)->count();
 
         $shipments = $this->show->shipments()->orderByDesc('created_at_whatnot')->orderByDesc('id')->limit(100)->get();
-        $packages = $this->show->fulfillmentPackages()->with(['items.streamerLogItem.inventoryItem', 'packedBy'])->orderBy('box_number')->get();
+        $packages = FulfillmentPackage::query()
+            ->where('show_id', $this->show->id)
+            ->with(['items.streamerLogItem.inventoryItem', 'packedBy'])
+            ->orderBy('box_number')
+            ->get();
         $deliveredShipments = $shipments->filter(fn ($shipment) => strtolower((string) $shipment->status) === 'delivered')->count();
 
         return view('livewire.fulfillment-dashboard', [

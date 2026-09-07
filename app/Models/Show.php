@@ -118,9 +118,43 @@ class Show extends Model
     public function pipelineSteps(): array
     {
         $dr=$this->relationLoaded('latestDeductionRequest')?$this->getRelation('latestDeductionRequest'):$this->latestDeductionRequest()->first();$log=$this->relationLoaded('streamerLogEntry')?$this->getRelation('streamerLogEntry'):$this->streamerLogEntry()->first();$hasPayouts=$this->relationLoaded('payouts')?$this->payouts->isNotEmpty():$this->payouts()->exists();$mappingDone=in_array($this->status,['pending_approval','reconciled','closed']);$mappingCurrent=in_array($this->status,['pending_review','mapping']);$approvalDone=in_array($this->status,['reconciled','closed']);$approvalCurrent=$this->status==='pending_approval';$streamerDone=$log&&in_array($log->status,['streamer_reviewed','admin_approved']);$streamerCurrent=$log&&$log->status==='pending';$logApprovedDone=$log&&$log->status==='admin_approved';$logApprovedCurrent=$log&&$log->status==='streamer_reviewed';$primaryStreamer=$this->relationLoaded('streamers')?$this->streamers->first():$this->primaryStreamer();$needsFulfillmentStep=$primaryStreamer?->payout_type==='pwe_labels';$fulfillmentDone=$log&&$log->fulfillment_reviewed_at!==null;$fulfillmentCurrent=$log&&$log->status==='admin_approved'&&!$fulfillmentDone;$lineCount=fn()=>$dr?$dr->lines()->count():null;
-        $steps=[['key'=>'created','label'=>'Show Created','status'=>'done','note'=>$this->created_at?->format('M j, Y')],['key'=>'mapped','label'=>'Items Mapped','status'=>$mappingDone?'done':($mappingCurrent?'current':'pending'),'note'=>$lineCount()!==null?"{$lineCount()} line".($lineCount()===1?'':'s'):null],['key'=>'deduction_approved','label'=>'Deduction Approved','status'=>$approvalDone?'done':($approvalCurrent?'current':'pending'),'note'=>null],['key'=>'streamer_review','label'=>'Streamer Reviewed','status'=>$streamerDone?'done':($streamerCurrent?'current':'pending'),'note'=>null],['key'=>'admin_approved','label'=>'Log Approved','status'=>$logApprovedDone?'done':($logApprovedCurrent?'current':'pending'),'note'=>null]];
-        if($needsFulfillmentStep)$steps[]=['key'=>'fulfillment','label'=>'Fulfillment','status'=>$fulfillmentDone?'done':($fulfillmentCurrent?'current':'pending'),'note'=>null];$steps[]=['key'=>'payout','label'=>'Payout Calculated','status'=>$hasPayouts?'done':'pending','note'=>null];return$steps;
+        $steps=[['key'=>'created','label'=>'Show Created','status'=>'done','note'=>$this->created_at?->format('M j, Y')],['key'=>'mapped','label'=>'Items Mapped','status'=>$mappingDone?'done':($mappingCurrent?'current':'pending'),'note'=>$lineCount()!==null?"{$lineCount()} line".($lineCount()===1?'':'s'):null],['key'=>'deduction_approved','label'=>'Deduction Approved','status'=>$approvalDone?'done':($approvalCurrent?'current':'pending'),'note'=>$dr?(DeductionRequest::statusLabels()[$dr->status]??null):null],['key'=>'streamer_reviewed','label'=>'Streamer Reviewed','status'=>$streamerDone?'done':($streamerCurrent?'current':'pending'),'note'=>$log?->streamer_reviewed_at?->format('M j, Y')],['key'=>'log_approved','label'=>'Log Approved','status'=>$logApprovedDone?'done':($logApprovedCurrent?'current':'pending'),'note'=>$log?->reviewed_at?->format('M j, Y')]];
+        if($needsFulfillmentStep)$steps[]=['key'=>'fulfillment_reviewed','label'=>'Fulfillment Reviewed','status'=>$fulfillmentDone?'done':($fulfillmentCurrent?'current':'pending'),'note'=>$log?->fulfillment_reviewed_at?->format('M j, Y')];$steps[]=['key'=>'payout','label'=>'Payout Calculated','status'=>$hasPayouts?'done':'pending','note'=>null];if($this->status==='cancelled'){foreach($steps as &$step){if($step['status']==='pending')$step['status']='skipped';}}return$steps;
     }
 
-    public static function statusLabels(): array { return ['scheduled'=>'Scheduled','pending_review'=>'Pending Review','mapping'=>'Mapping','pending_approval'=>'Pending Approval','reconciled'=>'Reconciled','closed'=>'Closed','cancelled'=>'Cancelled','draft'=>'Draft']; }
+    protected static array $priorRevenuesCache = [];
+
+    public function isRevenueOutlier(): bool
+    {
+        if ($this->gross_revenue === null) return false;
+        $streamer = $this->relationLoaded('streamers') ? $this->streamers->first() : $this->primaryStreamer();
+        if (! $streamer) return false;
+        $pool = static::$priorRevenuesCache[$streamer->id] ??= static::whereHas('streamers', fn ($q) => $q->where('streamers.id', $streamer->id))->whereNotIn('status', ['cancelled', 'draft'])->whereNotNull('gross_revenue')->orderByDesc('show_date')->limit(20)->pluck('gross_revenue', 'id')->map(fn ($v) => (float) $v);
+        $priorRevenues = $pool->except([$this->id])->take(10);
+        if ($priorRevenues->count() < 5) return false;
+        $mean = $priorRevenues->avg(); if ($mean <= 0) return false;
+        $ratio = (float) $this->gross_revenue / $mean;
+        return $ratio > 2.5 || $ratio < 0.35;
+    }
+
+    public static function weekPacing(): array
+    {
+        $today=now();$daysIntoWeek=$today->dayOfWeekIso;$weekStart=$today->copy()->startOfWeek();
+        $revenueThrough=fn(\Illuminate\Support\Carbon $start,\Illuminate\Support\Carbon $end):float=>(float)static::whereBetween('show_date',[$start->toDateString(),$end->copy()->endOfDay()->toDateTimeString()])->whereNotIn('status',['cancelled'])->inChannelContext()->sum('gross_revenue');
+        $thisWeekRevenue=$revenueThrough($weekStart,$today);$baselineRevenues=[];for($i=1;$i<=4;$i++){$priorStart=$weekStart->copy()->subWeeks($i);$priorEnd=$priorStart->copy()->addDays($daysIntoWeek-1);$baselineRevenues[]=$revenueThrough($priorStart,$priorEnd);} $baselineAvg=array_sum($baselineRevenues)/count($baselineRevenues);$pacingPct=$baselineAvg>0?round((($thisWeekRevenue-$baselineAvg)/$baselineAvg)*100,1):null;
+        return ['this_week_revenue'=>round($thisWeekRevenue,2),'baseline_avg'=>round($baselineAvg,2),'pacing_pct'=>$pacingPct,'days_into_week'=>$daysIntoWeek];
+    }
+
+    public static function monthPacing(): array
+    {
+        $today=now();$daysIntoMonth=$today->day;$monthStart=$today->copy()->startOfMonth();
+        $revenueThrough=fn(\Illuminate\Support\Carbon $start,\Illuminate\Support\Carbon $end):float=>(float)static::whereBetween('show_date',[$start->toDateString(),$end->copy()->endOfDay()->toDateTimeString()])->whereNotIn('status',['cancelled'])->inChannelContext()->sum('gross_revenue');
+        $thisMonthRevenue=$revenueThrough($monthStart,$today);$baselineRevenues=[];for($i=1;$i<=3;$i++){$priorStart=$monthStart->copy()->subMonths($i);$priorEnd=$priorStart->copy()->addDays(min($daysIntoMonth,$priorStart->daysInMonth)-1);$baselineRevenues[]=$revenueThrough($priorStart,$priorEnd);} $baselineAvg=array_sum($baselineRevenues)/count($baselineRevenues);$pacingPct=$baselineAvg>0?round((($thisMonthRevenue-$baselineAvg)/$baselineAvg)*100,1):null;$projectedMonthTotal=$daysIntoMonth>0?round(($thisMonthRevenue/$daysIntoMonth)*$today->daysInMonth,2):null;
+        return ['this_month_revenue'=>round($thisMonthRevenue,2),'baseline_avg'=>round($baselineAvg,2),'pacing_pct'=>$pacingPct,'days_into_month'=>$daysIntoMonth,'projected_month_total'=>$projectedMonthTotal];
+    }
+
+    public static function formatLabels(): array { return ['standard'=>'Standard break','sudden_death'=>'Sudden death','big_giveaway'=>'Big giveaway','low_giveaway'=>'Low giveaway','themed'=>'Themed / special','personal'=>'Personal break']; }
+    public function formatLabel(): string { return static::formatLabels()[$this->show_format] ?? 'Unclassified'; }
+    public static function statusLabels(): array { return ['draft'=>'Draft','pending_review'=>'Pending Review','mapping'=>'Mapping','pending_approval'=>'Pending Approval','reconciled'=>'Reconciled','closed'=>'Closed','cancelled'=>'Cancelled']; }
+    public static function importSourceLabels(): array { return ['manual'=>'Manual','auto_whatnot'=>'Auto (Whatnot)']; }
 }

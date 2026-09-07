@@ -2,76 +2,18 @@ name: Deploy
 
 on:
   push:
-    branches: [Production]
+    branches: [Dev, Production]
   workflow_dispatch:
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE: ghcr.io/${{ github.repository_owner }}/vortexops
-
 jobs:
-  build-push:
-    name: Build & push Docker image
-    if: github.ref == 'refs/heads/Production'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_PAT }}
-
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE }}
-          tags: |
-            type=sha,prefix=sha-,format=short
-            type=raw,value=latest
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   deploy:
-    name: Deploy Production to dedicated VPS
-    if: github.ref == 'refs/heads/Production'
+    name: Deploy ${{ github.ref_name }} bare-metal
+    if: github.ref_name == 'Dev' || github.ref_name == 'Production'
     runs-on: ubuntu-24.04
-    needs: build-push
-    environment: production
+    environment: ${{ github.ref_name == 'Production' && 'production' || 'development' }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Copy docker-compose.yml to VPS
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          source: "docker-compose.yml"
-          target: "/opt/vortexops/"
-
-      - name: Deploy via SSH
+      - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -80,56 +22,29 @@ jobs:
           command_timeout: 20m
           script: |
             set -euo pipefail
-            cd /opt/vortexops
 
-            IMAGE="${{ env.IMAGE }}"
-            IMAGE_TAG="sha-$(printf '%s' '${{ github.sha }}' | cut -c1-7)"
-            export APP_IMAGE="${IMAGE}:${IMAGE_TAG}"
-
-            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
-            docker pull "$APP_IMAGE"
-
-            # Preserve the database immediately before any migration changes it.
-            # A failed backup aborts the deploy instead of proceeding without a rollback point.
-            if docker compose --env-file .env.docker ps --status running --services | grep -qx app; then
-              docker compose --env-file .env.docker exec -T app php artisan db:backup --prune=30
+            BRANCH='${{ github.ref_name }}'
+            if [ "$BRANCH" = 'Production' ]; then
+              APP_DIR='/var/www/vortexops'
+            else
+              APP_DIR='/var/www/vortexops-dev'
             fi
 
-            # Deploy the immutable image produced from this exact Production commit.
-            APP_IMAGE="$APP_IMAGE" docker compose --env-file .env.docker pull app worker scheduler ai-worker
-            APP_IMAGE="$APP_IMAGE" docker compose --env-file .env.docker up -d --remove-orphans
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "Missing bare-metal checkout at $APP_DIR"
+              echo "Run the one-time Dev setup before enabling automatic deploys."
+              exit 1
+            fi
 
-            docker compose --env-file .env.docker exec -T app php artisan migrate --force
-            docker compose --env-file .env.docker exec -T app php artisan optimize:clear
-            docker compose --env-file .env.docker exec -T app php artisan filament:clear-cached-components
-            docker compose --env-file .env.docker exec -T app php artisan optimize
-            docker compose --env-file .env.docker exec -T app php artisan filament:optimize
+            cd "$APP_DIR"
+            export DEPLOY_BRANCH="$BRANCH"
+            export DEPLOY_ENVIRONMENT="$([ "$BRANCH" = 'Production' ] && echo production || echo development)"
 
-            # Tell long-lived workers to finish their current job and reload cleanly.
-            docker compose --env-file .env.docker exec -T app php artisan queue:restart
+            # Use the server-side deployment script from the target branch. The
+            # current checkout makes its DB backup before replacing tracked code.
+            php artisan db:backup --prune=30
+            git fetch origin "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+            git reset --hard "origin/$BRANCH"
 
-            # Do not declare success until the web container reports healthy and the
-            # worker/scheduler containers are actually running.
-            for attempt in $(seq 1 24); do
-              health="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$(docker compose --env-file .env.docker ps -q app)")"
-              [ "$health" = "healthy" ] && break
-              if [ "$attempt" -eq 24 ]; then
-                echo "App failed post-deploy health check: $health"
-                docker compose --env-file .env.docker ps
-                docker compose --env-file .env.docker logs --tail=120 app worker scheduler
-                exit 1
-              fi
-              sleep 5
-            done
-
-            for service in worker scheduler; do
-              cid="$(docker compose --env-file .env.docker ps -q "$service")"
-              [ -n "$cid" ] || { echo "$service container is missing"; exit 1; }
-              state="$(docker inspect --format='{{.State.Status}}' "$cid")"
-              [ "$state" = "running" ] || { echo "$service is $state"; exit 1; }
-            done
-
-            docker compose --env-file .env.docker exec -T app php artisan health:check >/dev/null
-            docker image prune -f --filter 'until=168h' >/dev/null || true
-
-            echo "Deployment complete — $APP_IMAGE — $(date -u)"
+            bash scripts/baremetal-deploy.sh "$BRANCH"

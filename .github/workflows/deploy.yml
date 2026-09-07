@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [Production]
   workflow_dispatch:
 
 env:
@@ -12,13 +12,11 @@ env:
 jobs:
   build-push:
     name: Build & push Docker image
+    if: github.ref == 'refs/heads/Production'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
-
-    outputs:
-      image_tag: ${{ steps.meta.outputs.version }}
 
     steps:
       - name: Checkout
@@ -38,7 +36,7 @@ jobs:
           images: ${{ env.IMAGE }}
           tags: |
             type=sha,prefix=sha-,format=short
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=latest
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -54,7 +52,8 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Deploy to VPS
+    name: Deploy Production to dedicated VPS
+    if: github.ref == 'refs/heads/Production'
     runs-on: ubuntu-24.04
     needs: build-push
     environment: production
@@ -63,8 +62,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Push docker-compose.yml so the VPS never needs a repo clone.
-      # This is the only file the server needs — the image comes from GHCR.
       - name: Copy docker-compose.yml to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -80,34 +77,59 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 20m
           script: |
-            set -e
+            set -euo pipefail
             cd /opt/vortexops
 
-            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            IMAGE="${{ env.IMAGE }}"
+            IMAGE_TAG="sha-$(printf '%s' '${{ github.sha }}' | cut -c1-7)"
+            export APP_IMAGE="${IMAGE}:${IMAGE_TAG}"
 
-            # Pull new image
-            docker pull ${{ env.IMAGE }}:latest
+            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+            docker pull "$APP_IMAGE"
 
-            # Restart services.
-            # --env-file is required so ${VAR} substitutions in docker-compose.yml
-            # resolve from .env.docker rather than falling back to hard-coded defaults,
-            # which would override env_file values (environment: takes precedence).
-            docker compose --env-file .env.docker pull
-            docker compose --env-file .env.docker up -d --remove-orphans
+            # Preserve the database immediately before any migration changes it.
+            # A failed backup aborts the deploy instead of proceeding without a rollback point.
+            if docker compose --env-file .env.docker ps --status running --services | grep -qx app; then
+              docker compose --env-file .env.docker exec -T app php artisan db:backup --prune=30
+            fi
 
-            # Run migrations inside the app container
+            # Deploy the immutable image produced from this exact Production commit.
+            APP_IMAGE="$APP_IMAGE" docker compose --env-file .env.docker pull app worker scheduler ai-worker
+            APP_IMAGE="$APP_IMAGE" docker compose --env-file .env.docker up -d --remove-orphans
+
             docker compose --env-file .env.docker exec -T app php artisan migrate --force
-
-            # storage/ is a persisted named volume (survives container recreation),
-            # so compiled views/config/routes from a previous deploy can outlive the
-            # source files that produced them. Clear before re-optimizing so every
-            # deploy rebuilds caches from the code that's actually in this image.
             docker compose --env-file .env.docker exec -T app php artisan optimize:clear
             docker compose --env-file .env.docker exec -T app php artisan filament:clear-cached-components
-
-            # Optimize caches
             docker compose --env-file .env.docker exec -T app php artisan optimize
             docker compose --env-file .env.docker exec -T app php artisan filament:optimize
 
-            echo "Deployment complete — $(date -u)"
+            # Tell long-lived workers to finish their current job and reload cleanly.
+            docker compose --env-file .env.docker exec -T app php artisan queue:restart
+
+            # Do not declare success until the web container reports healthy and the
+            # worker/scheduler containers are actually running.
+            for attempt in $(seq 1 24); do
+              health="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$(docker compose --env-file .env.docker ps -q app)")"
+              [ "$health" = "healthy" ] && break
+              if [ "$attempt" -eq 24 ]; then
+                echo "App failed post-deploy health check: $health"
+                docker compose --env-file .env.docker ps
+                docker compose --env-file .env.docker logs --tail=120 app worker scheduler
+                exit 1
+              fi
+              sleep 5
+            done
+
+            for service in worker scheduler; do
+              cid="$(docker compose --env-file .env.docker ps -q "$service")"
+              [ -n "$cid" ] || { echo "$service container is missing"; exit 1; }
+              state="$(docker inspect --format='{{.State.Status}}' "$cid")"
+              [ "$state" = "running" ] || { echo "$service is $state"; exit 1; }
+            done
+
+            docker compose --env-file .env.docker exec -T app php artisan health:check >/dev/null
+            docker image prune -f --filter 'until=168h' >/dev/null || true
+
+            echo "Deployment complete — $APP_IMAGE — $(date -u)"

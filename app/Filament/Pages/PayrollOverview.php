@@ -53,6 +53,61 @@ class PayrollOverview extends Page
             ->first();
     }
 
+    /**
+     * Read-only payroll simulation using the same already-calculated show payout
+     * records that feed real pay runs. Nothing is inserted, updated, batched,
+     * finalized or exported. This gives admins a safe way to sanity-check the
+     * week's payroll shape before creating a real WeeklyPayoutBatch.
+     */
+    public function mockPayRun(): array
+    {
+        $start = now()->startOfWeek();
+        $end = now()->endOfWeek();
+
+        $payouts = Payout::query()
+            ->whereHas('show', fn ($q) => $q
+                ->inChannelContext()
+                ->whereBetween('show_date', [$start->toDateString(), $end->toDateString()])
+                ->whereNotIn('status', ['cancelled']))
+            ->with(['show:id,title,show_date', 'streamer:id,name,member_type,payout_type'])
+            ->get();
+
+        $rows = $payouts
+            ->groupBy('streamer_id')
+            ->map(function (Collection $group) {
+                $streamer = $group->first()?->streamer;
+                return [
+                    'name' => $streamer?->name ?: 'Unknown',
+                    'member_type' => $streamer?->member_type ?: 'streamer',
+                    'payout_type' => $streamer?->payout_type ?: '—',
+                    'shows' => $group->pluck('show_id')->filter()->unique()->count(),
+                    'amount' => round((float) $group->sum('calculated_payout'), 2),
+                    'entries' => $group->count(),
+                ];
+            })
+            ->sortByDesc('amount')
+            ->values();
+
+        $streamerTotal = (float) $payouts
+            ->filter(fn (Payout $p) => ! $p->streamer?->isFulfillment())
+            ->sum('calculated_payout');
+        $fulfillmentTotal = (float) $payouts
+            ->filter(fn (Payout $p) => $p->streamer?->isFulfillment())
+            ->sum('calculated_payout');
+
+        return [
+            'week_start' => $start,
+            'week_end' => $end,
+            'rows' => $rows,
+            'people' => $rows->count(),
+            'entries' => $payouts->count(),
+            'streamer_total' => round($streamerTotal, 2),
+            'fulfillment_total' => round($fulfillmentTotal, 2),
+            'total' => round($streamerTotal + $fulfillmentTotal, 2),
+            'real_run_exists' => $this->currentPayRun() !== null,
+        ];
+    }
+
     public function needsAttention(): array
     {
         $warnings = [];

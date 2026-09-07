@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Show;
+use App\Models\Streamer;
 use App\Models\WhatnotBuyer;
 use App\Models\WhatnotChannel;
 use App\Models\WhatnotShowOrder;
@@ -54,34 +55,35 @@ class WhatnotSyncEngine
             'buyers_updated' => 0,
             'items_created'  => 0,
             'items_updated'  => 0,
+            'streamer_aliases_applied' => 0,
             'error_count'    => 0,
         ];
         $errors = [];
 
         try {
-            // 1 — sync shows
+            // Incremental stays intentionally bounded. Historical modes ask the
+            // scraper for a large enough window that its own pagination/stop
+            // conditions, not a tiny application cap, determine completeness.
             $limit = match ($type) {
-                'full'         => 500,
-                'last_30_days' => 100,
+                'full'         => 10000,
+                'last_30_days' => 2000,
                 default        => (int) config('vortex.whatnot.limit', 50),
             };
 
             $showResult = $this->scraper->importShows(channel: $channel, limit: $limit, onProgress: $onProgress);
             $counters['shows_created'] = $showResult['created'];
             $counters['shows_updated'] = $showResult['updated'];
+            $counters['streamer_aliases_applied'] = $this->applyKnownStreamerAliases($channel);
 
             if ($onProgress) {
-                $onProgress("shows: {$showResult['created']} created, {$showResult['updated']} updated — scraping orders next");
+                $onProgress("shows: {$showResult['created']} created, {$showResult['updated']} updated, {$counters['streamer_aliases_applied']} streamer alias(es) applied — scraping orders next");
             }
 
-            // 2 — sync orders for shows that have a detail_url but no orders yet
-            //     (or all shows in full/last_30_days modes)
             $orderResult = $this->syncOrdersForChannel($channel, $type, $errors, $onProgress);
             $counters['orders_created'] += $orderResult['created'];
             $counters['orders_updated'] += $orderResult['updated'];
             $counters['error_count']    += $orderResult['errors'];
 
-            // 3 — upsert buyer profiles from order data
             $buyerResult = $this->syncBuyersForChannel($channel);
             $counters['buyers_created'] += $buyerResult['created'];
             $counters['buyers_updated'] += $buyerResult['updated'];
@@ -105,16 +107,61 @@ class WhatnotSyncEngine
     }
 
     /**
-     * Sync orders for all shows in a channel that have a detail_url.
+     * Apply stable Whatnot-host aliases before AI/manual review. Keep this small
+     * and explicit: these are confirmed business mappings, not fuzzy guesses.
      */
+    private function applyKnownStreamerAliases(WhatnotChannel $channel): int
+    {
+        $knownAliases = [
+            'dennis_vortexcollects' => 'Dennis',
+        ];
+
+        $applied = 0;
+
+        foreach ($knownAliases as $alias => $streamerName) {
+            $streamer = Streamer::query()
+                ->whereRaw('LOWER(name) = ?', [strtolower($streamerName)])
+                ->first();
+
+            if (! $streamer) {
+                Log::warning("WhatnotSyncEngine: confirmed streamer alias @{$alias} could not be applied because streamer {$streamerName} was not found");
+                continue;
+            }
+
+            $shows = Show::query()
+                ->where('whatnot_channel_id', $channel->id)
+                ->whereDoesntHave('streamers')
+                ->where(function ($q) use ($alias) {
+                    $q->whereRaw('LOWER(COALESCE(title, \'\')) LIKE ?', ['%' . strtolower($alias) . '%'])
+                        ->orWhereRaw('LOWER(CAST(raw_import_payload AS CHAR)) LIKE ?', ['%' . strtolower($alias) . '%']);
+                })
+                ->get();
+
+            foreach ($shows as $show) {
+                $show->streamers()->syncWithoutDetaching([
+                    $streamer->id => ['is_primary' => true],
+                ]);
+                $show->updateQuietly([
+                    'ai_streamer_suggestion' => [[
+                        'streamer_id' => $streamer->id,
+                        'streamer_name' => $streamer->name,
+                        'confidence' => 'high',
+                        'reason' => "Confirmed Whatnot alias @{$alias}",
+                    ]],
+                ]);
+                $applied++;
+            }
+        }
+
+        return $applied;
+    }
+
     private function syncOrdersForChannel(WhatnotChannel $channel, string $type, array &$errors, ?callable $onProgress = null): array
     {
-        // Future-dated (scheduled) shows can't have orders yet — skip them.
         $query = Show::where('whatnot_channel_id', $channel->id)
             ->whereNotNull('detail_url')
             ->where('show_date', '<=', now()->endOfDay());
 
-        // In incremental mode, only shows without any orders yet (or synced > 7 days ago)
         if ($type === 'incremental') {
             $query->where(function ($q) {
                 $q->whereDoesntHave('orders')
@@ -124,7 +171,11 @@ class WhatnotSyncEngine
             $query->where('show_date', '>=', now()->subDays(30));
         }
 
-        $shows = $query->limit(50)->get();
+        $query->orderByDesc('show_date')->orderByDesc('id');
+        if ($type === 'incremental') {
+            $query->limit(50);
+        }
+        $shows = $query->get();
 
         $created = 0;
         $updated = 0;
@@ -138,10 +189,10 @@ class WhatnotSyncEngine
             try {
                 $result = $this->scraper->importShowOrders($show);
                 $created += $result['created'];
-                // Mark as synced
+                $updated += $result['updated'] ?? 0;
                 $show->update(['last_synced_at' => now()]);
                 if ($onProgress) {
-                    $onProgress("orders: [" . ($i + 1) . "/{$total}] \"{$show->title}\" → {$result['created']} order(s) created");
+                    $onProgress("orders: [" . ($i + 1) . "/{$total}] \"{$show->title}\" → {$result['created']} created, " . ($result['updated'] ?? 0) . " updated");
                 }
             } catch (\Throwable $e) {
                 Log::warning("WhatnotSyncEngine: order sync failed for show #{$show->id} — {$e->getMessage()}");
@@ -160,9 +211,6 @@ class WhatnotSyncEngine
         ];
     }
 
-    /**
-     * Build or update WhatnotBuyer records from orders attached to a channel's shows.
-     */
     private function syncBuyersForChannel(WhatnotChannel $channel): array
     {
         $usernames = WhatnotShowOrder::join('shows', 'whatnot_show_orders.show_id', '=', 'shows.id')
@@ -209,8 +257,6 @@ class WhatnotSyncEngine
             }
         }
 
-        // Back-fill whatnot_buyer_id on orders that don't have it yet — nothing to
-        // join against if this channel has no buyer usernames at all yet.
         if ($usernames->isNotEmpty()) {
             DB::statement('
                 UPDATE whatnot_show_orders o
@@ -224,21 +270,10 @@ class WhatnotSyncEngine
         return compact('created', 'updated');
     }
 
-    /**
-     * Refresh weight/dims/carrier/shipping-status for shows in this channel that
-     * still have an unresolved shipment (no status yet, or not delivered/returned).
-     * Deliberately separate from syncChannel() — this is meant to run far more
-     * often (every 30 min) since shipment status is the one thing that changes
-     * fast during active fulfillment, while show/order import stays hourly.
-     *
-     * @return array{updated: int, skipped_shows: int, shows_checked: int}
-     */
     public function syncShipmentUpdatesForChannel(WhatnotChannel $channel, int $limit = 50): array
     {
         $shows = Show::where('whatnot_channel_id', $channel->id)
             ->whereNotNull('detail_url')
-            // Scheduled/future shows cannot have shipments. This also prevents
-            // malformed future show dates from consuming the bounded refresh.
             ->where('show_date', '<=', now()->endOfDay())
             ->whereHas('orders', fn ($q) => $q
                 ->whereNull('shipping_status')
@@ -260,14 +295,6 @@ class WhatnotSyncEngine
     {
         $result = $this->scraper->fetchShipmentsFromLivePage($channel->whatnot_username);
 
-        // Discovery reads the show list at /dashboard/lives, and that page is
-        // the one currently being refused — so this comes back empty for a
-        // reason that has nothing to do with shipments.
-        //
-        // It does not need to. Shipments are per-show, addressed as
-        // /dashboard/shipments?source=<live_id>, and every show already
-        // imported carries that id in its detail_url. Discovery only ever
-        // saved us from having imported the shows first.
         if ($result === []) {
             $known = Show::where('whatnot_channel_id', $channel->id)
                 ->whereNotNull('detail_url')
@@ -288,8 +315,6 @@ class WhatnotSyncEngine
 
         $updated = 0;
         foreach ($result as $liveId => $rows) {
-            // Match by livestream ID to find the show. Keep the OR conditions
-            // grouped so the channel scope applies to both match strategies.
             $show = Show::where('whatnot_channel_id', $channel->id)
                 ->where(function ($query) use ($liveId) {
                     $query->where('detail_url', 'like', "%$liveId%")

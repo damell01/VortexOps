@@ -63,6 +63,8 @@ class ProductMatchingService
     {
         $normalized = $this->embedding->normalizeText($description);
 
+        // Exact UPC is authoritative. Configuration guards below apply only to
+        // learned textual aliases, fuzzy matching and semantic matching.
         if ($upc) {
             $byUpc = Product::where('upc', $upc)->first()
                 ?? ProductIdentity::where('type', ProductIdentity::TYPE_UPC)
@@ -79,7 +81,7 @@ class ProductMatchingService
         $identity = ProductIdentity::findAlias($normalized, $vendorId)
             ?? ProductIdentity::findAlias($normalized, null);
 
-        if ($identity?->product) {
+        if ($identity?->product && $this->isConfigurationCompatible($description, $identity->product)) {
             $identity->increment('times_confirmed');
             $identity->update(['last_confirmed_at' => now()]);
             $count = $identity->times_confirmed;
@@ -90,9 +92,11 @@ class ProductMatchingService
         }
 
         // Compare normalized names so punctuation / vendor formatting does not
-        // prevent what is otherwise an exact catalogue-name match.
+        // prevent what is otherwise an exact catalogue-name match. This textual
+        // exact match must obey the same configuration guard as learned aliases.
         $exact = $this->fuzzyCatalog()->first(
             fn (Product $product) => $this->embedding->normalizeText($product->name) === $normalized
+                && $this->isConfigurationCompatible($description, $product)
         );
         if ($exact) {
             return $this->result($exact, 1.0, 'alias', null, [], ['Exact normalized product name match']);
@@ -115,9 +119,6 @@ class ProductMatchingService
             }
 
             $scored = $this->scoreTokensDetailed($tokens, $product);
-            // Keep broader candidates for the background AI confirmation stage.
-            // A vendor description can contain brand/language filler and still
-            // clearly refer to the same inventory item.
             if ($scored['score'] >= 0.35) {
                 $scores[$product->id] = [
                     'product' => $product,
@@ -138,9 +139,6 @@ class ProductMatchingService
             array_slice($scores, 0, 5, true)
         );
 
-        // 0.68 is a suggestion threshold, not an automatic commit threshold.
-        // The manifest review still requires human approval, while >= .95 is
-        // the existing auto-accept confidence boundary used elsewhere.
         if ($top['score'] >= 0.68) {
             return $this->result($top['product'], round($top['score'], 4), 'fuzzy', null, $candidates, $top['reasons']);
         }
@@ -236,11 +234,6 @@ class ProductMatchingService
         $productIds = array_keys($ranked);
         $products = Product::whereIn('id', $productIds)->where('is_active', true)->get()->keyBy('id');
 
-        // Embeddings are intentionally semantic, so "booster box" and "jumbo box"
-        // can sit very close together. Apply the same deterministic package/type
-        // guard used by fuzzy matching before accepting or even displaying a
-        // candidate. This keeps semantic similarity from overriding a concrete
-        // configuration word present in the source description.
         $ranked = array_filter(
             $ranked,
             fn ($score, $id) => isset($products[$id])
@@ -276,15 +269,6 @@ class ProductMatchingService
         return $this->emptyResult('embedding', array_values($candidates));
     }
 
-    /**
-     * Reject a catalogue candidate when both the incoming description and the
-     * catalogue item explicitly name different packaging/configuration types.
-     *
-     * Generic words such as "box" are deliberately ignored. A description that
-     * does not name a distinctive type remains eligible for normal fuzzy/AI
-     * review. This is only a hard guard when the source says e.g. BOOSTER while
-     * the candidate says JUMBO, or PACK while the candidate says CASE.
-     */
     public function isConfigurationCompatible(string $description, Product $product): bool
     {
         $requested = $this->configurationMarkers($description);
@@ -337,14 +321,10 @@ class ProductMatchingService
             }
         }
 
-        // A booster display is still a booster configuration. Do not make the
-        // generic "display" marker conflict with an otherwise exact booster hit.
         if (in_array('booster', $markers, true)) {
             $markers = array_values(array_diff($markers, ['display']));
         }
 
-        // "Hobby jumbo" is a legitimate compound name. Keeping both markers
-        // means a source saying either hobby or jumbo can still match it.
         return array_values(array_unique($markers));
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\FulfillmentPackage;
 use App\Models\Show;
 use App\Models\StreamerLogItem;
 
@@ -39,9 +40,6 @@ class ShowWorkflowService
 
         $batch = $payouts->first(fn ($payout) => $payout->batch !== null)?->batch;
 
-        // Once a batch has been finalized/submitted, reflect the actual payroll
-        // state. Draft payout rows and draft batches do NOT skip readiness
-        // checks below; that used to hide unfinished show/fulfillment work.
         if ($batch && in_array($batch->status, ['finalized', 'submitted_to_adp', 'paid'], true)) {
             $label = match ($batch->status) {
                 'paid' => 'Paid',
@@ -98,13 +96,21 @@ class ShowWorkflowService
             return $this->state('fulfillment', 'Fulfillment Issues', 'Fulfillment review is complete, but one or more logged items were not fulfilled.', 'danger', 4, $blockers);
         }
 
-        $needsCountVerification = $isApproved
-            && $report->fulfillment_reviewed_at === null
-            && ($report->streamer?->payout_type === 'pwe_labels');
+        $packages = FulfillmentPackage::query()->where('show_id', $show->id)->get(['id', 'status', 'sealed_at']);
+        if ($loggedItems->isNotEmpty() && $packages->isEmpty()) {
+            $blockers[] = 'No physical fulfillment box has been built for the logged items.';
+            return $this->state('fulfillment', 'Build Boxes', 'Build at least one physical box before fulfillment can be completed.', 'purple', 4, $blockers);
+        }
 
-        if ($needsCountVerification) {
-            $blockers[] = 'Fulfillment has not verified label / PWE activity.';
-            return $this->state('fulfillment', 'Fulfillment Review', 'Fulfillment needs to verify the activity used for compensation.', 'purple', 4, $blockers);
+        $openBoxes = $packages->filter(fn (FulfillmentPackage $package) => ! $package->isSealed())->count();
+        if ($openBoxes > 0) {
+            $blockers[] = $openBoxes . ' fulfillment box(es) are still open.';
+            return $this->state('fulfillment', 'Seal Boxes', 'All physical boxes must be verified and sealed before payroll can continue.', 'purple', 4, $blockers);
+        }
+
+        if ($report->fulfillment_reviewed_at === null) {
+            $blockers[] = 'Fulfillment has not signed off on the completed packing work.';
+            return $this->state('fulfillment', 'Ready to Complete', 'All units are accounted for and boxes are sealed. Fulfillment can complete the show.', 'purple', 4, $blockers);
         }
 
         $unmatchedLoggedItems = $loggedItems->filter(fn (StreamerLogItem $item) => ! $item->inventory_item_id)->count();
@@ -123,13 +129,9 @@ class ShowWorkflowService
                 $blockers[] = 'The COGS adjustment request has not been finalized.';
             }
         } elseif ($loggedItems->isNotEmpty() && $report->product_cost === null) {
-            // Zero is a valid confirmed cost; null means nobody has confirmed
-            // a cost source yet. This avoids falsely blocking legitimate $0 COGS.
             $blockers[] = 'Product cost has not been confirmed for the logged items.';
         }
 
-        // Revenue fields may legitimately be zero. Only treat them as missing
-        // when neither source has actually been populated.
         if ($show->getRawOriginal('gross_revenue') === null && $show->getRawOriginal('whatnot_net') === null) {
             $blockers[] = 'Show sales / settlement data is missing.';
         }

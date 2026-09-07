@@ -75,8 +75,25 @@ final class NavLayout
 
     public static function item(string $class): ?array
     {
-        $item = self::config()['items'][$class] ?? null;
-        return is_array($item) ? $item : null;
+        $saved = self::config()['items'][$class] ?? null;
+        $saved = is_array($saved) ? $saved : null;
+
+        // Keep the main operational navigation stable even when an older saved
+        // Navigation Manager layout still says "Streams". Technical utility
+        // pages remain configurable/access-controlled but are hidden elsewhere.
+        $canonical = match (class_basename($class)) {
+            'StreamsOverview' => ['group' => 'Shows', 'sort' => 10, 'label' => 'Shows Overview'],
+            'Shows' => ['group' => 'Shows', 'sort' => 20, 'label' => 'Shows'],
+            'ShowShipments' => ['group' => 'Shows', 'sort' => 30, 'label' => 'Show Shipments'],
+            'FulfillmentCenter' => ['group' => 'Fulfillment', 'sort' => 10, 'label' => 'Fulfillment Center'],
+            default => null,
+        };
+
+        if ($canonical) {
+            return array_merge($saved ?? [], $canonical);
+        }
+
+        return $saved;
     }
 
     /**

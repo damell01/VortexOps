@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\InventoryItemResource\Pages;
 
 use App\Filament\Pages\ImportInventorySheet;
+use App\Filament\Pages\InventoryCount;
 use App\Filament\Pages\InventoryScanner;
 use App\Filament\Resources\InventoryItemResource;
 use App\Filament\Resources\PalletResource;
@@ -35,7 +36,7 @@ class ListInventoryItems extends ListRecords
 
     public function getView(): string { return 'filament.resources.inventory-item-resource.pages.list-inventory-items'; }
     public function getTitle(): string { return 'All Inventory'; }
-    public function getSubheading(): ?string { return 'Browse inventory visually, check stock fast, import a sheet, or switch to the detailed table when you need it.'; }
+    public function getSubheading(): ?string { return 'Browse inventory visually, check stock fast, import a sheet, or run a full physical count without opening each item.'; }
     public function getBreadcrumbs(): array { return []; }
 
     protected function getTableQuery(): ?\Illuminate\Database\Eloquent\Builder
@@ -164,6 +165,7 @@ class ListInventoryItems extends ListRecords
     {
         $user=auth()->user();$canExport=fn()=>$user?->isAdmin()||$user?->isOwner();$canReceive=fn()=>$user?->isAdmin()||$user?->isOwner();$canCreate=fn()=>($user?->isAdmin()??false)||($user?->isOwner()??false)||($user?->isStreamer()??false);
         return [
+            Action::make('count-inventory')->label('Inventory Count')->icon('heroicon-o-clipboard-document-check')->color('success')->url(fn()=>InventoryCount::getUrl())->visible($canReceive),
             Action::make('scan')->label('Quick Scan')->icon('heroicon-o-qr-code')->color('primary')->url(fn()=>InventoryScanner::getUrl())->visible($canReceive),
             Action::make('import-sheet')->label('Import Sheet')->icon('heroicon-o-arrow-up-tray')->color('info')->url(fn()=>ImportInventorySheet::getUrl())->visible($canReceive),
             Action::make('receive')->label('Receive Shipment')->icon('heroicon-o-inbox-arrow-down')->color('success')->url(fn()=>PalletResource::getUrl('index'))->visible($canReceive),
